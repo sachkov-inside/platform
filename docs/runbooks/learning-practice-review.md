@@ -21,7 +21,14 @@ test fails if the former address placeholder returns. The edge routes are descri
 Product Tasks are the current assignment mechanism (#1710). Content originals and source package
 bytes remain unchanged. A legacy package's complete requirements convert through the Task importer
 only with one explicit Product/chapter owner; conflicting bindings or ambiguous ownership stop before
-writes. Expected outcome remains one exact result item, including16000-character authored text.
+writes. Expected outcome remains one exact result item, including 16000-character authored text.
+An existing target Task is reused only when its source identity, embedded Material, Product,
+chapter, source revision and definition digest are proven identical. Matching definitions preserve
+its current Task Version, metadata, publication and Submission history without a Task write.
+Divergent definitions or ownership, and uncertain pending Task commands, stop before transfer
+writes and require explicit reconciliation. Legacy requirements never restore an older definition
+over a current Task Version.
+
 The journal retains the original package fingerprint and legacy records, and keeps historical Practice
 operation keys/receipts separate from Task import operations.
 

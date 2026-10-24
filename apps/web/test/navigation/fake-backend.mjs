@@ -1,5 +1,5 @@
-import { productReaderStateRoute } from "./product-reader-state-backend.mjs";
 // @ts-check
+import { productReaderStateRoute } from "./product-reader-state-backend.mjs";
 /**
  * Подставной backend для проверок переходов на production-сборке (#670).
  *

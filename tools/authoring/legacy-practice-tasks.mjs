@@ -1,5 +1,5 @@
-import { z } from "zod";
 // @ts-check
+import { z } from "zod";
 import { practiceDefinitionSchema } from "../../apps/backend/src/modules/materials/domain/practice-requirements-schema.ts";
 import {
   taskCodeSchema,

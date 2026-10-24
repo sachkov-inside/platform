@@ -203,10 +203,12 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
     "ambiguous",
     "conflicting",
     "existing",
+    "source-collision",
   ].entries()) {
     const materialId = randomUUID();
     const sourceReference = {
-      materialSourceId: `fixture:lesson-${label}`,
+      materialSourceId:
+        index === 4 ? "fixture:source-collision" : `fixture:lesson-${label}`,
       materialSourceRevision: "a".repeat(64),
     };
     await database.prisma.material.create({
@@ -255,7 +257,7 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
         },
       });
     }
-    if (index >= 2) {
+    if (index === 2 || index === 3) {
       const taskId = randomUUID();
       const taskDefinition = {
         schemaVersion: 1 as const,
@@ -448,6 +450,11 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
       practice_id: "fixture:existing",
       disposition: "existing_task",
       task_version: 2,
+    },
+    {
+      practice_id: "fixture:source-collision",
+      disposition: "unsupported_identity",
+      task_version: null,
     },
     {
       practice_id: "fixture:unowned",

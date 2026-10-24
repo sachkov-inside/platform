@@ -1400,6 +1400,10 @@ test("a private lesson imports legacy requirements through Tasks without publish
   /** @type {LocalTransport} */
   /** @type {LocalTransport} */
   const request = async (path, body, key, options) => {
+    if (path === "/authoring/import/materials/state?namespace=inside-content")
+      return { namespace: "inside-content", materials: [] };
+    if (path === "/authoring/import/tasks/state?namespace=inside-content")
+      return { namespace: "inside-content", tasks: [] };
     if (path === "/authoring/import/tasks/validate") {
       taskBodies.push(body);
       return { valid: true, current: null };

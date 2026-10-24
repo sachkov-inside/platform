@@ -81,7 +81,8 @@ BEGIN
         reason := 'existing_task'; task_identity := existing.id; task_version := existing.current_version;
       ELSE reason := 'conflicting_task_binding'; END IF;
     ELSIF char_length(migrated_code) > 120 OR legacy.practice_id !~ '^[a-z0-9]+(-[a-z0-9]+)*:[a-z0-9]+(-[a-z0-9]+)*$'
-      OR EXISTS (SELECT 1 FROM product_tasks.tasks WHERE tasks.code = migrated_code) THEN
+      OR EXISTS (SELECT 1 FROM product_tasks.tasks WHERE tasks.code = migrated_code)
+      OR EXISTS (SELECT 1 FROM materials.materials WHERE source_id = legacy.practice_id) THEN
       reason := 'unsupported_identity';
     ELSE
       mapped_definition := jsonb_build_object('schemaVersion', 1,

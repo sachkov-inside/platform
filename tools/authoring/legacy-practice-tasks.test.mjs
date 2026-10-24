@@ -1,5 +1,5 @@
-import { manifestSchema } from "./package.mjs";
 // @ts-check
+import { manifestSchema } from "./package.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { migratePracticeRequirements } from "./legacy-practice-tasks.mjs";

@@ -1,5 +1,9 @@
-import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // @ts-check
+import {
+  assertLegacyTaskReplay,
+  assertLegacyTaskTargets,
+} from "./legacy-task-targets.mjs";
+import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 import { contentMaterials, contentTasks } from "./package.mjs";
 import { z } from "zod";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
@@ -708,6 +712,7 @@ export async function syncLocal(
     throw new Error("A Product shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
+  const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   const publicationOfKey = publicationPolicy(pkg.manifest, publish);
   /** @param {Pick<ManifestMaterial, "sourceId">} row */
   const publicationOf = (row) =>
@@ -720,6 +725,7 @@ export async function syncLocal(
     await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
+    assertLegacyTaskReplay(journal, preservedLegacyTasks);
     if (pkg.legacyPractices.length) {
       const resources = (journal.resources ??= {});
       const key = `legacy-practice-package:${pkg.id}`;
@@ -1816,6 +1822,7 @@ export async function syncLocal(
 
     if ((pkg.manifest.tasks ?? []).length)
       report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
+        preservedLegacyTasks,
         productIdOf: (id) => valueAt(products, id).id,
         pageOf: (task) => importTaskPage(pkg, task, context, request, links),
         selected: (key) => publicationOfKey(key) === "published",

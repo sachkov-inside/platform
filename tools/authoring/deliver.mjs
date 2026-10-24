@@ -1,5 +1,5 @@
-import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // @ts-check
+import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // The supported content-only delivery from Content Studio (#1672): one entrypoint for the stand and
 // production. It previews first, applies exactly the reviewed receipt, preserves the target's
 // access, publication, Product membership and Task placement, and prints JSON for the caller.
