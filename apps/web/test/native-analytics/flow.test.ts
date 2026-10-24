@@ -70,8 +70,8 @@ const eventsSchema = z.object({
 const expectedPaths = [
   "/products/10000000-0000-4000-8000-000000000001",
   "/products/10000000-0000-4000-8000-000000000002",
-  "/materials/10000000-0000-4000-8000-000000000003",
-  "/materials/10000000-0000-4000-8000-000000000004",
+  "/materials/10000000-0000-4000-8000-000000000001",
+  "/materials/10000000-0000-4000-8000-000000000002",
 ];
 
 test("two Product and Material observations retain native source codes and remain distinct through the bounded reader", async () => {
