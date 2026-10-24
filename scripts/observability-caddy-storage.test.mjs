@@ -137,7 +137,7 @@ test("Caddy timeout and nonzero assertions publish only closed source progress",
         pid: undefined,
         reason: "exit",
         stdout: "private-canary",
-        stderr: `FAIL: ${method} (${failedId})\nprivate-canary\nFAIL: private (private-canary)\n`,
+        stderr: `FAIL: ${method} (${failedId}) (protocol='private-canary')\nprivate-canary\nFAIL: private (private-canary)\n`,
       }),
     (error) =>
       error instanceof assert.AssertionError &&

@@ -129,6 +129,27 @@ def rescue_registered(state,*,_witness=None):
         if members('rescue_final_member'):
             _witness_event(_witness,'rescue_remaining')
             category='remaining';raise RuntimeError('closed fixture cleanup deadline')
+        def pending_reap():
+            pending=[]
+            for role in ('child','helper','python'):
+                try:os.kill(state[role],0)
+                except ProcessLookupError:continue
+                pending.append(state[role])
+            return pending
+        pending=pending_reap()
+        if pending:
+            deadline=time.monotonic()+3
+            while pending:
+                # A process can leave its group before its PID disappears on Darwin.
+                # Wait for actual absence without signalling an unverified PID/group.
+                for pid in pending:
+                    try:current=os.getpgid(pid)
+                    except ProcessLookupError:continue
+                    if current!=group:
+                        category='ownership';raise ValueError('closed fixture ownership')
+                if time.monotonic()>=deadline:
+                    category='remaining';raise RuntimeError('closed fixture cleanup deadline')
+                time.sleep(.01);pending=pending_reap()
         _witness_event(_witness,'socket_create')
         with socket.socket() as probe:
             _witness_event(_witness,'socket_option');probe.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
@@ -243,6 +264,18 @@ def _witness_controls(case):
         def __hash__(self):raise AssertionError('foreign witness hashed')
         def __repr__(self):raise AssertionError('foreign witness represented')
     state={'python':41001,'helper':41002,'child':41003,'port':41004}
+    # On Darwin a reaping process can lose its group before kill(pid, 0) reports
+    # absence. Group absence alone must not complete the owning cleanup barrier.
+    with patch.object(os,'getpgrp',return_value=42000), \
+            patch.object(os,'getpgid',side_effect=ProcessLookupError), \
+            patch.object(os,'kill',side_effect=[None,ProcessLookupError,ProcessLookupError,
+                                                ProcessLookupError,ProcessLookupError,ProcessLookupError]) as presence, \
+            patch.object(os,'killpg',side_effect=AssertionError('unexpected signal')), \
+            patch.object(time,'monotonic',return_value=0),patch.object(time,'sleep') as pause, \
+            patch.object(socket,'socket'):
+        rescue_registered(state)
+        case.assertEqual(presence.call_count,6)
+        pause.assert_called_once_with(.01)
     expected=[('poll',),('wait',6),('pgrp',),
               ('pgid','child'),('pgid','helper'),('pgid','python'),
               ('pgid','child'),('pgid','helper'),('pgid','python'),
@@ -266,6 +299,7 @@ def _witness_controls(case):
         with ExitStack() as stack:
             for context in (patch.object(os,'getpgrp',side_effect=lambda:trace.append(('pgrp',)) or 42000),
                 patch.object(os,'getpgid',side_effect=pgid),
+                patch.object(os,'kill',side_effect=ProcessLookupError),
                 patch.object(os,'killpg',side_effect=AssertionError('unexpected signal')),
                 patch.object(time,'monotonic',side_effect=AssertionError('unexpected clock')),
                 patch.object(time,'sleep',side_effect=AssertionError('unexpected sleep')),
@@ -434,6 +468,6 @@ def _witness_controls(case):
                 case.assertNotIn('private-canary',failure)
             case.assertFalse(any(item[0]=='socket' for item in trace))
         case.assertEqual([item for item in trace if item[0]=='kill'],
-                         [('kill',role,0) for _ in range(2) for role in (('child','child') if fails else ('child','child','helper','python'))])
+                         [('kill',role,0) for _ in range(2) for role in (('child','child') if fails else ('child',*('child','helper','python')*3))])
         case.assertEqual([item for item in trace if item[0]=='owner_wait'],[('owner_wait',3),('owner_wait',6),('owner_wait',6)]*2)
         case.assertEqual(sum(item[0]=='bind' for item in trace),0 if fails else 6)
