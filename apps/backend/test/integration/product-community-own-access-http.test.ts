@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -17,6 +18,8 @@ import {
   revokeProductFixture,
 } from "./setup/product-access.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
+
+registerFixedClock();
 
 let db: TestDatabase;
 let app: NestFastifyApplication;
