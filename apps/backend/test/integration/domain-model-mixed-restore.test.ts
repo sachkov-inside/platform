@@ -44,8 +44,11 @@ import { practiceDefinitionDigest } from "../../src/modules/materials/domain/pra
 import { taskDefinitionDigest } from "../../src/modules/product-tasks/domain/task-definition.js";
 import { guardTransactionConnections } from "./setup/transaction-guard.js";
 import { commandDigest } from "../../src/infrastructure/contracts/canonical-digest.js";
+import { fingerprintCommand } from "../../src/modules/materials/shared/canonical-command-fingerprint.js";
+import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
+  materialBodyOperations,
   assembleProductMaterialReading,
   assembleMaterialResourceFacts,
 } from "../../src/modules/materials/index.js";
@@ -79,6 +82,7 @@ const ids = Object.fromEntries(
     "paidEvent",
     "product",
     "material",
+    "historicalSource",
     "chapter",
     "placement1",
     "placement2",
@@ -131,6 +135,83 @@ const acceptance = {
   digest: acceptedHash,
 };
 const external = { init: 0, charges: 0, telegram: 0, states: [] as string[] };
+
+const originalPracticeDefinition = {
+  schemaVersion: 1 as const,
+  title: "Legacy requirements",
+  businessInputs: "Accepted situation",
+  expectedOutcome: "Accepted outcome",
+  allowedFreedom: "Accepted freedom",
+  criteria: [
+    {
+      id: "evidence",
+      requirement: "Accepted requirement",
+      acceptableEvidence: ["Saved evidence"],
+    },
+  ],
+};
+const originalPracticeCommand = {
+  actor: id("owner"),
+  idempotencyKey: "original-practice",
+  practiceId: "fixture:requirements",
+  definition: originalPracticeDefinition,
+  sourceReference: {
+    materialSourceId: "fixture:lesson",
+    materialSourceRevision: "a".repeat(64),
+  },
+  provenance: {
+    repository: "fixture/legacy",
+    commit: "f".repeat(40),
+    path: "legacy.json",
+  },
+  publicationState: "unpublished" as const,
+  materialId: id("material"),
+  expectedContentVersion: 7,
+  expectedPracticeVersion: 18,
+};
+const originalPracticeReceipt = {
+  practiceId: "fixture:requirements",
+  practiceVersion: 19,
+  definitionDigest: practiceDefinitionDigest(
+    originalPracticeDefinition,
+    originalPracticeCommand.sourceReference,
+  ),
+  materialId: id("material"),
+  boundContentVersion: 7,
+  publicationState: "unpublished" as const,
+};
+const originalSourceRequest = {
+  source: {
+    id: "fixture:original-source",
+    path: "original.md",
+    revision: "c".repeat(64),
+    showInFeed: false,
+  },
+  metadata: {
+    title: "Original Source",
+    summary: null,
+    access: "free" as const,
+    difficulty: null,
+    outcomes: [],
+    topicId: null,
+    formatId: "note" as const,
+    tagIds: [],
+    seriesIds: [],
+  },
+  body: representativeDocument(
+    "Original series and showInFeed remain literal authored text",
+  ),
+  materialId: id("historicalSource"),
+  expectedContentVersion: 7,
+  publicationState: "draft" as const,
+  primaryVideoId: null,
+};
+const originalSourceCommand = {
+  ...originalSourceRequest,
+  actor: id("owner"),
+  idempotencyKey: "original-source",
+};
+let originalSourceRecords: { material_id: string; original: unknown }[] = [];
 
 async function seedLegacy(url: string) {
   const pool = new Pool({ connectionString: url, max: 1 });
@@ -345,6 +426,32 @@ async function seedLegacy(url: string) {
         },
       ],
     };
+    const acceptedSourceBody = materialBodyOperations.accept(
+      originalSourceRequest.body,
+      { assignMissingNodeIds: false },
+    );
+    if (!acceptedSourceBody.ok) throw new Error(acceptedSourceBody.error.code);
+    await prisma.$executeRaw(
+      Prisma.sql`insert into materials.materials(id,title,access,publication_state,content_version,source_id,source_path,source_revision,show_in_feed,schema_version,body,created_by) values (${id("historicalSource")}::uuid,'Original Source','free','draft',8,${originalSourceRequest.source.id},${originalSourceRequest.source.path},${originalSourceRequest.source.revision},false,1,${JSON.stringify(originalSourceRequest.body.doc)}::jsonb,${id("owner")}::uuid)`,
+    );
+    await prisma.authoringIdempotency.create({
+      data: {
+        actorId: id("owner"),
+        operation: "save_material",
+        idempotencyKey: "original-source",
+        requestFingerprint: fingerprintCommand({
+          operation: "save_material",
+          ...originalSourceRequest,
+          body: acceptedSourceBody.value,
+          deleteVideoId: null,
+          videoChapters: null,
+          confirmedProductRemovals: [],
+        }),
+        materialId: id("historicalSource"),
+        contentVersion: 8n,
+        publicationState: "draft",
+      },
+    });
     await prisma.$transaction(async (tx) => {
       await tx.productTask.create({
         data: {
@@ -423,20 +530,7 @@ async function seedLegacy(url: string) {
           updatedAt: new Date("2020-01-31"),
         },
       });
-      const legacyDefinition = {
-        schemaVersion: 1 as const,
-        title: "Legacy requirements",
-        businessInputs: definition.situation,
-        expectedOutcome: definition.result[0] ?? "",
-        allowedFreedom: definition.freedom,
-        criteria: [
-          {
-            id: "evidence",
-            requirement: "Accepted requirement",
-            acceptableEvidence: ["Saved evidence"],
-          },
-        ],
-      };
+      const legacyDefinition = originalPracticeDefinition;
       const source = {
         materialSourceId: "fixture:lesson",
         materialSourceRevision: "a".repeat(64),
@@ -492,12 +586,11 @@ async function seedLegacy(url: string) {
           actorId: id("owner"),
           operation: "apply_source_practice",
           idempotencyKey: "original-practice",
-          requestFingerprint: "f".repeat(64),
-          receipt: {
-            practiceId: "fixture:requirements",
-            originalDefinition: legacyDefinition,
-            practiceVersion: 19,
-          },
+          requestFingerprint: fingerprintCommand({
+            operation: "apply_source_practice",
+            ...originalPracticeCommand,
+          }),
+          receipt: originalPracticeReceipt,
         },
       });
     });
@@ -525,6 +618,7 @@ const preservedTables = [
   "billing.payment_events",
   "account_rights.access_grants",
   "materials.practice_import_receipts",
+  "materials.authoring_idempotency",
   "product_tasks.tasks",
   "product_tasks.task_versions",
   "product_tasks.submissions",
@@ -546,8 +640,26 @@ async function preservedFacts(
       expect.arrayContaining([...(before.tables[table] ?? [])]),
     );
   }
+  expect(after.tables["materials.historical_practice_definitions"]).toEqual(
+    before.tables["materials.practice_definitions"],
+  );
+  expect(after.tables["materials.practice_definitions"]).toBeUndefined();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
+    expect(
+      (
+        await pool.query(
+          "select material_id,original from materials.historical_source_records order by material_id",
+        )
+      ).rows,
+    ).toEqual(originalSourceRecords);
+    expect(
+      (
+        await pool.query(
+          "select column_name from information_schema.columns where table_schema='materials' and table_name='materials' and column_name='show_in_feed'",
+        )
+      ).rows,
+    ).toEqual([]);
     const audit = await pool.query<{
       practice_id: string;
       disposition: string;
@@ -632,6 +744,96 @@ async function recover(
     createPrismaClient(database.url),
   );
   try {
+    const historicalAuthoring = assembleMaterials({
+      prisma,
+      authorPolicy: { canManage: (actor) => actor === id("owner") },
+    }).authoring;
+    expect(
+      await historicalAuthoring.readHistoricalSourceMaterialReceipt(
+        originalSourceCommand,
+      ),
+    ).toEqual({
+      ok: true,
+      value: {
+        materialId: id("historicalSource"),
+        contentVersion: 8,
+        publicationState: "draft",
+        publishedAt: null,
+      },
+    });
+    expect(
+      await historicalAuthoring.readHistoricalSourceMaterialReceipt({
+        ...originalSourceCommand,
+        source: { ...originalSourceCommand.source, showInFeed: true },
+      }),
+    ).toEqual({ ok: false, error: { code: "idempotency_conflict" } });
+    expect(
+      await historicalAuthoring.readHistoricalSourceMaterialReceipt({
+        ...originalSourceCommand,
+        actor: id("orphan"),
+      }),
+    ).toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await historicalAuthoring.readHistoricalSourceMaterialReceipt({
+        ...originalSourceCommand,
+        idempotencyKey: "new-source-write",
+      }),
+    ).toEqual({ ok: false, error: { code: "historical_receipt_not_found" } });
+    expect(
+      await historicalAuthoring.readHistoricalPracticeReceipt(
+        originalPracticeCommand,
+      ),
+    ).toEqual({ ok: true, value: originalPracticeReceipt });
+    expect(
+      await historicalAuthoring.readHistoricalPracticeReceipt({
+        ...originalPracticeCommand,
+        expectedPracticeVersion: 19,
+      }),
+    ).toEqual({ ok: false, error: { code: "idempotency_conflict" } });
+    expect(
+      await historicalAuthoring.readHistoricalPracticeReceipt({
+        ...originalPracticeCommand,
+        actor: id("orphan"),
+      }),
+    ).toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await historicalAuthoring.readHistoricalPracticeReceipt({
+        ...originalPracticeCommand,
+        idempotencyKey: "new-practice-write",
+      }),
+    ).toEqual({ ok: false, error: { code: "practice_definition_retired" } });
+    const sourceState = await historicalAuthoring.readSourceMaterialState({
+      actor: id("owner"),
+      namespace: "fixture",
+    });
+    if (!sourceState.ok) throw new Error(sourceState.error.code);
+    expect(sourceState.value.materials).toHaveLength(7);
+    expect(
+      sourceState.value.materials.find(
+        (material) => material.materialId === id("historicalSource"),
+      ),
+    ).toEqual({
+      sourceId: originalSourceRequest.source.id,
+      materialId: id("historicalSource"),
+      slug: null,
+      contentVersion: 8,
+      access: "free",
+      publicationState: "draft",
+      source: {
+        version: 2,
+        path: "original.md",
+        revision: "c".repeat(64),
+        commit: null,
+      },
+      memberships: [],
+    });
+    expect(
+      sourceState.value.materials.find(
+        (material) => material.materialId === id("material"),
+      )?.memberships,
+    ).toEqual([
+      { productId: id("product"), ordinal: 1, chapterId: id("chapter") },
+    ]);
     const accounts = assembleAccounts({
       prisma,
       emailFingerprintKey: "synthetic-restore-fingerprint-000000000000",
@@ -924,6 +1126,17 @@ test("full mixed legacy and recovered archives restore into empty databases and 
   const source = await postgres.emptyDatabase();
   await runMigrationsToLatest(source.url, platformMigrations.slice(0, 103));
   await seedLegacy(source.url);
+  const legacyPool = new Pool({ connectionString: source.url, max: 1 });
+  try {
+    originalSourceRecords = (
+      await legacyPool.query<{ material_id: string; original: unknown }>(
+        "select id as material_id,jsonb_build_object('id',source_id,'path',source_path,'revision',source_revision,'commit',null,'showInFeed',show_in_feed) as original from materials.materials where source_id is not null order by id",
+      )
+    ).rows;
+    expect(originalSourceRecords.length).toBe(7);
+  } finally {
+    await legacyPool.end();
+  }
   const legacyState = await state(source);
   const legacy = await postgres.backup(source);
   await migrateToLatest(source.url);

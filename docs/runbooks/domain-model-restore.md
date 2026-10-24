@@ -37,6 +37,14 @@ recovery требует отдельного поручения владельц
    с точкой резервного копирования и обновляется вперёд. Старые финансовые и юридические
    условия, UUID, Task versions, сдачи и архив migration audit остаются проверяемыми фактами.
 
+После `0113_historical_authoring_contract` Backend сравнивает все исходные строки Practice
+с `materials.historical_practice_definitions` и оригиналы Source (включая оба значения
+`showInFeed` и неизвестный commit) с `materials.historical_source_records`.
+Публичное чтение Source возвращает version 2 и `productId` в memberships. Исторические
+Source и Practice receipts читаются только для исходного автора, ключа и fingerprint;
+изменённый запрос, чужой автор или новый ключ не создают записей. Эти проверки повторяются
+после восстановления обоих архивов, включая удерживаемую legacy-базу.
+
 Хеш и размер архива связывают доказательство с конкретными bytes. Они не заменяют фактический
 restore и вызовы приложения. Копирование latest template или data-only dump не являются этой проверкой.
 
