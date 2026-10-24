@@ -10,7 +10,10 @@ import type { Migration } from "kysely/migration";
 import { beforeEach, expect, it } from "vitest";
 
 import type { Database } from "../../src/database/database.js";
-import { createMigrationDatabase } from "../support/migration-database.js";
+import {
+  createMigrationDatabase,
+  migrationDatabaseLifecycleBudgetMilliseconds,
+} from "../support/migration-database.js";
 import {
   migrateDown,
   migrateTo,
@@ -44,7 +47,10 @@ beforeEach(async ({ signal, onTestFinished }) => {
     `migration_history_${randomUUID().replaceAll("-", "")}`,
     { signal },
   );
-  onTestFinished(() => fixture.close());
+  onTestFinished(
+    () => fixture.close(),
+    migrationDatabaseLifecycleBudgetMilliseconds,
+  );
   database = fixture.database;
   await migrateTo(database, "007-owner-identity-recovery");
   // The retained deployment precedes historical steps and Kysely's fixed-time upgrades.
@@ -53,7 +59,7 @@ beforeEach(async ({ signal, onTestFinished }) => {
     database,
   );
   historicalStep = 0;
-});
+}, migrationDatabaseLifecycleBudgetMilliseconds);
 // Reconstruct the real pre-merge histories using their unchanged migrations and ledger keys.
 async function applyHistorical(
   name: string,

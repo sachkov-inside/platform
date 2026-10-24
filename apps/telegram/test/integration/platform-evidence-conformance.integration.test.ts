@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
   createMigrationDatabase,
   type MigrationDatabaseFixture,
 } from "../support/migration-database.js";
@@ -28,7 +29,7 @@ describe("Platform evidence conformance migration", () => {
     abort.abort(new Error("Historical fixture cleanup"));
     const acquired = fixture ?? (await acquisition?.catch(() => undefined));
     await acquired?.close();
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   beforeAll(async () => {
     acquisition = createMigrationDatabase(
       databaseUrl,
@@ -37,7 +38,7 @@ describe("Platform evidence conformance migration", () => {
     );
     fixture = await acquisition;
     database = fixture.database;
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   let sourceColumnBefore: boolean;
   beforeAll(async () => {
     await migrateTo(database, "005-membership-reconciliation");

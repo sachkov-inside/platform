@@ -3,6 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
   createMigrationDatabase,
   type MigrationDatabaseFixture,
 } from "../support/migration-database.js";
@@ -69,7 +70,7 @@ describe("IdentityLinkRecovery", () => {
       abort.abort(new Error("Historical fixture cleanup"));
       const acquired = fixture ?? (await acquisition?.catch(() => undefined));
       await acquired?.close();
-    });
+    }, migrationDatabaseLifecycleBudgetMilliseconds);
     beforeAll(async () => {
       acquisition = createMigrationDatabase(
         databaseUrl,
@@ -78,7 +79,7 @@ describe("IdentityLinkRecovery", () => {
       );
       fixture = await acquisition;
       historical = fixture.database;
-    });
+    }, migrationDatabaseLifecycleBudgetMilliseconds);
     let recoveryTableBefore: boolean;
     beforeAll(async () => {
       await migrateTo(historical, "007-owner-identity-recovery");

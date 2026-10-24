@@ -15,6 +15,7 @@ import {
 } from "../../src/modules/communications/author-dialog.js";
 import { transition } from "../../src/modules/communications/author-transition.js";
 import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
   createMigrationDatabase,
   type MigrationDatabaseFixture,
 } from "../support/migration-database.js";
@@ -53,7 +54,7 @@ describe("historical active author dialog", () => {
     abort.abort(new Error("Author migration fixture cleanup"));
     const acquired = fixture ?? (await acquisition?.catch(() => undefined));
     await acquired?.close();
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   // Keep historical preparation outside the unchanged business-case deadline.
   beforeAll(async () => {
     acquisition = createMigrationDatabase(
@@ -63,7 +64,7 @@ describe("historical active author dialog", () => {
     );
     fixture = await acquisition;
     database = fixture.database;
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   beforeAll(async () => {
     await migrateTo(database, "036-material-announcements");
   });
@@ -177,7 +178,7 @@ describe.each(["done", "message", "broadcast-done"] as const)(
       abort.abort(new Error("Author migration fixture cleanup"));
       const acquired = fixture ?? (await acquisition?.catch(() => undefined));
       await acquired?.close();
-    });
+    }, migrationDatabaseLifecycleBudgetMilliseconds);
     // Keep historical preparation outside the unchanged business-case deadline.
     beforeAll(async () => {
       acquisition = createMigrationDatabase(
@@ -187,7 +188,7 @@ describe.each(["done", "message", "broadcast-done"] as const)(
       );
       fixture = await acquisition;
       database = fixture.database;
-    });
+    }, migrationDatabaseLifecycleBudgetMilliseconds);
     beforeAll(async () => {
       await migrateTo(database, "036-material-announcements");
     });

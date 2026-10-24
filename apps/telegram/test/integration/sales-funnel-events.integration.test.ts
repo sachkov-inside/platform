@@ -53,6 +53,7 @@ import {
 } from "../support/sales-funnel-platform.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
   createMigrationDatabase,
   type MigrationDatabaseFixture,
 } from "../support/migration-database.js";
@@ -639,7 +640,7 @@ describe("migration 029 backfill", () => {
     abort.abort(new Error("Historical fixture cleanup"));
     const acquired = fixture ?? (await acquisition?.catch(() => undefined));
     await acquired?.close();
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   beforeAll(async () => {
     acquisition = createMigrationDatabase(
       databaseUrl,
@@ -648,7 +649,7 @@ describe("migration 029 backfill", () => {
     );
     fixture = await acquisition;
     historical = fixture.database;
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   let preferences: unknown;
   let links: unknown;
   let at029: SalesFunnelEvent[];
