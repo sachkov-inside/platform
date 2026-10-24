@@ -1,4 +1,7 @@
-import { grantProductFixture } from "./setup/product-access.js";
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   CommunityEntitlements,
@@ -32,13 +35,20 @@ let prisma: ReturnType<typeof createTrackedPrisma>;
 let catalog: CoverageCatalog;
 let queries = 0;
 let mappingReads = 0;
+let accessReads = 0;
 
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
   prisma = createTrackedPrisma(database.url);
   prisma.$on("query", (event) => {
     queries += 1;
-    if (event.query.includes("product_communities")) mappingReads += 1;
+    if (
+      event.query.includes("product_communities") ||
+      event.query.includes("historical_product_community_records")
+    )
+      mappingReads += 1;
+    if (event.query.includes('FROM "account_rights"."product_access"'))
+      accessReads += 1;
   });
   catalog = new CoverageCatalog(prisma, new ProductDiscovery(prisma));
   await prisma.product.createMany({
@@ -197,7 +207,7 @@ test("history reads its purchase window once and batches metadata, fulfillment a
   expect(queries).toBeLessThanOrEqual(15);
 });
 
-test("a community sweep shares its Product mapping read and refreshes it on the next sweep", async () => {
+test("a community sweep batches retry Accounts, reads current rights once per Account and ignores retired mappings", async () => {
   const accounts = assembleAccounts({
     prisma,
     emailFingerprintKey: "synthetic-fingerprint-key-000000000000",
@@ -233,14 +243,61 @@ test("a community sweep shares its Product mapping read and refreshes it on the 
         updatedAt: new Date("2030-01-01T00:00:00Z"),
       })),
     });
+  const accountId = accountIds[0];
+  if (accountId === undefined) throw new Error("Missing Account fixture");
+  await prisma.historicalProductCommunityRecord.upsert({
+    where: { productId: active },
+    create: {
+      productId: active,
+      groupRef: null,
+      updatedBy: accountId,
+      updatedAt: new Date("2030-01-01T00:00:00Z"),
+    },
+    update: { groupRef: null },
+  });
   await retries();
   mappingReads = 0;
+  accessReads = 0;
   expect(await app.sweep()).toMatchObject({ failed: 0, projected: 3 });
-  expect(mappingReads).toBe(1);
+  expect(mappingReads).toBe(0);
+  expect(accessReads).toBe(3);
+  expect(await app.readOwnCommunityEntry(accountId)).toEqual({ kind: "none" });
+
+  const grant = await grantProductFixture(prisma, accountId, active);
   await retries();
   mappingReads = 0;
-  expect(await app.sweep()).toMatchObject({ failed: 0 });
-  expect(mappingReads).toBe(1);
+  accessReads = 0;
+  expect(await app.sweep()).toMatchObject({ failed: 0, projected: 3 });
+  expect(mappingReads).toBe(0);
+  expect(accessReads).toBe(3);
+  expect(await app.readOwnCommunityEntry(accountId)).toEqual({
+    kind: "link_telegram",
+  });
+  expect(
+    await prisma.telegramCommunityDesiredState.findUnique({
+      where: { accountId },
+      select: { access: true },
+    }),
+  ).toEqual({ access: { kind: "lifetime" } });
+
+  await revokeProductFixture(prisma, grant);
+  await prisma.historicalProductCommunityRecord.update({
+    where: { productId: active },
+    data: { groupRef: "primary" },
+  });
+  await retries();
+  mappingReads = 0;
+  accessReads = 0;
+  expect(await app.sweep()).toMatchObject({ failed: 0, projected: 3 });
+  expect(mappingReads).toBe(0);
+  expect(accessReads).toBe(3);
+  expect(await app.readOwnCommunityEntry(accountId)).toEqual({ kind: "none" });
+  expect(
+    await prisma.telegramCommunityDesiredState.findUnique({
+      where: { accountId },
+      select: { access: true },
+    }),
+  ).toEqual({ access: { kind: "denied" } });
 });
 
 test("the Account access view resolves lifetime Product states in one metadata read", async () => {
