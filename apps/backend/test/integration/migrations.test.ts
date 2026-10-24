@@ -209,6 +209,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
+      "legacy_practice_migrations",
       "review_progress",
       "submissions",
       "task_versions",

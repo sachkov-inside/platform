@@ -6,12 +6,7 @@ import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
 import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
 import { imageUpload } from "./image-upload.mjs";
-import {
-  practicesFollowLessons,
-  validateSourcePractices,
-  replayPracticeImports,
-  syncSourcePractices,
-} from "./practice-import.mjs";
+import { replayPracticeImports } from "./practice-import.mjs";
 import {
   replayTaskImports,
   assertTaskReplayAccess,
@@ -717,11 +712,9 @@ export async function syncLocal(
   /** @param {Pick<ManifestMaterial, "sourceId">} row */
   const publicationOf = (row) =>
     publicationOfKey(sourceKey(pkg.manifest, row.sourceId));
-  const manifest = practicesFollowLessons(pkg.manifest, publicationOfKey);
   if (!reconcileOnly) {
     if (!pkg.manifest.selection.contentOnly)
       await validateProductPages(pkg.manifest, send);
-    await validateSourcePractices(manifest, request);
   }
   if (!reconcileOnly || pkg.manifest.schemaVersion === 2)
     await validateSourceTasks(pkg.manifest, request);
@@ -1821,7 +1814,6 @@ export async function syncLocal(
         });
     }
 
-    await syncSourcePractices(manifest, context, request);
     if ((pkg.manifest.tasks ?? []).length)
       report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
         productIdOf: (id) => valueAt(products, id).id,
