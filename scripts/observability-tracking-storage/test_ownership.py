@@ -12,6 +12,19 @@ import ownership
 
 
 class TrackingOwnership(unittest.TestCase):
+    def test_init_unix_socket_cannot_claim_application_tcp_readiness(self):
+        from types import SimpleNamespace
+        targets=SimpleNamespace(postgres=lambda:'owned-postgres')
+        tcp_ready=False
+        def command(args,**options):
+            if '-h' in args and args[args.index('-h')+1]=='127.0.0.1' and not tcp_ready:
+                raise subprocess.CalledProcessError(1,args)
+            return ''
+        with patch.object(ownership.pilot,'assert_docker_identity'), patch.object(ownership.pilot,'command',side_effect=command):
+            self.assertFalse(ownership.postgres_ready(targets), 'init-only Unix socket is accepting while the real application endpoint is unavailable')
+            tcp_ready=True
+            self.assertTrue(ownership.postgres_ready(targets))
+
     def test_exact_plan_is_eight_services_five_volumes_two_networks_without_ryuk(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'private'
