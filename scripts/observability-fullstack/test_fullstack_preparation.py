@@ -60,3 +60,11 @@ class Preparation(unittest.TestCase):
             reopened=fullstack.preparation.open_stage(Path(directory)/'images.json',docker=docker,identify=lambda:module.DAEMON)
             result=reopened.release('consumer',cleanup_ok=True)
             self.assertEqual(result['state'],'retired');self.assertEqual(docker.removed,[image])
+
+
+    def test_collector_recovery_uses_real_query_body_predicate_before_acceptance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);(output/'monitoring').mkdir();(output/'monitoring/reader.key').write_text('a'*32)
+            with patch.object(fullstack.technical.check,'read_ready',side_effect=[(200,'{}'),(200,'{"status":"success","data":{"resultType":"scalar","result":[1,"1"]}}')]) as read,patch.object(fullstack.pilot.time,'sleep'):
+                fullstack.await_collector(output)
+                self.assertEqual(read.call_count,2)
