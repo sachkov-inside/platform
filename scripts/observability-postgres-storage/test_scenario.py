@@ -386,7 +386,7 @@ class Driver(unittest.TestCase):
             if counter[0]<2:
                 self.assertEqual(kwargs,{'_baseline':('first','second')[counter[0]]});phase='baseline'
             else:
-                self.assertEqual(kwargs,{});phase=driver.phase
+                self.assertEqual(kwargs,{});phase='restart' if driver.phase.startswith('restart_') else driver.phase
             observations[phase]=observations.get(phase,0)+1;counter[0]+=1
             value=EXPECTED.copy();value['sample_us']+=counter[0]*1000
             if phase=='deadlocks':value['deadlocks']=EXPECTED['deadlocks']+1
