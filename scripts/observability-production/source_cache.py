@@ -43,6 +43,9 @@ IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='postgres_source_reader') AND
 (COALESCE(shobj_description((SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader'),'pg_authid'),'')<>'Inside monitoring PostgreSQL reader v1' OR
  EXISTS(SELECT 1 FROM pg_shdepend WHERE refclassid='pg_authid'::regclass AND refobjid=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader') AND
  NOT(deptype='a' AND classid='pg_database'::regclass AND objid=(SELECT oid FROM pg_database WHERE datname='inside'))) OR
+ EXISTS(SELECT 1 FROM pg_database d CROSS JOIN LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a
+ WHERE d.datname='inside' AND a.grantee=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader')
+ AND (a.privilege_type<>'CONNECT' OR a.is_grantable)) OR
  EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader') OR roleid=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader')) OR
  EXISTS(SELECT 1 FROM pg_database WHERE datdba=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader')) OR
  EXISTS(SELECT 1 FROM pg_roles WHERE rolname='postgres_source_reader' AND
