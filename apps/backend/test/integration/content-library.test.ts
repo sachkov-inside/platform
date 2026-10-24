@@ -278,7 +278,9 @@ describe("ListPublishedMaterials", () => {
     expect(product).toMatchObject({
       ok: true,
       value: {
-        facets: { product: [expect.objectContaining({ slug: "career-path" })] },
+        facets: {
+          products: [expect.objectContaining({ slug: "career-path" })],
+        },
         totalCount: 3,
       },
     });
@@ -298,7 +300,9 @@ describe("ListPublishedMaterials", () => {
     expect(productWithoutMaterialMatches).toMatchObject({
       ok: true,
       value: {
-        facets: { product: [expect.objectContaining({ slug: "career-path" })] },
+        facets: {
+          products: [expect.objectContaining({ slug: "career-path" })],
+        },
         items: [],
         totalCount: 0,
       },

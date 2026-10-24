@@ -1,3 +1,4 @@
+import { seedHistoricalFeedSource } from "./setup/historical-source.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -419,10 +420,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       where: { materialId: id(2) },
       data: { access: "closed" },
     });
-    await prisma.material.update({
-      where: { id: id(4) },
-      data: { version: 2 },
-    });
+    await seedHistoricalFeedSource(prisma, id(4));
     // A public note outside the first four Playlists is still a legacy feed preview.
     await prisma.materialSearchDocument.createMany({
       data: [
@@ -471,10 +469,9 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       data: { publishedAt: new Date("2026-01-03") },
     });
     // Legacy visibility flags do not change feed previews or the complete catalogue.
-    await prisma.material.updateMany({
-      where: { id: { in: Array.from({ length: 6 }, (_, n) => id(28 + n)) } },
-      data: { version: 2 },
-    });
+    for (let n = 0; n < 6; n += 1) {
+      await seedHistoricalFeedSource(prisma, id(28 + n));
+    }
     await prisma.materialSearchDocument.create({
       data: {
         materialId: id(34),

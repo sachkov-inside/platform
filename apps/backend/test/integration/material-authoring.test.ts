@@ -270,7 +270,7 @@ describe("MaterialAuthoring", () => {
           { archived: false, id: "guide", name: "Гайд" },
           { archived: false, id: "note", name: "Заметка" },
         ],
-        product: [
+        products: [
           {
             archived: false,
             id: "94000000-0000-4000-8000-000000000035",

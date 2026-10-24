@@ -178,7 +178,7 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
           stage: "published",
           topicId: null,
           access: "free",
-          version: 2 as const,
+          showInFeed: false,
           difficulty: null,
           outcomes: [],
           markdown: "Lesson",

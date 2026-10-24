@@ -46,14 +46,10 @@ test("upgrade freezes legacy scoped history into one lifetime state, preserves r
       data: { accountId: owner, permission: "platform:admin" },
     });
     for (const id of [product, second])
-      await db.prisma.product.create({
-        data: {
-          id,
-          name: "Historical product",
-          slug: id,
-          createdAt: new Date("2020-01-01"),
-        },
-      });
+      await pool.query(
+        "insert into products.series(id,name,slug,created_at) values ($1::uuid,$2,$1::text,'2020-01-01')",
+        [id, "Historical product"],
+      );
     const historical = {
       version: 1,
       acceptedText: "Terms stay byte-for-byte",

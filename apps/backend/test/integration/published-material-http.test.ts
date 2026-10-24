@@ -277,7 +277,7 @@ describe("published Material HTTP contract", () => {
     });
     const product = await server.inject({
       method: "GET",
-      url: "/library/series/platform-inside",
+      url: "/library/products/platform-inside",
     });
     const related = await server.inject({
       method: "GET",
@@ -299,6 +299,13 @@ describe("published Material HTTP contract", () => {
     });
     expect(topicBody.items).toEqual([]);
     expect(product.statusCode).toBe(200);
+    for (const slug of ["platform-inside", "INVALID"]) {
+      const retired = await server.inject({
+        method: "GET",
+        url: `/library/series/${slug}`,
+      });
+      expect(retired.statusCode).toBe(404);
+    }
     const productBody = product.json<{
       readonly kind: string;
       readonly items: readonly { readonly slug: string }[];
@@ -344,7 +351,7 @@ describe("published Material HTTP contract", () => {
 
     const invalid = await server.inject({
       method: "GET",
-      url: "/library/series/INVALID",
+      url: "/library/products/INVALID",
     });
     expect(invalid.statusCode).toBe(400);
     expect(invalid.json()).toMatchObject({ code: "invalid_request_shape" });
@@ -460,7 +467,7 @@ describe("published Material HTTP contract", () => {
       for (const url of [
         "/library/materials",
         "/library/topics/platform",
-        "/library/series/platform-inside",
+        "/library/products/platform-inside",
         "/library/materials/kak-ustroen-inside-platform/related",
         "/materials/kak-ustroen-inside-platform",
       ]) {

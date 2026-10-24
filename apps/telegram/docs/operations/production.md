@@ -85,7 +85,6 @@ Git; зашифруйте файлы для host и отдельного recover
 | Ответы в личном чате | `TELEGRAM_DELIVERY_MODE` и тексты `TELEGRAM_*_TEXT` | `live`; тексты по-русски | — |
 | Привязка | `PLATFORM_INTEGRATION_SECRET` | секрет | `TELEGRAM_LINKING_SECRET`; `TELEGRAM_LINKING_ENDPOINT=https://<telegram>/integrations/platform/v1/identity-links` |
 | Communications API | `PLATFORM_COMMUNICATIONS_SECRET` | отдельный секрет; без него API отвечает 401 | `TELEGRAM_COMMUNICATIONS_SECRET`; `TELEGRAM_COMMUNICATIONS_ENDPOINT=https://<telegram>/integrations/platform/v2/communications` |
-| Membership Evidence | `TELEGRAM_MEMBERSHIP_MODE`, `TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS`, `TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS`, `PLATFORM_EVIDENCE_DELIVERY_MODE`, `PLATFORM_EVIDENCE_DELIVERY_URL`, `PLATFORM_EVIDENCE_DELIVERY_SECRET` | `live`, `240000`, `90`, `live`, `https://<platform>/integrations/telegram/v1/membership-evidence` | `TELEGRAM_EVIDENCE_INGRESS_SECRET` |
 | Вход через бота | `TELEGRAM_SIGN_IN_ENABLED`, `TELEGRAM_SIGN_IN_INTEGRATION_SECRET`, `TELEGRAM_SIGN_IN_RETURN_URL` | `false` до готовности Logto и Platform; optional публичный URL сайта для «Открыть Inside» после успеха | `TELEGRAM_SIGN_IN_INTEGRATION_SECRET` |
 | Сообщество v2 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION`, `TELEGRAM_COMMUNITY_MODE`, `TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS`, `TELEGRAM_COMMUNITY_REMOVALS_ENABLED` | `inside.community-entitlement.v2`, `live`, `60000`, `true` (решение владельца 04.10.2026) | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2` |
 | Сообщество: входящие команды | `PLATFORM_COMMUNITY_INTEGRATION_SECRET` | секрет | `TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET`, `TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT=https://<telegram>/integrations/platform/v1/community-entitlements` |
@@ -231,8 +230,8 @@ select state, diagnostic_code, count(*) from sales_funnel_event_outbox group by 
 
 Остальные права администратора, включая анонимность, выключены. Без любого из двух прав provider не
 выполняет ни одного действия и показывает diagnostic `bot_invite_right_required` или
-`bot_restrict_right_required`. Статус administrator также нужен, чтобы получать `chat_member` для
-Membership Evidence.
+`bot_restrict_right_required`. Статус administrator также нужен для текущей community сверки; прежний сбор Membership Evidence
+отключён.
 
 **Бот Inside в группах-источниках курса** — administrator без дополнительных прав. Он только читает
 членство (`getChatMember`) и ничего в этих группах не меняет.
@@ -601,7 +600,11 @@ Platform `TELEGRAM_LINKING_ENDPOINT` указывает на
 `/internal/community-entitlements` обслуживается как
 `https://<telegram-domain>/integrations/platform/v1/community-entitlements`.
 
-Telegram вызывает Platform по публичному HTTPS: `membership-evidence`, `course-activation`,
+Membership Evidence больше не запускается: `TELEGRAM_MEMBERSHIP_MODE` допускает только `disabled`
+или отсутствие значения; `live` останавливает запуск. Исторические receipts сохраняются, прежний
+`membership-evidence` ingress не публикуется.
+
+Telegram вызывает Platform по публичному HTTPS: `course-activation`,
 `/internal/billing-dispatch/authorize`, `/internal/notifications/dispatch/authorize`,
 `/integrations/telegram/v2/communications/authorize` и `/validate-content`. Каждый из них должен
 быть опубликован Caddy Platform, иначе соответствующая функция Telegram отказывает закрыто.
@@ -751,12 +754,10 @@ Docker healthcheck запускает `dist/operations/check-readiness.js`: пр
 boundary и доступ к мигрированным таблицам собственной базы, без Telegram/Platform запросов.
 Это basic readiness, а не доказательство живого reconciliation или пользовательского связывания.
 
-`GET /ready` проверяет базу и в режиме `TELEGRAM_MEMBERSHIP_MODE=live` отдаёт результат последней
-пробы provider. Пробу выполняет воркер при старте, затем с удваивающейся паузой до раза в минуту
-(`PROVIDER_PROBE` в `src/operations/background-workers.ts`); сам `/ready` не ходит в Telegram и
-ничего не пишет. До первой пробы после старта `/ready`
-отвечает `503`, выкладка ждёт его повторными запросами. Без воркеров (`WORKERS_ENABLED=false`) проба
-не выполняется, и в этом режиме `/ready` остаётся `503`.
+`GET /ready` выполняет `select 1` в собственной базе и возвращает `ready`; при недоступной базе
+возвращает `503`. Он не вызывает Telegram или Platform и не подтверждает работу reconciliation.
+Проверка готовности provider для удалённого Membership Evidence не выполняется. Отдельно
+проверяйте текущую community сверку и пользовательскую привязку по процедурам выше.
 
 Сбой, который приложение поглощает, пишется в stderr одной JSON-строкой: `scope`, класс сбоя
 `failure` и непрозрачные ссылки вроде `update_id`. Класс различает, например, `pg_40P01`
@@ -774,7 +775,8 @@ boundary и доступ к мигрированным таблицам собс
 события в остальных состояниях, включая `rejected`, остаются.
 События контактов и связывания, аудит membership и история коммуникаций не удаляются; outbox
 воронки хранит только копии событий для отправки в Platform.
-Потеря upstream не превращается в fresh positive Membership Evidence.
+Новые Membership Evidence не создаются и не отправляются; сохранённая история не становится
+текущим правом доступа при потере upstream.
 
 Ограничение частоты запросов одного пользователя описано в
 [brief](../product/telegram-application-brief.md#частота-запросов-одного-пользователя). Окно

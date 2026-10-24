@@ -78,7 +78,7 @@ remain unpublished with 404. This uses the existing communications credential an
 without a new environment variable or credential. The shared `waitlistAudienceRequest/Response` definitions own its closed envelope. Platform checks the
 current author binding and `communications:manage`, obtains active memberships from ProductWaitlists,
 resolves current unambiguous bindings, and reads sale availability through Billing and the canonical
-Product slug through Materials. A recipient check can only narrow that audience. No delegated
+Product slug through ProductDirectory in the Products owner. A recipient check can only narrow that audience. No delegated
 management input accepts an arbitrary recipient array. Complete audience composition is bounded at
 10,000 active memberships; a larger intake fails explicitly rather than truncating.
 
@@ -419,8 +419,8 @@ are part of the local verification; real Telegram appearance remains owner accep
 ## Author intake and snapshots
 
 `/template` in a private human conversation opens one-message author mode after authorization.
-The next supported message saves a snapshot and returns its UUID for pasting into the Platform
-editor. `/cancel` exits. Successful capture exits; unsupported content leaves the mode open for a
+The next supported message saves a snapshot and returns its UUID for the authorized communications
+API or MCP operations. `/cancel` exits. Successful capture exits; unsupported content leaves the mode open for a
 correction. Media outside author mode is ignored. Authorization is checked again at capture, and
 revocation clears the mode. An unavailable author check retries through the existing bounded inbox
 policy; exhausted updates retain only their redacted failure class until retention
@@ -507,14 +507,15 @@ existing definition lock. Menu callbacks and business writes share one transacti
 receipt. A savepoint rolls back a rejected sequence action before the menu reports a conflict,
 including conflicts discovered after a draft write. Duplicate updates cannot publish or sample twice.
 Pause, resume, archive and restore use the existing `sequences.lifecycle` operation. Detailed delivery history,
-retry/skip and rollback remain available in the web editor and delegated operations.
+retry/skip and rollback use the authorized communications API and MCP operations. The former
+Platform web editor is retired.
 
 `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` configures Platform's service-only
 `POST /integrations/telegram/v2/communications/validate-content`; it reuses
 `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` and requires the authorization configuration. HTTPS is
 mandatory outside loopback. Request/response definitions are `contentValidationRequest` and
 `contentValidationResponse` in the canonical schema. The request includes the confirmed author and
-the selected immutable message parts. Platform rechecks the author and Material/Series eligibility
+the selected immutable message parts. Platform rechecks the author and Material/Product eligibility
 without calling Telegram back while the author transaction holds definition locks. Request ID and
 Account association must match the response. Invalid targets, denied authorization, missing
 configuration, malformed response and unavailable Platform all prevent bot publication. The common

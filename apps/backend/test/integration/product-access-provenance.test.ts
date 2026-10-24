@@ -21,7 +21,17 @@ beforeAll(async () => {
   const pool = new Pool({ connectionString: db.url, max: 1 });
   try {
     for (const source of ["paid", "manual", "legacy"]) {
-      const t = await target();
+      const accountId = randomUUID(),
+        productId = randomUUID();
+      await pool.query(
+        "insert into accounts.accounts(id,logto_issuer,logto_subject) values ($1::uuid,$2,$1::text)",
+        [accountId, "https://identity.test"],
+      );
+      await pool.query(
+        "insert into products.series(id,name,slug) values ($1::uuid,$2,$1::text)",
+        [productId, "Provenance Product"],
+      );
+      const t = { accountId, productId };
       await pool.query(
         "INSERT INTO account_rights.access_grants(id,account_id,source,source_ref,capabilities,coverage,starts_at,valid_until,revision,reason) VALUES ($1,$2,$3,$4,$5,$6,$7,null,1,'private historical reason')",
         [

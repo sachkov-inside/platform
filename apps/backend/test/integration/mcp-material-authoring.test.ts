@@ -380,7 +380,13 @@ describe("delegated Material authoring over MCP", () => {
       body: representativeDocument("Playlist composition body."),
     });
     const materialId = successfulMaterialId(material);
-    const initialComposition = await callTool("playlist_load_composition", {
+    const { tools } = await client.listTools();
+    const names = tools.map((tool) => tool.name);
+    expect(names).toContain("product_load_composition");
+    expect(names).toContain("product_save_composition");
+    expect(names).not.toContain("playlist_load_composition");
+    expect(names).not.toContain("playlist_save_composition");
+    const initialComposition = await callTool("product_load_composition", {
       productId: playlist["id"],
     });
     const initial = successfulValue(initialComposition);
@@ -390,7 +396,7 @@ describe("delegated Material authoring over MCP", () => {
     }
 
     expect(
-      await callTool("playlist_save_composition", {
+      await callTool("product_save_composition", {
         expectedOrderVersion: initial["orderVersion"],
         orderedMaterialIds: [materialId],
         programmePlacements: [
@@ -406,7 +412,7 @@ describe("delegated Material authoring over MCP", () => {
       }),
     ).toMatchObject({ structuredContent: { ok: true } });
     expect(
-      await callTool("playlist_load_composition", {
+      await callTool("product_load_composition", {
         productId: playlist["id"],
       }),
     ).toMatchObject({

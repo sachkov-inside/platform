@@ -38,7 +38,7 @@ test("upgrade makes automatic programmes explicit before dropping duplicate cata
     Prisma.sql`insert into products.product_chapters(id,product_id,name,summary,ordinal) values (${chapter}::uuid,${auto}::uuid,'Keep chapter','Keep description',1)`,
   );
   await database.prisma.$executeRaw(
-    Prisma.sql`insert into products.product_memberships(product_id,material_id,ordinal,chapter_id,step_group) values (${auto}::uuid,${material}::uuid,1,${chapter}::uuid,'Sequence'),(${explicit}::uuid,${material}::uuid,1,null,null),(${explicit}::uuid,${extra}::uuid,2,null,null)`,
+    Prisma.sql`insert into products.series_memberships(series_id,material_id,ordinal,chapter_id,step_group) values (${auto}::uuid,${material}::uuid,1,${chapter}::uuid,'Sequence'),(${explicit}::uuid,${material}::uuid,1,null,null),(${explicit}::uuid,${extra}::uuid,2,null,null)`,
   );
   await database.prisma.$executeRaw(
     Prisma.sql`insert into products.product_programme_placements(id,product_id,material_id,ordinal,step_group) values (${first}::uuid,${explicit}::uuid,${material}::uuid,1,'First'),(${second}::uuid,${explicit}::uuid,${material}::uuid,2,'Again')`,
@@ -46,7 +46,7 @@ test("upgrade makes automatic programmes explicit before dropping duplicate cata
   await upgradeToLatest(database);
   expect(
     await database.prisma.$queryRaw(
-      Prisma.sql`select column_name from information_schema.columns where table_schema='products' and ((table_name='series' and column_name='programme_explicit') or (table_name='product_memberships' and column_name in ('ordinal','chapter_id','step_group')))`,
+      Prisma.sql`select column_name from information_schema.columns where table_schema='products' and ((table_name='products' and column_name='programme_explicit') or (table_name='product_memberships' and column_name in ('ordinal','chapter_id','step_group')))`,
     ),
   ).toEqual([]);
   expect(

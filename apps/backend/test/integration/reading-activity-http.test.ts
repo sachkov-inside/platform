@@ -235,7 +235,7 @@ describe("ReadingActivity HTTP", () => {
     ).toBe(400);
     const progress = await server.inject({
       method: "GET",
-      url: `/reading-activity/series/${productId}`,
+      url: `/reading-activity/products/${productId}`,
       headers,
     });
     expect(progress.statusCode).toBe(200);
@@ -270,9 +270,22 @@ describe("ReadingActivity HTTP", () => {
       method: "GET",
       url: "/library/products/product",
     });
-    expect(legacyPage.statusCode).toBe(200);
+    expect(legacyPage.statusCode).toBe(404);
     expect(productPage.statusCode).toBe(200);
-    expect(productPage.json()).toEqual(legacyPage.json());
+    expect(productPage.json()).toMatchObject({
+      kind: "product",
+      reference: { id: productId },
+      items: [{ materialId }],
+    });
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: `/reading-activity/series/${productId}`,
+          headers,
+        })
+      ).statusCode,
+    ).toBe(404);
     const openPayload = {
       materialId,
       contentVersion: published.value.contentVersion,

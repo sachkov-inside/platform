@@ -1,3 +1,4 @@
+import { seedHistoricalFeedSource } from "./setup/historical-source.js";
 import { PublicMaterialAnnouncements } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -245,10 +246,7 @@ describe("анонс первой публикации материала", () =
     );
     const announcement = await announcedOccurrence(id);
     const source = publicAnnouncements();
-    await database.prisma.material.update({
-      where: { id },
-      data: { version: 2 },
-    });
+    await seedHistoricalFeedSource(database.prisma, id);
     expect(
       (
         await source.read(
@@ -275,7 +273,6 @@ describe("анонс первой публикации материала", () =
       await database.prisma.material.update({
         where: { id },
         data: {
-          version: 2 as const,
           access: "free",
           publicationState: "published",
         },

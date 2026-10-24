@@ -11,26 +11,25 @@ import { assembleMaterials } from "../../src/entrypoints/composition/assemble-ma
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
-  createMigratedTestDatabase,
+  createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { migrateThrough, upgradeToLatest } from "./setup/historical-upgrade.js";
+
 let database: TestDatabase;
 beforeAll(async () => {
-  database = await createMigratedTestDatabase();
+  database = await createTestDatabase();
+  await migrateThrough(database, "0112_canonical_product_storage");
   await seedLocalDevelopment(database.prisma, { demo: "published" });
-  await database.prisma.material.updateMany({ data: { version: 2 } });
-  await database.prisma.material.updateMany({
-    where: {
-      slug: {
-        in: [
-          "kak-ustroen-inside-platform",
-          "developer-pipeline-bez-poteri-konteksta",
-        ],
-      },
-    },
-    data: { version: 2 },
-  });
+  await database.prisma.$executeRaw(
+    Prisma.sql`update materials.materials set show_in_feed=false`,
+  );
+  await database.prisma.$executeRaw(
+    Prisma.sql`update materials.materials set show_in_feed=true where slug in ('kak-ustroen-inside-platform','developer-pipeline-bez-poteri-konteksta')`,
+  );
+  await upgradeToLatest(database);
 });
 afterAll(async () => {
   await database.dispose();
