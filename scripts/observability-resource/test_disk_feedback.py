@@ -109,14 +109,14 @@ class SameReadGuard(unittest.TestCase):
         state={} if state is None else state
         state.update(threads=threads,release=release,finish=finish)
         if join_mode=='normal':finish.set()
-        self_test=self
+        self_test=self;bounded_joins=[]
         class OwnedThread(real_thread):
             def join(self,timeout=None):
                 if not release.is_set():
                     # The acquired read is deliberately blocked until fixture cleanup.
                     # Model its exhausted join without spending the real shutdown budget
                     # in every subcase; the actual thread must still be alive at sealing.
-                    self_test.assertEqual(timeout,pilot.MONITOR_SHUTDOWN_SECONDS)
+                    bounded_joins.append(timeout)
                     self_test.assertTrue(self.is_alive())
                     return
                 if join_mode=='timeout':return
@@ -142,6 +142,7 @@ class SameReadGuard(unittest.TestCase):
             try:
                 with pilot.disk_budget(Path('/synthetic'),observe_samples=True) as view:
                     self.assertTrue(started.wait(2))
+                self.assertEqual(bounded_joins,[pilot.MONITOR_SHUTDOWN_SECONDS])
                 frozen=view.final;self.assertTrue(threads[0].is_alive())
                 if early_failure is not None:raise early_failure
             finally:
