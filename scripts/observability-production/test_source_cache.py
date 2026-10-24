@@ -76,6 +76,15 @@ class Sources(unittest.TestCase):
         self.assertNotIn('GRANT pg_read_all_stats', sql)
         self.assertNotIn('GRANT SELECT', sql)
 
+    def test_native_automatic_redirects_are_validated_but_never_counted_as_public_requests(self):
+        raw = wire() + b'process_start_time_seconds 10\n'
+        redirect = b'caddy_http_requests_total{server="remaining_auto_https_redirects",handler="static_response"} 8\n'
+        projected = source_cache.caddy_projection(raw + redirect, 'srv0', 100)
+        self.assertIn('handler="subroute"} 3\n', projected)
+        self.assertNotIn('remaining_auto_https_redirects', projected)
+        poisoned = redirect.replace(b'handler="static_response"', b'handler="static_response",host="private-person"')
+        with self.assertRaises(ValueError): source_cache.caddy_projection(raw + poisoned, 'srv0', 100)
+
     def test_selected_partition_unknown_epoch_and_private_excluded_labels_refuse(self):
         raw = wire() + b'process_start_time_seconds 10\n'
         self.assertIn('requests_total', source_cache.caddy_projection(raw, 'srv0', 100))
