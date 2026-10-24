@@ -25,15 +25,16 @@ function draftValidator<Shape>(
     lifecycle: _lifecycle,
     ...properties
   } = definition.properties;
+  const rewrittenProperties: unknown = JSON.parse(
+    JSON.stringify(properties).replaceAll(
+      '"#/definitions/',
+      `"${schema.$id}#/definitions/`,
+    ),
+  );
   return ajv.compile<Shape>({
     type: "object",
     additionalProperties: false,
-    properties: JSON.parse(
-      JSON.stringify(properties).replaceAll(
-        '"#/definitions/',
-        `"${schema.$id}#/definitions/`,
-      ),
-    ),
+    properties: rewrittenProperties,
     required: Object.keys(properties),
   });
 }

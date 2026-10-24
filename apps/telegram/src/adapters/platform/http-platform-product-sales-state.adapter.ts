@@ -33,7 +33,7 @@ const responseSchema: unknown = JSON.parse(
 );
 if (typeof responseSchema !== "object" || responseSchema === null)
   throw new Error("Invalid cohort response schema");
-const validResponse = ajv.compile(responseSchema);
+export const validProductSalesStatesResponse = ajv.compile(responseSchema);
 
 /**
  * Public `GET /billing/product-sales-states` of Platform, described in `docs/contracts/platform-product-sales-states`: the current stream of every product. The course
@@ -73,7 +73,7 @@ export class HttpPlatformProductSalesStateAdapter implements CommunityWelcomeDet
       reportFailure("platform.cohort-read", error);
       return {};
     }
-    if (!validResponse(body)) {
+    if (!validProductSalesStatesResponse(body)) {
       reportCondition("platform.cohort-read", "platform_response_invalid");
       return {};
     }

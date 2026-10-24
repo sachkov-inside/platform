@@ -177,10 +177,10 @@ it.each(["done", "message", "broadcast-done"] as const)(
           WORKERS_ENABLED: "false",
         });
         const authorization: AuthorAuthorization = {
-          authorize: async () => "allowed",
+          authorize: () => Promise.resolve("allowed"),
         };
         const validation: AuthorContentValidation = {
-          validate: async () => ({ status: "ok", targetErrors: [] }),
+          validate: () => Promise.resolve({ status: "ok", targetErrors: [] }),
         };
         const posts = new Communications(database, config, authorization);
         const sequences = new CommunicationSequences(
@@ -191,9 +191,9 @@ it.each(["done", "message", "broadcast-done"] as const)(
           validation,
         );
         const delivery = new AuthorDelivery(database, config, authorization, {
-          send: async () => {
-            throw new Error(
-              "Author continuation must not send provider messages",
+          send: () => {
+            return Promise.reject(
+              new Error("Author continuation must not send provider messages"),
             );
           },
         });

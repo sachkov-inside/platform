@@ -70,5 +70,11 @@ export const canonicalCommunicationSequencesMigration: Migration = {
       -- entry:/step: dedup keys stay exact. Current readers use the passive historical decoder.
     `.execute(db);
   },
-  async down() { throw new Error("Incompatible communication contract: restore the pre-contract backup with dispatch held, then migrate forward"); },
+  down() {
+    return Promise.reject(
+      new Error(
+        "Incompatible communication contract: restore the pre-contract backup with dispatch held, then migrate forward",
+      ),
+    );
+  },
 };

@@ -40,7 +40,8 @@ const materialTables = [
   "material_tags",
   "materials",
   "notification_outbox",
-  "practice_definitions",
+  "historical_practice_definitions",
+  "historical_source_records",
   "practice_import_receipts",
   "publication_announcement_revisions",
   "publication_announcements",
@@ -60,7 +61,7 @@ const productTables = [
   "product_programme_placements",
   "product_material_removals",
   "published_material_product_memberships",
-  "series",
+  "products",
   "product_memberships",
 ] as const;
 const contentCoverTables = [
@@ -119,7 +120,7 @@ const telegramMembershipTables = [
   "community_operations",
   "community_projection_cursor",
   "community_projection_retries",
-  "product_communities",
+  "historical_product_community_records",
   "link_transactions",
 ] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
@@ -183,7 +184,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
     await expectTables(testDatabase, "account_rights", accountRightsTables);
-    await expectTables(testDatabase, "member_profiles", accountProfileTables);
+    await expectTables(testDatabase, "account_profiles", accountProfileTables);
     await expectTables(
       testDatabase,
       "telegram_membership",
@@ -304,7 +305,7 @@ describe("Platform migrations", () => {
       },
       {
         column_name: "cover_id",
-        table_name: "series",
+        table_name: "products",
         table_schema: "products",
       },
       {
@@ -576,10 +577,10 @@ describe("Platform migrations", () => {
             '60000000-0000-4000-8000-000000000001',
             '40000000-0000-4000-8000-000000000001'
           );
-          insert into materials.material_revision_product_memberships (
+          insert into materials.material_revision_series_memberships (
             revision_id,
             material_id,
-            product_id,
+            series_id,
             ordinal
           ) values (
             '70000000-0000-4000-8000-000000000001',
@@ -625,9 +626,9 @@ describe("Platform migrations", () => {
             '10000000-0000-4000-8000-000000000001',
             '2026-08-27T08:01:00.000Z'
           );
-          insert into materials.published_material_product_memberships (
+          insert into materials.published_material_series_memberships (
             material_id,
-            product_id,
+            series_id,
             ordinal
           ) values (
             '60000000-0000-4000-8000-000000000001',
@@ -711,10 +712,10 @@ describe("Platform migrations", () => {
             '10000000-0000-4000-8000-000000000001',
             'membership'
           );
-          insert into materials.material_revision_product_memberships (
+          insert into materials.material_revision_series_memberships (
             revision_id,
             material_id,
-            product_id,
+            series_id,
             ordinal
           ) values (
             '70000000-0000-4000-8000-000000000003',
@@ -722,8 +723,8 @@ describe("Platform migrations", () => {
             '50000000-0000-4000-8000-000000000001',
             1
           );
-          insert into materials.product_memberships (
-            product_id,
+          insert into materials.series_memberships (
+            series_id,
             material_id,
             ordinal
           ) values (
@@ -963,7 +964,7 @@ async function expectTables(
     | "materials"
     | "products"
     | "content_covers"
-    | "member_profiles"
+    | "account_profiles"
     | "account_rights"
     | "telegram_membership"
     | "videos"
