@@ -27,7 +27,7 @@ describe("identity-linking rollback fixture", () => {
   const abort = new AbortController();
   let fixture: MigrationDatabaseFixture | undefined;
   let acquisition: Promise<MigrationDatabaseFixture> | undefined;
-  let migrationStep = "prepare latest";
+  let migrationStep = "prepare last reversible prefix";
   let membershipRemoved: boolean;
   let identityRemoved: boolean;
   let identityRestored = false;
@@ -39,7 +39,7 @@ describe("identity-linking rollback fixture", () => {
       { signal: abort.signal },
     );
     fixture = await acquisition;
-    await migrateToLatest(fixture.database);
+    await migrateTo(fixture.database, "036-material-announcements");
   });
   beforeAll(async () => {
     migrationStep = "rollback to identity linking";

@@ -51,6 +51,7 @@ import {
   type SalesFunnelPlatform,
 } from "../support/sales-funnel-platform.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
+import { withMigrationDatabase } from "../support/migration-database.js";
 
 registerFixedClock();
 
@@ -610,22 +611,154 @@ describe("sales sequence events", () => {
 });
 
 describe("migration 029 backfill", () => {
-  afterAll(() => migrateToLatest(database));
-
-  it("queues past entries, explicit preferences and links under the application's event ids", async () => {
-    await publishDefaultSequence();
-    await text("/start m_survey", 42, 7);
-    await text("/stop", 42, 8);
-    const linked = await link("42");
-    if (linked.status !== "linked") throw new Error("not linked");
-    const expected = await queued();
-    expect(expected).toHaveLength(3);
-
-    await migrateTo(database, "027-owner-link-activation");
-    await migrateToLatest(database);
-
-    expect(
-      (await queued()).sort((a, b) => a.eventId.localeCompare(b.eventId)),
-    ).toEqual(expected.sort((a, b) => a.eventId.localeCompare(b.eventId)));
+  it("queues past entries, explicit preferences and links under the application's event ids", async ({
+    signal,
+  }) => {
+    await withMigrationDatabase(
+      databaseUrl,
+      `sales_history_${randomUUID().replaceAll("-", "")}`,
+      async (historical) => {
+        await migrateTo(historical, "027-owner-link-activation");
+        const contact = randomUUID();
+        const funnel = randomUUID();
+        const source = randomUUID();
+        const linkRef = "historical-link-42";
+        const identityRef = "historical-identity-42";
+        const occurredAt = "2030-01-01T00:00:00.000Z";
+        const draft = {
+          funnelId: funnel,
+          name: "survey",
+          isDefault: true,
+          sources: [{ sourceId: source, code: "m_survey", name: "survey" }],
+          entryResponse: { stepId: randomUUID(), parts: [] },
+          steps: [],
+        };
+        const encodedDraft = JSON.stringify(draft);
+        // Actual pre-029 columns and facts, before canonical sequence owners existed.
+        await sql`
+        insert into bot_contacts (bot_identity, telegram_user_id, private_chat_id, contactability, first_started_at, last_started_at, updated_at)
+          values ('inside', 42, 42, 'reachable', ${occurredAt}::timestamptz, ${occurredAt}::timestamptz, ${occurredAt}::timestamptz)`.execute(
+          historical,
+        );
+        await sql`insert into communication_funnels (funnel_id, bot_identity, owner_account_ref, revision, published_revision, lifecycle, draft, published, is_default)
+          values (${funnel}::uuid, 'inside', 'synthetic-author', 1, 1, 'published', ${encodedDraft}::jsonb, ${encodedDraft}::jsonb, true)`.execute(
+          historical,
+        );
+        await sql`insert into communication_publications (funnel_id, revision, snapshot, published_at)
+          values (${funnel}::uuid, 1, ${encodedDraft}::jsonb, ${occurredAt}::timestamptz)`.execute(
+          historical,
+        );
+        await sql`insert into communication_sources (bot_identity, source_id, code, funnel_id)
+          values ('inside', ${source}::uuid, 'm_survey', ${funnel}::uuid)`.execute(
+          historical,
+        );
+        await sql`insert into communication_contacts (contact_id, bot_identity, telegram_user_id, marketing_enabled)
+          values (${contact}::uuid, 'inside', 42, false)`.execute(historical);
+        await sql`insert into communication_entries (bot_identity, update_id, contact_id, funnel_id, source_id, source_code, entered_at, outcome)
+          values ('inside', 7, ${contact}::uuid, ${funnel}::uuid, ${source}::uuid, 'm_survey', ${occurredAt}::timestamptz, 'entered')`.execute(
+          historical,
+        );
+        await sql`insert into communication_preferences (bot_identity, update_id, contact_id, enabled, observed_at)
+          values ('inside', 8, ${contact}::uuid, false, ${occurredAt}::timestamptz)`.execute(
+          historical,
+        );
+        await sql`insert into link_transactions (link_transaction_ref, account_ref, token_digest, return_correlation, expires_at, state, bot_identity, candidate_telegram_user_id, registered_at, received_at, confirmed_at)
+          values (${linkRef}, 'account-ref-a', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'return-42', '2030-01-01T01:00:00.000Z', 'linked', 'inside', 42, ${occurredAt}::timestamptz, ${occurredAt}::timestamptz, ${occurredAt}::timestamptz)`.execute(
+          historical,
+        );
+        await sql`insert into platform_links (telegram_identity_ref, bot_identity, telegram_user_id, account_ref, link_transaction_ref, linked_at)
+          values (${identityRef}, 'inside', 42, 'account-ref-a', ${linkRef}, ${occurredAt}::timestamptz)
+      `.execute(historical);
+        const preferences = await historical
+          .selectFrom("communication_preferences")
+          .selectAll()
+          .execute();
+        const links = await historical
+          .selectFrom("platform_links")
+          .selectAll()
+          .execute();
+        const expected: SalesFunnelEvent[] = [
+          {
+            eventId: salesFunnelEventId("bot_entered:inside:7"),
+            contactRef: contact,
+            occurredAt,
+            kind: "bot_entered",
+            sourceCode: "m_survey",
+          },
+          {
+            eventId: salesFunnelEventId("marketing_consent:inside:8"),
+            contactRef: contact,
+            occurredAt,
+            kind: "marketing_consent",
+            granted: false,
+          },
+          {
+            eventId: salesFunnelEventId(`account_linked:${linkRef}`),
+            contactRef: contact,
+            occurredAt,
+            kind: "account_linked",
+            telegramIdentityRef: identityRef,
+          },
+        ];
+        expected.sort((a, b) => a.eventId.localeCompare(b.eventId));
+        const events = async () =>
+          (
+            await historical
+              .selectFrom("sales_funnel_event_outbox")
+              .select("event")
+              .execute()
+          )
+            .map((row) => row.event)
+            .sort((a, b) => a.eventId.localeCompare(b.eventId));
+        await migrateTo(historical, "029-sales-funnel-events");
+        expect(await events()).toEqual(expected);
+        // Exercise actual 029.down before crossing the irreversible 037 contract.
+        await migrateTo(historical, "027-owner-link-activation");
+        const outbox = await sql<{ exists: boolean }>`select exists (
+          select 1 from information_schema.tables where table_schema = 'public'
+            and table_name = 'sales_funnel_event_outbox'
+        ) as exists`.execute(historical);
+        expect(outbox.rows[0]?.exists).toBe(false);
+        await migrateToLatest(historical);
+        expect(await events()).toEqual(expected);
+        await migrateToLatest(historical);
+        expect(await events()).toEqual(expected);
+        expect(
+          await historical
+            .selectFrom("communication_preferences")
+            .selectAll()
+            .execute(),
+        ).toEqual(preferences);
+        expect(
+          await historical.selectFrom("platform_links").selectAll().execute(),
+        ).toEqual(links);
+        expect(
+          await historical
+            .selectFrom("communication_contacts")
+            .select(["contact_id", "marketing_enabled"])
+            .execute(),
+        ).toEqual([{ contact_id: contact, marketing_enabled: false }]);
+        expect(
+          await historical
+            .selectFrom("communication_entries")
+            .select(["update_id", "sequence_id", "source_id", "source_code"])
+            .execute(),
+        ).toEqual([
+          {
+            update_id: "7",
+            sequence_id: funnel,
+            source_id: source,
+            source_code: "m_survey",
+          },
+        ]);
+        expect(
+          await historical
+            .selectFrom("communication_publications")
+            .select("snapshot")
+            .execute(),
+        ).toEqual([{ snapshot: draft }]);
+      },
+      { signal },
+    );
   });
 });

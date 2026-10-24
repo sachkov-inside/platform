@@ -1,9 +1,10 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { withMigrationDatabase } from "../support/migration-database.js";
 
-import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
 
@@ -14,80 +15,55 @@ if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 
-let database: Database;
-
-beforeAll(async () => {
-  database = createDatabase(databaseUrl);
-  await migrateToLatest(database);
-});
-
-beforeEach(async () => {
-  await sql`
-    truncate table
-      identity_link_recoveries,
-      membership_reconciliations,
-      membership_evidence_outbox,
-      membership_event_audit,
-      membership_check_results,
-      membership_checks,
-      membership_provider_observations,
-      membership_provider_state,
-      identity_link_events,
-      platform_links,
-      link_transactions,
-      start_response_delivery_attempts,
-      start_response_deliveries,
-      bot_contact_events,
-      bot_contacts,
-      telegram_updates
-    restart identity cascade
-  `.execute(database);
-});
-
-afterAll(async () => {
-  await database.destroy();
-});
-
 describe("Platform evidence conformance migration", () => {
-  it("backfills every historical producer source and enforces the vocabulary", async () => {
-    try {
-      await migrateTo(database, "005-membership-reconciliation");
-      const sourceColumnBefore = await sourceColumnExists();
-      expect(sourceColumnBefore).toBe(false);
+  it("backfills every historical producer source and enforces the vocabulary", async ({
+    signal,
+  }) => {
+    await withMigrationDatabase(
+      databaseUrl,
+      `evidence_history_${randomUUID().replaceAll("-", "")}`,
+      async (database) => {
+        try {
+          await migrateTo(database, "005-membership-reconciliation");
+          const sourceColumnBefore = await sourceColumnExists(database);
+          expect(sourceColumnBefore).toBe(false);
 
-      await seedHistoricalDeliveries();
-      await migrateToLatest(database);
+          await seedHistoricalDeliveries(database);
+          await migrateToLatest(database);
 
-      const deliveries = await database
-        .selectFrom("membership_evidence_outbox")
-        .select(["result_ref", "source"])
-        .orderBy("result_ref")
-        .execute();
-      expect(deliveries).toEqual([
-        { result_ref: "initial-link:1", source: "link_time" },
-        {
-          result_ref: "membership-event:inside:1",
-          source: "member_status_event",
-        },
-        {
-          result_ref: "reconciliation:identity-ref:1",
-          source: "reconciliation",
-        },
-      ]);
-      await expect(
-        sql`
+          const deliveries = await database
+            .selectFrom("membership_evidence_outbox")
+            .select(["result_ref", "source"])
+            .orderBy("result_ref")
+            .execute();
+          expect(deliveries).toEqual([
+            { result_ref: "initial-link:1", source: "link_time" },
+            {
+              result_ref: "membership-event:inside:1",
+              source: "member_status_event",
+            },
+            {
+              result_ref: "reconciliation:identity-ref:1",
+              source: "reconciliation",
+            },
+          ]);
+          await expect(
+            sql`
           update membership_evidence_outbox
           set source = 'untrusted'
           where result_ref = 'initial-link:1'
         `.execute(database),
-      ).rejects.toThrow();
-    } finally {
-      await migrateToLatest(database);
-    }
+          ).rejects.toThrow();
+        } finally {
+          await migrateToLatest(database);
+        }
+      },
+      { signal },
+    );
   });
 });
 
-async function sourceColumnExists(): Promise<boolean> {
+async function sourceColumnExists(database: Database): Promise<boolean> {
   const result = await sql<{ exists: boolean }>`
     select exists (
       select 1
@@ -100,7 +76,7 @@ async function sourceColumnExists(): Promise<boolean> {
   return result.rows[0]?.exists ?? false;
 }
 
-async function seedHistoricalDeliveries(): Promise<void> {
+async function seedHistoricalDeliveries(database: Database): Promise<void> {
   await sql`
     insert into link_transactions (
       link_transaction_ref,

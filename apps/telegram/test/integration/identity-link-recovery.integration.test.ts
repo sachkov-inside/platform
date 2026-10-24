@@ -1,7 +1,8 @@
 import { linkEffects } from "../../src/application/link-effects.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { withMigrationDatabase } from "../support/migration-database.js";
 
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -55,16 +56,25 @@ afterAll(async () => {
 });
 
 describe("IdentityLinkRecovery", () => {
-  it("rebuilds the owner recovery migration down and forward", async () => {
-    try {
-      await migrateTo(database, "006-platform-evidence-conformance");
-      await expect(tableExists("identity_link_recoveries")).resolves.toBe(
-        false,
-      );
-    } finally {
-      await migrateToLatest(database);
-    }
-    await expect(tableExists("identity_link_recoveries")).resolves.toBe(true);
+  it("rebuilds the owner recovery migration down and forward", async ({
+    signal,
+  }) => {
+    await withMigrationDatabase(
+      databaseUrl,
+      `recovery_history_${randomUUID().replaceAll("-", "")}`,
+      async (historical) => {
+        await migrateTo(historical, "007-owner-identity-recovery");
+        await migrateTo(historical, "006-platform-evidence-conformance");
+        await expect(
+          tableExists("identity_link_recoveries", historical),
+        ).resolves.toBe(false);
+        await migrateToLatest(historical);
+        await expect(
+          tableExists("identity_link_recoveries", historical),
+        ).resolves.toBe(true);
+      },
+      { signal },
+    );
   });
 
   it("rolls back ownership transfer when its immutable recovery audit cannot commit", async () => {
@@ -415,7 +425,10 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
 
-async function tableExists(tableName: string): Promise<boolean> {
+async function tableExists(
+  tableName: string,
+  database: Database,
+): Promise<boolean> {
   const result = await sql<{ exists: boolean }>`
     select exists (
       select 1

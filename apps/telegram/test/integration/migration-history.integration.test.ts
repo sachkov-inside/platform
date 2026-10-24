@@ -7,9 +7,10 @@ import { communicationFunnelsMigration } from "../../src/database/migrations/011
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import type { Migration } from "kysely/migration";
-import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it } from "vitest";
 
-import { createDatabase } from "../../src/database/create-database.js";
+import type { Database } from "../../src/database/database.js";
+import { createMigrationDatabase } from "../support/migration-database.js";
 import {
   migrateDown,
   migrateTo,
@@ -35,10 +36,16 @@ registerFixedClock();
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl))
   throw new Error("DATABASE_URL is required for integration tests");
-const database = createDatabase(databaseUrl);
-beforeAll(() => migrateToLatest(database));
+let database: Database;
 let historicalStep = 0;
-beforeEach(async () => {
+beforeEach(async ({ signal, onTestFinished }) => {
+  const fixture = await createMigrationDatabase(
+    databaseUrl,
+    `migration_history_${randomUUID().replaceAll("-", "")}`,
+    { signal },
+  );
+  onTestFinished(() => fixture.close());
+  database = fixture.database;
   await migrateTo(database, "007-owner-identity-recovery");
   // The retained deployment precedes historical steps and Kysely's fixed-time upgrades.
   const deployedAt = new Date(fixedTestInstant() - 1000).toISOString();
@@ -47,17 +54,6 @@ beforeEach(async () => {
   );
   historicalStep = 0;
 });
-afterAll(async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(fixedTestInstant());
-  try {
-    await migrateToLatest(database);
-  } finally {
-    vi.useRealTimers();
-    await database.destroy();
-  }
-});
-
 // Reconstruct the real pre-merge histories using their unchanged migrations and ledger keys.
 async function applyHistorical(
   name: string,
@@ -138,16 +134,27 @@ it.each(["communications-first", "sign-in-first"] as const)(
         ).toEqual({ reserved_for_sign_in: true });
       }
     };
-    await migrateToLatest(database);
+    await migrateTo(database, "036-material-announcements");
     await assertPreserved();
     await migrateDown(database);
-    await migrateToLatest(database);
+    await migrateTo(database, "036-material-announcements");
     await assertPreserved();
     await migrateToLatest(database);
+    await assertPreserved();
+    await expect(migrateDown(database)).rejects.toMatchObject({
+      message: "Database rollback failed",
+      cause: {
+        message:
+          "Incompatible communication contract: restore the pre-contract backup with dispatch held, then migrate forward",
+      },
+    });
+    await assertPreserved();
+    await migrateToLatest(database);
+    await assertPreserved();
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("37");
+    expect(ledger.rows[0]?.count).toBe("38");
   },
 );
 
@@ -169,7 +176,7 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
     values (${input.operationId}, ${digest(input)}, ${input.actorRef}, ${input.reason}, ${now})`.execute(
     database,
   );
-  await migrateToLatest(database);
+  await migrateTo(database, "036-material-announcements");
   const read = () =>
     database
       .selectFrom("community_restriction_decisions")
@@ -185,7 +192,17 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
   );
   expect(await read()).toEqual(historical);
   await migrateDown(database);
+  await migrateTo(database, "036-material-announcements");
+  expect(await read()).toEqual(historical);
   await migrateToLatest(database);
+  expect(await read()).toEqual(historical);
+  await expect(migrateDown(database)).rejects.toMatchObject({
+    message: "Database rollback failed",
+    cause: {
+      message:
+        "Incompatible communication contract: restore the pre-contract backup with dispatch held, then migrate forward",
+    },
+  });
   expect(await read()).toEqual(historical);
 });
 
