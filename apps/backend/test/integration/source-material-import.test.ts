@@ -184,7 +184,7 @@ describe("authoring source Material", () => {
     });
   });
 
-  test("ordinary writes cannot change a source programme and removing the final paid feed placement fails", async () => {
+  test("ordinary writes cannot change a source programme and legacy feed flags cannot block explicit catalogue removal", async () => {
     const { authoring } = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
@@ -285,13 +285,7 @@ describe("authoring source Material", () => {
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [],
       }),
-    ).toMatchObject({
-      ok: false,
-      error: {
-        code: "invalid_reference",
-        issues: [{ code: "standalone_feed_material_must_be_free" }],
-      },
-    });
+    ).toMatchObject({ ok: true });
     expect(
       await database.prisma.material.findUnique({
         where: { id: reserved.value.materialId },
@@ -302,7 +296,7 @@ describe("authoring source Material", () => {
       await database.prisma.productMembership.count({
         where: { materialId: reserved.value.materialId },
       }),
-    ).toBe(1);
+    ).toBe(0);
   });
 
   test("a composition names the Material whose source ownership differs from the Product", async () => {

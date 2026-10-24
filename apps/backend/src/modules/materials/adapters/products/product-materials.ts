@@ -29,7 +29,6 @@ export function assembleProductMaterials(
             publicationState: true,
             title: true,
             access: true,
-            showInFeed: true,
             topicId: true,
           },
         }),
