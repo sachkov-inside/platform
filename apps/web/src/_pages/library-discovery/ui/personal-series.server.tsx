@@ -2,7 +2,12 @@ import "server-only";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { resolveAccount } from "@/shared/api/backend/index.server";
 import { getQueryClient } from "@/shared/api/query-client";
-import { getSeriesContinuation } from "@/features/reading-progress.server";
+import {
+  readProductReaderState,
+  type ProductReaderState,
+} from "@/widgets/product-reader-state/index.server";
+import { currentBillingQueryKey } from "@/features/billing-subscription";
+import { productCommunityQueryKey } from "@/features/community-entry";
 import { seriesContinuationQueryKey } from "@/features/reading-progress";
 import type { PreorderPrice, PriceSnapshot } from "@/entities/subscription";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
@@ -24,6 +29,7 @@ export async function PersonalSeries({
   artifacts,
   result,
   accessToken,
+  readerState,
   preorder = null,
   productOffer = null,
   subscriptionOffered = false,
@@ -31,6 +37,7 @@ export async function PersonalSeries({
   readonly artifacts: ReaderProductArtifactsResult;
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly accessToken?: string;
+  readonly readerState?: ProductReaderState;
   /** Цена предзаказа рядом с ценой после старта, пока поток набирается. */
   readonly preorder?: PreorderPrice | null;
   readonly productOffer?: PriceSnapshot | null;
@@ -41,11 +48,30 @@ export async function PersonalSeries({
   if (accessToken !== undefined) {
     try {
       accountId = (await resolveAccount(accessToken)).accountId;
-      await client.query({
-        queryKey: seriesContinuationQueryKey(accountId, result.reference.slug),
-        queryFn: () =>
-          getSeriesContinuation(result.reference.slug, accessToken),
-      });
+      const state =
+        readerState ??
+        (result.reference.id === undefined
+          ? null
+          : await readProductReaderState(
+              result.reference.id,
+              result.reference.slug,
+            ));
+      if (state?.kind === "learning") {
+        client.setQueryData(
+          seriesContinuationQueryKey(accountId, result.reference.slug),
+          state.continuation,
+        );
+        if ("billing" in state.onboarding)
+          client.setQueryData(currentBillingQueryKey, {
+            ok: true,
+            value: state.onboarding.billing,
+          });
+        if (state.onboarding.kind === "ready")
+          client.setQueryData(
+            productCommunityQueryKey(accountId, state.productId),
+            { ok: true, value: state.onboarding.entry },
+          );
+      }
     } catch {
       accountId = null;
     }

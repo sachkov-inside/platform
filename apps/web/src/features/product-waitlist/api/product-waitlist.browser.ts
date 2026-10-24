@@ -21,8 +21,12 @@ export async function readWaitlist(
     ? { kind: "unavailable" as const }
     : (parsed ?? { kind: "unavailable" as const });
 }
-export function beginWaitlistIntent(productId: string, source: string | null) {
-  return beginWaitlistIntentOperation.send({ productId, source });
+export function beginWaitlistIntent(
+  productId: string,
+  source: string | null,
+  productSlug: string,
+) {
+  return beginWaitlistIntentOperation.send({ productId, source, productSlug });
 }
 export function joinWaitlist(productId: string) {
   return joinWaitlistOperation.send({ productId });

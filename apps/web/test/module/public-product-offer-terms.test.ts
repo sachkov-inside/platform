@@ -8,7 +8,7 @@ const boundary = vi.hoisted(() => ({
 }));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestBillingOffers: boundary.offers,
-  requestProductCohorts: boundary.cohorts,
+  requestProductSalesStates: boundary.cohorts,
   requestProductAccess: boundary.access,
 }));
 vi.mock("@/shared/auth/index.server", () => ({

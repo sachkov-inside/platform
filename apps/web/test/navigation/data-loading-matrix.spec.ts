@@ -410,7 +410,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
         const courseReads = courseTrace.filter(
           (record) =>
             record.path.startsWith("/billing/product-prices?") ||
-            record.path.startsWith("/billing/cohorts"),
+            record.path.startsWith("/billing/product-sales-states"),
         );
         await save(`course-count-${info.project.name}-${role}-${path}`, {
           role,
@@ -889,7 +889,10 @@ for (const role of ["guest", "non-owner"] as const) {
     await reset(request);
     try {
       await page.goto(course, { waitUntil: "commit" });
-      const status = page.locator(".aie-cohort-status");
+      const status = page
+        .locator(".aie-cohort-status")
+        .filter({ visible: true });
+      await expect(status).toHaveCount(1);
       await expect(status).toBeVisible();
       await expect(status).toContainText(
         role === "guest" ? /9\s*900/u : /8\s*900/u,
@@ -914,7 +917,7 @@ for (const role of ["guest", "non-owner"] as const) {
         record.path.startsWith("/billing/product-prices?"),
       );
       const cohorts = after.filter((record) =>
-        record.path.startsWith("/billing/cohorts"),
+        record.path.startsWith("/billing/product-sales-states"),
       );
       expect(offers).toHaveLength(1);
       expect(offers[0]?.role).toBe(role);

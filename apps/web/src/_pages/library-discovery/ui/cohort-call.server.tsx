@@ -1,14 +1,8 @@
 import "server-only";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
-import { connection } from "next/server";
 
 import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
-import { loadProductCohort } from "@/entities/subscription.catalog.server";
-import {
-  readGuestProductSale,
-  readProductAccess,
-  readViewerProductSale,
-} from "@/entities/subscription.sale.server";
+import { readProductReaderState } from "@/widgets/product-reader-state/index.server";
 import {
   CohortCallView,
   CourseLearningLink,
@@ -17,8 +11,6 @@ import {
   type CohortCall,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { getSeriesContinuation } from "@/features/reading-progress.server";
-import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
@@ -43,134 +35,102 @@ export async function PersonalCohortCall({
 }: {
   readonly result: ResolvedSeries;
 }) {
-  await connection();
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return <PendingCohortCall slug={slug} />;
-  const accessToken = await getOptionalPlatformAccessToken();
-  if (
-    accessToken !== undefined &&
-    (await readProductAccess(productId, accessToken)) === "open"
-  ) {
-    const progress = await getSeriesContinuation(slug, accessToken);
+  const state = await readProductReaderState(productId, slug);
+  if (state.kind === "learning")
     return (
-      <>
-        <CohortCallView
-          call={{
-            banner: null,
-            action: courseLearningAction(
-              slug,
-              progress.kind === "ready"
-                ? (progress.continuation?.materialSlug ?? null)
-                : null,
-            ),
-          }}
-        />
-      </>
+      <CohortCallView
+        call={{
+          banner: null,
+          action: courseLearningAction(
+            slug,
+            state.continuation.kind === "ready"
+              ? (state.continuation.continuation?.materialSlug ?? null)
+              : null,
+          ),
+        }}
+      />
     );
-  }
-  const sale = await (accessToken === undefined
-    ? readGuestProductSale(productId)
-    : readViewerProductSale(productId, accessToken));
-  if (
-    slug === "ai-engineering" &&
-    sale.kind !== "unavailable" &&
-    sale.offers.length === 0
-  )
-    return <ProductWaitlistSlot />;
+  if (state.kind === "waitlist") return <ProductWaitlistSlot />;
+  const sale = state.sale;
   return (
     <>
-      {sale.kind === "unavailable" || !sale.cohortKnown ? (
+      {state.kind === "checking" ||
+      state.kind === "unavailable" ||
+      sale.kind === "unavailable" ||
+      !sale.cohortKnown ? (
         <PendingCohortCall slug={slug} />
       ) : (
         <CohortCallView
           call={cohortCall({
             cohort: sale.cohort,
             offer: sale.offers[0] ?? null,
-            productAccess: sale.access,
-            signedIn: sale.signedIn,
+            productAccess: state.access,
+            signedIn: state.signedIn,
             slug,
           })}
         />
       )}
-      {slug === "ai-engineering" &&
-      sale.kind !== "unavailable" &&
-      sale.access !== "open" ? (
+      {state.waitlist.kind === "ready" ? (
         <ProductWaitlistSlot existingOnly />
       ) : null}
     </>
   );
 }
 
-/**
- * Личная часть нижнего блока: участник продолжает обучение, остальные видят набор на поток.
- */
+/** Every slot displays the same request-scoped reader projection. */
 export async function PersonalCohortStatus({
   result,
 }: {
   readonly result: ResolvedSeries;
 }) {
-  await connection();
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;
-  const accessToken = await getOptionalPlatformAccessToken();
-  if (
-    accessToken !== undefined &&
-    (await readProductAccess(productId, accessToken)) === "open"
-  )
+  const state = await readProductReaderState(productId, slug);
+  if (state.kind === "learning")
     return <CourseLearningLink slug={slug} placement="status" />;
-  const sale = await (accessToken === undefined
-    ? readGuestProductSale(productId)
-    : readViewerProductSale(productId, accessToken));
-  if (
-    slug === "ai-engineering" &&
-    sale.kind !== "unavailable" &&
-    sale.access !== "open" &&
-    sale.offers.length === 0
-  )
-    return <ProductWaitlistSlot lower />;
+  if (state.kind === "waitlist") return <ProductWaitlistSlot lower />;
+  const sale = state.sale;
   const status =
-    sale.kind === "unavailable" || !sale.cohortKnown
+    state.kind === "checking" ||
+    state.kind === "unavailable" ||
+    sale.kind === "unavailable" ||
+    !sale.cohortKnown
       ? null
       : cohortStatus({
           cohort: sale.cohort,
           offer: sale.offers[0] ?? null,
-          productAccess: sale.access,
+          productAccess: state.access,
           slug,
         });
   return (
     <>
       {status === null ? null : <CohortStatusView status={status} />}
-      {slug === "ai-engineering" &&
-      sale.kind !== "unavailable" &&
-      sale.access !== "open" ? (
+      {state.waitlist.kind === "ready" ? (
         <ProductWaitlistSlot existingOnly />
       ) : null}
     </>
   );
 }
 
-/**
- * На анимации остаётся наклейка до старта потока; участнику доступно действие обучения.
- */
 export async function PersonalCourseFilmOverlay({
   result,
 }: {
   readonly result: ResolvedSeries;
 }) {
-  await connection();
-  const productId = result.reference.id;
+  const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;
-  const accessToken = await getOptionalPlatformAccessToken();
-  const learningAvailable =
-    accessToken !== undefined &&
-    (await readProductAccess(productId, accessToken)) === "open";
-  const read = await loadProductCohort(productId);
-  const countdown = read.kind === "ready" ? cohortCountdown(read.cohort) : null;
+  const state = await readProductReaderState(productId, slug);
+  const countdown =
+    state.sale.kind === "ready" && state.sale.cohortKnown
+      ? cohortCountdown(state.sale.cohort)
+      : null;
   return (
     <>
       {countdown === null ? null : <StartCountdownBadge text={countdown} />}
-      {learningAvailable ? (
-        <CourseLearningLink slug={result.reference.slug} placement="film" />
+      {state.kind === "learning" ? (
+        <CourseLearningLink slug={slug} placement="film" />
       ) : null}
     </>
   );

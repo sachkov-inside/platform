@@ -1,3 +1,4 @@
+import { productReaderStateRoute } from "./product-reader-state-backend.mjs";
 // @ts-check
 /**
  * Подставной backend для проверок переходов на production-сборке (#670).
@@ -971,6 +972,13 @@ const server = createServer(async (request, response) => {
       .parse(JSON.parse(await readBody(request)));
     holdNavigationTasks(hold);
     send(200, { hold });
+    return;
+  }
+  const readerState = productReaderStateRoute(request, url, {
+    baseRoute: route,
+  });
+  if (readerState !== null) {
+    send(readerState.status, readerState.value);
     return;
   }
   const metrics = await dataLoadingMetricsRoute(request, url, readBody, {
