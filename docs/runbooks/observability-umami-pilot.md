@@ -231,7 +231,8 @@ session properties/identity links по собственному времени �
 к известным временам событий; NULL учитываются отдельно. Отдельные orphan rows не получают
 выдуманного event time. Это не hard quota, моментальное освобождение файла БД или обещание
 пустого будущего snapshot. Native Prisma relations для telemetry не создают database FK:
-поздняя запись может потребовать следующего прохода. Полноценный scheduler, проверка очистки
+поздняя запись может потребовать следующего прохода. Выключенный по умолчанию ежедневный
+scheduler подготовлен [ниже](#ежедневная-очистка-и-источник-удалений). Проверка очистки
 в следующие сутки и поведение при неограниченном backlog остаются pending.
 
 Отдельный реальный PostgreSQL 16.13 Testcontainers contract прошёл с точными 26 миграциями
@@ -313,9 +314,11 @@ PostgreSQL выделены в профиль `maintenance-only`, SQL-читат
 `readers-after-replay`. Контроллер регистрирует оба профиля также для cleanup/recovery.
 Нельзя запускать эти профили вручную вместо контроллера.
 
-`infra/observability/umami/recovery-cache.lock.json` закрепляет существующий локальный ARM64
-foundation cache и хеши Dockerfile/init/restore/config. Runtime требует точного image ID,
-соответствия собственного cache tag и архитектуры. Нет fallback build или pull.
+`infra/observability/umami/recovery-cache.lock.json` сохраняет исторический локальный ARM64
+foundation cache. Текущий runtime принимает отдельно подготовленную source-bound квитанцию
+через `--foundation-cache`, описанную [ниже](#текущая-foundation-для-изолированного-восстановления).
+Он требует точного image ID, собственного cache tag и архитектуры. Runtime сам не выполняет
+fallback build или pull.
 
 Этот cache record закреплён на историческом source `3a501dcafb83b83c8b126147b11f50e484037185`
 с pgBackRest 2.57.0. Текущий production foundation использует 2.59.3, поэтому обычная
@@ -331,7 +334,7 @@ runtime-проверка отвергает старый record до подго�
 настоящего validator. Этот профиль проверяет исторический foundation с текущим
 контроллером. Он не доказывает наличие пригодного текущего cache, image или успешного
 восстановления 2.59.3. Отдельный тест без подмены подтверждает отказ старого record на
-текущих исходниках. Запрет экспериментов после failed-RNG в #1579 сохраняется.
+текущих исходниках. Исторический профиль не используется для новой runtime-проверки.
 
 На Mac ожидаемый Compose hash заранее включает только точное добавление `storage-probe`
 публичным supervisor. Оно вычисляется из frozen daemon identity, закреплённого probe lock
@@ -340,8 +343,9 @@ runtime-проверка отвергает старый record до подго�
 параметров probe, private config или первоначального `init.sql` останавливают вход до
 Docker I/O. Это исправление PG-BIND-1, обнаруженного до первого runtime-запуска кандидата.
 
-Контроллер также проверяет фактические PostgreSQL 18.4 и pgBackRest 2.57.0. Несоответствие
-версии останавливает проверку. Production Dockerfile, WAL и backup конфигурация не меняются.
+Контроллер проверяет фактический PostgreSQL 18.4 и версию pgBackRest из source-bound
+квитанции текущей foundation (2.59.3). Исторический fixture сохраняет отдельную проверку
+2.57.0. Несоответствие версии останавливает проверку. Production Dockerfile, WAL и backup конфигурация не меняются.
 Частная конфигурация использует собственный POSIX repository и новый случайный cipher pass.
 
 В одном исходном кластере создаются синтетические Platform и Umami базы. Umami сохраняет
@@ -510,8 +514,9 @@ cleanup не является успешным запуском. `compose.json` 
 mode 0600 в private mode 0700 directory и нужен для cleanup. Его нельзя публиковать,
 как и весь private output directory. Копировать можно только перечисленные curated artifacts.
 
-Источник актуальных production-удалений остаётся неизвестным. Синтетический manifest
-доказывает лишь механизм повтора и порядок допуска. Плановая очистка в следующие сутки,
+Синтетический manifest выше доказывает только механизм повтора и порядок допуска.
+Для production подготовлен отдельный [внешний журнал удалений](#ежедневная-очистка-и-источник-удалений),
+его инициализация и включение в production пока не выполнялись. Плановая очистка в следующие сутки,
 Umami HTTP/native MCP restore, production S3 recovery, ресурсные критерии и семь суток
 наблюдений остаются отдельными непроверенными требованиями #1565/#1566.
 
@@ -521,3 +526,116 @@ Production encryption отдельно блокирует #1579. [Официал
 срезе 2.57 сохранён только для синтетической совместимости. Его запуск не доказывает
 пригодность production-шифрования. Обновление binary само по себе не заменяет старые
 stanza subkeys. Дальнейшая работа с foundation и существующим repository относится к #1579.
+
+## Текущая foundation для изолированного восстановления
+
+Исторический `recovery-cache.lock.json` сохраняется как fixture прежнего pgBackRest 2.57.0.
+Для текущей foundation используйте отдельную локальную квитанцию. Она фиксирует commit,
+все пять файлов build context, фактические image ID и архитектуру, а также версию pgBackRest
+из закреплённого Dockerfile. Подготовка не публикует образ и не меняет production:
+
+```bash
+bash scripts/heavy-check.sh python3 -B scripts/observability-umami/foundation.py \
+  --output .reports/umami-foundation-current.json
+bash scripts/heavy-check.sh python3 -B scripts/observability-umami/recovery_runtime.py run \
+  --output .reports/umami-recovery-current \
+  --foundation-cache .reports/umami-foundation-current.json
+```
+
+Рабочее дерево перед запуском должно быть чистым. Изменённый foundation context требует
+новой сборки. Квитанция проверяется повторно перед приобретением ресурсов, включая source
+label фактического образа. Старую machine-specific квитанцию нельзя исправлять вручную.
+Образ, проект и тома этого доказательства отделены от общего stand.
+
+Отдельная проверка SQL и внешнего источника удалений использует тот же текущий образ:
+
+```bash
+bash scripts/heavy-check.sh env UMAMI_FOUNDATION_CACHE=.reports/umami-foundation-current.json \
+  python3 -B scripts/observability-umami/native_maintenance.py
+```
+
+Она создаёт свой PostgreSQL container без сети и host ports, проверяет права роли,
+многостраничное удаление и повтор после восстановления синтетического `pg_dump`.
+Это отдельный SQL proof, а не замена полного pgBackRest restore или S3 recovery.
+
+## Ежедневная очистка и источник удалений
+
+Подготовлены [maintenance.py](../../scripts/observability-umami/maintenance.py),
+[настройка базы](../../scripts/observability-umami/setup_database.py) и выключенные по умолчанию
+[systemd units](../../infra/observability/production/systemd/inside-umami-maintenance.timer).
+Установка units, доступ к PostgreSQL и включение timer выполняются
+только при отдельно разрешённом развёртывании. Само наличие файлов ничего не запускает.
+
+`setup_database.py --password-file <configuration>/umami.database.password` требует
+`INSIDE_UMAMI_SETUP_ENABLED=true` и настроенный SQL transport. Административная роль
+фиксирована как `postgres`; для прямого подключения задаются `PGHOST`, `PGPORT`, `PGPASSFILE`
+и параметры TLS. Пароль Umami читается из отдельного файла режима `0600`, принадлежащего
+оператору, передаётся через stdin и не выводится. База `umami` находится в существующем
+кластере PostgreSQL, поэтому входит в тот же полный backup pgBackRest. Отдельный кластер
+не создаётся. Роль `umami` получает только свою базу, максимум восемь соединений,
+`statement_timeout=5s` и `idle_in_transaction_session_timeout=10s`. Перед отзывом PUBLIC
+CONNECT скрипт сохраняет прежние эффективные права существующих обычных ролей на `inside`, `logto`,
+`postgres` и `template1`. Для новых ролей общий CONNECT автоматически не появляется.
+Неявная роль `pg_database_owner` не получает дополнительных прав. Неожиданное владение
+другой базой или членство роли `umami` останавливает подготовку.
+
+Единственный источник ранее принятых удалений, `deletions.json`, хранится **вне PostgreSQL**,
+в отдельном private каталоге `/var/lib/inside-umami-maintenance` режима `0700`. Файл и его
+lock имеют режим `0600`. Он содержит только случайный ID запроса, website UUID и UUID
+события или сессии. Имена, адреса почты, URL и содержимое событий не принимаются.
+Эти идентификаторы всё равно являются закрытыми данными. Каталог требует отдельного
+зашифрованного резервного копирования и актуального источника восстановления. Его нельзя
+заменять копией из времени восстанавливаемого PostgreSQL backup.
+
+Инициализация выполняется один раз перед приёмом первого запроса:
+
+```bash
+INSIDE_UMAMI_MAINTENANCE_ENABLED=true python3 -B scripts/observability-umami/maintenance.py \
+  initialize --journal /var/lib/inside-umami-maintenance/deletions.json
+```
+
+Для записи запроса используйте action `request`, тот же `--journal`, `--request-id`,
+`--website-id`, `--kind event|session|website` и `--target-id`. UUID сайта является target
+для `kind website`. Это удаление аналитических записей сайта, его конфигурация и аккаунты
+Umami сохраняются. `session` удаляет связанные события, свойства, revenue, идентификаторы,
+replay и heatmap. `event` удаляет событие и его event_data/revenue. Повтор request ID с теми
+же параметрами идемпотентен; другие параметры отклоняются. Успешная запись означает приём
+запроса, физическое удаление подтверждает следующий успешный запуск обслуживания.
+
+Запись журнала с `fsync` завершается **до** удаления из базы. Сбой после записи не теряет
+запрос. Запросы не удаляются из журнала и повторяются после восстановления старого backup.
+Лимит составляет 10 000 запросов и 8 MiB. При достижении лимита приём новых запросов
+останавливается; удалять старые записи для обхода лимита нельзя, пока доступен backup,
+из которого они могут вернуться. Архивация источника требует отдельного решения.
+
+`maintenance.py run` сначала повторяет все удаления, затем применяет существующую очистку
+365 дней по текущим часам базы, затем повторно проверяет удаления. Используются отдельная
+роль/база `umami`, фиксированные таблицы, транзакции, advisory lock и партии до 500 строк.
+Зависимые записи удаляются перед родителями; заполненная партия требует следующего прохода.
+Частичный результат или ошибка дают ненулевой exit code, а не успешный статус.
+В стандартной topology production у PostgreSQL нет опубликованного порта. Поэтому
+пример service использует `INSIDE_UMAMI_SQL_TRANSPORT=docker`: локальный Unix endpoint,
+единственный running container с точными Compose project/service labels и повторная
+проверка его полного ID. `psql` работает внутри этого контейнера через stdin. Для обычного
+подключения к PostgreSQL доступен transport `postgresql`, принимающий только `PGHOST`,
+`PGPORT`, `PGPASSFILE`, `PGSSLMODE`, `PGSSLROOTCERT`. Пользователь и база обслуживания
+фиксированы как `umami`, административной настройки как `postgres`. Полные SQL, credentials и UUID запросов
+не попадают в отчёт. Пароль подключения находится в private `.pgpass`, а не в argv.
+
+Timer запускается ежедневно в 03:15 UTC, пропущенный запуск выполняется после включения
+хоста. Service запускается от root для существующего локального Docker daemon; новая роль
+в группе docker не создаётся. Для включения нужны checkout в
+`/opt/inside-platform`, Docker CLI (либо host `psql` для прямого transport), актуальный журнал и файл
+`/etc/inside/umami-maintenance.env` на основе [примера](../../infra/observability/production/systemd/umami-maintenance.env.example).
+По умолчанию `INSIDE_UMAMI_MAINTENANCE_ENABLED=false`. У service лимиты 128 MiB,
+25% одного CPU и 120 секунд. Ненулевой результат требует проверки `systemctl status` и
+повторного запуска; успешный timer не доказывает освобождение физического диска или
+достаточность ресурсов при произвольном объёме накопленной истории.
+
+При восстановлении сначала остановите Umami, ingest bridge и query gateway. После
+восстановления базы выполните `maintenance.py restore` с **актуальным внешним журналом**
+и подключением к восстановленной базе. Только exit code `0` разрешает оператору перейти
+к запуску Umami, bridge и gateway. Сам скрипт сервисы не запускает. При отсутствующем,
+повреждённом или устаревшем источнике удалений доступ остаётся закрытым. Создавать новый
+пустой журнал вместо потерянного источника нельзя. Настройка production scheduler и
+восстановление в production в рамках подготовки не выполняются.
