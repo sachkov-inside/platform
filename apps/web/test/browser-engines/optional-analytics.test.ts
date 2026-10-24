@@ -89,6 +89,7 @@ test("real browser choice persists, refuses and revokes in two tabs before any f
     expect(captured[0]).toEqual({
       revision: "3",
       event: "material_view",
+      entityId: "10000000-0000-4000-8000-000000000001",
       campaign: "telegram",
       referrer: "direct",
     });

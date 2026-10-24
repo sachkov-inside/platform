@@ -18,6 +18,8 @@ export interface MutationOperationDefinition<
 > {
   readonly input: Input;
   readonly method: MutationMethod;
+  /** A capability may lower, never raise, the shared JSON body ceiling. */
+  readonly maxBodyBytes?: number;
   readonly path: `/api/${string}`;
   readonly result: Result;
   /** Maps a failed request or a malformed answer to the feature's own outcome. */

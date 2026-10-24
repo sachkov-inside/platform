@@ -100,7 +100,10 @@ export function chooseAnalytics(
   publish();
   return true;
 }
-export async function captureAnalytics(event: AnalyticsEvent) {
+export async function captureAnalytics(
+  event: AnalyticsEvent,
+  entityId: string,
+) {
   if (
     revision === null ||
     refusedInMemory ||
@@ -122,6 +125,7 @@ export async function captureAnalytics(event: AnalyticsEvent) {
       {
         revision: current,
         event,
+        entityId,
         ...analyticsSources(window.location.href, document.referrer),
       },
       AbortSignal.any([

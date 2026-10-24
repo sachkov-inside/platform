@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -5,7 +6,12 @@ import { seedLocalDevelopment } from "../../src/development/seed-local-developme
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { readReaderReference } from "../../src/modules/content-library/features/read-reader-reference/read-reader-reference.js";
+import {
+  ProductDirectory,
+  PublishedMaterialSelection,
+  assembleMaterials,
+} from "../../src/modules/materials/index.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -27,6 +33,97 @@ describe("ListPublishedMaterials", () => {
 
   afterAll(async () => {
     await testDatabase.dispose();
+  });
+
+  test("reader references confirm public business identities through the existing owners, never drafts or archived guest Products", async () => {
+    const { contentAccess } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    const dependencies = {
+      directory: new ProductDirectory(testDatabase.prisma),
+      selection: new PublishedMaterialSelection(testDatabase.prisma),
+      contentAccess,
+    };
+    for (const [slug, availability] of [
+      ["kak-ustroen-inside-platform", "available"],
+      ["developer-pipeline-bez-poteri-konteksta", "locked"],
+    ] as const) {
+      const material =
+        await testDatabase.prisma.publishedMaterial.findUniqueOrThrow({
+          where: { slug },
+        });
+      expect(
+        await readReaderReference(
+          dependencies,
+          anonymousSubject,
+          "material",
+          material.materialId,
+        ),
+      ).toEqual({
+        ok: true,
+        value: { id: material.materialId, kind: "material", availability },
+      });
+      await testDatabase.prisma.material.update({
+        where: { id: material.materialId },
+        data: { publicationState: "draft" },
+      });
+      try {
+        expect(
+          await readReaderReference(
+            dependencies,
+            anonymousSubject,
+            "material",
+            material.materialId,
+          ),
+        ).toEqual({ ok: false, code: "not_found" });
+      } finally {
+        await testDatabase.prisma.material.update({
+          where: { id: material.materialId },
+          data: { publicationState: "published" },
+        });
+      }
+    }
+    const id = randomUUID();
+    await testDatabase.prisma.product.create({
+      data: { id, slug: `reference-${id}`, name: "Reference Product" },
+    });
+    try {
+      expect(
+        await readReaderReference(
+          dependencies,
+          anonymousSubject,
+          "product",
+          id,
+        ),
+      ).toEqual({
+        ok: true,
+        value: { id, kind: "product", availability: "available" },
+      });
+      await testDatabase.prisma.product.update({
+        where: { id },
+        data: { archivedAt: new Date("2030-01-01T00:00:00.000Z") },
+      });
+      expect(
+        await readReaderReference(
+          dependencies,
+          anonymousSubject,
+          "product",
+          id,
+        ),
+      ).toEqual({ ok: false, code: "not_found" });
+    } finally {
+      await testDatabase.prisma.product.delete({ where: { id } });
+    }
+    for (const kind of ["product", "material"] as const)
+      expect(
+        await readReaderReference(
+          dependencies,
+          anonymousSubject,
+          kind,
+          randomUUID(),
+        ),
+      ).toEqual({ ok: false, code: "not_found" });
   });
 
   test("continues through deterministic pages of safe published projections", async () => {

@@ -5,8 +5,10 @@ import type { AnalyticsEvent } from "../model/analytics-contract";
 /** Observe a visible rendered state. Server renders and route prefetch never send events. */
 export function AnalyticsObservation({
   event,
+  entityId,
 }: {
   readonly event: AnalyticsEvent;
+  readonly entityId: string;
 }) {
   const marker = useRef<HTMLSpanElement>(null);
   const { revision, choice } = useAnalyticsChoice();
@@ -23,7 +25,7 @@ export function AnalyticsObservation({
         element.closest("[inert]") === null
       ) {
         sent = true;
-        void captureAnalytics(event);
+        void captureAnalytics(event, entityId);
       }
     };
     const observer = new IntersectionObserver((entries) => {
@@ -36,7 +38,7 @@ export function AnalyticsObservation({
       observer.disconnect();
       document.removeEventListener("visibilitychange", capture);
     };
-  }, [event, revision, choice]);
+  }, [event, entityId, revision, choice]);
   return (
     <span
       ref={marker}

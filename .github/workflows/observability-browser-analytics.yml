@@ -1,0 +1,78 @@
+name: Browser analytics native proof
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/observability-browser-analytics.yml
+      - .github/actions/setup-platform/**
+      - apps/web/**
+      - packages/legal/**
+      - infra/observability/umami/**
+      - scripts/observability-umami/**
+      - scripts/observability-pilot/**
+      - package.json
+      - pnpm-lock.yaml
+      - .node-version
+
+permissions:
+  contents: read
+concurrency:
+  group: browser-analytics-${{ github.event.pull_request.number }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  INSIDE_UMAMI_BROWSER_PROOF: "true"
+
+jobs:
+  browser-native:
+    name: Isolated Chromium to Web handler to native Umami
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pinned dependencies and Chromium
+        uses: ./.github/actions/setup-platform
+        with:
+          browsers: chromium
+      - name: Bind exact source and measured Docker disk admission
+        run: >-
+          python3 scripts/observability-umami/hosted.py admission
+          --output "$RUNNER_TEMP/browser-analytics-private"
+          --metadata "$RUNNER_TEMP/browser-analytics-metadata"
+          --public "$RUNNER_TEMP/browser-analytics-public"
+      - name: Run real browser operation and native read through external supervisor
+        timeout-minutes: 20
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-umami/runtime.py run
+          --output "$RUNNER_TEMP/browser-analytics-private"
+      - name: Recover only the registered project on its daemon
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-umami/hosted.py recover
+          --output "$RUNNER_TEMP/browser-analytics-private"
+          --metadata "$RUNNER_TEMP/browser-analytics-metadata"
+          --public "$RUNNER_TEMP/browser-analytics-public"
+      - name: Collect only curated public evidence
+        if: ${{ always() }}
+        run: >-
+          python3 scripts/observability-umami/hosted.py collect
+          --output "$RUNNER_TEMP/browser-analytics-private"
+          --metadata "$RUNNER_TEMP/browser-analytics-metadata"
+          --public "$RUNNER_TEMP/browser-analytics-public"
+      - name: Upload exact-source results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-analytics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/browser-analytics-public
+          if-no-files-found: warn
+          retention-days: 7

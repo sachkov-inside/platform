@@ -5,6 +5,7 @@ import { analyticsCaptureSchema } from "../model/analytics-contract";
 export const captureAnalyticsOperation = defineMutationOperation({
   input: analyticsCaptureSchema,
   method: "POST",
+  maxBodyBytes: 1024,
   path: "/api/analytics",
   result: z.strictObject({ accepted: z.boolean() }),
   transportFailure: () => ({ accepted: false }),
