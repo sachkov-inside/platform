@@ -52,7 +52,9 @@ def exercise(sql, dump, directory, *, progress=None):
             'invalid_result' if isinstance(error,ValueError) else 'operation_failed')
         code=getattr(error,'returncode',None)
         operation.update(outcome='failed',error=category,returncode=code if type(code) is int and -128<=code<=255 else None)
-        if progress is not None:progress(dict(operation))
+        try:
+            if progress is not None:progress(dict(operation))
+        except BaseException:pass  # Failure diagnostics cannot replace the active SQL/refusal failure.
         raise
 
 
