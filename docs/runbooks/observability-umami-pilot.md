@@ -547,16 +547,13 @@ bash scripts/heavy-check.sh python3 -B scripts/observability-umami/recovery_runt
 label фактического образа. Старую machine-specific квитанцию нельзя исправлять вручную.
 Образ, проект и тома этого доказательства отделены от общего stand.
 
-Отдельная проверка SQL и внешнего источника удалений использует тот же текущий образ:
-
-```bash
-bash scripts/heavy-check.sh env UMAMI_FOUNDATION_CACHE=.reports/umami-foundation-current.json \
-  python3 -B scripts/observability-umami/native_maintenance.py
-```
-
-Она создаёт свой PostgreSQL container без сети и host ports, проверяет права роли,
-многостраничное удаление и повтор после восстановления синтетического `pg_dump`.
-Это отдельный SQL proof, а не замена полного pgBackRest restore или S3 recovery.
+Полный supervised recovery также проверяет SQL provisioning: отказ при чужом участнике
+роли Umami, сохранение прав приложений, многостраничное удаление и повтор удаления после
+восстановления синтетического `pg_dump`. Этот SQL proof выполняется только внутри уже
+зарегистрированного PG18 service, до backup corpus. Самостоятельного Docker entrypoint у него
+нет. При timeout, прерывании или ошибке приобретёнными ресурсами владеет внешний supervisor;
+повторная recovery использует тот же project ownership. Успех native SQL proof не заменяет
+полного pgBackRest restore или S3 recovery.
 
 ## Ежедневная очистка и источник удалений
 
