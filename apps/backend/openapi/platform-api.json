@@ -38583,7 +38583,7 @@
             "logto": []
           }
         ],
-        "summary": "Import the current practice definition against explicit source and mutation versions",
+        "summary": "Replay an authorized historical Practice receipt; new writes are retired",
         "tags": [
           "Material authoring"
         ]
@@ -46246,7 +46246,7 @@
                           },
                           "result": {
                             "items": {
-                              "maxLength": 2000,
+                              "maxLength": 16000,
                               "minLength": 1,
                               "type": "string"
                             },
@@ -47515,7 +47515,7 @@
                           },
                           "result": {
                             "items": {
-                              "maxLength": 2000,
+                              "maxLength": 16000,
                               "minLength": 1,
                               "type": "string"
                             },

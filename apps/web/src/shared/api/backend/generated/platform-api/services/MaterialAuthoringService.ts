@@ -798,7 +798,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Import the current practice definition against explicit source and mutation versions
+   * Replay an authorized historical Practice receipt; new writes are retired
    * @returns any
    * @throws ApiError
    */

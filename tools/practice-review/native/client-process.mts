@@ -15,7 +15,7 @@ export interface NativeReviewInput {
   readonly timeoutMs?: number;
   readonly outputMode?: "json" | "text";
   /**
-   * The tested profile. `task-readonly` reads only and exposes one practice tool. `task-v3` (#946)
+   * The tested profile. `task-readonly` reads only and exposes one Task tool. `task-v3` (#946)
    * exposes the four Product Task tools and a shell, because procedure v3 lets the learner consent to
    * one named command; writes to the project stay outside the profile.
    */

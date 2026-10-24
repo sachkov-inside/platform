@@ -63,8 +63,12 @@ const receipt = {
       useValue: stubMaterialAuthoring({
         validateSourcePractice: () =>
           Promise.resolve({ ok: true, value: { valid: true, current: null } }),
-        applySourcePractice: () =>
-          Promise.resolve({ ok: true, value: receipt }),
+        applySourcePractice: ({ idempotencyKey }) =>
+          Promise.resolve(
+            idempotencyKey === "new-operation"
+              ? { ok: false, error: { code: "practice_definition_retired" } }
+              : { ok: true, value: receipt },
+          ),
       }),
     },
     {
@@ -154,4 +158,26 @@ test("anonymous and malformed import requests keep declared error boundaries", a
     payload: {},
   });
   expect(invalid.statusCode).toBe(400);
+});
+
+test("retired Practice writes return the declared private 409 with a Task migration instruction", async () => {
+  const response = await server.inject({
+    method: "POST",
+    url: "/authoring/import/practices/apply",
+    headers: {
+      authorization: "Bearer fixture",
+      "idempotency-key": "new-operation",
+    },
+    payload: {
+      ...source,
+      materialId: receipt.materialId,
+      expectedContentVersion: 1,
+      expectedPracticeVersion: null,
+    },
+  });
+  expect(response.statusCode).toBe(409);
+  expect(response.json()).toMatchObject({
+    code: "practice_definition_retired",
+  });
+  expect(response.headers["cache-control"]).toBe("private, no-store");
 });

@@ -1,7 +1,10 @@
 import { z } from "zod";
 // @ts-check
 import { practiceDefinitionSchema } from "../../apps/backend/src/modules/materials/domain/practice-requirements-schema.ts";
-import { taskDefinitionSchema } from "../../apps/backend/src/modules/product-tasks/domain/task-definition-schema.ts";
+import {
+  taskCodeSchema,
+  taskDefinitionSchema,
+} from "../../apps/backend/src/modules/product-tasks/domain/task-definition-schema.ts";
 import { loadPackage } from "./package.mjs";
 
 /** A legacy package is read without rewriting its bytes or Content originals. New writes use
@@ -31,7 +34,13 @@ export function migratePracticeRequirements(original) {
       throw new Error(
         `${practice.practiceId}: legacy requirements need one explicit Product/chapter binding; originals remain unchanged`,
       );
-    const code = practice.practiceId.slice(manifest.sourceNamespace.length + 1);
+    if (!practice.practiceId.startsWith(`${manifest.sourceNamespace}:`))
+      throw new Error(
+        `${practice.practiceId}: legacy identity belongs to another source namespace`,
+      );
+    const code = taskCodeSchema.parse(
+      practice.practiceId.slice(manifest.sourceNamespace.length + 1),
+    );
     const converted = taskDefinitionSchema.parse({
       schemaVersion: 1,
       situation: definition.businessInputs,

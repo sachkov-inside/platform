@@ -1,3 +1,4 @@
+import { seedHistoricalPractice } from "./setup/legacy-practice-fixture.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -52,14 +53,13 @@ describe("published learning practice", () => {
     });
     // Each cost case owns a distinct Material; the global hook budget bounds all authoring setup.
     for (const count of [1, 10, 100]) {
-      const { materials, command } = await fixture();
+      const { command } = await fixture();
       for (let index = 0; index < count; index++) {
-        const imported = await materials.authoring.applySourcePractice({
+        await seedHistoricalPractice(database, {
           ...command,
           practiceId: `${command.practiceId}-${String(index).padStart(3, "0")}`,
           idempotencyKey: randomUUID(),
         });
-        if (!imported.ok) throw new Error(imported.error.code);
       }
       const material = await database.prisma.material.findUniqueOrThrow({
         where: { id: command.materialId },
@@ -191,9 +191,9 @@ describe("published learning practice", () => {
     "list revalidates %s after authorizing the owning Material",
     async (change) => {
       const { materials, command, source } = await fixture();
-      await materials.authoring.applySourcePractice(command);
+      await seedHistoricalPractice(database, command);
       const affectedPracticeId = `${command.practiceId}-second`;
-      await materials.authoring.applySourcePractice({
+      await seedHistoricalPractice(database, {
         ...command,
         practiceId: affectedPracticeId,
         idempotencyKey: randomUUID(),
@@ -281,7 +281,10 @@ describe("published learning practice", () => {
         actor: learner.accountId,
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
-    const first = await materials.authoring.applySourcePractice(command);
+    const first = {
+      ok: true,
+      value: await seedHistoricalPractice(database, command),
+    };
     expect(first).toMatchObject({ ok: true, value: { practiceVersion: 1 } });
     expect(await materials.authoring.applySourcePractice(command)).toEqual(
       first,
@@ -299,32 +302,25 @@ describe("published learning practice", () => {
     ).toBe(1);
   });
 
-  test("withdrawal and ABA reject an old republish; a historical receipt does not republish", async () => {
+  test("a historical withdrawal cannot be republished by a new legacy key or an old receipt", async () => {
     const { materials, command } = await fixture();
-    const initial = await materials.authoring.applySourcePractice(command);
-    expect(initial.ok).toBe(true);
-    const withdraw = {
-      ...command,
-      idempotencyKey: randomUUID(),
-      expectedPracticeVersion: 1,
-      publicationState: "unpublished" as const,
-    };
-    expect(
-      await materials.authoring.applySourcePractice(withdraw),
-    ).toMatchObject({ ok: true, value: { practiceVersion: 2 } });
-    expect(
-      await materials.authoring.applySourcePractice({
-        ...command,
-        idempotencyKey: randomUUID(),
-        expectedPracticeVersion: 1,
-      }),
-    ).toMatchObject({
-      ok: false,
-      error: { code: "practice_version_conflict" },
+    const initial = await seedHistoricalPractice(database, command);
+    await database.prisma.practiceDefinition.update({
+      where: { practiceId: command.practiceId },
+      data: { practiceVersion: 2n, publicationState: "unpublished" },
     });
-    expect(await materials.authoring.applySourcePractice(command)).toEqual(
-      initial,
-    );
+    for (const expectedPracticeVersion of [1, 2])
+      expect(
+        await materials.authoring.applySourcePractice({
+          ...command,
+          idempotencyKey: randomUUID(),
+          expectedPracticeVersion,
+        }),
+      ).toEqual({ ok: false, error: { code: "practice_definition_retired" } });
+    expect(await materials.authoring.applySourcePractice(command)).toEqual({
+      ok: true,
+      value: initial,
+    });
     expect(
       await materials.publishedMaterialReader.readPractice({
         subject: learner,
@@ -332,26 +328,18 @@ describe("published learning practice", () => {
       }),
     ).toMatchObject({ ok: false, error: { code: "practice_not_available" } });
     expect(
-      await materials.authoring.applySourcePractice({
-        ...command,
-        idempotencyKey: randomUUID(),
-        expectedPracticeVersion: 2,
+      await database.prisma.practiceDefinition.findUniqueOrThrow({
+        where: { practiceId: command.practiceId },
       }),
-    ).toMatchObject({ ok: true, value: { practiceVersion: 3 } });
-    expect(
-      await materials.authoring.applySourcePractice({
-        ...withdraw,
-        idempotencyKey: randomUUID(),
-      }),
-    ).toMatchObject({
-      ok: false,
-      error: { code: "practice_version_conflict" },
-    });
+    ).toMatchObject({ practiceVersion: 2n, publicationState: "unpublished" });
   });
 
-  test("one concurrent stale apply wins and the other rolls back its receipt", async () => {
+  test("concurrent new legacy keys refuse without changing a historical Practice or leaving receipt claims", async () => {
     const { materials, command } = await fixture();
-    await materials.authoring.applySourcePractice(command);
+    await seedHistoricalPractice(database, command);
+    const before = await database.prisma.practiceDefinition.findUniqueOrThrow({
+      where: { practiceId: command.practiceId },
+    });
     const results = await Promise.all(
       ["First", "Second"].map((title) =>
         materials.authoring.applySourcePractice({
@@ -362,22 +350,27 @@ describe("published learning practice", () => {
         }),
       ),
     );
-    expect(results.filter((result) => result.ok)).toHaveLength(1);
-    expect(results.filter((result) => !result.ok)).toEqual([
-      { ok: false, error: { code: "practice_version_conflict" } },
+    expect(results).toEqual([
+      { ok: false, error: { code: "practice_definition_retired" } },
+      { ok: false, error: { code: "practice_definition_retired" } },
     ]);
+    expect(
+      await database.prisma.practiceDefinition.findUniqueOrThrow({
+        where: { practiceId: command.practiceId },
+      }),
+    ).toEqual(before);
     expect(
       await database.prisma.practiceImportReceipt.count({
         where: {
           receipt: { path: ["practiceId"], equals: command.practiceId },
         },
       }),
-    ).toBe(2);
+    ).toBe(1);
   });
 
   test("denies anonymous and revoked readers without protected criteria or body", async () => {
     const { materials, command } = await fixture();
-    await materials.authoring.applySourcePractice(command);
+    await seedHistoricalPractice(database, command);
     const anonymous = await materials.publishedMaterialReader.readPractice({
       subject: { kind: "anonymous" },
       practiceId: command.practiceId,
@@ -435,8 +428,11 @@ describe("published learning practice", () => {
           materialSourceRevision: "f".repeat(64),
         },
       }),
-    ).toMatchObject({ ok: false, error: { code: "source_mismatch" } });
-    await materials.authoring.applySourcePractice(command);
+    ).toMatchObject({
+      ok: false,
+      error: { code: "practice_definition_retired" },
+    });
+    await seedHistoricalPractice(database, command);
     const loaded = await materials.authoring.loadMaterial({
       actor: owner,
       materialId: command.materialId,
@@ -480,7 +476,7 @@ describe("published learning practice", () => {
 
   test("rejects withdrawal between context and full lesson reads", async () => {
     const { materials, command } = await fixture();
-    await materials.authoring.applySourcePractice(command);
+    await seedHistoricalPractice(database, command);
     const result = await readLearningPractice(
       {
         contentAccess: materials.contentAccess,
@@ -488,11 +484,9 @@ describe("published learning practice", () => {
           ...materials.publishedMaterialReader,
           read: async (query) => {
             const body = await materials.publishedMaterialReader.read(query);
-            await materials.authoring.applySourcePractice({
-              ...command,
-              idempotencyKey: randomUUID(),
-              expectedPracticeVersion: 1,
-              publicationState: "unpublished",
+            await database.prisma.practiceDefinition.update({
+              where: { practiceId: command.practiceId },
+              data: { publicationState: "unpublished", practiceVersion: 2n },
             });
             return body;
           },
@@ -506,8 +500,9 @@ describe("published learning practice", () => {
     });
   });
 
-  test("imports without holding a second pooled connection", async () => {
+  test("historical receipt replay and new-key refusal use no second pooled connection", async () => {
     const { command } = await fixture();
+    await seedHistoricalPractice(database, command);
     await withExhaustedPool(database, async (prisma) => {
       const { authoring } = assembleMaterials({
         prisma,

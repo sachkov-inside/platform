@@ -1,3 +1,4 @@
+import { seedHistoricalPractice } from "./legacy-practice-fixture.js";
 import { grantProductFixture, revokeProductFixture } from "./product-access.js";
 import { randomUUID } from "node:crypto";
 
@@ -224,7 +225,7 @@ export async function createScopedProductsWorld(
       data: { primaryVideoId: videoId },
     });
     const practiceId = `scoped:practice-${label.toLowerCase()}-${productId}`;
-    const practice = await materials.authoring.applySourcePractice({
+    await seedHistoricalPractice(database, {
       actor: owner,
       idempotencyKey: `scoped-practice-${productId}`,
       practiceId,
@@ -256,7 +257,6 @@ export async function createScopedProductsWorld(
         path: `practices/${productId}.json`,
       },
     });
-    if (!practice.ok) throw new Error(practice.error.code);
     return {
       productId,
       slug: created.slug,

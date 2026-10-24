@@ -1,13 +1,10 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
-import { practiceDefinitionDigest } from "../../domain/practice-definition.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { executeAuthoringTransaction } from "../../shared/application-result.js";
 import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { lockPracticeMaterial } from "./practice-import-locks.js";
-import { lockPracticeImport } from "../../../../infrastructure/prisma/index.js";
 import {
   applySourcePracticeBodySchema,
   practiceImportReceiptSchema,
@@ -114,69 +111,9 @@ export function assembleApplySourcePractice(
           // Historical receipt only; callers must read again to learn the current state.
           return practiceImportReceiptSchema.parse(previous.receipt);
         }
-        await lockPracticeImport(transaction, command.practiceId);
-        const material = await lockPracticeMaterial(
-          transaction,
-          command.materialId,
-        );
-        if (
-          material === undefined ||
-          material.content_version !== command.expectedContentVersion ||
-          material.source_id !== command.sourceReference.materialSourceId ||
-          material.source_revision !==
-            command.sourceReference.materialSourceRevision ||
-          (command.publicationState === "published" &&
-            material.publication_state !== "published")
-        )
-          return rollback({ code: "source_mismatch" });
-        const current = await transaction.practiceDefinition.findUnique({
-          where: { practiceId: command.practiceId },
-        });
-        if (
-          (current === null ? null : Number(current.practiceVersion)) !==
-          command.expectedPracticeVersion
-        )
-          return rollback({ code: "practice_version_conflict" });
-        const practiceVersion =
-          current === null ? 1 : Number(current.practiceVersion) + 1;
-        if (!Number.isSafeInteger(practiceVersion))
-          throw new Error("Practice version overflow");
-        const definitionDigest = practiceDefinitionDigest(
-          command.definition,
-          command.sourceReference,
-        );
-        const values = {
-          materialId: command.materialId,
-          definition: command.definition,
-          definitionDigest,
-          practiceVersion: BigInt(practiceVersion),
-          boundSourceId: command.sourceReference.materialSourceId,
-          boundSourceRevision: command.sourceReference.materialSourceRevision,
-          boundContentVersion: BigInt(command.expectedContentVersion),
-          publicationState: command.publicationState,
-          sourceRepository: command.provenance.repository,
-          sourceCommit: command.provenance.commit,
-          sourcePath: command.provenance.path,
-          updatedAt: new Date(),
-        };
-        await transaction.practiceDefinition.upsert({
-          where: { practiceId: command.practiceId },
-          create: { practiceId: command.practiceId, ...values },
-          update: values,
-        });
-        const receipt: PracticeImportReceipt = {
-          practiceId: command.practiceId,
-          practiceVersion,
-          definitionDigest,
-          materialId: command.materialId,
-          boundContentVersion: command.expectedContentVersion,
-          publicationState: command.publicationState,
-        };
-        await transaction.practiceImportReceipt.update({
-          where: { actorId_operation_idempotencyKey: key },
-          data: { receipt },
-        });
-        return receipt;
+        // The original key may decode its receipt, but no new legacy requirement is writable.
+        // Rollback also removes the provisional receipt claim made above.
+        return rollback({ code: "practice_definition_retired" });
       },
       mapPostgresReadError,
       "applySourcePractice",
