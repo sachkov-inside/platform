@@ -395,11 +395,11 @@ try {
     "available",
   );
   assert.equal(
-    (await app.inject({ url: "/library/series/telegram-proof" })).statusCode,
+    (await app.inject({ url: "/library/products/telegram-proof" })).statusCode,
     200,
   );
   pass(
-    "published synthetic free Material and Series through real content routes",
+    "published synthetic free Material and Product through real content routes",
   );
   await ok(
     command("intro.save", {

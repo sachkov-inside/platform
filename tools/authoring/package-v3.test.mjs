@@ -280,7 +280,7 @@ for (const [
 }
 
 for (const missing of [true, false]) {
-  test(`old Material recovery ${missing ? "resolves a proven absent receipt" : "keeps an unavailable lookup pending"} without dispatching a write`, async (t) => {
+  test(`old Material recovery ${missing ? "keeps an unbound absent receipt pending" : "keeps an unavailable lookup pending"} without dispatching a write`, async (t) => {
     const { syncLocal, reviewOrigin } = await import("./local-sync.mjs");
     const { withJournal } = await import("./journal.mjs");
     const directory = await mkdtemp(
@@ -345,15 +345,11 @@ for (const missing of [true, false]) {
         });
       },
     });
-    if (missing) await work;
-    else await assert.rejects(work, /lookup unavailable; recovery required/u);
+    await assert.rejects(work, /lookup unavailable; recovery required/u);
     const saved = parseJournal(
       JSON.parse(await readFile(join(state, "journal.json"), "utf8")),
     );
-    assert.equal(
-      saved.operations[key]?.status,
-      missing ? "rejected" : "pending",
-    );
+    assert.equal(saved.operations[key]?.status, "pending");
     assert.deepEqual(saved.operations[key]?.request, original);
     assert.deepEqual(saved.materials, {});
   });

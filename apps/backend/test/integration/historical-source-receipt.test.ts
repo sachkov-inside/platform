@@ -13,6 +13,7 @@ import { migrateThrough, upgradeToLatest } from "./setup/historical-upgrade.js";
 let database: TestDatabase | undefined;
 afterEach(async () => database?.dispose());
 const actor = "11111111-1111-4111-8111-111111111111";
+const otherManager = "44444444-4444-4444-8444-444444444444";
 const materialId = "22222222-2222-4222-8222-222222222222";
 test("historical Source v1 lookup preserves original fingerprint, feed archive and receipt without any mutation", async () => {
   database = await createTestDatabase();
@@ -76,7 +77,7 @@ test("historical Source v1 lookup preserves original fingerprint, feed archive a
   await upgradeToLatest(database);
   const authoring = assembleMaterials({
     prisma: database.prisma,
-    authorPolicy: { canManage: (id) => id === actor },
+    authorPolicy: { canManage: (id) => id === actor || id === otherManager },
   }).authoring;
   const before = await database.prisma.material.findMany();
   const command = { ...request, actor, idempotencyKey: "original-key" };
@@ -110,6 +111,18 @@ test("historical Source v1 lookup preserves original fingerprint, feed archive a
       actor: "33333333-3333-4333-8333-333333333333",
     }),
   ).toEqual({ ok: false, error: { code: "forbidden" } });
+  expect(
+    await authoring.readHistoricalSourceMaterialReceipt({
+      ...command,
+      actor: otherManager,
+    }),
+  ).toEqual({ ok: false, error: { code: "historical_receipt_not_found" } });
+  expect(
+    await authoring.readHistoricalSourceMaterialReceipt(command),
+  ).toMatchObject({
+    ok: true,
+    value: { materialId, contentVersion: 8 },
+  });
   expect(applySourceBodySchema.safeParse(request).success).toBe(false);
   expect(await database.prisma.material.findMany()).toEqual(before);
   expect(await database.prisma.authoringIdempotency.findMany()).toEqual(

@@ -21,8 +21,8 @@ const provenance = {
   commit: "b".repeat(40),
   path: "original.json",
 };
-/** @type {readonly (number | 'transport')[]} */
-const failures = [403, 400, 409, 422, 401, "transport"];
+/** @type {readonly (number | 'transport' | 'unbound-404')[]} */
+const failures = [403, 400, 409, 422, 401, "transport", "unbound-404"];
 
 for (const kind of /** @type {const} */ (["Material", "Practice"])) {
   for (const failure of failures) {
@@ -137,6 +137,11 @@ for (const kind of /** @type {const} */ (["Material", "Practice"])) {
         };
         await persist();
       });
+      assert.equal(
+        "actor" in original,
+        false,
+        "the historical pending request cannot bind the original login actor",
+      );
       let lookups = 0;
       /** @type {import('./local-boundaries.mjs').LocalRequest} */
       const request = async (path, body, sentKey) => {
@@ -155,8 +160,13 @@ for (const kind of /** @type {const} */ (["Material", "Practice"])) {
           if (failure === "transport")
             throw new TypeError("Lookup transport failed");
           throw Object.assign(new Error("Lookup refused"), {
-            status: failure,
-            body: { code: "lookup_failed" },
+            status: failure === "unbound-404" ? 404 : failure,
+            body: {
+              code:
+                failure === "unbound-404"
+                  ? "historical_receipt_not_found"
+                  : "lookup_failed",
+            },
           });
         }
         return parseLocalResponse(path, receipt);

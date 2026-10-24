@@ -90,7 +90,7 @@ test("historical uncertain Practice replay keeps exact original bytes/key/receip
   assert.equal(calls, 1);
 });
 
-test("a proven absent historical receipt resolves the old request without inventing a replacement key", async (t) => {
+test("an unbound absent historical receipt stays pending without inventing a replacement key", async (t) => {
   const f = await fixture(t);
   let calls = 0;
   /** @type {import('./local-boundaries.mjs').LocalRequest} */
@@ -101,15 +101,24 @@ test("a proven absent historical receipt resolves the old request without invent
       body: { code: "historical_receipt_not_found" },
     });
   };
-  await f.journal((context) =>
-    replayPracticeImports(context, request, () => "published"),
+  await assert.rejects(
+    f.journal((context) =>
+      replayPracticeImports(context, request, () => "published"),
+    ),
+    /lookup unavailable; recovery required/u,
   );
   await f.journal(async (context) => {
-    await replayPracticeImports(context, request, () => "published");
     assert.deepEqual(context.journal.operations[key], {
       request: operation,
-      status: "rejected",
-      error: { status: 404, message: "historical_receipt_not_found" },
+      status: "pending",
+    });
+    await assert.rejects(
+      replayPracticeImports(context, request, () => "published"),
+      /lookup unavailable; recovery required/u,
+    );
+    assert.deepEqual(context.journal.operations[key], {
+      request: operation,
+      status: "pending",
     });
     assert.equal(Object.keys(context.journal.operations).length, 1);
     assert.equal(
@@ -117,5 +126,9 @@ test("a proven absent historical receipt resolves the old request without invent
       undefined,
     );
   });
-  assert.equal(calls, 1);
+  assert.equal(
+    calls,
+    2,
+    "the original unknown request remains eligible for an authorized receipt lookup",
+  );
 });

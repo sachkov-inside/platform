@@ -2,7 +2,8 @@
 import { applyJournaled } from "./journal.mjs";
 
 /** Recover only a stored operation. The lookup never dispatches the old mutation.
- * A proven absent receipt resolves an uncommitted old request; an unavailable route does not.
+ * Historical journals do not bind the original actor. Even a coded 404 can mean that another
+ * manager is logged in, so no failed lookup proves the original mutation was absent.
  * @template {{ path: string; body?: unknown }} R
  * @param {import('./journal.mjs').JournalContext} context
  * @param {R} operation
@@ -15,41 +16,17 @@ export async function recoverHistoricalReceipt(
   request,
   path,
 ) {
-  try {
-    return await applyJournaled(context, operation, async (original, key) => {
-      try {
-        return await request(path, original.body, key);
-      } catch (error) {
-        // A lookup failure says nothing about the original mutation's outcome.
-        // Only the proven-absent reply may enter the journal's mutation rejection policy.
-        if (
-          error instanceof Error &&
-          "status" in error &&
-          !isAbsentReceipt(error)
-        )
-          throw new Error(
-            "Historical receipt lookup unavailable; recovery required",
-            { cause: error },
-          );
-        throw error;
-      }
-    });
-  } catch (error) {
-    if (isAbsentReceipt(error)) return undefined;
-    throw error;
-  }
-}
-
-/** @param {unknown} error */
-function isAbsentReceipt(error) {
-  return (
-    error instanceof Error &&
-    "status" in error &&
-    error.status === 404 &&
-    "body" in error &&
-    typeof error.body === "object" &&
-    error.body !== null &&
-    "code" in error.body &&
-    error.body.code === "historical_receipt_not_found"
-  );
+  return applyJournaled(context, operation, async (original, key) => {
+    try {
+      return await request(path, original.body, key);
+    } catch (error) {
+      // Keep the exact UNKNOWN request pending. Only a successful authorized receipt can resolve it.
+      if (error instanceof Error && "status" in error)
+        throw new Error(
+          "Historical receipt lookup unavailable; recovery required",
+          { cause: error },
+        );
+      throw error;
+    }
+  });
 }

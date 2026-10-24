@@ -86,6 +86,33 @@ receipt storage, strict parsing, Task validation и HTTP BFF выполняют�
 restore/readiness и cleanup. Отдельные logs сохраняют результат каждого built процесса.
 Успешное завершение требует закрытия всех child processes, pools, doubles и собственного контейнера.
 
+## Ошибки и освобождение ресурсов
+
+У built capability есть отдельный failure budget 60 секунд, у HTTP headers/body и PostgreSQL
+операции 10 секунд, у завершения процесса и сервера 15 секунд. Бюджеты останавливают зависшую
+проверку и не разрешают повторить неизвестный внешний эффект. Исходная ошибка и реальные
+exit/signal коды сохраняются; ошибка cleanup не превращается в успешный результат.
+
+Собственный PostgreSQL этой проверки работает с `--rm` и daemon-owned TCP lease. Закрытие lease
+завершает контейнер независимо от дерева host-процессов. Если host погиб до handshake, отдельный
+10-секундный bootstrap deadline внутри контейнера завершает его с кодом 70. Созданный контейнер
+не зависит от продолжения host `docker run`. Обычный cleanup отдельно проверяет фактическое
+удаление конкретного container ID; закрытие socket не считается доказательством удаления.
+Полные mixed-restore проверки сохраняют прежний отдельный lifecycle fixture по умолчанию.
+
+Принудительные проверки lifetime запускаются отдельно, с новой evidence directory:
+
+```sh
+DOMAIN_TRANSFER_LIFETIME_EVIDENCE_DIRECTORY="$LIFETIME_EVIDENCE" \
+bash scripts/heavy-check.sh node --test scripts/fixtures/domain-contract-transfer/lifetime.test.mjs
+```
+
+Они используют реальные собственные PostgreSQL контейнеры и процессы: успешное завершение,
+зависший child, задержанные HTTP headers/body, SIGINT/SIGTERM/SIGKILL и смерть во время acquisition
+до lease handshake. Отдельная ошибка наблюдения Docker подтверждает неуспешный exit и сохранённую
+исходную ошибку, даже когда daemon завершил контейнер. Внешняя проверка подтверждает отсутствие
+контейнера отдельно от числа завершённых host children. Production ресурсы не затрагиваются.
+
 Эта проверка дополняет [полное mixed-data восстановление](domain-model-restore.md), где реальные
 recovery owners проверяют pending one-time операции, неизвестные внешние результаты и Telegram
 receipts после двух проходов и восстановления recovered archive. Утрата post-backup receipts

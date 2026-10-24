@@ -173,7 +173,7 @@ def verify_platform(manifest, state, record):
 
 
 def verify_public_routes(record):
-    routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 404, 'Not Found'),
+    routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 404, ''),
               ('GET', '/billing/product-sales-states', 200, '"items"'),
               ('POST', '/billing/tbank/notification', 400, 'invalid_notification'),
               ('POST', '/integrations/telegram/v2/communications/authorize', 401, 'unauthorized'),
@@ -182,12 +182,12 @@ def verify_public_routes(record):
               ('POST', '/internal/notifications/dispatch/authorize', 401, 'unauthorized')]
     routes += [('POST', '/integrations/telegram/v1/course-activation/' + suffix, 401, 'unauthorized')
                for suffix in ['binding', 'own-access', 'attempts', 'evidence', 'announcement']]
-    routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 404, 'Not Found')
+    routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 404, '')
                for suffix in ['binding', 'own-access', 'attempts', 'evidence', 'announcement']]
     for method, path, code, needle in routes:
         status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev',
                             bank_rejection_probe=path == '/billing/tbank/notification')
-        record.append(check(method + ' ' + path.split('?')[0], status == code and needle in body, 'expected HTTP/body authentication boundary'))
+        record.append(check(method + ' ' + path.split('?')[0], status == code and (body == '' if code == 404 else needle in body), 'expected HTTP/body authentication boundary'))
 
     browser_path = '/communications/visit?token=' + 'A' * 43
     status, body = http('https://sachkov.dev' + browser_path, 'GET', 'sachkov.dev')

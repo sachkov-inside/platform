@@ -291,7 +291,7 @@ class PublicRouteTests(unittest.TestCase):
             if '/billing/tbank/notification' in url:
                 return 400, 'invalid_notification'
             if '/subscription-activation/' in url or '/invitations/' in url:
-                return 404, 'Not Found'
+                return 404, ''
             return 401, 'unauthorized'
         checks = []
         with patch('verify.http', side_effect=response) as read:

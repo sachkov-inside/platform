@@ -122,9 +122,9 @@ Telegram не видит: покупка курса, подписка, ручн�
 не получают. Приветствие заменяет ожидающее уведомление о возвращении, так что сообщение одно.
 
 Дата старта потока принадлежит Platform ([platform#814](https://github.com/sachkov-inside/platform/issues/814)).
-Бот читает её публичным `GET /billing/cohorts` без входа и без кеша
+Бот читает её публичным `GET /billing/product-sales-states` без входа и без кеша
 ([#123](https://github.com/sachkov-inside/inside-telegram/issues/123)): поток курса находится по
-UUID продукта `PLATFORM_COHORT_PRODUCT_ID`, адрес — `PLATFORM_COHORTS_URL`. Схема ответа
+UUID продукта `PLATFORM_PRODUCT_SALES_PRODUCT_ID`, адрес — `PLATFORM_PRODUCT_SALES_STATES_URL`. Схема ответа
 лежит в общем `docs/contracts/platform-billing-cohorts`. Адаптер проверяет весь ответ до выбора
 потока: неверные `stage`, `revision`, обязательные поля или другая запись делают ответ
 невалидным. Варианты с `productId` и совместимый вариант с `guideId` сохраняются. Чтение идёт в момент

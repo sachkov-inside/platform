@@ -1,17 +1,14 @@
 /** Local incompatible transfer proof. Separately built artifacts and synthetic databases only. */
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdir, readFile, writeFile, cp, rm } from "node:fs/promises";
+import { mkdir, readFile, writeFile, cp, rm, readdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { setTimeout } from "node:timers/promises";
-import { spawnOwned, stopOwned } from "../../owned-process.mjs";
+import { spawnOwned } from "../../owned-process.mjs";
 import { commandExit } from "../../diagnostic-command.mjs";
 import { startFullStackIdentity } from "../../full-stack-identity.mjs";
-import {
-  createRestorePostgres,
-  snapshotDatabase,
-} from "../domain-restore/postgres.mjs";
+import { snapshotDatabase } from "../domain-restore/postgres.mjs";
 import {
   ids,
   ground,
@@ -25,6 +22,12 @@ import {
   sequenceRequest,
 } from "./fixtures.mjs";
 import { hashArtifact, sourceIdentity } from "./artifacts.mjs";
+import {
+  bounded,
+  failureBudgets,
+  createTransferOwnership,
+  stopDiagnosticChild,
+} from "./lifetime.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const legacy = process.env.DOMAIN_TRANSFER_LEGACY_ROOT;
 assert(legacy, "Explicit immutable legacy build context required");
@@ -37,6 +40,11 @@ const output = resolve(
     resolve(root, ".reports/1712-transfer"),
 );
 await mkdir(output, { recursive: true });
+assert.equal(
+  (await readdir(output)).length,
+  0,
+  "Use a fresh transfer evidence directory",
+);
 const manifests = Object.fromEntries(
   await Promise.all(
     ["legacy", "current"].map(async (variant) => [
@@ -65,9 +73,14 @@ const producer = createServer(async (req, res) => {
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify(producerValue));
 });
+producer.requestTimeout = failureBudgets.http;
+producer.headersTimeout = failureBudgets.http;
 let producerOrigin;
 let identity;
+let ownership;
 let postgres;
+let originalFailure;
+const cleanupOutcomes = [];
 let pools = [];
 const pg = await import(
   pathToFileURL(resolve(root, "apps/backend/node_modules/pg/lib/index.js")).href
@@ -105,6 +118,35 @@ async function verifyBuild(variant, app) {
     source: manifests[variant].source,
   });
 }
+function describeFailure(error) {
+  return {
+    message: String(error.message ?? error),
+    stack: error.stack,
+    errors:
+      error instanceof AggregateError
+        ? error.errors.map(describeFailure)
+        : undefined,
+  };
+}
+async function settleCapability(child, original) {
+  try {
+    await stopDiagnosticChild(child, children);
+  } catch (error) {
+    cleanupOutcomes.push({
+      resource: `child:${child.pid}`,
+      success: false,
+      failure: describeFailure(error),
+    });
+    process.exitCode ||= 1;
+    throw original
+      ? new AggregateError(
+          [original, error],
+          "Capability and cleanup both failed",
+          { cause: original },
+        )
+      : error;
+  }
+}
 async function run(job) {
   const child = spawnOwned(
     process.execPath,
@@ -124,20 +166,13 @@ async function run(job) {
       dist: dist(job.variant, job.app),
     }),
   );
+  let capabilityFailure;
   try {
-    const code = await complete;
-    exited.push({
-      app: job.app,
-      variant: job.variant,
-      operation: job.operation,
-      code,
-    });
-    await writeFile(
-      resolve(
-        output,
-        `${exited.length}-${job.app}-${job.variant}-${job.operation}.log`,
-      ),
-      stdout + stderr,
+    const code = await bounded(
+      `${job.app}/${job.operation}`,
+      failureBudgets.capability,
+      () => complete,
+      ownership.signal,
     );
     assert.equal(code, 0, stderr || stdout);
     const line = stdout
@@ -147,13 +182,39 @@ async function run(job) {
     const value = JSON.parse(line.slice("ARTIFACT_RESULT=".length));
     assert(Number.isInteger(value.pid));
     return value.result;
+  } catch (error) {
+    capabilityFailure = error;
+    throw error;
   } finally {
-    await stopOwned(child);
-    children.delete(child);
+    try {
+      await settleCapability(child, capabilityFailure);
+    } finally {
+      exited.push({
+        app: job.app,
+        variant: job.variant,
+        operation: job.operation,
+        code: child.exitCode,
+        signal: child.signalCode,
+        settled: !children.has(child),
+      });
+      await writeFile(
+        resolve(
+          output,
+          `${exited.length}-${job.app}-${job.variant}-${job.operation}.log`,
+        ),
+        stdout + stderr,
+      );
+    }
   }
 }
 async function pool(url) {
-  const result = new Pool({ connectionString: url, max: 1 });
+  const result = new Pool({
+    connectionString: url,
+    max: 1,
+    connectionTimeoutMillis: failureBudgets.database,
+    query_timeout: failureBudgets.database,
+    statement_timeout: failureBudgets.database,
+  });
   pools.push(result);
   return result;
 }
@@ -185,6 +246,7 @@ async function webMatrix(variant) {
   });
   children.add(child);
   let log = "";
+  let readerFailure;
   child.stdout.on("data", (b) => (log += b));
   child.stderr.on("data", (b) => (log += b));
   try {
@@ -192,10 +254,22 @@ async function webMatrix(variant) {
     while (true) {
       assert.equal(child.exitCode, null, log);
       try {
-        await fetch("http://127.0.0.1:18514/api/account/billing");
+        await bounded(
+          "Web readiness HTTP/body",
+          failureBudgets.http,
+          async (signal) => {
+            const response = await fetch(
+              "http://127.0.0.1:18514/api/account/billing",
+              { signal },
+            );
+            await response.arrayBuffer();
+          },
+          ownership.signal,
+        );
         break;
       } catch (error) {
-        if (performance.now() > deadline) throw error;
+        if (ownership.signal.aborted || performance.now() > deadline)
+          throw error;
         await setTimeout(100);
       }
     }
@@ -240,11 +314,21 @@ async function webMatrix(variant) {
     ];
     for (const [name, value, status] of cases) {
       producerValue = value;
-      const response = await fetch(
-        "http://127.0.0.1:18514/api/account/billing",
-        { headers: { cookie: `${identity.cookieName}=${cookie}` } },
+      const { response, body } = await bounded(
+        "Web reader HTTP/body",
+        failureBudgets.http,
+        async (signal) => {
+          const response = await fetch(
+            "http://127.0.0.1:18514/api/account/billing",
+            {
+              headers: { cookie: `${identity.cookieName}=${cookie}` },
+              signal,
+            },
+          );
+          return { response, body: await response.json() };
+        },
+        ownership.signal,
       );
-      const body = await response.json();
       event("web-reader", {
         variant,
         name,
@@ -254,15 +338,21 @@ async function webMatrix(variant) {
       assert.equal(response.status, status, JSON.stringify(body));
       if (status === 200) assert.equal(body.ok, true);
     }
+  } catch (error) {
+    readerFailure = error;
+    throw error;
   } finally {
-    await stopOwned(child);
-    children.delete(child);
-    await writeFile(resolve(output, `web-${variant}.log`), log);
-    await rm(runtime, { recursive: true, force: true });
+    try {
+      await settleCapability(child, readerFailure);
+    } finally {
+      await writeFile(resolve(output, `web-${variant}.log`), log);
+      await rm(runtime, { recursive: true, force: true });
+    }
   }
   event("web-drained", { variant, active: children.size });
 }
 try {
+  ownership = await createTransferOwnership(output);
   for (const variant of ["legacy", "current"])
     for (const app of ["backend", "telegram", "web"])
       await verifyBuild(variant, app);
@@ -300,7 +390,7 @@ try {
         assert.equal(result.reason, "product_access_contract_absent");
     }
   }
-  postgres = await createRestorePostgres("domain-contract-transfer");
+  postgres = await ownership.postgres();
   const backend = await postgres.emptyDatabase();
   const telegram = await postgres.emptyDatabase();
   await run({
@@ -560,16 +650,61 @@ try {
     ordered: true,
     rollingCompatible: false,
   });
+} catch (error) {
+  originalFailure = describeFailure(error);
+  console.error(originalFailure);
+  process.exitCode ||= 1;
 } finally {
-  await Promise.allSettled([...children].map((child) => stopOwned(child)));
-  children.clear();
-  await Promise.allSettled(pools.map((p) => p.end()));
-  await postgres?.close();
-  await identity?.close();
-  if (producer.listening)
-    await new Promise((done, reject) =>
-      producer.close((error) => (error ? reject(error) : done())),
+  const cleanup = async (resource, action) => {
+    try {
+      await action();
+      cleanupOutcomes.push({ resource, success: true });
+    } catch (error) {
+      cleanupOutcomes.push({
+        resource,
+        success: false,
+        failure: String(error.stack ?? error),
+      });
+      process.exitCode ||= 1;
+    }
+  };
+  for (const child of [...children])
+    await cleanup(`child:${child.pid}`, () =>
+      stopDiagnosticChild(child, children),
     );
+  for (const [index, databasePool] of pools.entries())
+    await cleanup(`pool:${index}`, () =>
+      bounded("database pool cleanup", failureBudgets.database, () =>
+        databasePool.end(),
+      ),
+    );
+  await cleanup("identity", () =>
+    bounded("identity server cleanup", failureBudgets.serverCleanup, () =>
+      identity?.close(),
+    ),
+  );
+  await cleanup("producer", () =>
+    bounded(
+      "producer server cleanup",
+      failureBudgets.serverCleanup,
+      async () => {
+        if (!producer.listening) return;
+        const closed = new Promise((done, reject) =>
+          producer.close((error) => (error ? reject(error) : done())),
+        );
+        producer.closeAllConnections();
+        await closed;
+      },
+    ),
+  );
+  await cleanup("Docker ownership", async () => {
+    if (ownership) {
+      const results = await ownership.close();
+      cleanupOutcomes.push(...results);
+      if (results.some((result) => !result.success))
+        throw new Error("Docker cleanup contained a failed outcome");
+    }
+  });
   await writeFile(
     resolve(output, "evidence.json"),
     JSON.stringify(
@@ -578,9 +713,15 @@ try {
         records,
         exited,
         requests,
+        originalFailure,
+        cleanupOutcomes,
         resources: {
           activeChildren: children.size,
-          ownedPostgresDisposed: true,
+          ownedPostgresDisposed: cleanupOutcomes.some(
+            (outcome) =>
+              outcome.resource === "externalDockerOwner" &&
+              outcome.success === true,
+          ),
         },
         limitation:
           "Local synthetic incompatible transfer only; wider immutable effect/recovery evidence is the separately bound mixed restore proof.",

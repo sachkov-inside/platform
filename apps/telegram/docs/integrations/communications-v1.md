@@ -1,28 +1,32 @@
-# Communications integration v1
+# Communications integration v2
 
-Current business language is **Communication Sequence** and **Sequence Participation**.
+This stable document path now describes the current `inside-communications-v2` transport.
+Communication Sequence and Sequence Participation are the current business and storage names.
 The runtime owners are `CommunicationSequences`, `SequenceScheduler` and `sequence-timeline`;
-owner interfaces say «Последовательности». Published snapshots, step IDs, participation IDs,
-initial entry keys and started multipart deliveries retain their identity. The v1 `funnels.*`,
-`funnelId`, persisted author-dialog fields and physical `communication_funnels` /
-`communication_enrollments` names are compatibility representations, not Sales Funnel analytics.
-They remain until separately built readers and ordered storage contraction are verified in #1712.
-There is one storage owner, with no duplicate tables or writable compatibility views.
+owner interfaces say «Последовательности». Current management operations use `sequences.*`,
+`sequenceId` and `sequenceIds`. Current storage uses `communication_sequences` and
+`communication_participations`; migration `037-canonical-communication-sequences` archives
+original author state before converting recognized machine fields. Authored text, UUIDs, step and
+participation IDs, publication/operation receipts, initial entry keys and started multipart effects
+retain their original identity. There is one writable owner, without a compatibility business API.
 
+The current schema and fixtures are in
+[`docs/contracts/inside-communications-v2/`](../../../../docs/contracts/inside-communications-v2/).
+The pinned [v1 corpus](../../../../docs/contracts/inside-communications-v1/) remains historical.
+Its Funnel snapshots are decoded only for stored publications and exact authorized receipt reads;
+old mutable v1 commands and routes are retired. `receipts.read` returns the original stored
+request/outcome for its operation identity after current authorization; it cannot create a command.
+Sales Funnel analytics is a separate concept and keeps its name.
 
-The shared `inside-communications-v1` schema and fixtures live under
-[`docs/contracts/inside-communications-v1/`](../../../../docs/contracts/inside-communications-v1/).
-The product authority remains the accepted
-[Workspace contract](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md).
-This document describes the transport implemented by [Telegram #27](https://github.com/sachkov-inside/inside-telegram/issues/27)
-the funnel runtime in [Telegram #28](https://github.com/sachkov-inside/inside-telegram/issues/28),
-audience updates/preferences in [Telegram #29](https://github.com/sachkov-inside/inside-telegram/issues/29),
-and broadcasts/analytics in [Telegram #30](https://github.com/sachkov-inside/inside-telegram/issues/30),
-not a second product brief.
+The accepted [domain model](../../../../docs/specifications/domain-model-refactoring-v1.md) owns
+current behavior. The historical Workspace communications specification and Telegram issues
+27–30 record its origin, rather than authorizing a second live old contract. Separately built
+reader transfer and recovery follow the [local transfer procedure](../../../../docs/runbooks/domain-model-contract-transfer.md)
+and [mixed restore procedure](../../../../docs/runbooks/domain-model-restore.md).
 
 ## Implemented operations
 
-`POST /integrations/platform/v1/communications` uses its own
+`POST /integrations/platform/v2/communications` uses its own
 `Authorization: Bearer <PLATFORM_COMMUNICATIONS_SECRET>` service authentication, separate from the
 identity-linking secret. Without that configuration every request returns `401 unauthorized`.
 The Platform server owns the authenticated Account context; never expose this credential in
@@ -66,7 +70,7 @@ author operation; a closed sale or missing current purchase button refuses launc
 Offer and deploying code never launch a notification.
 
 The service-authenticated Platform endpoint
-`POST /integrations/telegram/v1/communications/waitlist` uses the existing author authorization
+`POST /integrations/telegram/v2/communications/waitlist` uses the existing author authorization
 secret. Telegram derives its address beside the configured author authorization endpoint.
 The production Caddy allowlist publishes exactly this POST to the Platform API on both API
 hostnames. Missing service credentials receive the API's 401; other methods and unknown subpaths
@@ -100,8 +104,8 @@ purchase target cancels it.
 
 This one-time, explicitly launched audience uses the existing transport slots and delivery ledger
 with `TELEGRAM_DELIVERY_MODE=live` even when `TELEGRAM_MARKETING_ENABLED=false`. The disabled
-marketing flag still excludes ordinary broadcasts, intro, funnel steps and marketing replies from
-this worker's claims and scheduled launches. No setting, funnel enrollment or explicit stop
+marketing flag still excludes ordinary broadcasts, intro, sequence steps and marketing replies from
+this worker's claims and scheduled launches. No setting, sequence participation or explicit stop
 preference is changed. Current stop, contact unavailability and Telegram 403 retain existing
 suppression behavior. Unknown attempts remain unknown across restarts and do not retry automatically;
 only the existing explicit operator resolution can accept duplicate risk.
@@ -121,9 +125,9 @@ one-opening deduplication guarantee. No real recipient data, messages or product
 Real sample text, recipient and send authorization belong to #1570; bulk sending remains a separate
 owner command.
 
-## Funnel operations and runtime
+## Sequence operations and runtime
 
-`funnels.save/read/list/publish/lifecycle/rollback`, `intro.save/read`, `deliveries.read` and
+`sequences.save/read/list/publish/lifecycle/rollback`, `intro.save/read`, `deliveries.read` and
 `delivery.resolve` are implemented.
 They use the same service credential, fresh Account permission check, owner isolation, expected
 revision and durable operation replay as templates. Save creates/updates the draft; source CRUD
@@ -134,22 +138,22 @@ history pages contain at most 100 items with opaque UUID cursors. History includ
 common intro and individual multipart states/attempts, without raw Telegram IDs.
 
 Sources keep their ID/code reservation after removal or archive. A removed source no longer
-routes after publish; reuse for another funnel is rejected. Step IDs and part ownership remain
+routes after publish; reuse for another sequence is rejected. Step IDs and part ownership remain
 historical. Reusing a deleted step, moving a historical part to a different step or replacing the
 initial response ID is rejected. Content can be changed under its existing ID. Archive is the
-non-destructive removal operation. `pause/resume/archive/restore` preserve enrollment and delivery
+non-destructive removal operation. `pause/resume/archive/restore` preserve participation and delivery
 history; restore returns to paused. Exactly one published selection is used by ordinary `/start`.
 Publishing a new default changes that selection atomically; draft `isDefault` describes the
 selection requested at its next publication.
 
 `intro.save` configures the one bot-wide common block under a stable `introId`; it has no implicit
 Telegram send. Later edits do not resend an already claimed intro. No definitions, scenarios or
-author copy are seeded by migrations. The current owner direction is one common funnel, with
-owner-authored content; multiple funnels exist only in synthetic tests for the runtime contract.
+author copy are seeded by migrations. The current owner direction is one common sequence, with
+owner-authored content; multiple sequences exist only in synthetic tests for the runtime contract.
 
 `TELEGRAM_MARKETING_ENABLED=false` is independent of service delivery and is the default.
 When marketing is enabled, worker startup requires an intro and an available published
-default funnel. Marketing dispatch additionally uses `TELEGRAM_DELIVERY_MODE=live`; its production
+default sequence. Marketing dispatch additionally uses `TELEGRAM_DELIVERY_MODE=live`; its production
 transport is otherwise disabled. The release gate is still separate, until
 Platform convergence completes. Defining or publishing a draft never changes this configuration.
 
@@ -160,17 +164,17 @@ an unreachable source. The merged #24 adapter handles `signin_` plus 35 base64ur
 and private confirmation callbacks. Malformed short sign-in payloads stay in that service lane.
 Marketing and preference commands do not capture auth or sign-in callbacks.
 An unavailable/unknown source gets a durable fallback and a `/start` keyboard button without
-joining a different funnel. A thematic entry enrolls only its own funnel. Update receipts dedupe
+joining a different sequence. A thematic entry enrolls only its own sequence. Update receipts dedupe
 fallback, intro and immediate response intents; deliberate new updates record separate source
-events and repeat only the entry response, preserving the initial enrollment response anchor.
+events and repeat only the entry response, preserving the initial participation response anchor.
 
-Migration `011-communication-funnels` owns definitions, publications, source/step reservations,
-opaque communication contacts, source events, enrollments, per-part delivery state and shared
+Historical migration `011-communication-funnels` created definitions, publications, source/step reservations,
+opaque communication contacts, source events, participations, per-part delivery state and shared
 transport slots. Intro has one unique delivery key per contact. Each scheduled step has one key
-per enrollment and stable step ID. The next step is materialized only after the preceding step's
-confirmed terminal completion; its due time is `max(enrolledAt, firstPublishedAt, previousCompletionAt)
+per participation and stable step ID. The next step is materialized only after the preceding step's
+confirmed terminal completion; its due time is `max(participatedAt, firstPublishedAt, previousCompletionAt)
 + delay`. A restarted worker reads this state from PostgreSQL. There are no daily caps or quiet
-hours between funnels. A pending initial response must finish before its scheduled steps.
+hours between sequences. A pending initial response must finish before its scheduled steps.
 
 The short claim transaction serializes workers for one bot and commits an `in_flight` part with a
 unique attempt ID **before** external I/O. Recovery and result recording acquire the same scheduler
@@ -181,12 +185,12 @@ terminal failure. `429 retry_after` defers the bot's shared capacity. The result
 records the exact attempt and completion; a lost database acknowledgement cannot turn persisted
 `sent` into another dispatch. Late evidence for the same attempt can settle unknown to sent without
 erasing the earlier uncertainty. Confirmed parts are never retried. Failure/unknown blocks
-remaining parts and subsequent scheduled steps in that funnel.
+remaining parts and subsequent scheduled steps in that sequence.
 
 Planning is separate from dispatch. Once per worker cycle a planning transaction recovers expired
-claims, launches armed broadcasts and completes finished ones. The event that changes a funnel
+claims, launches armed broadcasts and completes finished ones. The event that changes a sequence
 timeline replans it: a result or operator decision for a BotContact's delivery, its stop/resume or
-contactability change, or a publication, which replans that funnel's enrollments in batches.
+contactability change, or a publication, which replans that sequence's participations in batches.
 A claim reads due work from index pages with `LIMIT`. Replies to the BotContact's own `/start`
 (intro, entry, fallback) go ahead of the step and broadcast backlog. A claim stops when the bot's
 shared capacity refuses or after a bounded scan; when a whole scan finds nothing sendable, the
@@ -217,16 +221,16 @@ Contactability and the persisted marketing preference are reread under the BotCo
 before the marketing claim; lifecycle is checked under the publication row lock. External calls
 already claimed cannot be cancelled retroactively. Test transport covers all six supported media types.
 
-Published changes reconcile every enrollment of that funnel, including completed participants,
+Published changes reconcile every participation of that sequence, including completed participants,
 under the scheduler lock with each batch's contact rows locked. Only an unattempted step adopts
 the current snapshot/delay/order. A started step owns its lane until a terminal result, even if
 moved or deleted. The next delay uses the latest actual terminal
-completion in that enrollment, independent of the new order. Delete sets cancel-request, cancels
+completion in that participation, independent of the new order. Delete sets cancel-request, cancels
 pending/failed parts and waits for in-flight/unknown parts. History exposes `sent`, `cancelled`,
 `skipped` and `suppressed` separately; `completedAt` appears only when all parts are terminal.
 A sent/cancelled combination is a terminal partial cancellation, never a full sent result.
 
-`funnels.rollback` takes a historical `publishedRevision` and creates a new publication under the
+`sequences.rollback` takes a historical `publishedRevision` and creates a new publication under the
 current expected revision. Historical IDs and first publication times survive. It can restore a
 never-attempted deletion cancellation; sent, skipped and subscriber-suppressed markers never reset.
 `delivery.resolve` takes a delivery revision, part ID, `skip|retry` and `duplicateRiskAccepted`.
@@ -239,7 +243,7 @@ automatic attempts are allowed; explicit decisions cannot grow history past the 
 
 Private human `/stop` and `/resume` persist one global preference and a deduplicated service reply
 in one transaction, independently of marketing enablement. `/start` and sign-in never change that
-preference. A stopped subscriber can request entry navigation and retain several enrollments.
+preference. A stopped subscriber can request entry navigation and retain several participations.
 Migration `012-marketing-preferences` adds the unavailable interval and preference receipts after
 the merged sign-in/communications history. It is not another exception to migration ordering.
 On resume or restored contactability, the current unsent order computes a virtual schedule: every
@@ -247,7 +251,7 @@ due time no later than the return time becomes a durable suppression; the first 
 unchanged. Operator pause/archive do not suppress overdue work. Unfinished immediate/started work
 receives cancel-request when availability is lost; no already claimed external effect is undone.
 
-`funnels.preview` reads draft/published step differences and the current eligible enrolled audience
+`sequences.preview` reads draft/published step differences and the current eligible participating audience
 under the definition/scheduler locks. It includes completed participants receiving added steps,
 excludes stopped/unavailable contacts, and preserves all definitions and delivery history. It does
 not send, reserve an operation receipt or calculate Platform content eligibility. Platform #308
@@ -278,24 +282,24 @@ snapshot UUID and all recipient delivery intents in one transaction when it firs
 armed schedule. The originating launch operation remains attached to that record. Replaying it
 returns its original response; read returns the current state and revision.
 
-The audience is all BotContacts or a deduplicated union of owned funnel enrollments. Legacy contacts
-need no Account or enrollment. Stop and blocked contacts are excluded at launch. The launch
+The audience is all BotContacts or a deduplicated union of owned sequence participations. Legacy contacts
+need no Account or participation. Stop and blocked contacts are excluded at launch. The launch
 locks the audience contact rows, so a concurrent stop or block either excludes the contact or
 cancels its new delivery. After launch, content and audience cannot be edited. Resume preserves the snapshot; cancelled/completed IDs cannot launch
 again. Pause before launch delays the snapshot until resumed. Cancel preserves in-flight/unknown
 history and prevents new parts. Empty snapshots complete immediately.
 
-Broadcasts use `communication_deliveries`, the same worker and Telegram capacity slots as funnels,
+Broadcasts use `communication_deliveries`, the same worker and Telegram capacity slots as sequences,
 with service responses retaining priority. Stop/block persist `suppressed` on pending/failed parts,
 including delayed retries; in-flight/unknown parts retain evidence and a cancellation reason.
 Resume/unblock never revives these recipients. A confirmed private-chat Telegram 403 from a current attempt in the service reply queue, notifications, author messages or the marketing scheduler marks that BotContact blocked and updates marketing availability in the settlement transaction. It preserves the explicit marketing preference and uses the existing suppression policy. Lost reply/author leases discard their late outcomes, including 403. A 403 does not change availability when a newer private `/start` or contactability observation arrived after that attempt began. A later private `/start` or unblock observation restores Contactability; it does not replay a terminally rejected delivery. `delivery.resolve` and `deliveries.read` include owned broadcasts with
-the same unknown-risk decision and immutable attempt history as funnels. A partial cancellation
+the same unknown-risk decision and immutable attempt history as sequences. A partial cancellation
 never reports full success. These commands do not themselves send real Telegram messages unless
 the separately gated live marketing runtime is enabled.
 
 `statistics.read` provides bot-wide contact totals/reachability/preferences, distinct participants
-in owned funnels, delivery counts, and paged contacts with first/latest sources and entry history.
-Optional funnel/broadcast filters restrict delivery statistics and the contact page; global contact
+in owned sequences, delivery counts, and paged contacts with first/latest sources and entry history.
+Optional sequence/broadcast filters restrict delivery statistics and the contact page; global contact
 totals retain their bot-wide meaning. Counts sent/suppressed/failed/unknown/pending count **parts**;
 `partialCancelled` counts terminal deliveries containing sent and cancelled/suppressed parts.
 `broadcasts.read/list` expose snapshot size and lifecycle; `deliveries.read` provides recipient
@@ -305,7 +309,7 @@ provider payloads and credentials are not returned.
 Pages have at most 100 records. Contact and broadcast cursors are UUIDs. Each contact contains the
 first 100 entries and `nextEntryCursor`; `entries.read` with `contactId` and that cursor walks the
 remaining history without truncation. Entry cursors are opaque. Default/unknown entries have nullable
-source IDs; source code, funnel, outcome and timestamp are preserved. Duplicate webhooks add no
+source IDs; source code, sequence, outcome and timestamp are preserved. Duplicate webhooks add no
 entry, while an intentional second start has its own observation. These are observations of entry,
 not claims of purchase attribution or proof that the person read a material.
 
@@ -362,7 +366,7 @@ remain separate owner work.
 
 Telegram calls the configured `PLATFORM_AUTHOR_AUTHORIZATION_URL` by `POST` with
 `Authorization: Bearer <PLATFORM_AUTHOR_AUTHORIZATION_SECRET>`. Platform #307 implements this
-operation, conventionally at `/integrations/telegram/v1/communications/authorize`. The separate
+operation, conventionally at `/integrations/telegram/v2/communications/authorize`. The separate
 outbound secret follows the existing evidence-delivery authentication pattern. Endpoint configuration
 requires HTTPS except on loopback; redirects are rejected and requests time out after five seconds.
 No result is cached. Both settings absent means fail closed; partial configuration fails startup.
@@ -391,7 +395,7 @@ post, and restores persisted sessions. The current `/admin` screens are describe
 [Broadcast messages and saved posts in the bot](#broadcast-messages-and-saved-posts-in-the-bot-37-101).
 Every command and callback checks the current confirmed link and `communications:manage`.
 The all-contact audience, launch/pause/resume/cancel and statistics call the same
-`Communications`/`Funnels` operations as the authenticated API. A launch time is set only through
+`Communications`/`CommunicationSequences` operations as the authenticated API. A launch time is set only through
 that API; the bot shows it in Moscow time before launch. `/template` remains compatible.
 Callbacks carry a session menu token; stale menus cannot apply a mutation against a newer screen.
 Session state, update receipt, operation receipt, mutation and author reply queue commit together.
@@ -470,24 +474,26 @@ runs only after the router returns ignored; `/stop` and `/resume` accept explici
 commands, while sign-in callbacks and legacy link tokens keep their existing handlers.
 
 No real author permission endpoint, Platform editor, credentialed Telegram message, marketing
-release or production enablement is proven here. Platform #307 supplies authorization, #308 the
-editor, and #310 the cross-application acceptance. Every merge and release still requires owner GO.
+release or production enablement is proven here. The Platform communications editor remains retired. Authorization and delegated MCP use the
+current Backend facade. Merge, prepared-result acceptance and release follow the current WORKFLOW.
 
-## Funnel settings in the bot (#38, #100)
+<a id="funnel-settings-in-the-bot-38-100"></a>
+
+## Sequence settings in the bot (#38, #100)
 
 `/admin` → «Последовательности» uses the same persisted author session, fresh confirmed-link authorization,
-update receipts and author-only outbox as posts and broadcasts. The funnel card offers «Сообщения»
+update receipts and author-only outbox as posts and broadcasts. The sequence card offers «Сообщения»
 and «Настройки», and both return to the card. «Настройки» edits the name, «Первый ответ», «Шаги и
 задержки» (add, move, remove, delay in seconds/minutes/hours/days), «Источники» (`?start=m_...`),
-the main-funnel choice and the shared «Общий вводный блок». «Сообщения» lists every message with its
+the main-sequence choice and the shared «Общий вводный блок». «Сообщения» lists every message with its
 time; «Когда отправить» moves a message to entry or to its own delayed step. Saving, publication
-and pause/resume/archive stay on the card; an archived funnel shows only «Настройки», where
+and pause/resume/archive stay on the card; an archived sequence shows only «Настройки», where
 «Восстановить» restores it. Contents are native messages or saved posts from
 `templates.list/read`; choosing copies the saved version, explicit replacement retains the part ID,
 and additions allocate new IDs. Changing a saved post does not modify a chosen draft or publication.
 
-The bot and the authenticated API/MCP are equal entry points to the same funnel settings. The bot
-writes through the same `funnels.save` and `intro.save` operations with expectedRevision and
+The bot and the authenticated API/MCP are equal entry points to the same sequence settings. The bot
+writes through the same `sequences.save` and `intro.save` operations with expectedRevision and
 operationId; there is no second write path, and either side continues the other's draft after a
 reread. Steps timed from entry (`delayAnchor: "entry"`, the bot's default since #43) show their time
 from entry and stay in time order: new steps and retimed messages count from entry, a changed delay
@@ -498,13 +504,13 @@ Composition remains a private scratch snapshot until «Сохранить чер
 described under #43 below). Preview
 and publish require the same saved revision; publication rechecks the exact snapshot under the
 existing definition lock. Menu callbacks and business writes share one transaction and update
-receipt. A savepoint rolls back a rejected funnel action before the menu reports a conflict,
+receipt. A savepoint rolls back a rejected sequence action before the menu reports a conflict,
 including conflicts discovered after a draft write. Duplicate updates cannot publish or sample twice.
-Pause, resume, archive and restore use the existing `funnels.lifecycle` operation. Detailed delivery history,
+Pause, resume, archive and restore use the existing `sequences.lifecycle` operation. Detailed delivery history,
 retry/skip and rollback remain available in the web editor and delegated operations.
 
 `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` configures Platform's service-only
-`POST /integrations/telegram/v1/communications/validate-content`; it reuses
+`POST /integrations/telegram/v2/communications/validate-content`; it reuses
 `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` and requires the authorization configuration. HTTPS is
 mandatory outside loopback. Request/response definitions are `contentValidationRequest` and
 `contentValidationResponse` in the canonical schema. The request includes the confirmed author and
@@ -543,11 +549,11 @@ with expectedRevision and operationId, and either side continues the other's dra
 ## Simple Telegram authoring (#43)
 
 The current `/admin` menu contains «Рассылки», «Последовательности», and «Статистика».
-Create a broadcast or funnel, send one native message, choose its time, then send the next.
+Create a broadcast or sequence, send one native message, choose its time, then send the next.
 «Готово» returns to the short summary. The incoming order is the delivery order; elapsed times
 cannot decrease. Text, photo, video, video note, voice and document preserve native formatting and
 file IDs. Albums are rejected without losing accepted messages. The first message supplies the name.
-Broadcasts allow 20 messages; funnels allow 100 across entry and delayed steps.
+Broadcasts allow 20 messages; sequences allow 100 across entry and delayed steps.
 
 A broadcast time is elapsed from its actual launch: «Сразу», «Через 1 час», «Через 2 часа», or
 free text such as `20 минут`. The optional `sendAfterSeconds` on each broadcast part is an integer
@@ -557,11 +563,11 @@ unreachable contacts are excluded. A scheduled API broadcast anchors offsets to 
 Pause suspends delivery without resetting the launch clock; resume sends overdue parts in order.
 Cancel stops future parts. Retries and unknown outcomes keep the existing durable delivery policy.
 
-A newly authored funnel sends its first message immediately on entry. Later messages use
+A newly authored sequence sends its first message immediately on entry. Later messages use
 `delayAnchor: "entry"` and `delaySeconds` from that person's entry, so +1h/+2h mean one and two hours,
 not one then three. Previously saved steps without `delayAnchor` retain delays after the preceding
 step. Entry-anchored steps still respect earlier unfinished delivery; a late worker catches up in
-order. Saving remains separate from publication. «Сделать основной» selects the funnel for ordinary
+order. Saving remains separate from publication. «Сделать основной» selects the sequence for ordinary
 entry; «Включить последовательность» explicitly publishes. Existing published edits require «Применить изменения».
 An unpublished draft can be archived/cancelled and restored to draft without publishing.
 
@@ -574,8 +580,8 @@ The next message captures a fresh expectedRevision. Concurrent agent edits requi
 
 Saved posts, replacement, reordering and buttons live under «Сохранённые посты» and the broadcast's
 «Изменить сообщения» (see [Broadcast messages and saved posts in the bot](#broadcast-messages-and-saved-posts-in-the-bot-37-101))
-and under the funnel's «Сообщения» and «Настройки» (see
-[Funnel settings in the bot](#funnel-settings-in-the-bot-38-100)). Authenticated API/MCP operations
+and under the sequence's «Сообщения» and «Настройки» (see
+[Sequence settings in the bot](#sequence-settings-in-the-bot-38-100)). Authenticated API/MCP operations
 and persisted composer recovery remain available.
 The owner works with an agent in the terminal: list/read the canonical draft as the same Account with
 `communications:manage`, preserve native content and stable IDs, then save using expectedRevision and
@@ -591,13 +597,13 @@ current permissions. Author delivery rechecks the link and permission before sen
 transport outcomes never trigger an automatic resend or a false successful-delivery footer.
 
 Migration `015-author-drafts` owns private incomplete destinations and pending compositions. These checkpoints never authorize subscriber delivery. No new database migration
-is required for timing: immutable delivery snapshots and published funnel JSON retain the new fields.
+is required for timing: immutable delivery snapshots and published sequence JSON retain the new fields.
 The schema fixtures, PostgreSQL author-flow tests and clock-controlled scheduler tests cover this
 flow, exact elapsed times, pause/cancel, recovery, conflicts, permission boundaries and footer ordering.
 
 ## Historical rollback validation (#41)
 
-`funnels.rollback` validates the actual immutable historical publication through
+`sequences.rollback` validates the actual immutable historical publication through
 `AUTHOR_CONTENT_VALIDATION` and Platform's existing authenticated `validate-content` endpoint. The
 check runs under the definition lock, after fresh author authorization, receipt replay and
 `expectedRevision`, before publication/step-history mutation. It checks the restored entry and all

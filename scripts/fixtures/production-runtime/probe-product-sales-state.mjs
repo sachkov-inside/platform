@@ -90,6 +90,7 @@ try {
     ["GET", "/billing/product-sales-states/private", 404],
     ["GET", "/internal/private", 404],
     ["GET", "/health", 404],
+    ["POST", "/integrations/telegram/v1/invitations/redeem", 404],
   ]) {
     const response = await query(method, path);
     console.log(
@@ -102,6 +103,7 @@ try {
       }),
     );
     assert.equal(response.status, status);
+    if (status === 404) assert.equal(response.body, "");
   }
   for (const path of [
     "binding",
@@ -127,6 +129,7 @@ try {
         }),
       );
       assert.equal(response.status, status);
+      if (status === 404) assert.equal(response.body, "");
     }
   }
   assert.deepEqual(calls, [

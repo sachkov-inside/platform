@@ -1,3 +1,5 @@
+import { createConnection } from "node:net";
+import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -5,25 +7,33 @@ import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { setTimeout } from "node:timers/promises";
 
+const dockerCommandFailureMilliseconds = 60_000;
+const postgresReadinessFailureMilliseconds = 30_000;
+const lifetimeHandshakeFailureMilliseconds = 10_000;
+const postgresDestructionFailureMilliseconds = 15_000;
 const execute = promisify(execFile);
 export const restorePostgresImage =
   "ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15";
 
 /** Synthetic, isolated databases only. Archives and tools live in this check's container. */
-export async function createRestorePostgres(owner) {
-  const name = `inside-mixed-restore-${randomUUID()}`;
+export async function createRestorePostgres(owner, options = {}) {
+  const name = options.containerName ?? `inside-mixed-restore-${randomUUID()}`;
+  if (!/^inside-mixed-restore-[a-f0-9-]{36}$/u.test(name))
+    throw new Error("Invalid owned restore container name");
   const commands = [];
   const databases = new Set();
   const archives = new Set();
   let acquired = false;
+  let lease;
+  let containerId;
   const evidence = { owner, image: restorePostgresImage, commands };
   const pending = new Set();
   let closing = false;
   async function docker(args) {
-    if (closing && args[0] !== "rm")
+    if (closing && !["rm", "container"].includes(args[0]))
       throw new Error("Restore fixture is closing");
     const operation = execute("docker", args, {
-      timeout: 60_000,
+      timeout: dockerCommandFailureMilliseconds,
       maxBuffer: 16 * 1024 * 1024,
     });
     pending.add(operation);
@@ -45,7 +55,24 @@ export async function createRestorePostgres(owner) {
     if (!acquired) return;
     closing = true;
     await Promise.allSettled([...pending]);
-    await docker(["rm", "--force", "--volumes", name]);
+    if (options.daemonLifetime && lease) {
+      lease.end();
+      const deadline = Date.now() + postgresDestructionFailureMilliseconds;
+      while (true) {
+        try {
+          await docker(["container", "inspect", containerId]);
+        } catch (error) {
+          if (!String(error.stderr).includes("No such container")) throw error;
+          break;
+        }
+        if (Date.now() >= deadline)
+          throw new Error(
+            "Owned PostgreSQL destruction failure budget exceeded",
+          );
+        await setTimeout(25);
+      }
+      evidence.containerAbsent = true;
+    } else await docker(["rm", "--force", "--volumes", name]);
     acquired = false;
     const evidenceDirectory = process.env["DOMAIN_RESTORE_EVIDENCE_DIRECTORY"];
     if (evidenceDirectory !== undefined) {
@@ -58,21 +85,79 @@ export async function createRestorePostgres(owner) {
   }
   try {
     acquired = true;
-    await docker([
+    const runArguments = [
       "run",
       "--detach",
       "--name",
       name,
+      "--label",
+      `inside.mixed-restore.owner=${owner}`,
       "--publish",
       "127.0.0.1::5432",
       "--tmpfs",
       "/var/lib/postgresql:rw,size=512m",
       "--env",
       "POSTGRES_HOST_AUTH_METHOD=trust",
-      restorePostgresImage,
-    ]);
+    ];
+    if (options.daemonLifetime) {
+      const lifetimeScript = fileURLToPath(
+        new URL("./postgres-lifetime.sh", import.meta.url),
+      );
+      runArguments.push(
+        "--rm",
+        "--publish",
+        "127.0.0.1::55432",
+        "--env",
+        `RESTORE_LEASE_NAME=${name}`,
+        "--mount",
+        `type=bind,source=${lifetimeScript},target=/postgres-lifetime.sh,readonly`,
+        "--mount",
+        `type=bind,source=${options.daemonLifetime},target=/evidence`,
+        "--entrypoint",
+        "sh",
+        restorePostgresImage,
+        "/postgres-lifetime.sh",
+      );
+    } else runArguments.push(restorePostgresImage);
+    containerId = await docker(runArguments);
+    if (options.daemonLifetime) {
+      options.onContainerAcquired?.({ name, containerId });
+      const binding = await docker(["port", name, "55432/tcp"]);
+      if (!/^127\.0\.0\.1:\d+$/u.test(binding))
+        throw new Error("Unexpected owned lifetime binding");
+      const deadline = Date.now() + lifetimeHandshakeFailureMilliseconds;
+      while (!lease) {
+        try {
+          lease = await new Promise((ready, reject) => {
+            const connection = createConnection({
+              host: "127.0.0.1",
+              port: Number(binding.split(":")[1]),
+            });
+            connection.setTimeout(lifetimeHandshakeFailureMilliseconds);
+            connection.once("error", reject);
+            connection.once("timeout", () => {
+              connection.destroy();
+              reject(new Error("Lifetime handshake failure budget exceeded"));
+            });
+            connection.once("data", (data) => {
+              if (data.toString() !== "LEASE_READY\n") {
+                connection.destroy();
+                reject(new Error("Invalid lifetime handshake"));
+                return;
+              }
+              connection.setTimeout(0);
+              ready(connection);
+            });
+          });
+        } catch (error) {
+          if (Date.now() >= deadline || error.code !== "ECONNREFUSED")
+            throw error;
+          await setTimeout(25);
+        }
+      }
+    }
     acquired = true;
-    const deadline = Date.now() + 30_000;
+    const deadline = Date.now() + postgresReadinessFailureMilliseconds;
     while (
       (await tool([
         "pg_isready",

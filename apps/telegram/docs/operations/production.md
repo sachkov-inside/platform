@@ -84,16 +84,16 @@ Git; зашифруйте файлы для host и отдельного recover
 | Бот | `TELEGRAM_BOT_IDENTITY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CANONICAL_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET` | dedicated production bot; одна общая группа | `TELEGRAM_BOT_START_URL` |
 | Ответы в личном чате | `TELEGRAM_DELIVERY_MODE` и тексты `TELEGRAM_*_TEXT` | `live`; тексты по-русски | — |
 | Привязка | `PLATFORM_INTEGRATION_SECRET` | секрет | `TELEGRAM_LINKING_SECRET`; `TELEGRAM_LINKING_ENDPOINT=https://<telegram>/integrations/platform/v1/identity-links` |
-| Communications API | `PLATFORM_COMMUNICATIONS_SECRET` | отдельный секрет; без него API отвечает 401 | `TELEGRAM_COMMUNICATIONS_SECRET`; `TELEGRAM_COMMUNICATIONS_ENDPOINT=https://<telegram>/integrations/platform/v1/communications` |
+| Communications API | `PLATFORM_COMMUNICATIONS_SECRET` | отдельный секрет; без него API отвечает 401 | `TELEGRAM_COMMUNICATIONS_SECRET`; `TELEGRAM_COMMUNICATIONS_ENDPOINT=https://<telegram>/integrations/platform/v2/communications` |
 | Membership Evidence | `TELEGRAM_MEMBERSHIP_MODE`, `TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS`, `TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS`, `PLATFORM_EVIDENCE_DELIVERY_MODE`, `PLATFORM_EVIDENCE_DELIVERY_URL`, `PLATFORM_EVIDENCE_DELIVERY_SECRET` | `live`, `240000`, `90`, `live`, `https://<platform>/integrations/telegram/v1/membership-evidence` | `TELEGRAM_EVIDENCE_INGRESS_SECRET` |
 | Вход через бота | `TELEGRAM_SIGN_IN_ENABLED`, `TELEGRAM_SIGN_IN_INTEGRATION_SECRET`, `TELEGRAM_SIGN_IN_RETURN_URL` | `false` до готовности Logto и Platform; optional публичный URL сайта для «Открыть Inside» после успеха | `TELEGRAM_SIGN_IN_INTEGRATION_SECRET` |
 | Сообщество v2 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION`, `TELEGRAM_COMMUNITY_MODE`, `TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS`, `TELEGRAM_COMMUNITY_REMOVALS_ENABLED` | `inside.community-entitlement.v2`, `live`, `60000`, `true` (решение владельца 04.10.2026) | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2` |
 | Сообщество: входящие команды | `PLATFORM_COMMUNITY_INTEGRATION_SECRET` | секрет | `TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET`, `TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT=https://<telegram>/integrations/platform/v1/community-entitlements` |
 | Сообщество: разрешение эффекта | `PLATFORM_COMMUNITY_DISPATCH_URL`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` | `https://<platform>/internal/billing-dispatch/authorize` | `TELEGRAM_COMMUNITY_DISPATCH_SECRET` |
-| Сообщество: дата старта в приветствии | `PLATFORM_COHORTS_URL`, `PLATFORM_COHORT_PRODUCT_ID` ([приветствие](../integrations/community-entitlements-v1.md)) | `https://<platform>/billing/cohorts`; UUID продукта курса в каталоге Platform. Без обеих — приветствие без даты | — (публичное чтение без секрета) |
-| Активация курса и приглашения `i_` | `TELEGRAM_ACTIVATION_ENABLED`, `PLATFORM_ACTIVATION_URL`, `PLATFORM_ACTIVATION_SECRET`, `PLATFORM_ACCOUNT_URL`, `TELEGRAM_ACTIVATION_SOURCES` | `https://<platform>/integrations/telegram/v1/subscription-activation`; Account URL; реестр групп курса ([подтверждение статуса](course-activation.md#подтверждение-статуса-прежних-участников)) | `TELEGRAM_ACTIVATION_INGRESS_SECRET` |
+| Сообщество: дата старта в приветствии | `PLATFORM_PRODUCT_SALES_STATES_URL`, `PLATFORM_PRODUCT_SALES_PRODUCT_ID` ([приветствие](../integrations/community-entitlements-v1.md)) | `https://<platform>/billing/product-sales-states`; UUID продукта курса в каталоге Platform. Без обеих — приветствие без даты | — (публичное чтение без секрета) |
+| Подтверждённая активация курса | `TELEGRAM_ACTIVATION_ENABLED`, `PLATFORM_ACTIVATION_URL`, `PLATFORM_ACTIVATION_SECRET`, `PLATFORM_ACCOUNT_URL`, `TELEGRAM_ACTIVATION_SOURCES` | `https://<platform>/integrations/telegram/v1/course-activation`; Account URL; реестр групп курса ([подтверждение статуса](course-activation.md#подтверждение-статуса-прежних-участников)) | `TELEGRAM_ACTIVATION_INGRESS_SECRET` |
 | Уведомления | `TELEGRAM_NOTIFICATIONS_ENABLED`, `NOTIFICATION_AMQP_URL`, `NOTIFICATION_AUTHORIZE_URL`, `NOTIFICATION_AUTHORIZE_SECRET`, `NOTIFICATION_QUARANTINE_KEY`, `NOTIFICATION_PREFETCH`, `NOTIFICATION_BATCH_SIZE` | AMQPS principal Telegram; `https://<platform>/internal/notifications/dispatch/authorize`; ключ 64 hex | `NOTIFICATIONS_TELEGRAM_SECRET`; principal и vhost из topology Platform |
-| Авторское меню, воронки, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v1/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
+| Авторское меню, последовательности, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v2/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
 | Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`, `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`, `30` | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
 | Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/products/","https://<platform>/series/","https://<platform>/guides/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
 
@@ -104,8 +104,8 @@ Git; зашифруйте файлы для host и отдельного recover
 - секрет короче 32 символов, включая `TELEGRAM_WEBHOOK_SECRET`;
 - live-режим без токена бота; неполная пара URL и секрета; HTTP вне loopback, учётные данные,
   query или fragment в URL сервиса, включая `PLATFORM_EVIDENCE_DELIVERY_URL` и
-  `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_COHORTS_URL` и `TELEGRAM_SIGN_IN_RETURN_URL`;
-- только одна из `PLATFORM_COHORTS_URL` и `PLATFORM_COHORT_PRODUCT_ID`, или `PLATFORM_COHORT_PRODUCT_ID`
+  `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_PRODUCT_SALES_STATES_URL` и `TELEGRAM_SIGN_IN_RETURN_URL`;
+- только одна из `PLATFORM_PRODUCT_SALES_STATES_URL` и `PLATFORM_PRODUCT_SALES_PRODUCT_ID`, или `PLATFORM_PRODUCT_SALES_PRODUCT_ID`
   не UUID;
 - непустой `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`: live Tribute recognition удалено;
 - один и тот же секрет в двух направлениях: ошибка называет обе переменные;
@@ -183,11 +183,11 @@ Base URL обоих клиентов — `https://<telegram-domain>`. Серве
 единственный app. Отключение — `TELEGRAM_SIGN_IN_ENABLED=false` с перезапуском; не удаляйте
 sign-in subjects или связи. Уже открытые запросы окончательно истекают через пять минут.
 
-### Воронки и рассылки
+### Последовательности и рассылки
 
-`TELEGRAM_MARKETING_ENABLED=true` включает воронки, marketing entry и доставку рассылок. Это
+`TELEGRAM_MARKETING_ENABLED=true` включает последовательности, marketing entry и доставку рассылок. Это
 отдельное решение владельца в [Workspace #184](https://github.com/sachkov-inside/workspace/issues/184).
-Уведомления о подписке и материалах от marketing не зависят.
+Сервисные уведомления о разовых покупках и материалах от marketing не зависят.
 
 Политика рассылок курса ([Workspace #238](https://github.com/sachkov-inside/workspace/issues/238)):
 
@@ -588,7 +588,7 @@ curl --silent --output /dev/null --write-out '%{http_code}\n' \
 | `/webhooks/telegram` | Telegram |
 | `/integrations/platform/v1/identity-links`, `/identity-links/<ref>/confirm` | Platform API |
 | `/integrations/platform/v1/community-entitlements` | Platform billing-worker |
-| `/integrations/platform/v1/communications` | Platform API и MCP |
+| `/integrations/platform/v2/communications` | Platform API и MCP |
 | `/integrations/identity/v1/sign-in`, `/sign-in/<ref>/status`, `/consume`, `/account-link` | Logto и Platform API |
 
 Reference занимает один сегмент пути; вложенные пути не допускаются. Остальные пути дают `404`,
@@ -601,9 +601,9 @@ Platform `TELEGRAM_LINKING_ENDPOINT` указывает на
 `/internal/community-entitlements` обслуживается как
 `https://<telegram-domain>/integrations/platform/v1/community-entitlements`.
 
-Telegram вызывает Platform по публичному HTTPS: `membership-evidence`, `subscription-activation`,
+Telegram вызывает Platform по публичному HTTPS: `membership-evidence`, `course-activation`,
 `/internal/billing-dispatch/authorize`, `/internal/notifications/dispatch/authorize`,
-`/integrations/telegram/v1/communications/authorize` и `/validate-content`. Каждый из них должен
+`/integrations/telegram/v2/communications/authorize` и `/validate-content`. Каждый из них должен
 быть опубликован Caddy Platform, иначе соответствующая функция Telegram отказывает закрыто.
 
 Выпуск Platform #527 публикует в `platform.caddy` точные маршруты для каждого из этих адресов, включая

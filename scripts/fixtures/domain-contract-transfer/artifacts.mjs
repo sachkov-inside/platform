@@ -10,7 +10,9 @@ export const artifactAlgorithm =
 
 export async function sourceIdentity(context) {
   const git = async (...args) =>
-    (await execute("git", ["-C", context, ...args])).stdout.trim();
+    (
+      await execute("git", ["-C", context, ...args], { timeout: 10_000 })
+    ).stdout.trim();
   if (await git("status", "--porcelain", "--untracked-files=no"))
     throw new Error("Artifact context has tracked source changes");
   return [
