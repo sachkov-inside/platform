@@ -121,8 +121,8 @@ production recovery are documented in the
 
 The [guarded smoke](local-stand.md#guarded-compose-smoke) proves the live web server adapter can reach API and PostgreSQL, MCP reported
 database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
-stored content, one safe closed catalog Material, and the seeded Product UUID, name and
-3000-kopeck published one-time price in PostgreSQL. The current `/billing/product-prices`
+stored content, one safe closed catalog Material, and the seeded Product UUID with its associated
+ProductPrice name, 3000-kopeck amount and published, nonarchived state in PostgreSQL. The current `/billing/product-prices`
 response is empty because Billing assembly requires approved Product terms for `saleCapability`;
 the current legal edition does not provide that approval. The retired `/billing/offers` route
 returns 404. These smoke facts complement the buyer contracts for actual purchase admission. Repeating `docker compose down` and the detached startup preserves the database volume
