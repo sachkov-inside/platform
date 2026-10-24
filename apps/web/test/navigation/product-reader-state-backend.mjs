@@ -323,6 +323,8 @@ export function productReaderStateRoute(request, url, owner) {
       },
     });
   if (url.pathname.includes("community-entry"))
-    return reply({ kind: "member" });
+    return reply({
+      kind: optionalTarget === "community-link" ? "link_telegram" : "member",
+    });
   return null;
 }

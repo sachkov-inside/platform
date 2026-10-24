@@ -10,7 +10,13 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 import {
   MaterialCard,
@@ -30,6 +36,10 @@ import { PRODUCT_BATCH_SIZE } from "./product-batch";
 import { useProductOnboardingPresentation } from "./product-programme-onboarding.client";
 import { useProductLearning } from "./product-learning.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
+
+const subscribeToHydration = () => () => undefined;
+const readClientHydration = () => true;
+const readServerHydration = () => false;
 
 /** Строка программы: её карточку нарисовал сервер, здесь только место в списке и возврат к ней. */
 export interface JourneyRow {
@@ -107,6 +117,11 @@ export function ProductJourneyControls({
   readonly offersAccessRecheck: boolean;
   readonly parts: readonly JourneyPart[];
 }) {
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    readClientHydration,
+    readServerHydration,
+  );
   const onboarding = useProductOnboardingPresentation();
   const parts: readonly JourneyPart[] =
     onboarding === undefined
@@ -495,6 +510,7 @@ export function ProductJourneyControls({
       {parts.length > 1 ? (
         <ProgrammeSidebar
           activeId={part?.id ?? "programme"}
+          disabled={!hydrated}
           onOpenPart={openPart}
           parts={parts}
         />
@@ -502,6 +518,7 @@ export function ProductJourneyControls({
       {parts.length > 1 ? (
         <ProductBottomBar
           activeId={part?.id ?? "programme"}
+          disabled={!hydrated}
           onOpen={openPart}
           parts={parts}
         />
@@ -742,10 +759,12 @@ const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
 /** Programme and Materials share a floating mobile bar; the active item expands with its label. */
 function ProductBottomBar({
   activeId,
+  disabled,
   onOpen,
   parts,
 }: {
   readonly activeId: JourneyPart["id"];
+  readonly disabled: boolean;
   readonly onOpen: (id: JourneyPart["id"]) => void;
   readonly parts: readonly JourneyPart[];
 }) {
@@ -768,6 +787,7 @@ function ProductBottomBar({
               aria-label={partBarLabels[entry.id]}
               className="product-bottom-bar-item"
               data-current={current}
+              disabled={disabled}
               key={entry.id}
               onClick={() => {
                 onOpen(entry.id);
@@ -794,10 +814,12 @@ function ProductBottomBar({
  */
 function ProgrammeSidebar({
   activeId,
+  disabled,
   onOpenPart,
   parts,
 }: {
   readonly activeId: JourneyPart["id"];
+  readonly disabled: boolean;
   readonly onOpenPart: (id: JourneyPart["id"]) => void;
   readonly parts: readonly JourneyPart[];
 }) {
@@ -813,6 +835,7 @@ function ProgrammeSidebar({
                 <button
                   aria-current={current ? "true" : undefined}
                   data-current={current}
+                  disabled={disabled}
                   onClick={() => {
                     onOpenPart(entry.id);
                   }}
