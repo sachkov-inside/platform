@@ -45,6 +45,14 @@ Source и Practice receipts читаются только для исходно�
 изменённый запрос, чужой автор или новый ключ не создают записей. Эти проверки повторяются
 после восстановления обоих архивов, включая удерживаемую legacy-базу.
 
+Исторические строки `member_profiles` сравниваются целиком с `account_profiles` после
+переименования схемы: private active и disabled Profile, opaque identifiers, avatar rendition
+checksums и protected object keys, состояние cleanup и события disable/restore. Текущий
+`AccountProfiles` возвращает владельцу только private projection, другой Account не получает
+чужой avatar, disabled Profile не активируется при recovery. `AccountNames` возвращает только
+имя active Profile. Это проверка сохранности данных и границ чтения; avatar upload и выполнение
+cleanup worker здесь не запускаются, обращений к object storage нет.
+
 Хеш и размер архива связывают доказательство с конкретными bytes. Они не заменяют фактический
 restore и вызовы приложения. Копирование latest template или data-only dump не являются этой проверкой.
 

@@ -28,6 +28,11 @@ import {
   assembleAccessGrants,
   assembleAccountRights,
 } from "../../src/modules/account-rights/index.js";
+import {
+  assembleAccountProfiles,
+  AccountNames,
+  moderateAccountProfile,
+} from "../../src/modules/account-profiles/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import {
   ProductDirectory,
@@ -69,6 +74,11 @@ afterAll(async () => {
 const instant = new Date("2030-01-31T10:00:00Z");
 const ids = Object.fromEntries(
   [
+    "activeProfile",
+    "disabledProfile",
+    "activeAvatar",
+    "disabledAvatar",
+    "orphanAvatar",
     "owner",
     "holder",
     "revoked",
@@ -135,7 +145,13 @@ const acceptance = {
   digest: acceptedHash,
 };
 function createExternalEffects() {
-  return { init: 0, charges: 0, telegram: 0, states: [] as string[] };
+  return {
+    init: 0,
+    charges: 0,
+    telegram: 0,
+    storage: 0,
+    states: [] as string[],
+  };
 }
 
 const originalPracticeDefinition = {
@@ -231,6 +247,107 @@ async function seedLegacy(url: string) {
         "insert into accounts.accounts(id,logto_issuer,logto_subject) values($1::uuid,'https://synthetic.identity.test',$1::text)",
         [id(who)],
       );
+    // Historical physical names and original private storage keys, before the 0112 schema rename.
+    for (const [who, profile, status, version, name, bio] of [
+      [
+        "holder",
+        "activeProfile",
+        "active",
+        4,
+        "Restored private name",
+        "Private original active biography",
+      ],
+      [
+        "revoked",
+        "disabledProfile",
+        "disabled",
+        4,
+        "Disabled private name",
+        "Private original disabled biography",
+      ],
+    ] as const) {
+      await pool.query(
+        "insert into member_profiles.profiles(account_id,public_profile_id,display_name,bio,status,version,created_at,updated_at) values($1,$2,$3,$4,$5,$6,'2020-01-01','2020-01-04T12:00:00Z')",
+        [id(who), id(profile), name, bio, status, version],
+      );
+    }
+    for (const [avatar, who, referenced, state] of [
+      ["activeAvatar", "holder", true, "ready"],
+      ["disabledAvatar", "revoked", true, "ready"],
+      ["orphanAvatar", "holder", false, "failed"],
+    ] as const) {
+      await pool.query(
+        "insert into member_profiles.avatars(id,account_id,state,failure_code,currently_referenced,orphaned_at,cleanup_claimed_at,ready_at,created_at,updated_at) values($1,$2,$3,$4,$5,$6,$7,$8,'2020-01-02','2020-01-30')",
+        [
+          id(avatar),
+          id(who),
+          state,
+          state === "failed" ? "storage_failure" : null,
+          referenced,
+          new Date(referenced ? "2020-01-02" : "2020-01-29"),
+          referenced ? null : new Date("2020-01-30"),
+          referenced ? new Date("2020-01-03") : null,
+        ],
+      );
+      for (const size of [160, 320, 640]) {
+        await pool.query(
+          "insert into member_profiles.avatar_renditions(avatar_id,size,content_type,byte_size,checksum_sha256,protected_object_key) values($1,$2,'image/webp',$3,$4,$5)",
+          [
+            id(avatar),
+            size,
+            size * 7,
+            createHash("sha256")
+              .update(`original-${avatar}-${String(size)}`)
+              .digest("hex"),
+            `account-profiles/${id(who)}/avatars/${id(avatar)}/${String(size)}.webp`,
+          ],
+        );
+      }
+    }
+    for (const [who, avatar] of [
+      ["holder", "activeAvatar"],
+      ["revoked", "disabledAvatar"],
+    ] as const) {
+      await pool.query(
+        "update member_profiles.profiles set avatar_id=$2 where account_id=$1",
+        [id(who), id(avatar)],
+      );
+    }
+    for (const [who, profile, events] of [
+      [
+        "holder",
+        "activeProfile",
+        [
+          "profile_created",
+          "avatar_uploaded",
+          "profile_disabled",
+          "profile_restored",
+        ],
+      ],
+      [
+        "revoked",
+        "disabledProfile",
+        [
+          "profile_created",
+          "avatar_uploaded",
+          "profile_updated",
+          "profile_disabled",
+        ],
+      ],
+    ] as const) {
+      for (const [index, event] of events.entries()) {
+        await pool.query(
+          "insert into member_profiles.audit_events(id,event,account_id,public_profile_id,created_at) values($1,$2,$3,$4,$5)",
+          [
+            randomUUID(),
+            event,
+            id(who),
+            id(profile),
+            new Date(`2020-01-${String(index + 1).padStart(2, "0")}T12:00:00Z`),
+          ],
+        );
+      }
+    }
     await pool.query(
       "insert into accounts.account_permissions(account_id,permission) values($1,'platform:admin')",
       [id("owner")],
@@ -646,6 +763,17 @@ async function preservedFacts(
     before.tables["materials.practice_definitions"],
   );
   expect(after.tables["materials.practice_definitions"]).toBeUndefined();
+  for (const table of [
+    "profiles",
+    "avatars",
+    "avatar_renditions",
+    "audit_events",
+  ]) {
+    const original = before.tables[`member_profiles.${table}`];
+    expect(original, table).not.toHaveLength(0);
+    expect(after.tables[`account_profiles.${table}`], table).toEqual(original);
+    expect(after.tables[`member_profiles.${table}`], table).toBeUndefined();
+  }
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
     expect(
@@ -747,6 +875,94 @@ async function recover(
     createPrismaClient(database.url),
   );
   try {
+    const unexpectedStorage = () => {
+      external.storage++;
+      throw new Error(
+        "Profile restore readers must not access external object storage",
+      );
+    };
+    const profiles = assembleAccountProfiles({
+      prisma,
+      signedGetTtlSeconds: 60,
+      objectStorage: {
+        putImmutable: unexpectedStorage,
+        read: unexpectedStorage,
+        delete: unexpectedStorage,
+        signGet: unexpectedStorage,
+      },
+    });
+    for (const [who, name, bio, status, version, avatar] of [
+      [
+        "holder",
+        "Restored private name",
+        "Private original active biography",
+        "active",
+        4,
+        "activeAvatar",
+      ],
+      [
+        "revoked",
+        "Disabled private name",
+        "Private original disabled biography",
+        "disabled",
+        4,
+        "disabledAvatar",
+      ],
+    ] as const) {
+      expect(await profiles.readPrivateProfile(accountId(id(who)))).toEqual({
+        ok: true,
+        value: {
+          kind: "profile",
+          profile: {
+            displayName: name,
+            bio,
+            status,
+            version,
+            avatar: { avatarId: id(avatar) },
+            createdAt: "2020-01-01T00:00:00.000Z",
+            updatedAt: "2020-01-04T12:00:00.000Z",
+          },
+        },
+      });
+    }
+    // A different Account cannot select the owner's profile by opaque Profile ID or avatar ID.
+    expect(await profiles.readPrivateProfile(accountId(id("orphan")))).toEqual({
+      ok: true,
+      value: { kind: "missing" },
+    });
+    for (const [who, avatar] of [
+      ["orphan", "activeAvatar"],
+      ["revoked", "activeAvatar"],
+      ["holder", "orphanAvatar"],
+      ["revoked", "disabledAvatar"],
+    ] as const) {
+      expect(
+        await profiles.deliverAvatar({
+          accountId: accountId(id(who)),
+          avatarId: id(avatar),
+          size: 320,
+        }),
+      ).toEqual({ ok: false, error: { code: "not_found" } });
+    }
+    expect(
+      await moderateAccountProfile(prisma, id("disabledProfile"), "disable"),
+    ).toEqual({
+      ok: true,
+      changed: false,
+      status: "disabled",
+      publicProfileId: id("disabledProfile"),
+    });
+    expect(
+      await new AccountNames(prisma).read([
+        id("holder"),
+        id("revoked"),
+        id("orphan"),
+      ]),
+    ).toEqual({
+      ok: true,
+      names: new Map([[id("holder"), "Restored private name"]]),
+    });
+    expect(external.storage).toBe(0);
     const historicalAuthoring = assembleMaterials({
       prisma,
       authorPolicy: { canManage: (actor) => actor === id("owner") },
