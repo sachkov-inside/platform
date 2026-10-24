@@ -495,7 +495,9 @@ add mandatory steps. Existing reading-state records remain intact.
 Authoring composition accepts optional programmePlacements and chapter supplementaryMaterialIds. Omitted
 attachment fields preserve links; an empty list clears them. Platform's chapter attachment operation updates
 only attachment links, including for source-owned Products. Source originals and programme remain source-owned.
-Published free Materials always appear in the public feed. The legacy showInFeed field cannot hide them.
+Published free Materials always appear in the public feed. The legacy showInFeed field cannot hide them
+or block explicit Product catalogue removal. Its passive source history and compatibility wire are
+retained until the ordered consumer cleanup in #1712; it is no current publication or access authority.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without
@@ -816,10 +818,11 @@ The mobile bar uses compact inactive icons; its active item expands and shows it
 Artifact navigation and its learner panel are removed. Stored artifacts, the editor and
 landing-page promises retain their current owners. Prices and access contracts remain with #401/#411.
 
-#### AI Engineering: ожидание набора (#1568)
+#### Ожидание набора Product (#1568, #1710)
 
-Когда у посетителя нет действующего доступа и доступного предложения покупки, первый экран
-курса и нижний блок показывают «Вступить в список ожидания». На первом экране действие оформлено
+Страница выбирает ожидание по данным текущего Intake конкретного Product, без специальной ветки
+по адресу курса. Когда у посетителя нет действующего доступа и доступного предложения покупки,
+но есть принимающий записи Intake, первый экран курса и нижний блок показывают «Вступить в список ожидания». На первом экране действие оформлено
 плашкой набора. После записи обе кнопки показывают «Вы в списке ожидания» и больше не выполняют
 действие. Дополнительного текста о Telegram и кнопки отказа на странице нет.
 Нижний блок сохраняет композицию набора на первый поток: преимущества слева, билет справа.
@@ -833,10 +836,24 @@ landing-page promises retain their current owners. Prices and access contracts r
 
 Platform хранит одну membership на Account и Product Intake, события записи и отказа отдельно.
 Product Intake имеет явный стабильный UUID, свой Product и признак приёма записей. Ни Product,
-ни изменяемая ProductCohort revision, ни дата старта не определяют новый набор. Следующий набор
+ни изменяемая Product Sales State revision, ни дата старта не определяют новый набор. Следующий набор
 получает новый Intake; прежние membership и события остаются с прежним. Миграция добавляет
 первый Intake только существующему неархивному `ai-engineering`, без даты открытия продаж.
 Если Intake не настроен, запись отклоняется, а отчёт не подменяет отсутствие набора нулём.
+Архив Product закрывает открытое чтение Intake и новую запись, исключает текущую аудиторию
+отправки, сохраняя собственную историю и возможность отказа.
+
+Product Sales State принадлежит Billing и хранится отдельно от постоянного Intake. Текущие
+Web reads используют `/billing/product-sales-states`; старый строгий `/billing/cohorts` остаётся
+адаптером совместимости до проверенного перехода readers в #1712. Дата и этап не меняют цену,
+публикацию Product Price или фактический допуск оплаты. Цена запрашивается по точному Product ID;
+ответ с ценой другого Product не становится предложением этого продукта.
+
+Home и личные слоты Product используют один server-only Product Reader State за запрос:
+learning, sale, waitlist, checking или unavailable. Он собирает доступ, продажу, продолжение,
+онбординг и ожидание после `connection()`. React request cache не переносит личный результат
+в следующий запрос или в общий гостевой кеш. Слоты показывают готовое положение читателя,
+а доступ к защищённым действиям по-прежнему проверяет backend.
 
 Начать запись можно только явным same-origin POST. Краткоживущий подписанный HttpOnly intent
 сохраняет Intake, Product и исходную метку перехода через существующий вход и условия.
@@ -1724,7 +1741,11 @@ in author order (variant 2).
   answers `task_not_found` for the 404 cases.
 - `GET /accounts/current/product-tasks/{code}/submissions` (`listOwnTaskSubmissions`) lists the
   Account's own submissions with source, version, note, agent report, manual text report, repository and Author
-  Feedback, the current `reviewProgress`, and the criteria of their versions. Agent-only guidance
+  Feedback, the current `reviewProgress`, and the criteria of their versions. Own saved history
+  remains readable after Product access is revoked or the Task is withdrawn; another Account's
+  history stays isolated. A closed Task page shows this saved history without current protected
+  requirements or new submission controls. Fresh reads and submissions still require current access.
+  Agent-only guidance
   is omitted from HTTP responses. The task page polls through `GET /api/product-tasks/submissions`.
 - `POST /accounts/current/product-tasks/{code}/submissions` (`submitProductTaskForm`) takes
   `taskVersion`, `submissionKey`, `note` (1–1000 characters), optional `repositoryUrl` and

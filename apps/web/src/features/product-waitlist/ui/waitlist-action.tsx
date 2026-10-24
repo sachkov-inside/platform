@@ -8,6 +8,7 @@ export type WaitlistState =
 export interface WaitlistActionProps {
   readonly state: WaitlistState;
   readonly lower?: boolean;
+  readonly productSlug?: string;
   readonly onBegin: () => void;
   readonly onWithdraw: () => void;
   readonly linking?: ReactNode;
@@ -68,6 +69,7 @@ export function WaitlistMembership({
 export function WaitlistAction({
   state,
   lower = false,
+  productSlug,
   onBegin,
   linking,
   notice = "",
@@ -147,12 +149,14 @@ export function WaitlistAction({
           <div className="aie-cohort-ticket-tear" aria-hidden="true" />
           <div className="aie-cohort-ticket-actions">
             {action}
-            <IntentPrefetchLink
-              className="aie-cohort-ticket-programme"
-              href={productProgrammeHref("ai-engineering")}
-            >
-              Открыть программу
-            </IntentPrefetchLink>
+            {productSlug === undefined ? null : (
+              <IntentPrefetchLink
+                className="aie-cohort-ticket-programme"
+                href={productProgrammeHref(productSlug)}
+              >
+                Открыть программу
+              </IntentPrefetchLink>
+            )}
           </div>
         </div>
       </div>

@@ -1,13 +1,10 @@
+import { readProductReaderState } from "@/widgets/product-reader-state/index.server";
 import { WaitlistProvider } from "./waitlist-provider.client";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { preorderPrice } from "@/entities/subscription";
-import {
-  readGuestProductSale,
-  readViewerProductSale,
-} from "@/entities/subscription.sale.server";
 import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
@@ -110,9 +107,13 @@ export async function PublishedSeriesPage({
       returnTarget={parseMaterialReaderReturnTarget(query.from)}
     />
   );
-  return result.reference.slug === "ai-engineering" &&
-    result.reference.id !== undefined ? (
-    <WaitlistProvider productId={result.reference.id}>{view}</WaitlistProvider>
+  return result.reference.id !== undefined ? (
+    <WaitlistProvider
+      productId={result.reference.id}
+      productSlug={result.reference.slug}
+    >
+      {view}
+    </WaitlistProvider>
   ) : (
     view
   );
@@ -208,18 +209,14 @@ async function PersonalProgramme({
   if (resolved.kind === "unavailable") return <LibraryDiscoveryUnavailable />;
   // Идентификатор руководства не зависит от читателя, поэтому личные чтения идут разом.
   const productId = resolved.reference.id;
-  const [result, artifacts, sale] = await Promise.all([
+  const [result, artifacts, readerState] = await Promise.all([
     accessToken === undefined
       ? resolved
       : loadPublishedSeries(slug, accessToken),
     accessToken === undefined || productId === undefined
       ? (sharedArtifacts ?? noArtifacts)
       : readReaderProductArtifacts(productId, accessToken),
-    productId === undefined
-      ? null
-      : accessToken === undefined
-        ? readGuestProductSale(productId)
-        : readViewerProductSale(productId, accessToken),
+    productId === undefined ? null : readProductReaderState(productId, slug),
   ]);
   if (result.kind === "not-found") {
     notFound();
@@ -227,9 +224,11 @@ async function PersonalProgramme({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
+  const sale = readerState?.sale ?? null;
   return (
     <PersonalSeries
       artifacts={artifacts}
+      {...(readerState === null ? {} : { readerState })}
       preorder={
         sale?.kind === "ready" && sale.access !== "open"
           ? preorderPrice(sale.cohort, sale.offers[0] ?? null)

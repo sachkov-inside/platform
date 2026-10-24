@@ -39,6 +39,17 @@ async function readProductSale(
   productId: string,
   accessToken?: string,
 ): Promise<ProductSale> {
+  return (await readProductSaleFacts(productId, accessToken)).sale;
+}
+
+/** One read of access and sale facts, retaining entitlement even when prices are unavailable. */
+export async function readProductSaleFacts(
+  productId: string,
+  accessToken?: string,
+): Promise<{
+  readonly access: "open" | "closed" | "unknown";
+  readonly sale: ProductSale;
+}> {
   const [catalog, cohort, access] = await Promise.all([
     loadProductOffers(productId, accessToken),
     loadProductCohort(productId),
@@ -46,18 +57,21 @@ async function readProductSale(
       ? ("closed" as const)
       : readProductAccess(productId, accessToken),
   ]);
-  if (catalog.kind === "unavailable") return catalog;
+  if (catalog.kind === "unavailable") return { access, sale: catalog };
   // Backend решает, что продаётся. Web задаёт лишь стабильный порядок показа цены.
   const offers = orderedProductOffers(catalog.offers);
   return {
-    kind: "ready",
-    sold: offers.length > 0,
-    offers,
-    cohort: cohort.kind === "ready" ? cohort.cohort : null,
-    cohortKnown: cohort.kind === "ready",
     access,
-    signedIn: accessToken !== undefined,
-    terms: offers[0] === undefined ? null : oneTimeOfferTerms(offers[0]),
+    sale: {
+      kind: "ready",
+      sold: offers.length > 0,
+      offers,
+      cohort: cohort.kind === "ready" ? cohort.cohort : null,
+      cohortKnown: cohort.kind === "ready",
+      access,
+      signedIn: accessToken !== undefined,
+      terms: offers[0] === undefined ? null : oneTimeOfferTerms(offers[0]),
+    },
   };
 }
 /** Доступ участника не зависит от того, открыта ли сейчас продажа продукта. */

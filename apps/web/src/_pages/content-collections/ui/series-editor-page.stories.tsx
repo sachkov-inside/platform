@@ -103,7 +103,7 @@ function Fixture({
       ["authoring", "product-community", collection.id],
       {
         ok: true,
-        value: { productId: collection.id, groupRef: null },
+        value: { productId: collection.id, groupRef: "primary" },
       },
     );
     queryClient.setQueryData(["authoring-home-pin"], {

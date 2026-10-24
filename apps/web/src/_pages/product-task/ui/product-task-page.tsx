@@ -100,7 +100,18 @@ async function PersonalProductTask({
       ? courseReadingContext({ series, current: { kind: "task", code } })
       : null;
   if (result.kind === "closed")
-    return <ProductTaskClosed task={result.task} programme={programme} />;
+    return (
+      <HydrationBoundary state={dehydrate(client)}>
+        <ProductTaskClosed
+          task={result.task}
+          programme={programme}
+          history={submissions}
+          accountId={accountId}
+          attemptsAfter={after}
+          liveSubmissions
+        />
+      </HydrationBoundary>
+    );
   return (
     <HydrationBoundary state={dehydrate(client)}>
       <ProductTaskView

@@ -141,7 +141,7 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
         },
       },
     };
-  } else if (url.pathname === "/billing/cohorts") {
+  } else if (url.pathname === "/billing/product-sales-states") {
     result = {
       status: 200,
       value: {

@@ -638,3 +638,49 @@ test("renaming the current Intake and editing the sales calendar preserve its jo
     }),
   ).toMatchObject({ ok: true, value: { joined: 1, withdrawn: 0 } });
 });
+
+test("archive racing dispatch fails closed instead of authorizing a stale audience", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  expect(
+    await waitlists.notificationMembership(intakeId, accountId),
+  ).toMatchObject({ ok: true, value: { active: true } });
+  let pending:
+    ReturnType<ProductWaitlists["notificationMembership"]> | undefined;
+  try {
+    await db.prisma.$transaction(async (tx) => {
+      await new ProductDiscovery(db.prisma).metadata(
+        { ids: [productId] },
+        transactionHandle(tx),
+      );
+      pending = outsideTransaction(() =>
+        waitlists.notificationMembership(intakeId, accountId),
+      );
+      await outsideTransaction(() =>
+        eventually(async () => {
+          const rows = await db.prisma.$queryRaw<{ waiting: bigint }[]>(
+            Prisma.sql`SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%products.series%' `,
+          );
+          expect(Number(rows[0]?.waiting)).toBeGreaterThan(0);
+        }, 10000),
+      );
+      await tx.product.update({
+        where: { id: productId },
+        data: { archivedAt: new Date("2030-03-05T12:00:00Z") },
+      });
+    });
+    const result = await pending;
+    if (result === undefined) throw new Error("Dispatch read required");
+    if (result.ok) expect(result.value.active).toBe(false);
+    else expect(result.error.code).toBe("dependency_unavailable");
+  } finally {
+    await pending;
+    await db.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: null },
+    });
+  }
+});
