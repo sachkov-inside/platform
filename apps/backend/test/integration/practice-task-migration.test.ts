@@ -6,6 +6,9 @@ import {
   taskDefinitionSchema,
   taskDefinitionDigest,
 } from "../../src/modules/product-tasks/domain/task-definition.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleProductTaskImport } from "../../src/modules/product-tasks/facets/product-task-import/product-task-import.js";
 import { practiceDefinitionDigest } from "../../src/modules/materials/domain/practice-definition.js";
 import {
   createTestDatabase,
@@ -435,6 +438,60 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
         Prisma.sql`select practice_id, disposition, task_version from product_tasks.legacy_practice_migrations order by practice_id`,
       ),
     );
+  const actor = randomUUID();
+  const importer = assembleProductTaskImport({
+    prisma: database.prisma,
+    directory: new ProductDirectory(
+      database.prisma,
+      assembleProductMaterialReading(database.prisma),
+    ),
+    authorPolicy: { canManage: (account: string) => account === actor },
+  });
+  const receiptsBefore =
+    await database.prisma.productTaskImportReceipt.findMany();
+  expect(
+    await importer.apply(
+      {
+        sourceId: "fixture:source-collision",
+        code: "source-collision",
+        productId: products[0],
+        chapterId: chapters[0],
+        position: 1,
+        title: definition.title,
+        access: "free",
+        definition: {
+          schemaVersion: 1,
+          situation: definition.businessInputs,
+          result: [definition.expectedOutcome],
+          freedom: definition.allowedFreedom,
+          criteria: definition.criteria.map((criterion) => ({
+            ...criterion,
+            level: "required",
+          })),
+        },
+        relatedMaterialSourceIds: [],
+        publicationState: "unpublished",
+        provenance: {
+          repository: "fixture/source",
+          commit: "a".repeat(40),
+          path: "original.json",
+        },
+        expectedRevision: null,
+      },
+      { actor, idempotencyKey: "collision-probe" },
+    ),
+  ).toEqual({ ok: false, error: { code: "source_mismatch" } });
+  expect(await database.prisma.productTaskImportReceipt.findMany()).toEqual(
+    receiptsBefore,
+  );
+  expect(
+    await database.prisma.productTask.findMany({ orderBy: { code: "asc" } }),
+  ).toEqual(before.tasks);
+  expect(
+    await database.prisma.productTaskVersion.findMany({
+      orderBy: [{ taskId: "asc" }, { version: "asc" }],
+    }),
+  ).toEqual(before.versions);
   expect(rows).toEqual([
     {
       practice_id: "fixture:ambiguous",
