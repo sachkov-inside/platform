@@ -33,7 +33,7 @@ PARTITION_PHASES = ('partition_initial_acquire', 'partition_initial_state', 'par
                     'partition_compare_journal', 'partition_compare_after_cut')
 
 PHASES = ('acquisition', 'ownership', 'identity', 'seed', 'partition',
-          'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps',
+          'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps', 'mcp_evaluate', 'mcp_compare',
           'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES
 FAILURES = ('contract', 'timeout', 'transport', 'budget', 'unknown')
 

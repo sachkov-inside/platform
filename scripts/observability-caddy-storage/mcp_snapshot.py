@@ -42,6 +42,7 @@ def read_snapshot(executable, token, *, evaluated_at, previous=None, wall_clock=
     def completed_clock():
         acquired['completed_at']=wall_clock()
         return acquired['completed_at']
+    if progress is not None:progress('mcp_evaluate')
     result=caddy_status.evaluate(*bodies,evaluated_at=evaluated_at,completed_at=started,
         previous=previous,completion_clock=completed_clock)
     if result['state']=='malformed':

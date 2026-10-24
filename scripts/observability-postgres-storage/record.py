@@ -19,7 +19,10 @@ PHASES=CASE_PHASES+('baseline_actor_start','baseline_setup',
     'baseline_waiting_locks',
     'baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
     'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
-    'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
+    'baseline_setup_table','baseline_setup_rows','baseline_setup_reset',
+    'restart_close_clients','restart_stop_identity','restart_stop_command','restart_stopped_identity',
+    'restart_stopped_state','restart_unavailable_upload','restart_unavailable_read','restart_start_command',
+    'restart_ready','restart_observe')
 REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup',*ORACLE_REASONS)
 FRESHNESS=('fresh','stale','missing','unavailable','malformed')
 CONTINUITY=('initial','same_epoch','statistics_reset','server_restart','ownership_changed','unknown')

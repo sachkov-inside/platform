@@ -120,6 +120,7 @@ class Scenario:
     def matching(self,canonical,*,previous=None):
         report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
             previous=previous,progress=lambda phase:self.phase(phase))
+        self.phase('mcp_compare')
         if report['state']!='observed' or status.acquire(**canonical)!=status.acquire(**mcp):status.refuse()
         report['transport']['canonical']='passed'
         self.last_report=artifact.validate(report)
