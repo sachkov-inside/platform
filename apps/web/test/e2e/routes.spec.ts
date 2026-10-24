@@ -527,7 +527,7 @@ test("sales funnel report asks a signed-out visitor to sign in inside the author
   const response = await page.goto("/authoring/sales-funnel");
 
   expect(response?.status()).toBe(200);
-  await expect(page).toHaveTitle(/^Воронка продаж · Authoring/u);
+  await expect(page).toHaveTitle(/^Последовательность продаж · Authoring/u);
   await expect(page.getByRole("heading", { name: "Нужен вход" })).toBeVisible();
   const signIn = page.getByRole("button", { name: "Войти через Telegram" });
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
@@ -541,7 +541,7 @@ test("sales funnel report asks a signed-out visitor to sign in inside the author
     await expect(
       page
         .getByRole("complementary", { name: "Редактор" })
-        .getByRole("link", { name: "Воронка продаж" }),
+        .getByRole("link", { name: "Последовательность продаж" }),
     ).toHaveAttribute("aria-current", "page");
   expect(
     await page.evaluate(

@@ -13,7 +13,7 @@ import {
   validateContent,
 } from "./communications-contract.js";
 import { lockContactRows, planDeliveries } from "./communication-state.js";
-import { cancelDelivery } from "./funnel-timeline.js";
+import { cancelDelivery } from "./sequence-timeline.js";
 import { nextCursor } from "./communication-queries.js";
 
 type Broadcast = Selectable<DatabaseSchema["communication_broadcasts"]>;

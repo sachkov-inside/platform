@@ -3,7 +3,7 @@ import { CommunicationsError } from "./communications-contract.js";
 import type { Context } from "./author-admin.js";
 import {
   parseAuthorState,
-  type AuthorFunnelState,
+  type AuthorSequenceState,
   type AuthorState,
   type ComposerState,
 } from "./author-dialog.js";
@@ -50,9 +50,9 @@ export async function removeAuthorDraft(c: Context, id: string) {
     .execute();
 }
 /** Keeps an edited funnel or intro as a draft, and drops the draft of an unchanged one. */
-export async function retainFunnelDraft(
+export async function retainSequenceDraft(
   c: Context,
-  s: AuthorFunnelState | undefined,
+  s: AuthorSequenceState | undefined,
 ) {
   const draft =
     s?.target === "intro"

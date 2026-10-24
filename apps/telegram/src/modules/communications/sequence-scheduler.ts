@@ -22,13 +22,13 @@ import { enqueueBroadcastAuthorMenu } from "./author-delivery-menu.js";
 import { completeBroadcasts, launchDueBroadcasts } from "./broadcasts.js";
 import { trackedContent } from "./communication-tracking.js";
 import { blockDeliveryContact } from "./delivery-contactability.js";
-export { relativeDue } from "./funnel-timeline.js";
+export { relativeDue } from "./sequence-timeline.js";
 import {
   cancelDelivery,
-  reconcileFunnels,
+  reconcileSequences,
   terminal,
   started,
-} from "./funnel-timeline.js";
+} from "./sequence-timeline.js";
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { sql, type Selectable, type Transaction } from "kysely";
@@ -65,7 +65,7 @@ import {
   tryContactLock,
   trySchedulerLock,
 } from "./communication-state.js";
-import type { DeliveryPart } from "./funnel-types.js";
+import type { DeliveryPart } from "./sequence-types.js";
 import {
   failureCode,
   reportFailure,
@@ -109,7 +109,7 @@ class WaitlistAdmissionExpired extends Error {}
 const CLAIM_PAGE = 50;
 const CLAIM_SCAN_LIMIT = 500;
 @Injectable()
-export class FunnelScheduler {
+export class SequenceScheduler {
   private resumeAfter = new Map<Queue, QueuePosition>();
   constructor(
     @Inject(DATABASE) private readonly database: Database,
@@ -1021,7 +1021,7 @@ export class FunnelScheduler {
         );
       // A finished response or step opens the contact's next step.
       else if (terminal(parts))
-        await reconcileFunnels(tx, this.config.botIdentity, now, {
+        await reconcileSequences(tx, this.config.botIdentity, now, {
           contactId: delivery.contact_id,
         });
       if (

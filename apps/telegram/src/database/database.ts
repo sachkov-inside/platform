@@ -16,9 +16,9 @@ import type {
 import type {
   BroadcastPart,
   DeliveryPart,
-  FunnelDraft,
+  CommunicationSequenceDraft,
   IntroSnapshot,
-} from "../modules/communications/funnel-types.js";
+} from "../modules/communications/sequence-types.js";
 
 import type { MembershipEvidenceSource } from "../modules/membership-evidence/membership-evidence.js";
 
@@ -436,14 +436,18 @@ export interface DatabaseSchema
     revision: number;
     published_revision: number | null;
     lifecycle: "draft" | "published" | "paused" | "archived";
-    draft: JsonColumn<FunnelDraft>;
-    published: ColumnType<FunnelDraft | null, string | null, string | null>;
+    draft: JsonColumn<CommunicationSequenceDraft>;
+    published: ColumnType<
+      CommunicationSequenceDraft | null,
+      string | null,
+      string | null
+    >;
     is_default: boolean;
   };
   communication_publications: {
     funnel_id: string;
     revision: number;
-    snapshot: JsonColumn<FunnelDraft>;
+    snapshot: JsonColumn<CommunicationSequenceDraft>;
     published_at: Timestamp;
   };
   communication_sources: {

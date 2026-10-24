@@ -36,8 +36,8 @@ broadcasts through the shared sender. Broadcast audience snapshots are fixed at 
 stop/block suppression survives resume. Authenticated analytics expose contacts, source history,
 delivery progress and opaque tracking links with idempotent hit ingestion. Platform owns the editor,
 UI/MCP and redirect consumer; cross-application acceptance and production activation remain separate.
-`TELEGRAM_MARKETING_ENABLED=false` remains the default. No real funnels or authored copy are
-seeded: the current product direction is one owner-authored common funnel; multiple scenarios
+`TELEGRAM_MARKETING_ENABLED=false` remains the default. No real Communication Sequences or authored copy are
+seeded: the current product direction is one owner-authored common sequence; multiple scenarios
 exist only in synthetic tests.
 
 ## Ordinary `/start` runtime

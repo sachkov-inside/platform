@@ -1,10 +1,10 @@
 import { hasText } from "../../shared/text.js";
 import type {
-  FunnelStep,
-  FunnelSource,
+  SequenceStep,
+  SequenceSource,
   EntryResponse,
   BroadcastPart,
-} from "./funnel-types.js";
+} from "./sequence-types.js";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import schema from "@inside/contracts/inside-communications-v1/schema.json" with { type: "json" };
@@ -66,8 +66,8 @@ export interface CommunicationsRequest {
     readonly cursor?: string;
     readonly name?: string;
     readonly isDefault?: boolean;
-    readonly steps?: readonly FunnelStep[];
-    readonly sources?: readonly FunnelSource[];
+    readonly steps?: readonly SequenceStep[];
+    readonly sources?: readonly SequenceSource[];
     readonly entryResponse?: EntryResponse;
     readonly introId?: string;
     readonly parts?: readonly BroadcastPart[];

@@ -12,7 +12,7 @@ import { sampleOperation } from "../model/sample-operation";
 import {
   type Broadcast,
   type Contact,
-  type Funnel,
+  type CommunicationSequence,
   errorMessage,
 } from "../model/broadcasts";
 import {
@@ -29,7 +29,7 @@ export function CommunicationsPage() {
   const postPage = useQuery(communicationsQueries.posts(postCursor));
   const [cursor, setCursor] = useState<string>();
   const [funnelCursor, setFunnelCursor] = useState<string>();
-  const [knownFunnels, setKnownFunnels] = useState<Funnel[]>([]);
+  const [knownFunnels, setKnownFunnels] = useState<CommunicationSequence[]>([]);
   const [selected, setSelected] = useState<Broadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<{
@@ -151,7 +151,9 @@ export function CommunicationsPage() {
         }}
       />
       {funnelPage.data?.kind === "error" ? (
-        <p role="alert">Воронки: {errorMessage(funnelPage.data.code)}</p>
+        <p role="alert">
+          Последовательности: {errorMessage(funnelPage.data.code)}
+        </p>
       ) : null}
       {funnelPage.data?.kind === "ready" &&
       hasText(funnelPage.data.nextCursor) ? (
@@ -166,7 +168,7 @@ export function CommunicationsPage() {
             );
           }}
         >
-          Загрузить ещё воронки
+          Загрузить ещё последовательности
         </Button>
       ) : null}
       {selected ? (
@@ -282,7 +284,7 @@ export function CommunicationsPage() {
             <option value="all">Все коммуникации</option>
             {funnels.map((f) => (
               <option key={f.funnelId} value={`funnel:${f.funnelId}`}>
-                Воронка: {f.name}
+                Последовательность: {f.name}
               </option>
             ))}
             {broadcasts.data?.kind === "ready"

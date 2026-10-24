@@ -11,7 +11,7 @@ import type {
   DialogEnvironment,
 } from "../../src/modules/communications/author-turn.js";
 import type { TemplateContent } from "../../src/modules/communications/communications-contract.js";
-import type { FunnelSnapshot } from "../../src/modules/communications/funnel-types.js";
+import type { CommunicationSequenceSnapshot } from "../../src/modules/communications/sequence-types.js";
 import { required } from "../support/required.js";
 import { anyString } from "../support/matchers.js";
 
@@ -41,7 +41,9 @@ function broadcast(overrides: Partial<AuthorBroadcast> = {}): AuthorBroadcast {
   };
 }
 
-function funnel(overrides: Partial<FunnelSnapshot> = {}): FunnelSnapshot {
+function funnel(
+  overrides: Partial<CommunicationSequenceSnapshot> = {},
+): CommunicationSequenceSnapshot {
   return {
     funnelId: uuid(800),
     name: "Прогрев",
@@ -133,7 +135,11 @@ describe("main menu", () => {
       text: "Админка коммуникаций. Текст и медиа готовьте здесь, в Telegram.",
       fresh: false,
     });
-    expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
+    expect(dialog.labels()).toEqual([
+      "Рассылки",
+      "Последовательности",
+      "Статистика",
+    ]);
     expect(dialog.state.broadcast).toBeUndefined();
     expect(required(required(dialog.menu).buttons[0]).callbackData).toBe(
       `author:${dialog.state.token}:0`,
@@ -194,14 +200,14 @@ describe("main menu", () => {
     }).write("привет");
 
     expect(required(dialog.menu).text).toBe(
-      "Выберите «Рассылки» или «Воронки», чтобы добавить сообщения.",
+      "Выберите «Рассылки» или «Последовательности», чтобы добавить сообщения.",
     );
     expect(dialog.state.broadcast).toBeUndefined();
   });
 
   it("restarts from home after a step failed on changed data", () => {
     for (const [during, message] of [
-      ["callback", "Пост, рассылка или воронка изменились"],
+      ["callback", "Пост, рассылка или последовательность изменились"],
       ["text", "Данные изменились"],
     ] as const) {
       const dialog = new Dialog({
@@ -209,7 +215,11 @@ describe("main menu", () => {
         broadcast: broadcast(),
       }).send({ kind: "failed", during });
       expect(required(dialog.menu).text).toContain(message);
-      expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
+      expect(dialog.labels()).toEqual([
+        "Рассылки",
+        "Последовательности",
+        "Статистика",
+      ]);
       expect(dialog.state.broadcast).toBeUndefined();
     }
   });
@@ -225,7 +235,11 @@ describe("stale menu", () => {
     expect(required(dialog.menu).text).toBe(
       "Это меню уже устарело. Незавершённое сообщение сохранено, если вы начали его создание.",
     );
-    expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
+    expect(dialog.labels()).toEqual([
+      "Рассылки",
+      "Последовательности",
+      "Статистика",
+    ]);
     expect(dialog.state.broadcast).toBeUndefined();
   });
 
@@ -254,7 +268,11 @@ describe("stale menu", () => {
     const dialog = new Dialog(emptyAuthorState("fresh"));
     dialog.pending.add(uuid(900));
     dialog.send({ kind: "callback", data: "author:old:0" });
-    expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
+    expect(dialog.labels()).toEqual([
+      "Рассылки",
+      "Последовательности",
+      "Статистика",
+    ]);
     expect(dialog.kinds()).not.toContain("discard-composition");
 
     dialog.send({
@@ -608,7 +626,9 @@ describe("composer", () => {
 
 describe("funnel", () => {
   it("lists saved funnels and unsaved drafts", () => {
-    const dialog = new Dialog().send({ kind: "open" }).click("Воронки");
+    const dialog = new Dialog()
+      .send({ kind: "open" })
+      .click("Последовательности");
     expect(dialog.kinds()).toEqual(["retain-funnel-draft", "list-funnels"]);
 
     dialog.send({
@@ -619,7 +639,7 @@ describe("funnel", () => {
       ],
     });
     expect(dialog.labels()).toEqual([
-      "Создать воронку",
+      "Создать последовательность",
       "Прогрев · есть правки",
       "Курс · Опубликована",
       "В меню",
@@ -692,7 +712,7 @@ describe("funnel", () => {
       "Сообщения",
       "Настройки",
       "Ещё →",
-      "Все воронки",
+      "Все последовательности",
     ]);
 
     dialog.click("Ещё →").click("Приостановить");
@@ -771,7 +791,10 @@ describe("funnel", () => {
         validationErrors: [],
       },
     });
-    expect(dialog.labels()).toEqual(["Опубликовать воронку", "К воронке"]);
+    expect(dialog.labels()).toEqual([
+      "Опубликовать последовательность",
+      "К последовательности",
+    ]);
   });
 
   it("moves a delayed message to entry only when it was never published there", () => {
@@ -832,7 +855,7 @@ describe("funnel", () => {
 });
 
 describe("funnel settings", () => {
-  function card(f: FunnelSnapshot = funnel(), dirty = false) {
+  function card(f: CommunicationSequenceSnapshot = funnel(), dirty = false) {
     return new Dialog({
       ...emptyAuthorState("menu"),
       actions: [{ kind: "f:show" }],
@@ -848,7 +871,7 @@ describe("funnel settings", () => {
       "Сообщения",
       "Настройки",
       "Ещё →",
-      "Все воронки",
+      "Все последовательности",
     ]);
 
     dialog.click("Настройки");
@@ -859,33 +882,33 @@ describe("funnel settings", () => {
       "Шаги и задержки",
       "Источники",
       "Ещё →",
-      "К воронке",
+      "К последовательности",
     ]);
     dialog.click("Ещё →");
     expect(dialog.labels()).toEqual([
       "Сделать основной",
       "Общий вводный блок",
       "← Предыдущие действия",
-      "К воронке",
+      "К последовательности",
     ]);
-    dialog.click("К воронке");
+    dialog.click("К последовательности");
     expect(required(dialog.menu).text).toContain("Прогрев\nОпубликована");
 
     dialog.click("Сообщения");
     expect(required(dialog.menu).text).toContain("Прогрев · сообщения");
-    dialog.click("К воронке");
+    dialog.click("К последовательности");
     expect(dialog.labels()).toContain("Настройки");
   });
 
   it("restores an archived funnel from its settings", () => {
     const dialog = card(funnel({ lifecycle: "archived" }));
-    expect(dialog.labels()).toEqual(["Настройки", "Все воронки"]);
+    expect(dialog.labels()).toEqual(["Настройки", "Все последовательности"]);
 
     dialog.click("Настройки");
     expect(dialog.labels()).toEqual([
       "Восстановить",
       "Общий вводный блок",
-      "К воронке",
+      "К последовательности",
     ]);
     dialog.click("Восстановить");
     expect(dialog.query("change-funnel")).toEqual({
@@ -926,7 +949,7 @@ describe("funnel settings", () => {
       "Шаг 1 · 1 ч от входа",
       "Шаг 2 · 2 ч от входа",
       "Добавить шаг",
-      "К воронке",
+      "К последовательности",
     ]);
 
     dialog.click("Добавить шаг");
@@ -1013,7 +1036,7 @@ describe("funnel settings", () => {
       "3. Через 1 ч · 📝 Текст · Урок",
       "4. Через 2 ч · 📝 Текст · Задание",
       "Добавить сообщения",
-      "К воронке",
+      "К последовательности",
     ]);
 
     dialog.click("4. Через 2 ч · 📝 Текст · Задание").click("Когда отправить");
@@ -1060,7 +1083,7 @@ describe("funnel settings", () => {
     dialog.click("Настройки").click("Ещё →");
     expect(dialog.labels()).toContain("Убрать из основных");
 
-    dialog.click("К воронке").click("Настройки").click("Источники");
+    dialog.click("К последовательности").click("Настройки").click("Источники");
     dialog.click("Добавить источник").write("Канал");
     dialog.write("m_x y");
     expect(required(dialog.menu).text).toContain("Код должен начинаться с m_");
@@ -1068,7 +1091,7 @@ describe("funnel settings", () => {
     expect(dialog.labels()).toEqual([
       "Канал",
       "Добавить источник",
-      "К воронке",
+      "К последовательности",
     ]);
     dialog.click("Канал");
     expect(required(dialog.menu).text).toContain("?start=m_channel");
@@ -1077,7 +1100,7 @@ describe("funnel settings", () => {
       required(required(dialog.state.funnelAuthor).funnel).sources,
     ).toEqual([]);
 
-    dialog.click("К воронке").click("Сохранить черновик");
+    dialog.click("К последовательности").click("Сохранить черновик");
     const save = dialog.query("save-funnel");
     expect(save.funnel).toMatchObject({
       name: "Весенний прогрев",
@@ -1095,7 +1118,7 @@ describe("funnel settings", () => {
       required(required(dialog.state.funnelAuthor).funnel).entryResponse.parts,
     ).toEqual([]);
 
-    dialog.click("К воронке").click("Настройки").click("Ещё →");
+    dialog.click("К последовательности").click("Настройки").click("Ещё →");
     dialog.click("Общий вводный блок");
     expect(dialog.kinds()).toEqual(["retain-funnel-draft", "read-intro"]);
     const intro = {
@@ -1150,7 +1173,7 @@ describe("funnel settings", () => {
       "Все шаги",
     ]);
 
-    dialog.click("Все шаги").click("К воронке").click("Настройки");
+    dialog.click("Все шаги").click("К последовательности").click("Настройки");
     expect(dialog.click("Источники").labels()).toHaveLength(7);
   });
 });

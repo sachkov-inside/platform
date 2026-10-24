@@ -5,11 +5,11 @@ import { authorRequest } from "./author-request.js";
 import { drafts } from "./author-drafts.js";
 import { CommunicationsError } from "./communications-contract.js";
 import { broadcastView } from "./broadcasts.js";
-import type { Funnels } from "./funnels.js";
+import type { CommunicationSequences } from "./communication-sequences.js";
 
 /** Reads the author's broadcasts, including the unsaved ones that exist only as drafts. */
 export class AuthorBroadcastDrafts {
-  constructor(private readonly funnels: Funnels) {}
+  constructor(private readonly funnels: CommunicationSequences) {}
   async read(
     c: Context,
     id: string,

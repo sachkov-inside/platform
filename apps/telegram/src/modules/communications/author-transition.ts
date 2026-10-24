@@ -33,14 +33,14 @@ import {
   appendTimed,
   applyFunnelSave,
   composeInFunnel,
-  formatFunnelDelay,
-  isFunnelEditorAction,
+  formatSequenceDelay,
+  isSequenceEditorAction,
   newFunnel,
-  performFunnel,
+  performSequence,
   rejectFunnelSave,
   selectedParts,
   showFunnel,
-} from "./author-funnels.js";
+} from "./author-sequences.js";
 import { messageLabel } from "./author-message-view.js";
 import {
   actSequence,
@@ -52,7 +52,7 @@ import {
 import {
   HOME,
   Turn,
-  type AfterFunnelSave,
+  type AfterSequenceSave,
   type AfterSave,
   type AuthorEvent,
   type DialogEnvironment,
@@ -63,7 +63,7 @@ import {
   validateContent,
   type TemplateContent,
 } from "./communications-contract.js";
-import type { BroadcastPart, MessagePart } from "./funnel-types.js";
+import type { BroadcastPart, MessagePart } from "./sequence-types.js";
 
 const MAX_BROADCAST_PARTS = 20;
 const broadcastNames = {
@@ -144,8 +144,8 @@ function step(t: Turn, event: AuthorEvent): void {
       t.reset();
       return t.reply(
         event.during === "callback"
-          ? "Пост, рассылка или воронка изменились либо действие недоступно. Откройте актуальную версию."
-          : "Данные изменились. Откройте актуальный пост, рассылку или воронку и повторите правку.",
+          ? "Пост, рассылка или последовательность изменились либо действие недоступно. Откройте актуальную версию."
+          : "Данные изменились. Откройте актуальный пост, рассылку или последовательность и повторите правку.",
         HOME,
       );
     case "statistics-read": {
@@ -272,7 +272,7 @@ function close(t: Turn) {
     const kind = s.batch;
     s.batch = undefined;
     if (kind === "broadcast") return broadcastCard(t);
-    return performFunnel(t, { kind: "f:show" });
+    return performSequence(t, { kind: "f:show" });
   }
   if (s.composing?.sequence) return sequenceResult(t, { kind: "finished" });
   if (s.composing)
@@ -290,7 +290,7 @@ function welcome(t: Turn) {
 
 function perform(t: Turn, a: AuthorAction): void {
   if (isComposerStep(a)) return composeResult(t, actComposer(t, a));
-  if (isFunnelEditorAction(a)) return performFunnel(t, a);
+  if (isSequenceEditorAction(a)) return performSequence(t, a);
   const s = t.state;
   const template = s.template;
   const b = s.broadcast;
@@ -298,7 +298,7 @@ function perform(t: Turn, a: AuthorAction): void {
   const unavailable = () =>
     b
       ? t.reply("Откройте меню заново.", HOME)
-      : t.reply("Выберите пост, рассылку или воронку.", HOME);
+      : t.reply("Выберите пост, рассылку или последовательность.", HOME);
   switch (a.kind) {
     case "sequence:broadcast":
       return beginSequence(t, "broadcast");
@@ -317,7 +317,7 @@ function perform(t: Turn, a: AuthorAction): void {
     case "batch:done": {
       const kind = s.batch;
       s.batch = undefined;
-      if (kind === "funnel") return performFunnel(t, { kind: "f:save" });
+      if (kind === "funnel") return performSequence(t, { kind: "f:save" });
       return broadcastCard(t);
     }
     case "compose:broadcast":
@@ -351,7 +351,7 @@ function perform(t: Turn, a: AuthorAction): void {
       return beginSequence(t, "funnel");
     case "home":
       s.batch = undefined;
-      t.retainFunnelDraft();
+      t.retainSequenceDraft();
       t.reset();
       return t.reply("Админка коммуникаций", HOME);
     case "replace":
@@ -556,7 +556,7 @@ function performOnBroadcast(
       }
       return t.reply(
         a.kind === "confirm-launch"
-          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
+          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные последовательности: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
           : "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
         [
           [
@@ -629,7 +629,7 @@ function editable(b: AuthorBroadcast): boolean {
 
 function partTime(part: BroadcastPart): string {
   return isTruthy(part.sendAfterSeconds)
-    ? `Через ${formatFunnelDelay(part.sendAfterSeconds)}`
+    ? `Через ${formatSequenceDelay(part.sendAfterSeconds)}`
     : "Сразу";
 }
 
@@ -798,7 +798,7 @@ function beginSequence(t: Turn, kind: "broadcast" | "funnel"): void {
       f.steps.reduce((n, s) => n + s.parts.length, 0) >=
       100
   )
-    return performFunnel(t, { kind: "f:show" });
+    return performSequence(t, { kind: "f:show" });
   const offset = f.steps.reduce(
     (n, step) =>
       step.delayAnchor === "entry" ? step.delaySeconds : n + step.delaySeconds,
@@ -849,7 +849,7 @@ function sequenceResult(t: Turn, result: SequenceResult): void {
   t.discardComposition(destination.id);
   t.state.composing = undefined;
   if (destination.kind === "broadcast") return broadcastCard(t);
-  performFunnel(t, { kind: "f:show" });
+  performSequence(t, { kind: "f:show" });
 }
 
 /** Saves the selected broadcast; an empty unsaved one stays only a local draft. */
@@ -888,7 +888,7 @@ function nextMessage(
   beginSequence(t, kind);
 }
 
-function afterFunnelSave(t: Turn, then: AfterFunnelSave): void {
+function afterFunnelSave(t: Turn, then: AfterSequenceSave): void {
   switch (then.kind) {
     case "card":
       return showFunnel(t);
@@ -1110,7 +1110,10 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
       return unhandled(prompt, "author prompt");
   }
   t.reset();
-  t.reply("Выберите «Рассылки» или «Воронки», чтобы добавить сообщения.", HOME);
+  t.reply(
+    "Выберите «Рассылки» или «Последовательности», чтобы добавить сообщения.",
+    HOME,
+  );
 }
 
 function moscowTime(date: string) {

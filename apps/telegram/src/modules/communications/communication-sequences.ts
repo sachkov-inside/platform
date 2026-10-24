@@ -10,7 +10,7 @@ import {
   type AuthorContentValidation,
   validateAuthorContent,
 } from "./author-content-validation.js";
-import { previewFunnel, type FunnelPreview } from "./funnel-preview.js";
+import { previewSequence, type SequencePreview } from "./sequence-preview.js";
 import { transactionWithExternalReads } from "../../database/external-reads.js";
 import { deliveryOwnerPredicate, nextCursor } from "./communication-queries.js";
 import { applyBroadcast, type BroadcastResult } from "./broadcasts.js";
@@ -20,7 +20,11 @@ import {
   type StatisticsResult,
   type EntriesResult,
 } from "./communication-statistics.js";
-import { reconcileFunnels, terminal, deliveryView } from "./funnel-timeline.js";
+import {
+  reconcileSequences,
+  terminal,
+  deliveryView,
+} from "./sequence-timeline.js";
 import {
   communicationLock,
   lockContactRows,
@@ -53,20 +57,20 @@ import {
   validateContent,
 } from "./communications-contract.js";
 import type {
-  FunnelDraft,
-  FunnelSnapshot,
+  CommunicationSequenceDraft,
+  CommunicationSequenceSnapshot,
   IntroSnapshot,
   MessagePart,
   DeliverySnapshot,
-} from "./funnel-types.js";
+} from "./sequence-types.js";
 
-export type FunnelResult =
-  | { preview: FunnelPreview }
+export type SequenceResult =
+  | { preview: SequencePreview }
   | BroadcastResult
   | StatisticsResult
   | EntriesResult
-  | { funnel: FunnelSnapshot }
-  | { funnels: FunnelSnapshot[]; nextCursor: string | null }
+  | { funnel: CommunicationSequenceSnapshot }
+  | { funnels: CommunicationSequenceSnapshot[]; nextCursor: string | null }
   | { intro: IntroSnapshot }
   | {
       deliveryId: string;
@@ -83,7 +87,7 @@ const LIFECYCLE_AFTER = {
 } as const;
 
 @Injectable()
-export class Funnels {
+export class CommunicationSequences {
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
@@ -98,7 +102,7 @@ export class Funnels {
   async execute(
     request: CommunicationsRequest,
     transaction?: Transaction<DatabaseSchema>,
-  ): Promise<FunnelResult> {
+  ): Promise<SequenceResult> {
     if (!("accountRef" in request.actor))
       throw new CommunicationsError("not_implemented");
     const actor = request.actor.accountRef;
@@ -127,7 +131,7 @@ export class Funnels {
           !isDeepStrictEqual(prior.request, request)
         )
           throw new CommunicationsError("operation_conflict");
-        return replayedResult<FunnelResult>(prior);
+        return replayedResult<SequenceResult>(prior);
       }
       await communicationLock(
         tx,
@@ -171,7 +175,7 @@ export class Funnels {
     tx: Transaction<DatabaseSchema>,
     request: CommunicationsRequest,
     actor: string,
-  ): Promise<FunnelResult> {
+  ): Promise<SequenceResult> {
     const { operation, payload, expectedRevision } = request;
     const bot = this.config.botIdentity;
     if (operation.startsWith("broadcasts."))
@@ -331,7 +335,7 @@ export class Funnels {
         .returningAll()
         .executeTakeFirstOrThrow();
       if (updated.completed_at)
-        await reconcileFunnels(tx, bot, this.clock.now(), {
+        await reconcileSequences(tx, bot, this.clock.now(), {
           contactId: updated.contact_id,
         });
       return {
@@ -368,7 +372,7 @@ export class Funnels {
     if ((existing?.revision ?? 0) !== expectedRevision)
       throw new CommunicationsError("revision_conflict");
     if (operation === "funnels.save") {
-      const draft: FunnelDraft = {
+      const draft: CommunicationSequenceDraft = {
         funnelId: requiredField(payload.funnelId),
         name: requiredField(payload.name),
         steps: requiredField(payload.steps),
@@ -450,7 +454,7 @@ export class Funnels {
     if (!existing) throw new CommunicationsError("not_found");
     if (operation === "funnels.preview") {
       return {
-        preview: await previewFunnel(
+        preview: await previewSequence(
           tx,
           bot,
           existing.draft,
@@ -649,7 +653,7 @@ export class Funnels {
             .execute();
       }
     }
-    await reconcileFunnels(tx, bot, now, { funnelId: draft.funnelId });
+    await reconcileSequences(tx, bot, now, { funnelId: draft.funnelId });
     return {
       funnel: {
         ...draft,
@@ -661,11 +665,11 @@ export class Funnels {
   }
 }
 function funnelView(row: {
-  draft: FunnelDraft;
+  draft: CommunicationSequenceDraft;
   revision: number;
   published_revision: number | null;
-  lifecycle: FunnelSnapshot["lifecycle"];
-}): FunnelSnapshot {
+  lifecycle: CommunicationSequenceSnapshot["lifecycle"];
+}): CommunicationSequenceSnapshot {
   return {
     ...row.draft,
     revision: row.revision,

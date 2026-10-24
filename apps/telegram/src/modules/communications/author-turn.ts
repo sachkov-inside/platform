@@ -5,7 +5,7 @@ import {
   type AuthorAction,
   type AuthorBroadcast,
   type AuthorButton,
-  type AuthorFunnelState,
+  type AuthorSequenceState,
   type AuthorState,
   type ComposerState,
 } from "./author-dialog.js";
@@ -15,12 +15,12 @@ import {
   type TemplateContent,
   type TemplateSnapshot,
 } from "./communications-contract.js";
-import type { FunnelPreview } from "./funnel-preview.js";
+import type { SequencePreview } from "./sequence-preview.js";
 import type {
-  FunnelSnapshot,
+  CommunicationSequenceSnapshot,
   IntroSnapshot,
   MessagePart,
-} from "./funnel-types.js";
+} from "./sequence-types.js";
 
 /** What a transition may read besides the session: facts loaded before it and fresh IDs. */
 export interface DialogEnvironment {
@@ -37,22 +37,22 @@ export type LifecycleAction = Extract<
 >["value"];
 
 /** What the dialog shows once a saved funnel comes back. */
-export type AfterFunnelSave =
+export type AfterSequenceSave =
   | { readonly kind: "card" }
   /** The message from the sequence composer is saved; ask for the next one. */
   | { readonly kind: "next-message"; readonly destinationId: string };
 /** What the dialog shows once a saved broadcast comes back. */
 export type AfterSave =
-  | AfterFunnelSave
+  | AfterSequenceSave
   | { readonly kind: "confirm-launch" }
   | { readonly kind: "batch" };
 
 export type ValidationPurpose = "intro" | "preview" | "publish";
-export type FunnelListItem = {
+export type SequenceListItem = {
   readonly id: string;
   readonly name: string;
   /** `edited` when an unsaved draft exists, otherwise the saved lifecycle. */
-  readonly status: FunnelSnapshot["lifecycle"] | "edited";
+  readonly status: CommunicationSequenceSnapshot["lifecycle"] | "edited";
 };
 
 /**
@@ -81,7 +81,7 @@ export type AuthorEffect =
     }
   | {
       readonly kind: "retain-funnel-draft";
-      readonly funnelAuthor: AuthorFunnelState | undefined;
+      readonly funnelAuthor: AuthorSequenceState | undefined;
     }
   | { readonly kind: "remove-draft"; readonly id: string }
   | { readonly kind: "discard-composition"; readonly id: string }
@@ -147,8 +147,8 @@ export type AuthorQuery =
   /** Answered by `funnel-saved`, or by `funnel-invalid` when the draft is incomplete. */
   | {
       readonly kind: "save-funnel";
-      readonly funnel: FunnelSnapshot;
-      readonly then: AfterFunnelSave;
+      readonly funnel: CommunicationSequenceSnapshot;
+      readonly then: AfterSequenceSave;
     }
   /** Answered by `content-validated`. */
   | {
@@ -242,17 +242,17 @@ export type AuthorEvent =
     }
   | {
       readonly kind: "funnels-listed";
-      readonly items: readonly FunnelListItem[];
+      readonly items: readonly SequenceListItem[];
       readonly nextCursor?: string | undefined;
     }
-  | { readonly kind: "funnel-read"; readonly funnelAuthor: AuthorFunnelState }
-  | { readonly kind: "intro-read"; readonly funnelAuthor: AuthorFunnelState }
+  | { readonly kind: "funnel-read"; readonly funnelAuthor: AuthorSequenceState }
+  | { readonly kind: "intro-read"; readonly funnelAuthor: AuthorSequenceState }
   | {
       readonly kind: "funnel-saved";
-      readonly funnel?: FunnelSnapshot | undefined;
-      readonly then: AfterFunnelSave;
+      readonly funnel?: CommunicationSequenceSnapshot | undefined;
+      readonly then: AfterSequenceSave;
     }
-  | { readonly kind: "funnel-invalid"; readonly then: AfterFunnelSave }
+  | { readonly kind: "funnel-invalid"; readonly then: AfterSequenceSave }
   | {
       readonly kind: "content-validated";
       readonly purpose: ValidationPurpose;
@@ -264,11 +264,17 @@ export type AuthorEvent =
       readonly publish: boolean;
       readonly revision?: number | undefined;
     }
-  | { readonly kind: "funnel-published"; readonly funnel: FunnelSnapshot }
-  | { readonly kind: "publication-previewed"; readonly preview: FunnelPreview }
+  | {
+      readonly kind: "funnel-published";
+      readonly funnel: CommunicationSequenceSnapshot;
+    }
+  | {
+      readonly kind: "publication-previewed";
+      readonly preview: SequencePreview;
+    }
   | {
       readonly kind: "funnel-changed";
-      readonly funnel?: FunnelSnapshot | undefined;
+      readonly funnel?: CommunicationSequenceSnapshot | undefined;
     }
   | {
       readonly kind: "part-history-read";
@@ -284,7 +290,7 @@ export interface Transition {
 
 export const HOME: AuthorButton[] = [
   ["Рассылки", { kind: "broadcasts" }],
-  ["Воронки", { kind: "f:list" }],
+  ["Последовательности", { kind: "f:list" }],
   ["Статистика", { kind: "overview" }],
 ];
 const BACK_HOME: AuthorButton[] = [["В меню", { kind: "home" }]];
@@ -368,7 +374,7 @@ export class Turn {
       });
   }
 
-  retainFunnelDraft() {
+  retainSequenceDraft() {
     this.emit({
       kind: "retain-funnel-draft",
       funnelAuthor: this.state.funnelAuthor,

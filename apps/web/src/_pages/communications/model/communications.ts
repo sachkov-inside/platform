@@ -200,7 +200,7 @@ export const templateSchema = z.object({
   revision,
   content: contentSchema,
 });
-export type Funnel = z.infer<typeof funnelSchema>;
+export type CommunicationSequence = z.infer<typeof funnelSchema>;
 export type Draft = z.infer<typeof draftSchema>;
 export type Part = z.infer<typeof partSchema>;
 export type Intro = z.infer<typeof introSchema>;
@@ -248,7 +248,7 @@ export const templateReferenceSchema = z.object({
 });
 export type TemplateReference = z.infer<typeof templateReferenceSchema>;
 export const messages: Record<Failure["code"], string> = {
-  unauthorized: "Войдите в аккаунт, чтобы управлять воронками.",
+  unauthorized: "Войдите в аккаунт, чтобы управлять последовательностями.",
   forbidden:
     "Нет права управления коммуникациями. Доступ к материалам не даёт это право.",
   link_required: "Свяжите Telegram с аккаунтом в настройках профиля.",
@@ -269,7 +269,7 @@ export const lifecycleLabels = {
   paused: "На паузе",
   archived: "В архиве",
 };
-export function newFunnel(): Funnel {
+export function newSequence(): CommunicationSequence {
   return {
     funnelId: crypto.randomUUID(),
     revision: 0,

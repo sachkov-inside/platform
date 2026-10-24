@@ -4,8 +4,8 @@ import { unhandled } from "../../shared/unhandled.js";
 import type {
   AuthorAction,
   AuthorButton,
-  AuthorFunnelState,
-  FunnelAction,
+  AuthorSequenceState,
+  CommunicationSequenceAction,
   MessageDestination,
 } from "./author-dialog.js";
 import { messageLabel } from "./author-message-view.js";
@@ -15,16 +15,16 @@ import {
   type TemplateContent,
 } from "./communications-contract.js";
 import type {
-  FunnelSnapshot,
-  FunnelStep,
+  CommunicationSequenceSnapshot,
+  SequenceStep,
   MessagePart,
-} from "./funnel-types.js";
+} from "./sequence-types.js";
 
 type Buttons = AuthorButton[];
 const MAX_DELAY = 2147483647;
-const back: Buttons = [["К воронке", { kind: "f:show" }]];
+const back: Buttons = [["К последовательности", { kind: "f:show" }]];
 const root: Buttons = [
-  ["Все воронки", { kind: "f:list" }],
+  ["Все последовательности", { kind: "f:list" }],
   ["В меню", { kind: "home" }],
 ];
 const names = {
@@ -36,13 +36,13 @@ const names = {
 
 /** Funnel buttons that start a composition; the funnel editor handles the rest. */
 const FUNNEL_ENTRIES = ["f:new", "f:posts"] as const;
-export type FunnelEditorAction = Exclude<
-  FunnelAction,
+export type SequenceEditorAction = Exclude<
+  CommunicationSequenceAction,
   { kind: (typeof FUNNEL_ENTRIES)[number] }
 >;
-export function isFunnelEditorAction(
+export function isSequenceEditorAction(
   action: AuthorAction,
-): action is FunnelEditorAction {
+): action is SequenceEditorAction {
   return (
     action.kind.startsWith("f:") &&
     !(FUNNEL_ENTRIES as readonly string[]).includes(action.kind)
@@ -72,12 +72,12 @@ const SELECTIONS = [
   "f:save-intro",
 ] as const;
 type PromptStep = Extract<
-  FunnelEditorAction,
+  SequenceEditorAction,
   { kind: (typeof PROMPT_STEPS)[number] }
 >;
 /** Funnel buttons that need an open funnel; saving the intro may fall through to them. */
-type FunnelEdit = Exclude<
-  FunnelEditorAction,
+type SequenceEdit = Exclude<
+  SequenceEditorAction,
   PromptStep | { kind: Exclude<(typeof SELECTIONS)[number], "f:save-intro"> }
 >;
 function isKindOf<Action extends { kind: string }, Kind extends Action["kind"]>(
@@ -89,11 +89,11 @@ function isKindOf<Action extends { kind: string }, Kind extends Action["kind"]>(
 
 // Funnel composition shares the admin's session, authorization, update receipt and reply outbox.
 
-function funnelState(t: Turn): AuthorFunnelState {
+function funnelState(t: Turn): AuthorSequenceState {
   return (t.state.funnelAuthor ??= {});
 }
 
-function openFunnel(s: AuthorFunnelState): FunnelSnapshot {
+function openFunnel(s: AuthorSequenceState): CommunicationSequenceSnapshot {
   if (!s.funnel) throw new CommunicationsError("not_found");
   return s.funnel;
 }
@@ -101,11 +101,11 @@ function openFunnel(s: AuthorFunnelState): FunnelSnapshot {
 /** Starts a new funnel; the admin then asks for its first message. */
 export function newFunnel(t: Turn) {
   leavePrompts(t);
-  t.retainFunnelDraft();
+  t.retainSequenceDraft();
   t.state.funnelAuthor = {
     funnel: {
       funnelId: t.newId(),
-      name: "Новая воронка",
+      name: "Новая последовательность",
       isDefault: false,
       entryResponse: { stepId: t.newId(), parts: [] },
       steps: [],
@@ -129,7 +129,8 @@ export function appendPrepared(t: Turn, content: TemplateContent) {
   s.funnel = {
     ...f,
     name:
-      !isTruthy(f.entryResponse.parts.length) && f.name === "Новая воронка"
+      !isTruthy(f.entryResponse.parts.length) &&
+      f.name === "Новая последовательность"
         ? (presentText(content.text.slice(0, 80)) ?? messageLabel(content))
         : f.name,
     entryResponse: {
@@ -172,10 +173,10 @@ export function showFunnel(t: Turn): void {
   const s = funnelState(t),
     f = s.funnel;
   s.prompt = undefined;
-  if (!f) return performFunnel(t, { kind: "f:list" });
+  if (!f) return performSequence(t, { kind: "f:list" });
   const pending = t.compositionButtons(f.funnelId);
   t.reply(
-    `${f.name}\n${names[f.lifecycle]}${isTruthy(s.dirty) ? " · есть правки" : ""}\nСообщений: ${f.entryResponse.parts.length + f.steps.reduce((n, step) => n + step.parts.length, 0)}. Основная воронка: ${f.isDefault ? "да" : "нет"}.\n${f.steps
+    `${f.name}\n${names[f.lifecycle]}${isTruthy(s.dirty) ? " · есть правки" : ""}\nСообщений: ${f.entryResponse.parts.length + f.steps.reduce((n, step) => n + step.parts.length, 0)}. Основная последовательность: ${f.isDefault ? "да" : "нет"}.\n${f.steps
       .map((step, i) => `${i + 1}. Через ${stepTime(step)}`)
       .slice(0, 5)
       .join("\n")}`,
@@ -194,7 +195,7 @@ export function showFunnel(t: Turn): void {
         ? [
             [
               f.publishedRevision === null
-                ? "Включить воронку"
+                ? "Включить последовательность"
                 : "Применить изменения",
               { kind: "f:preview" },
             ] as AuthorButton,
@@ -221,14 +222,14 @@ export function showFunnel(t: Turn): void {
       ...(f.lifecycle !== "archived"
         ? [
             [
-              "Отменить воронку",
+              "Отменить последовательность",
               {
                 kind: isTruthy(f.revision) ? "f:confirm-archive" : "f:discard",
               },
             ] as AuthorButton,
           ]
         : []),
-      ["Все воронки", { kind: "f:list" }],
+      ["Все последовательности", { kind: "f:list" }],
     ],
   );
 }
@@ -267,13 +268,13 @@ function settings(t: Turn) {
   ]);
 }
 
-function parts(s: AuthorFunnelState): readonly MessagePart[] {
+function parts(s: AuthorSequenceState): readonly MessagePart[] {
   if (s.target === "intro") return s.intro?.parts ?? [];
   if (s.target === "entry") return s.funnel?.entryResponse.parts ?? [];
   return s.funnel?.steps.find((step) => step.stepId === s.target)?.parts ?? [];
 }
 
-function replaceParts(s: AuthorFunnelState, parts: readonly MessagePart[]) {
+function replaceParts(s: AuthorSequenceState, parts: readonly MessagePart[]) {
   if (s.target === "intro" && s.intro) s.intro = { ...s.intro, parts };
   else if (s.funnel && s.target === "entry")
     s.funnel = {
@@ -396,14 +397,14 @@ function partsMenu(t: Turn, offset = 0) {
         ? ([
             ["Сохранить общий блок", { kind: "f:save-intro" }],
             // One way out keeps the save button on the first page of a short intro.
-            ["Все воронки", { kind: "f:list" }],
+            ["Все последовательности", { kind: "f:list" }],
           ] as Buttons)
         : back),
     ],
   );
 }
 
-export function performFunnel(t: Turn, a: FunnelEditorAction): void {
+export function performSequence(t: Turn, a: SequenceEditorAction): void {
   if (!isKindOf(PROMPT_STEPS, a)) return performSelection(t, a);
   switch (a.kind) {
     case "f:settings":
@@ -412,7 +413,7 @@ export function performFunnel(t: Turn, a: FunnelEditorAction): void {
       return messages(t, Number(a.value ?? 0));
     case "f:message":
       funnelState(t).target = a.value;
-      return performFunnel(t, { kind: "f:part", id: a.id });
+      return performSequence(t, { kind: "f:part", id: a.id });
     case "f:timing": {
       const s = funnelState(t);
       s.timingPartId = a.id;
@@ -441,7 +442,7 @@ function leavePrompts(t: Turn) {
 
 function performSelection(
   t: Turn,
-  a: Exclude<FunnelEditorAction, PromptStep>,
+  a: Exclude<SequenceEditorAction, PromptStep>,
 ): void {
   const s = leavePrompts(t);
   if (!isKindOf(SELECTIONS, a)) return performEdit(t, s, a);
@@ -453,18 +454,18 @@ function performSelection(
         t.discardComposition(id);
       }
       t.state.funnelAuthor = {};
-      return performFunnel(t, { kind: "f:list" });
+      return performSequence(t, { kind: "f:list" });
     }
     case "f:list":
-      t.retainFunnelDraft();
+      t.retainSequenceDraft();
       return t.ask({ kind: "list-funnels", cursor: a.id });
     case "f:read":
-      t.retainFunnelDraft();
+      t.retainSequenceDraft();
       return t.ask({ kind: "read-funnel", funnelId: a.id });
     case "f:show":
       return showFunnel(t);
     case "f:intro":
-      t.retainFunnelDraft();
+      t.retainSequenceDraft();
       // Intro edits have their own scratch snapshot; navigation explicitly leaves a funnel draft.
       return t.ask({ kind: "read-intro" });
     case "f:parts":
@@ -544,14 +545,17 @@ function performSelection(
   }
 }
 
-function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
+function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
   const f = s.funnel;
-  if (!f) return t.reply("Сначала откройте воронку.", root);
+  if (!f) return t.reply("Сначала откройте последовательность.", root);
   if (f.lifecycle === "archived" && a.kind !== "f:life") return showFunnel(t);
   switch (a.kind) {
     case "f:name":
       s.prompt = "name";
-      return t.reply("Напишите название воронки (до 128 символов).", back);
+      return t.reply(
+        "Напишите название последовательности (до 128 символов).",
+        back,
+      );
     case "f:default":
       s.funnel = { ...f, isDefault: !f.isDefault };
       s.dirty = true;
@@ -592,9 +596,9 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
     }
     case "f:add-step": {
       if (f.steps.length >= 100)
-        return t.reply("В воронке может быть до 100 шагов.", back);
+        return t.reply("В последовательности может быть до 100 шагов.", back);
       const fromEntry = timedFromEntry(f.steps);
-      const step: FunnelStep = {
+      const step: SequenceStep = {
         stepId: t.newId(),
         delaySeconds: fromEntry
           ? Math.min((f.steps.at(-1)?.delaySeconds ?? 0) + 86400, MAX_DELAY)
@@ -604,7 +608,7 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
       };
       s.funnel = { ...f, steps: [...f.steps, step] };
       s.dirty = true;
-      return performFunnel(t, { kind: "f:step", id: step.stepId });
+      return performSequence(t, { kind: "f:step", id: step.stepId });
     }
     case "f:step": {
       const index = f.steps.findIndex((step) => step.stepId === a.id);
@@ -666,7 +670,7 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
       }
       s.funnel = { ...f, steps };
       s.dirty = true;
-      return performFunnel(t, { kind: "f:steps" });
+      return performSequence(t, { kind: "f:steps" });
     }
     case "f:sources": {
       const offset = Number(a.value ?? 0);
@@ -713,7 +717,10 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
     }
     case "f:add-source":
       if (f.sources.length >= 100)
-        return t.reply("В воронке может быть до 100 источников.", back);
+        return t.reply(
+          "В последовательности может быть до 100 источников.",
+          back,
+        );
       s.prompt = "source-name";
       return t.reply(
         "Как назвать источник? Например: канал или описание видео.",
@@ -725,7 +732,7 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
         sources: f.sources.filter((item) => item.sourceId !== a.id),
       };
       s.dirty = true;
-      return performFunnel(t, { kind: "f:sources" });
+      return performSequence(t, { kind: "f:sources" });
     case "f:save":
       return t.ask({ kind: "save-funnel", funnel: f, then: { kind: "card" } });
     case "f:preview":
@@ -744,7 +751,7 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
       });
     case "f:confirm-archive":
       return t.reply(
-        "Отменить воронку? Новые сообщения больше не будут отправляться. Уже доставленные останутся у получателей.",
+        "Отменить последовательность? Новые сообщения больше не будут отправляться. Уже доставленные останутся у получателей.",
         [["Да, отменить", { kind: "f:life", value: "archive" }], ...back],
       );
     case "f:life":
@@ -774,7 +781,7 @@ function messages(t: Turn, offset: number) {
       step.parts.map((p) => ({
         p,
         target: step.stepId,
-        when: `Через ${formatFunnelDelay(step.delaySeconds)}`,
+        when: `Через ${formatSequenceDelay(step.delaySeconds)}`,
       })),
     ),
   ];
@@ -899,17 +906,17 @@ function moveTimedPart(
   }
   s.prompt = undefined;
   s.timingPartId = undefined;
-  performFunnel(t, { kind: "f:messages" });
+  performSequence(t, { kind: "f:messages" });
 }
 
 export function answerFunnel(t: Turn, input: { text: string }) {
   const s = funnelState(t);
   const f = s.funnel;
   const text = input.text.trim();
-  if (!f) return t.reply("Откройте воронку заново.", root);
+  if (!f) return t.reply("Откройте последовательность заново.", root);
   switch (s.prompt) {
     case "part-delay": {
-      const delay = parseFunnelDelay(text);
+      const delay = parseSequenceDelay(text);
       if (delay === undefined)
         return t.reply(
           "Введите задержку: например, 20 минут или 1 день.",
@@ -956,9 +963,9 @@ export function answerFunnel(t: Turn, input: { text: string }) {
         ],
       };
       s.dirty = true;
-      return performFunnel(t, { kind: "f:sources" });
+      return performSequence(t, { kind: "f:sources" });
     case "delay": {
-      const delaySeconds = parseFunnelDelay(text);
+      const delaySeconds = parseSequenceDelay(text);
       if (delaySeconds === undefined)
         return t.reply(
           "Не удалось понять задержку. Примеры: 30 мин, 2 ч, 1 д, 0.",
@@ -974,7 +981,7 @@ export function answerFunnel(t: Turn, input: { text: string }) {
       };
       s.dirty = true;
       if (!hasText(s.target)) throw new CommunicationsError("not_found");
-      return performFunnel(t, { kind: "f:step", id: s.target });
+      return performSequence(t, { kind: "f:step", id: s.target });
     }
     case undefined:
       return showFunnel(t);
@@ -1006,22 +1013,25 @@ export function answerFunnelQuery(
   switch (event.kind) {
     case "funnels-listed":
       t.state.funnelAuthor = {};
-      return t.reply("Воронки · черновики сохраняются при каждом действии", [
-        ["Создать воронку", { kind: "f:new" }],
-        ...event.items.map(({ id, name, status }): AuthorButton => [
-          `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
-          { kind: "f:read", id },
-        ]),
-        ...(hasText(event.nextCursor)
-          ? [
-              [
-                "Следующие воронки",
-                { kind: "f:list", id: event.nextCursor },
-              ] as AuthorButton,
-            ]
-          : []),
-        ["В меню", { kind: "home" }],
-      ]);
+      return t.reply(
+        "Последовательности · черновики сохраняются при каждом действии",
+        [
+          ["Создать последовательность", { kind: "f:new" }],
+          ...event.items.map(({ id, name, status }): AuthorButton => [
+            `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
+            { kind: "f:read", id },
+          ]),
+          ...(hasText(event.nextCursor)
+            ? [
+                [
+                  "Следующие последовательности",
+                  { kind: "f:list", id: event.nextCursor },
+                ] as AuthorButton,
+              ]
+            : []),
+          ["В меню", { kind: "home" }],
+        ],
+      );
     case "funnel-read":
       t.state.funnelAuthor = event.funnelAuthor;
       return showFunnel(t);
@@ -1094,8 +1104,8 @@ export function answerFunnelQuery(
     case "publication-previewed": {
       const p = event.preview;
       return t.reply(
-        `Публикация версии ${p.revision}\nНовых шагов: ${p.addedStepIds.length}\nИзменённых: ${p.editedStepIds.length}\nУдалённых: ${p.deletedStepIds.length}\nПорядок изменён: ${p.reorderedStepIds.length}\nПолучателей продолжения: ${p.eligibleContacts}\nИз них уже завершили прежнюю воронку: ${p.completedParticipantsReceivingNewSteps}\nУже доставленное повторно не отправляется.`,
-        [["Опубликовать воронку", { kind: "f:publish" }], ...back],
+        `Публикация версии ${p.revision}\nНовых шагов: ${p.addedStepIds.length}\nИзменённых: ${p.editedStepIds.length}\nУдалённых: ${p.deletedStepIds.length}\nПорядок изменён: ${p.reorderedStepIds.length}\nПолучателей продолжения: ${p.eligibleContacts}\nИз них уже завершили прежнюю последовательность: ${p.completedParticipantsReceivingNewSteps}\nУже доставленное повторно не отправляется.`,
+        [["Опубликовать последовательность", { kind: "f:publish" }], ...back],
       );
     }
     case "funnel-changed": {
@@ -1121,7 +1131,10 @@ export function answerFunnelQuery(
 }
 
 /** Applies a saved funnel; the caller decides what the author sees next. */
-export function applyFunnelSave(t: Turn, funnel: FunnelSnapshot | undefined) {
+export function applyFunnelSave(
+  t: Turn,
+  funnel: CommunicationSequenceSnapshot | undefined,
+) {
   const s = funnelState(t);
   if (funnel) s.funnel = funnel;
   s.dirty = false;
@@ -1135,7 +1148,7 @@ export function rejectFunnelSave(t: Turn) {
   );
 }
 
-export function parseFunnelDelay(value: string): number | undefined {
+export function parseSequenceDelay(value: string): number | undefined {
   const match =
     /^(\d+)\s*(с|сек(?:унда|унды|унд)?|мин(?:ута|уты|ут)?|м|ч|час(?:а|ов)?|д|дн(?:я|ей)?|день)?$/iu.exec(
       value.trim().toLowerCase(),
@@ -1166,20 +1179,20 @@ export function parseFunnelDelay(value: string): number | undefined {
     : undefined;
 }
 /** When a delayed step is sent, as the author reads it. */
-function stepTime(step: FunnelStep) {
-  return `${formatFunnelDelay(step.delaySeconds)} ${step.delayAnchor === "entry" ? "от входа" : "после предыдущего шага"}`;
+function stepTime(step: SequenceStep) {
+  return `${formatSequenceDelay(step.delaySeconds)} ${step.delayAnchor === "entry" ? "от входа" : "после предыдущего шага"}`;
 }
 
 /**
  * Whether every step counts from entry, as the bot has authored funnels since #43. New steps of
  * such a funnel count from entry too, and its step order follows time.
  */
-function timedFromEntry(steps: readonly FunnelStep[]) {
+function timedFromEntry(steps: readonly SequenceStep[]) {
   return steps.every((step) => step.delayAnchor === "entry");
 }
 
 /** The anchor of a message's new time: a step with only this message keeps its own anchor. */
-function timingAnchor(f: FunnelSnapshot, partId: string) {
+function timingAnchor(f: CommunicationSequenceSnapshot, partId: string) {
   const own = f.steps.find(
     (step) => step.parts.length === 1 && step.parts[0]?.partId === partId,
   );
@@ -1187,13 +1200,13 @@ function timingAnchor(f: FunnelSnapshot, partId: string) {
 }
 
 /** Sorts steps timed from entry by time; a chain of steps keeps the author's order. */
-function inTimeOrder(steps: readonly FunnelStep[]): FunnelStep[] {
+function inTimeOrder(steps: readonly SequenceStep[]): SequenceStep[] {
   return timedFromEntry(steps)
     ? [...steps].sort((a, b) => a.delaySeconds - b.delaySeconds)
     : [...steps];
 }
 
-export function formatFunnelDelay(seconds: number): string {
+export function formatSequenceDelay(seconds: number): string {
   for (const [unit, factor] of [
     ["д", 86400],
     ["ч", 3600],

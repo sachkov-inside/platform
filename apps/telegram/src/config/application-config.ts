@@ -100,7 +100,7 @@ export interface ApplicationConfig {
   readonly platformTrackingRedirectUrl?: string | undefined;
   readonly platformTrackingTargetPrefixes?: readonly string[] | undefined;
   readonly port: number;
-  /** Absent in a partial test configuration: no consent prompt, no delivery. */
+  /** Absent in a partial test configuration: no analytics delivery. */
   readonly salesFunnel?: SalesFunnelConfig | undefined;
   /** Days a delivered sales funnel event stays in its outbox after delivery. */
   readonly salesFunnelEventRetentionDays: number;

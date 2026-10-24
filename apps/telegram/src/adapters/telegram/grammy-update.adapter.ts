@@ -1,5 +1,4 @@
 import { hasText } from "../../shared/text.js";
-import { MARKETING_CONSENT_CALLBACK } from "../../modules/communications/marketing-entry.js";
 import type { AccessAction } from "../../modules/course-activation/course-activation.js";
 import { createHash } from "node:crypto";
 
@@ -226,20 +225,6 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
           enabled: preference.match[1] === "/resume",
           via: "command",
         },
-      };
-    }
-    const consent = privateCallback(
-      botIdentity,
-      updateId,
-      update,
-      observedAt,
-      MARKETING_CONSENT_CALLBACK,
-    );
-    if (consent) {
-      return {
-        kind: "marketing_preference",
-        value: { contact: consent.contact, enabled: true, via: "consent" },
-        callbackQueryId: consent.callbackQueryId,
       };
     }
     const start = this.privateStart(botIdentity, updateId, update, observedAt);
@@ -552,44 +537,6 @@ function readLinkToken(
     return { digest: value["digest"], kind: "digest" };
   }
   return { kind: "malformed" };
-}
-
-/** A press of the given button by the person in their own private chat with the bot. */
-function privateCallback(
-  botIdentity: string,
-  updateId: string,
-  update: Partial<Update>,
-  observedAt: Date,
-  data: string,
-):
-  | {
-      readonly contact: VerifiedPrivateStart;
-      readonly callbackQueryId: string;
-    }
-  | undefined {
-  const callback = update.callback_query;
-  if (
-    !callback ||
-    !("data" in callback) ||
-    callback.data !== data ||
-    callback.from.is_bot ||
-    callback.message?.chat.type !== "private" ||
-    callback.from.id !== callback.message.chat.id ||
-    callback.id.length > 128
-  )
-    return undefined;
-  const user = telegramId(callback.from.id);
-  if (!hasText(user)) return undefined;
-  return {
-    contact: {
-      botIdentity,
-      updateId,
-      observedAt,
-      telegramUserId: user,
-      privateChatId: user,
-    },
-    callbackQueryId: callback.id,
-  };
 }
 
 function privateSignInDecision(

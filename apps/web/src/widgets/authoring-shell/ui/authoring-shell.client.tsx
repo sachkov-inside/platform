@@ -27,7 +27,7 @@ const groups: readonly {
       { href: "/authoring/submissions", label: "Сдачи" },
       { href: "/authoring/access", label: "Люди и доступ" },
       { href: "/authoring/billing", label: "Продажи и платежи" },
-      { href: "/authoring/sales-funnel", label: "Воронка продаж" },
+      { href: "/authoring/sales-funnel", label: "Последовательность продаж" },
     ],
   },
 ];

@@ -1,25 +1,28 @@
 import { hasText } from "../../shared/text.js";
 import { randomUUID } from "node:crypto";
 import type { Context } from "./author-admin.js";
-import { parseFunnelDraft, type AuthorFunnelState } from "./author-dialog.js";
+import {
+  parseSequenceDraft,
+  type AuthorSequenceState,
+} from "./author-dialog.js";
 import { drafts } from "./author-drafts.js";
 import { authorRequest } from "./author-request.js";
-import type { FunnelListItem } from "./author-turn.js";
+import type { SequenceListItem } from "./author-turn.js";
 import { CommunicationsError } from "./communications-contract.js";
-import type { Funnels } from "./funnels.js";
+import type { CommunicationSequences } from "./communication-sequences.js";
 
 /**
  * Reads the author's funnels and shared intro, preferring an unsaved draft to the saved version,
  * and the delivery history of their steps.
  */
-export class AuthorFunnelDrafts {
-  constructor(private readonly funnels: Funnels) {}
+export class AuthorSequenceDrafts {
+  constructor(private readonly funnels: CommunicationSequences) {}
 
   /** A page of the author's funnels, saved ones and unsaved drafts together. */
   async list(
     c: Context,
     cursor: string | undefined,
-  ): Promise<{ items: FunnelListItem[]; nextCursor?: string | undefined }> {
+  ): Promise<{ items: SequenceListItem[]; nextCursor?: string | undefined }> {
     let saved = c.tx
       .selectFrom("communication_funnels")
       .select("funnel_id as id")
@@ -52,7 +55,7 @@ export class AuthorFunnelDrafts {
       .execute();
     const savedById = new Map(savedRows.map((row) => [row.funnel_id, row]));
     const draftsById = new Map(draftRows.map((row) => [row.draft_id, row]));
-    const items: FunnelListItem[] = pageIds.map((id) => {
+    const items: SequenceListItem[] = pageIds.map((id) => {
       const draft = draftsById.get(id);
       if (draft) return { id, name: draft.name, status: "edited" };
       const row = savedById.get(id);
@@ -62,12 +65,12 @@ export class AuthorFunnelDrafts {
     return { items, nextCursor: ids.length > 10 ? ids[9]?.id : undefined };
   }
 
-  async read(c: Context, funnelId: string): Promise<AuthorFunnelState> {
+  async read(c: Context, funnelId: string): Promise<AuthorSequenceState> {
     const draft = await drafts(c)
       .where("draft_id", "=", funnelId)
       .where("kind", "=", "funnel")
       .executeTakeFirst();
-    const snapshot = parseFunnelDraft(draft?.snapshot);
+    const snapshot = parseSequenceDraft(draft?.snapshot);
     if (snapshot) return snapshot;
     const result = await this.funnels.execute(
       authorRequest(c.accountRef, "funnels.read", { funnelId }),
@@ -78,11 +81,11 @@ export class AuthorFunnelDrafts {
   }
 
   /** The shared intro; a new empty one when the author has none yet. */
-  async readIntro(c: Context): Promise<AuthorFunnelState> {
+  async readIntro(c: Context): Promise<AuthorSequenceState> {
     const draft = await drafts(c)
       .where("kind", "=", "intro")
       .executeTakeFirst();
-    const snapshot = parseFunnelDraft(draft?.snapshot);
+    const snapshot = parseSequenceDraft(draft?.snapshot);
     if (snapshot) return snapshot;
     try {
       const result = await this.funnels.execute(

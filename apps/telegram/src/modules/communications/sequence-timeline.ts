@@ -2,18 +2,19 @@ import { isDeepStrictEqual } from "node:util";
 import { sql, type Selectable, type Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
 import { lockContactRows, planDelivery } from "./communication-state.js";
-import type { DeliveryPart, FunnelDraft } from "./funnel-types.js";
+import type {
+  DeliveryPart,
+  CommunicationSequenceDraft,
+} from "./sequence-types.js";
 
 type Delivery = Selectable<DatabaseSchema["communication_deliveries"]>;
 export function relativeDue(
-  enrolled: Date,
+  joined: Date,
   firstPublished: Date,
   previous: Date,
   delay: number,
 ): Date {
-  return new Date(
-    Math.max(+enrolled, +firstPublished, +previous) + delay * 1000,
-  );
+  return new Date(Math.max(+joined, +firstPublished, +previous) + delay * 1000);
 }
 export function terminal(parts: readonly DeliveryPart[]): boolean {
   return parts.every((p) =>
@@ -60,8 +61,10 @@ export async function cancelDelivery(
 export type PlanScope =
   { readonly contactId: string } | { readonly funnelId: string };
 const PLAN_BATCH = 500;
-type Enrollment = Selectable<DatabaseSchema["communication_enrollments"]> & {
-  published: FunnelDraft | null;
+type SequenceParticipation = Selectable<
+  DatabaseSchema["communication_enrollments"]
+> & {
+  published: CommunicationSequenceDraft | null;
   published_revision: number | null;
 };
 type StepDefinition = Pick<
@@ -72,7 +75,7 @@ type StepDefinition = Pick<
 // A contact scope runs under that contact's lock. A funnel scope runs under the bot scheduler
 // lock and locks each batch's contact rows. Only a resume suppresses missed steps: it computes
 // the virtual timeline once, using the current order; ordinary replanning never consumes them.
-export async function reconcileFunnels(
+export async function reconcileSequences(
   tx: Transaction<DatabaseSchema>,
   bot: string,
   now: Date,
@@ -90,9 +93,9 @@ export async function reconcileFunnels(
     "contactId" in scope
       ? query.where("e.contact_id", "=", scope.contactId)
       : query.where("e.funnel_id", "=", scope.funnelId);
-  const enrollments = await query.orderBy("e.enrollment_id").execute();
-  for (let i = 0; i < enrollments.length; i += PLAN_BATCH) {
-    const batch = enrollments.slice(i, i + PLAN_BATCH);
+  const participations = await query.orderBy("e.enrollment_id").execute();
+  for (let i = 0; i < participations.length; i += PLAN_BATCH) {
+    const batch = participations.slice(i, i + PLAN_BATCH);
     const contactIds = [...new Set(batch.map((e) => e.contact_id))];
     const funnelIds = [...new Set(batch.map((e) => e.funnel_id))];
     if ("funnelId" in scope) await lockContactRows(tx, contactIds);
@@ -111,30 +114,32 @@ export async function reconcileFunnels(
       .select(["funnel_id", "step_id", "first_published_at"])
       .where(sql<boolean>`funnel_id = any(${funnelIds}::uuid[])`)
       .execute();
-    for (const enrollment of batch)
-      await replanEnrollment(
+    for (const participation of batch)
+      await replanParticipation(
         tx,
         bot,
         now,
-        enrollment,
-        histories.get(`${enrollment.contact_id}:${enrollment.funnel_id}`) ?? [],
+        participation,
+        histories.get(
+          `${participation.contact_id}:${participation.funnel_id}`,
+        ) ?? [],
         definitions,
         suppressMissed,
       );
   }
 }
 
-async function replanEnrollment(
+async function replanParticipation(
   tx: Transaction<DatabaseSchema>,
   bot: string,
   now: Date,
-  enrollment: Enrollment,
+  participation: SequenceParticipation,
   stored: readonly Delivery[],
   definitions: readonly StepDefinition[],
   suppressMissed: boolean,
 ): Promise<void> {
-  const draft = enrollment.published;
-  const revision = enrollment.published_revision;
+  const draft = participation.published;
+  const revision = participation.published_revision;
   if (!draft || revision === null)
     throw new Error("Only a published funnel is replanned");
   const history: Delivery[] = [];
@@ -146,7 +151,7 @@ async function replanEnrollment(
         : delivery,
     );
   const initial = history.find(
-    (d) => d.dedup_key === enrollment.initial_entry_key,
+    (d) => d.dedup_key === participation.initial_entry_key,
   );
   if (!initial?.completed_at) return;
   // Started work owns the lane even after reorder/delete. Pending work can change order.
@@ -171,9 +176,9 @@ async function replanEnrollment(
     if (!definition) throw new Error("Published step has no identity record");
     const due =
       step.delayAnchor === "entry"
-        ? new Date(+enrollment.enrolled_at + step.delaySeconds * 1000)
+        ? new Date(+participation.enrolled_at + step.delaySeconds * 1000)
         : relativeDue(
-            enrollment.enrolled_at,
+            participation.enrolled_at,
             definition.first_published_at,
             previous,
             step.delaySeconds,
@@ -188,11 +193,11 @@ async function replanEnrollment(
     if (!old) {
       await planDelivery(tx, {
         bot,
-        contactId: enrollment.contact_id,
+        contactId: participation.contact_id,
         funnelId: draft.funnelId,
         stepId: step.stepId,
         kind: "step",
-        key: `step:${enrollment.enrollment_id}:${step.stepId}`,
+        key: `step:${participation.enrollment_id}:${step.stepId}`,
         parts: step.parts,
         revision,
         now,
@@ -219,7 +224,7 @@ async function replanEnrollment(
         .where(
           "dedup_key",
           "=",
-          `step:${enrollment.enrollment_id}:${step.stepId}`,
+          `step:${participation.enrollment_id}:${step.stepId}`,
         )
         .execute();
     }

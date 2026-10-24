@@ -52,9 +52,9 @@ import {
 } from "./modules/communications/author-delivery.js";
 import { CommunicationTracking } from "./modules/communications/communication-tracking.js";
 import { Api } from "grammy";
-import { Funnels } from "./modules/communications/funnels.js";
+import { CommunicationSequences } from "./modules/communications/communication-sequences.js";
 import { MarketingEntry } from "./modules/communications/marketing-entry.js";
-import { FunnelScheduler } from "./modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "./modules/communications/sequence-scheduler.js";
 import { COMMUNICATION_TRANSPORT } from "./modules/communications/communication-delivery.js";
 import {
   GrammyCommunicationsAdapter,
@@ -115,6 +115,7 @@ import {
   MONOTONIC_CLOCK,
   systemMonotonicClock,
   type Clock,
+  type MonotonicClock,
 } from "./shared/clock.js";
 import { IdentityLinking } from "./modules/identity-linking/identity-linking.js";
 import { IdentityLinkRecovery } from "./modules/identity-linking/identity-link-recovery.js";
@@ -167,6 +168,7 @@ export class AppModule {
             CLOCK,
             WAITLIST_CONFIRMATION_AUTHORIZATION,
             COMMUNICATION_TRANSPORT,
+            MONOTONIC_CLOCK,
           ],
           useFactory: (
             database: Database,
@@ -174,6 +176,7 @@ export class AppModule {
             clock: Clock,
             authorization: WaitlistConfirmationAuthorization,
             transport: CommunicationTransport,
+            monotonic: MonotonicClock,
           ) =>
             new WaitlistConfirmations(
               database,
@@ -181,6 +184,7 @@ export class AppModule {
               clock,
               authorization,
               transport,
+              monotonic,
             ),
         },
 
@@ -381,9 +385,9 @@ export class AppModule {
         },
         CommunicationTracking,
         Communications,
-        Funnels,
+        CommunicationSequences,
         MarketingEntry,
-        FunnelScheduler,
+        SequenceScheduler,
         MaterialAnnouncements,
         {
           provide: MATERIAL_ANNOUNCEMENT_SOURCE,

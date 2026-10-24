@@ -1,3 +1,5 @@
+import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
+import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { seedNotificationRecipient } from "../support/notification-recipient.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -460,20 +462,67 @@ describe("Notification provider with real PostgreSQL and synthetic external face
       expect(sends).toHaveLength(0);
     },
   );
-  it("delivers access_ending with its renewal link like any subscription kind", async () => {
-    const c = command("subscription", "access-ending-telegram");
-    expect(c.content).toEqual({
-      category: "subscription",
-      kind: "access_ending",
-    });
-    await linked(c);
-    await receive(c);
-    await provider().processCategory("subscription");
-    expect(sends).toHaveLength(1);
-    expect(required(sends[0]).text).toBe(c.text);
-    expect(required(sends[0]).text).toContain("/subscription?offer=");
-    expect((await result(c)).state).toBe("sent");
-  });
+  it.each([
+    "access_ending",
+    "access_expired",
+    "renewal_reminder",
+    "renewal_cancelled",
+  ])(
+    "suppresses an unsent historical %s command without dispatch or deleting its receipt",
+    async (kind) => {
+      const c = command("subscription", "access-ending-telegram");
+      c.content = { category: "subscription", kind };
+      await linked(c);
+      const accepted = await receive(c);
+      expect(accepted).toMatchObject({ state: "accepted" });
+      await provider().processCategory("subscription");
+      await provider().processCategory("subscription");
+      expect(sends).toHaveLength(0);
+      expect(calls).toHaveLength(0);
+      expect(await result(c)).toMatchObject({
+        state: "suppressed",
+        reason: "source_unavailable",
+      });
+      expect(await receive(c)).toEqual(await result(c));
+    },
+  );
+  it.each(["subscription", "material"] as const)(
+    "delivers current %s service notifications after explicit stop with marketing globally disabled",
+    async (category) => {
+      const c = command(category);
+      await linked(c);
+      const config = loadApplicationConfig({
+        DATABASE_URL: required(process.env["DATABASE_URL"]),
+        TELEGRAM_BOT_IDENTITY: "inside",
+        TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+        TELEGRAM_WEBHOOK_SECRET: "synthetic_webhook_secret_for_tests_only",
+        PLATFORM_INTEGRATION_SECRET: "synthetic_platform_secret_for_tests_only",
+        TELEGRAM_WELCOME_TEXT: "synthetic welcome",
+        TELEGRAM_LINK_RECEIPT_TEXT: "synthetic receipt",
+        TELEGRAM_LINKED_MEMBER_TEXT: "synthetic member",
+        TELEGRAM_LINKED_NON_MEMBER_TEXT: "synthetic non-member",
+        TELEGRAM_LINKED_UNAVAILABLE_TEXT: "synthetic unavailable",
+        TELEGRAM_MARKETING_ENABLED: "false",
+      });
+      await new MarketingEntry(db, config, clock).setPreference(
+        {
+          botIdentity: "inside",
+          telegramUserId: "10001",
+          privateChatId: "10001",
+          updateId: "1711",
+          observedAt: clock.now(),
+        },
+        false,
+      );
+      await receive(c);
+      await provider().processCategory(category);
+      expect(sends).toHaveLength(1);
+      expect((await result(c)).state).toBe("sent");
+      expect(await receive(c)).toEqual(await result(c));
+      await provider().processCategory(category);
+      expect(sends).toHaveLength(1);
+    },
+  );
   it("403 blocks only the rejected recipient without withdrawing marketing preference", async () => {
     const c = command();
     await linked(c);

@@ -41,7 +41,7 @@ describe("architecture guardrail", () => {
     ],
     [
       "pure-dialog-imports-io",
-      "modules/communications/author-funnels.ts: pure author dialog imports database/drafts.ts",
+      "modules/communications/author-sequences.ts: pure author dialog imports database/drafts.ts",
     ],
     [
       "pure-dialog-imports-io",
@@ -175,9 +175,9 @@ const formerLegacyAccess: readonly (readonly [
   // Read private-chat reachability when selecting communication recipients.
   ["modules/communications/communication-statistics.ts", ["bot_contacts"]],
   // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/funnel-preview.ts", ["bot_contacts"]],
+  ["modules/communications/sequence-preview.ts", ["bot_contacts"]],
   // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/funnel-scheduler.ts", ["bot_contacts"]],
+  ["modules/communications/sequence-scheduler.ts", ["bot_contacts"]],
   // Persist a confirmed transport block under the communication contact lock.
   ["modules/communications/delivery-contactability.ts", ["bot_contacts"]],
   // Read private-chat reachability before a community welcome delivery.
@@ -267,8 +267,8 @@ it.each([
   "modules/bot-sign-in/sign-in-account-link.ts",
   "modules/communications/broadcasts.ts",
   "modules/communications/communication-statistics.ts",
-  "modules/communications/funnel-preview.ts",
-  "modules/communications/funnel-scheduler.ts",
+  "modules/communications/sequence-preview.ts",
+  "modules/communications/sequence-scheduler.ts",
   "modules/communications/delivery-contactability.ts",
   "modules/community/community-provider.ts",
   "modules/identity-linking/identity-link-recovery.ts",

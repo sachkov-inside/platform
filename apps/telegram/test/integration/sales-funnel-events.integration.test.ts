@@ -1,3 +1,8 @@
+import {
+  StartResponseDeliveryQueue,
+  replyStateCounts,
+  replyAttemptOutcomeCounts,
+} from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { hasText } from "../../src/shared/text.js";
@@ -24,8 +29,8 @@ import {
 import { AUTHOR_AUTHORIZATION } from "../../src/modules/communications/author-authorization.js";
 import { AUTHOR_CONTENT_VALIDATION } from "../../src/modules/communications/author-content-validation.js";
 import { COMMUNICATION_TRANSPORT } from "../../src/modules/communications/communication-delivery.js";
-import type { FunnelDraft } from "../../src/modules/communications/funnel-types.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
+import type { CommunicationSequenceDraft } from "../../src/modules/communications/sequence-types.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
 import { IdentityLinkRecovery } from "../../src/modules/identity-linking/identity-link-recovery.js";
 import { IdentityLinking } from "../../src/modules/identity-linking/identity-linking.js";
 import { TELEGRAM_CALLBACK_ANSWERS } from "../../src/modules/bot-sign-in/telegram-callback-answers.js";
@@ -142,7 +147,7 @@ async function publishDefaultFunnel(): Promise<void> {
     partId: randomUUID(),
     content: { type: "text" as const, text, entities: [], buttons: [] },
   });
-  const funnel: FunnelDraft = {
+  const funnel: CommunicationSequenceDraft = {
     funnelId: randomUUID(),
     name: "survey",
     isDefault: true,
@@ -162,7 +167,7 @@ async function publishDefaultFunnel(): Promise<void> {
     actor: { accountRef: "synthetic-author" },
     payload,
   });
-  const funnels = app.get(Funnels);
+  const funnels = app.get(CommunicationSequences);
   await funnels.execute(
     command("intro.save", { introId: randomUUID(), parts: [part("intro")] }),
   );
@@ -272,49 +277,131 @@ describe("sales funnel events", () => {
     ]);
   });
 
-  it("reports /stop as withdrawn and /resume and the consent button as granted", async () => {
+  it("reports explicit commands while retired consent buttons cannot restore stop", async () => {
     await publishDefaultFunnel();
     await text("/start");
     await text("/stop");
-    await text("/resume");
-    await consentPress();
-    const consents = (await queued()).filter(
-      (event) => event.kind === "marketing_consent",
-    );
-    expect(consents.map((event) => event.granted)).toEqual([false, true, true]);
-    expect(answered).toHaveLength(1);
-  });
-
-  it("asks for consent after an entry until the contact consents, and the default is no consent", async () => {
-    await publishDefaultFunnel();
-    await text("/start m_survey");
-    const prompts = () =>
-      database
-        .selectFrom("start_response_deliveries")
-        .select(["message_text", "buttons"])
-        .where("message_text", "in", [
-          "synthetic consent prompt",
-          "synthetic consent thanks",
-        ])
-        .orderBy("id")
-        .execute();
-    expect(await prompts()).toEqual([
-      {
-        message_text: "synthetic consent prompt",
-        buttons: [
-          { text: "synthetic agree", callbackData: "marketing:consent" },
-        ],
-      },
-    ]);
-    expect(
-      (await queued()).some((event) => event.kind === "marketing_consent"),
-    ).toBe(false);
     await consentPress();
     await text("/start");
-    expect((await prompts()).map((row) => row.message_text)).toEqual([
-      "synthetic consent prompt",
-      "synthetic consent thanks",
+    const analytics = app.get(CommunicationSequences);
+    const contacts = await analytics.execute({
+      contractVersion: COMMUNICATIONS_VERSION,
+      operation: "statistics.read",
+      operationId: randomUUID(),
+      expectedRevision: 0,
+      actor: { accountRef: "synthetic-author" },
+      payload: {},
+    });
+    expect(contacts).toMatchObject({
+      statistics: { contacts: [{ marketingEnabled: false }] },
+    });
+    expect(
+      (await queued())
+        .filter((event) => event.kind === "marketing_consent")
+        .map((event) => event.granted),
+    ).toEqual([false]);
+    await text("/resume");
+    expect(
+      (await queued())
+        .filter((event) => event.kind === "marketing_consent")
+        .map((event) => event.granted),
+    ).toEqual([false, true]);
+    expect(answered).toHaveLength(0);
+  });
+
+  it("starts the published sequence without a consent prompt or a synthetic consent fact", async () => {
+    await publishDefaultFunnel();
+    await text("/start m_survey");
+    const result = await app.get(CommunicationSequences).execute({
+      contractVersion: COMMUNICATIONS_VERSION,
+      operation: "statistics.read",
+      operationId: randomUUID(),
+      expectedRevision: 0,
+      actor: { accountRef: "synthetic-author" },
+      payload: {},
+    });
+    expect(result).toMatchObject({
+      statistics: { contacts: [{ marketingEnabled: true }] },
+    });
+    const prompts = await database
+      .selectFrom("start_response_deliveries")
+      .select(["message_text", "buttons"])
+      .where("message_text", "in", [
+        "synthetic consent prompt",
+        "synthetic consent thanks",
+      ])
+      .execute();
+    expect(prompts).toEqual([]);
+    expect((await queued()).map((event) => event.kind)).toEqual([
+      "bot_entered",
     ]);
+  });
+
+  it("retires an already queued consent prompt without sending, starving traffic or erasing its receipt", async () => {
+    await text("/start");
+    const queue = app.get(StartResponseDeliveryQueue);
+    const old = {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      messageText: "retired consent prompt",
+      sourceKey: "marketing-consent:inside:1711",
+      now,
+      buttons: [{ text: "old consent", callbackData: "marketing:consent" }],
+    };
+    await queue.enqueue(old);
+    // Restrict the public claim to the retired prompt: unrelated welcome work is preserved.
+    expect(await queue.claimNext(now, false, old.sourceKey)).toBeUndefined();
+    expect(await queue.enqueue(old)).toBe(false);
+    expect(await replyStateCounts(database)).toMatchObject({ rejected: 1 });
+  });
+
+  it("keeps an uncertain historical consent prompt terminal and preserves its external-attempt evidence", async () => {
+    await text("/start");
+    const queue = app.get(StartResponseDeliveryQueue);
+    const old = {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      messageText: "old uncertain consent prompt",
+      sourceKey: "marketing-consent:inside:1712",
+      now,
+    };
+    await queue.enqueue(old);
+    // A historical fixture restores an attempt from the retired sender, not a new current send.
+    const receipt = await database
+      .selectFrom("start_response_deliveries")
+      .select("id")
+      .where("source_key", "=", old.sourceKey)
+      .executeTakeFirstOrThrow();
+    await database
+      .insertInto("start_response_delivery_attempts")
+      .values({
+        start_response_delivery_id: receipt.id,
+        attempt_number: 1,
+        attempted_at: now,
+        diagnostic_code: "historical_lost_response",
+        outcome: "transport_unknown",
+        provider_error_code: null,
+        provider_message_id: null,
+      })
+      .execute();
+    await database
+      .updateTable("start_response_deliveries")
+      .set({
+        state: "retry_scheduled",
+        attempt_count: 1,
+      })
+      .where("id", "=", receipt.id)
+      .execute();
+    expect(await queue.claimNext(now, false, old.sourceKey)).toBeUndefined();
+    expect(await replyStateCounts(database)).toMatchObject({
+      unknown_exhausted: 1,
+    });
+    expect(await replyAttemptOutcomeCounts(database)).toMatchObject({
+      transport_unknown: 1,
+    });
+    expect(await queue.enqueue(old)).toBe(false);
   });
 
   it("reports a confirmed link, including one of a bot contact from before communication records", async () => {

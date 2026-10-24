@@ -2,7 +2,7 @@ import { WaitlistConfirmations } from "../modules/communications/waitlist-confir
 import { isTruthy } from "../shared/truthiness.js";
 import { CourseActivation } from "../modules/course-activation/course-activation.js";
 import { AuthorDelivery } from "../modules/communications/author-delivery.js";
-import { FunnelScheduler } from "../modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../modules/communications/sequence-scheduler.js";
 import {
   Inject,
   Injectable,
@@ -72,7 +72,7 @@ export class BackgroundWorkers
     @Inject(AuthorDelivery) private readonly authorDelivery: AuthorDelivery,
     @Inject(WaitlistConfirmations)
     private readonly waitlistConfirmations: WaitlistConfirmations,
-    @Inject(FunnelScheduler) private readonly funnels: FunnelScheduler,
+    @Inject(SequenceScheduler) private readonly funnels: SequenceScheduler,
     @Inject(CommunityProvider) private readonly community: CommunityProvider,
     @Inject(SalesFunnelDeliveryProcessor)
     private readonly salesFunnel: SalesFunnelDeliveryProcessor,

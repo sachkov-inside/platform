@@ -10,24 +10,24 @@ export interface EntryResponse {
   readonly stepId: string;
   readonly parts: readonly MessagePart[];
 }
-export interface FunnelStep extends EntryResponse {
+export interface SequenceStep extends EntryResponse {
   readonly delaySeconds: number;
   readonly delayAnchor?: "entry";
 }
-export interface FunnelSource {
+export interface SequenceSource {
   readonly sourceId: string;
   readonly code: string;
   readonly name: string;
 }
-export interface FunnelDraft {
+export interface CommunicationSequenceDraft {
   readonly funnelId: string;
   readonly name: string;
   readonly isDefault: boolean;
-  readonly sources: readonly FunnelSource[];
-  readonly steps: readonly FunnelStep[];
+  readonly sources: readonly SequenceSource[];
+  readonly steps: readonly SequenceStep[];
   readonly entryResponse: EntryResponse;
 }
-export interface FunnelSnapshot extends FunnelDraft {
+export interface CommunicationSequenceSnapshot extends CommunicationSequenceDraft {
   readonly revision: number;
   readonly publishedRevision: number | null;
   readonly lifecycle: "draft" | "published" | "paused" | "archived";

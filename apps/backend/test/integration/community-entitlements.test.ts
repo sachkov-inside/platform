@@ -1668,15 +1668,60 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     return communityGrant(database, accountId, includeCommunity);
   }
 
-  test("a Product-only grant never implies community admission", async () => {
+  test("every current Product grants the existing group and multiple Products union without configuration", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
-    await grantProduct(account, null, false);
+    const first = await grantProduct(account, null, false);
+    const second = await grantProduct(account, null, false);
     const app = community(new ProviderDouble());
-    expect(await app.readOwnCommunityEntry(account)).toEqual({ kind: "none" });
+    expect(await app.project(account)).toMatchObject({ ok: true });
+    expect(await app.readOwnCommunityEntry(account)).toMatchObject({
+      kind: "preparing",
+    });
+    expect((await operations(account)).map((op) => op.access)).toEqual([
+      { kind: "lifetime" },
+    ]);
+    const productId = first.grantRef.split(":")[1];
+    if (productId === undefined) throw new Error("Product fixture missing");
+    expect(
+      await app.readOwnProductCommunityEntry(account, productId),
+    ).toMatchObject({ kind: "preparing" });
+    await database.prisma.productCommunity.create({
+      data: {
+        productId,
+        groupRef: null,
+        updatedBy: owner,
+        updatedAt: now,
+      },
+    });
+    expect(
+      await app.readProductCommunityConfiguration(owner, productId),
+    ).toMatchObject({
+      ok: true,
+      value: { groupRef: "primary" },
+    });
+    expect(
+      await app.configureProductCommunity(owner, { productId, groupRef: null }),
+    ).toEqual({
+      ok: false,
+      code: "invalid_input",
+    });
     await app.project(account);
-    expect(await operations(account)).toHaveLength(0);
+    expect(
+      await app.readOwnProductCommunityEntry(account, productId),
+    ).toMatchObject({ kind: "preparing" });
+    await revokeProductFixture(database.prisma, first.grantRef);
+    await app.project(account);
+    expect((await operations(account)).map((op) => op.access)).toEqual([
+      { kind: "lifetime" },
+    ]);
+    await revokeProductFixture(database.prisma, second.grantRef);
+    await app.project(account);
+    expect((await operations(account)).map((op) => op.access)).toEqual([
+      { kind: "lifetime" },
+      { kind: "denied" },
+    ]);
   });
 
   test("an explicit Product community right admits to the shared group, and its revocation closes it", async () => {

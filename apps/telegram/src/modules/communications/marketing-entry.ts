@@ -1,10 +1,8 @@
 import { hasText } from "../../shared/text.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
-import { cancelDelivery } from "./funnel-timeline.js";
+import { cancelDelivery } from "./sequence-timeline.js";
 import { updateMarketingAvailability } from "./marketing-preferences.js";
 import { randomUUID } from "node:crypto";
-import type { Transaction } from "kysely";
-import type { DatabaseSchema } from "../../database/database.js";
 import {
   recordBotEntered,
   recordMarketingConsent,
@@ -29,15 +27,14 @@ export class MarketingEntry {
   enabled(): boolean {
     return this.config.marketingEnabled;
   }
-  /**
-   * `/stop`, `/resume` or the consent button: each is an explicit choice and is reported to
-   * Platform as consent granted or withdrawn.
-   */
+  /** Explicit `/stop` and `/resume` choices retain their historical event vocabulary. */
   async setPreference(
     start: VerifiedPrivateStart,
     enabled: boolean,
     via: "command" | "consent" = "command",
   ): Promise<void> {
+    // Already committed old inbox commands remain readable, but cannot undo an explicit stop.
+    if (via === "consent") return;
     await this.database.transaction().execute(async (tx) => {
       await contactLock(tx, this.config.botIdentity, start.telegramUserId);
       const prior = await tx
@@ -91,17 +88,13 @@ export class MarketingEntry {
         observedAt: now,
         granted: enabled,
       });
-      const consent = this.config.salesFunnel?.consent;
       await enqueueReply(tx, {
         botIdentity: start.botIdentity,
         telegramUserId: start.telegramUserId,
         privateChatId: start.privateChatId,
-        messageText:
-          via === "consent" && consent
-            ? consent.confirmation
-            : enabled
-              ? "Сообщения включены. Пропущенные сообщения не придут."
-              : "Сообщения выключены. Чтобы включить их снова, отправьте /resume.",
+        messageText: enabled
+          ? "Сообщения включены. Пропущенные сообщения не придут."
+          : "Сообщения выключены. Чтобы включить их снова, отправьте /resume.",
         sourceKey: `marketing-preference:${start.botIdentity}:${start.updateId}`,
         triggerUpdateId: start.updateId,
         now,
@@ -260,43 +253,6 @@ export class MarketingEntry {
         parts: funnel.draft.entryResponse.parts,
         revision: funnel.revision,
       });
-      const consent = this.config.salesFunnel?.consent;
-      if (
-        consent &&
-        contact.marketing_enabled &&
-        !(await hasConsented(tx, contact.contact_id))
-      )
-        await enqueueReply(tx, {
-          botIdentity: start.botIdentity,
-          telegramUserId: start.telegramUserId,
-          privateChatId: start.privateChatId,
-          messageText: consent.prompt,
-          buttons: [
-            { text: consent.button, callbackData: MARKETING_CONSENT_CALLBACK },
-          ],
-          sourceKey: `marketing-consent:${start.botIdentity}:${start.updateId}`,
-          triggerUpdateId: start.updateId,
-          now,
-        });
     });
   }
-}
-
-/** The callback data of the consent button; the Telegram adapter routes it back here. */
-export const MARKETING_CONSENT_CALLBACK = "marketing:consent";
-
-/** The contact's latest explicit choice was to receive messages. */
-async function hasConsented(
-  tx: Transaction<DatabaseSchema>,
-  contactId: string,
-): Promise<boolean> {
-  const latest = await tx
-    .selectFrom("communication_preferences")
-    .select("enabled")
-    .where("contact_id", "=", contactId)
-    .orderBy("observed_at", "desc")
-    .orderBy("update_id", "desc")
-    .limit(1)
-    .executeTakeFirst();
-  return latest?.enabled === true;
 }

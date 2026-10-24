@@ -107,7 +107,7 @@ const pureDialogFiles = [
   "author-button",
   "author-composer",
   "author-dialog",
-  "author-funnels",
+  "author-sequences",
   "author-message-view",
   "author-sequence-composer",
   "author-transition",

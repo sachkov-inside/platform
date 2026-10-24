@@ -3,9 +3,9 @@ import type { DatabaseSchema } from "../../database/database.js";
 import { lockContactRows } from "./communication-state.js";
 import {
   cancelDelivery,
-  reconcileFunnels,
+  reconcileSequences,
   started,
-} from "./funnel-timeline.js";
+} from "./sequence-timeline.js";
 
 // The caller holds this contact's lock. The shared unavailable interval ends only when both
 // transport and the explicit marketing preference allow it. An unchanged contact is only read,
@@ -37,7 +37,7 @@ export async function updateMarketingAvailability(
     return;
   await lockContactRows(tx, [contact.contact_id]);
   if (available && contact.unavailable_since) {
-    await reconcileFunnels(
+    await reconcileSequences(
       tx,
       bot,
       now,
@@ -56,7 +56,7 @@ export async function updateMarketingAvailability(
       if (delivery.kind !== "step" || started(delivery))
         await cancelDelivery(tx, delivery, now, "marketing_unavailable");
     // A cancelled initial response completes its enrollment's entry, as dispatch would.
-    await reconcileFunnels(tx, bot, now, { contactId: contact.contact_id });
+    await reconcileSequences(tx, bot, now, { contactId: contact.contact_id });
   }
   await tx
     .updateTable("communication_contacts")

@@ -35,13 +35,13 @@ import {
   COMMUNICATION_TRANSPORT,
   type CommunicationMessage,
 } from "../../src/modules/communications/communication-delivery.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import type {
-  FunnelDraft,
+  CommunicationSequenceDraft,
   MessagePart,
-} from "../../src/modules/communications/funnel-types.js";
+} from "../../src/modules/communications/sequence-types.js";
 import { CLOCK } from "../../src/shared/clock.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
@@ -104,8 +104,8 @@ const contentValidation = {
   ),
 };
 let app: NestFastifyApplication;
-let funnels: Funnels;
-let scheduler: FunnelScheduler;
+let funnels: CommunicationSequences;
+let scheduler: SequenceScheduler;
 let entry: MarketingEntry;
 const responseValidator = contractValidator("response");
 beforeAll(async () => {
@@ -136,8 +136,8 @@ beforeAll(async () => {
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  funnels = app.get(Funnels);
-  scheduler = app.get(FunnelScheduler);
+  funnels = app.get(CommunicationSequences);
+  scheduler = app.get(SequenceScheduler);
   entry = app.get(MarketingEntry);
 });
 beforeEach(async () => {
@@ -170,7 +170,7 @@ function part(text: string): MessagePart {
     content: { type: "text", text, entities: [], buttons: [] },
   };
 }
-function draft(name = "general", isDefault = true): FunnelDraft {
+function draft(name = "general", isDefault = true): CommunicationSequenceDraft {
   return {
     funnelId: randomUUID(),
     name,
@@ -396,7 +396,7 @@ describe("durable marketing entry and scheduling", () => {
     await tick();
     await tick();
     await tick(30);
-    const secondWorker = new FunnelScheduler(
+    const secondWorker = new SequenceScheduler(
       database,
       config,
       clock,
@@ -756,7 +756,7 @@ describe("external dispatch crash boundaries", () => {
     });
     const running = scheduler.processAvailable(1);
     await sending;
-    const other = new FunnelScheduler(
+    const other = new SequenceScheduler(
       database,
       config,
       clock,
@@ -837,7 +837,7 @@ describe("external dispatch crash boundaries", () => {
     }
     await Promise.all([
       scheduler.processAvailable(),
-      new FunnelScheduler(
+      new SequenceScheduler(
         database,
         config,
         clock,
@@ -918,7 +918,7 @@ describe("recovery and completion serialization", () => {
         return args.result;
       },
     });
-    const recovery = new FunnelScheduler(
+    const recovery = new SequenceScheduler(
       recoveryDatabase,
       config,
       clock,
@@ -982,7 +982,7 @@ describe("recovery and completion serialization", () => {
   });
 });
 
-async function publish(value: FunnelDraft) {
+async function publish(value: CommunicationSequenceDraft) {
   const current = await database
     .selectFrom("communication_funnels")
     .select("revision")
@@ -1066,7 +1066,7 @@ describe("published audience updates and subscriber preferences #29", () => {
     await tick(86000);
     expect(sent.filter((m) => m.content.text === "added")).toHaveLength(0);
     now = new Date(+publishedAt + 86400000);
-    const second = new FunnelScheduler(
+    const second = new SequenceScheduler(
       database,
       config,
       clock,
@@ -1740,7 +1740,7 @@ it("preview does not call a removed unknown lane completed", async () => {
 
 describe("entry-anchored funnel schedule", () => {
   it("keeps +1h/+2h anchored to entry even when the first hour delivery is late", async () => {
-    const value: FunnelDraft = {
+    const value: CommunicationSequenceDraft = {
       ...draft("anchored"),
       steps: [3600, 7200].map((delaySeconds, i) => ({
         stepId: randomUUID(),

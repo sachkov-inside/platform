@@ -4,7 +4,10 @@ import {
   type TemplateContent,
   type TemplateSnapshot,
 } from "./communications-contract.js";
-import type { FunnelSnapshot, IntroSnapshot } from "./funnel-types.js";
+import type {
+  CommunicationSequenceSnapshot,
+  IntroSnapshot,
+} from "./sequence-types.js";
 
 type Field = "required" | "optional";
 interface PayloadSpec {
@@ -141,7 +144,10 @@ export type SequenceAction = Extract<
   AuthorAction,
   { kind: `sequence:${string}` }
 >;
-export type FunnelAction = Extract<AuthorAction, { kind: `f:${string}` }>;
+export type CommunicationSequenceAction = Extract<
+  AuthorAction,
+  { kind: `f:${string}` }
+>;
 
 export type AuthorButton = [label: string, action: AuthorAction];
 
@@ -192,8 +198,8 @@ const FUNNEL_PROMPTS = [
 ] as const;
 
 /** The funnel or shared intro being edited, with its unsaved changes. */
-export interface AuthorFunnelState {
-  funnel?: FunnelSnapshot;
+export interface AuthorSequenceState {
+  funnel?: CommunicationSequenceSnapshot;
   intro?: IntroSnapshot;
   dirty?: boolean;
   /** `entry`, `intro` or the ID of the selected funnel step. */
@@ -221,7 +227,7 @@ export interface AuthorState {
   composing?: ComposerState | undefined;
   broadcastName?: string | undefined;
   libraryQuery?: string | undefined;
-  funnelAuthor?: AuthorFunnelState;
+  funnelAuthor?: AuthorSequenceState;
   template?: TemplateSnapshot;
   broadcast?: AuthorBroadcast;
   prompt?: AuthorPrompt | undefined;
@@ -302,10 +308,10 @@ export function parseAuthorState(stored: unknown): AuthorState | undefined {
 }
 
 /** Reads a stored funnel or intro draft; undefined when its shape is not trusted. */
-export function parseFunnelDraft(
+export function parseSequenceDraft(
   stored: unknown,
-): AuthorFunnelState | undefined {
-  return isFunnelState(stored) ? stored : undefined;
+): AuthorSequenceState | undefined {
+  return isSequenceState(stored) ? stored : undefined;
 }
 
 /** Reads a stored unsaved broadcast; undefined when its shape is not trusted. */
@@ -353,7 +359,7 @@ function isAuthorState(value: unknown): value is AuthorState {
     optional(value["composing"], isComposerState) &&
     optional(value["broadcastName"], isString) &&
     optional(value["libraryQuery"], isString) &&
-    optional(value["funnelAuthor"], isFunnelState) &&
+    optional(value["funnelAuthor"], isSequenceState) &&
     optional(value["template"], (v) => validTemplate(v)) &&
     optional(value["broadcast"], isBroadcast) &&
     optional(value["prompt"], isAuthorPrompt) &&
@@ -442,7 +448,7 @@ function isDestination(value: unknown): value is MessageDestination {
   );
 }
 
-function isFunnelState(value: unknown): value is AuthorFunnelState {
+function isSequenceState(value: unknown): value is AuthorSequenceState {
   return (
     isRecord(value) &&
     optional(value["funnel"], isFunnel) &&
@@ -456,7 +462,7 @@ function isFunnelState(value: unknown): value is AuthorFunnelState {
   );
 }
 
-function isFunnel(value: unknown): value is FunnelSnapshot {
+function isFunnel(value: unknown): value is CommunicationSequenceSnapshot {
   return (
     isRecord(value) &&
     isString(value["funnelId"]) &&

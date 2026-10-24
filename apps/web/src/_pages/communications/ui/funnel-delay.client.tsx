@@ -7,7 +7,7 @@ const units = [
   { label: "Часы", seconds: 3600 },
   { label: "Дни", seconds: 86400 },
 ];
-export function FunnelDelay({
+export function SequenceDelay({
   value,
   onChange,
   name,

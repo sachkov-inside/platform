@@ -2,9 +2,9 @@ import { botContactRows } from "../bot-contacts/contact-access.js";
 import { isDeepStrictEqual } from "node:util";
 import type { Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
-import type { FunnelDraft } from "./funnel-types.js";
+import type { CommunicationSequenceDraft } from "./sequence-types.js";
 
-export interface FunnelPreview {
+export interface SequencePreview {
   funnelId: string;
   revision: number;
   addedStepIds: string[];
@@ -18,13 +18,13 @@ export interface FunnelPreview {
 
 // The caller holds the same definition/scheduler locks as publish and dispatch.
 // Content eligibility is supplied by Platform, the owner of Material/Series access.
-export async function previewFunnel(
+export async function previewSequence(
   tx: Transaction<DatabaseSchema>,
   bot: string,
-  draft: FunnelDraft,
-  published: FunnelDraft | null,
+  draft: CommunicationSequenceDraft,
+  published: CommunicationSequenceDraft | null,
   revision: number,
-): Promise<FunnelPreview> {
+): Promise<SequencePreview> {
   const before = published?.steps ?? [];
   const oldById = new Map(before.map((step) => [step.stepId, step]));
   const currentIds = new Set(draft.steps.map((step) => step.stepId));

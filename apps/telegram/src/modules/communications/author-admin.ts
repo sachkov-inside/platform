@@ -22,7 +22,7 @@ import {
   type AuthorAuthorization,
 } from "./author-authorization.js";
 import { AuthorBroadcastDrafts } from "./author-broadcast-drafts.js";
-import { AuthorFunnelDrafts } from "./author-funnel-drafts.js";
+import { AuthorSequenceDrafts } from "./author-sequence-drafts.js";
 import {
   AUTHOR_CONTENT_VALIDATION,
   validateAuthorContent,
@@ -40,7 +40,7 @@ import {
   pendingCompositions,
   removeAuthorDraft,
   retainComposition,
-  retainFunnelDraft,
+  retainSequenceDraft,
   saveAuthorDraft,
 } from "./author-drafts.js";
 import type { AuthorInput } from "./author-input.js";
@@ -54,7 +54,7 @@ import {
   validRequest,
   type CommunicationsRequest,
 } from "./communications-contract.js";
-import { Funnels } from "./funnels.js";
+import { CommunicationSequences } from "./communication-sequences.js";
 
 type Tx = Transaction<DatabaseSchema>;
 /** One author update being handled: its transaction, input and authorized author. */
@@ -80,20 +80,21 @@ const RECOVERABLE = [
 @Injectable()
 export class AuthorAdmin {
   private readonly broadcastDrafts: AuthorBroadcastDrafts;
-  private readonly funnelDrafts: AuthorFunnelDrafts;
+  private readonly funnelDrafts: AuthorSequenceDrafts;
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(AUTHOR_AUTHORIZATION)
     private readonly authorization: AuthorAuthorization,
     @Inject(Communications) private readonly posts: Communications,
-    @Inject(Funnels) private readonly funnels: Funnels,
+    @Inject(CommunicationSequences)
+    private readonly funnels: CommunicationSequences,
     @Inject(AuthorDelivery) private readonly delivery: AuthorDelivery,
     @Inject(AUTHOR_CONTENT_VALIDATION)
     private readonly validation: AuthorContentValidation,
   ) {
     this.broadcastDrafts = new AuthorBroadcastDrafts(funnels);
-    this.funnelDrafts = new AuthorFunnelDrafts(funnels);
+    this.funnelDrafts = new AuthorSequenceDrafts(funnels);
   }
   async handle(input: AuthorInput): Promise<boolean> {
     if (input.botIdentity !== this.config.botIdentity) return false;
@@ -189,7 +190,7 @@ export class AuthorAdmin {
                 ? { kind: "callback", data: input.callbackData }
                 : { kind: "text", text: input.text, content: input.content },
         );
-        await retainFunnelDraft(context, state.funnelAuthor);
+        await retainSequenceDraft(context, state.funnelAuthor);
         await retainComposition(context, state);
         await tx
           .insertInto("communication_author_sessions")
@@ -330,7 +331,7 @@ export class AuthorAdmin {
         return;
       }
       case "retain-funnel-draft":
-        await retainFunnelDraft(c, effect.funnelAuthor);
+        await retainSequenceDraft(c, effect.funnelAuthor);
         return;
       case "remove-draft":
         await removeAuthorDraft(c, effect.id);

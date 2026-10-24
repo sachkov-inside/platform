@@ -7,7 +7,7 @@ import { Button } from "@/shared/ui/button";
 import {
   type Broadcast,
   type BroadcastResult,
-  type Funnel,
+  type CommunicationSequence,
   type Part,
   type SaveBroadcastInput,
   type BroadcastActionInput,
@@ -18,7 +18,7 @@ import {
 export interface BroadcastEditorProps {
   readonly library?: PostLibraryProps;
   readonly broadcast: Broadcast;
-  readonly funnels: readonly Funnel[];
+  readonly funnels: readonly CommunicationSequence[];
   readonly pending: boolean;
   readonly error: string | null;
   readonly onSave: (input: SaveBroadcastInput) => void;
@@ -415,7 +415,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                       setAudience({ kind: "funnels", funnelIds: [] });
                     }}
                   />{" "}
-                  Участники выбранных воронок
+                  Участники выбранных последовательностей
                 </label>
               </>
             )}
@@ -442,7 +442,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                     </label>
                   ))
                 ) : (
-                  <p>Сначала создайте воронку.</p>
+                  <p>Сначала создайте последовательность.</p>
                 )}
                 <p className="text-sm">
                   Участник нескольких тем получит сообщение один раз.

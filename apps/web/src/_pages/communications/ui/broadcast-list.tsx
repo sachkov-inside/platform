@@ -72,7 +72,7 @@ export function BroadcastList({
                           ? "Список ожидания выбранного набора"
                           : broadcast.audience.kind === "all"
                             ? "Все контакты"
-                            : `Выбранных воронок: ${String(broadcast.audience.funnelIds.length)}`}
+                            : `Выбранных последовательностей: ${String(broadcast.audience.funnelIds.length)}`}
                         {hasText(broadcast.scheduledAt)
                           ? ` · ${new Date(broadcast.scheduledAt).toLocaleString("ru-RU", { timeZoneName: "short" })}`
                           : ""}
