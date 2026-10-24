@@ -32,6 +32,8 @@ def parse_production(raw, *, server):
         refuse()
     roles = {(f'srv{index}', handler) for index in range(64) for handler in
              ('subroute', 'request_body', 'static_response', 'metrics', 'reverse_proxy', 'headers')}
+    roles |= {('remaining_auto_https_redirects', handler) for handler in
+              ('subroute', 'static_response')}
     return _parse(raw, roles=roles, selected=(server, 'subroute'))
 
 
