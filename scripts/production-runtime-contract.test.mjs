@@ -16,19 +16,18 @@ const productionTemplates = readdirSync(
   .join("\n");
 
 // The activation protocol has exactly these operations; a prefix would expose any future sub-route.
-const activationPaths = [
-  ...["binding", "own-access", "attempts", "evidence", "announcement"].map(
-    (operation) =>
-      `/integrations/telegram/v1/subscription-activation/${operation}`,
-  ),
-  "/integrations/telegram/v1/invitations/redeem",
-].join(" ");
+const activationPaths = ["course-activation", "subscription-activation"]
+  .flatMap((prefix) =>
+    ["binding", "own-access", "attempts", "evidence", "announcement"].map(
+      (operation) => `/integrations/telegram/v1/${prefix}/${operation}`,
+    ),
+  )
+  .join(" ");
 // The bank, Tribute and Telegram call exactly these API routes; each Caddy matcher allows one method.
 /** @type {[string, string, string][]} */
 const callbackRoutes = [
   ["tbank_notification", "POST", "/billing/tbank/notification"],
   ["billing_cohorts", "GET", "/billing/cohorts"],
-  ["tribute_webhook", "POST", "/integrations/tribute/v1/webhook"],
   ["telegram_activation", "POST", activationPaths],
   ["community_dispatch", "POST", "/internal/billing-dispatch/authorize"],
   [
@@ -215,7 +214,7 @@ describe("production runtime architecture contract", () => {
   it("publishes every API route that external callers use", () => {
     const unpublished = /platform\.caddy does not publish external API route/u;
     for (const route of [
-      " /integrations/telegram/v1/invitations/redeem",
+      " /integrations/telegram/v1/course-activation/binding",
       " /integrations/telegram/v1/subscription-activation/binding",
     ]) {
       assert.throws(
@@ -266,7 +265,7 @@ describe("production runtime architecture contract", () => {
   });
 
   it("rejects an API route that Caddy declares after the fail-closed integration 404", () => {
-    const redeem = " /integrations/telegram/v1/invitations/redeem";
+    const redeem = " /integrations/telegram/v1/course-activation/binding";
     assert.throws(
       () =>
         assertExternalRoutesPublished({
@@ -823,7 +822,6 @@ function assertRuntimeContract(files) {
   );
 
   for (const path of [
-    "/integrations/telegram/v1/membership-evidence",
     "/integrations/telegram/v1/sign-in/linked-identity",
     "/integrations/kinescope/v1/webhook",
     "/integrations/kinescope/v1/authorize",

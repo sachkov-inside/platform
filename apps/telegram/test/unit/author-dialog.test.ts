@@ -148,7 +148,10 @@ describe("stored author session", () => {
   it("restores a session saved by the current version", () => {
     const state: AuthorState = {
       ...stateWith([{ kind: "f:list" }, { kind: "home" }]),
-      menu: { text: "Воронки", buttons: [["В меню", { kind: "home" }]] },
+      menu: {
+        text: "Последовательности",
+        buttons: [["В меню", { kind: "home" }]],
+      },
       prompt: { kind: "button-url", buttonTitle: "Купить" },
       batch: "broadcast",
     };
@@ -254,7 +257,7 @@ describe("stored author session", () => {
       funnelAuthor: {
         funnel: {
           funnelId: broadcastId,
-          name: "Новая воронка",
+          name: "Новая последовательность",
           isDefault: false,
           entryResponse: { stepId: broadcastId, parts: [part] },
           steps: [{ stepId: broadcastId, delaySeconds: 60, parts: [] }],

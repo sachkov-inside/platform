@@ -1,34 +1,6 @@
-import type {
-  ContentCollectionSlugConflictError,
-  ForbiddenError,
-  InvalidContentError,
-  SystemError,
-} from "../../facets/material-authoring/material-authoring.contract.js";
-import type { Result } from "../../result.js";
-import type {
-  ContentCollectionDto,
-  ContentCollectionKind,
-} from "../../facets/material-authoring/content-collection.contract.js";
-
-export interface CreateContentCollectionCommand {
-  readonly actor: string;
-  readonly kind: ContentCollectionKind;
-  readonly name: string;
-  readonly slug: string;
-  readonly summary: string;
-}
-
-export type CreateContentCollectionError =
-  | ContentCollectionSlugConflictError
-  | ForbiddenError
-  | InvalidContentError
-  | SystemError;
-
-export type CreateContentCollectionResult = Result<
-  ContentCollectionDto,
-  CreateContentCollectionError
->;
-
-export type CreateContentCollectionOperation = (
-  command: CreateContentCollectionCommand,
-) => Promise<CreateContentCollectionResult>;
+export type {
+  CreateContentCollectionCommand,
+  CreateContentCollectionError,
+  CreateContentCollectionResult,
+  CreateContentCollectionOperation,
+} from "../../../products/index.js";

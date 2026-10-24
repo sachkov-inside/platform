@@ -1,5 +1,15 @@
 # Communications integration v1
 
+Current business language is **Communication Sequence** and **Sequence Participation**.
+The runtime owners are `CommunicationSequences`, `SequenceScheduler` and `sequence-timeline`;
+owner interfaces say «Последовательности». Published snapshots, step IDs, participation IDs,
+initial entry keys and started multipart deliveries retain their identity. The v1 `funnels.*`,
+`funnelId`, persisted author-dialog fields and physical `communication_funnels` /
+`communication_enrollments` names are compatibility representations, not Sales Funnel analytics.
+They remain until separately built readers and ordered storage contraction are verified in #1712.
+There is one storage owner, with no duplicate tables or writable compatibility views.
+
+
 The shared `inside-communications-v1` schema and fixtures live under
 [`docs/contracts/inside-communications-v1/`](../../../../docs/contracts/inside-communications-v1/).
 The product authority remains the accepted
@@ -465,7 +475,7 @@ editor, and #310 the cross-application acceptance. Every merge and release still
 
 ## Funnel settings in the bot (#38, #100)
 
-`/admin` → «Воронки» uses the same persisted author session, fresh confirmed-link authorization,
+`/admin` → «Последовательности» uses the same persisted author session, fresh confirmed-link authorization,
 update receipts and author-only outbox as posts and broadcasts. The funnel card offers «Сообщения»
 and «Настройки», and both return to the card. «Настройки» edits the name, «Первый ответ», «Шаги и
 задержки» (add, move, remove, delay in seconds/minutes/hours/days), «Источники» (`?start=m_...`),
@@ -532,7 +542,7 @@ with expectedRevision and operationId, and either side continues the other's dra
 
 ## Simple Telegram authoring (#43)
 
-The current `/admin` menu contains «Рассылки», «Воронки», and «Статистика».
+The current `/admin` menu contains «Рассылки», «Последовательности», and «Статистика».
 Create a broadcast or funnel, send one native message, choose its time, then send the next.
 «Готово» returns to the short summary. The incoming order is the delivery order; elapsed times
 cannot decrease. Text, photo, video, video note, voice and document preserve native formatting and
@@ -552,7 +562,7 @@ A newly authored funnel sends its first message immediately on entry. Later mess
 not one then three. Previously saved steps without `delayAnchor` retain delays after the preceding
 step. Entry-anchored steps still respect earlier unfinished delivery; a late worker catches up in
 order. Saving remains separate from publication. «Сделать основной» selects the funnel for ordinary
-entry; «Включить воронку» explicitly publishes. Existing published edits require «Применить изменения».
+entry; «Включить последовательность» explicitly publishes. Existing published edits require «Применить изменения».
 An unpublished draft can be archived/cancelled and restored to draft without publishing.
 
 Each message waits in a durable bot/Account-scoped composition until its time is accepted.

@@ -1,6 +1,6 @@
 import { isPlatformPermission } from "../../domain/platform-permission.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { AccountsPrisma } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../domain/account-identifiers.js";
 import type {
   PermissionDecision,
@@ -9,7 +9,7 @@ import type {
 import { internalFailure } from "../../shared/internal-failure.js";
 
 export async function checkPermission(
-  prisma: AccountsPrismaClient,
+  prisma: AccountsPrisma,
   query: {
     readonly accountId: string;
     readonly permission: PlatformPermission;

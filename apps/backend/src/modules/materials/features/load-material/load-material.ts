@@ -43,6 +43,7 @@ export function assembleLoadMaterial(
         dependencies.prisma,
         dependencies.materialBodyOperations,
         parsed.value.materialId,
+        dependencies.memberships,
       );
       if (material === undefined) {
         return failure<never, LoadMaterialError>({

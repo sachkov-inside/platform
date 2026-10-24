@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { z } from "zod";
 
 import type {
@@ -54,6 +55,7 @@ export function assembleValidateMaterial(
           transaction,
           dependencies.materialBodyOperations,
           parsed.value.materialId,
+          dependencies.memberships,
         );
         if (current === undefined) {
           return rollback({ code: "material_not_found" });
@@ -80,6 +82,7 @@ export function assembleValidateMaterial(
           parsed.value.materialId,
           current.value.metadata,
           rollback,
+          dependencies.memberships,
         );
         const extraction = dependencies.materialBodyOperations.extract(
           current.value.body,
@@ -90,7 +93,7 @@ export function assembleValidateMaterial(
         if (dependencies.materialAssets !== undefined) {
           const assetIssues =
             await dependencies.materialAssets.inspectReferences(
-              transaction,
+              transactionHandle(transaction),
               parsed.value.materialId,
               extraction.value.resources.map((resource) => ({
                 assetId: resource.assetId,

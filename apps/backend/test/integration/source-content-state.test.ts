@@ -1,11 +1,10 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import {
-  assembleMaterials,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleApplySourceTask } from "../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
 import { assembleReadSourceTaskState } from "../../src/modules/product-tasks/features/read-source-task-state/read-source-task-state.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -159,10 +158,22 @@ describe("source state reads for authoring delivery (#1672)", () => {
         source: { ...source, commit: firstCommit },
       }),
     ).toMatchObject({ ok: false, error: { code: "idempotency_key_reused" } });
-    await database.prisma.productMembership.update({
-      where: { seriesId_materialId: { seriesId: productId, materialId } },
-      data: { chapterId },
+    const order = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: productId,
     });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await authoring.reorderSourceProduct({
+      actor,
+      sourceId: "inside-content:product",
+      seriesId: productId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [materialId],
+      programmePlacements: [
+        { id: randomUUID(), materialId, chapterId, stepGroup: null },
+      ],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     expect(await read()).toMatchObject({
       ok: true,
       value: {
@@ -275,7 +286,10 @@ describe("source state reads for authoring delivery (#1672)", () => {
     });
     const dependencies = {
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: (id: string) => id === actor },
     };
     const apply = assembleApplySourceTask(dependencies);

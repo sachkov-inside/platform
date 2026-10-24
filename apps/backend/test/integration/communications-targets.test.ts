@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import { PublicContentTargets } from "../../src/modules/materials/index.js";
@@ -7,7 +8,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 
 describe("communications promised public targets against Materials PostgreSQL", () => {
   let database: TestDatabase;
@@ -22,7 +23,10 @@ describe("communications promised public targets against Materials PostgreSQL", 
     await database.prisma.product.create({
       data: { id: productId, slug: "public-product", name: "Public Product" },
     });
-    const targets = new PublicContentTargets(database.prisma);
+    const targets = new PublicContentTargets(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    );
     const validate = (url: string) =>
       validateTargets(
         [
@@ -112,7 +116,10 @@ describe("communications promised public targets against Materials PostgreSQL", 
       where: { id: materialId },
       data: { slug: "public-target" },
     });
-    const targets = new PublicContentTargets(database.prisma);
+    const targets = new PublicContentTargets(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    );
     expect(
       await targets.check({ kind: "material", slug: "public-target" }),
     ).toEqual({ targetId: materialId, reason: "not_published" });
@@ -128,8 +135,17 @@ describe("communications promised public targets against Materials PostgreSQL", 
       await targets.check({ kind: "series", slug: "test-series" }),
     ).toEqual({ targetId: seriesId, reason: "incomplete" });
     await database.prisma.productMembership.create({
-      data: { seriesId, materialId, ordinal: 1 },
+      data: { seriesId, materialId },
     });
+    const order = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await authoring.reorderSeries({
+      actor,
+      seriesId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [materialId],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     expect(
       (await targets.check({ kind: "series", slug: "test-series" })).reason,
     ).toBe("incomplete");

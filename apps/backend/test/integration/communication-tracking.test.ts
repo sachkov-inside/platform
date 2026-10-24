@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -67,7 +68,10 @@ function visits() {
     database.prisma,
     provider,
     origin,
-    new PublicContentTargets(database.prisma),
+    new PublicContentTargets(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
     undefined,
     () => now,
   );
@@ -220,7 +224,7 @@ test("a PostgreSQL write failure does not break resolved navigation and is obser
       tx,
       provider,
       origin,
-      new PublicContentTargets(tx),
+      new PublicContentTargets(tx, new ProductDiscovery(tx)),
       reportFailure,
     ).resolve({ token, traffic: "unknown" });
     expect(result).toEqual({ kind: "resolved", safeUrl: target });

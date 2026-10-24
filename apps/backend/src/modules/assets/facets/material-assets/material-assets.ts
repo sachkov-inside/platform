@@ -1,4 +1,4 @@
-import type { AssetsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 
 export type MaterialAssetKind = "file" | "image";
 export type MaterialAssetState = "failed" | "pending" | "processing" | "ready";
@@ -109,7 +109,7 @@ export interface MaterialAssets {
   }): Promise<UploadMaterialAssetResult>;
   /** Reads in the caller's transaction, under the Material reference lock it holds. */
   inspectReferences(
-    transaction: Pick<AssetsPrisma, "materialAsset">,
+    transaction: TransactionHandle,
     materialId: string,
     references: readonly MaterialAssetReference[],
   ): Promise<MaterialAssetQueryResult<readonly MaterialAssetReferenceIssue[]>>;
@@ -135,7 +135,7 @@ export interface MaterialAssets {
     readonly graceMs: number;
     /** Reads in the cleanup's transaction, under the Material reference lock it holds. */
     readonly isReferenced: (
-      transaction: AssetsPrisma,
+      transaction: TransactionHandle,
       input: {
         readonly assetId: string;
         readonly materialId: string;

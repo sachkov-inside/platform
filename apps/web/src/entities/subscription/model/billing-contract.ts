@@ -66,6 +66,14 @@ export const promotionSnapshotSchema = z.object({
   percent: z.number().int().min(1).max(100),
 });
 export const priceSnapshotSchema = z.object({
+  product: z
+    .object({
+      id: z.uuid(),
+      name: z.string().min(1),
+      priceRevision: z.int().positive(),
+    })
+    .optional(),
+  supportMonths: z.literal(3).optional(),
   communityPolicy: z.literal("explicit").optional(),
   offer: offerSchema,
   paymentOption: paymentOptionSchema,
@@ -135,44 +143,6 @@ export const attemptStateSchema = z.enum([
   "confirmed",
   "failed",
 ]);
-export const subscriptionStateSchema = z.enum(["active", "canceled", "ended"]);
-export const subscriptionSnapshotSchema = z.object({
-  offer: offerSchema,
-  paymentOption: paymentOptionSchema,
-  currency: z.literal("RUB"),
-  timezone: z.literal("Europe/Moscow"),
-  renewalPriceKopecks: z.number().int().positive(),
-});
-export const subscriptionViewSchema = z.object({
-  subscriptionRef: z.uuid(),
-  revision: z.number().int().positive(),
-  state: subscriptionStateSchema,
-  snapshot: subscriptionSnapshotSchema,
-  periodStartsAt: z.iso.datetime(),
-  paidUntil: z.iso.datetime(),
-  periodAmountKopecks: z.number().int().positive(),
-  periodIndex: z.number().int().positive(),
-  paymentMethod: z
-    .object({ methodRef: z.uuid(), revoked: z.boolean() })
-    .nullable(),
-  pendingChange: z
-    .object({
-      snapshot: priceSnapshotSchema,
-      acceptedAt: z.iso.datetime(),
-      changeQuoteRef: z.uuid(),
-    })
-    .nullable(),
-  pendingMethodChange: z
-    .object({ flowRef: z.uuid(), formUrl: z.url().nullable() })
-    .nullable(),
-  inFlightPayment: z
-    .object({
-      attemptRef: z.uuid(),
-      kind: attemptKindSchema,
-      state: attemptStateSchema,
-    })
-    .nullable(),
-});
 export const noticeKindSchema = z.enum([
   "renewal_reminder",
   "payment_succeeded",
@@ -193,12 +163,18 @@ export const noticeViewSchema = z.object({
  * Собственное основание доступа: состав, срок и то, чем оно выдано. Ручная выдача остаётся
  * выдачей и не называется покупкой.
  */
-export const accessSourceSchema = z.enum(["paid", "manual", "legacy"]);
+export const accessSourceSchema = z.enum([
+  "paid",
+  "manual",
+  "legacy",
+  "course_activation",
+  "unknown",
+]);
 export const accessGroundSchema = z.object({
   source: accessSourceSchema,
   content: z.array(coverageEntrySchema).optional(),
   capabilities: z.array(accessCapabilitySchema),
-  startsAt: z.iso.datetime(),
+  startsAt: z.iso.datetime().nullable(),
   validUntil: z.iso.datetime().nullable(),
   active: z.boolean(),
 });
@@ -212,6 +188,7 @@ export const ownPaymentSchema = z.object({
         access: z.enum([
           "awaiting_payment",
           "preparing",
+          "review_required",
           "ready",
           "unavailable",
         ]),
@@ -221,7 +198,13 @@ export const ownPaymentSchema = z.object({
   content: z.array(coverageEntrySchema).optional(),
   snapshot: priceSnapshotSchema.optional(),
   access: z
-    .enum(["awaiting_payment", "preparing", "ready", "unavailable"])
+    .enum([
+      "awaiting_payment",
+      "preparing",
+      "review_required",
+      "ready",
+      "unavailable",
+    ])
     .optional(),
   kind: attemptKindSchema,
   state: attemptStateSchema,
@@ -232,23 +215,41 @@ export const ownPaymentSchema = z.object({
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
-  refundedKopecks: z.number().int().nonnegative(),
+  refundedKopecks: z.number().int().nonnegative().nullable(),
   refundedAt: z.iso.datetime().nullable(),
 });
+export const ownedProductSchema = z.object({
+  id: z.uuid(),
+  slug: z.string().nullable(),
+  name: z.string(),
+  materials: z.object({
+    state: z.enum(["available", "expired", "revoked", "unavailable"]),
+  }),
+  community: z.object({
+    state: z.enum(["available", "expired", "revoked", "unavailable"]),
+  }),
+});
 export const currentBillingSchema = z.object({
-  subscription: subscriptionViewSchema.nullable(),
+  products: z.array(ownedProductSchema),
+  access: z.object({ grounds: z.array(accessGroundSchema) }),
   notices: z.array(noticeViewSchema),
-  grounds: z.array(accessGroundSchema),
   payments: z.array(ownPaymentSchema),
 });
+export type OwnedProduct = z.infer<typeof ownedProductSchema>;
 
 export const purchaseStatusSchema = z.object({
   purchaseRef: z.uuid(),
   state: attemptStateSchema,
   paymentUrl: z.url().nullable(),
   snapshot: priceSnapshotSchema,
-  access: z.enum(["awaiting_payment", "preparing", "ready", "unavailable"]),
-  refundedKopecks: z.number().int().nonnegative().optional(),
+  access: z.enum([
+    "awaiting_payment",
+    "preparing",
+    "review_required",
+    "ready",
+    "unavailable",
+  ]),
+  refundedKopecks: z.number().int().nonnegative().nullable().optional(),
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
@@ -257,33 +258,11 @@ export const quoteSchema = z.object({
   quoteRef: z.uuid(),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
-  snapshot: priceSnapshotSchema,
+  snapshot: priceSnapshotSchema.refine(
+    (snapshot) =>
+      snapshot.product !== undefined && snapshot.supportMonths === 3,
+  ),
 });
-export const changePlanSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("upgrade"),
-    snapshot: priceSnapshotSchema,
-    topUpKopecks: z.number().int().positive(),
-    effectiveAt: z.iso.datetime(),
-  }),
-  z.object({
-    kind: z.literal("scheduled"),
-    snapshot: priceSnapshotSchema,
-    nextPriceKopecks: z.number().int().positive(),
-    effectiveAt: z.iso.datetime(),
-  }),
-]);
-export const changeQuoteSchema = z.object({
-  changeQuoteRef: z.uuid(),
-  baseRevision: z.number().int().positive(),
-  plan: changePlanSchema,
-  expiresAt: z.iso.datetime(),
-});
-export const changeResultSchema = z.object({
-  subscription: subscriptionViewSchema,
-  payment: purchaseStatusSchema.nullable(),
-});
-
 /**
  * Закрытый набор ожидаемых исходов billing. Он приходит из Problem Details бэкенда;
  * `unauthorized` и `unavailable` добавляет граница BFF, у которой своего кода нет.
@@ -328,8 +307,6 @@ export type BillingOffer = z.infer<typeof offerSchema>;
 export type BillingPaymentOption = z.infer<typeof paymentOptionSchema>;
 export type PriceSnapshot = z.infer<typeof priceSnapshotSchema>;
 export type OffersPage = z.infer<typeof offersPageSchema>;
-export type SubscriptionView = z.infer<typeof subscriptionViewSchema>;
-export type SubscriptionState = z.infer<typeof subscriptionStateSchema>;
 export type AttemptState = z.infer<typeof attemptStateSchema>;
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
@@ -339,22 +316,12 @@ export type AccessSource = z.infer<typeof accessSourceSchema>;
 export type OwnPayment = z.infer<typeof ownPaymentSchema>;
 export type PurchaseStatus = z.infer<typeof purchaseStatusSchema>;
 export type BillingQuote = z.infer<typeof quoteSchema>;
-export type ChangeQuote = z.infer<typeof changeQuoteSchema>;
-export type ChangePlan = z.infer<typeof changePlanSchema>;
-export type ChangeResult = z.infer<typeof changeResultSchema>;
 export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
 
 /** Способ продажи снимка: у старых снимков его нет, и это подписка. */
 export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
   return snapshot.paymentOption.mode ?? "subscription";
-}
-
-/** Группировка уже допущенных сервером вариантов по способу оплаты, без повторной проверки продажи. */
-export function publicSubscriptionOffers(
-  offers: readonly PriceSnapshot[],
-): readonly PriceSnapshot[] {
-  return offers.filter((snapshot) => paymentMode(snapshot) === "subscription");
 }
 
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

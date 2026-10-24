@@ -257,4 +257,47 @@ describe("Accounts", () => {
       accounts.resolveAccount({ identity: verifiedAccountIdentity(key) }),
     ).resolves.toEqual(telegram);
   });
+  test("a Telegram Account rejects another Account's email without losing either identity", async () => {
+    const key = { issuer, subject: "telegram-conflicting-email" };
+    const telegram = await accounts.establishAccount({
+      identity: verifiedTelegramAccountSignIn({
+        ...key,
+        telegram: {
+          subjectRef: "17000000-0000-4000-8000-000000000011",
+          requestRef: "17000000-0000-4000-8000-000000000012",
+        },
+      }).identity,
+    });
+    const emailProof = verifiedAccountSignIn({
+      issuer,
+      subject: "existing-email-owner",
+      verifiedEmail: "already-owned@example.test",
+    });
+    const emailOwner = await accounts.establishAccount({
+      identity: emailProof.identity,
+    });
+    expect(telegram.ok && emailOwner.ok).toBe(true);
+    await expect(
+      accounts.establishAccount({
+        identity: verifiedAccountSignIn({
+          ...key,
+          verifiedEmail: "already-owned@example.test",
+        }).identity,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "identity_conflict" } });
+    await expect(
+      accounts.resolveAccount({ identity: verifiedAccountIdentity(key) }),
+    ).resolves.toEqual(telegram);
+    await expect(
+      accounts.resolveAccount({ identity: emailProof.accountIdentity }),
+    ).resolves.toEqual(emailOwner);
+    await expect(
+      accounts.establishAccount({
+        identity: verifiedAccountSignIn({
+          ...key,
+          verifiedEmail: "new-telegram-email@example.test",
+        }).identity,
+      }),
+    ).resolves.toEqual(telegram);
+  });
 });

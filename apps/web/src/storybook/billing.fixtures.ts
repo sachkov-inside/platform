@@ -5,15 +5,12 @@ import type {
   AccessGround,
   BillingFailureCode,
   BillingQuote,
-  ChangeQuote,
-  CurrentBilling,
   Enrollment,
   LegalDocument,
   NoticeView,
   OwnPayment,
   PriceSnapshot,
   PurchaseStatus,
-  SubscriptionView,
   VerifiedContact,
 } from "@/entities/subscription";
 
@@ -21,6 +18,8 @@ const uuid = (value: string) =>
   `00000000-0000-4000-8000-${value.padStart(12, "0")}`;
 
 export const materialsOffer: PriceSnapshot = {
+  product: { id: uuid("f01"), name: "Материалы", priceRevision: 2 },
+  supportMonths: 3,
   offer: {
     id: uuid("101"),
     revision: 3,
@@ -46,6 +45,8 @@ export const materialsOffer: PriceSnapshot = {
 };
 
 export const supportOffer: PriceSnapshot = {
+  product: { id: uuid("f02"), name: "Инженерная практика", priceRevision: 5 },
+  supportMonths: 3,
   offer: {
     id: uuid("102"),
     revision: 4,
@@ -73,6 +74,12 @@ export const supportOffer: PriceSnapshot = {
 
 /** Руководство, которому владелец завёл цену: покупается один раз, право выдаётся без даты окончания. */
 export const productOnlyOffer: PriceSnapshot = {
+  product: {
+    id: uuid("f01"),
+    name: "Создание Platform Inside",
+    priceRevision: 1,
+  },
+  supportMonths: 3,
   offer: {
     id: uuid("103"),
     revision: 1,
@@ -102,6 +109,12 @@ export const productOnlyOffer: PriceSnapshot = {
 
 /** Второй разовый вариант того же руководства: он и даёт странице оплаты выбор. */
 export const productWithSupportOffer: PriceSnapshot = {
+  product: {
+    id: uuid("f01"),
+    name: "Создание Platform Inside",
+    priceRevision: 1,
+  },
+  supportMonths: 3,
   offer: {
     id: uuid("104"),
     revision: 1,
@@ -183,15 +196,6 @@ export const legalDocuments: readonly LegalDocument[] = [
     text: "",
   },
   {
-    kind: "recurring",
-    appliesTo: ["subscription"],
-    documentId: "recurring-consent",
-    version: "1",
-    digest: "b".repeat(64),
-    url: "https://inside.example.test/legal/recurring-consent",
-    text: "",
-  },
-  {
     kind: "personal_data",
     appliesTo: ["one_time", "subscription"],
     documentId: "personal-data",
@@ -230,30 +234,9 @@ export const fixedTermProductQuote: BillingQuote = {
   snapshot: fixedTermProductOffer,
 };
 
-export const activeSubscription: SubscriptionView = {
-  subscriptionRef: uuid("501"),
-  revision: 7,
-  state: "active",
-  snapshot: {
-    offer: supportOffer.offer,
-    paymentOption: supportOffer.paymentOption,
-    currency: "RUB",
-    timezone: "Europe/Moscow",
-    renewalPriceKopecks: 350_000,
-  },
-  periodStartsAt: "2026-09-01T00:00:00.000Z",
-  paidUntil: "2026-10-01T00:00:00.000Z",
-  periodAmountKopecks: 280_000,
-  periodIndex: 1,
-  paymentMethod: { methodRef: uuid("601"), revoked: false },
-  pendingChange: null,
-  pendingMethodChange: null,
-  inFlightPayment: null,
-};
-
 /** Ответ собственного BFF о состоянии billing: конверт принадлежит фикстурам, а не сторис. */
 export function currentBillingResponse(
-  subscription: SubscriptionView | null,
+  _subscription: null,
   {
     grounds = [],
     notices = [],
@@ -264,10 +247,10 @@ export function currentBillingResponse(
     readonly payments?: readonly OwnPayment[];
   } = {},
 ): Response {
-  const value: CurrentBilling = {
-    subscription,
+  const value = {
+    products: [],
     notices: [...notices],
-    grounds: [...grounds],
+    access: { grounds: [...grounds] },
     payments: [...payments],
   };
   return Response.json({ ok: true, value });
@@ -336,27 +319,6 @@ export function billingContactResponse(
 ): Response {
   return Response.json({ ok: true, contact, documents: legalDocuments });
 }
-
-export const canceledSubscription: SubscriptionView = {
-  ...activeSubscription,
-  revision: 8,
-  state: "canceled",
-};
-
-export const subscriptionWithPendingChange: SubscriptionView = {
-  ...activeSubscription,
-  revision: 9,
-  pendingChange: {
-    snapshot: materialsOffer,
-    acceptedAt: "2026-09-09T12:00:00.000Z",
-    changeQuoteRef: uuid("701"),
-  },
-  inFlightPayment: {
-    attemptRef: uuid("801"),
-    kind: "renewal",
-    state: "unknown",
-  },
-};
 
 export const billingNotices: readonly NoticeView[] = [
   {
@@ -471,30 +433,6 @@ export const refundNotices: readonly NoticeView[] = [
     dueAt: null,
   },
 ];
-
-export const upgradeChangeQuote: ChangeQuote = {
-  changeQuoteRef: uuid("a01"),
-  baseRevision: 7,
-  plan: {
-    kind: "upgrade",
-    snapshot: supportOffer,
-    topUpKopecks: 125_000,
-    effectiveAt: "2026-09-10T10:00:00.000Z",
-  },
-  expiresAt: "2026-09-10T10:15:00.000Z",
-};
-
-export const scheduledChangeQuote: ChangeQuote = {
-  changeQuoteRef: uuid("a02"),
-  baseRevision: 7,
-  plan: {
-    kind: "scheduled",
-    snapshot: materialsOffer,
-    nextPriceKopecks: 100_000,
-    effectiveAt: "2026-10-01T00:00:00.000Z",
-  },
-  expiresAt: "2026-09-10T10:15:00.000Z",
-};
 
 export const pendingPurchase: PurchaseStatus = {
   purchaseRef: uuid("b01"),

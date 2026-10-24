@@ -74,6 +74,7 @@ function Fixture({
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
+    const selectedItems = empty ? [] : chaptered ? chapteredItems : items;
     queryClient.setQueryData(["series-order", collection.id], {
       kind: "ready",
       order: {
@@ -81,7 +82,13 @@ function Fixture({
         seriesId: collection.id,
         orderVersion: "a".repeat(64),
         chapters: chaptered ? chapters : [],
-        items: empty ? [] : chaptered ? chapteredItems : items,
+        items: selectedItems,
+        programmePlacements: selectedItems.map((item, index) => ({
+          id: `97000000-0000-4000-8000-00000000003${String(index + 1)}`,
+          materialId: item.materialId,
+          chapterId: "chapterId" in item ? (item.chapterId ?? null) : null,
+          stepGroup: item.stepGroup,
+        })),
       },
     });
     queryClient.setQueryData(["product-artifacts", collection.id], {
@@ -96,7 +103,7 @@ function Fixture({
       ["authoring", "product-community", collection.id],
       {
         ok: true,
-        value: { productId: collection.id, groupRef: null },
+        value: { productId: collection.id, groupRef: "primary" },
       },
     );
     queryClient.setQueryData(["authoring-home-pin"], {

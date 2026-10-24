@@ -1,11 +1,8 @@
+import { seedHistoricalPractice } from "./legacy-practice-fixture.js";
+import { grantProductFixture, revokeProductFixture } from "./product-access.js";
 import { randomUUID } from "node:crypto";
 
-import { assembleAccounts } from "../../../src/modules/accounts/index.js";
-import {
-  assembleAccessGrants,
-  type AccessCapability,
-} from "../../../src/modules/account-rights/index.js";
-import { assembleMaterials } from "../../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../../src/entrypoints/composition/assemble-materials.js";
 import type { TestDatabase } from "./test-database.js";
 
 /**
@@ -44,8 +41,8 @@ export interface ScopedProductsWorld {
   readonly publicMaterial: PublicMaterial;
   /** Бессрочное право на один Product; возвращает ссылку для отзыва. */
   grantProduct(accountId: string, productId: string): Promise<string>;
-  /** Право на один Product, которое уже истекло. */
-  grantExpiredProduct(accountId: string, productId: string): Promise<void>;
+  /** Explicitly withdrawn lifetime Product Access. */
+  grantRevokedProduct(accountId: string, productId: string): Promise<void>;
   revokeGrant(grantRef: string): Promise<void>;
 }
 
@@ -66,15 +63,7 @@ export async function createScopedProductsWorld(
     data: { accountId: owner, permission: "platform:admin" },
   });
   // deterministic-test-allow wall-clock: Callers registerFixedClock; fixture and in-process consumers share virtual Date.
-  let now = (): Date => new Date();
-  const grants = assembleAccessGrants({
-    prisma: database.prisma,
-    accounts: assembleAccounts({
-      prisma: database.prisma,
-      emailFingerprintKey: "scoped-products-email-fingerprint-key",
-    }),
-    clock: () => now(),
-  });
+
   const materials = assembleMaterials({
     prisma: database.prisma,
     authorPolicy: { canManage: (id) => id === owner },
@@ -236,7 +225,7 @@ export async function createScopedProductsWorld(
       data: { primaryVideoId: videoId },
     });
     const practiceId = `scoped:practice-${label.toLowerCase()}-${productId}`;
-    const practice = await materials.authoring.applySourcePractice({
+    await seedHistoricalPractice(database, {
       actor: owner,
       idempotencyKey: `scoped-practice-${productId}`,
       practiceId,
@@ -268,7 +257,6 @@ export async function createScopedProductsWorld(
         path: `practices/${productId}.json`,
       },
     });
-    if (!practice.ok) throw new Error(practice.error.code);
     return {
       productId,
       slug: created.slug,
@@ -305,77 +293,23 @@ export async function createScopedProductsWorld(
       }),
   });
 
-  async function grant(
-    accountId: string,
-    productId: string,
-    validUntil: string | null,
-    startsAt: string,
-  ): Promise<string> {
-    const capability: AccessCapability = `product:${productId}`;
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "scoped",
-          accountId,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities: [capability],
-            startsAt,
-            validUntil,
-            reason: "Scoped learner fixture (#903)",
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["scoped"],
-    });
-    const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok || !("grantRef" in row))
-      throw new Error("Scoped grant fixture failed");
-    return row.grantRef;
-  }
-
   return {
     productA,
     productB,
     freeProduct,
     publicMaterial: { slug: publicCreated.slug, bodyText },
     grantProduct: (accountId, productId) =>
-      // deterministic-test-allow wall-clock: Callers registerFixedClock; fixture and in-process consumers share virtual Date.
-      grant(accountId, productId, null, new Date().toISOString()),
-    async grantExpiredProduct(accountId, productId) {
-      // Право выдано в прошлом и кончилось вчера: facade видит момент выдачи, транспорт — сегодня.
-      // deterministic-test-allow wall-clock: Callers registerFixedClock; fixture and in-process consumers share virtual Date.
-      const issued = Date.now() - 2 * 24 * 60 * 60 * 1_000;
-      now = () => new Date(issued);
-      try {
-        await grant(
-          accountId,
-          productId,
-          new Date(issued + 24 * 60 * 60 * 1_000).toISOString(),
-          new Date(issued).toISOString(),
-        );
-      } finally {
-        // deterministic-test-allow wall-clock: Callers registerFixedClock; fixture and in-process consumers share virtual Date.
-        now = () => new Date();
-      }
+      grantProductFixture(database.prisma, accountId, productId),
+    async grantRevokedProduct(accountId, productId) {
+      const target = await grantProductFixture(
+        database.prisma,
+        accountId,
+        productId,
+      );
+      await revokeProductFixture(database.prisma, target);
     },
-    async revokeGrant(grantRef) {
-      const revoked = await grants.changeGrant(owner, {
-        action: "revoke",
-        operationId: randomUUID(),
-        grantRef,
-        expectedRevision: 1,
-        reason: "Scoped learner revocation (#903)",
-      });
-      if (!revoked.ok) throw new Error(revoked.error.code);
+    async revokeGrant(target) {
+      await revokeProductFixture(database.prisma, target);
     },
   };
 }

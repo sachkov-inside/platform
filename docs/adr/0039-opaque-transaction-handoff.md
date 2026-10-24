@@ -6,7 +6,7 @@ status: accepted
 
 The owner accepted this direction on 2026-10-22 in the
 [architecture findings assigned to the domain refactoring](https://github.com/sachkov-inside/platform/issues/1666#issuecomment-6340292604).
-Implementation is pending. Callers pass an opaque branded transaction handle; only the receiving
+Callers pass an opaque branded transaction handle; only the receiving
 Module unwraps it into its own capability-scoped Prisma client. Its operation performs permission,
 identity and state checks in that same transaction, either joining a supplied transaction or owning
 one standalone. Paired prepare/apply interfaces and foreign delegates exposed to callers are retired.
@@ -18,6 +18,12 @@ owner's persistence implementation; caller-visible types cannot access another o
 The alternative of an independent transaction per Module breaks rollback; exposing all delegates
 preserves atomicity but spreads persistence knowledge and permits ownership mistakes.
 
-The implementation updates architecture checks and their negative fixtures, removes the handoff
-delegate allowlist, and proves joined rollback and standalone execution against real PostgreSQL.
+`transactionHandle(tx)` creates an opaque capability backed by a process-local WeakMap. The
+receiving owner calls `unwrapTransaction` only from its persistence implementation, narrowing to
+its own scoped Prisma client. Invalid or forged handles are rejected. The handle exposes no
+delegates and carries no transaction lifecycle methods. Joined unexpected failures propagate to
+the caller so its transaction rolls back. Architecture checks derive delegate ownership from
+the Prisma schema and reject foreign operations and unwrapping outside owner persistence.
+Negative type fixtures and real PostgreSQL tests prove the boundary, joined rollback and standalone
+execution; no handoff delegate allowlist remains.
 External provider operations continue to use durable messages and recovery, not this handle.

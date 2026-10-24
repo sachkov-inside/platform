@@ -6,7 +6,7 @@ export default async function PaymentCheckoutRoute({
   searchParams,
 }: {
   readonly searchParams: Promise<{
-    readonly offer?: string | readonly string[];
+    readonly productId?: string | readonly string[];
     readonly from?: string | readonly string[];
     readonly promo?: string | readonly string[];
   }>;

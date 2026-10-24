@@ -1,9 +1,7 @@
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
-import type {
-  MaterialContent,
-  PublishedSeriesComposition,
-} from "../../../materials/index.js";
+import type { PublishedSeriesComposition } from "../../../products/index.js";
+import type { MaterialContent } from "../../../materials/index.js";
 import { getReaderProductMode } from "../../features/get-reader-product-mode/get-reader-product-mode.js";
 import { getReadingStates } from "../../features/get-reading-states/get-reading-states.js";
 import { getSeriesProgress } from "../../features/get-series-progress/get-series-progress.js";

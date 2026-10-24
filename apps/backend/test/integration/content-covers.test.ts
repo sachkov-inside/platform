@@ -1,4 +1,15 @@
 import {
+  assembleAccounts,
+  accountId,
+} from "../../src/modules/accounts/index.js";
+import {
+  assembleContentCovers,
+  routeContentCoverSelection,
+  type ContentCoverOwner,
+} from "../../src/modules/content-covers/index.js";
+import { ProductCoverSelection } from "../../src/modules/products/index.js";
+import { MaterialCoverSelection } from "../../src/modules/materials/index.js";
+import {
   fixedTestInstant,
   registerFixedClock,
 } from "../support/fixed-clock.js";
@@ -18,16 +29,12 @@ import {
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import {
-  assembleContentCovers,
-  assembleMaterials,
-  type ContentCoverOwner,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { assembleContentCoverMaintenance } from "../../src/modules/materials/features/cleanup-content-covers/cleanup-content-covers.js";
+import { assembleContentCoverMaintenance } from "../../src/modules/content-covers/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -42,6 +49,12 @@ const seriesId = "72000000-0000-4000-8000-000000000007";
 describe("ContentCovers", () => {
   let database: TestDatabase;
   let materialId: string;
+  const selection = () =>
+    routeContentCoverSelection({
+      material: new MaterialCoverSelection(),
+      topic: new MaterialCoverSelection(),
+      series: new ProductCoverSelection(),
+    });
   const stored = new Map<string, Uint8Array>();
   const signed: Parameters<ObjectStorage["signGet"]>[0][] = [];
   const objectStorage: ObjectStorage = {
@@ -130,7 +143,9 @@ describe("ContentCovers", () => {
     });
     if (!created.ok) throw new Error(created.error.code);
     const covers = assembleContentCovers({
+      selection: selection(),
       prisma: database.prisma,
+
       objectStorage,
       authorPolicy: { canManage: () => true },
     });
@@ -171,7 +186,9 @@ describe("ContentCovers", () => {
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const orphanObservedAt = new Date(Date.now() + graceMs * 2);
     const maintenance = assembleContentCoverMaintenance({
+      selection: selection(),
       prisma: database.prisma,
+
       objectStorage,
     });
     await maintenance.cleanup({ graceMs, now: orphanObservedAt });
@@ -185,6 +202,7 @@ describe("ContentCovers", () => {
 
     let calls = 0;
     const unreliable = assembleContentCoverMaintenance({
+      selection: selection(),
       prisma: database.prisma,
       objectStorage: {
         delete: (namespace, key) => {
@@ -204,7 +222,9 @@ describe("ContentCovers", () => {
     // A fresh assembly models process restart; a claimed deletion retries
     // immediately, without waiting for the orphan grace a second time.
     await assembleContentCoverMaintenance({
+      selection: selection(),
       prisma: database.prisma,
+
       objectStorage,
     }).cleanup({ graceMs, now: new Date(readyAt.getTime() + 1) });
     expect(
@@ -219,8 +239,81 @@ describe("ContentCovers", () => {
     });
   });
 
+  test("rechecks the current Account permission on the selecting transaction after external upload", async () => {
+    const administrator = randomUUID();
+    await database.prisma.account.create({
+      data: {
+        id: administrator,
+        logtoIssuer: "https://covers.test",
+        logtoSubject: administrator,
+      },
+    });
+    await database.prisma.accountPermission.create({
+      data: { accountId: administrator, permission: "materials:manage" },
+    });
+    const accounts = assembleAccounts({
+      prisma: database.prisma,
+      emailFingerprintKey: "content-covers-permission-fingerprint-key",
+    });
+    const authoring = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: () => true },
+    }).authoring;
+    const created = await authoring.createContentCollection({
+      actor: administrator,
+      kind: "topic",
+      name: "Revoked cover permission",
+      slug: "revoked-cover-permission",
+      summary: "",
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    let transactionChecks = 0;
+    const covers = assembleContentCovers({
+      prisma: database.prisma,
+      selection: selection(),
+      authorPolicy: {
+        canManage: async (actorId, transaction) => {
+          if (transaction !== undefined) transactionChecks += 1;
+          const result = await accounts.checkPermission(
+            { accountId: accountId(actorId), permission: "materials:manage" },
+            transaction,
+          );
+          return result.ok && result.allowed;
+        },
+      },
+      objectStorage: {
+        ...objectStorage,
+        putImmutable: async (input) => {
+          await database.prisma.accountPermission.deleteMany({
+            where: { accountId: administrator },
+          });
+          return objectStorage.putImmutable(input);
+        },
+      },
+    });
+    await expect(
+      covers.change({
+        actor: administrator,
+        owner: { kind: "topic", id: created.value.id },
+        expectedCoverId: null,
+        kind: "upload",
+        ...(await coverUpload("#432132")),
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(transactionChecks).toBe(1);
+    const listed = await authoring.listContentCollections({
+      actor: administrator,
+      kind: "topic",
+    });
+    expect(
+      listed.ok &&
+        listed.value.find((item) => item.id === created.value.id)?.cover,
+    ).toBeNull();
+  });
+
   test("uploads, replaces and removes a public Material cover without exposing storage keys", async () => {
     const covers = assembleContentCovers({
+      selection: selection(),
       authorPolicy: { canManage: (accountId) => accountId === actor },
       objectStorage,
       prisma: database.prisma,
@@ -268,6 +361,47 @@ describe("ContentCovers", () => {
       cover: uploaded.value.cover,
       slug: "kak-ustroen-inside-platform",
     });
+    // Every reader seam must resolve the same owner-filtered public rendition projection.
+    const expectedCover = uploaded.value.cover;
+    for (const state of [
+      "ready",
+      "processing",
+      "unreferenced",
+      "ready",
+    ] as const) {
+      await database.prisma.contentCover.update({
+        where: { id: expectedCover.coverId },
+        data: {
+          state: state === "processing" ? "processing" : "ready",
+          currentlyReferenced: state !== "unreferenced",
+        },
+      });
+      const expected = state === "ready" ? expectedCover : null;
+      const read = await publishedMaterialReader.read({
+        subject: anonymousSubject,
+        slug: "kak-ustroen-inside-platform",
+      });
+      expect(read).toMatchObject({
+        ok: true,
+        value: { projection: { cover: expected } },
+      });
+      for (const discovery of [
+        { kind: "topic", slug: "platform" },
+        { kind: "series", slug: "platform-inside" },
+      ] as const) {
+        const discovered = await publishedMaterialReader.discoverProjections({
+          ...discovery,
+          first: 24,
+          subject: anonymousSubject,
+        });
+        if (!discovered.ok) throw new Error("Expected covered discovery");
+        expect(
+          discovered.value.items.find(
+            ({ slug }) => slug === "kak-ustroen-inside-platform",
+          )?.cover,
+        ).toEqual(expected);
+      }
+    }
     const delivered = await covers.deliver({
       coverId: uploaded.value.cover.coverId,
       width: 960,
@@ -305,7 +439,9 @@ describe("ContentCovers", () => {
       where: { coverId: replacement.value.cover.coverId },
     });
     const maintenance = assembleContentCoverMaintenance({
+      selection: selection(),
       prisma: database.prisma,
+
       objectStorage,
     });
     await maintenance.cleanup({
@@ -343,7 +479,9 @@ describe("ContentCovers", () => {
 
   test("retains the replacement while an old cover deletion is in flight", async () => {
     const covers = assembleContentCovers({
+      selection: selection(),
       prisma: database.prisma,
+
       objectStorage,
       authorPolicy: { canManage: () => true },
     });
@@ -365,6 +503,7 @@ describe("ContentCovers", () => {
     const deletionStarted = deferredSignal();
     const finishDeletion = deferredSignal();
     const cleanup = assembleContentCoverMaintenance({
+      selection: selection(),
       prisma: database.prisma,
       objectStorage: {
         async delete(namespace, key) {
@@ -420,6 +559,7 @@ describe("ContentCovers", () => {
         Awaited<ReturnType<ObjectStorage["putImmutable"]>>
       >[] = [];
       const covers = assembleContentCovers({
+        selection: selection(),
         prisma: database.prisma,
         authorPolicy: { canManage: () => true },
         objectStorage: {
@@ -450,6 +590,7 @@ describe("ContentCovers", () => {
         include: { renditions: true },
       });
       const maintenance = assembleContentCoverMaintenance({
+        selection: selection(),
         prisma: database.prisma,
         objectStorage,
       });
@@ -503,6 +644,7 @@ describe("ContentCovers", () => {
       if (kind === "topic") await database.prisma.topic.create({ data: row });
       else await database.prisma.product.create({ data: row });
       const covers = assembleContentCovers({
+        selection: selection(),
         prisma: database.prisma,
         objectStorage,
         authorPolicy: { canManage: () => true },
@@ -527,6 +669,7 @@ describe("ContentCovers", () => {
         database.prisma.contentCoverRendition.findMany({ where: { coverId } }),
       ).resolves.toEqual(keys);
       const maintenance = assembleContentCoverMaintenance({
+        selection: selection(),
         prisma: database.prisma,
         objectStorage,
       });
@@ -548,6 +691,7 @@ describe("ContentCovers", () => {
     { id: seriesId, kind: "series" as const },
   ])("keeps $kind cover ownership concrete", async (owner) => {
     const covers = assembleContentCovers({
+      selection: selection(),
       authorPolicy: { canManage: (accountId) => accountId === actor },
       objectStorage,
       prisma: database.prisma,
@@ -600,6 +744,7 @@ describe("ContentCovers", () => {
 
   test("fails a storage outage closed without publishing a processing cover", async () => {
     const covers = assembleContentCovers({
+      selection: selection(),
       authorPolicy: { canManage: (accountId) => accountId === actor },
       objectStorage: {
         ...objectStorage,

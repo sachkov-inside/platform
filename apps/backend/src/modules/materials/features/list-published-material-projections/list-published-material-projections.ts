@@ -1,7 +1,7 @@
+import type { MaterialDiscoveryContext } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import { selectPublishedMaterialProjectionPage } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -89,7 +89,7 @@ const querySchema = z
   });
 
 export async function listPublishedMaterialProjections(
-  prisma: MaterialsPrisma,
+  prisma: MaterialDiscoveryContext,
   query: ListPublishedMaterialProjectionsQuery,
 ): Promise<PublishedMaterialProjectionListResult> {
   const parsed = querySchema.safeParse(query);

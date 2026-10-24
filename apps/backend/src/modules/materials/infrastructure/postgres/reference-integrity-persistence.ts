@@ -1,7 +1,6 @@
-import {
-  Prisma,
-  type MaterialsPrismaTransaction,
-} from "../../../../infrastructure/prisma/index.js";
+import type { ProductMemberships } from "../../../products/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { type MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
 import type { MaterialMetadata } from "../../domain/material-metadata.js";
 
@@ -9,21 +8,13 @@ export async function findReferenceIssues(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   metadata: MaterialMetadata,
+  products: ProductMemberships,
 ): Promise<readonly { readonly code: string; readonly path: string }[]> {
   const issues: { code: string; path: string }[] = [];
   const currentMaterial = await transaction.material.findUnique({
     where: { id: materialId },
     select: { topicId: true },
   });
-  const currentSeriesMemberships = await transaction.productMembership.findMany(
-    {
-      where: { materialId },
-      select: { seriesId: true },
-    },
-  );
-  const currentSeriesIds = new Set(
-    currentSeriesMemberships.map(({ seriesId }) => seriesId),
-  );
   const topic =
     metadata.topicId === null
       ? null
@@ -37,17 +28,6 @@ export async function findReferenceIssues(
       : await transaction.tag.findMany({
           where: { id: { in: [...metadata.tagIds] } },
           select: { id: true },
-        });
-  const series =
-    metadata.seriesMemberships.length === 0
-      ? []
-      : await transaction.product.findMany({
-          where: {
-            id: {
-              in: metadata.seriesMemberships.map(({ seriesId }) => seriesId),
-            },
-          },
-          select: { archivedAt: true, id: true },
         });
 
   if (metadata.topicId !== null && topic === null) {
@@ -65,26 +45,15 @@ export async function findReferenceIssues(
       issues.push({ code: "tag_not_found", path: `/metadata/tagIds/${index}` });
     }
   });
-  const foundSeries = new Set(series.map(({ id }) => id));
-  const archivedSeries = new Set(
-    series.flatMap(({ archivedAt, id }) => (archivedAt === null ? [] : [id])),
+  issues.push(
+    ...(
+      await products.inspectReferences(
+        materialId,
+        metadata.seriesMemberships,
+        transactionHandle(transaction),
+      )
+    ).issues,
   );
-  metadata.seriesMemberships.forEach(({ seriesId }, index) => {
-    if (!foundSeries.has(seriesId)) {
-      issues.push({
-        code: "series_not_found",
-        path: `/metadata/seriesMemberships/${index}/seriesId`,
-      });
-    } else if (
-      archivedSeries.has(seriesId) &&
-      !currentSeriesIds.has(seriesId)
-    ) {
-      issues.push({
-        code: "series_archived",
-        path: `/metadata/seriesMemberships/${index}/seriesId`,
-      });
-    }
-  });
   return issues.sort((left, right) => left.path.localeCompare(right.path));
 }
 
@@ -92,37 +61,15 @@ export async function findSeriesOrdinalConflict(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   metadata: MaterialMetadata,
+  products: ProductMemberships,
 ): Promise<
   { readonly seriesId: string; readonly ordinal: number } | undefined
 > {
-  if (metadata.seriesMemberships.length === 0) {
-    return undefined;
-  }
-  const seriesIds = metadata.seriesMemberships.map(({ seriesId }) => seriesId);
-  await transaction.$queryRaw(
-    Prisma.sql`
-      select id
-      from materials.series
-      where id in (${Prisma.join(seriesIds)})
-      order by id
-      for update
-    `,
-  );
-
-  const occupied = await transaction.productMembership.findMany({
-    where: {
-      seriesId: { in: seriesIds },
-      ordinal: {
-        in: metadata.seriesMemberships.map(({ ordinal }) => ordinal),
-      },
-      materialId: { not: materialId },
-    },
-    select: { seriesId: true, ordinal: true },
-  });
-  const occupiedKeys = new Set(
-    occupied.map(({ seriesId, ordinal }) => `${seriesId}:${ordinal}`),
-  );
-  return metadata.seriesMemberships.find(({ seriesId, ordinal }) =>
-    occupiedKeys.has(`${seriesId}:${ordinal}`),
-  );
+  return (
+    await products.inspectReferences(
+      materialId,
+      metadata.seriesMemberships,
+      transactionHandle(transaction),
+    )
+  ).conflict;
 }

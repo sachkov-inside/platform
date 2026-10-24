@@ -8,34 +8,17 @@ export type MaterialsPrisma = Pick<
   | "authoringIdempotency"
   | "practiceDefinition"
   | "practiceImportReceipt"
-  | "contentCover"
-  | "contentCoverRendition"
   | "materialAnnouncement"
   | "materialAnnouncementRevision"
   | "materialNotificationOutbox"
   | "material"
-  | "materialAsset"
   | "materialRelatedPin"
-  | "homeSeriesPin"
   | "materialSearchDocument"
   | "materialTag"
   | "publishedMaterial"
-  | "publishedMaterialProductMembership"
   | "publishedMaterialTag"
-  | "product"
-  | "productArtifact"
-  | "productArtifactMaterialLink"
-  | "productArtifactPlacement"
-  | "productArtifactVersion"
-  | "productChapter"
-  | "productChapterSupplementaryMaterial"
-  | "productMaterialRemoval"
-  | "productMembership"
-  | "productProgrammePlacement"
   | "tag"
   | "topic"
-  | "video"
-  | "videoDeletionOperation"
 >;
 export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
@@ -43,11 +26,7 @@ export type MaterialsPrismaClient = MaterialsPrisma &
 
 export type AssetsPrisma = Pick<
   PlatformPrisma,
-  | "$executeRaw"
-  | "$queryRaw"
-  | "material"
-  | "materialAsset"
-  | "materialAssetVariant"
+  "$executeRaw" | "$queryRaw" | "materialAsset" | "materialAssetVariant"
 >;
 export type AssetsPrismaTransaction = AssetsPrisma;
 export type AssetsPrismaClient = AssetsPrisma &
@@ -57,8 +36,6 @@ export type VideosPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "$queryRaw"
-  | "material"
-  | "publishedMaterial"
   | "video"
   | "videoDeletionOperation"
   | "videoPlaybackProgress"
@@ -81,7 +58,7 @@ export type AccountsPrisma = Pick<
 export type AccountsPrismaClient = AccountsPrisma &
   TransactionClient<AccountsPrisma>;
 
-export type MemberProfilesPrisma = Pick<
+export type AccountProfilesPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "memberProfile"
@@ -89,8 +66,8 @@ export type MemberProfilesPrisma = Pick<
   | "profileAvatar"
   | "profileAvatarRendition"
 >;
-export type MemberProfilesPrismaClient = MemberProfilesPrisma &
-  TransactionClient<MemberProfilesPrisma>;
+export type AccountProfilesPrismaClient = AccountProfilesPrisma &
+  TransactionClient<AccountProfilesPrisma>;
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,
@@ -105,8 +82,6 @@ export type TelegramMembershipPrisma = Pick<
   | "telegramCommunityAuthorization"
   | "telegramCommunityProjectionCursor"
   | "telegramCommunityProjectionRetry"
-  // Membership owns these writes; Telegram hands over its transaction to bindPrincipal.
-  | "membershipBinding"
 >;
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
@@ -147,10 +122,6 @@ export type ReadingActivityPrisma = Pick<
   | "readingMaterialVisit"
   | "productLearningStarted"
   | "readerPreferences"
-  // Materials delegates: a reading command rereads Material facts in its own transaction.
-  | "material"
-  | "publishedMaterialProductMembership"
-  | "product"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma &
   TransactionClient<ReadingActivityPrisma>;
@@ -166,23 +137,12 @@ export type SalesFunnelPrisma = Pick<
   PlatformPrisma,
   | "$queryRaw"
   | "$executeRaw"
-  // Passed to Account Rights for scoped access reads in the caller transaction.
-  | "accessChange"
-  | "accessGrant"
-  | "productAccessExclusion"
-  | "legacyClassification"
-  | "membershipBinding"
-  | "membershipEvidenceReceipt"
-  | "membershipProjection"
   | "salesFunnelBotEvent"
   | "productWaitlistIntake"
   | "productWaitlistMembership"
   | "productWaitlistEvent"
   | "productWaitlistOperation"
   | "productWaitlistConfirmation"
-  // Passed only to TelegramAccountLinks inside the waitlist transaction.
-  | "telegramAccountLinkState"
-  | "telegramAccountLinkHistory"
 >;
 export type SalesFunnelPrismaClient = SalesFunnelPrisma &
   TransactionClient<SalesFunnelPrisma>;
@@ -192,8 +152,7 @@ export type BillingPrisma = Pick<
   | "$executeRaw"
   | "$queryRaw"
   | "billingNotificationOutbox"
-  | "billingOffer"
-  | "billingPaymentOption"
+  | "billingProductPrice"
   | "billingPromotion"
   | "billingPricingCommand"
   | "billingPaymentLink"
@@ -203,11 +162,6 @@ export type BillingPrisma = Pick<
   | "billingPurchaseCommand"
   | "billingPaymentEvent"
   | "billingFulfillment"
-  | "billingSubscription"
-  | "billingSubscriptionEvent"
-  | "billingSubscriptionCommand"
-  | "billingChangeQuote"
-  | "billingPaymentMethodFlow"
   | "billingOwnerCommand"
   | "billingOwnerCommandKey"
   | "billingRefundDecision"
@@ -215,22 +169,7 @@ export type BillingPrisma = Pick<
   | "billingNotice"
   | "billingNoticeRevision"
   | "billingSurveyRespondent"
-  | "billingProductCohort"
-  // Membership and Telegram own these delegates; Billing only hands over its transaction.
-  | "activationRule"
-  | "activationAttempt"
-  | "accessReceipt"
-  | "accessBatchPreview"
-  | "tariffAssignment"
-  | "sourceEntitlement"
-  | "accessGrant"
-  | "productAccessExclusion"
-  | "accessChange"
-  | "telegramAccountLinkState"
-  | "telegramAccountLinkHistory"
-  | "tributePolicy"
-  | "tributeImportReview"
-  | "legacyClassification"
+  | "billingProductSalesState"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;
@@ -260,3 +199,30 @@ export type WebTelemetryPrisma = Pick<
   PlatformPrisma,
   "$executeRaw" | "$queryRaw"
 >;
+
+export type ProductsPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "$queryRaw"
+  | "product"
+  | "productArtifact"
+  | "productArtifactMaterialLink"
+  | "productArtifactPlacement"
+  | "productArtifactVersion"
+  | "productChapter"
+  | "productChapterSupplementaryMaterial"
+  | "productMaterialRemoval"
+  | "productMembership"
+  | "productProgrammePlacement"
+  | "publishedMaterialProductMembership"
+  | "homeSeriesPin"
+>;
+export type ProductsPrismaTransaction = ProductsPrisma;
+export type ProductsPrismaClient = ProductsPrisma &
+  TransactionClient<ProductsPrisma>;
+export type ContentCoversPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "contentCover" | "contentCoverRendition"
+>;
+export type ContentCoversPrismaClient = ContentCoversPrisma &
+  TransactionClient<ContentCoversPrisma>;

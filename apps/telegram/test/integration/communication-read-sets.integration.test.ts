@@ -24,9 +24,9 @@ import { required } from "../support/required.js";
 import { destroyTestDatabase } from "../support/destroy-test-database.js";
 
 import { AuthorBroadcastDrafts } from "../../src/modules/communications/author-broadcast-drafts.js";
-import { AuthorFunnelDrafts } from "../../src/modules/communications/author-funnel-drafts.js";
+import { AuthorSequenceDrafts } from "../../src/modules/communications/author-sequence-drafts.js";
 import type { Context } from "../../src/modules/communications/author-admin.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 
 let entryStatements: string[] = [];
@@ -182,7 +182,7 @@ it.each(["funnel", "broadcast"] as const)(
     const authorization = {
       authorize: vi.fn(() => Promise.resolve("allowed" as const)),
     };
-    const funnels = new Funnels(
+    const funnels = new CommunicationSequences(
       database,
       config,
       authorization,
@@ -275,7 +275,7 @@ it.each(["funnel", "broadcast"] as const)(
     }
     const list =
       kind === "funnel"
-        ? new AuthorFunnelDrafts(funnels)
+        ? new AuthorSequenceDrafts(funnels)
         : new AuthorBroadcastDrafts(funnels);
     function context(tx: Context["tx"]): Context {
       return {

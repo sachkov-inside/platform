@@ -39,12 +39,36 @@ async function readProductSale(
   productId: string,
   accessToken?: string,
 ): Promise<ProductSale> {
-  const [catalog, cohort, access] = await Promise.all([
+  return (await readProductSaleFacts(productId, accessToken)).sale;
+}
+
+/** One read of access and sale facts, retaining entitlement even when prices are unavailable. */
+export async function readProductSaleFacts(
+  productId: string,
+  accessToken?: string,
+): Promise<{
+  readonly access: "open" | "closed" | "unknown";
+  readonly sale: ProductSale;
+}> {
+  const access =
+    accessToken === undefined
+      ? "closed"
+      : await readProductAccess(productId, accessToken);
+  return {
+    access,
+    sale: await readProductSalePresentation(productId, access, accessToken),
+  };
+}
+
+/** Optional sale presentation never determines an existing holder's learning availability. */
+export async function readProductSalePresentation(
+  productId: string,
+  access: "open" | "closed" | "unknown",
+  accessToken?: string,
+): Promise<ProductSale> {
+  const [catalog, cohort] = await Promise.all([
     loadProductOffers(productId, accessToken),
     loadProductCohort(productId),
-    accessToken === undefined
-      ? ("closed" as const)
-      : readProductAccess(productId, accessToken),
   ]);
   if (catalog.kind === "unavailable") return catalog;
   // Backend решает, что продаётся. Web задаёт лишь стабильный порядок показа цены.

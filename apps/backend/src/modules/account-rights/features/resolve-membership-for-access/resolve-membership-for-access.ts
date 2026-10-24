@@ -5,7 +5,7 @@ import {
 } from "../resolve-access-capabilities/resolve-access-capabilities.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
-  MembershipAccessPrisma,
+  AccountRightsPrisma,
   AccountRightsPrismaClient,
 } from "../../infrastructure/prisma.js";
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
@@ -39,7 +39,7 @@ export async function resolveMembershipForAccess(
  * required one, and neither opens access.
  */
 export function resolveMembershipForAccessUnderEntitlementLock(
-  transaction: MembershipAccessPrisma,
+  transaction: AccountRightsPrisma,
   accountId: AccountId,
   now: Date,
 ): Promise<MembershipAccessState> {
@@ -47,7 +47,7 @@ export function resolveMembershipForAccessUnderEntitlementLock(
 }
 
 async function readMembershipForAccess(
-  prisma: MembershipAccessPrisma,
+  prisma: AccountRightsPrisma,
   accountId: AccountId,
   now: Date,
   productIds?: readonly string[],

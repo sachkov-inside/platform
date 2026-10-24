@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
   contentWriter,
@@ -86,8 +87,14 @@ export function assembleCreateDraft(
       CreateDraftError
     >(
       dependencies.prisma,
-      (transaction, rollback) =>
-        executeIdempotentMaterialMutation<CreateDraftEffect>(
+      async (transaction, rollback) => {
+        const currentPermission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!currentPermission.ok) return rollback(currentPermission.error);
+        return executeIdempotentMaterialMutation<CreateDraftEffect>(
           transaction,
           {
             actor: command.actor,
@@ -103,6 +110,7 @@ export function assembleCreateDraft(
               transaction,
               newMaterialId,
               selection.value.toValues().seriesIds,
+              dependencies.memberships,
             );
             const sourceError = checkContentWrite(
               contentWriter(source?.id ?? null),
@@ -118,12 +126,14 @@ export function assembleCreateDraft(
               newMaterialId,
               selection.value,
               sourceSlug,
+              dependencies.memberships,
             );
             await requireReferenceIntegrity(
               transaction,
               newMaterialId,
               materializedMetadata,
               rollback,
+              dependencies.memberships,
             );
             await transaction.material.create({
               data: {
@@ -153,6 +163,7 @@ export function assembleCreateDraft(
               transaction,
               newMaterialId,
               materializedMetadata,
+              dependencies.memberships,
             );
             return {
               kind: "material",
@@ -164,7 +175,8 @@ export function assembleCreateDraft(
               },
             };
           },
-        ),
+        );
+      },
       (unexpected) => mapPostgresError(unexpected, materializedMetadata),
       "createDraft",
     );

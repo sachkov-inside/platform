@@ -31,13 +31,13 @@ import {
   COMMUNICATION_TRANSPORT,
   type CommunicationMessage,
 } from "../../src/modules/communications/communication-delivery.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import type {
-  FunnelDraft,
+  CommunicationSequenceDraft,
   MessagePart,
-} from "../../src/modules/communications/funnel-types.js";
+} from "../../src/modules/communications/sequence-types.js";
 import { CLOCK } from "../../src/shared/clock.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
@@ -93,8 +93,8 @@ const authorization = {
   authorize: vi.fn(() => Promise.resolve("allowed")),
 };
 let app: NestFastifyApplication;
-let funnels: Funnels;
-let scheduler: FunnelScheduler;
+let funnels: CommunicationSequences;
+let scheduler: SequenceScheduler;
 let entry: MarketingEntry;
 const responseValidator = contractValidator("response");
 beforeAll(async () => {
@@ -123,8 +123,8 @@ beforeAll(async () => {
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  funnels = app.get(Funnels);
-  scheduler = app.get(FunnelScheduler);
+  funnels = app.get(CommunicationSequences);
+  scheduler = app.get(SequenceScheduler);
   entry = app.get(MarketingEntry);
 });
 beforeEach(async () => {
@@ -147,7 +147,7 @@ function part(text: string): MessagePart {
     content: { type: "text", text, entities: [], buttons: [] },
   };
 }
-function draft(name = "general", isDefault = true): FunnelDraft {
+function draft(name = "general", isDefault = true): CommunicationSequenceDraft {
   return {
     funnelId: randomUUID(),
     name,
@@ -1048,7 +1048,11 @@ it("orders first/latest and continuation by entry time when a later Telegram upd
   expect(required(page.entries[1]).sourceId).toBeNull();
 });
 
-async function seedEntryPage(first: number, last: number, funnel: FunnelDraft) {
+async function seedEntryPage(
+  first: number,
+  last: number,
+  funnel: CommunicationSequenceDraft,
+) {
   const contact = await database
     .selectFrom("communication_contacts")
     .select("contact_id")

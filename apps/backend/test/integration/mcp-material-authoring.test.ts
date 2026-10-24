@@ -393,6 +393,14 @@ describe("delegated Material authoring over MCP", () => {
       await callTool("playlist_save_composition", {
         expectedOrderVersion: initial["orderVersion"],
         orderedMaterialIds: [materialId],
+        programmePlacements: [
+          {
+            id: "77000000-0000-4000-8000-000000000001",
+            materialId,
+            chapterId: null,
+            stepGroup: "MCP instruction",
+          },
+        ],
         stepGroups: { [materialId]: "  MCP instruction  " },
         seriesId: playlist["id"],
       }),

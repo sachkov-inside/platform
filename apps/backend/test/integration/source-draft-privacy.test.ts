@@ -1,3 +1,5 @@
+import { seedHistoricalPractice } from "./setup/legacy-practice-fixture.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -21,11 +23,11 @@ import {
   type Subject,
 } from "../../src/modules/content-access/index.js";
 import { assembleAssetResourceFacts } from "../../src/modules/materials/adapters/content-access/asset-resource-facts.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   materialId as checkedMaterialId,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -242,6 +244,12 @@ describe("source-imported draft privacy", () => {
         seriesId: productId,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [draftId, siblingId],
+        programmePlacements: [draftId, siblingId].map((materialId) => ({
+          id: randomUUID(),
+          materialId,
+          chapterId: null,
+          stepGroup: null,
+        })),
       }),
     ).toMatchObject({ ok: true });
 
@@ -260,29 +268,18 @@ describe("source-imported draft privacy", () => {
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     assetId = uploaded.value.assetId;
 
-    // The practice import: validate, then apply bound to the draft's current content version.
+    // Restore a historical private Practice row to exercise the retained read decoder. New authoring is retired.
     const practice = sourcePractice(practiceId, "unpublished");
     expect(
       await authoring.validateSourcePractice({ actor: owner, ...practice }),
     ).toEqual({ ok: true, value: { valid: true, current: null } });
-    expect(
-      await authoring.applySourcePractice({
-        actor: owner,
-        idempotencyKey: "draft-practice-import",
-        ...practice,
-        materialId: draftId,
-        expectedContentVersion: 2,
-        expectedPracticeVersion: null,
-      }),
-    ).toMatchObject({
-      ok: true,
-      value: {
-        practiceId,
-        practiceVersion: 1,
-        materialId: draftId,
-        boundContentVersion: 2,
-        publicationState: "unpublished",
-      },
+    await seedHistoricalPractice(database, {
+      actor: owner,
+      idempotencyKey: "draft-practice-import",
+      ...practice,
+      materialId: draftId,
+      expectedContentVersion: 2,
+      expectedPracticeVersion: null,
     });
   });
   afterAll(async () => {
@@ -383,7 +380,10 @@ describe("source-imported draft privacy", () => {
       ).not.toContain(draftId);
     }
     expect(
-      await new PublishedSeriesComposition(database.prisma).read(productId),
+      await new PublishedSeriesComposition(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ).read(productId),
     ).toEqual({ ok: true, value: [siblingId] });
     expect(
       await readLearningMaterial(
@@ -488,7 +488,7 @@ describe("source-imported draft privacy", () => {
         expectedContentVersion: Number(current.contentVersion),
         expectedPracticeVersion: null,
       }),
-    ).toEqual({ ok: false, error: { code: "source_mismatch" } });
+    ).toEqual({ ok: false, error: { code: "practice_definition_retired" } });
     expect(
       await database.prisma.practiceDefinition.count({
         where: { practiceId: publishedId },

@@ -20,8 +20,8 @@ export const paymentLinkCommandSchema = z.discriminatedUnion("operation", [
   z.strictObject({
     operation: z.literal("paymentLinks.create"),
     operationId: idSchema,
-    paymentOptionId: idSchema,
-    optionRevision: revisionSchema,
+    productId: idSchema,
+    priceRevision: revisionSchema,
     price: paymentLinkPriceSchema,
     expiresAt: z.iso.datetime({ offset: true }).nullable(),
   }),

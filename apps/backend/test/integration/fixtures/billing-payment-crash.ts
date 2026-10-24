@@ -53,7 +53,7 @@ const bank = new Tbank(input.config, async (_url, options) => {
   throw new Error("Child must be killed while provider result is unknown");
 });
 const payments = new BillingPayments({
-  sale: { payments: true, subscriptions: true },
+  sale: { payments: true },
   prisma,
   contact,
   grants: assembleAccessGrants({ prisma, accounts, clock }),

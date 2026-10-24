@@ -1,7 +1,7 @@
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
 import type {
-  ContentCoverProjection,
   ProductIntroductionDto,
   ProductLandingPageDto,
 } from "../../../materials/index.js";

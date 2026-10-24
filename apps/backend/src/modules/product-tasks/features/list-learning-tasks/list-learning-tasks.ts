@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject } from "../../../content-access/index.js";
-import type { DirectoryProduct } from "../../../materials/index.js";
+import type { DirectoryProduct } from "../../../products/index.js";
 import type { LearningTaskDependencies } from "../../shared/learning-task-dependencies.js";
 import {
   scope,

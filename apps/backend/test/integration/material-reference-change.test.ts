@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -6,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/features/cleanup-material-assets/cleanup-material-assets.js";
 import {
   assembleVideoDeletionMaintenance,
@@ -307,7 +308,7 @@ describe("Reference reads on an exhausted pool", () => {
     });
     await expect(
       requestVideoDeletion(
-        database.prisma,
+        transactionHandle(database.prisma),
         { actor, materialId, videoId },
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         new Date(),

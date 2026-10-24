@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
+import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   type MaterialBodySnapshot,
   type MaterialMetadataSelectionInput,
 } from "../modules/materials/index.js";
@@ -324,7 +325,11 @@ export async function seedLocalDevelopment(
     slug,
   });
 
-  await ensureMembershipCatalogMaterial(seed);
+  const membershipMaterialId = await ensureMembershipCatalogMaterial(seed);
+  await ensureDevelopmentSeriesOrder(authoring, seriesId, [
+    overview.materialId,
+    membershipMaterialId,
+  ]);
   // Related pins join readable pages; hidden demo drafts have no public address to pin.
   if (demo === "published") await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
@@ -798,7 +803,7 @@ async function ensureDevelopmentSeriesOrder(
   );
   if (
     isDeepStrictEqual(
-      current.value.items.map(({ materialId }) => materialId),
+      current.value.programmePlacements.map(({ materialId }) => materialId),
       [...orderedMaterialIds],
     ) &&
     (stepGroups === undefined ||
@@ -810,6 +815,20 @@ async function ensureDevelopmentSeriesOrder(
     actor,
     expectedOrderVersion: current.value.orderVersion,
     orderedMaterialIds,
+    programmePlacements: orderedMaterialIds.map((materialId) => {
+      const previous = current.value.programmePlacements.find(
+        (entry) => entry.materialId === materialId,
+      );
+      return {
+        id: previous?.id ?? randomUUID(),
+        materialId,
+        chapterId: null,
+        stepGroup:
+          stepGroups === undefined
+            ? (previous?.stepGroup ?? null)
+            : (stepGroups[materialId] ?? null),
+      };
+    }),
     stepGroups,
     seriesId: seriesIdValue,
   });
@@ -1003,7 +1022,7 @@ const localDevelopmentVideoProvider: VideoProvider = {
 
 async function ensureMembershipCatalogMaterial(
   seed: SeedContext,
-): Promise<void> {
+): Promise<string> {
   const metadata = {
     title: "Developer Pipeline без потери контекста",
     summary: "Закрытый Material с публичным безопасным описанием для каталога.",
@@ -1030,13 +1049,14 @@ async function ensureMembershipCatalogMaterial(
       ],
     },
   } as const;
-  await ensureSeededMaterial(seed, {
+  const material = await ensureSeededMaterial(seed, {
     body,
     createIdempotencyKey: membershipCreateIdempotencyKey,
     metadata,
     saveIdempotencyKeyPrefix: "local-membership-publish",
     slug: membershipSlug,
   });
+  return material.materialId;
 }
 
 async function ensureRelatedPin(

@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { chromium, expect as browserExpect } from "@playwright/test";
 import { expect, test } from "vitest";
-import { ProfileAvatar } from "@/entities/member-profile/ui/profile-avatar.client";
+import { ProfileAvatar } from "@/entities/account-profile/ui/profile-avatar.client";
 
 test("avatars select existing renditions for the displayed size and screen density", async () => {
   const browser = await chromium.launch();

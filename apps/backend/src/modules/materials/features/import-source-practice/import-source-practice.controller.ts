@@ -76,7 +76,7 @@ export class ImportSourcePracticeController {
   @ApiOperation({
     operationId: "applySourcePractice",
     summary:
-      "Import the current practice definition against explicit source and mutation versions",
+      "Replay an authorized historical Practice receipt; new writes are retired",
   })
   @ApiBody({ schema: toOpenApiSchema(applySourcePracticeBodySchema) })
   @ApiHeader({
@@ -121,6 +121,12 @@ function throwImportError(error: PracticeImportError): never {
         403,
         error.code,
         "Practice authoring is forbidden",
+      );
+    case "practice_definition_retired":
+      throw problemException(
+        409,
+        error.code,
+        "Practice authoring is retired; import Product Tasks",
       );
     case "source_mismatch":
     case "practice_version_conflict":

@@ -1,0 +1,389 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
+import { createHash } from "node:crypto";
+
+import sharp from "sharp";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
+
+import { accountId, type AccountId } from "../../src/modules/accounts/index.js";
+import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
+import {
+  assembleAccountProfiles,
+  assembleProfileAvatarMaintenance,
+  moderateAccountProfile,
+  type AccountProfiles,
+  type ProfileAvatarMaintenance,
+} from "../../src/modules/account-profiles/index.js";
+import {
+  createMigratedTestDatabase,
+  type TestDatabase,
+} from "./setup/test-database.js";
+
+registerFixedClock();
+
+const ownerAccountId = accountId("81000000-0000-4000-8000-000000000001");
+const secondAccountId = accountId("81000000-0000-4000-8000-000000000002");
+const viewerAccountId = accountId("81000000-0000-4000-8000-000000000003");
+const storedObjects = new Map<string, Uint8Array>();
+// deterministic-test-allow shared-mutation: Object-storage callback runs in the suite that resets this observation in beforeEach.
+const deletedObjectKeys: string[] = [];
+// deterministic-test-allow shared-mutation: Object-storage callback runs in the suite that resets this observation in beforeEach.
+const signedGetRequests: Parameters<ObjectStorage["signGet"]>[0][] = [];
+const objectStorage: ObjectStorage = {
+  delete: (_namespace, key) => {
+    storedObjects.delete(key);
+    deletedObjectKeys.push(key);
+    return Promise.resolve();
+  },
+  putImmutable: (input) => {
+    if (storedObjects.has(input.key)) {
+      return Promise.resolve({
+        error: { code: "object_already_exists" as const },
+        ok: false as const,
+      });
+    }
+    storedObjects.set(input.key, input.body);
+    return Promise.resolve({ ok: true as const });
+  },
+  read: () => Promise.resolve(null),
+  signGet: (input) => {
+    signedGetRequests.push(input);
+    return Promise.resolve("https://storage.example.test/avatar");
+  },
+};
+
+describe("AccountProfiles", () => {
+  let database: TestDatabase;
+  let maintenance: ProfileAvatarMaintenance;
+  let profiles: AccountProfiles;
+
+  beforeAll(async () => {
+    database = await createMigratedTestDatabase();
+    profiles = assembleAccountProfiles({
+      prisma: database.prisma,
+      objectStorage,
+      signedGetTtlSeconds: 60,
+    });
+    maintenance = assembleProfileAvatarMaintenance({
+      objectStorage,
+      prisma: database.prisma,
+    });
+  });
+
+  beforeEach(async () => {
+    storedObjects.clear();
+    deletedObjectKeys.length = 0;
+    signedGetRequests.length = 0;
+    await database.prisma.memberProfile.deleteMany();
+    await database.prisma.memberProfileAuditEvent.deleteMany();
+    await database.prisma.account.deleteMany();
+    await Promise.all([
+      insertAccount(database, ownerAccountId, "owner"),
+      insertAccount(database, secondAccountId, "second"),
+      insertAccount(database, viewerAccountId, "viewer"),
+    ]);
+  });
+
+  afterAll(async () => {
+    await database.dispose();
+  });
+
+  test("creates one Profile per Account while allowing duplicate display names", async () => {
+    const command = {
+      accountId: ownerAccountId,
+      displayName: "  Кирилл Сачков ",
+      bio: null,
+    };
+    const concurrent = await Promise.all([
+      profiles.createProfile(command),
+      profiles.createProfile(command),
+    ]);
+    expect(concurrent.filter((result) => result.ok)).toHaveLength(1);
+    expect(concurrent.filter((result) => !result.ok)).toEqual([
+      { ok: false, error: { code: "profile_exists" } },
+    ]);
+
+    await expect(
+      profiles.createProfile({ ...command, accountId: secondAccountId }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { displayName: "Кирилл Сачков", version: 1, status: "active" },
+    });
+    await expect(database.prisma.memberProfile.count()).resolves.toBe(2);
+    await expect(
+      database.prisma.memberProfileAuditEvent.findMany({
+        orderBy: { createdAt: "asc" },
+        select: { event: true },
+      }),
+    ).resolves.toEqual([
+      { event: "profile_created" },
+      { event: "profile_created" },
+    ]);
+  });
+
+  test("protects updates with optimistic concurrency", async () => {
+    const created = await createOwnerProfile(profiles);
+    const updated = await profiles.updateProfile({
+      accountId: ownerAccountId,
+      expectedVersion: created.version,
+      displayName: "Новое имя",
+      bio: "Новая биография",
+    });
+    expect(updated).toMatchObject({
+      ok: true,
+      value: { displayName: "Новое имя", bio: "Новая биография", version: 2 },
+    });
+    await expect(
+      profiles.updateProfile({
+        accountId: ownerAccountId,
+        expectedVersion: created.version,
+        displayName: "Проигравшая запись",
+        bio: null,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "conflict", currentVersion: 2 },
+    });
+    await expect(database.prisma.memberProfile.count()).resolves.toBe(1);
+
+    const audit = await database.prisma.memberProfileAuditEvent.findMany();
+    expect(JSON.stringify(audit)).not.toContain("Новое имя");
+    expect(JSON.stringify(audit)).not.toContain("Новая биография");
+    expect(audit.map(({ event }) => event)).toEqual([
+      "profile_created",
+      "profile_updated",
+    ]);
+  });
+
+  test("supports manual disable/restore of the owner's Profile", async () => {
+    await createOwnerProfile(profiles);
+    // The internal Profile identifier stays for owner moderation; the API no longer returns it.
+    const { publicProfileId } =
+      await database.prisma.memberProfile.findUniqueOrThrow({
+        where: { accountId: ownerAccountId },
+      });
+
+    await expect(
+      moderateAccountProfile(database.prisma, publicProfileId, "disable"),
+    ).resolves.toMatchObject({ ok: true, changed: true, status: "disabled" });
+    await expect(
+      profiles.readPrivateProfile(ownerAccountId),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { kind: "profile", profile: { status: "disabled", version: 2 } },
+    });
+    await expect(
+      moderateAccountProfile(database.prisma, publicProfileId, "restore"),
+    ).resolves.toMatchObject({ ok: true, changed: true, status: "active" });
+    await expect(
+      database.prisma.memberProfile.findUniqueOrThrow({
+        where: { accountId: ownerAccountId },
+        select: { publicProfileId: true },
+      }),
+    ).resolves.toEqual({ publicProfileId });
+    await expect(profiles.readPrivateProfile(secondAccountId)).resolves.toEqual(
+      {
+        ok: true,
+        value: { kind: "missing" },
+      },
+    );
+    await expect(
+      database.prisma.memberProfileAuditEvent.findMany({
+        where: { accountId: ownerAccountId },
+        orderBy: { createdAt: "asc" },
+        select: { event: true },
+      }),
+    ).resolves.toEqual([
+      { event: "profile_created" },
+      { event: "profile_disabled" },
+      { event: "profile_restored" },
+    ]);
+  });
+
+  test("replaces the avatar and delivers only the current one to its owner", async () => {
+    const created = await createOwnerProfile(profiles);
+    const first = await avatarBody("#d85f39");
+    const uploaded = await profiles.changeAvatar({
+      accountId: ownerAccountId,
+      ...first,
+      expectedVersion: created.version,
+      kind: "upload",
+    });
+    expect(uploaded.ok).toBe(true);
+    if (!uploaded.ok || uploaded.profile.avatar === null) return;
+    expect(uploaded.profile.version).toBe(2);
+    expect(uploaded.profile.avatar.avatarId).toMatch(/^[0-9a-f-]{36}$/u);
+    const firstAvatarId = uploaded.profile.avatar.avatarId;
+    expect([...storedObjects.keys()]).toHaveLength(3);
+    for (const body of storedObjects.values()) {
+      await expect(sharp(body).metadata()).resolves.toMatchObject({
+        format: "webp",
+      });
+    }
+
+    // Профиль виден только владельцу: подписанный адрес аватара выдаётся только ему.
+    await expect(
+      profiles.deliverAvatar({
+        accountId: ownerAccountId,
+        avatarId: firstAvatarId,
+        size: 320,
+      }),
+    ).resolves.toEqual({
+      location: "https://storage.example.test/avatar",
+      ok: true,
+    });
+    expect(signedGetRequests.at(-1)?.ttlSeconds).toBe(60);
+    for (const stranger of [secondAccountId, viewerAccountId])
+      await expect(
+        profiles.deliverAvatar({
+          accountId: stranger,
+          avatarId: firstAvatarId,
+          size: 320,
+        }),
+      ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
+
+    const secondProfile = await profiles.createProfile({
+      accountId: secondAccountId,
+      bio: null,
+      displayName: "Другой участник",
+    });
+    expect(secondProfile.ok).toBe(true);
+    await expect(
+      database.prisma.memberProfile.update({
+        data: { avatarId: firstAvatarId },
+        where: { accountId: secondAccountId },
+      }),
+    ).rejects.toThrow();
+
+    const second = await avatarBody("#3f7f6b");
+    const replaced = await profiles.changeAvatar({
+      accountId: ownerAccountId,
+      ...second,
+      expectedVersion: uploaded.profile.version,
+      kind: "upload",
+    });
+    expect(replaced.ok).toBe(true);
+    if (!replaced.ok || replaced.profile.avatar === null) return;
+    expect(replaced.profile.version).toBe(3);
+    expect(replaced.profile.avatar.avatarId).not.toBe(firstAvatarId);
+    await expect(
+      profiles.deliverAvatar({
+        accountId: ownerAccountId,
+        avatarId: firstAvatarId,
+        size: 320,
+      }),
+    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
+    await expect(
+      profiles.deliverAvatar({
+        accountId: ownerAccountId,
+        avatarId: replaced.profile.avatar.avatarId,
+        size: 640,
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      profiles.deliverAvatar({
+        accountId: secondAccountId,
+        avatarId: replaced.profile.avatar.avatarId,
+        size: 320,
+      }),
+    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
+
+    const cleanup = await maintenance.cleanup({
+      graceMs: 0,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
+      now: new Date(Date.now() + 1_000),
+    });
+    expect(cleanup).toEqual({ cleaned: 1, retained: 1 });
+    expect(deletedObjectKeys).toHaveLength(3);
+    expect([...storedObjects.keys()]).toHaveLength(3);
+    expect(
+      [...storedObjects.keys()].every((key) =>
+        key.includes(replaced.profile.avatar?.avatarId ?? ""),
+      ),
+    ).toBe(true);
+
+    await database.prisma.memberProfile.update({
+      data: { status: "disabled" },
+      where: { accountId: ownerAccountId },
+    });
+    await expect(
+      profiles.deliverAvatar({
+        accountId: ownerAccountId,
+        avatarId: replaced.profile.avatar.avatarId,
+        size: 320,
+      }),
+    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
+    await database.prisma.memberProfile.update({
+      data: { status: "active" },
+      where: { accountId: ownerAccountId },
+    });
+
+    await expect(
+      profiles.changeAvatar({
+        accountId: ownerAccountId,
+        expectedVersion: uploaded.profile.version,
+        kind: "remove",
+      }),
+    ).resolves.toEqual({
+      error: { code: "conflict", currentVersion: 3 },
+      ok: false,
+    });
+    await expect(
+      profiles.changeAvatar({
+        accountId: ownerAccountId,
+        expectedVersion: replaced.profile.version,
+        kind: "remove",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      profile: { avatar: null, version: 4 },
+    });
+  });
+});
+
+async function insertAccount(
+  database: TestDatabase,
+  targetAccountId: AccountId,
+  subject: string,
+): Promise<void> {
+  await database.prisma.account.create({
+    data: {
+      id: targetAccountId,
+      logtoIssuer: "https://identity.example.test/oidc",
+      logtoSubject: subject,
+      emailFingerprint: null,
+    },
+  });
+}
+
+async function createOwnerProfile(profiles: AccountProfiles) {
+  const result = await profiles.createProfile({
+    accountId: ownerAccountId,
+    displayName: "Кирилл Сачков",
+    bio: "Инженер и автор.",
+  });
+  if (!result.ok) throw new Error(result.error.code);
+  return result.value;
+}
+
+async function avatarBody(background: string) {
+  const body = await sharp({
+    create: { background, channels: 3, height: 320, width: 480 },
+  })
+    .png()
+    .toBuffer();
+  return {
+    body,
+    crop: { centerX: 0.5, centerY: 0.5, zoom: 1 },
+    declaredContentType: "image/png",
+    declaredSize: body.byteLength,
+    expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
+  } as const;
+}

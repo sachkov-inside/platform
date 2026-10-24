@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,

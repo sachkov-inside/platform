@@ -188,7 +188,7 @@ describe("toolchain contract", () => {
     const overrides = overridesOf(json("../../.oxlintrc.json"));
     for (const file of [
       "apps/telegram/src/main.ts",
-      "apps/telegram/src/modules/communications/funnels.ts",
+      "apps/telegram/src/modules/communications/communication-sequences.ts",
       "apps/telegram/scripts/platform-conformance-provider.ts",
     ])
       expect(missingProductionRules(overrides, file), file).toEqual([]);

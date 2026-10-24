@@ -9,7 +9,7 @@ import {
   COMMUNICATIONS_VERSION,
   contractValidator,
 } from "../../modules/communications/communications-contract.js";
-import type { MessagePart } from "../../modules/communications/funnel-types.js";
+import type { MessagePart } from "../../modules/communications/sequence-types.js";
 import {
   reportCondition,
   reportFailure,

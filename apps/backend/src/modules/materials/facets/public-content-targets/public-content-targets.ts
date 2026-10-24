@@ -1,3 +1,4 @@
+import type { ProductDiscovery } from "../../../products/index.js";
 import { z } from "zod";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
@@ -13,7 +14,13 @@ export type PublicContentTargetResult = {
 };
 /** Materials owns public destinations; a Product page does not promise free Material bodies. */
 export class PublicContentTargets {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    private readonly prisma: MaterialsPrismaClient,
+    private readonly discovery: Pick<
+      ProductDiscovery,
+      "catalogueMemberships" | "metadata"
+    >,
+  ) {}
   static parseUrl(url: URL): PublicContentTarget | "invalid" | null {
     const route = url.pathname.split("/")[1];
     if (
@@ -72,9 +79,8 @@ export class PublicContentTargets {
         if (row.slug !== null) materials.set(row.slug, row);
     }
     for (let start = 0; start < productSlugs.length; start += batchSize) {
-      const rows = await this.prisma.product.findMany({
-        where: { slug: { in: productSlugs.slice(start, start + batchSize) } },
-        select: { id: true, slug: true, archivedAt: true },
+      const rows = await this.discovery.metadata({
+        slugs: productSlugs.slice(start, start + batchSize),
       });
       for (const row of rows) products.set(row.slug, row);
     }
@@ -90,10 +96,9 @@ export class PublicContentTargets {
     ];
     const memberIds = new Map<string, string[]>();
     for (let start = 0; start < seriesIds.length; start += batchSize) {
-      const rows = await this.prisma.productMembership.findMany({
-        where: { seriesId: { in: seriesIds.slice(start, start + batchSize) } },
-        select: { seriesId: true, materialId: true },
-      });
+      const rows = await this.discovery.catalogueMemberships(
+        seriesIds.slice(start, start + batchSize),
+      );
       for (const row of rows) {
         const ids = memberIds.get(row.seriesId) ?? [];
         ids.push(row.materialId);

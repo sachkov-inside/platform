@@ -118,7 +118,7 @@ describe("Accounts API", () => {
       read
         .json<{ documents: { documentId: string }[] }>()
         .documents.map((document) => document.documentId),
-    ).toEqual(["purchase", "subscription", "recurring-consent"]);
+    ).toEqual(["purchase"]);
     const disabled = await server.inject({
       method: "POST",
       url,
@@ -314,6 +314,34 @@ describe("Accounts API", () => {
     expect(companion.statusCode).toBe(201);
     const companionReceipt = readMaterialReceipt(companion.json<unknown>());
 
+    const fixtureOrder = await server.inject({
+      method: "GET",
+      url: `/authoring/products/${seriesId}/order`,
+      headers: authorization,
+    });
+    const programmePlacements = [
+      initial.materialId,
+      companionReceipt.materialId,
+    ].map((materialId) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId: null,
+      stepGroup: null,
+    }));
+    const programmeFixture = await server.inject({
+      method: "PUT",
+      url: `/authoring/products/${seriesId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: fixtureOrder.json<{ orderVersion: string }>()
+          .orderVersion,
+        orderedMaterialIds: programmePlacements.map(
+          ({ materialId }) => materialId,
+        ),
+        programmePlacements,
+      },
+    });
+    expect(programmeFixture.statusCode).toBe(200);
     const initialOrder = await server.inject({
       method: "GET",
       url: `/authoring/series/${seriesId}/order`,
@@ -351,6 +379,7 @@ describe("Accounts API", () => {
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
         orderedMaterialIds: [companionReceipt.materialId, initial.materialId],
+        programmePlacements: [...programmePlacements].reverse(),
       },
     });
     expect(reordered.statusCode).toBe(200);
@@ -363,6 +392,7 @@ describe("Accounts API", () => {
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
         orderedMaterialIds: [initial.materialId, companionReceipt.materialId],
+        programmePlacements,
       },
     });
     expect(staleOrder.statusCode).toBe(409);
@@ -618,9 +648,9 @@ describe("Accounts API", () => {
       where: { accountId: ownerAccountId },
     });
     for (const url of [
-      `/member-profiles/${stored.publicProfileId}`,
-      `/member-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
-      `/member-profiles/${stored.publicProfileId}/reports`,
+      `/account-profiles/${stored.publicProfileId}`,
+      `/account-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
+      `/account-profiles/${stored.publicProfileId}/reports`,
     ]) {
       for (const token of [
         undefined,
@@ -816,7 +846,7 @@ function readPrivateProfile(value: unknown): {
     !("version" in value.profile) ||
     typeof value.profile.version !== "number"
   ) {
-    throw new TypeError("Member Profile API response has no private Profile");
+    throw new TypeError("Account Profile API response has no private Profile");
   }
   return {
     displayName: value.profile.displayName,

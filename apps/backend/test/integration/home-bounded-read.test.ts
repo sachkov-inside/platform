@@ -4,10 +4,8 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { PrismaClient } from "../../src/infrastructure/prisma/generated/client.js";
 import { createPrismaPgAdapter } from "../../src/infrastructure/prisma/prisma-adapter.js";
 import type { Prisma } from "../../src/infrastructure/prisma/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.js";
 import type {
   ListPublishedMaterialsQuery,
@@ -169,6 +167,7 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
   const items: Prisma.MaterialCreateManyInput[] = [];
   const publications: Prisma.PublishedMaterialCreateManyInput[] = [];
   const memberships: Prisma.ProductMembershipCreateManyInput[] = [];
+  const placements: Prisma.ProductProgrammePlacementCreateManyInput[] = [];
   const publishedMemberships: Prisma.PublishedMaterialProductMembershipCreateManyInput[] =
     [];
   const videos: Prisma.VideoCreateManyInput[] = [];
@@ -220,8 +219,14 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
       [seriesId, (n % 9) + 1],
       [product, n + 1],
     ] as const) {
-      memberships.push({ materialId, seriesId: groupId, ordinal });
-      publishedMemberships.push({ materialId, seriesId: groupId, ordinal });
+      memberships.push({ materialId, seriesId: groupId });
+      placements.push({
+        id: id(400000 + n * 2 + (groupId === product ? 1 : 0)),
+        materialId,
+        productId: groupId,
+        ordinal,
+      });
+      publishedMemberships.push({ materialId, seriesId: groupId });
     }
     if (formatId === "video")
       videos.push({
@@ -257,6 +262,9 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
   for (let offset = 0; offset < memberships.length; offset += 300) {
     await prisma.productMembership.createMany({
       data: memberships.slice(offset, offset + 300),
+    });
+    await prisma.productProgrammePlacement.createMany({
+      data: placements.slice(offset, offset + 300),
     });
     await prisma.publishedMaterialProductMembership.createMany({
       data: publishedMemberships.slice(offset, offset + 300),
@@ -427,18 +435,30 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         },
       ],
     });
-    await prisma.publishedMaterialProductMembership.update({
-      where: {
-        materialId_seriesId: { materialId: id(46), seriesId: id(200005) },
-      },
-      data: { ordinal: 100 },
+    const authoring = assembleMaterials({
+      prisma,
+      authorPolicy: { canManage: () => true },
+    }).authoring;
+    const order = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: id(200005),
     });
-    await prisma.publishedMaterialProductMembership.update({
-      where: {
-        materialId_seriesId: { materialId: id(52), seriesId: id(200005) },
-      },
-      data: { ordinal: 1 },
+    if (!order.ok) throw new Error(order.error.code);
+    const reordered = await authoring.reorderSeries({
+      actor,
+      seriesId: id(200005),
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [
+        id(52),
+        ...order.value.items
+          .map((item) => item.materialId)
+          .filter(
+            (materialId) => materialId !== id(46) && materialId !== id(52),
+          ),
+        id(46),
+      ],
     });
+    if (!reordered.ok) throw new Error(reordered.error.code);
     await prisma.material.update({
       where: { id: id(52) },
       data: { publishedAt: new Date("2026-01-03") },

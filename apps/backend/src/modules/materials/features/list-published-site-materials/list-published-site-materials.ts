@@ -1,3 +1,4 @@
+import type { ProductDiscovery } from "../../../products/index.js";
 import { z } from "zod";
 import {
   Prisma,
@@ -28,11 +29,19 @@ const rowsSchema = z.array(
     published_at: z.date(),
   }),
 );
-const slugsSchema = z.array(z.object({ slug: z.string().min(1) }));
+const siteTaxonomySchema = z
+  .array(
+    z.object({
+      topic_slugs: z.array(z.string()),
+      product_slugs: z.array(z.string()),
+    }),
+  )
+  .length(1);
 
 /** Sitemap enumeration does not project previews, viewer availability, covers or counts. */
 export function assembleListPublishedSiteMaterials(
   prisma: MaterialsPrisma,
+  discovery: Pick<ProductDiscovery, "siteCandidates">,
 ): ListPublishedSiteMaterialsOperation {
   return async (query) => {
     const parsed = querySchema.safeParse(query);
@@ -56,32 +65,30 @@ export function assembleListPublishedSiteMaterials(
       let productSlugs: readonly string[] = [];
       let topicSlugs: readonly string[] = [];
       if (after === undefined) {
-        topicSlugs = slugsSchema
-          .parse(
-            await prisma.$queryRaw(Prisma.sql`
-          select topic.slug from materials.topics as topic
-          where topic.archived_at is null and exists (
-            select 1 from materials.published_materials as publication
-            join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
-            where publication.topic_id = topic.id
-          ) order by topic.name, topic.id
+        const candidates = await discovery.siteCandidates();
+        const [taxonomy] = siteTaxonomySchema.parse(
+          await prisma.$queryRaw(Prisma.sql`
+          select array(
+            select topic.slug from materials.topics as topic
+            where topic.archived_at is null and exists (
+              select 1 from materials.published_materials as publication
+              join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
+              where publication.topic_id = topic.id
+            ) order by topic.name, topic.id
+          ) as topic_slugs, array(
+            select series.slug from jsonb_to_recordset(${JSON.stringify(candidates)}::jsonb)
+              as series(id uuid, slug text, name text, "materialIds" uuid[])
+            where exists (
+              select 1 from materials.published_materials as publication
+              join materials.topics as topic on topic.id = publication.topic_id
+              join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
+              where publication.material_id = any(series."materialIds")
+            ) order by series.name, series.id
+          ) as product_slugs
         `),
-          )
-          .map(({ slug }) => slug);
-        productSlugs = slugsSchema
-          .parse(
-            await prisma.$queryRaw(Prisma.sql`
-          select series.slug from materials.series as series
-          where series.archived_at is null and exists (
-            select 1 from materials.published_material_series_memberships as membership
-            join materials.published_materials as publication on publication.material_id = membership.material_id
-            join materials.topics as topic on topic.id = publication.topic_id
-            join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
-            where membership.series_id = series.id
-          ) order by series.name, series.id
-        `),
-          )
-          .map(({ slug }) => slug);
+        );
+        topicSlugs = taxonomy?.topic_slugs ?? [];
+        productSlugs = taxonomy?.product_slugs ?? [];
       }
       return {
         ok: true,

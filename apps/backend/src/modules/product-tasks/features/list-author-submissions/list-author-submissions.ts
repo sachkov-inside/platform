@@ -329,10 +329,7 @@ export async function listAuthorSubmissions(
               telegramIdentityRef:
                 contacts.contacts.get(row.accountId)?.telegramIdentityRef ??
                 null,
-              displayName:
-                names.names.get(row.accountId) ??
-                contacts.contacts.get(row.accountId)?.displayName ??
-                null,
+              displayName: names.names.get(row.accountId) ?? null,
               telegramUsername:
                 contacts.contacts.get(row.accountId)?.telegramUsername ?? null,
               telegramUrl:

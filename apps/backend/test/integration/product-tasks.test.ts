@@ -1,3 +1,9 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+  restoreProductFixture,
+} from "./setup/product-access.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import sharp from "sharp";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { deliverTaskAsset } from "../../src/modules/product-tasks/features/deliver-task-asset/deliver-task-asset.js";
@@ -16,10 +22,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
-import {
-  accountId,
-  assembleAccounts,
-} from "../../src/modules/accounts/index.js";
+import { accountId } from "../../src/modules/accounts/index.js";
 import {
   assembleContentAccess,
   type ContentAccess,
@@ -37,15 +40,12 @@ import {
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
 import {
-  assembleAccessGrants,
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
-import {
-  assembleMaterialResourceFacts,
-  assembleMaterials,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";
 import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -140,7 +140,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
   let db: TestDatabase;
   const owner = randomUUID();
   const topicId = randomUUID();
-  let grants: ReturnType<typeof assembleAccessGrants>;
+
   let contentAccess: ContentAccess;
   let directory: ProductDirectory;
   let materials: ReturnType<typeof assembleMaterials>;
@@ -182,16 +182,15 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     await db.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
     });
-    const accounts = assembleAccounts({
-      prisma: db.prisma,
-      emailFingerprintKey: "product-tasks-email-fingerprint-key",
-    });
-    grants = assembleAccessGrants({ prisma: db.prisma, accounts });
+
     const membership = assembleAccountRights({
       prisma: db.prisma,
     });
     materials = assembleMaterials({ prisma: db.prisma, authorPolicy });
-    directory = new ProductDirectory(db.prisma);
+    directory = new ProductDirectory(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    );
     contentAccess = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
@@ -428,46 +427,12 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     subject: Subject & { kind: "account" },
     capabilities: AccessCapability[],
   ): Promise<string> {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "task",
-          accountId: subject.accountId,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities,
-            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-            startsAt: new Date(Date.now() - 60_000).toISOString(),
-            validUntil: null,
-            reason: "Product Task fixture (#946)",
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["task"],
-    });
-    const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok || !("grantRef" in row))
-      throw new Error("Grant fixture failed");
-    return row.grantRef;
+    const productId = capabilities[0]?.replace("product:", "");
+    if (productId === undefined) throw new Error("Expected Product target");
+    return grantProductFixture(db.prisma, subject.accountId, productId);
   }
-
-  async function revoke(grantRef: string) {
-    const revoked = await grants.changeGrant(owner, {
-      action: "revoke",
-      operationId: randomUUID(),
-      grantRef,
-      expectedRevision: 1,
-      reason: "Product Task fixture revocation (#946)",
-    });
-    if (!revoked.ok) throw new Error(revoked.error.code);
+  async function revoke(target: string) {
+    await revokeProductFixture(db.prisma, target);
   }
 
   function source(
@@ -1260,11 +1225,8 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       value: { taskId: task.taskId },
     });
     if (!withdrawn.ok) throw new Error(withdrawn.error.code);
-    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
-      {
-        ok: false,
-        error: { code: "task_not_available" },
-      },
+    expect(await tasks.submissions({ subject, code: task.code })).toEqual(
+      history,
     );
     const republished = await apply(
       {
@@ -1359,7 +1321,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
   });
 
-  test("access is checked at submission; submissions return when access returns", async () => {
+  test("revocation preserves own version-pinned history while refusing fresh protected actions", async () => {
     const tasks = learning();
     const task = await imported({ access: "closed" });
     const subject = await learner();
@@ -1377,15 +1339,37 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       }),
     ).toEqual({ ok: false, error: { code: "task_not_available" } });
     const firstGrant = await grant(subject, [`product:${productId}`]);
+    const savedCommand = { ...submission, submissionKey: randomUUID() };
+    const saved = await tasks.submit({
+      subject,
+      source: "mcp",
+      submission: savedCommand,
+    });
+    expect(saved).toMatchObject({ ok: true });
+    await revoke(firstGrant);
+    expect(
+      await tasks.submit({ subject, source: "mcp", submission: savedCommand }),
+    ).toEqual(saved);
     expect(
       await tasks.submit({
         subject,
         source: "mcp",
-        submission: { ...submission, submissionKey: randomUUID() },
+        submission: { ...savedCommand, note: "Conflicting replay" },
       }),
-    ).toMatchObject({ ok: true });
-    await revoke(firstGrant);
-    expect(await tasks.submissions({ subject, code: task.code })).toEqual({
+    ).toMatchObject({ ok: false });
+    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
+      {
+        ok: true,
+        value: {
+          versions: [{ version: 1 }],
+          submissions: [{ taskVersion: 1 }],
+        },
+      },
+    );
+    const stranger = await learner();
+    expect(
+      await tasks.submissions({ subject: stranger, code: task.code }),
+    ).toEqual({
       ok: false,
       error: { code: "task_not_available" },
     });
@@ -1396,7 +1380,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         submission: { ...submission, submissionKey: randomUUID() },
       }),
     ).toEqual({ ok: false, error: { code: "task_not_available" } });
-    await grant(subject, [`product:${productId}`]);
+    await restoreProductFixture(db.prisma, firstGrant);
     expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
       { ok: true, value: { submissions: [{ taskVersion: 1 }] } },
     );
@@ -1558,12 +1542,10 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       data: {
         seriesId: productId,
         materialId: material.materialId,
-        chapterId: chapter,
-        ordinal,
       },
     });
     await db.prisma.publishedMaterialProductMembership.create({
-      data: { seriesId: productId, materialId: material.materialId, ordinal },
+      data: { seriesId: productId, materialId: material.materialId },
     });
     await db.prisma.productProgrammePlacement.create({
       data: {
@@ -2417,7 +2399,10 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
   test("import and submission finish on a one-connection pool: no transaction waits for another connection", async () => {
     const subject = await learner();
     await withExhaustedPool(db, async (prisma) => {
-      const poolDirectory = new ProductDirectory(prisma);
+      const poolDirectory = new ProductDirectory(
+        prisma,
+        assembleProductMaterialReading(prisma),
+      );
       const body = source();
       expect(
         await assembleApplySourceTask({

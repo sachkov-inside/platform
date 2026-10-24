@@ -1,31 +1,31 @@
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
-
+import { assembleAccessGrants } from "../modules/account-rights/index.js";
+import { assembleAccounts } from "../modules/accounts/index.js";
+/** Synthetic Accounts receive only current concrete Products, never future platform-wide rights. */
 export async function enrollPriorParticipantsFixture(
-  prisma: Pick<PlatformPrisma, "legacyClassification">,
+  prisma: PlatformPrisma,
   accountId: string,
 ): Promise<void> {
-  // The bridge opens what the starter tier opens: every product of the platform, including new ones.
-  const bridgeCoverage = {
-    productIds: [],
-    materialIds: [],
-    wholePlatform: true,
-  };
-  await prisma.legacyClassification.createMany({
-    data: {
-      accountId,
-      classification: "confirmed_legacy",
-      sourceRef: "full-stack-synthetic-cohort",
-      reason: "Development-only legacy fixture",
-      verifiedAt: new Date(),
-      revision: 1,
-      bridgeEnabled: true,
-      bridgeCoverage,
-      tributeStopped: false,
-    },
-    skipDuplicates: true,
+  const accounts = assembleAccounts({
+    prisma,
+    emailFingerprintKey: "synthetic-fullstack-product-fixture-key",
   });
-  await prisma.legacyClassification.updateMany({
-    where: { accountId, sourceRef: "full-stack-synthetic-cohort" },
-    data: { bridgeCoverage },
+  const grants = assembleAccessGrants({ prisma, accounts });
+  const products = await prisma.product.findMany({
+    where: { archivedAt: null },
+    select: { id: true },
   });
+  for (const product of products) {
+    const result = await grants.issueProductAccess(
+      { source: "course_activation" },
+      {
+        accountId,
+        productId: product.id,
+        sourceRef: `full-stack:${accountId}:${product.id}`,
+        issuedAt: "2026-01-01T00:00:00.000Z",
+        reason: "Synthetic full-stack Product fixture",
+      },
+    );
+    if (!result.ok) throw new Error("Product fixture failed");
+  }
 }

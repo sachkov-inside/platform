@@ -83,24 +83,23 @@ describe("MCP Streamable HTTP adapter", () => {
         tools.find((tool) => tool.name === "billing_refunds_read")?.annotations,
       ).toMatchObject({ readOnlyHint: true });
       expect(
-        tools.find((tool) => tool.name === "billing_offers_publish")
+        tools.find((tool) => tool.name === "billing_productPrices_save")
           ?.annotations,
       ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
       expect(
-        tools.find((tool) => tool.name === "billing_offers_list")?.annotations,
+        tools.find((tool) => tool.name === "billing_productPrices_list")
+          ?.annotations,
       ).toMatchObject({ readOnlyHint: true });
       expect(
         tools.find((tool) => tool.name === "billing_payments_read")
           ?.annotations,
       ).toMatchObject({ readOnlyHint: true });
-      expect(
-        tools.find((tool) => tool.name === "billing_grants_readClassification")
-          ?.annotations,
-      ).toMatchObject({ readOnlyHint: true });
-      expect(
-        tools.find((tool) => tool.name === "billing_grants_classify")
-          ?.annotations,
-      ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+      expect(tools.map(({ name }) => name)).not.toContain(
+        "billing_grants_readClassification",
+      );
+      expect(tools.map(({ name }) => name)).not.toContain(
+        "billing_grants_classify",
+      );
     } finally {
       await client.close();
     }

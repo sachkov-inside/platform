@@ -1,0 +1,164 @@
+import {
+  BOT_DOMAIN_NAMES_HEADER,
+  botDomainResponse,
+} from "../../domain/bot-domain-names.js";
+import {
+  announcementResponseSchema,
+  bindingLookupResponseSchema,
+  activationResponseSchema,
+  ownSubscriptionAccessResponseSchema,
+} from "../../domain/subscription-activation-wire.js";
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  Inject,
+  Post,
+} from "@nestjs/common";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../../../../config/platform-config.js";
+import {
+  bearerCredential,
+  credentialsMatch,
+} from "../../../../infrastructure/http/bearer-credentials.js";
+import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
+import {
+  problemDetailsContent,
+  problemDetailsSchema,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  announcementQuerySchema,
+  bindingLookupQuerySchema,
+  ownSubscriptionAccessQuerySchema,
+  beginActivationSchema,
+  activationEvidenceSchema,
+} from "../../../account-rights/index.js";
+import { CourseActivation } from "../../../billing/index.js";
+@ApiTags("Course Activation integration")
+@ApiBearerAuth("subscription-activation")
+@PrivateNoStore()
+@ApiResponse({
+  status: 401,
+  content: problemDetailsContent(problemDetailsSchema(401, ["unauthorized"])),
+})
+@Controller([
+  "integrations/telegram/v1/course-activation",
+  "integrations/telegram/v1/subscription-activation",
+])
+export class CourseActivationController {
+  constructor(
+    @Inject(CourseActivation)
+    private readonly activation: CourseActivation,
+    @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
+  ) {}
+  private authenticate(authorization: string | undefined) {
+    const expected = this.config.telegramMembership.activationIngressSecret;
+    if (
+      expected === undefined ||
+      !credentialsMatch(bearerCredential(authorization), expected)
+    )
+      throw problemException(
+        401,
+        "unauthorized",
+        "Activation authority required",
+      );
+  }
+  @Post("announcement")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "readActivationAnnouncement",
+    summary:
+      "Resolve the published Product and source of an owner announcement",
+  })
+  @ApiBody({ schema: toOpenApiSchema(announcementQuerySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(announcementResponseSchema) })
+  async announcement(
+    @Headers("authorization") authorization: string | undefined,
+    @Body() input: unknown,
+  ) {
+    this.authenticate(authorization);
+    return this.activation.announcement(input);
+  }
+  @Post("binding")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "readCourseActivationBinding",
+    summary:
+      "Read the exact current Platform binding for a verified source-authority identity",
+  })
+  @ApiBody({ schema: toOpenApiSchema(bindingLookupQuerySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(bindingLookupResponseSchema) })
+  async binding(
+    @Headers("authorization") authorization: string | undefined,
+    @Body() input: unknown,
+  ) {
+    this.authenticate(authorization);
+    return this.activation.lookupBinding(input);
+  }
+  @Post("own-access")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "readOwnSubscriptionAccess",
+    summary:
+      "Read every independent access ground for the exact authenticated Telegram binding",
+  })
+  @ApiBody({ schema: toOpenApiSchema(ownSubscriptionAccessQuerySchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(ownSubscriptionAccessResponseSchema),
+  })
+  async own(
+    @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() input: unknown,
+  ) {
+    this.authenticate(authorization);
+    return botDomainResponse(await this.activation.readOwn(input), domainNames);
+  }
+  @Post("attempts")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "beginCourseActivation",
+    summary:
+      "Persist an activation attempt for a verified private bot identity",
+  })
+  @ApiBody({ schema: toOpenApiSchema(beginActivationSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(activationResponseSchema) })
+  async begin(
+    @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() input: unknown,
+  ) {
+    this.authenticate(authorization);
+    return botDomainResponse(await this.activation.begin(input), domainNames);
+  }
+  @Post("evidence")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "acceptCourseActivationEvidence",
+    summary:
+      "Apply bounded source proof to the exact current Account binding and rule revision",
+  })
+  @ApiBody({ schema: toOpenApiSchema(activationEvidenceSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(activationResponseSchema) })
+  async accept(
+    @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() input: unknown,
+  ) {
+    this.authenticate(authorization);
+    return botDomainResponse(await this.activation.accept(input), domainNames);
+  }
+}

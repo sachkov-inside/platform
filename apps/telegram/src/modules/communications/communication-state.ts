@@ -2,7 +2,7 @@ import { isTruthy } from "../../shared/truthiness.js";
 import { randomUUID } from "node:crypto";
 import { sql, type Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
-import type { MessagePart } from "./funnel-types.js";
+import type { MessagePart } from "./sequence-types.js";
 import { aggregateRow } from "./communication-queries.js";
 export async function communicationLock(
   tx: Transaction<DatabaseSchema>,

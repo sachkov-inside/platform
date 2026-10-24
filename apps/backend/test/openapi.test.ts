@@ -27,7 +27,7 @@ describe("OpenAPI contract", () => {
   test("publishes stable operation ids and concrete success schemas", () => {
     const document = createApiOpenApiDocument(app);
     const expectedOperations = [
-      ["/billing/offers", "get", "billingOffers"],
+      ["/billing/product-prices", "get", "productPrices"],
       ["/billing/admin", "post", "manageBilling"],
       ["/accounts/current/billing/quote", "post", "quoteBillingPurchase"],
       ["/health", "get", "getApiHealth"],
@@ -66,11 +66,6 @@ describe("OpenAPI contract", () => {
         "/accounts/current/telegram-link/{linkRef}/confirm",
         "post",
         "confirmTelegramMembershipLink",
-      ],
-      [
-        "/integrations/telegram/v1/membership-evidence",
-        "post",
-        "acceptTelegramMembershipEvidence",
       ],
     ] as const;
 
@@ -295,26 +290,9 @@ describe("OpenAPI contract", () => {
       ).toBe(true);
     }
 
-    const evidence = operation(
-      document,
+    expect(document.paths).not.toHaveProperty(
       "/integrations/telegram/v1/membership-evidence",
-      "post",
     );
-    expect(evidence["security"]).toEqual([{ "telegram-membership": [] }]);
-    expect(hasRequestBodySchema(evidence, "application/json")).toBe(true);
-    expect(evidence["parameters"]).toMatchObject([
-      {
-        in: "header",
-        name: "x-inside-membership-evidence-source",
-        required: true,
-      },
-      { in: "header", name: "idempotency-key", required: true },
-    ]);
-    for (const status of ["400", "401", "409", "422", "503"] as const) {
-      expect(
-        hasResponseSchema(evidence, status, "application/problem+json"),
-      ).toBe(true);
-    }
   });
 
   test("publishes concrete Content Cover request and error contracts", () => {
@@ -433,16 +411,6 @@ function hasResponseSchema(
   const response = responses[status];
   if (!isRecord(response) || !isRecord(response["content"])) return false;
   const media = response["content"][mediaType];
-  return isRecord(media) && isRecord(media["schema"]);
-}
-
-function hasRequestBodySchema(
-  operation: Readonly<Record<string, unknown>>,
-  mediaType: string,
-): boolean {
-  const requestBody = operation["requestBody"];
-  if (!isRecord(requestBody) || !isRecord(requestBody["content"])) return false;
-  const media = requestBody["content"][mediaType];
   return isRecord(media) && isRecord(media["schema"]);
 }
 

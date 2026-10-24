@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -161,15 +161,15 @@ describe("material authoring integrity contract", () => {
         }),
       ),
     );
-    for (const [index, result] of loaded.entries()) {
+    for (const result of loaded) {
       if (!result.ok) throw new Error(result.error.code);
-      expect(result.value.metadata.seriesMemberships).toEqual([
-        { seriesId, ordinal: index + 1 },
-      ]);
+      expect(
+        result.value.metadata.seriesMemberships.map((entry) => entry.seriesId),
+      ).toEqual([seriesId]);
     }
   });
 
-  test("serializes concurrent playlist appends into unique stable positions", async () => {
+  test("serializes concurrent catalogue inclusion without inventing programme placements", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -198,12 +198,18 @@ describe("material authoring integrity contract", () => {
     ]);
     expect(left.ok).toBe(true);
     expect(right.ok).toBe(true);
-    const memberships = await testDatabase.prisma.productMembership.findMany({
-      where: { seriesId: secondSeriesId },
-      orderBy: { ordinal: "asc" },
-      select: { ordinal: true },
+    const catalogue = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: secondSeriesId,
     });
-    expect(memberships).toEqual([{ ordinal: 1 }, { ordinal: 2 }]);
+    if (!catalogue.ok) throw new Error(catalogue.error.code);
+    expect(catalogue.value.items.map((item) => item.materialId).sort()).toEqual(
+      [
+        left.ok ? left.value.materialId : "",
+        right.ok ? right.value.materialId : "",
+      ].sort(),
+    );
+    expect(catalogue.value.programmePlacements).toEqual([]);
   });
 
   test("allows exactly one of two concurrent Saves from the same content version", async () => {

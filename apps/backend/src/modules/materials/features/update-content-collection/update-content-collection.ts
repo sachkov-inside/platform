@@ -1,8 +1,3 @@
-import {
-  checkContentWrite,
-  contentWriter,
-} from "../../domain/content-write-policy.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -26,10 +21,7 @@ import { contentCollectionPersistence } from "../../infrastructure/postgres/cont
 import {
   productPageSchema,
   productPresentationSchema,
-  type ProductSourceFields,
 } from "../../domain/product-page.js";
-import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
-import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import {
   PRODUCT_INTRODUCTION_FIELD_MAX,
   type ProductIntroductionDto,
@@ -82,6 +74,8 @@ export function assembleUpdateContentCollection(
   sourceId: string | null = null,
 ): UpdateContentCollectionOperation {
   return async (input) => {
+    if (input.kind !== "topic")
+      return dependencies.products.updateContentCollection(input);
     const parsed = parseCommand(updateContentCollectionCommandSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
@@ -94,23 +88,6 @@ export function assembleUpdateContentCollection(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
-        if (command.kind !== "topic") {
-          await lockSeries(transaction, [command.collectionId]);
-          const currentSource = await transaction.product.findUnique({
-            where: { id: command.collectionId },
-            select: { sourceId: true },
-          });
-          if (currentSource !== null) {
-            const sourceError = checkContentWrite(contentWriter(sourceId), [
-              {
-                kind: "product",
-                sourceId: currentSource.sourceId,
-                path: "/collectionId",
-              },
-            ]);
-            if (sourceError !== null) return rollback(sourceError);
-          }
-        }
         if (command.source !== undefined && sourceId === null)
           return rollback({ code: "forbidden" });
         const persistence = contentCollectionPersistence(
@@ -135,12 +112,7 @@ export function assembleUpdateContentCollection(
             current.summary === command.summary &&
             (introduction === null ||
               introductionMatches(current.introduction, introduction)) &&
-            (command.source === undefined ||
-              (await sourceMatches(
-                transaction,
-                command.collectionId,
-                command.source,
-              )))
+            command.source === undefined
           )
             return current;
           return current === undefined
@@ -155,6 +127,7 @@ export function assembleUpdateContentCollection(
           command.kind === "topic"
             ? { kind: "topic", topicId: command.collectionId }
             : { kind: "series", seriesId: command.collectionId },
+          dependencies.discovery,
         );
         const collection = await persistence.load(command.collectionId);
         return collection ?? rollback({ code: "content_collection_not_found" });
@@ -170,23 +143,6 @@ export function assembleUpdateContentCollection(
       "updateContentCollection",
     );
   };
-}
-
-async function sourceMatches(
-  transaction: MaterialsPrismaTransaction,
-  id: string,
-  requested: ProductSourceFields,
-): Promise<boolean> {
-  const current = await transaction.product.findUnique({
-    where: { id },
-    select: { page: true, presentation: true, slug: true },
-  });
-  return (
-    current !== null &&
-    current.slug === requested.slug &&
-    current.presentation === requested.presentation &&
-    contractDigest(current.page) === contractDigest(requested.page)
-  );
 }
 
 function introductionMatches(

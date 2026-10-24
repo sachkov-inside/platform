@@ -16,6 +16,17 @@ const backend = `http://127.0.0.1:${backendPort}`;
 const course = "/products/performance-course";
 const programme = `${course}/programme`;
 const lesson = "/materials/data-loading-image-lesson";
+
+async function visibleCourseLanding(page: Page) {
+  // Suspense may retain an article in a hidden S-container while the visible article is ready.
+  const landing = page
+    .locator('[data-product-landing="performance-course"]')
+    .filter({ visible: true });
+  await expect(landing).toHaveCount(1);
+  await expect(landing).toBeVisible();
+  return landing;
+}
+
 const recordsSchema = z.object({
   records: z.array(
     z.object({
@@ -268,9 +279,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
         else {
           if (path === "warm") {
             await page.goto(course, { waitUntil: "commit" });
-            await expect(
-              page.locator('[data-product-landing="performance-course"]'),
-            ).toBeVisible();
+            await visibleCourseLanding(page);
             await page
               .locator('a[href="/"]')
               .filter({ visible: true })
@@ -328,33 +337,35 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           });
           await link.click();
         }
-        await expect(
-          page.locator('[data-product-landing="performance-course"]'),
-        ).toBeVisible();
+        const landing = await visibleCourseLanding(page);
         const bodyReady = await page.evaluate(() => performance.now());
         if (role === "active-owner") {
-          await expect(page.locator(".aie-cohort-status")).toHaveCount(0);
+          await expect(landing.locator(".aie-cohort-status")).toHaveCount(0);
           for (const selector of [
             ".aie-learning-film",
             ".aie-learning-status",
           ]) {
             await expect(
-              page
+              landing
                 .locator(selector)
                 .getByRole("link", { name: "Продолжить обучение" }),
             ).toHaveAttribute("href", "/products/performance-course/programme");
           }
           await expect(
-            page.locator(".aie-status-lead .aie-status-default"),
+            landing.locator(".aie-status-lead .aie-status-default"),
           ).toBeHidden();
         } else {
-          await expect(page.locator(".aie-cohort-status")).toBeVisible();
           await expect(
-            page.locator(".aie-cohort-status-countdown"),
+            landing.locator(".aie-cohort-status").filter({ visible: true }),
+          ).toBeVisible();
+          await expect(
+            landing
+              .locator(".aie-cohort-status-countdown")
+              .filter({ visible: true }),
           ).toContainText("до старта");
         }
         await expect(
-          page.locator(".start-countdown-badge").first(),
+          landing.locator(".start-countdown-badge").first(),
         ).toContainText("до старта");
         const optionalReady = await page.evaluate(() => performance.now());
         await documentResponse?.finished();
@@ -405,8 +416,8 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
         });
         const courseReads = courseTrace.filter(
           (record) =>
-            record.path.startsWith("/billing/offers?") ||
-            record.path.startsWith("/billing/cohorts"),
+            record.path.startsWith("/billing/product-prices?") ||
+            record.path.startsWith("/billing/product-sales-states"),
         );
         await save(`course-count-${info.project.name}-${role}-${path}`, {
           role,
@@ -423,7 +434,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           const publicTermsOffers =
             path === "cold" &&
             role === "guest" &&
-            identity.includes("/billing/offers?")
+            identity.includes("/billing/product-prices?")
               ? 1
               : 0;
           expect(
@@ -716,9 +727,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
             .first()
             .click();
         } else await page.goto(course, { waitUntil: "commit" });
-        await expect(
-          page.locator('[data-product-landing="performance-course"]'),
-        ).toBeVisible();
+        await visibleCourseLanding(page);
         await page.clock.runFor(250);
         // Clock advancement starts prefetch; the completed body is its independent barrier.
         await expect.poll(() => feedResponses.length).toBe(1);
@@ -824,7 +833,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
   }
 }
 
-test("FLOW04 cold and warm closed guest eligibility stays fresh while public projection is reused", async ({
+test("FLOW04 a retired subscription hint cannot introduce checkout while public projection is reused", async ({
   page,
   request,
 }, info) => {
@@ -849,11 +858,7 @@ test("FLOW04 cold and warm closed guest eligibility stays fresh while public pro
       name: "Получить доступ",
       exact: true,
     });
-    await expect(invitation).toBeVisible();
-    await expect(invitation).toHaveAttribute(
-      "href",
-      `/payment/checkout?from=${encodeURIComponent(`${path}?from=%2F`)}`,
-    );
+    await expect(invitation).toHaveCount(0);
     const warm = (await backendRecords(request)).filter(
       (record) => record.path === path,
     );
@@ -867,7 +872,7 @@ test("FLOW04 cold and warm closed guest eligibility stays fresh while public pro
       cold,
       warm,
       falseHadInvitation: false,
-      trueHasInvitation: true,
+      trueHasInvitation: false,
       protectedImages: 0,
     });
   } finally {
@@ -889,7 +894,10 @@ for (const role of ["guest", "non-owner"] as const) {
     await reset(request);
     try {
       await page.goto(course, { waitUntil: "commit" });
-      const status = page.locator(".aie-cohort-status");
+      const status = page
+        .locator(".aie-cohort-status")
+        .filter({ visible: true });
+      await expect(status).toHaveCount(1);
       await expect(status).toBeVisible();
       await expect(status).toContainText(
         role === "guest" ? /9\s*900/u : /8\s*900/u,
@@ -911,10 +919,10 @@ for (const role of ["guest", "non-owner"] as const) {
       await expect(status).toContainText("декабря");
       const after = await backendRecords(request);
       const offers = after.filter((record) =>
-        record.path.startsWith("/billing/offers?"),
+        record.path.startsWith("/billing/product-prices?"),
       );
       const cohorts = after.filter((record) =>
-        record.path.startsWith("/billing/cohorts"),
+        record.path.startsWith("/billing/product-sales-states"),
       );
       expect(offers).toHaveLength(1);
       expect(offers[0]?.role).toBe(role);

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -5,7 +7,7 @@ import { seedLocalDevelopment } from "../../src/development/seed-local-developme
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -440,7 +442,10 @@ describe("ListPublishedMaterials", () => {
     for (let sample = 0; sample < 20; sample += 1) {
       const startedAt = performance.now();
       const result = await selectPublishedMaterialProjectionPage(
-        testDatabase.prisma,
+        {
+          prisma: testDatabase.prisma,
+          products: new ProductDiscovery(testDatabase.prisma),
+        },
         {
           formatSlugs: [],
           first: 12,
@@ -571,6 +576,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
     },
   ] as const;
 
+  const programmeMaterialIds: string[] = [];
   for (const [index, fixture] of fixtures.entries()) {
     const created = await authoring.createDraft({
       actor: actorId,
@@ -621,6 +627,9 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
     if (!published.ok) {
       throw new Error(`Search fixture publish failed: ${published.error.code}`);
     }
+    if (fixture.metadata.seriesIds.length > 0) {
+      programmeMaterialIds.push(created.value.materialId);
+    }
     const publishedAt = new Date(`2026-01-0${String(index + 1)}T00:00:00.000Z`);
     await testDatabase.prisma.$transaction([
       testDatabase.prisma.material.update({
@@ -633,6 +642,28 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       }),
     ]);
   }
+  const current = await authoring.loadSeriesOrder({
+    actor: actorId,
+    seriesId: careerSeriesId,
+  });
+  if (!current.ok)
+    throw new Error(
+      `Search fixture programme load failed: ${current.error.code}`,
+    );
+  const reordered = await authoring.reorderSeries({
+    actor: actorId,
+    seriesId: careerSeriesId,
+    expectedOrderVersion: current.value.orderVersion,
+    orderedMaterialIds: programmeMaterialIds,
+    programmePlacements: programmeMaterialIds.map((materialId) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId: null,
+      stepGroup: null,
+    })),
+  });
+  if (!reordered.ok)
+    throw new Error(`Search fixture programme failed: ${reordered.error.code}`);
 }
 
 async function seedSearchPerformanceCorpus(

@@ -1,3 +1,4 @@
+import { historicalInvitationRequestSchema } from "../../src/modules/telegram-membership/domain/historical-invitation-codec.js";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { describe, expect, test } from "vitest";
@@ -11,7 +12,6 @@ import {
   beginActivationSchema,
   activationEvidenceSchema,
   ownSubscriptionAccessQuerySchema,
-  redeemInvitationSchema,
 } from "../../src/modules/account-rights/index.js";
 import {
   announcementResponseSchema,
@@ -40,7 +40,7 @@ const activationCodecs: Record<string, z.ZodType> = {
   ownAccessResponse: ownSubscriptionAccessResponseSchema,
   bindingQuery: bindingLookupQuerySchema,
   bindingResponse: bindingLookupResponseSchema,
-  invitationRedeem: redeemInvitationSchema,
+  invitationRedeem: historicalInvitationRequestSchema,
   invitationRedeemResponse: invitationRedeemResponseSchema,
 };
 const communityCodecs: Record<string, z.ZodType> = {

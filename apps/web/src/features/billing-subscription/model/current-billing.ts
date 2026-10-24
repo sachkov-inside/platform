@@ -61,12 +61,7 @@ function billingRefreshInterval(
     )
   )
     return unavailableRetryIntervalMs;
-  const subscription = result.value.subscription;
-  if (subscription === null) return false;
-  return subscription.inFlightPayment !== null ||
-    subscription.pendingMethodChange !== null
-    ? unavailableRetryIntervalMs
-    : false;
+  return false;
 }
 
 /**

@@ -38,12 +38,12 @@ import {
   COMMUNICATIONS_VERSION,
   type CommunicationsRequest,
 } from "../../src/modules/communications/communications-contract.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import type {
-  FunnelDraft,
+  CommunicationSequenceDraft,
   MessagePart,
-} from "../../src/modules/communications/funnel-types.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
+} from "../../src/modules/communications/sequence-types.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { communicationLock } from "../../src/modules/communications/communication-state.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
@@ -98,7 +98,7 @@ const it = test.extend<{ load: Awaited<ReturnType<typeof createFixture>> }>({
     { auto: true },
   ],
 });
-const performanceTest = it.extend<{ audience: FunnelDraft }>({
+const performanceTest = it.extend<{ audience: CommunicationSequenceDraft }>({
   audience: async ({ load }, use) => {
     await use(await seedDueAudience(load.app));
   },
@@ -217,10 +217,10 @@ function sentParts(parts: readonly MessagePart[], at: Date) {
 async function seedDueAudience(
   app: NestFastifyApplication,
   size = AUDIENCE,
-): Promise<FunnelDraft> {
-  const funnels = app.get(Funnels);
+): Promise<CommunicationSequenceDraft> {
+  const funnels = app.get(CommunicationSequences);
   const intro = [part("intro")];
-  const value: FunnelDraft = {
+  const value: CommunicationSequenceDraft = {
     funnelId: randomUUID(),
     name: "general",
     isDefault: true,
@@ -374,14 +374,14 @@ async function elapsed(
 
 describe("funnel dispatch performance", () => {
   // Preparing the corpus has its own setup budget, outside the measurement test.
-  beforeEach<{ audience: FunnelDraft }>(({ audience }) => {
+  beforeEach<{ audience: CommunicationSequenceDraft }>(({ audience }) => {
     expect(audience.steps).toHaveLength(2);
   }, 300_000);
   performanceTest(
     `answers /start within bounds while a funnel dispatches to ${AUDIENCE} contacts`,
     async ({ load }) => {
       const { app, sent, dispatchStarted, replyReceived } = load;
-      const scheduler = app.get(FunnelScheduler);
+      const scheduler = app.get(SequenceScheduler);
       const worker = new WorkerLoop(
         "dispatch-load",
         async (signal) => (await scheduler.processAvailable(25, signal)) > 0,
@@ -462,7 +462,7 @@ it("settles the claimed dispatch and stops scheduling before shutdown returns", 
   });
   let sends = 0;
   let cycleSignal: AbortSignal | undefined;
-  const scheduler = new FunnelScheduler(
+  const scheduler = new SequenceScheduler(
     database,
     config,
     load.app.get<Clock>(CLOCK),
@@ -704,7 +704,7 @@ describe("blocked replies", () => {
       await app
         .get(TelegramUpdateProcessor)
         .processAvailable(1, runtimeClock.now());
-      const scheduler = app.get(FunnelScheduler);
+      const scheduler = app.get(SequenceScheduler);
       for (let cycle = 0; cycle < 5; cycle++) {
         await scheduler.processAvailable();
         if (sent.some((s) => s.message.chatId === "778")) break;
@@ -766,7 +766,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
       return args.result;
     },
   });
-  const dispatch = new FunnelScheduler(
+  const dispatch = new SequenceScheduler(
     pausing,
     config,
     { now: () => runtimeClock.now() },

@@ -316,6 +316,12 @@ test("product programme appends a real composition and restores Reader return po
         seriesId: collection.id,
         expectedOrderVersion: order.orderVersion,
         orderedMaterialIds: ids.slice(0, 13),
+        programmePlacements: ids.slice(0, 13).map((materialId) => ({
+          id: randomUUID(),
+          materialId,
+          chapterId: null,
+          stepGroup: null,
+        })),
       },
     );
     expect(await saved.json()).toMatchObject({ kind: "saved" });
@@ -402,6 +408,7 @@ test("product programme appends a real composition and restores Reader return po
         seriesId: collection.id,
         expectedOrderVersion: order.orderVersion,
         orderedMaterialIds: [],
+        programmePlacements: [],
         confirmedProductRemovals: [collection.id],
       },
     );

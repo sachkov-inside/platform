@@ -1,3 +1,8 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { HttpException } from "@nestjs/common";
 import { ImportSourceProductController } from "../../src/modules/materials/features/import-source-product/import-source-product.controller.js";
@@ -8,7 +13,7 @@ import {
   assembleAccessGrants,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import {
@@ -80,34 +85,14 @@ describe("снятие материала из купленного руково
     readonly validUntil: string | null;
     readonly coverage?: { productIds: string[]; materialIds: string[] };
   }) {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "fixture",
-          accountId: buyer,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities: terms.capabilities,
-            ...(terms.coverage === undefined
-              ? {}
-              : { coverage: terms.coverage }),
-            startsAt: "2030-01-01T00:00:00Z",
-            validUntil: terms.validUntil,
-            reason: "Синтетическое право",
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["fixture"],
-    });
-    if (!applied.ok) throw new Error(applied.error.code);
+    const ids = new Set([
+      ...(terms.coverage?.productIds ?? []),
+      ...terms.capabilities
+        .filter((c) => c.startsWith("product:"))
+        .map((c) => c.slice(8)),
+    ]);
+    for (const productId of ids)
+      await grantProductFixture(db.prisma, buyer, productId);
   }
   function metadata(seriesIds: readonly string[]) {
     return {
@@ -490,7 +475,10 @@ describe("снятие материала из купленного руково
       { ...command, confirmedProductRemovals: [bought] },
     );
     expect(await publishedProducts(removed.materialId)).toEqual([]);
-    const held = await grants.countProductHolders(db.prisma, [bought]);
+    const held = await grants.countProductHolders(
+      transactionHandle(db.prisma),
+      [bought],
+    );
     expect(held.get(bought)).toBe(1);
     const loaded = await materials.authoring.loadMaterial({
       actor: owner,
@@ -516,21 +504,7 @@ describe("снятие материала из купленного руково
     now = new Date("2030-01-01T00:00:00Z");
     const bought = await product();
     // Материалы открывает тариф или оплаченный период с продуктом в составе, а не прямое право.
-    const scoped = await grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: buyer,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: ["materials"],
-        coverage: { productIds: [bought], materialIds: [] },
-        startsAt: "2030-01-01T00:00:00Z",
-        validUntil: null,
-        reason: "Синтетический состав",
-      },
-    });
-    if (!scoped.ok) throw new Error("Scoped period fixture failed");
+    await grantProductFixture(db.prisma, buyer, bought);
     const kept = await publish([bought]);
     const removed = await publish([bought]);
     const order = await materials.authoring.loadSeriesOrder({
@@ -573,18 +547,19 @@ describe("снятие материала из купленного руково
     ]);
   });
 
-  test("истёкшее право не делает руководство купленным", async () => {
+  test("отозванное право не делает руководство купленным", async () => {
     now = new Date("2030-01-01T00:00:00Z");
     const lapsed = await product();
     await grant({
       capabilities: [`product:${lapsed}`],
       validUntil: "2030-01-02T00:00:00Z",
     });
+    await revokeProductFixture(db.prisma, `${buyer}:${lapsed}`);
     const item = await publish([lapsed]);
     now = new Date("2030-01-03T00:00:00Z");
-    expect(await grants.countProductHolders(db.prisma, [lapsed])).toEqual(
-      new Map([[lapsed, 0]]),
-    );
+    expect(
+      await grants.countProductHolders(transactionHandle(db.prisma), [lapsed]),
+    ).toEqual(new Map([[lapsed, 0]]));
     expect(await save(item, { publicationState: "unpublished" })).toMatchObject(
       { ok: true },
     );

@@ -1,3 +1,9 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { createLearningStartedRead } from "../../src/modules/reading-activity/shared/learning-started.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
@@ -10,11 +16,11 @@ import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
 } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
@@ -127,9 +133,15 @@ async function prepare() {
     videos,
     contentAccess,
   });
-  const selectionOwner = new PublishedMaterialSelection(observer.prisma);
+  const selectionOwner = new PublishedMaterialSelection({
+    prisma: observer.prisma,
+    products: new ProductDiscovery(observer.prisma),
+  });
   const selectionRead = vi.fn(selectionOwner.read.bind(selectionOwner));
-  const compositionOwner = new PublishedSeriesComposition(observer.prisma);
+  const compositionOwner = new PublishedSeriesComposition(
+    observer.prisma,
+    assembleProductMaterialReading(observer.prisma),
+  );
   const compositionRead = vi.fn(compositionOwner.read.bind(compositionOwner));
   const discoveryRead = vi.fn(
     materials.publishedMaterialReader.discoverProjections.bind(
@@ -228,6 +240,26 @@ async function prepare() {
       publicationState: "published",
     });
     if (!saved.ok) throw new Error(saved.error.code);
+    const order = await materials.authoring.loadSeriesOrder({
+      actor,
+      seriesId: id(802, index),
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: id(802, index),
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [saved.value.materialId],
+      programmePlacements: [
+        {
+          id: id(807, index),
+          materialId: saved.value.materialId,
+          chapterId: null,
+          stepGroup: null,
+        },
+      ],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     items.push({
       materialId: saved.value.materialId,
       contentVersion: saved.value.contentVersion,
@@ -239,25 +271,8 @@ async function prepare() {
   });
   for (const { caseIndex, configuration } of cases) {
     const account = id(800, caseIndex + 2);
-    await database.prisma.accessGrant.create({
-      data: {
-        id: id(806, caseIndex + 1),
-        accountId: account,
-        source: "manual",
-        sourceRef: `home-cost-${String(caseIndex)}`,
-        capabilities: ["materials"],
-        coverage: {
-          productIds: Array.from({ length: 12 }, (_, index) =>
-            id(802, index + 1),
-          ),
-          materialIds: [],
-        },
-        startsAt: new Date(now.getTime() - 60_000),
-        validUntil: null,
-        revision: 1,
-        reason: "Measured Home access",
-      },
-    });
+    for (let product = 1; product <= 12; product++)
+      await grantProductFixture(database.prisma, account, id(802, product));
     await database.prisma.readingMaterialVisit.createMany({
       data: items.slice(0, configuration.visits).map((item, index) => ({
         accountId: account,
@@ -431,15 +446,11 @@ test("later series retain fresh authorization after a locked grant revocation", 
   const original = fixture.reader.discoverProjections.bind(fixture.reader);
   fixture.counters.discoveryRead.mockImplementation(async (input) => {
     if (fixture.counters.discoveryRead.mock.calls.length === 2) {
-      expect(
-        await fixture.writers.changeGrant(actor, {
-          operationId: id(807, 2),
-          action: "revoke",
-          grantRef: id(806, 104),
-          expectedRevision: 1,
-          reason: "Controlled revoke between series",
-        }),
-      ).toMatchObject({ ok: true, revision: 2 });
+      for (let product = 1; product <= 12; product++)
+        await revokeProductFixture(
+          database.prisma,
+          `${account}:${id(802, product)}`,
+        );
     }
     return original(input);
   });

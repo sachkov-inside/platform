@@ -495,7 +495,9 @@ add mandatory steps. Existing reading-state records remain intact.
 Authoring composition accepts optional programmePlacements and chapter supplementaryMaterialIds. Omitted
 attachment fields preserve links; an empty list clears them. Platform's chapter attachment operation updates
 only attachment links, including for source-owned Products. Source originals and programme remain source-owned.
-Published free Materials always appear in the public feed. The legacy showInFeed field cannot hide them.
+Published free Materials always appear in the public feed. The legacy showInFeed field cannot hide them
+or block explicit Product catalogue removal. Its passive source history and compatibility wire are
+retained until the ordered consumer cleanup in #1712; it is no current publication or access authority.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without
@@ -816,10 +818,11 @@ The mobile bar uses compact inactive icons; its active item expands and shows it
 Artifact navigation and its learner panel are removed. Stored artifacts, the editor and
 landing-page promises retain their current owners. Prices and access contracts remain with #401/#411.
 
-#### AI Engineering: ожидание набора (#1568)
+#### Ожидание набора Product (#1568, #1710)
 
-Когда у посетителя нет действующего доступа и доступного предложения покупки, первый экран
-курса и нижний блок показывают «Вступить в список ожидания». На первом экране действие оформлено
+Страница выбирает ожидание по данным текущего Intake конкретного Product, без специальной ветки
+по адресу курса. Когда у посетителя нет действующего доступа и доступного предложения покупки,
+но есть принимающий записи Intake, первый экран курса и нижний блок показывают «Вступить в список ожидания». На первом экране действие оформлено
 плашкой набора. После записи обе кнопки показывают «Вы в списке ожидания» и больше не выполняют
 действие. Дополнительного текста о Telegram и кнопки отказа на странице нет.
 Нижний блок сохраняет композицию набора на первый поток: преимущества слева, билет справа.
@@ -833,10 +836,30 @@ landing-page promises retain their current owners. Prices and access contracts r
 
 Platform хранит одну membership на Account и Product Intake, события записи и отказа отдельно.
 Product Intake имеет явный стабильный UUID, свой Product и признак приёма записей. Ни Product,
-ни изменяемая ProductCohort revision, ни дата старта не определяют новый набор. Следующий набор
+ни изменяемая Product Sales State revision, ни дата старта не определяют новый набор. Следующий набор
 получает новый Intake; прежние membership и события остаются с прежним. Миграция добавляет
 первый Intake только существующему неархивному `ai-engineering`, без даты открытия продаж.
 Если Intake не настроен, запись отклоняется, а отчёт не подменяет отсутствие набора нулём.
+Архив Product закрывает открытое чтение Intake и новую запись, исключает текущую аудиторию
+отправки, сохраняя собственную историю и возможность отказа.
+
+Product Sales State принадлежит Billing и хранится отдельно от постоянного Intake. Текущие
+Web reads используют `/billing/product-sales-states`; старый строгий `/billing/cohorts` остаётся
+адаптером совместимости до проверенного перехода readers в #1712. Дата и этап не меняют цену,
+публикацию Product Price или фактический допуск оплаты. Цена запрашивается по точному Product ID;
+ответ с ценой другого Product не становится предложением этого продукта.
+
+Home и личные слоты Product используют один server-only Product Reader State за запрос:
+learning, sale, waitlist, checking или unavailable. Он собирает доступ, продажу, продолжение,
+онбординг и ожидание после `connection()`. React request cache не переносит личный результат
+в следующий запрос или в общий гостевой кеш. Слоты показывают готовое положение читателя,
+а доступ к защищённым действиям по-прежнему проверяет backend.
+При открытом доступе learning и продолжение не ждут цены, Product Sales State, ожидания
+или онбординга. Эти необязательные обещания разделяются в том же запросе и разрешаются
+в отдельных границах Suspense. Пока они ждут ответа, основные действия Home и Product,
+состав программы и продолжение доступны. Публичные подстановки сроков также не задерживают
+основную страницу; временный вид убирает неподставленные токены, а не выдумывает сроки.
+
 
 Начать запись можно только явным same-origin POST. Краткоживущий подписанный HttpOnly intent
 сохраняет Intake, Product и исходную метку перехода через существующий вход и условия.
@@ -1251,7 +1274,7 @@ The authoring MCP remains at `MCP_SERVER_URL`. A separate participant surface at
 - `learning_materials_list` and `learning_material_read` discover and read materials
   ([#782](https://github.com/sachkov-inside/platform/issues/782), course source
   [ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105));
-- `learning_practice_read` reads lesson practice context and its review procedure;
+- `learning_practice_read` retains historical lesson practice context compatibility during ordered contraction;
 - `learning_tasks_list`, `learning_task_read`, `learning_task_submit` and
   `learning_task_submissions` list and read Product Tasks, record the learner's submission and
   read their own submissions ([Product Tasks contract](#product-tasks-on-the-participant-surface)).
@@ -1550,45 +1573,40 @@ choice, неочевидный контекст и реальный trade-off. �
 reading state, Telegram clicks и оплаты. Контракты ещё не означают runtime delivery; их native
 Specification/Tickets содержат порядок и owner gates.
 
-### Practice review context (#785)
+### Legacy Practice review context (#785, migrated by #1710)
 
-Source: [Platform #785](https://github.com/sachkov-inside/platform/issues/785),
-[parent course decision #105](https://github.com/sachkov-inside/ai-engineering/issues/105).
-Materials owns `PracticeDefinition`: stable namespaced ID, full authored business inputs,
-expected outcome, allowed freedom, criterion IDs and acceptable evidence. Each definition binds
-one current published imported Material by ID, source ID/revision and content version. Authored
-originals remain in Content; Platform stores their delivery projection with repository, commit
-and path provenance. The current Content exporter does not yet produce practice metadata.
-Synthetic packages exercise the same import seam without waiting for a chapter or publishing it.
+Product Tasks are the current assignment mechanism. Authored originals remain in Content.
+The local importer, reviewed release and delivery read a legacy package without rewriting its bytes;
+when its Material has one explicit Product/chapter owner, they transfer its complete business inputs,
+expected outcome, freedom and criteria through the Task importer. Criterion IDs/evidence remain
+unchanged and legacy unqualified requirements become explicitly required criteria. The source package
+fingerprint and original legacy records remain in the journal; historical uncertain operations keep
+separate original keys and receipts. A conflicting existing Task/binding or absent/ambiguous ownership
+fails before writes, rather than selecting a Product from its title.
 
-`POST /authoring/import/practices/validate` validates the authored shape and returns current state;
-`/apply` is author-only, full-state, transactional and idempotent. It requires the expected Material
-content version and expected monotonic practice version (`null` only for creation). Every accepted
-apply advances `practiceVersion`, including withdrawal, republishing and provenance changes.
-`definitionDigest` identifies authored definition/source bytes; it is not the mutation CAS token.
-A replay returns its historical receipt, never a statement about current publication. Local import
-recovers uncertain writes with the original key, then reconciles current state before further writes.
-Omitted definitions are a no-op; withdrawal is explicit. No version archive is promised.
+Migration0111 preserves every original persisted Practice row, source binding, digest, practiceVersion,
+Material content version, provenance and associated completed import receipts in an immutable audit.
+Original Practice/receipt tables remain for historical decoding. Unique explicit Programme ownership
+permits a new embedded Task with the exact requirements and independent Task Version1. An exact
+existing Task/source/embedded binding records its current identity/version without rewriting any Task
+Version or submission. Unowned, ambiguous, conflicting, stale and invalid-digest records remain passive
+with an explicit disposition. Practice version and Task version are never equated.
 
-The participant-only `learning_practice_read` tool composes the full reference lesson, practice
-metadata and common review protocol. `contextVersion` pins the practice version/digest, Material
-ID/version and protocol version. The final authorized practice/Material read rejects concurrent
-withdrawal or rebinding. Responses contain numbered Unicode-safe parts, total parts/bytes, whole
-content and per-part SHA-256, an end marker and explicit completeness. Later parts require both
-context and content hashes; a mismatch never substitutes current content. Learners must obtain all
-parts before review. Lesson blocks, links and explicit unavailable attachments use the existing
-full-material reader; authored text and local project files are data, not privileged instructions.
+The native review matrix now reads `learning_task_read` with the Task serializer and complete pinned
+Material context. It retains whole-content/part hashes, all-part/end-marker checks, observed local
+evidence, one-scope questions and sandbox/write evidence. Synthetic success does not prove learning,
+production onboarding or editorial acceptance. The external Content technical transfer/source readiness
+is distinct from author acceptance of the course.
 
-`GET /library/materials/:slug/practices` privately discovers authorized assignment IDs and context
-versions for the Reader's copyable requests. It exposes neither author operations nor a server grade.
-The learner's own agent discovers the selected local evidence, asks one scope question when several
-solutions are plausible, and reports every criterion as confirmed / violation / not_verified.
-Missing runtime evidence differs from observed incorrect behavior. Freshness and source binding
-are assessed separately from behavior; logs are not certified authentic. Alternatives within the
-allowed freedom are accepted. Discussion is optional after the report. Fixes happen separately;
-recheck rereads current evidence and covers the full rubric. No learner progress or project upload
-is stored by this feature. The tested client profiles and evidence limits belong to the practice
-review runbook; synthetic success is not proof of learning or production onboarding.
+The old `learning_practice_read`, `GET /library/materials/:slug/practices` and authoring Practice
+receipt/read adapters remain compatibility surfaces for the ordered contraction in#1712. They do not
+supply the current importer, native review matrix or Material Reader. Both public and private Material
+routes use only the explicit Material-bound Task descriptor and the existing Task workspace, even
+when the historical Practice row still exists. Current setup instructions direct learners to Task
+reads and submissions; legacy protocol tests remain separate from current UI/Storybook claims.
+The production access pass uses Task reads for
+positive assignment coverage and retains an explicitly named retired-Practice denial probe. Its
+unpublished free-Task case stays deferred rather than republishing a retired source as a fixture.
 
 #### Product Tasks on the participant surface
 
@@ -1610,6 +1628,9 @@ agent-only versioned `reviewGuidance`, connection help and learner report presen
   task, version, definition digest and protocol version; `contentSha256` pins the whole payload.
   Later parts require both; a mismatch answers `task_context_version_mismatch` or
   `task_content_changed`. A task without access answers `task_not_available`.
+  V1 result items accept up to16000 characters, like the original Practice outcome; its130KiB
+  envelope includes the explicit criterion levels added by migration without truncating a128KiB
+  legacy definition. V2 retains its128KiB envelope. Existing versions keep their original bytes/digests.
 - `learning_task_submit` (`code`, `taskVersion`, `submissionKey`, `reviewReport`, `note`,
   `serviceMark`, optional `reviewRunKey`): annotations `readOnlyHint: false`, `destructiveHint: false`,
   `idempotentHint: true`. The report covers every criterion of the submitted version exactly once;
@@ -1730,7 +1751,11 @@ in author order (variant 2).
   answers `task_not_found` for the 404 cases.
 - `GET /accounts/current/product-tasks/{code}/submissions` (`listOwnTaskSubmissions`) lists the
   Account's own submissions with source, version, note, agent report, manual text report, repository and Author
-  Feedback, the current `reviewProgress`, and the criteria of their versions. Agent-only guidance
+  Feedback, the current `reviewProgress`, and the criteria of their versions. Own saved history
+  remains readable after Product access is revoked or the Task is withdrawn; another Account's
+  history stays isolated. A closed Task page shows this saved history without current protected
+  requirements or new submission controls. Fresh reads and submissions still require current access.
+  Agent-only guidance
   is omitted from HTTP responses. The task page polls through `GET /api/product-tasks/submissions`.
 - `POST /accounts/current/product-tasks/{code}/submissions` (`submitProductTaskForm`) takes
   `taskVersion`, `submissionKey`, `note` (1–1000 characters), optional `repositoryUrl` and

@@ -1,4 +1,10 @@
 // @ts-check
+import {
+  productReaderStateRoute,
+  holdReaderOptionalResponses,
+  readerOptionalResponseState,
+  waitReaderOptionalResponse,
+} from "./product-reader-state-backend.mjs";
 /**
  * Подставной backend для проверок переходов на production-сборке (#670).
  *
@@ -259,6 +265,7 @@ let practiceGate;
 let releasePractice;
 let practiceHeld = false;
 let practiceUnavailable = false;
+let coexistingPracticeTask = false;
 
 /**
  * @param {Lesson} lesson
@@ -532,8 +539,8 @@ function route(method, url, entitled) {
         )
           return { productId: id, sold: false };
         // The thin fixture uses the same offered-price admission as the existing full sale.
-        const offersUrl = new URL("/billing/offers", url);
-        offersUrl.searchParams.set("capability", "product:" + id);
+        const offersUrl = new URL("/billing/product-prices", url);
+        offersUrl.searchParams.set("productId", id);
         const offers = route("GET", offersUrl, entitled);
         if (
           offers === undefined ||
@@ -785,12 +792,19 @@ function route(method, url, entitled) {
   if (/^\/accounts\/current\/billing\/products\/[^/]+\/purchase$/u.test(path))
     return json(null);
   if (path === "/accounts/current/billing")
-    return json({ subscription: null, notices: [], grounds: [], payments: [] });
+    return json({
+      products: [],
+      notices: [],
+      access: { grounds: [] },
+      payments: [],
+    });
   if (path === "/accounts/current/billing/contact")
     return json({ ok: true, contact: null, documents: [] });
-  if (path === "/billing/offers") {
+  if (path === "/billing/product-prices") {
     const offerId = "66666666-6666-4666-8666-666666666601";
     const publicPrice = {
+      product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
+      supportMonths: 3,
       currency: "RUB",
       firstPriceKopecks: 990_000,
       offer: {
@@ -815,45 +829,27 @@ function route(method, url, entitled) {
       renewalPriceKopecks: 990_000,
       timezone: "Europe/Moscow",
     };
-    const alternatePrice = {
+    const modesPrice = {
       ...publicPrice,
+      product: {
+        id: modesProductId,
+        name: "Продукт с режимами",
+        priceRevision: 1,
+      },
       offer: {
         ...publicPrice.offer,
-        id: "66666666-6666-4666-8666-666666666605",
-        name: "Второй проверочный тариф",
-      },
-      paymentOption: {
-        ...publicPrice.paymentOption,
-        id: "66666666-6666-4666-8666-666666666606",
-        offerId: "66666666-6666-4666-8666-666666666605",
-      },
-    };
-    const invitedOfferId = "66666666-6666-4666-8666-666666666603";
-    const invitedPrice = {
-      ...publicPrice,
-      offer: {
-        ...publicPrice.offer,
-        id: invitedOfferId,
-        name: "Тариф по приглашению",
+        id: modesProductId,
+        name: "Продукт с режимами",
         benefits: [`product:${modesProductId}`],
         benefitPeriods: [
           { capability: `product:${modesProductId}`, months: null },
         ],
       },
-      paymentOption: {
-        ...publicPrice.paymentOption,
-        id: "66666666-6666-4666-8666-666666666604",
-        offerId: invitedOfferId,
-      },
     };
-    const capability = url.searchParams.get("capability");
+    const selected = url.searchParams.get("productId");
     return json({
-      items: (entitled
-        ? [publicPrice, alternatePrice, invitedPrice]
-        : [publicPrice, alternatePrice]
-      ).filter(
-        (snapshot) =>
-          capability === null || snapshot.offer.benefits.includes(capability),
+      items: [publicPrice, modesPrice].filter(
+        (item) => selected === null || item.product.id === selected,
       ),
       nextCursor: null,
     });
@@ -984,6 +980,26 @@ const server = createServer(async (request, response) => {
     send(200, { hold });
     return;
   }
+  if (url.pathname === "/__reader-optional-hold" && request.method === "POST") {
+    holdReaderOptionalResponses(
+      url.searchParams.get("held") === "true",
+      url.searchParams.get("target") ?? "all",
+    );
+    send(200, readerOptionalResponseState());
+    return;
+  }
+  if (url.pathname === "/__reader-optional-hold" && request.method === "GET") {
+    send(200, readerOptionalResponseState());
+    return;
+  }
+  const readerState = productReaderStateRoute(request, url, {
+    baseRoute: route,
+  });
+  if (readerState !== null) {
+    await waitReaderOptionalResponse(url, response);
+    send(readerState.status, readerState.value);
+    return;
+  }
   const metrics = await dataLoadingMetricsRoute(request, url, readBody, {
     baseRoute: route,
     reader: () => {
@@ -1037,6 +1053,14 @@ const server = createServer(async (request, response) => {
     send(200, { requests: state.requests });
     return;
   }
+  if (
+    url.pathname === "/__coexisting-practice-task" &&
+    request.method === "POST"
+  ) {
+    coexistingPracticeTask = url.searchParams.get("enabled") === "true";
+    send(200, { enabled: coexistingPracticeTask });
+    return;
+  }
   if (url.pathname === "/__practice-hold") {
     if (request.method === "POST") {
       const { hold, unavailable = false } = z
@@ -1085,18 +1109,67 @@ const server = createServer(async (request, response) => {
       });
     return;
   }
-  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+  const boundTask = /^\/library\/materials\/([^/]+)\/task$/u.exec(url.pathname);
+  if (boundTask !== null) {
     if (authorized && practiceGate !== undefined) {
       practiceHeld = true;
       await practiceGate;
       practiceHeld = false;
     }
-    send(
-      practiceUnavailable ? 503 : 200,
-      practiceUnavailable
-        ? { code: "dependency_unavailable" }
-        : { practices: [] },
-    );
+    if (practiceUnavailable) {
+      send(503, { code: "dependency_unavailable" });
+      return;
+    }
+    const material = lessons.find((item) => item.materialId === boundTask[1]);
+    if (
+      coexistingPracticeTask &&
+      material !== undefined &&
+      ["navigation-lesson-1", "navigation-lesson-3"].includes(material.slug)
+    ) {
+      const code =
+        material.access === "free"
+          ? "navigation-free-task"
+          : "navigation-closed-task";
+      const task = navigationTaskRoute(
+        new URL(`/library/products/navigation-tasks/tasks/${code}`, url),
+        authorized,
+      );
+      if (task === undefined)
+        throw new Error("Missing explicit bound Task fixture");
+      send(task.status, task.value);
+    } else send(404, { code: "task_not_found" });
+    return;
+  }
+  if (
+    coexistingPracticeTask &&
+    /^\/accounts\/current\/product-tasks\/navigation-(free|closed)-task\/submissions$/u.test(
+      url.pathname,
+    )
+  ) {
+    const code = url.pathname.split("/").at(-2);
+    send(200, {
+      code,
+      currentVersion: 1,
+      nextCursor: null,
+      latestSubmittedAt: null,
+      versions: [],
+      submissions: [],
+    });
+    return;
+  }
+  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+    send(200, {
+      practices: coexistingPracticeTask
+        ? [
+            {
+              practiceId: "historical:coexisting-practice",
+              title: "Историческое условие",
+              contextVersion: "a".repeat(64),
+              reviewProtocolVersion: "2",
+            },
+          ]
+        : [],
+    });
     return;
   }
   const result = state.unavailable

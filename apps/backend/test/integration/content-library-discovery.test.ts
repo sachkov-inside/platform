@@ -11,7 +11,7 @@ import {
   listPublishedMaterials,
 } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   createMigratedTestDatabase,
@@ -148,14 +148,12 @@ describe("Content Library discovery", () => {
       testDatabase.prisma.productMembership.create({
         data: {
           materialId: target.materialId,
-          ordinal: 1,
           seriesId: beyondPageSeriesId,
         },
       }),
       testDatabase.prisma.publishedMaterialProductMembership.create({
         data: {
           materialId: target.materialId,
-          ordinal: 1,
           seriesId: beyondPageSeriesId,
         },
       }),

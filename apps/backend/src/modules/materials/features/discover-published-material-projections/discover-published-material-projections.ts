@@ -1,8 +1,8 @@
+import type { MaterialProgrammeContext } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
   selectPublishedMaterialProjectionsBySeries,
   selectPublishedMaterialProjectionsByTopic,
@@ -43,7 +43,7 @@ const querySchema = z
   );
 
 export async function discoverPublishedMaterialProjections(
-  prisma: MaterialsPrisma,
+  prisma: MaterialProgrammeContext,
   query: DiscoverPublishedMaterialProjectionsQuery,
   contentAccess: Pick<ContentAccess, "checkProductAccess">,
 ): Promise<PublishedMaterialDiscoveryResult> {
@@ -86,7 +86,7 @@ export async function discoverPublishedMaterialProjections(
 }
 
 function selectDiscovery(
-  prisma: MaterialsPrisma,
+  prisma: MaterialProgrammeContext,
   query: z.infer<typeof querySchema>,
   original: DiscoverPublishedMaterialProjectionsQuery,
   contentAccess: Pick<ContentAccess, "checkProductAccess">,

@@ -31,7 +31,7 @@ export interface CommunityTexts {
   readonly preparing: string;
   readonly member: string;
   readonly unavailable: string;
-  /** Sent with a fresh link to a person whom Tribute removed while a Platform right is current. */
+  /** Sent with a fresh link for a saved historical readmission request while a Platform right is current. */
   readonly readmission: string;
   /** Sent with the first link after an Account's first community right. */
   readonly welcome: string;
@@ -66,8 +66,6 @@ export interface ApplicationConfig {
   readonly communityMode: CommunityMode;
   readonly communityContractVersion?: CommunityVersion | undefined;
   readonly communityRemovalsEnabled?: boolean | undefined;
-  /** The Tribute bot whose own removals are expiry, not moderation. */
-  readonly communityTributeBotTelegramUserId?: string | undefined;
   readonly communityIntegrationSecret?: string | undefined;
   readonly communityDispatchUrl?: string | undefined;
   readonly communityDispatchSecret?: string | undefined;
@@ -102,7 +100,7 @@ export interface ApplicationConfig {
   readonly platformTrackingRedirectUrl?: string | undefined;
   readonly platformTrackingTargetPrefixes?: readonly string[] | undefined;
   readonly port: number;
-  /** Absent in a partial test configuration: no consent prompt, no delivery. */
+  /** Absent in a partial test configuration: no analytics delivery. */
   readonly salesFunnel?: SalesFunnelConfig | undefined;
   /** Days a delivered sales funnel event stays in its outbox after delivery. */
   readonly salesFunnelEventRetentionDays: number;
@@ -197,7 +195,8 @@ export function loadApplicationConfig(
     assertServiceEndpoint(signInReturnUrl, "TELEGRAM_SIGN_IN_RETURN_URL");
 
   const membershipMode = environment["TELEGRAM_MEMBERSHIP_MODE"] ?? "disabled";
-  assertExternalMode(membershipMode, "TELEGRAM_MEMBERSHIP_MODE");
+  if (membershipMode !== "disabled")
+    throw new Error("TELEGRAM_MEMBERSHIP_MODE is retired");
   const membershipReconciliationCadenceMilliseconds = parseBoundedInteger(
     environment["TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS"],
     240_000,
@@ -226,13 +225,11 @@ export function loadApplicationConfig(
 
   const evidenceDeliveryMode =
     environment["PLATFORM_EVIDENCE_DELIVERY_MODE"] ?? "disabled";
-  assertExternalMode(evidenceDeliveryMode, "PLATFORM_EVIDENCE_DELIVERY_MODE");
+  if (evidenceDeliveryMode !== "disabled")
+    throw new Error("PLATFORM_EVIDENCE_DELIVERY_MODE is retired");
 
   const botToken = environment["TELEGRAM_BOT_TOKEN"];
-  if (
-    (deliveryMode === "live" || membershipMode === "live") &&
-    !hasText(botToken)
-  ) {
+  if (deliveryMode === "live" && !hasText(botToken)) {
     throw new Error("TELEGRAM_BOT_TOKEN is required for live delivery");
   }
 
@@ -259,19 +256,8 @@ export function loadApplicationConfig(
     false,
     "TELEGRAM_COMMUNITY_REMOVALS_ENABLED",
   );
-  const communityTributeBotTelegramUserId =
-    presentText(environment["TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID"]?.trim()) ??
-    undefined;
-  if (
-    communityTributeBotTelegramUserId !== undefined &&
-    (!isSafeTelegramId(communityTributeBotTelegramUserId) ||
-      communityTributeBotTelegramUserId.startsWith("-") ||
-      communityTributeBotTelegramUserId ===
-        botTelegramUserIdFromToken(botToken))
-  )
-    throw new Error(
-      "TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID must be the positive Telegram user id of another bot",
-    );
+  if (hasText(environment["TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID"]?.trim()))
+    throw new Error("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID is retired");
   const communityMode = environment["TELEGRAM_COMMUNITY_MODE"] ?? "disabled";
   assertExternalMode(communityMode, "TELEGRAM_COMMUNITY_MODE");
   const communityReconciliationCadenceMilliseconds = parseBoundedInteger(
@@ -348,27 +334,6 @@ export function loadApplicationConfig(
   ) {
     throw new Error(
       `TELEGRAM_COMMUNITY_CONTRACT_VERSION=${COMMUNITY_V2} is required when the community integration is configured`,
-    );
-  }
-
-  let platformEvidenceDeliveryUrl: string | undefined;
-  let platformEvidenceDeliverySecret: string | undefined;
-  if (evidenceDeliveryMode === "live") {
-    platformEvidenceDeliveryUrl = required(
-      environment,
-      "PLATFORM_EVIDENCE_DELIVERY_URL",
-    );
-    assertServiceEndpoint(
-      platformEvidenceDeliveryUrl,
-      "PLATFORM_EVIDENCE_DELIVERY_URL",
-    );
-    platformEvidenceDeliverySecret = required(
-      environment,
-      "PLATFORM_EVIDENCE_DELIVERY_SECRET",
-    );
-    assertServiceSecret(
-      platformEvidenceDeliverySecret,
-      "PLATFORM_EVIDENCE_DELIVERY_SECRET",
     );
   }
 
@@ -482,7 +447,6 @@ export function loadApplicationConfig(
     TELEGRAM_SIGN_IN_INTEGRATION_SECRET: signInIntegrationSecret,
     PLATFORM_COMMUNITY_INTEGRATION_SECRET: communityIntegrationSecret,
     PLATFORM_COMMUNITY_DISPATCH_SECRET: communityDispatchSecret,
-    PLATFORM_EVIDENCE_DELIVERY_SECRET: platformEvidenceDeliverySecret,
     PLATFORM_AUTHOR_AUTHORIZATION_SECRET: platformAuthorAuthorizationSecret,
     NOTIFICATION_AUTHORIZE_SECRET: notifications?.authorizeSecret,
     PLATFORM_ACTIVATION_SECRET: activation?.secret,
@@ -507,9 +471,6 @@ export function loadApplicationConfig(
     communityContractVersion:
       communityContractVersion === undefined ? undefined : COMMUNITY_V2,
     communityRemovalsEnabled,
-    ...(hasText(communityTributeBotTelegramUserId)
-      ? { communityTributeBotTelegramUserId }
-      : {}),
     ...(hasText(communityIntegrationSecret)
       ? { communityIntegrationSecret }
       : {}),
@@ -552,12 +513,6 @@ export function loadApplicationConfig(
     membershipCheckRetentionDays,
     membershipMode,
     membershipReconciliationCadenceMilliseconds,
-    ...(hasText(platformEvidenceDeliverySecret)
-      ? { platformEvidenceDeliverySecret }
-      : {}),
-    ...(hasText(platformEvidenceDeliveryUrl)
-      ? { platformEvidenceDeliveryUrl }
-      : {}),
     platformIntegrationSecret,
     port: parsePort(environment["PORT"]),
     salesFunnel,

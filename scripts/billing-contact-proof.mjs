@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -14,7 +14,6 @@ import { z } from "zod";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { evidenceDirectory } from "./evidence-path.mjs";
 import { reservePort, startWithRoutes } from "./smoke-stand.mjs";
-import { screenshotWholePage } from "../apps/web/test/support/whole-page-screenshot.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRequire = createRequire(
@@ -31,10 +30,6 @@ const { PostgreSqlContainer } =
 const { chromium } =
   /** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */ (
     webRequire("@playwright/test")
-  );
-const { default: AxeBuilder } =
-  /** @type {{ default: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */ (
-    webRequire("@axe-core/playwright")
   );
 /* oxlint-enable typescript/no-unsafe-type-assertion */
 const pnpmExecutable = process.env["npm_execpath"];
@@ -239,7 +234,6 @@ try {
       "/api/account/billing/contact",
       "/api/account/billing/contact/confirm",
       "/api/account/billing/contact/start",
-      "/api/account/billing/enrollments",
       "/api/account/community-entry",
       "/api/account/terms",
     ],
@@ -299,26 +293,84 @@ try {
       .getByRole("button", { name: "Принять условия и продолжить" })
       .click();
     await page.waitForURL((url) => url.pathname !== "/welcome");
-    await page.goto(`${webBaseUrl}/account/purchases`);
-    await page.getByLabel("Email", { exact: true }).waitFor();
-    await page
-      .getByRole("button", { name: "Закрыть подключение Telegram" })
-      .click();
-    await screenshotWholePage(page, {
-      path: resolve(evidence, `contact-empty-${name}.png`),
+    await page.goto(`${webBaseUrl}/account#purchases`);
+    await page.waitForURL((url) => url.pathname === "/account");
+    // The retired purchase page has no saved-contact form. Order Email belongs to checkout.
+    assert.equal(await page.getByLabel("Email", { exact: true }).count(), 0);
+    /**
+     * Browser fetch preserves the authenticated BFF/origin boundary without inventing a UI.
+     * @param {string} path
+     * @param {"GET" | "POST"} method
+     * @param {unknown} [input]
+     */
+    async function request(path, method, input) {
+      const options = {
+        method,
+        credentials: "same-origin",
+        ...(input === undefined
+          ? {}
+          : {
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(input),
+            }),
+      };
+      /** @type {unknown} */
+      const value = await page.evaluate(
+        `(async () => { const response = await fetch(${JSON.stringify(path)}, ${JSON.stringify(options)}); return { status: response.status, cacheControl: response.headers.get("cache-control"), body: await response.json() }; })()`,
+      );
+      return z
+        .object({
+          status: z.number().int(),
+          cacheControl: z.string().nullable(),
+          body: z.unknown(),
+        })
+        .parse(value);
+    }
+    const contactPath = "/api/account/billing/contact";
+    const readSchema = z.object({
+      ok: z.literal(true),
+      contact: z
+        .object({
+          email: z.email(),
+          revision: z.number().int(),
+          verifiedAt: z.iso.datetime(),
+        })
+        .nullable(),
     });
-    await page
-      .getByLabel("Email", { exact: true })
-      .fill(`${name}@example.test`);
+    const initial = await request(contactPath, "GET");
+    assert.equal(initial.status, 200);
+    assert.deepEqual(
+      initial.cacheControl
+        ?.split(",")
+        .map((value) => value.trim())
+        .sort(),
+      ["no-store", "private"],
+    );
+    assert.equal(readSchema.parse(initial.body).contact, null);
     const before = messages.length;
-    await page
-      .getByRole("button", { name: "Получить код", exact: true })
-      .click();
-    await page.getByLabel("Код из письма").waitFor();
+    const startInput = {
+      operationId: randomUUID(),
+      expectedRevision: 0,
+      email: `${name}@example.test`,
+    };
+    const start = await request(`${contactPath}/start`, "POST", startInput);
+    assert.equal(start.status, 200);
+    const challenge = z
+      .object({
+        ok: z.literal(true),
+        challengeRef: z.uuid(),
+        expiresAt: z.iso.datetime(),
+        delivery: z.literal("sent"),
+      })
+      .parse(start.body);
+    assert.equal(messages.length, before + 1);
+    const repeated = await request(`${contactPath}/start`, "POST", startInput);
+    assert.deepEqual(repeated.body, start.body);
     assert.equal(messages.length, before + 1);
     const raw = messages.at(-1);
     assert(raw);
-    // Nodemailer chooses base64 for this Russian plain-text message.
+    // The actual Nodemailer envelope must target only this synthetic Account's address.
+    assert.match(raw, new RegExp(`To:.*${name}@example\\.test`, "iu"));
     const split = raw.indexOf("\n\n");
     const text = /Content-Transfer-Encoding: base64/iu.test(raw)
       ? Buffer.from(
@@ -328,51 +380,103 @@ try {
       : raw.slice(split + 2);
     const code = /: ([0-9]{6})\./u.exec(text)?.[1];
     assert(code, "Synthetic SMTP must carry a verification code");
-    await screenshotWholePage(page, {
-      path: resolve(evidence, `contact-code-${name}.png`),
-    });
-    // Раздел находится по своему заголовку: связь `aria-labelledby` даёт `useId`, поэтому
-    // постоянного идентификатора у него нет и вписать его сюда нельзя.
-    const contactSection = page.locator("section").filter({
-      has: page.getByRole("heading", { name: "Email для чеков и сообщений" }),
-    });
-    const contactHeadingId = await contactSection
-      .first()
-      .getAttribute("aria-labelledby");
-    assert(
-      contactHeadingId,
-      "Contact section must label itself by its heading",
+    const foreignToken = await fullStackIdentity.createAccessToken(
+      `other-billing-${name}`,
     );
-    const a11y = await new AxeBuilder({ page })
-      .include(`section[aria-labelledby='${contactHeadingId}']`)
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-      .analyze();
-    assert.deepEqual(a11y.violations, []);
-    // The expression runs inside the page; scripts compile without the DOM library.
-    assert(
-      await page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
-    );
-    await page.getByLabel("Код из письма").fill(code);
-    await page
-      .getByRole("button", { name: "Подтвердить email", exact: true })
-      .click();
-    await page.getByText("Email подтверждён.", { exact: true }).waitFor();
-    await page.getByText(`${name}@example.test`, { exact: true }).waitFor();
-    await screenshotWholePage(page, {
-      path: resolve(evidence, `contact-verified-${name}.png`),
+    const foreignAccount = await fetch(`${apiBaseUrl}/accounts`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${foreignToken.token}` },
     });
-    await page.reload();
-    await page.getByText(`${name}@example.test`, { exact: true }).waitFor();
+    assert.equal(foreignAccount.status, 201);
+    const foreign = await launched.newContext();
+    try {
+      await foreign.addCookies([
+        {
+          name: fullStackIdentity.cookieName,
+          value: await fullStackIdentity.createSession(foreignToken),
+          url: webBaseUrl,
+          httpOnly: true,
+          sameSite: "Lax",
+        },
+      ]);
+      const foreignPage = await foreign.newPage();
+      await foreignPage.goto(`${webBaseUrl}/account`);
+      await foreignPage
+        .locator("dialog:modal")
+        .getByRole("button", { name: "Принять условия и продолжить" })
+        .click();
+      await foreignPage.waitForURL((url) => url.pathname !== "/welcome");
+      const foreignRead = await foreign.request.get(
+        `${webBaseUrl}${contactPath}`,
+      );
+      assert.equal(readSchema.parse(await foreignRead.json()).contact, null);
+      const foreignConfirmation = await foreign.request.post(
+        `${webBaseUrl}${contactPath}/confirm`,
+        {
+          headers: { origin: webBaseUrl },
+          data: {
+            operationId: randomUUID(),
+            challengeRef: challenge.challengeRef,
+            code,
+          },
+        },
+      );
+      assert.deepEqual(await foreignConfirmation.json(), {
+        ok: false,
+        code: "challenge_invalid",
+      });
+    } finally {
+      await foreign.close();
+    }
+    const invalid = await request(`${contactPath}/confirm`, "POST", {
+      operationId: randomUUID(),
+      challengeRef: challenge.challengeRef,
+      code: code === "000000" ? "111111" : "000000",
+    });
+    assert.deepEqual(invalid.body, { ok: false, code: "challenge_invalid" });
     assert.equal(
-      (
-        await page.request.get(`${webBaseUrl}/api/account/billing/contact`)
-      ).headers()["cache-control"],
-      "private, no-store",
+      readSchema.parse((await request(contactPath, "GET")).body).contact,
+      null,
+    );
+    const confirmInput = {
+      operationId: randomUUID(),
+      challengeRef: challenge.challengeRef,
+      code,
+    };
+    const confirmed = await request(
+      `${contactPath}/confirm`,
+      "POST",
+      confirmInput,
+    );
+    assert.equal(confirmed.status, 200);
+    const result = z
+      .object({ ok: z.literal(true), revision: z.number().int().positive() })
+      .parse(confirmed.body);
+    assert.deepEqual(
+      (await request(`${contactPath}/confirm`, "POST", confirmInput)).body,
+      confirmed.body,
+    );
+    await page.reload();
+    const persisted = await request(contactPath, "GET");
+    assert.deepEqual(
+      persisted.cacheControl
+        ?.split(",")
+        .map((value) => value.trim())
+        .sort(),
+      ["no-store", "private"],
+    );
+    assert.equal(
+      readSchema.parse(persisted.body).contact?.email,
+      startInput.email,
+    );
+    assert.equal(
+      readSchema.parse(persisted.body).contact?.revision,
+      result.revision,
     );
     await context.close();
   }
   console.log(
-    "Billing contact proof passed: desktop/mobile, BFF/API/PostgreSQL/SMTP, reload, WCAG and overflow; all recipients synthetic.",
+    "Billing contact API proof passed: desktop/mobile browser-authenticated BFF/API/PostgreSQL/SMTP, replay, invalid code, reload and no-store; retired contact form absent, all recipients synthetic.",
   );
 } catch (error) {
   if (interruptedSignal === undefined) throw error;

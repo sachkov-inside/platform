@@ -2,7 +2,7 @@ import type { MaterialAnnouncement } from "@inside/contracts/material-announceme
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
 import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
-import type { ActivationTables } from "../modules/subscription-activation/activation-storage.js";
+import type { ActivationTables } from "../modules/course-activation/activation-storage.js";
 import type { TelegramButton } from "../modules/outbound/telegram-messages.js";
 import type { SalesFunnelTables } from "../modules/sales-funnel/sales-funnel-storage.js";
 import type { CommunityTables } from "../modules/community/community-storage.js";
@@ -16,9 +16,9 @@ import type {
 import type {
   BroadcastPart,
   DeliveryPart,
-  FunnelDraft,
+  CommunicationSequenceDraft,
   IntroSnapshot,
-} from "../modules/communications/funnel-types.js";
+} from "../modules/communications/sequence-types.js";
 
 import type { MembershipEvidenceSource } from "../modules/membership-evidence/membership-evidence.js";
 
@@ -436,14 +436,18 @@ export interface DatabaseSchema
     revision: number;
     published_revision: number | null;
     lifecycle: "draft" | "published" | "paused" | "archived";
-    draft: JsonColumn<FunnelDraft>;
-    published: ColumnType<FunnelDraft | null, string | null, string | null>;
+    draft: JsonColumn<CommunicationSequenceDraft>;
+    published: ColumnType<
+      CommunicationSequenceDraft | null,
+      string | null,
+      string | null
+    >;
     is_default: boolean;
   };
   communication_publications: {
     funnel_id: string;
     revision: number;
-    snapshot: JsonColumn<FunnelDraft>;
+    snapshot: JsonColumn<CommunicationSequenceDraft>;
     published_at: Timestamp;
   };
   communication_sources: {

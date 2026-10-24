@@ -406,7 +406,7 @@ export function CommunicationsWorkspace({
                     Первый шаг к знакомству
                   </h3>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                    Воронок пока нет. Начните со стандартной — она открывается
+                    Воронок пока нет. Начните со стандартной, она открывается
                     при обычном запуске бота.
                   </p>
                 </div>

@@ -18,11 +18,6 @@ import {
   readInlineArtifactReference,
 } from "@/features/product-artifacts.reader";
 import {
-  LearningPracticeDisclosure,
-  LearningPracticePrompts,
-} from "./learning-practice-prompts";
-import { loadLearningPractices } from "../api/load-learning-practices.server";
-import {
   SavedReadingAction,
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
@@ -88,9 +83,9 @@ type ResolvedMaterial = Extract<
 /**
  * Общая часть урока (ADR 0027). Адрес читается здесь, под скелетом маршрута; метаданные и состав
  * продукта приходят из гостевого кеша, поэтому шапка, возврат и соседи по продукту появляются
- * сразу. Личная часть — тело закрытого урока, предложение о покупке, режим прохождения — стримится
- * на место тела. Бесплатное тело не ждёт личных заданий: их кнопка занимает место в строке
- * нижних действий, а полное содержимое появляется только по действию читателя.
+ * сразу. Личная часть с телом закрытого урока, предложением и режимом стримится на место тела.
+ * Разрешённое тело и навигация не ждут optional MaterialTaskWorkspace. Его явную связь и доступ
+ * определяет Task owner; исторические Practice descriptors здесь не запрашиваются.
  */
 export async function MaterialReaderPage({
   params,
@@ -159,9 +154,6 @@ export async function MaterialReaderPage({
         hintSeen
         deferredPracticeActions={
           <>
-            <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
-              <PublicMaterialPractice slug={slug} />
-            </Suspense>
             {productSlug === undefined ||
             seriesContext?.programme == null ? null : (
               <Suspense fallback={null}>
@@ -199,7 +191,7 @@ export async function MaterialReaderPage({
   );
 }
 
-/** Private rail status streams separately from both the cached body and optional Practice. */
+/** Private rail status streams separately from both the cached body and optional Task workspace. */
 async function PublicCourseTaskStatuses({
   productSlug,
 }: {
@@ -228,22 +220,6 @@ async function PublicCourseTaskStatuses({
           )
           .map((task) => `task:${task.code}`),
       )}
-    />
-  );
-}
-
-/** Private practice streams before completion controls without delaying the public lesson body. */
-async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
-  await connection();
-  const accessToken = await getOptionalPlatformAccessToken();
-  const result =
-    accessToken === undefined
-      ? { kind: "available" as const, practices: [] }
-      : await loadLearningPractices(slug, accessToken);
-  return (
-    <LearningPracticeDisclosure
-      connection={await readerLearnerMcp()}
-      result={result}
     />
   );
 }
@@ -326,13 +302,6 @@ async function PersonalMaterialReader({
         ? {}
         : { purchaseProduct: guestPurchaseProduct })}
       productMode={productMode}
-      practiceActions={
-        accessToken === undefined ? undefined : (
-          <Suspense fallback={null}>
-            <PrivateMaterialPractice slug={slug} accessToken={accessToken} />
-          </Suspense>
-        )
-      }
       hintSeen={hintSeen}
       result={result}
       returnTarget={resolveReaderReturnTarget({
@@ -345,21 +314,6 @@ async function PersonalMaterialReader({
       slug={slug}
     />
   );
-}
-
-/** Optional Practice never delays the authorized body or its required mode/navigation context. */
-async function PrivateMaterialPractice({
-  slug,
-  accessToken,
-}: {
-  readonly slug: string;
-  readonly accessToken: string;
-}) {
-  const [result, connection] = await Promise.all([
-    loadLearningPractices(slug, accessToken),
-    readerLearnerMcp(),
-  ]);
-  return <LearningPracticePrompts connection={connection} result={result} />;
 }
 
 interface WorkspaceQuery {
@@ -375,7 +329,6 @@ async function ResolvedMaterialReader({
   accessToken,
   productMode,
   hintSeen,
-  practiceActions,
   deferredPracticeActions,
   purchaseProduct: startedPurchaseProduct,
   result,
@@ -387,7 +340,6 @@ async function ResolvedMaterialReader({
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
   readonly purchaseProduct?: Promise<PurchaseProductResult>;
-  readonly practiceActions?: ReactNode;
   readonly deferredPracticeActions?: ReactNode;
   readonly productMode: ProductMode;
   readonly hintSeen: boolean;
@@ -533,7 +485,6 @@ async function ResolvedMaterialReader({
               />
             </Suspense>
           }
-          practiceActions={practiceActions}
           deferredPracticeActions={deferredPracticeActions}
           body={result.body}
           material={result.material}

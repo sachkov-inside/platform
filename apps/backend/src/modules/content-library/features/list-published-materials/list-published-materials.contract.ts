@@ -1,6 +1,6 @@
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type { MaterialDifficulty } from "../../../materials/index.js";
 import type { Subject } from "../../../content-access/index.js";
-import type { ContentCoverProjection } from "../../../materials/index.js";
 
 export interface PublishedMaterialCatalogItemDto {
   readonly materialId: string;

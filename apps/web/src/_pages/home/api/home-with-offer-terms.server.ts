@@ -6,6 +6,7 @@ import { loadProductCohort } from "@/entities/subscription.catalog.server";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 
+import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
 import type { HomeResult } from "../model/home-view";
 import { readPublicHome } from "./public-home.public-cache.server";
 
@@ -34,7 +35,25 @@ export async function fillPinnedOfferTerms(
     readPublicProductOfferTerms(pinned.id),
     pinned.hero === null ? Promise.resolve(null) : loadProductCohort(pinned.id),
   ]);
-  const terms = read.kind === "ready" ? read.terms : null;
+  return presentPinnedTerms(
+    result,
+    read.kind === "ready" ? read.terms : null,
+    cohort?.kind === "ready" ? cohortCountdown(cohort.cohort) : null,
+  );
+}
+
+/** Same card while auxiliary price terms are pending, with unresolved placeholders removed. */
+export function withoutPinnedOfferTerms(result: HomeResult): HomeResult {
+  return presentPinnedTerms(result, null, null);
+}
+function presentPinnedTerms(
+  result: HomeResult,
+  terms: OneTimeOfferTerms | null,
+  countdown: string | null,
+): HomeResult {
+  if (result.kind !== "ready" || result.value.pinnedSeries === null)
+    return result;
+  const pinned = result.value.pinnedSeries;
   const fill = (text: string) => fillOneTimeTerms(text, terms);
   return {
     ...result,
@@ -53,8 +72,7 @@ export async function fillPinnedOfferTerms(
               },
         hero:
           pinned.hero === null ? null : fillProductPageHero(pinned.hero, fill),
-        startCountdown:
-          cohort?.kind === "ready" ? cohortCountdown(cohort.cohort) : null,
+        startCountdown: countdown,
       },
     },
   };

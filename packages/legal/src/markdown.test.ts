@@ -174,7 +174,7 @@ describe("consent catalogue", () => {
       );
   });
 
-  it("gives each payment mode one offer and no policy checkbox", () => {
+  it("offers only one-time consent while keeping historical editions readable", () => {
     const documents = consentDocuments(origin);
     const oneTime = documents.filter((document) =>
       document.appliesTo.includes("one_time"),
@@ -185,10 +185,14 @@ describe("consent catalogue", () => {
     expect(oneTime.map((document) => document.documentId)).toEqual([
       "purchase",
     ]);
-    expect(subscription.map((document) => document.documentId)).toEqual([
-      "subscription",
+    expect(subscription).toEqual([]);
+    expect(documents.some((document) => document.kind === "recurring")).toBe(
+      false,
+    );
+    expect(currentLegalEdition("subscription").key).toBe("subscription");
+    expect(currentLegalEdition("recurring-consent").key).toBe(
       "recurring-consent",
-    ]);
+    );
     expect(
       documents.some((document) => document.kind === "personal_data"),
     ).toBe(false);

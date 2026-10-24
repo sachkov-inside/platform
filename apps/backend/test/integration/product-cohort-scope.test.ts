@@ -23,7 +23,7 @@ const productId = (ordinal: number) =>
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
   observer = createQueryEventClient(database.url);
-  await database.prisma.billingProductCohort.createMany({
+  await database.prisma.billingProductSalesState.createMany({
     data: Array.from({ length: 101 }, (_, index) => ({
       productId: productId(index + 1),
       revision: 1,
@@ -33,21 +33,21 @@ beforeAll(async () => {
       nextEvent: "Launch",
     })),
   });
-  await database.prisma.billingOffer.create({
-    data: {
-      id: "49000000-0000-4000-8000-000000000001",
-      revision: 1,
-      name: "Shared owner Offer",
-      benefits: ["materials"],
-    },
-  });
-  await database.prisma.billingPaymentOption.createMany({
+  await database.prisma.product.createMany({
     data: Array.from({ length: 101 }, (_, index) => ({
-      id: `48000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      id: productId(index + 1),
+      slug: productId(index + 1),
+      name: "Owner Product",
+    })),
+  });
+  await database.prisma.billingProductPrice.createMany({
+    data: Array.from({ length: 101 }, (_, index) => ({
+      productId: productId(index + 1),
       revision: 1,
-      offerId: "49000000-0000-4000-8000-000000000001",
-      months: 1,
+      name: "Owner Product",
       priceKopecks: 10000n,
+      published: false,
+      updatedAt: new Date("2026-10-14T00:00:00Z"),
     })),
   });
   app = await createApiApplication(
@@ -73,7 +73,7 @@ test("a Product beyond the global hundred-row page retains its true scoped cohor
     prisma: observer.prisma,
     accounts,
     clock: () => new Date("2026-10-14T00:00:00.000Z"),
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
   });
   const legacy = await observer.measure(() => billing.cohorts());
   expect(legacy.statements).toHaveLength(1);
@@ -166,7 +166,7 @@ test("HTTP scope and continuation preserve the strict products.v1 bot response",
   }
 });
 
-test("owner catalog cursor pages payment options rather than distinct Offers on PostgreSQL", async () => {
+test("owner catalogue cursor pages every Product price without skipping or repeating Products", async () => {
   const accounts = assembleAccounts({
     prisma: observer.prisma,
     emailFingerprintKey: "owner-catalog-key-00000000000000000000",
@@ -175,7 +175,7 @@ test("owner catalog cursor pages payment options rather than distinct Offers on 
     prisma: observer.prisma,
     accounts,
     clock: () => new Date("2026-10-14T00:00:00.000Z"),
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
   });
   const first = await observer.measure(() =>
     billing.ownerCatalog({ limit: 100 }),
@@ -184,18 +184,76 @@ test("owner catalog cursor pages payment options rather than distinct Offers on 
   if (!first.result.ok) throw new Error(first.result.error.code);
   expect(first.result.value.items).toHaveLength(100);
   const cursor = first.result.value.nextCursor;
-  expect(cursor).toBe("48000000-0000-4000-8000-000000000100");
+  expect(cursor).toBe(productId(100));
   const second = await observer.measure(() =>
     billing.ownerCatalog({ limit: 100, cursor }),
   );
   expect(second.result.ok).toBe(true);
   if (!second.result.ok) throw new Error(second.result.error.code);
   expect(second.result.value.items).toHaveLength(1);
-  expect(second.result.value.items[0]?.paymentOption.id).toBe(
-    "48000000-0000-4000-8000-000000000101",
-  );
+  expect(second.result.value.items[0]?.paymentOption.id).toBe(productId(101));
   expect(second.result.value.nextCursor).toBeNull();
   process.stdout.write(
     `${JSON.stringify({ record: "PAG05", firstStatements: first.statements.length, secondStatements: second.statements.length, ownerCalls: 2, providerRequests: 0 })}\n`,
   );
+});
+
+test("Product Sales State has its own public read without changing staged prices by calendar", async () => {
+  const response = await server.inject({
+    method: "GET",
+    url: `/billing/product-sales-states?productId=${productId(101)}`,
+  });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toEqual({
+    items: [
+      {
+        productId: productId(101),
+        revision: 1,
+        name: "Cohort 101",
+        stage: "preorder",
+        startsOn: "2026-11-01",
+        nextEvent: "Launch",
+        priceAfterStartKopecks: null,
+      },
+    ],
+    nextCursor: null,
+  });
+  expect(
+    await database.prisma.billingProductPrice.findUniqueOrThrow({
+      where: { productId: productId(101) },
+    }),
+  ).toMatchObject({ revision: 1, priceKopecks: 10000n, published: false });
+});
+
+test("canonical Product price scope selects one identity and rejects conflicting legacy capability", async () => {
+  const billing = assembleTestBillingPricing({
+    prisma: observer.prisma,
+    accounts: assembleAccounts({
+      prisma: observer.prisma,
+      emailFingerprintKey: "scope-test-key-00000000000000000000",
+    }),
+    sale: { payments: true },
+  });
+  const scoped = await billing.ownerCatalog({
+    productId: productId(101),
+    limit: 50,
+  });
+  expect(scoped).toMatchObject({
+    ok: true,
+    value: { items: [{ product: { id: productId(101) } }], nextCursor: null },
+  });
+  if (!scoped.ok) throw new Error(scoped.error.code);
+  expect(scoped.value.items).toHaveLength(1);
+  expect(
+    await billing.ownerCatalog({
+      productId: productId(101),
+      capability: `product:${productId(1)}`,
+    }),
+  ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  const publicRead = await server.inject({
+    method: "GET",
+    url: `/billing/product-prices?productId=${productId(101)}`,
+  });
+  expect(publicRead.statusCode).toBe(200);
+  expect(publicRead.json()).toEqual({ items: [], nextCursor: null });
 });

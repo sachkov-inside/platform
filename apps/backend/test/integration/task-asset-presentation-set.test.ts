@@ -1,14 +1,13 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleLearningTasks } from "../../src/modules/product-tasks/index.js";
 import { assembleProductTaskResourceFacts } from "../../src/modules/product-tasks/adapters/content-access/product-task-resource-facts.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
 import { createQueryEventClient } from "./setup/query-events.js";
@@ -184,7 +183,10 @@ async function corpus(size: number) {
     });
     const tasks = assembleLearningTasks({
       prisma: observer.prisma,
-      directory: new ProductDirectory(observer.prisma),
+      directory: new ProductDirectory(
+        observer.prisma,
+        assembleProductMaterialReading(observer.prisma),
+      ),
       contentAccess,
       materialAssets: assets,
       submissionsEnabled: false,

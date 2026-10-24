@@ -27,15 +27,6 @@ const documents: readonly LegalDocument[] = [
     url: "https://inside.example.test/legal/subscription",
     text: "",
   },
-  {
-    kind: "recurring",
-    appliesTo: ["subscription"],
-    documentId: "recurring-consent",
-    version: "1",
-    digest: "c".repeat(64),
-    url: "https://inside.example.test/legal/recurring-consent",
-    text: "",
-  },
 ];
 
 /** Расчёт несёт режим покупки: правило берёт его оттуда же, откуда берут панель и приложение. */
@@ -75,8 +66,7 @@ it("в команду не уходит два документа одного �
     quoteFor("subscription"),
   );
   expect(subscription.map((document) => document.documentId)).toEqual([
-    "subscription",
-    "recurring-consent",
+    "purchase",
   ]);
 
   for (const mode of ["one_time", "subscription"] as const) {

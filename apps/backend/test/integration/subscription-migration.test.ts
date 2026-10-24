@@ -29,7 +29,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
       [included, included],
     );
     await pool.query(
-      `INSERT INTO membership_entitlements.access_grants(id, account_id, source, source_ref, capabilities, starts_at, valid_until, revision, reason) VALUES ($1,$2,'manual','historical',ARRAY['materials','support','reviews'],'2030-01-01',NULL,1,'Historical promise')`,
+      `INSERT INTO membership_entitlements.access_grants(id, account_id, source, source_ref, capabilities, starts_at, valid_until, revision, reason) VALUES ($1,$2,'manual','historical',ARRAY['materials','support','reviews'],'2020-01-01',NULL,1,'Historical promise')`,
       [grant, owner],
     );
     const before = (
@@ -75,7 +75,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
     ).toMatchObject({
       id: grant,
       capabilities: ["materials", "support", "reviews", "community"],
-      startsAt: new Date("2030-01-01Z"),
+      startsAt: new Date("2020-01-01Z"),
       validUntil: null,
       revision: 1,
       coverage: { productIds: [included], materialIds: [] },
@@ -91,7 +91,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
         source: "paid",
         sourceRef: "late-historical",
         capabilities: ["materials"],
-        startsAt: new Date("2030-01-01Z"),
+        startsAt: new Date("2020-01-01Z"),
         validUntil: null,
         revision: 1,
         reason: "Late historical fulfillment",

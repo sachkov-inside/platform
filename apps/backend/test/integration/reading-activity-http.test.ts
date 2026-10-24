@@ -1,7 +1,7 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -134,6 +134,21 @@ describe("ReadingActivity HTTP", () => {
     });
     if (!published.ok) throw new Error(published.error.code);
     const materialId = published.value.materialId;
+    const order = await materials.authoring.loadSeriesOrder({
+      actor,
+      seriesId,
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await materials.authoring.reorderSeries({
+      actor,
+      seriesId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [materialId],
+      programmePlacements: [
+        { id: randomUUID(), materialId, chapterId: null, stepGroup: null },
+      ],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     const url = `/reading-activity/materials/${materialId}`;
     const payload = {
       commandId: randomUUID(),

@@ -7,25 +7,27 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class BillingService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * Read own subscription, its paid term, pending changes and service notices
+   * Read own lifetime Products, purchase history and service notices
    * @returns any
    * @throws ApiError
    */
-  public currentBilling(): CancelablePromise<{
-    grounds: Array<{
-      active: boolean;
-      capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-      content?: Array<{
-        available: boolean;
-        id: string;
-        kind: 'product' | 'material';
-        slug: string | null;
-        title: string;
+  public readOwnBilling(): CancelablePromise<{
+    access: {
+      grounds: Array<{
+        active: boolean;
+        capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'product' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        source: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
+        startsAt: string | null;
+        validUntil: string | null;
       }>;
-      source: 'paid' | 'manual' | 'legacy';
-      startsAt: string;
-      validUntil: string | null;
-    }>;
+    };
     notices: Array<{
       amountKopecks: number | null;
       dueAt: string | null;
@@ -35,7 +37,7 @@ export class BillingService {
       state: 'current' | 'superseded';
     }>;
     payments: Array<{
-      access?: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+      access?: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
       amountKopecks: number;
       confirmedAt: string | null;
       content?: Array<{
@@ -52,12 +54,12 @@ export class BillingService {
       offerName: string;
       periodEndsAt: string | null;
       productAccess?: Array<{
-        access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
         productId: string;
       }>;
       purchaseRef: string;
       refundedAt: string | null;
-      refundedKopecks: number;
+      refundedKopecks: number | null;
       snapshot?: {
         communityPolicy?: 'explicit';
         currency: 'RUB';
@@ -94,6 +96,11 @@ export class BillingService {
           priceKopecks: number;
           revision: number;
         };
+        product?: {
+          id: string;
+          name: string;
+          priceRevision: number;
+        };
         promotion: {
           id: string;
           name: string;
@@ -101,340 +108,26 @@ export class BillingService {
           revision: number;
         } | null;
         renewalPriceKopecks: number;
+        supportMonths?: 3;
         timezone: 'Europe/Moscow';
       };
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     }>;
-    subscription: {
-      inFlightPayment: {
-        attemptRef: string;
-        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-      } | null;
-      paidUntil: string;
-      paymentMethod: {
-        methodRef: string;
-        revoked: boolean;
-      } | null;
-      pendingChange: {
-        acceptedAt: string;
-        changeQuoteRef: string;
-        snapshot: {
-          communityPolicy?: 'explicit';
-          currency: 'RUB';
-          firstPriceKopecks: number;
-          individualPayment?: {
-            basePriceKopecks: number;
-            linkId: string;
-          };
-          offer: {
-            archived: boolean;
-            availableForAssignment?: boolean;
-            benefitPeriods?: Array<{
-              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-              months: number | null;
-            }>;
-            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            coverage?: {
-              materialIds: Array<string>;
-              productIds: Array<string>;
-              wholePlatform?: boolean;
-            } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-            id: string;
-            name: string;
-            published?: boolean;
-            revision: number;
-          };
-          paymentOption: {
-            archived: boolean;
-            id: string;
-            mode?: 'subscription' | 'one_time';
-            months: number;
-            offerId: string;
-            priceKopecks: number;
-            revision: number;
-          };
-          promotion: {
-            id: string;
-            name: string;
-            percent: number;
-            revision: number;
-          } | null;
-          renewalPriceKopecks: number;
-          timezone: 'Europe/Moscow';
-        };
-      } | null;
-      pendingMethodChange: {
-        flowRef: string;
-        formUrl: string | null;
-      } | null;
-      periodAmountKopecks: number;
-      periodIndex: number;
-      periodStartsAt: string;
-      revision: number;
-      snapshot: {
-        currency: 'RUB';
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
+    products: Array<{
+      community: {
+        state: 'available' | 'expired' | 'revoked' | 'unavailable';
       };
-      state: 'active' | 'canceled' | 'ended';
-      subscriptionRef: string;
-    } | null;
+      id: string;
+      materials: {
+        state: 'available' | 'expired' | 'revoked' | 'unavailable';
+      };
+      name: string;
+      slug: string | null;
+    }>;
   }> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/billing',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Read own assigned tiers, composition, sources and complete enrollment history
-   * @returns any
-   * @throws ApiError
-   */
-  public currentEnrollments(): CancelablePromise<{
-    items: Array<{
-      accountId: string;
-      benefitTerms?: Array<{
-        capability: string;
-        endsAt: string | null;
-        revoked: boolean;
-        startsAt: string;
-      }>;
-      content?: Array<{
-        available: boolean;
-        id: string;
-        kind: 'product' | 'material';
-        slug: string | null;
-        title: string;
-      }>;
-      endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-      endsAt: string | null;
-      history?: Array<{
-        kind: string;
-        reason: string;
-        recordedAt: string;
-      }>;
-      id: string;
-      nextChargeAt?: string | null;
-      origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-      renewal: 'not_applicable' | 'billing_agreement';
-      revision: number;
-      startsAt: string;
-      state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-      tier: {
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        };
-        id: string;
-        name: string;
-        revision: number;
-      };
-    }>;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/accounts/current/billing/enrollments',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Start a proven bank binding session for a new payment method
-   * @returns any
-   * @throws ApiError
-   */
-  public changeBillingMethod({
-    requestBody,
-  }: {
-    requestBody: {
-      expectedRevision: number;
-      operationId: string;
-    },
-  }): CancelablePromise<{
-    flowRef: string;
-    formUrl: string | null;
-    methodRef: string | null;
-    state: 'started' | 'completed' | 'rejected';
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/payment-method/change',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Forbid further use of the saved payment method
-   * @returns any
-   * @throws ApiError
-   */
-  public revokeBillingMethod({
-    requestBody,
-  }: {
-    requestBody: {
-      expectedRevision: number;
-      operationId: string;
-      paymentMethodRef: string;
-    },
-  }): CancelablePromise<{
-    inFlightPayment: {
-      attemptRef: string;
-      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-    } | null;
-    paidUntil: string;
-    paymentMethod: {
-      methodRef: string;
-      revoked: boolean;
-    } | null;
-    pendingChange: {
-      acceptedAt: string;
-      changeQuoteRef: string;
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-    } | null;
-    pendingMethodChange: {
-      flowRef: string;
-      formUrl: string | null;
-    } | null;
-    periodAmountKopecks: number;
-    periodIndex: number;
-    periodStartsAt: string;
-    revision: number;
-    snapshot: {
-      currency: 'RUB';
-      offer: {
-        archived: boolean;
-        availableForAssignment?: boolean;
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage?: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-        id: string;
-        name: string;
-        published?: boolean;
-        revision: number;
-      };
-      paymentOption: {
-        archived: boolean;
-        id: string;
-        mode?: 'subscription' | 'one_time';
-        months: number;
-        offerId: string;
-        priceKopecks: number;
-        revision: number;
-      };
-      renewalPriceKopecks: number;
-      timezone: 'Europe/Moscow';
-    };
-    state: 'active' | 'canceled' | 'ended';
-    subscriptionRef: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/payment-method/revoke',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
     });
   }
   /**
@@ -449,13 +142,13 @@ export class BillingService {
     productId: string,
     purchaseRef?: string,
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
-    refundedKopecks?: number;
+    refundedKopecks?: number | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -492,6 +185,11 @@ export class BillingService {
         priceKopecks: number;
         revision: number;
       };
+      product?: {
+        id: string;
+        name: string;
+        priceRevision: number;
+      };
       promotion: {
         id: string;
         name: string;
@@ -499,6 +197,7 @@ export class BillingService {
         revision: number;
       } | null;
       renewalPriceKopecks: number;
+      supportMonths?: 3;
       timezone: 'Europe/Moscow';
     };
     state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
@@ -519,15 +218,15 @@ export class BillingService {
     });
   }
   /**
-   * Start or recover one subscription or one-time purchase
+   * Start or recover one Product purchase
    * @returns any
    * @throws ApiError
    */
-  public purchaseBillingSubscription({
+  public purchaseProduct({
     requestBody,
   }: {
     requestBody: {
-      acknowledgeExistingAccess: boolean;
+      acknowledgeExistingAccess?: boolean;
       consentEvidenceRefs: Array<string>;
       contactRevision?: number;
       email?: string;
@@ -535,13 +234,13 @@ export class BillingService {
       quoteRef: string;
     },
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
-    refundedKopecks?: number;
+    refundedKopecks?: number | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -578,6 +277,11 @@ export class BillingService {
         priceKopecks: number;
         revision: number;
       };
+      product?: {
+        id: string;
+        name: string;
+        priceRevision: number;
+      };
       promotion: {
         id: string;
         name: string;
@@ -585,6 +289,7 @@ export class BillingService {
         revision: number;
       } | null;
       renewalPriceKopecks: number;
+      supportMonths?: 3;
       timezone: 'Europe/Moscow';
     };
     state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
@@ -610,13 +315,13 @@ export class BillingService {
   }: {
     purchaseRef: string,
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
-    refundedKopecks?: number;
+    refundedKopecks?: number | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -653,6 +358,11 @@ export class BillingService {
         priceKopecks: number;
         revision: number;
       };
+      product?: {
+        id: string;
+        name: string;
+        priceRevision: number;
+      };
       promotion: {
         id: string;
         name: string;
@@ -660,6 +370,7 @@ export class BillingService {
         revision: number;
       } | null;
       renewalPriceKopecks: number;
+      supportMonths?: 3;
       timezone: 'Europe/Moscow';
     };
     state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
@@ -677,7 +388,7 @@ export class BillingService {
     });
   }
   /**
-   * Save a price quote for a new subscription
+   * Save the Product price and best applicable discount
    * @returns any
    * @throws ApiError
    */
@@ -686,9 +397,9 @@ export class BillingService {
   }: {
     requestBody: {
       operationId: string;
-      optionRevision: number;
       paymentLinkId?: string;
-      paymentOptionId: string;
+      priceRevision: number;
+      productId: string;
       promoCode?: string;
     },
   }): CancelablePromise<{
@@ -731,6 +442,11 @@ export class BillingService {
         priceKopecks: number;
         revision: number;
       };
+      product?: {
+        id: string;
+        name: string;
+        priceRevision: number;
+      };
       promotion: {
         id: string;
         name: string;
@@ -738,707 +454,13 @@ export class BillingService {
         revision: number;
       } | null;
       renewalPriceKopecks: number;
+      supportMonths?: 3;
       timezone: 'Europe/Moscow';
     };
   }> {
     return this.httpRequest.request({
       method: 'POST',
       url: '/accounts/current/billing/quote',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Stop future charges and keep the paid term
-   * @returns any
-   * @throws ApiError
-   */
-  public cancelBillingRenewal({
-    requestBody,
-  }: {
-    requestBody: {
-      expectedRevision: number;
-      operationId: string;
-    },
-  }): CancelablePromise<{
-    inFlightPayment: {
-      attemptRef: string;
-      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-    } | null;
-    paidUntil: string;
-    paymentMethod: {
-      methodRef: string;
-      revoked: boolean;
-    } | null;
-    pendingChange: {
-      acceptedAt: string;
-      changeQuoteRef: string;
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-    } | null;
-    pendingMethodChange: {
-      flowRef: string;
-      formUrl: string | null;
-    } | null;
-    periodAmountKopecks: number;
-    periodIndex: number;
-    periodStartsAt: string;
-    revision: number;
-    snapshot: {
-      currency: 'RUB';
-      offer: {
-        archived: boolean;
-        availableForAssignment?: boolean;
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage?: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-        id: string;
-        name: string;
-        published?: boolean;
-        revision: number;
-      };
-      paymentOption: {
-        archived: boolean;
-        id: string;
-        mode?: 'subscription' | 'one_time';
-        months: number;
-        offerId: string;
-        priceKopecks: number;
-        revision: number;
-      };
-      renewalPriceKopecks: number;
-      timezone: 'Europe/Moscow';
-    };
-    state: 'active' | 'canceled' | 'ended';
-    subscriptionRef: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/subscription/cancel',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Accept a calculated option change
-   * @returns any
-   * @throws ApiError
-   */
-  public changeBillingOption({
-    requestBody,
-  }: {
-    requestBody: {
-      changeQuoteRef: string;
-      expectedRevision: number;
-      operationId: string;
-    },
-  }): CancelablePromise<{
-    payment: {
-      access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
-      confirmedAt: string | null;
-      fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
-      paymentUrl: string | null;
-      periodEndsAt: string | null;
-      purchaseRef: string;
-      refundedKopecks?: number;
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-    } | null;
-    subscription: {
-      inFlightPayment: {
-        attemptRef: string;
-        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-      } | null;
-      paidUntil: string;
-      paymentMethod: {
-        methodRef: string;
-        revoked: boolean;
-      } | null;
-      pendingChange: {
-        acceptedAt: string;
-        changeQuoteRef: string;
-        snapshot: {
-          communityPolicy?: 'explicit';
-          currency: 'RUB';
-          firstPriceKopecks: number;
-          individualPayment?: {
-            basePriceKopecks: number;
-            linkId: string;
-          };
-          offer: {
-            archived: boolean;
-            availableForAssignment?: boolean;
-            benefitPeriods?: Array<{
-              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-              months: number | null;
-            }>;
-            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            coverage?: {
-              materialIds: Array<string>;
-              productIds: Array<string>;
-              wholePlatform?: boolean;
-            } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-            id: string;
-            name: string;
-            published?: boolean;
-            revision: number;
-          };
-          paymentOption: {
-            archived: boolean;
-            id: string;
-            mode?: 'subscription' | 'one_time';
-            months: number;
-            offerId: string;
-            priceKopecks: number;
-            revision: number;
-          };
-          promotion: {
-            id: string;
-            name: string;
-            percent: number;
-            revision: number;
-          } | null;
-          renewalPriceKopecks: number;
-          timezone: 'Europe/Moscow';
-        };
-      } | null;
-      pendingMethodChange: {
-        flowRef: string;
-        formUrl: string | null;
-      } | null;
-      periodAmountKopecks: number;
-      periodIndex: number;
-      periodStartsAt: string;
-      revision: number;
-      snapshot: {
-        currency: 'RUB';
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-      state: 'active' | 'canceled' | 'ended';
-      subscriptionRef: string;
-    };
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/subscription/change',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Drop a scheduled option change before its attempt is sent
-   * @returns any
-   * @throws ApiError
-   */
-  public cancelBillingChange({
-    requestBody,
-  }: {
-    requestBody: {
-      expectedRevision: number;
-      operationId: string;
-    },
-  }): CancelablePromise<{
-    inFlightPayment: {
-      attemptRef: string;
-      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-    } | null;
-    paidUntil: string;
-    paymentMethod: {
-      methodRef: string;
-      revoked: boolean;
-    } | null;
-    pendingChange: {
-      acceptedAt: string;
-      changeQuoteRef: string;
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-    } | null;
-    pendingMethodChange: {
-      flowRef: string;
-      formUrl: string | null;
-    } | null;
-    periodAmountKopecks: number;
-    periodIndex: number;
-    periodStartsAt: string;
-    revision: number;
-    snapshot: {
-      currency: 'RUB';
-      offer: {
-        archived: boolean;
-        availableForAssignment?: boolean;
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage?: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-        id: string;
-        name: string;
-        published?: boolean;
-        revision: number;
-      };
-      paymentOption: {
-        archived: boolean;
-        id: string;
-        mode?: 'subscription' | 'one_time';
-        months: number;
-        offerId: string;
-        priceKopecks: number;
-        revision: number;
-      };
-      renewalPriceKopecks: number;
-      timezone: 'Europe/Moscow';
-    };
-    state: 'active' | 'canceled' | 'ended';
-    subscriptionRef: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/subscription/change/cancel',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Calculate an upgrade top-up or the next period conditions
-   * @returns any
-   * @throws ApiError
-   */
-  public quoteBillingChange({
-    requestBody,
-  }: {
-    requestBody: {
-      expectedRevision: number;
-      operationId: string;
-      paymentOptionId: string;
-    },
-  }): CancelablePromise<{
-    baseRevision: number;
-    changeQuoteRef: string;
-    expiresAt: string;
-    plan: ({
-      effectiveAt: string;
-      kind: 'upgrade';
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-      topUpKopecks: number;
-    } | {
-      effectiveAt: string;
-      kind: 'scheduled';
-      nextPriceKopecks: number;
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-    });
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/subscription/change/quote',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        403: `The terms of use in force are not accepted yet`,
-        500: `Terms acceptance could not be checked`,
-      },
-    });
-  }
-  /**
-   * Resume renewal inside the active paid term on its original conditions
-   * @returns any
-   * @throws ApiError
-   */
-  public resumeBillingRenewal({
-    requestBody,
-  }: {
-    requestBody: {
-      consentEvidenceRefs: Array<string>;
-      expectedRevision: number;
-      operationId: string;
-    },
-  }): CancelablePromise<{
-    inFlightPayment: {
-      attemptRef: string;
-      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-    } | null;
-    paidUntil: string;
-    paymentMethod: {
-      methodRef: string;
-      revoked: boolean;
-    } | null;
-    pendingChange: {
-      acceptedAt: string;
-      changeQuoteRef: string;
-      snapshot: {
-        communityPolicy?: 'explicit';
-        currency: 'RUB';
-        firstPriceKopecks: number;
-        individualPayment?: {
-          basePriceKopecks: number;
-          linkId: string;
-        };
-        offer: {
-          archived: boolean;
-          availableForAssignment?: boolean;
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-          id: string;
-          name: string;
-          published?: boolean;
-          revision: number;
-        };
-        paymentOption: {
-          archived: boolean;
-          id: string;
-          mode?: 'subscription' | 'one_time';
-          months: number;
-          offerId: string;
-          priceKopecks: number;
-          revision: number;
-        };
-        promotion: {
-          id: string;
-          name: string;
-          percent: number;
-          revision: number;
-        } | null;
-        renewalPriceKopecks: number;
-        timezone: 'Europe/Moscow';
-      };
-    } | null;
-    pendingMethodChange: {
-      flowRef: string;
-      formUrl: string | null;
-    } | null;
-    periodAmountKopecks: number;
-    periodIndex: number;
-    periodStartsAt: string;
-    revision: number;
-    snapshot: {
-      currency: 'RUB';
-      offer: {
-        archived: boolean;
-        availableForAssignment?: boolean;
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage?: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-        id: string;
-        name: string;
-        published?: boolean;
-        revision: number;
-      };
-      paymentOption: {
-        archived: boolean;
-        id: string;
-        mode?: 'subscription' | 'one_time';
-        months: number;
-        offerId: string;
-        priceKopecks: number;
-        revision: number;
-      };
-      renewalPriceKopecks: number;
-      timezone: 'Europe/Moscow';
-    };
-    state: 'active' | 'canceled' | 'ended';
-    subscriptionRef: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/billing/subscription/resume',
       body: requestBody,
       mediaType: 'application/json',
       errors: {
@@ -1459,8 +481,6 @@ export class BillingService {
       expiresAt: string | null;
       operation: 'paymentLinks.create';
       operationId: string;
-      optionRevision: number;
-      paymentOptionId: string;
       price: ({
         amountKopecks: number;
         kind: 'amount';
@@ -1468,6 +488,8 @@ export class BillingService {
         kind: 'discount';
         percent: number;
       });
+      priceRevision: number;
+      productId: string;
     } | {
       expectedRevision: number;
       id: string;
@@ -1479,123 +501,23 @@ export class BillingService {
       operation: 'paymentLinks.list';
       operationId: string;
     } | {
-      operation: 'tribute.status';
-      operationId: string;
-      page?: number;
-    } | {
-      expectedRevision: number;
-      operation: 'tribute.dismissImport';
-      operationId: string;
-      previewRef: string;
-      reason: string;
-    } | {
-      enabled: boolean;
-      expectedRevision: number;
-      id: string;
-      operation: 'tribute.savePolicy';
-      operationId: string;
-      reason: string;
-      subscriptionId: number;
-      temporaryUntil: any;
-      tierId: string;
-      tierRevision: number;
-    } | {
-      batchRef: string;
-      operation: 'tribute.preview';
-      operationId: string;
-      rows: Array<{
-        checkedAt: any;
-        endsAt: any;
-        expectedRevision: number;
-        identityRef: string | null;
-        mode: 'confirmed_period' | 'temporary_membership';
-        policyRef: string;
-        reason: string;
-        renewal: 'unknown' | 'enabled' | 'stopped';
-        rowRef: string;
-        startsAt: any;
-        subscriptionId: number | null;
-        telegramUserId: string | null;
-        verificationRef: string | null;
-      }>;
-    } | {
-      operation: 'tribute.apply';
-      operationId: string;
-      previewRef: string;
-      selectedRows: Array<string>;
-    } | {
-      action: 'retry' | 'revoke' | 'restore';
-      confirmedTerms?: {
-        endsAt: any;
-        startsAt: any;
-        verificationRef: string;
-      };
-      expectedRevision: number;
-      operation: 'tribute.reconcile';
-      operationId: string;
-      reason: string;
-      sourceId: string;
-    } | {
-      action?: 'retry' | 'reject';
-      expectedRevision: number;
-      inboxId: string;
-      operation: 'tribute.retryEvent';
-      operationId: string;
-      reason: string;
-    } | {
       identityRef: string;
       operation: 'recipients.lookup';
       operationId: string;
     } | {
       expectedRevision?: number;
-      operation: 'offers.save';
+      operation: 'productPrices.save';
       operationId: string;
       value: {
-        availableForAssignment?: boolean;
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage?: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-        id: string;
         name: string;
-      };
-    } | {
-      expectedRevision: number;
-      id: string;
-      operation: 'offers.archive';
-      operationId: string;
-    } | {
-      expectedRevision: number;
-      id: string;
-      operation: 'offers.publish';
-      operationId: string;
-    } | {
-      expectedRevision: number;
-      id: string;
-      operation: 'offers.unpublish';
-      operationId: string;
-    } | {
-      expectedRevision?: number;
-      operation: 'paymentOptions.save';
-      operationId: string;
-      value: {
-        id: string;
-        mode?: 'subscription' | 'one_time';
-        months: number;
-        offerId: string;
         priceKopecks: number;
+        productId: string;
+        published: boolean;
       };
     } | {
       expectedRevision: number;
       id: string;
-      operation: 'paymentOptions.archive';
+      operation: 'productPrices.archive';
       operationId: string;
     } | {
       expectedRevision?: number;
@@ -1606,9 +528,8 @@ export class BillingService {
         endsAt: string;
         id: string;
         name: string;
-        offerIds: Array<string>;
-        paymentOptionIds: Array<string>;
         percent: number;
+        productIds: Array<string>;
         startsAt: string;
         usageLimit: number | null;
       };
@@ -1630,18 +551,25 @@ export class BillingService {
         startsOn: string | null;
       };
     } | {
-      operation: 'content.list';
+      expectedRevision?: number;
+      operation: 'productSalesState.save';
+      operationId: string;
+      value: {
+        name: string;
+        nextEvent: string;
+        priceAfterStartKopecks: number | null;
+        productId: string;
+        stage: 'announcement' | 'preorder' | 'running' | 'between';
+        startsOn: string | null;
+      };
+    } | {
+      cursor?: string;
+      limit: number;
+      operation: 'productPrices.list';
       operationId: string;
     } | {
-      checkedAt: any;
-      endsAt: any;
-      identityRef: string;
-      operation: 'sources.register';
+      operation: 'content.list';
       operationId: string;
-      origin: 'course' | 'tribute';
-      reason: string;
-      sourcePolicyRef: string;
-      startsAt: any;
     } | {
       expectedRevision?: number;
       operation: 'activationRules.save';
@@ -1652,75 +580,14 @@ export class BillingService {
         endsAt: any;
         id: string;
         name: string;
+        productId: string;
         published: boolean;
         sourceRef: string;
         startsAt: any;
-        tierId: string;
-        tierRevision: number;
         verificationMode?: 'course_membership';
       };
     } | {
       operation: 'activationRules.list';
-      operationId: string;
-    } | {
-      operation: 'enrollments.previewExpansion';
-      operationId: string;
-      reason: string;
-      targets: Array<{
-        enrollmentId: string;
-        expectedRevision: number;
-        tierRevision: number;
-      }>;
-      tierId: string;
-      tierRevision: number;
-    } | {
-      operation: 'enrollments.applyExpansion';
-      operationId: string;
-      previewRef: string;
-    } | {
-      accountId: string;
-      billingRef: string | null;
-      courseSource?: {
-        policyRef: string;
-        verifiedIdentityRef: string;
-      };
-      operation: 'enrollments.assign';
-      operationId: string;
-      origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-      reason: string;
-      sourceRef: string;
-      terms: {
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: any;
-        startsAt: any;
-      };
-      tierId: string;
-      tierRevision: number;
-    } | {
-      action: 'change_term' | 'revoke' | 'restore';
-      enrollmentId: string;
-      expectedRevision: number;
-      operation: 'enrollments.change';
-      operationId: string;
-      reason: string;
-      terms: {
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: any;
-        startsAt: any;
-      };
-    } | {
-      accountId: string;
-      operation: 'enrollments.list';
-      operationId: string;
-    } | {
-      cursor?: string;
-      limit: number;
-      operation: 'tiers.list';
-      operationId: string;
-    } | {
-      cursor?: string;
-      limit: number;
-      operation: 'offers.list';
       operationId: string;
     } | {
       accountId?: string;
@@ -1743,94 +610,9 @@ export class BillingService {
       operationId: string;
       purchaseRef: string;
     } | {
-      accountId: string;
-      expectedRevision: number;
-      operation: 'subscriptions.cancel';
-      operationId: string;
-      reason: string;
-    } | {
-      amountKopecks: number;
-      basis: 'withdrawal' | 'compensation';
-      operation: 'refunds.decide';
-      operationId: string;
-      purchaseRef: string;
-      reason: string;
-      recurring: 'keep' | 'cancel';
-    } | {
-      decisionRef: string;
-      expectedRevision: number;
-      operation: 'refunds.execute';
-      operationId: string;
-    } | {
       operation: 'refunds.read';
       operationId: string;
       purchaseRef: string;
-    } | {
-      accountId: string;
-      operation: 'grants.read';
-      operationId: string;
-    } | {
-      accountId: string;
-      operation: 'grants.readClassification';
-      operationId: string;
-    } | {
-      accountId: string;
-      bridgeEnabled: boolean;
-      classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
-      expectedRevision: number;
-      operation: 'grants.classify';
-      operationId: string;
-      reason: string;
-      sourceRef: string;
-      tributeStopped: boolean;
-    } | {
-      operation: 'grants.previewBatch';
-      operationId: string;
-      rows: Array<({
-        accountId: string;
-        rowKey: string;
-        source: 'manual' | 'legacy';
-        sourceRef: string;
-        terms: {
-          capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage?: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          };
-          reason: string;
-          startsAt: any;
-          validUntil: any;
-        };
-      } | {
-        accountId: string;
-        bridgeEnabled: boolean;
-        classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
-        expectedRevision: number;
-        reason: string;
-        rowKey: string;
-        sourceRef: string;
-        tributeStopped: boolean;
-      })>;
-    } | {
-      confirmedRows: any;
-      expectedRevision: number;
-      operation: 'grants.applyBatch';
-      operationId: string;
-      previewRef: string;
-    } | {
-      expectedRevision: number;
-      grantRef: string;
-      operation: 'grants.extend';
-      operationId: string;
-      reason: string;
-      validUntil: any;
-    } | {
-      expectedRevision: number;
-      grantRef: string;
-      operation: 'grants.revoke';
-      operationId: string;
-      reason: string;
     } | {
       list: string;
       operation: 'respondents.import';
@@ -1842,35 +624,6 @@ export class BillingService {
       username: string;
     } | {
       operation: 'respondents.status';
-      operationId: string;
-    } | {
-      mode: 'purchase';
-      note: string | null;
-      offerId: string;
-      operation: 'invitations.issue';
-      operationId: string;
-    } | {
-      expectedRevision: number;
-      invitationId: string;
-      operation: 'invitations.revoke';
-      operationId: string;
-    } | {
-      cursor?: string;
-      limit: number;
-      offerId?: string;
-      operation: 'invitations.list';
-      operationId: string;
-      state?: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
-    } | {
-      cursor?: string;
-      limit: number;
-      offerId?: string;
-      operation: 'people.list';
-      operationId: string;
-      source?: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation' | 'one_time_purchase';
-      state?: 'active' | 'expiring' | 'ended';
-    } | {
-      operation: 'access.summary';
       operationId: string;
     }),
   }): CancelablePromise<{
@@ -1918,6 +671,11 @@ export class BillingService {
             priceKopecks: number;
             revision: number;
           };
+          product?: {
+            id: string;
+            name: string;
+            priceRevision: number;
+          };
           promotion: {
             id: string;
             name: string;
@@ -1925,6 +683,7 @@ export class BillingService {
             revision: number;
           } | null;
           renewalPriceKopecks: number;
+          supportMonths?: 3;
           timezone: 'Europe/Moscow';
         };
         state: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
@@ -1971,6 +730,11 @@ export class BillingService {
             priceKopecks: number;
             revision: number;
           };
+          product?: {
+            id: string;
+            name: string;
+            priceRevision: number;
+          };
           promotion: {
             id: string;
             name: string;
@@ -1978,6 +742,7 @@ export class BillingService {
             revision: number;
           } | null;
           renewalPriceKopecks: number;
+          supportMonths?: 3;
           timezone: 'Europe/Moscow';
         };
         state: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
@@ -1985,307 +750,17 @@ export class BillingService {
       nextCursor: string | null;
       outcome: 'paymentLinks';
     } | {
-      outcome: 'tributeImportReview';
-      value: {
-        batchRef: string;
-        expiresAt: any;
-        pendingRows: Array<string>;
-        previewRef: string;
-        reason: string;
-        revision: number;
-        state: 'pending' | 'applied' | 'dismissed';
-      };
-    } | {
-      outcome: 'tributeStatus';
-      value: {
-        hasMore: boolean;
-        imports: Array<{
-          batchRef: string;
-          expiresAt: any;
-          pendingRows: Array<string>;
-          previewRef: string;
-          reason: string;
-          revision: number;
-          state: 'pending' | 'applied' | 'dismissed';
-        }>;
-        inbox: Array<{
-          id: string;
-          reason: string;
-          receivedAt: any;
-          revision: number;
-          sourceId: string | null;
-          state: 'received' | 'applied' | 'pending_reconciliation' | 'rejected';
-          updatedAt: any;
-        }>;
-        metrics: {
-          pendingIdentity: number;
-          rolloutBlocked: boolean;
-          staleConfirmations: number;
-          temporarySources: number;
-          unresolvedEvents: number;
-          unresolvedImports: number;
-        };
-        page: number;
-        policies: Array<{
-          enabled: boolean;
-          id: string;
-          revision: number;
-          subscriptionId: number;
-          temporaryUntil: any;
-          tier: {
-            benefitPeriods?: Array<{
-              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-              months: number | null;
-            }>;
-            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            coverage: {
-              materialIds: Array<string>;
-              productIds: Array<string>;
-              wholePlatform?: boolean;
-            };
-            id: string;
-            name: string;
-            revision: number;
-          };
-        }>;
-        sources: Array<{
-          accountId: string | null;
-          checkedAt: any;
-          enrollmentId: string | null;
-          id: string;
-          identityRef: string;
-          policyRef: string;
-          revision: number;
-          revoked: boolean;
-          sourceRef: string;
-          state: {
-            endsAt: any;
-            lastEventAt: string | null;
-            lastEventFingerprint: string | null;
-            mode: 'confirmed_period' | 'temporary_membership';
-            observation: 'pending' | 'member' | 'observation_stale' | 'source_ended';
-            observationVersion: string | null;
-            observedUntil: any;
-            policyRevision: number;
-            renewal: 'unknown' | 'enabled' | 'stopped';
-            startsAt: any;
-            subscriptionId: number;
-            telegramUserId: string;
-            tier: {
-              benefitPeriods?: Array<{
-                capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-                months: number | null;
-              }>;
-              benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-              coverage: {
-                materialIds: Array<string>;
-                productIds: Array<string>;
-                wholePlatform?: boolean;
-              };
-              id: string;
-              name: string;
-              revision: number;
-            };
-            verificationRef: string;
-          };
-          status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        }>;
-        unconfirmedSources: Array<{
-          id: string;
-          identityRef: string;
-          policyRef: string;
-          revision: number;
-          sourceRef: string;
-        }>;
-      };
-    } | {
-      outcome: 'tributePolicy';
-      value: {
-        enabled: boolean;
-        id: string;
-        revision: number;
-        subscriptionId: number;
-        temporaryUntil: any;
-        tier: {
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-    } | {
-      outcome: 'tributePreview';
-      value: {
-        batchRef: string;
-        expiresAt: any;
-        previewRef: string;
-        rows: Array<{
-          accountId: string | null;
-          bindingFingerprint: string | null;
-          detail: string;
-          endsAt: any;
-          enrollmentRevision: number;
-          policyRevision: number;
-          rowRef: string;
-          shortens: boolean;
-          sourceId: string | null;
-          sourceRevision: number;
-          startsAt: any;
-          status: 'new' | 'matched' | 'pending_identity' | 'ambiguous' | 'unknown_term' | 'conflict';
-          tier: {
-            benefitPeriods?: Array<{
-              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-              months: number | null;
-            }>;
-            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            coverage: {
-              materialIds: Array<string>;
-              productIds: Array<string>;
-              wholePlatform?: boolean;
-            };
-            id: string;
-            name: string;
-            revision: number;
-          } | null;
-        }>;
-      };
-    } | {
-      outcome: 'tributeApplied';
-      value: {
-        previewRef: string;
-        sources: Array<{
-          accountId: string | null;
-          checkedAt: any;
-          enrollmentId: string | null;
-          id: string;
-          identityRef: string;
-          policyRef: string;
-          revision: number;
-          revoked: boolean;
-          sourceRef: string;
-          state: {
-            endsAt: any;
-            lastEventAt: string | null;
-            lastEventFingerprint: string | null;
-            mode: 'confirmed_period' | 'temporary_membership';
-            observation: 'pending' | 'member' | 'observation_stale' | 'source_ended';
-            observationVersion: string | null;
-            observedUntil: any;
-            policyRevision: number;
-            renewal: 'unknown' | 'enabled' | 'stopped';
-            startsAt: any;
-            subscriptionId: number;
-            telegramUserId: string;
-            tier: {
-              benefitPeriods?: Array<{
-                capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-                months: number | null;
-              }>;
-              benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-              coverage: {
-                materialIds: Array<string>;
-                productIds: Array<string>;
-                wholePlatform?: boolean;
-              };
-              id: string;
-              name: string;
-              revision: number;
-            };
-            verificationRef: string;
-          };
-          status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        }>;
-      };
-    } | {
-      outcome: 'tributeSource';
-      value: {
-        accountId: string | null;
-        checkedAt: any;
-        enrollmentId: string | null;
-        id: string;
-        identityRef: string;
-        policyRef: string;
-        revision: number;
-        revoked: boolean;
-        sourceRef: string;
-        state: {
-          endsAt: any;
-          lastEventAt: string | null;
-          lastEventFingerprint: string | null;
-          mode: 'confirmed_period' | 'temporary_membership';
-          observation: 'pending' | 'member' | 'observation_stale' | 'source_ended';
-          observationVersion: string | null;
-          observedUntil: any;
-          policyRevision: number;
-          renewal: 'unknown' | 'enabled' | 'stopped';
-          startsAt: any;
-          subscriptionId: number;
-          telegramUserId: string;
-          tier: {
-            benefitPeriods?: Array<{
-              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-              months: number | null;
-            }>;
-            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            coverage: {
-              materialIds: Array<string>;
-              productIds: Array<string>;
-              wholePlatform?: boolean;
-            };
-            id: string;
-            name: string;
-            revision: number;
-          };
-          verificationRef: string;
-        };
-        status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-      };
-    } | {
-      outcome: 'tributeEvent';
-      value: {
-        id: string;
-        reason: string;
-        receivedAt: any;
-        revision: number;
-        sourceId: string | null;
-        state: 'received' | 'applied' | 'pending_reconciliation' | 'rejected';
-        updatedAt: any;
-      };
-    } | {
-      outcome: 'sourceEntitlement';
-      value: {
-        accountId: string | null;
-        checkedAt: string;
-        enrollmentId: string | null;
-        id: string;
-        identityRef: string;
-        origin: 'course' | 'tribute';
-        revision: number;
-        sourcePolicyRef: string;
-        sourceRef: string;
-      };
-    } | {
       outcome: 'activationRule';
       value: {
         code: string;
         endsAt: any;
         id: string;
         name: string;
+        productId: string;
         published: boolean;
         revision: number;
         sourceRef: string;
         startsAt: any;
-        tierId: string;
-        tierRevision: number;
         verificationMode?: 'course_membership';
       };
     } | {
@@ -2294,138 +769,14 @@ export class BillingService {
         endsAt: any;
         id: string;
         name: string;
+        productId: string;
         published: boolean;
         revision: number;
         sourceRef: string;
         startsAt: any;
-        tierId: string;
-        tierRevision: number;
         verificationMode?: 'course_membership';
       }>;
       outcome: 'activationRules';
-    } | {
-      outcome: 'enrollmentExpansionPreview';
-      value: {
-        expiresAt: string;
-        previewRef: string;
-        targets: Array<{
-          enrollmentId: string;
-          expectedRevision: number;
-          tierRevision: number;
-        }>;
-        tier: {
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-    } | {
-      enrollmentIds: Array<string>;
-      outcome: 'enrollmentExpansion';
-    } | {
-      outcome: 'enrollment';
-      value: {
-        accountId: string;
-        benefitTerms?: Array<{
-          capability: string;
-          endsAt: string | null;
-          revoked: boolean;
-          startsAt: string;
-        }>;
-        content?: Array<{
-          available: boolean;
-          id: string;
-          kind: 'product' | 'material';
-          slug: string | null;
-          title: string;
-        }>;
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: string | null;
-        history?: Array<{
-          kind: string;
-          reason: string;
-          recordedAt: string;
-        }>;
-        id: string;
-        nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-        renewal: 'not_applicable' | 'billing_agreement';
-        revision: number;
-        startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        tier: {
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-    } | {
-      items: Array<{
-        accountId: string;
-        benefitTerms?: Array<{
-          capability: string;
-          endsAt: string | null;
-          revoked: boolean;
-          startsAt: string;
-        }>;
-        content?: Array<{
-          available: boolean;
-          id: string;
-          kind: 'product' | 'material';
-          slug: string | null;
-          title: string;
-        }>;
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: string | null;
-        history?: Array<{
-          kind: string;
-          reason: string;
-          recordedAt: string;
-        }>;
-        id: string;
-        nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-        renewal: 'not_applicable' | 'billing_agreement';
-        revision: number;
-        startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        tier: {
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      }>;
-      outcome: 'enrollments';
     } | {
       items: Array<{
         available: boolean;
@@ -2451,33 +802,6 @@ export class BillingService {
       } | {
         state: 'ambiguous';
       });
-    } | {
-      items: Array<{
-        archived: boolean;
-        availableForAssignment: boolean;
-        benefitPeriods: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        published: boolean;
-        tier: {
-          benefitPeriods?: Array<{
-            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-            months: number | null;
-          }>;
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          coverage: {
-            materialIds: Array<string>;
-            productIds: Array<string>;
-            wholePlatform?: boolean;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      }>;
-      nextCursor: string | null;
-      outcome: 'tiers';
     } | {
       outcome: 'catalog';
       value: {
@@ -2523,6 +847,11 @@ export class BillingService {
           priceKopecks: number;
           revision: number;
         };
+        product?: {
+          id: string;
+          name: string;
+          priceRevision: number;
+        };
         promotion: {
           id: string;
           name: string;
@@ -2530,13 +859,14 @@ export class BillingService {
           revision: number;
         } | null;
         renewalPriceKopecks: number;
+        supportMonths?: 3;
         timezone: 'Europe/Moscow';
       }>;
       nextCursor: string | null;
       outcome: 'catalogOffers';
     } | {
       items: Array<{
-        access: 'awaiting_payment' | 'preparing' | 'ready';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
         accountId: string;
         amountKopecks: number;
         confirmedAt: string | null;
@@ -2548,8 +878,8 @@ export class BillingService {
         periodEndsAt: string | null;
         periodIndex: number | null;
         purchaseRef: string;
-        refundableKopecks: number;
-        refundedKopecks: number;
+        refundableKopecks: number | null;
+        refundedKopecks: number | null;
         snapshot: {
           communityPolicy?: 'explicit';
           currency: 'RUB';
@@ -2586,6 +916,11 @@ export class BillingService {
             priceKopecks: number;
             revision: number;
           };
+          product?: {
+            id: string;
+            name: string;
+            priceRevision: number;
+          };
           promotion: {
             id: string;
             name: string;
@@ -2593,6 +928,7 @@ export class BillingService {
             revision: number;
           } | null;
           renewalPriceKopecks: number;
+          supportMonths?: 3;
           timezone: 'Europe/Moscow';
         };
         state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
@@ -2644,7 +980,7 @@ export class BillingService {
       } | null;
       outcome: 'payment';
       value: {
-        access: 'awaiting_payment' | 'preparing' | 'ready';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
         accountId: string;
         amountKopecks: number;
         confirmedAt: string | null;
@@ -2656,8 +992,8 @@ export class BillingService {
         periodEndsAt: string | null;
         periodIndex: number | null;
         purchaseRef: string;
-        refundableKopecks: number;
-        refundedKopecks: number;
+        refundableKopecks: number | null;
+        refundedKopecks: number | null;
         snapshot: {
           communityPolicy?: 'explicit';
           currency: 'RUB';
@@ -2694,6 +1030,11 @@ export class BillingService {
             priceKopecks: number;
             revision: number;
           };
+          product?: {
+            id: string;
+            name: string;
+            priceRevision: number;
+          };
           promotion: {
             id: string;
             name: string;
@@ -2701,6 +1042,7 @@ export class BillingService {
             revision: number;
           } | null;
           renewalPriceKopecks: number;
+          supportMonths?: 3;
           timezone: 'Europe/Moscow';
         };
         state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
@@ -2711,7 +1053,7 @@ export class BillingService {
     } | {
       outcome: 'reconciled';
       value: {
-        access: 'awaiting_payment' | 'preparing' | 'ready';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
         accountId: string;
         amountKopecks: number;
         confirmedAt: string | null;
@@ -2723,8 +1065,8 @@ export class BillingService {
         periodEndsAt: string | null;
         periodIndex: number | null;
         purchaseRef: string;
-        refundableKopecks: number;
-        refundedKopecks: number;
+        refundableKopecks: number | null;
+        refundedKopecks: number | null;
         snapshot: {
           communityPolicy?: 'explicit';
           currency: 'RUB';
@@ -2761,6 +1103,11 @@ export class BillingService {
             priceKopecks: number;
             revision: number;
           };
+          product?: {
+            id: string;
+            name: string;
+            priceRevision: number;
+          };
           promotion: {
             id: string;
             name: string;
@@ -2768,142 +1115,12 @@ export class BillingService {
             revision: number;
           } | null;
           renewalPriceKopecks: number;
+          supportMonths?: 3;
           timezone: 'Europe/Moscow';
         };
         state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
         subscriptionRef: string | null;
         terminalRef: string;
-        updatedAt: string;
-      };
-    } | {
-      outcome: 'subscription';
-      value: {
-        inFlightPayment: {
-          attemptRef: string;
-          kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
-          state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
-        } | null;
-        paidUntil: string;
-        paymentMethod: {
-          methodRef: string;
-          revoked: boolean;
-        } | null;
-        pendingChange: {
-          acceptedAt: string;
-          changeQuoteRef: string;
-          snapshot: {
-            communityPolicy?: 'explicit';
-            currency: 'RUB';
-            firstPriceKopecks: number;
-            individualPayment?: {
-              basePriceKopecks: number;
-              linkId: string;
-            };
-            offer: {
-              archived: boolean;
-              availableForAssignment?: boolean;
-              benefitPeriods?: Array<{
-                capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-                months: number | null;
-              }>;
-              benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-              coverage?: {
-                materialIds: Array<string>;
-                productIds: Array<string>;
-                wholePlatform?: boolean;
-              } | null;
-              eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-              id: string;
-              name: string;
-              published?: boolean;
-              revision: number;
-            };
-            paymentOption: {
-              archived: boolean;
-              id: string;
-              mode?: 'subscription' | 'one_time';
-              months: number;
-              offerId: string;
-              priceKopecks: number;
-              revision: number;
-            };
-            promotion: {
-              id: string;
-              name: string;
-              percent: number;
-              revision: number;
-            } | null;
-            renewalPriceKopecks: number;
-            timezone: 'Europe/Moscow';
-          };
-        } | null;
-        pendingMethodChange: {
-          flowRef: string;
-          formUrl: string | null;
-        } | null;
-        periodAmountKopecks: number;
-        periodIndex: number;
-        periodStartsAt: string;
-        revision: number;
-        snapshot: {
-          currency: 'RUB';
-          offer: {
-            archived: boolean;
-            availableForAssignment?: boolean;
-            benefitPeriods?: Array<{
-              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-              months: number | null;
-            }>;
-            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            coverage?: {
-              materialIds: Array<string>;
-              productIds: Array<string>;
-              wholePlatform?: boolean;
-            } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-            id: string;
-            name: string;
-            published?: boolean;
-            revision: number;
-          };
-          paymentOption: {
-            archived: boolean;
-            id: string;
-            mode?: 'subscription' | 'one_time';
-            months: number;
-            offerId: string;
-            priceKopecks: number;
-            revision: number;
-          };
-          renewalPriceKopecks: number;
-          timezone: 'Europe/Moscow';
-        };
-        state: 'active' | 'canceled' | 'ended';
-        subscriptionRef: string;
-      };
-    } | {
-      outcome: 'refundDecision';
-      value: {
-        access: 'keep' | 'revoke';
-        accountId: string;
-        actorId: string | null;
-        amountKopecks: number;
-        attempt: {
-          amountKopecks: number;
-          errorCode: string | null;
-          observedStatus: string | null;
-          refundRef: string;
-          state: 'sent' | 'unknown' | 'confirmed' | 'failed';
-          updatedAt: string;
-        } | null;
-        basis: 'withdrawal' | 'compensation' | null;
-        createdAt: string;
-        decisionRef: string;
-        purchaseRef: string;
-        reason: string;
-        recurring: 'keep' | 'cancel';
-        revision: number;
-        state: 'decided' | 'executing' | 'executed' | 'failed';
         updatedAt: string;
       };
     } | {
@@ -2932,76 +1149,8 @@ export class BillingService {
       }>;
       outcome: 'refunds';
       purchaseRef: string;
-      refundableKopecks: number;
-      refundedKopecks: number;
-    } | {
-      outcome: 'grants';
-      value: {
-        accountId: string;
-        grants: Array<{
-          accountId: string;
-          active: boolean;
-          capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          grantRef: string;
-          reason: string;
-          revision: number;
-          revokedAt: string | null;
-          source: 'paid' | 'manual' | 'legacy';
-          sourceRef: string;
-          startsAt: string;
-          validUntil: string | null;
-        }>;
-        history: Array<{
-          actorId: string | null;
-          grantRef: string | null;
-          kind: string;
-          operationId: string;
-          reason: string;
-          recordedAt: string;
-          revision: number;
-        }>;
-      };
-    } | {
-      outcome: 'classification';
-      value: {
-        accountId: string;
-        classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
-        recurringAllowed: boolean;
-        revision: number;
-      };
-    } | {
-      expiresAt: string;
-      outcome: 'grantPreview';
-      previewRef: string;
-      revision: number;
-      rows: Array<{
-        accountId: string;
-        rowKey: string;
-        status: 'confirmed' | 'not_found';
-      }>;
-    } | {
-      outcome: 'grantBatch';
-      rows: Array<{
-        result: ({
-          grantRef: string;
-          ok: boolean;
-          revision: number;
-        } | {
-          classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
-          ok: boolean;
-          revision: number;
-        } | {
-          error: {
-            code: 'operation_conflict';
-          };
-          ok: boolean;
-        });
-        rowKey: string;
-      }>;
-    } | {
-      grantRef: string;
-      outcome: 'grant';
-      revision: number;
+      refundableKopecks: number | null;
+      refundedKopecks: number | null;
     } | {
       outcome: 'respondentImport';
       value: {
@@ -3029,107 +1178,6 @@ export class BillingService {
           username: string;
         }>;
         total: number;
-      };
-    } | {
-      outcome: 'invitation';
-      value: {
-        accountId: string | null;
-        claimedAt: string | null;
-        code?: string;
-        expiresAt: string;
-        id: string;
-        issuedAt: string;
-        link?: string | null;
-        mode: 'purchase';
-        offerId: string;
-        offerRevision: number;
-        redeemedAt: string | null;
-        revision: number;
-        revokedAt: string | null;
-        startParameter?: string;
-        state: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
-      };
-    } | {
-      items: Array<{
-        accountId: string | null;
-        claimedAt: string | null;
-        code: string;
-        expiresAt: string;
-        id: string;
-        issuedAt: string;
-        link: string | null;
-        mode: 'purchase';
-        note: string | null;
-        offerId: string;
-        offerRevision: number;
-        redeemedAt: string | null;
-        revision: number;
-        revokedAt: string | null;
-        startParameter: string;
-        state: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
-      }>;
-      nextCursor: string | null;
-      outcome: 'invitations';
-    } | {
-      items: Array<{
-        accountId: string;
-        grounds: Array<{
-          capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership' | null;
-          endsAt: string | null;
-          id: string;
-          kind: 'enrollment' | 'grant';
-          offer: {
-            id: string;
-            name: string;
-          } | null;
-          purchaseRef: string | null;
-          revision: number;
-          revokedAt: string | null;
-          source: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation' | 'one_time_purchase';
-          startsAt: string;
-          state: 'scheduled' | 'active' | 'ended' | 'revoked';
-        }>;
-        telegramIdentityRef: string | null;
-      }>;
-      nextCursor: string | null;
-      outcome: 'people';
-    } | {
-      outcome: 'accessSummary';
-      value: {
-        active: Array<{
-          course: number;
-          gift: number;
-          name: string;
-          offerId: string;
-          paid: number;
-        }>;
-        asOf: string;
-        attention: Array<{
-          accountId: string;
-          at: string;
-          offerId: string | null;
-          reason: 'ending' | 'payment_failed';
-          source: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation' | 'one_time_purchase' | null;
-          title: string;
-        }>;
-        invitations: {
-          expired: number;
-          issued: number;
-          opened: number;
-          paid: number;
-          purchaseOpened: number;
-          revoked: number;
-        };
-        revenue: Array<{
-          month: string;
-          name: string;
-          offerId: string;
-          payments: number;
-          refundedKopecks: number;
-          refunds: number;
-          revenueKopecks: number;
-        }>;
       };
     });
   }> {
@@ -3179,84 +1227,6 @@ export class BillingService {
       query: {
         'cursor': cursor,
         'productId': productId,
-      },
-    });
-  }
-  /**
-   * Read active options and public first-payment prices, filtered by sale mode, access capability and the reader's eligibility
-   * @returns any
-   * @throws ApiError
-   */
-  public billingOffers({
-    capability,
-    mode,
-    limit = 50,
-    cursor,
-  }: {
-    capability?: ('materials' | 'community' | 'reviews' | 'support' | string),
-    mode?: 'subscription' | 'one_time',
-    limit?: number,
-    cursor?: string,
-  }): CancelablePromise<{
-    items: Array<{
-      communityPolicy?: 'explicit';
-      currency: 'RUB';
-      firstPriceKopecks: number;
-      individualPayment?: {
-        basePriceKopecks: number;
-        linkId: string;
-      };
-      offer: {
-        archived: boolean;
-        availableForAssignment?: boolean;
-        benefitPeriods?: Array<{
-          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
-          months: number | null;
-        }>;
-        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        coverage?: {
-          materialIds: Array<string>;
-          productIds: Array<string>;
-          wholePlatform?: boolean;
-        } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
-        id: string;
-        name: string;
-        published?: boolean;
-        revision: number;
-      };
-      paymentOption: {
-        archived: boolean;
-        id: string;
-        mode?: 'subscription' | 'one_time';
-        months: number;
-        offerId: string;
-        priceKopecks: number;
-        revision: number;
-      };
-      promotion: {
-        id: string;
-        name: string;
-        percent: number;
-        revision: number;
-      } | null;
-      renewalPriceKopecks: number;
-      timezone: 'Europe/Moscow';
-    }>;
-    nextCursor: string | null;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/billing/offers',
-      query: {
-        'capability': capability,
-        'mode': mode,
-        'limit': limit,
-        'cursor': cursor,
-      },
-      errors: {
-        401: `Optional Account proof is invalid`,
-        500: `Account resolution failed`,
       },
     });
   }
@@ -3317,6 +1287,11 @@ export class BillingService {
         priceKopecks: number;
         revision: number;
       };
+      product?: {
+        id: string;
+        name: string;
+        priceRevision: number;
+      };
       promotion: {
         id: string;
         name: string;
@@ -3324,6 +1299,7 @@ export class BillingService {
         revision: number;
       } | null;
       renewalPriceKopecks: number;
+      supportMonths?: 3;
       timezone: 'Europe/Moscow';
     };
     state: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
@@ -3337,6 +1313,125 @@ export class BillingService {
       errors: {
         401: `Optional Account proof is invalid`,
         500: `Account resolution failed`,
+      },
+    });
+  }
+  /**
+   * Read current one-time Product prices and their best available discount
+   * @returns any
+   * @throws ApiError
+   */
+  public productPrices({
+    capability,
+    mode,
+    limit = 50,
+    cursor,
+    productId,
+  }: {
+    capability?: ('materials' | 'community' | 'reviews' | 'support' | string),
+    mode?: 'one_time',
+    limit?: number,
+    cursor?: string,
+    productId?: string,
+  }): CancelablePromise<{
+    items: Array<{
+      communityPolicy?: 'explicit';
+      currency: 'RUB';
+      firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
+      offer: {
+        archived: boolean;
+        availableForAssignment?: boolean;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        coverage?: {
+          materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
+        } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+        id: string;
+        name: string;
+        published?: boolean;
+        revision: number;
+      };
+      paymentOption: {
+        archived: boolean;
+        id: string;
+        mode?: 'subscription' | 'one_time';
+        months: number;
+        offerId: string;
+        priceKopecks: number;
+        revision: number;
+      };
+      product?: {
+        id: string;
+        name: string;
+        priceRevision: number;
+      };
+      promotion: {
+        id: string;
+        name: string;
+        percent: number;
+        revision: number;
+      } | null;
+      renewalPriceKopecks: number;
+      supportMonths?: 3;
+      timezone: 'Europe/Moscow';
+    }>;
+    nextCursor: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/product-prices',
+      query: {
+        'capability': capability,
+        'mode': mode,
+        'limit': limit,
+        'cursor': cursor,
+        'productId': productId,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
+      },
+    });
+  }
+  /**
+   * Read mutable Product sales presentation, independent of Intake and price admission
+   * @returns any
+   * @throws ApiError
+   */
+  public billingProductSalesStates({
+    cursor,
+    productId,
+  }: {
+    cursor?: string,
+    productId?: string,
+  }): CancelablePromise<{
+    items: Array<{
+      name: string;
+      nextEvent: string;
+      priceAfterStartKopecks: number | null;
+      productId: string;
+      revision: number;
+      stage: 'announcement' | 'preorder' | 'running' | 'between';
+      startsOn: string | null;
+    }>;
+    nextCursor: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/product-sales-states',
+      query: {
+        'cursor': cursor,
+        'productId': productId,
       },
     });
   }

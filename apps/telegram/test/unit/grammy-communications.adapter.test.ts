@@ -7,7 +7,7 @@ import {
   GrammyUpdateAdapter,
   prepareTelegramUpdateForInbox,
 } from "../../src/adapters/telegram/grammy-update.adapter.js";
-import { relativeDue } from "../../src/modules/communications/funnel-scheduler.js";
+import { relativeDue } from "../../src/modules/communications/sequence-scheduler.js";
 import { required } from "../support/required.js";
 describe("communication transport", () => {
   it("requests the canonical material card as large media above its announcement", async () => {

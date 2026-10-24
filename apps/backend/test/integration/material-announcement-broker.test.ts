@@ -10,8 +10,8 @@ import {
   NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   MaterialAnnouncements,
   materialId as checkedMaterialId,
 } from "../../src/modules/materials/index.js";

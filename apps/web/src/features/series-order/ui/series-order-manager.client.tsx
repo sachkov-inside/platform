@@ -1,5 +1,6 @@
 "use client";
 
+import { editCatalogueProgramme } from "../model/catalogue-programme-edit";
 import { ProgrammePlacementsEditor } from "./programme-placements-editor.client";
 import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 import type { ReactNode } from "react";
@@ -79,6 +80,7 @@ export function SeriesOrderManager({
   const [chapters, setChapters] = useState(presentation.chapters);
   const [items, setItems] = useState(presentation.items);
   const version = useRef(presentation.orderVersion);
+  const programme = useRef(presentation.programmePlacements ?? []);
   const mutation = useMutation({ mutationFn: reorderSeries });
   const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
   // Снятие опубликованных материалов из купленного продукта ждёт ответа автора в диалоге.
@@ -100,6 +102,11 @@ export function SeriesOrderManager({
       ),
     save: async (snapshot) => {
       const input = attempted.current ?? {
+        programmePlacements: editCatalogueProgramme(
+          programme.current,
+          snapshot.entries,
+          snapshot.chapters.map(({ id }) => id),
+        ),
         chapters: snapshot.chapters,
         chapterAssignments: Object.fromEntries(
           snapshot.entries.flatMap(({ chapterId, materialId }) =>
@@ -135,6 +142,7 @@ export function SeriesOrderManager({
       }
       if (next.kind !== "saved") return "failed";
       version.current = next.orderVersion;
+      programme.current = input.programmePlacements ?? programme.current;
       attempted.current = null;
       confirmedRemovals.current = [];
       return "saved";
@@ -155,8 +163,27 @@ export function SeriesOrderManager({
     });
   };
 
-  /** Positions move inside one chapter; the chapter itself is changed explicitly. */
+  const programmeMaterialIds = new Set(
+    (presentation.programmePlacements ?? []).map(
+      ({ materialId }) => materialId,
+    ),
+  );
+  const hasProgrammeEntry = (materialId: string) =>
+    programmeMaterialIds.has(materialId);
+  const canMove = (index: number, offset: -1 | 1) => {
+    const item = items[index];
+    const neighbour = items[index + offset];
+    return (
+      item !== undefined &&
+      neighbour !== undefined &&
+      hasProgrammeEntry(item.materialId) &&
+      hasProgrammeEntry(neighbour.materialId) &&
+      (neighbour.chapterId ?? null) === (item.chapterId ?? null)
+    );
+  };
+  /** Catalogue membership has no order; only existing programme occurrences can move. */
   const move = (index: number, offset: -1 | 1) => {
+    if (!canMove(index, offset)) return;
     const item = items[index];
     const destination = index + offset;
     const neighbour = items[destination];
@@ -179,7 +206,13 @@ export function SeriesOrderManager({
     const target = items[targetIndex];
     const source = items.findIndex((entry) => entry.materialId === materialId);
     const entry = items[source];
-    if (target === undefined || entry === undefined || source === targetIndex)
+    if (
+      target === undefined ||
+      entry === undefined ||
+      source === targetIndex ||
+      !hasProgrammeEntry(materialId) ||
+      !hasProgrammeEntry(target.materialId)
+    )
       return;
     const chapterId = target.chapterId ?? null;
     const next = [...items];
@@ -193,6 +226,7 @@ export function SeriesOrderManager({
     );
   };
   const assign = (materialId: string, chapterId: string | null) => {
+    if (!hasProgrammeEntry(materialId)) return;
     mutation.reset();
 
     setItems((current) => {
@@ -264,6 +298,7 @@ export function SeriesOrderManager({
     );
   };
   const setStepGroup = (materialId: string, stepGroup: string) => {
+    if (!hasProgrammeEntry(materialId)) return;
     mutation.reset();
     setItems((current) =>
       current.map((entry) =>
@@ -282,6 +317,8 @@ export function SeriesOrderManager({
     );
   };
   const actions: CompositionActions = {
+    canMove,
+    hasProgrammeEntry,
     assign,
     editChapter,
     move,
@@ -858,6 +895,8 @@ interface DragState {
 }
 
 interface CompositionActions {
+  readonly canMove: (position: number, offset: -1 | 1) => boolean;
+  readonly hasProgrammeEntry: (materialId: string) => boolean;
   readonly assign: (materialId: string, chapterId: string | null) => void;
   readonly editChapter: (
     id: string,
@@ -1134,7 +1173,8 @@ function MaterialRow({
         dropId === item.materialId && "bg-secondary outline-2 outline-ring",
       )}
       onDragOver={(event) => {
-        if (draggedId === null) return;
+        if (draggedId === null || !actions.hasProgrammeEntry(item.materialId))
+          return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         setDropId(item.materialId);
@@ -1143,7 +1183,8 @@ function MaterialRow({
         if (dragLeftElement(event)) setDropId(null);
       }}
       onDrop={(event) => {
-        if (draggedId === null) return;
+        if (draggedId === null || !actions.hasProgrammeEntry(item.materialId))
+          return;
         event.preventDefault();
         actions.placeBefore(draggedId, position);
         setDraggedId(null);
@@ -1158,7 +1199,8 @@ function MaterialRow({
           aria-label={`Переместить «${item.title}»`}
           title="Перетащите или используйте клавиши ↑ и ↓"
           className="col-start-2 row-start-1 hidden size-10 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing sm:flex"
-          draggable
+          disabled={!actions.hasProgrammeEntry(item.materialId)}
+          draggable={actions.hasProgrammeEntry(item.materialId)}
           type="button"
           onDragStart={(event) => {
             setDraggedId(item.materialId);
@@ -1204,6 +1246,7 @@ function MaterialRow({
               <label className="block text-xs text-muted-foreground">
                 Название последовательности
                 <input
+                  disabled={!actions.hasProgrammeEntry(item.materialId)}
                   name={`step-group-${item.materialId}`}
                   className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
                   maxLength={STEP_GROUP_LIMIT}
@@ -1222,7 +1265,9 @@ function MaterialRow({
                   Глава
                   <select
                     className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
-                    disabled={archived}
+                    disabled={
+                      archived || !actions.hasProgrammeEntry(item.materialId)
+                    }
                     name={`chapter-of-${item.materialId}`}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -1254,7 +1299,7 @@ function MaterialRow({
           <Button
             aria-label={`Поднять «${item.title}»`}
             className="size-10"
-            disabled={first}
+            disabled={first || !actions.canMove(position, -1)}
             onClick={() => {
               actions.move(position, -1);
             }}
@@ -1267,7 +1312,7 @@ function MaterialRow({
           <Button
             aria-label={`Опустить «${item.title}»`}
             className="size-10"
-            disabled={last}
+            disabled={last || !actions.canMove(position, 1)}
             onClick={() => {
               actions.move(position, 1);
             }}

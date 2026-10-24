@@ -43,7 +43,7 @@ MTProto и пользовательский аккаунт не использо
 
 Реестр прежних непривязанных участников не найден. Проверки source-групп выполняют
 `getChatMember` для уже известного ID, а не перечисляют их:
-[`source-group-proof.ts`](../../src/modules/subscription-activation/source-group-proof.ts).
+[`source-group-proof.ts`](../../src/modules/course-activation/source-group-proof.ts).
 История активации и оплаты не доказывает текущий полный состав группы.
 
 ## Проверка права

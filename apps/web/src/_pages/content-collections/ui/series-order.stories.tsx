@@ -71,6 +71,12 @@ const meta = {
     onSelectPlaylist: fn(),
     presentation: {
       archived: false,
+      programmePlacements: [1, 2, 3].map((index) => ({
+        id: `95000000-0000-4000-8000-00000000003${String(index)}`,
+        materialId: `95000000-0000-4000-8000-00000000000${String(index)}`,
+        chapterId: null,
+        stepGroup: null,
+      })),
       chapters: [],
       items: [
         {
@@ -159,7 +165,11 @@ export const StepAssignments: Story = {
 
 export const Empty: Story = {
   args: {
-    presentation: { ...meta.args.presentation, items: [] },
+    presentation: {
+      ...meta.args.presentation,
+      items: [],
+      programmePlacements: [],
+    },
   },
 };
 
@@ -175,6 +185,13 @@ const chapters = [
 const chaptered = {
   ...meta.args.presentation,
   chapters,
+  programmePlacements: meta.args.presentation.programmePlacements.map(
+    (entry, index) => ({
+      ...entry,
+      chapterId:
+        index === 2 ? (chapters[1]?.id ?? null) : (chapters[0]?.id ?? null),
+    }),
+  ),
   items: meta.args.presentation.items.map((item, index) => ({
     ...item,
     chapterId:
@@ -704,6 +721,7 @@ export const BoundedSupplementaryChoices: Story = {
   args: {
     presentation: {
       ...chaptered,
+      programmePlacements: [],
       chapters: [
         {
           id: "95000000-0000-4000-8000-000000000021",

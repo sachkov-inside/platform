@@ -5,7 +5,7 @@ import {
 } from "./waitlist-confirmations.js";
 import { AuthorDelivery } from "./author-delivery.js";
 import { CommunicationTracking } from "./communication-tracking.js";
-import { Funnels } from "./funnels.js";
+import { CommunicationSequences } from "./communication-sequences.js";
 import {
   Body,
   Controller,
@@ -34,7 +34,8 @@ export class CommunicationsController {
     private readonly waitlistConfirmations: WaitlistConfirmations,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(Communications) private readonly communications: Communications,
-    @Inject(Funnels) private readonly funnels: Funnels,
+    @Inject(CommunicationSequences)
+    private readonly funnels: CommunicationSequences,
     @Inject(AuthorDelivery) private readonly authorDelivery: AuthorDelivery,
     @Inject(CommunicationTracking)
     private readonly tracking: CommunicationTracking,

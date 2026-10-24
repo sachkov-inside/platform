@@ -5,7 +5,7 @@ import type {
   MessageDestination,
   SequenceAction,
 } from "./author-dialog.js";
-import { formatFunnelDelay, parseFunnelDelay } from "./author-funnels.js";
+import { formatSequenceDelay, parseSequenceDelay } from "./author-sequences.js";
 import type { Turn } from "./author-turn.js";
 import {
   CommunicationsError,
@@ -57,18 +57,18 @@ export function showSequence(t: Turn) {
   const origin =
     s.destination.kind === "broadcast"
       ? "запуска рассылки"
-      : "входа человека в воронку";
+      : "входа человека в последовательность";
   t.reply(
     sequence.firstEntry
-      ? "Первое сообщение воронки приходит сразу при входе. Подтвердите добавление."
-      : `Когда отправить это сообщение? Время отсчитывается от ${origin}.\nНапишите «сразу», «1 час», «2 часа» или другое время.${isTruthy(sequence.lastOffset) ? ` Не раньше ${formatFunnelDelay(sequence.lastOffset)} — сохраняем порядок сообщений.` : ""}`,
+      ? "Первое сообщение последовательности приходит сразу при входе. Подтвердите добавление."
+      : `Когда отправить это сообщение? Время отсчитывается от ${origin}.\nНапишите «сразу», «1 час», «2 часа» или другое время.${isTruthy(sequence.lastOffset) ? ` Не раньше ${formatSequenceDelay(sequence.lastOffset)} — сохраняем порядок сообщений.` : ""}`,
     [
       ...[0, 3600, 7200]
         .filter(
           (n) => n >= sequence.lastOffset && (!sequence.firstEntry || n === 0),
         )
         .map((n): AuthorButton => [
-          isTruthy(n) ? `Через ${formatFunnelDelay(n)}` : "Сразу",
+          isTruthy(n) ? `Через ${formatSequenceDelay(n)}` : "Сразу",
           { kind: "sequence:time", value: String(n) },
         ]),
       ["Не добавлять это сообщение", { kind: "sequence:discard" }],
@@ -86,7 +86,7 @@ export function answerSequence(
       .trim()
       .toLowerCase()
       .replace(/^через\s+/, "");
-    return time(t, text === "сразу" ? 0 : parseFunnelDelay(text));
+    return time(t, text === "сразу" ? 0 : parseSequenceDelay(text));
   }
   try {
     validateContent(input.content);

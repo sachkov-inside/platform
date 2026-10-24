@@ -6,14 +6,14 @@ import {
 import { closeIfStarted } from "../support/close-if-started.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import type { CommunicationMessage } from "../../src/modules/communications/communication-delivery.js";
 import {
   AUTHOR_CONTENT_VALIDATION,
   type AuthorContentValidationResult,
 } from "../../src/modules/communications/author-content-validation.js";
-import type { MessagePart } from "../../src/modules/communications/funnel-types.js";
+import type { MessagePart } from "../../src/modules/communications/sequence-types.js";
 import { AuthorAdmin } from "../../src/modules/communications/author-admin.js";
 import { parseAuthorState } from "../../src/modules/communications/author-dialog.js";
 import { AuthorDelivery } from "../../src/modules/communications/author-delivery.js";
@@ -1181,13 +1181,13 @@ describe("author transport and API", () => {
   });
 });
 
-async function beginSequence(kind: "Рассылки" | "Воронки") {
+async function beginSequence(kind: "Рассылки" | "Последовательности") {
   await seedLink();
   await authorMessage(100, "/admin");
   await authorClick(101, kind);
   await authorClick(
     102,
-    kind === "Рассылки" ? "Создать рассылку" : "Создать воронку",
+    kind === "Рассылки" ? "Создать рассылку" : "Создать последовательность",
   );
 }
 async function acceptPost(
@@ -1348,7 +1348,7 @@ describe("simple sequential authoring", () => {
     expect(required((await sessionState()).broadcast).parts).toEqual(parts);
   });
   it("saves a funnel as entry plus offsets from enrollment and allows a terminal agent to configure the same draft", async () => {
-    await beginSequence("Воронки");
+    await beginSequence("Последовательности");
     await authorMessage(103, "Вход");
     await authorMessage(104, "1 час");
     expect(
@@ -1389,14 +1389,14 @@ describe("simple sequential authoring", () => {
     });
     expect(saved.statusCode).toBe(200);
     await authorMessage(109, "/admin");
-    await authorClick(110, "Воронки");
+    await authorClick(110, "Последовательности");
     await authorClick(111, "Вход · Черновик");
     expect(
       required(required((await sessionState()).funnelAuthor).funnel).steps.map(
         (s) => s.delaySeconds,
       ),
     ).toEqual([7200, 7200]);
-    await authorClick(112, "Отменить воронку");
+    await authorClick(112, "Отменить последовательность");
     await authorClick(113, "Да, отменить");
     expect(
       required(required((await sessionState()).funnelAuthor).funnel).lifecycle,
@@ -1443,7 +1443,7 @@ it("restores the author menu below the delivered broadcast messages and never ex
     authorization,
     transport,
   );
-  const marketing = new FunnelScheduler(
+  const marketing = new SequenceScheduler(
     database,
     { ...config, marketingEnabled: true },
     { now: () => new Date(now) },
@@ -1485,13 +1485,13 @@ it("restores the author menu below the delivered broadcast messages and never ex
 it.each(["/cancel", "discard"])(
   "sequence cancellation %s keeps the simple funnel card",
   async (mode) => {
-    await beginSequence("Воронки");
+    await beginSequence("Последовательности");
     await acceptPost(103, "Keep this entry", "сразу");
     await authorMessage(104, "Pending message");
     if (mode === "/cancel") await authorMessage(105, "/cancel");
     else {
       await authorMessage(105, "/admin");
-      await authorClick(106, "Воронки");
+      await authorClick(106, "Последовательности");
       await authorClick(107, "Keep this entry · Черновик");
       await authorClick(108, "Отменить добавление");
     }
@@ -1501,7 +1501,7 @@ it.each(["/cancel", "discard"])(
       required(required(state.funnelAuthor).funnel).entryResponse.parts,
     ).toHaveLength(1);
     expect(required(state.menu).buttons.map(([label]) => label)).toContain(
-      "Все воронки",
+      "Все последовательности",
     );
     expect(
       required(state.menu)
@@ -1514,7 +1514,7 @@ it.each(["/cancel", "discard"])(
 describe("funnel settings in the bot", () => {
   /** A saved bot funnel: «Вход» at entry, «Урок» one hour and «Задание» two hours after entry. */
   async function savedFunnel() {
-    await beginSequence("Воронки");
+    await beginSequence("Последовательности");
     await acceptPost(103, "Вход", "сразу");
     await acceptPost(104, "Урок", "1 час");
     await acceptPost(105, "Задание", "2 часа");
@@ -1560,7 +1560,7 @@ describe("funnel settings in the bot", () => {
     }
     await authorClick(123, "Видео");
     await authorClick(124, "Убрать источник");
-    await authorClick(125, "К воронке");
+    await authorClick(125, "К последовательности");
     await authorClick(126, "Сохранить черновик");
 
     expect(await apiFunnel(funnelId)).toMatchObject({
@@ -1582,7 +1582,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(112, "Добавить шаг");
     await authorClick(113, "Сообщения шага");
     await composeMessage(114, "Бонус");
-    await authorClick(115, "К воронке");
+    await authorClick(115, "К последовательности");
     await authorClick(116, "Настройки");
     await authorClick(117, "Шаги и задержки");
     await authorClick(118, "Шаг 3 · 26 ч от входа");
@@ -1593,7 +1593,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(123, "Поднять шаг");
     await authorClick(124, "Шаг 3 · 2 ч от входа");
     await authorClick(125, "Убрать шаг");
-    await authorClick(126, "К воронке");
+    await authorClick(126, "К последовательности");
     await authorClick(127, "Сохранить черновик");
 
     const f = await apiFunnel(funnelId);
@@ -1610,7 +1610,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(110, "Настройки");
     await authorClick(111, "Первый ответ");
     await composeMessage(112, "Приветствие");
-    await authorClick(113, "К воронке");
+    await authorClick(113, "К последовательности");
     await authorClick(114, "Сохранить черновик");
 
     expect(texts((await apiFunnel(funnelId)).entryResponse.parts)).toEqual([
@@ -1625,7 +1625,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(111, "2. Через 1 ч · 📝 Текст · Урок");
     await authorClick(112, "Когда отправить");
     await authorMessage(113, "3 часа");
-    await authorClick(114, "К воронке");
+    await authorClick(114, "К последовательности");
     await authorClick(115, "Сохранить черновик");
 
     const f = await apiFunnel(funnelId);
@@ -1831,12 +1831,12 @@ describe("broadcast authoring in the bot", () => {
     expect(await lastAuthorText()).toContain("Черновик · сообщений: 4");
   });
 });
-it.each(["Воронки", "Рассылки"])(
+it.each(["Последовательности", "Рассылки"])(
   "authorizes the %s list once for the linked author, without per-item replay",
   async (label) => {
     await seedLink();
     const id = "40000000-0000-4000-8000-000000000001";
-    if (label === "Воронки")
+    if (label === "Последовательности")
       await database
         .insertInto("communication_funnels")
         .values({

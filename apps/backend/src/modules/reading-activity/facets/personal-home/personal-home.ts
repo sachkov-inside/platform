@@ -1,10 +1,10 @@
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
+import type { PublishedSeriesComposition } from "../../../products/index.js";
 import type {
   MaterialContent,
   PublishedMaterialReader,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import {

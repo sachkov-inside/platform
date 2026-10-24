@@ -1,3 +1,8 @@
+import { grantProductFixture } from "./setup/product-access.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -24,7 +29,6 @@ import {
   type ContentAccess,
 } from "../../src/modules/content-access/index.js";
 import {
-  assembleAccessGrants,
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
@@ -32,11 +36,9 @@ import {
   assembleProductArtifactDelivery,
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
-  assembleMaterialResourceFacts,
-  assembleMaterials,
   type ProductArtifactDelivery,
   type ProductArtifacts,
-} from "../../src/modules/materials/index.js";
+} from "../../src/modules/products/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -58,7 +60,7 @@ describe("Product Artifacts", () => {
   let artifacts: ProductArtifacts;
   let delivery: ProductArtifactDelivery;
   let contentAccess: ContentAccess;
-  let grants: ReturnType<typeof assembleAccessGrants>;
+
   const stored = new Map<string, { body: Uint8Array; contentType: string }>();
   const writes: { key: string; namespace: ObjectStorageNamespace }[] = [];
   const deletes: { key: string; namespace: ObjectStorageNamespace }[] = [];
@@ -128,15 +130,15 @@ describe("Product Artifacts", () => {
         data: { id, name: `Synthetic product ${id}`, slug: id },
       });
     }
-    const accounts = assembleAccounts({
-      emailFingerprintKey: "synthetic-product-artifact-fingerprint-key",
-      prisma: db.prisma,
-    });
-    grants = assembleAccessGrants({ accounts, prisma: db.prisma });
+
     const accountRights = assembleAccountRights({
       prisma: db.prisma,
     });
     artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       authorPolicy: { canManage: (id) => id === owner },
       objectStorage,
       prisma: db.prisma,
@@ -146,14 +148,14 @@ describe("Product Artifacts", () => {
       prisma: db.prisma,
     });
     contentAccess = assembleContentAccess({
+      materialResourceFacts: assembleMaterialResourceFacts(
+        materials.materialContent,
+      ),
       accountPermissions: {
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },
       productArtifactResourceFacts:
         assembleProductArtifactResourceFacts(artifacts),
-      materialResourceFacts: assembleMaterialResourceFacts(
-        materials.materialContent,
-      ),
       accountRights,
     });
     delivery = assembleProductArtifactDelivery({
@@ -166,6 +168,73 @@ describe("Product Artifacts", () => {
 
   afterAll(async () => {
     await db.dispose();
+  });
+
+  test("rejects an artifact whose author permission is revoked while its file is uploaded", async () => {
+    const author = randomUUID();
+    await db.prisma.account.create({
+      data: {
+        id: author,
+        logtoIssuer: "https://artifact-permission.test",
+        logtoSubject: author,
+      },
+    });
+    await db.prisma.accountPermission.create({
+      data: { accountId: author, permission: "materials:manage" },
+    });
+
+    const accounts = assembleAccounts({
+      prisma: db.prisma,
+      emailFingerprintKey: "artifact-permission-test-fingerprint-key",
+    });
+    const checked = assembleProductArtifacts({
+      prisma: db.prisma,
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
+      authorPolicy: {
+        canManage: async (accountId, transaction) => {
+          const permission = await accounts.checkPermission(
+            { accountId, permission: "materials:manage" },
+            transaction,
+          );
+          return permission.ok && permission.allowed;
+        },
+      },
+      objectStorage: {
+        ...objectStorage,
+        putImmutable: async (input) => {
+          await db.prisma.accountPermission.deleteMany({
+            where: { accountId: author },
+          });
+          return objectStorage.putImmutable(input);
+        },
+      },
+    });
+    await expect(
+      checked.create({
+        actor: author,
+        productId: productA,
+        kind: "file",
+        file: fileUpload("revoked.md", "# Revoked permission"),
+        metadata: {
+          access: "closed",
+          title: "Must not be selected",
+          purpose: "Permission regression",
+        },
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
+    const listed = await artifacts.listForProduct({
+      actor: owner,
+      productId: productA,
+    });
+    expect(
+      listed.ok &&
+        listed.value.some(
+          (artifact) => artifact.title === "Must not be selected",
+        ),
+    ).toBe(false);
   });
 
   test("keeps one artifact record while two products reuse it and a new file version replaces the old one", async () => {
@@ -797,7 +866,6 @@ describe("Product Artifacts", () => {
         data: {
           seriesId: index === 1 ? productIds[1] : productIds[0],
           materialId: id,
-          ordinal: index + 1,
         },
       });
     }
@@ -890,7 +958,6 @@ describe("Product Artifacts", () => {
       data: {
         seriesId: unplacedProduct,
         materialId: materialIds[0],
-        ordinal: 1,
       },
     });
     const denied = [
@@ -938,7 +1005,7 @@ describe("Product Artifacts", () => {
     const locked = deferredSignal();
     const release = deferredSignal();
     const composition = db.prisma.$transaction(async (transaction) => {
-      await transaction.$queryRaw`select id from materials.series where id = ${command.productId}::uuid for update`;
+      await transaction.$queryRaw`select id from products.series where id = ${command.productId}::uuid for update`;
       await transaction.productMembership.deleteMany({
         where: { seriesId: command.productId, materialId: materialIds[0] },
       });
@@ -952,7 +1019,7 @@ describe("Product Artifacts", () => {
         .poll(
           () =>
             db.prisma
-              .$queryRaw`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%materials.series%') as blocked`,
+              .$queryRaw`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%products.series%') as blocked`,
         )
         .toEqual([{ blocked: true }]);
     } finally {
@@ -1112,33 +1179,12 @@ describe("Product Artifacts", () => {
   }
 
   async function grant(capabilities: AccessCapability[]): Promise<void> {
-    const rowKey = "artifact-fixture";
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          accountId: member,
-          rowKey,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities,
-            reason: "Controlled #466 fixture",
-            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-            startsAt: new Date().toISOString(),
-            validUntil: null,
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      confirmedRows: [rowKey],
-      expectedRevision: preview.revision,
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-    });
-    if (!applied.ok) throw new Error("grant fixture failed");
+    for (const capability of capabilities)
+      await grantProductFixture(
+        db.prisma,
+        member,
+        capability.replace("product:", ""),
+      );
   }
 });
 

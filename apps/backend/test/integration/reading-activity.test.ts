@@ -1,3 +1,9 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
@@ -10,12 +16,12 @@ import {
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   materialId,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
@@ -45,7 +51,6 @@ describe("ReadingActivity on PostgreSQL", () => {
   let materials: ReturnType<typeof assembleMaterials>;
   let membership: ReturnType<typeof assemblePriorParticipantsFixture>;
   let composition: PublishedSeriesComposition;
-  let membershipNow: Date | undefined;
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
@@ -61,9 +66,12 @@ describe("ReadingActivity on PostgreSQL", () => {
     membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-      clock: () => membershipNow ?? new Date(),
+      clock: () => new Date(),
     });
-    composition = new PublishedSeriesComposition(database.prisma);
+    composition = new PublishedSeriesComposition(
+      database.prisma,
+      assembleProductMaterialReading(database.prisma),
+    );
     reading = assembleReading(database.prisma);
   });
   afterAll(async () => {
@@ -84,10 +92,31 @@ describe("ReadingActivity on PostgreSQL", () => {
         },
         accountRights: membership,
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        clock: () => membershipNow ?? new Date(),
+        clock: () => new Date(),
       }),
       composition,
     });
+  }
+  /** Catalogue membership alone does not create a programme placement. */
+  async function placeInProgramme(
+    productIds: readonly string[],
+    materialId: string,
+  ) {
+    for (const productId of productIds) {
+      const last = await database.prisma.productProgrammePlacement.aggregate({
+        where: { productId },
+        _max: { ordinal: true },
+      });
+      await database.prisma.productProgrammePlacement.create({
+        data: {
+          id: randomUUID(),
+          productId,
+          materialId,
+          chapterId: null,
+          ordinal: (last._max.ordinal ?? 0) + 1,
+        },
+      });
+    }
   }
   async function material(
     seriesIds: string[] = [],
@@ -118,6 +147,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       publicationState: "published",
     });
     if (!published.ok) throw new Error(published.error.code);
+    await placeInProgramme(seriesIds, published.value.materialId);
     return published.value.materialId;
   }
   function command(materialId: string, isRead = true, expectedVersion = 0) {
@@ -296,43 +326,23 @@ describe("ReadingActivity on PostgreSQL", () => {
       ok: false,
       error: { code: "access_denied" },
     });
-    for (const [version, decision] of [
-      [1, "member"],
-      [2, "not_member"],
-    ] as const) {
-      const accepted = await membership.acceptEvidence({
+    const products = await database.prisma.productMembership.findMany({
+      where: { materialId: protectedId },
+    });
+    const productId = products[0]?.seriesId;
+    if (productId === undefined) throw new Error("Missing Product fixture");
+    const target = await grantProductFixture(
+      database.prisma,
+      memberId,
+      productId,
+    );
+    expect(
+      await reading.setReadingState({
+        ...command(protectedId),
         accountId: memberId,
-        deliveryId: randomUUID(),
-        source: version === 1 ? "link_time" : "member_status_event",
-        evidence: {
-          contractVersion: "inside.membership-evidence.v1",
-          principalRef: `principal-${memberId}`,
-          decision,
-          reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-          checkedAt: new Date().toISOString(),
-          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-          validUntil: new Date(Date.now() + 240_000).toISOString(),
-          telegramIdentityRef: `telegram-${memberId}`,
-          evidenceRef: randomUUID(),
-          evidenceVersion: version,
-        },
-      });
-      expect(accepted).toMatchObject({ ok: true });
-      await database.prisma.legacyClassification.update({
-        where: { accountId: memberId },
-        data: {
-          bridgeCoverage: { productIds: [], materialIds: [protectedId] },
-        },
-      });
-      if (version === 1)
-        expect(
-          await reading.setReadingState({
-            ...command(protectedId),
-            accountId: memberId,
-          }),
-        ).toMatchObject({ ok: true });
-    }
+      }),
+    ).toMatchObject({ ok: true });
+    await revokeProductFixture(database.prisma, target);
     expect(
       await reading.getReadingStates({
         accountId: memberId,
@@ -355,64 +365,6 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await reading.getReadingStates({ accountId, materialIds: [protectedId] }),
     ).toMatchObject({ ok: true, value: [{ version: 0 }] });
-  });
-
-  test("positive Membership evidence expires by time without deleting previous marks", async () => {
-    const memberId = checkedAccountId(randomUUID());
-    const id = await material([await series()], "closed");
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-    const checkedAt = new Date();
-    const validUntil = new Date(checkedAt.getTime() + 240_000);
-    const accepted = await membership.acceptEvidence({
-      accountId: memberId,
-      deliveryId: randomUUID(),
-      source: "link_time",
-      evidence: {
-        contractVersion: "inside.membership-evidence.v1",
-        principalRef: `principal-${memberId}`,
-        decision: "member",
-        reasonCode: "chat_member",
-        checkedAt: checkedAt.toISOString(),
-        validUntil: validUntil.toISOString(),
-        telegramIdentityRef: `telegram-${memberId}`,
-        evidenceRef: randomUUID(),
-        evidenceVersion: 1,
-      },
-    });
-    expect(accepted).toMatchObject({ ok: true });
-    await database.prisma.legacyClassification.update({
-      where: { accountId: memberId },
-      data: { bridgeCoverage: { productIds: [], materialIds: [id] } },
-    });
-    expect(
-      await reading.setReadingState({ ...command(id), accountId: memberId }),
-    ).toMatchObject({ ok: true });
-    try {
-      membershipNow = new Date(validUntil.getTime() + 1);
-      expect(
-        await reading.setReadingState({
-          ...command(id, true, 1),
-          accountId: memberId,
-        }),
-      ).toEqual({ ok: false, error: { code: "access_denied" } });
-      expect(
-        await reading.getReadingStates({
-          accountId: memberId,
-          materialIds: [id],
-        }),
-      ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
-      expect(
-        await reading.setReadingState({
-          ...command(id, false, 1),
-          accountId: memberId,
-        }),
-      ).toMatchObject({
-        ok: true,
-        value: { state: { isRead: false, version: 2 } },
-      });
-    } finally {
-      membershipNow = undefined;
-    }
   });
 
   test("Material facts are rechecked after pair serialization and reject changed content or expired decisions without writes", async () => {
@@ -542,6 +494,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     } satisfies Parameters<typeof materials.authoring.applySourceMaterial>[0];
     let applied = await materials.authoring.applySourceMaterial(command);
     if (!applied.ok) throw new Error(applied.error.code);
+    await placeInProgramme([product.value.id], lesson);
     expect(
       await reading.setReadingState({
         accountId,
@@ -738,6 +691,45 @@ describe("ReadingActivity on PostgreSQL", () => {
     ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
   });
 
+  test("progress counts each published Programme Material once and excludes catalogue attachments and unpublished occurrences", async () => {
+    const productId = await series();
+    const first = await material([productId]);
+    const second = await material([productId]);
+    const attachment = await material([productId]);
+    const hidden = await material([productId]);
+    await database.prisma.productProgrammePlacement.deleteMany({
+      where: { productId, materialId: attachment },
+    });
+    await placeInProgramme([productId], first);
+    await transition(hidden, "unpublished");
+    const chapterId = randomUUID();
+    await database.prisma.productChapter.create({
+      data: { id: chapterId, productId, name: "Chapter", ordinal: 1 },
+    });
+    await database.prisma.productChapterSupplementaryMaterial.create({
+      data: { chapterId, productId, materialId: attachment, ordinal: 1 },
+    });
+    await reading.setReadingState(command(first));
+    await reading.setReadingState(command(attachment));
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: productId }),
+    ).toEqual({
+      ok: true,
+      value: { seriesId: productId, total: 2, read: 1, allRead: false },
+    });
+    await reading.setReadingState(command(second));
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: productId }),
+    ).toEqual({
+      ok: true,
+      value: { seriesId: productId, total: 2, read: 2, allRead: true },
+    });
+    expect(await composition.read(productId)).toEqual({
+      ok: true,
+      value: [first, second],
+    });
+  });
+
   test("Series progress includes more than one catalog page and never exposes another Account's numerator", async () => {
     const seriesId = await series();
     let last = "";
@@ -835,9 +827,15 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
           reader: pooled.publishedMaterialReader,
-          selection: new PublishedMaterialSelection(prisma),
+          selection: new PublishedMaterialSelection({
+            prisma: prisma,
+            products: new ProductDiscovery(prisma),
+          }),
           videos: {
             loadProgressMany: () =>
               Promise.reject(new Error("not used by this scenario")),
@@ -849,7 +847,10 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
         });
         return [
           await home.recordOpen({

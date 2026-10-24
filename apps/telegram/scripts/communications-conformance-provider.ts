@@ -21,7 +21,7 @@ import {
   COMMUNICATION_TRANSPORT,
   type CommunicationMessage,
 } from "../src/modules/communications/communication-delivery.js";
-import { FunnelScheduler } from "../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../src/modules/communications/sequence-scheduler.js";
 import { TelegramUpdateProcessor } from "../src/modules/update-inbox/telegram-update-processor.js";
 import {
   localProofDatabaseUrl,
@@ -176,7 +176,7 @@ control.post<{
     await app.get(TelegramUpdateProcessor).processAvailable(100, now);
     await app.get(StartResponseDeliveryProcessor).processAvailable(100, now);
     const processed = await app
-      .get(FunnelScheduler)
+      .get(SequenceScheduler)
       .processAvailable(request.body.limit ?? 100);
     return { processed, now: now.toISOString(), simulated: true };
   },

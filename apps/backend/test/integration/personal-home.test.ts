@@ -1,14 +1,16 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
@@ -98,7 +100,10 @@ describe("Personal Home on PostgreSQL", () => {
       prisma: database.prisma,
       materialContent: materials.materialContent,
       contentAccess,
-      composition: new PublishedSeriesComposition(database.prisma),
+      composition: new PublishedSeriesComposition(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
     });
   });
   afterAll(async () => {
@@ -109,11 +114,17 @@ describe("Personal Home on PostgreSQL", () => {
     overrides: Partial<ConstructorParameters<typeof PersonalHome>[0]> = {},
   ) {
     return new PersonalHome({
-      composition: new PublishedSeriesComposition(database.prisma),
+      composition: new PublishedSeriesComposition(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       reader: materials.publishedMaterialReader,
       prisma: database.prisma,
       materialContent: materials.materialContent,
-      selection: new PublishedMaterialSelection(database.prisma),
+      selection: new PublishedMaterialSelection({
+        prisma: database.prisma,
+        products: new ProductDiscovery(database.prisma),
+      }),
       contentAccess,
       videos: videoPort,
       ...overrides,
@@ -169,6 +180,31 @@ describe("Personal Home on PostgreSQL", () => {
       publicationState: "published",
     });
     if (!saved.ok) throw new Error(saved.error.code);
+    for (const seriesId of memberships) {
+      const order = await materials.authoring.loadSeriesOrder({
+        actor,
+        seriesId,
+      });
+      if (!order.ok) throw new Error(order.error.code);
+      const programme = await materials.authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: order.value.orderVersion,
+        orderedMaterialIds: order.value.items.map(
+          ({ materialId }) => materialId,
+        ),
+        programmePlacements: [
+          ...order.value.programmePlacements,
+          {
+            id: randomUUID(),
+            materialId: saved.value.materialId,
+            chapterId: null,
+            stepGroup: null,
+          },
+        ],
+      });
+      if (!programme.ok) throw new Error(programme.error.code);
+    }
     return {
       materialId: saved.value.materialId,
       contentVersion: saved.value.contentVersion,
@@ -258,11 +294,17 @@ describe("Personal Home on PostgreSQL", () => {
     const second = createPrismaClient(database.url);
     try {
       const other = new PersonalHome({
-        composition: new PublishedSeriesComposition(database.prisma),
+        composition: new PublishedSeriesComposition(
+          database.prisma,
+          assembleProductMaterialReading(database.prisma),
+        ),
         reader: materials.publishedMaterialReader,
         prisma: second,
         materialContent: materials.materialContent,
-        selection: new PublishedMaterialSelection(second),
+        selection: new PublishedMaterialSelection({
+          prisma: second,
+          products: new ProductDiscovery(second),
+        }),
         contentAccess,
         videos,
       });
@@ -867,6 +909,16 @@ describe("Personal Home on PostgreSQL", () => {
       actor,
       seriesId: collection.id,
       expectedOrderVersion: order.value.orderVersion,
+      programmePlacements: [second.materialId, first.materialId].map(
+        (materialId) => {
+          const placement = order.value.programmePlacements.find(
+            (entry) => entry.materialId === materialId,
+          );
+          if (placement === undefined)
+            throw new Error("Missing authored programme placement");
+          return placement;
+        },
+      ),
       orderedMaterialIds: [second.materialId, first.materialId],
     });
     const result = await home.getSeries(accountId, collection.slug);
@@ -930,6 +982,19 @@ describe("Personal Home on PostgreSQL", () => {
       actor,
       seriesId: collection.id,
       expectedOrderVersion: order.value.orderVersion,
+      programmePlacements: [
+        first.materialId,
+        second.materialId,
+        locked.materialId,
+        last.materialId,
+      ].map((materialId) => {
+        const placement = order.value.programmePlacements.find(
+          (entry) => entry.materialId === materialId,
+        );
+        if (placement === undefined)
+          throw new Error("Missing authored programme placement");
+        return placement;
+      }),
       orderedMaterialIds: [
         first.materialId,
         second.materialId,

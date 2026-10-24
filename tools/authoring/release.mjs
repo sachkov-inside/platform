@@ -1,4 +1,9 @@
 // @ts-check
+import {
+  assertLegacyTaskReplay,
+  assertLegacyTaskTargets,
+} from "./legacy-task-targets.mjs";
+import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 import { contentMaterials, manifestSchema } from "./package.mjs";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -6,7 +11,6 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import {
-  loadPackage,
   materialRevision,
   canonical,
   checksum,
@@ -214,9 +218,11 @@ export async function previewRelease(
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
+  const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   if (!manifest.selection.contentOnly)
     await validateProductPages(manifest, send);
   const journal = await readJournal(stateDirectory, target.id);
+  assertLegacyTaskReplay(journal, preservedLegacyTasks);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
@@ -602,6 +608,7 @@ export async function previewRelease(
     journal,
     async (path, body) => parseLocalResponse(path, await send(path, body)),
     (key) => publicationOfKey(key) === "published",
+    preservedLegacyTasks,
   );
   Object.assign(expected, taskPreview.expected);
   const archiveProposals = archiveProposalKeys(journal, manifest);

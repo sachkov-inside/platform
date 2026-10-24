@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/index.js";
 import { compareCodePoints } from "../../../../infrastructure/contracts/code-point-order.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
@@ -16,7 +17,6 @@ const querySchema = readSourceMaterialStateQuerySchema.extend({
   actor: accountId,
 });
 // Bounds the Material ID list of one membership statement well below the bind-parameter limit.
-const MEMBERSHIP_BATCH_SIZE = 1_000;
 
 interface MembershipRow {
   readonly materialId: string;
@@ -64,29 +64,13 @@ export function assembleReadSourceMaterialState(
           });
           // Memberships have no Prisma relation to Materials, so they are read by Material ID in
           // the same snapshot.
-          const membershipRows: MembershipRow[] = [];
-          const ids = materialRows.map((row) => row.id);
-          for (
-            let start = 0;
-            start < ids.length;
-            start += MEMBERSHIP_BATCH_SIZE
-          )
-            membershipRows.push(
-              ...(await transaction.productMembership.findMany({
-                where: {
-                  materialId: {
-                    in: ids.slice(start, start + MEMBERSHIP_BATCH_SIZE),
-                  },
-                },
-                select: {
-                  materialId: true,
-                  seriesId: true,
-                  ordinal: true,
-                  chapterId: true,
-                },
-                orderBy: [{ materialId: "asc" }, { seriesId: "asc" }],
-              })),
-            );
+          const ids = new Set(materialRows.map((row) => row.id));
+          const snapshot = await dependencies.discovery.snapshot(
+            transactionHandle(transaction),
+          );
+          const membershipRows: MembershipRow[] = snapshot.memberships.filter(
+            (row) => ids.has(row.materialId),
+          );
           return { materials: materialRows, memberships: membershipRows };
         },
       );

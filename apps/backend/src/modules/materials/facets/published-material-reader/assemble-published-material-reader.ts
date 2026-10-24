@@ -1,3 +1,7 @@
+import type {
+  ProductDiscovery,
+  ProductCompositionsReading,
+} from "../../../products/index.js";
 import { assembleListPublishedSiteMaterials } from "../../features/list-published-site-materials/list-published-site-materials.js";
 import { readHomeProjections } from "../../features/read-home-projections/read-home-projections.js";
 import {
@@ -21,6 +25,11 @@ import type { Videos } from "../../../videos/index.js";
 
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
+  readonly products: Pick<
+    ProductDiscovery,
+    "snapshot" | "homePin" | "siteCandidates"
+  >;
+  readonly compositions: Pick<ProductCompositionsReading, "load">;
   readonly contentAccess: ContentAccess;
   readonly materialContent: MaterialContent;
   readonly materialBodyOperations: MaterialBodyOperations;
@@ -30,19 +39,22 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly videos?: Pick<Videos, "loadPresentation">;
 }): PublishedMaterialReader {
   return Object.freeze({
-    listSiteMaterials: assembleListPublishedSiteMaterials(dependencies.prisma),
+    listSiteMaterials: assembleListPublishedSiteMaterials(
+      dependencies.prisma,
+      dependencies.products,
+    ),
     readPractice: assembleReadPublishedPractice(dependencies),
     listPractices: assembleListPublishedPractices(dependencies),
-    readHomeProjections: () => readHomeProjections(dependencies.prisma),
-    readHomePinnedSeries: () => readHomePinnedSeries(dependencies.prisma),
+    readHomeProjections: () => readHomeProjections(dependencies),
+    readHomePinnedSeries: () => readHomePinnedSeries(dependencies.products),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
       discoverPublishedMaterialProjections(
-        dependencies.prisma,
+        dependencies,
         query,
         dependencies.contentAccess,
       ),
     listProjections: (query: ListPublishedMaterialProjectionsQuery) =>
-      listPublishedMaterialProjections(dependencies.prisma, query),
+      listPublishedMaterialProjections(dependencies, query),
     read: (query: ReadPublishedMaterialQuery) =>
       readPublishedMaterial(dependencies, query),
   });

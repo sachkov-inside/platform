@@ -1,3 +1,24 @@
+import {
+  ProductCompositionsReading,
+  ProductReadingModule,
+} from "../products/index.js";
+import {
+  PRODUCT_MEMBERSHIPS,
+  type ProductMemberships,
+} from "../products/index.js";
+import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
+import {
+  ProductDiscovery,
+  ProductsModule,
+  ProductCoverSelection,
+} from "../products/index.js";
+import { routeContentCoverSelection } from "../content-covers/index.js";
+import { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
+import {
+  PRODUCT_ACCESS_HOLDERS,
+  type ProductAccessHolders,
+} from "./ports/product-access-holders.js";
+import { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -14,21 +35,7 @@ import {
   AccountsModule,
   type Accounts,
 } from "../accounts/index.js";
-import {
-  assembleContentAccess,
-  assembleCurrentAccountPermissions,
-  CONTENT_ACCESS,
-  PRODUCT_TASK_RESOURCE_FACTS,
-  type ContentAccess,
-  type ProductTaskResourceFactsAdapter,
-} from "../content-access/index.js";
-import {
-  ACCESS_GRANTS,
-  ACCOUNT_RIGHTS,
-  AccountRightsModule,
-  type AccessGrants,
-  type AccountRights,
-} from "../account-rights/index.js";
+import { CONTENT_ACCESS, type ContentAccess } from "../content-access/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -40,11 +47,6 @@ import {
   type ObjectStorage,
 } from "../../infrastructure/object-storage/index.js";
 import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
-import { BillingModule, BillingPricing } from "../billing/index.js";
-import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
-import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
-import { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
-import { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 import { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
@@ -79,56 +81,59 @@ import {
   assembleContentCovers,
   CONTENT_COVERS,
   type ContentCovers,
-} from "./facets/content-covers/content-covers.js";
+} from "../content-covers/index.js";
 import { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-import { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
-import {
-  PRODUCT_ARTIFACTS,
-  type ProductArtifacts,
-} from "./facets/product-artifacts/product-artifacts.js";
-import {
-  assembleProductArtifactDelivery,
-  PRODUCT_ARTIFACT_DELIVERY,
-  type ProductArtifactDelivery,
-} from "./features/deliver-product-artifact/deliver-product-artifact.js";
 
 @Module({
   imports: [
     PrismaModule,
+    ProductsModule,
+    ProductReadingModule,
     ObjectStorageModule,
     AccountsModule,
     AssetsModule,
     MaterialContentModule,
-    AccountRightsModule,
     VideosModule,
-    BillingModule,
   ],
   providers: [
     {
       provide: MATERIAL_AUTHORING,
       inject: [
         PrismaClientProvider,
+        PRODUCT_AUTHORING,
+        ProductDiscovery,
+        PRODUCT_MEMBERSHIPS,
         ACCOUNTS,
         CONTENT_ACCESS,
         MATERIAL_ASSETS,
         VIDEOS,
-        ACCESS_GRANTS,
+        PRODUCT_ACCESS_HOLDERS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
+        products: ProductAuthoring,
+        discovery: ProductDiscovery,
+        memberships: ProductMemberships,
         accounts: Accounts,
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
         videos: Videos,
-        grants: AccessGrants,
+        grants: ProductAccessHolders,
       ): MaterialAuthoring => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
-          canManage: (accountId) =>
-            accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+          async canManage(accountId, handle) {
+            const decision = await accounts.checkPermission(
+              { accountId, permission: "materials:manage" },
+              handle,
+            );
+            return decision.ok && decision.allowed;
+          },
         };
         return assembleMaterialAuthoring({
           prisma,
+          products,
+          discovery,
+          memberships,
           authorPolicy,
           contentAccess,
           materialAssets,
@@ -146,66 +151,43 @@ import {
     },
     {
       provide: CONTENT_COVERS,
-      inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        accounts: Accounts,
-        objectStorage: ObjectStorage,
-      ): ContentCovers => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
-        return assembleContentCovers({
-          prisma,
-          objectStorage,
-          authorPolicy: {
-            canManage: (accountId) =>
-              accountPermissions.hasMaterialsManage(
-                checkedAccountId(accountId),
-              ),
-          },
-        });
-      },
-    },
-    {
-      provide: PRODUCT_ARTIFACTS,
-      inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        accounts: Accounts,
-        objectStorage: ObjectStorage,
-      ): ProductArtifacts => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
-        return assembleProductArtifacts({
-          authorPolicy: {
-            canManage: (accountId) =>
-              accountPermissions.hasMaterialsManage(
-                checkedAccountId(accountId),
-              ),
-          },
-          objectStorage,
-          prisma,
-        });
-      },
-    },
-    {
-      provide: PRODUCT_ARTIFACT_DELIVERY,
       inject: [
-        PRODUCT_ARTIFACTS,
-        CONTENT_ACCESS,
+        PrismaClientProvider,
+        ACCOUNTS,
         OBJECT_STORAGE,
-        PLATFORM_CONFIG,
+        ProductCoverSelection,
       ],
       useFactory: (
-        artifacts: ProductArtifacts,
-        contentAccess: ContentAccess,
+        prisma: PrismaClientProvider,
+        accounts: Accounts,
         objectStorage: ObjectStorage,
-        config: PlatformConfig,
-      ): ProductArtifactDelivery =>
-        assembleProductArtifactDelivery({
-          artifacts,
-          contentAccess,
+        products: ProductCoverSelection,
+      ): ContentCovers => {
+        const materials = new MaterialCoverSelection();
+        return assembleContentCovers({
+          selection: routeContentCoverSelection({
+            material: materials,
+            topic: materials,
+            series: products,
+          }),
+          prisma,
           objectStorage,
-          signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
-        }),
+          authorPolicy: {
+            canManage: async (accountId, transaction) => {
+              const permission = await accounts.checkPermission(
+                {
+                  accountId: checkedAccountId(accountId),
+                  permission: "materials:manage",
+                },
+                transaction,
+              );
+              if (!permission.ok)
+                throw new Error("Account permission unavailable");
+              return permission.allowed;
+            },
+          },
+        });
+      },
     },
     {
       provide: MATERIAL_ASSET_AUTHORING,
@@ -241,63 +223,37 @@ import {
         }),
     },
     {
-      provide: CONTENT_ACCESS,
-      inject: [
-        MATERIAL_CONTENT,
-        MATERIAL_ASSETS,
-        PRODUCT_ARTIFACTS,
-        VIDEOS,
-        ACCOUNTS,
-        ACCOUNT_RIGHTS,
-        PRODUCT_TASK_RESOURCE_FACTS,
-      ],
-      useFactory: (
-        materialContent: MaterialContent,
-        materialAssets: MaterialAssets,
-        productArtifacts: ProductArtifacts,
-        videos: Videos,
-        accounts: Accounts,
-        accountRights: AccountRights,
-        productTaskResourceFacts: ProductTaskResourceFactsAdapter,
-      ): ContentAccess =>
-        assembleContentAccess({
-          assetResourceFacts: assembleAssetResourceFacts(materialAssets),
-          productArtifactResourceFacts:
-            assembleProductArtifactResourceFacts(productArtifacts),
-          productTaskResourceFacts,
-          videoResourceFacts: assembleVideoResourceFacts(videos),
-          materialResourceFacts: assembleMaterialResourceFacts(materialContent),
-          accountPermissions: assembleCurrentAccountPermissions(accounts),
-          accountRights,
-        }),
-    },
-    {
       provide: PUBLISHED_MATERIAL_READER,
       inject: [
         PrismaClientProvider,
+        ProductDiscovery,
+        ProductCompositionsReading,
         CONTENT_ACCESS,
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
         VIDEOS,
-        BillingPricing,
+        PRODUCT_SALE_AVAILABILITY,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
+        products: ProductDiscovery,
+        compositions: ProductCompositionsReading,
         contentAccess: ContentAccess,
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
         videos: Videos,
-        pricing: BillingPricing,
+        subscriptionForSale: (accountId?: string) => Promise<boolean>,
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
+          products,
+          compositions,
           contentAccess,
           materialContent,
           materialBodyOperations,
           materialAssets,
           videos,
-          subscriptionForSale: (accountId) =>
-            pricing.hasOffersForSale(accountId),
+          subscriptionForSale,
         }),
     },
     {
@@ -317,11 +273,8 @@ import {
     },
   ],
   exports: [
-    CONTENT_ACCESS,
     CONTENT_COVERS,
     MaterialAnnouncements,
-    PRODUCT_ARTIFACTS,
-    PRODUCT_ARTIFACT_DELIVERY,
     MATERIAL_AUTHORING,
     MATERIAL_ASSET_AUTHORING,
     MATERIAL_ASSET_DELIVERY,

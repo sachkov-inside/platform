@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import {
@@ -13,12 +14,12 @@ import {
   assembleCurrentAccountPermissions,
   anonymousSubject,
 } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
   ProductDirectory,
   PublishedSeriesComposition,
-} from "../../src/modules/materials/index.js";
+} from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { readProductSaleAvailability } from "../../src/modules/content-library/features/read-product-sale-availability/read-product-sale-availability.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
@@ -62,28 +63,14 @@ async function fixture(size: number) {
         })),
       ],
     });
-    const offerProducts = [...products, archived].map((productId) => ({
-      productId,
-      offerId: randomUUID(),
-    }));
-    await database.prisma.billingOffer.createMany({
-      data: offerProducts.map(({ productId, offerId }) => ({
-        id: offerId,
+    await database.prisma.billingProductPrice.createMany({
+      data: [...products, archived].map((productId) => ({
+        productId,
         revision: 1,
         name: "Admitted sale",
-        benefits: [`product:${productId}`, "support"],
-        benefitPeriods: [{ capability: "support", months: 1 }],
-        published: true,
-      })),
-    });
-    await database.prisma.billingPaymentOption.createMany({
-      data: offerProducts.map(({ offerId }) => ({
-        id: randomUUID(),
-        offerId,
-        revision: 1,
-        months: 1,
-        mode: "one_time",
         priceKopecks: 10000n,
+        published: true,
+        updatedAt: instant,
       })),
     });
     const accounts = assembleAccounts({
@@ -95,20 +82,19 @@ async function fixture(size: number) {
       accounts,
       clock,
     });
-    const applied = await grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: holder,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: archivedProducts.map((id) => `product:${id}` as const),
-        startsAt: instant.toISOString(),
-        validUntil: "2030-02-01T00:00:00.000Z",
-        reason: "Paid archived Product fixture",
-      },
-    });
-    if (!applied.ok) throw new Error(applied.error.code);
+    for (const productId of archivedProducts) {
+      const issued = await grants.issueProductAccess(
+        { source: "purchase" },
+        {
+          accountId: holder,
+          productId,
+          sourceRef: randomUUID(),
+          issuedAt: instant.toISOString(),
+          reason: "Archived holder fixture",
+        },
+      );
+      if (!issued.ok) throw new Error(issued.error.code);
+    }
     const materialOwner = assembleMaterials({
       prisma: measured.prisma,
       authorPolicy: { canManage: () => false },
@@ -122,12 +108,15 @@ async function fixture(size: number) {
       clock,
     });
     const dependencies = {
-      directory: new ProductDirectory(measured.prisma),
+      directory: new ProductDirectory(
+        measured.prisma,
+        assembleProductMaterialReading(measured.prisma),
+      ),
       pricing: assembleTestBillingPricing({
         prisma: measured.prisma,
         accounts,
         clock,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
       }),
       contentAccess,
     };
@@ -172,7 +161,10 @@ describe.each([1, 10, 100])(
         },
         contentAccess: corpus.dependencies.contentAccess,
       };
-      const original = new PublishedSeriesComposition(corpus.measured.prisma);
+      const original = new PublishedSeriesComposition(
+        corpus.measured.prisma,
+        assembleProductMaterialReading(corpus.measured.prisma),
+      );
       const originalRead = await corpus.measured.measure(() =>
         Promise.all(
           corpus.archivedProducts.map((id) => original.read(id, reader)),
@@ -247,7 +239,7 @@ describe.each([1, 10, 100])(
       });
       expect(
         read.statements.filter((sql) => /^\s*SELECT\b/iu.test(sql)),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
     });
     test("does not invite a guest to an archived or nonexistent Product even with an active price", async () => {
       expect(
@@ -275,7 +267,7 @@ describe.each([1, 10, 100])(
         ),
       ).toEqual({
         ok: true,
-        value: { items: [{ productId: corpus.archived, sold: true }] },
+        value: { items: [{ productId: corpus.archived, sold: false }] },
       });
       expect(
         await readProductSaleAvailability(
@@ -319,8 +311,12 @@ describe("reader Product composition policy", () => {
         })),
       });
       await corpus.database.prisma.productMembership.createMany({
+        data: chunk.map((materialId) => ({ seriesId: oversized, materialId })),
+      });
+      await corpus.database.prisma.productProgrammePlacement.createMany({
         data: chunk.map((materialId, index) => ({
-          seriesId: oversized,
+          id: randomUUID(),
+          productId: oversized,
           materialId,
           ordinal: start + index + 1,
         })),
@@ -367,26 +363,26 @@ describe("reader archive gate with current Product exclusions", () => {
       reason: "Exclude one archived Product for this Account only",
     });
     if (!revoked.ok) throw new Error(revoked.error.code);
-    const otherGrant = await corpus.grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: corpus.other,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: [`product:${corpus.archived}`],
-        startsAt: instant.toISOString(),
-        validUntil: "2030-02-01T00:00:00.000Z",
-        reason: "Independent holder of the same archived Product",
+    const otherGrant = await corpus.grants.issueProductAccess(
+      { source: "purchase" },
+      {
+        accountId: corpus.other,
+        productId: corpus.archived,
+        sourceRef: randomUUID(),
+        issuedAt: instant.toISOString(),
+        reason: "Independent archived holder",
       },
-    });
+    );
     if (!otherGrant.ok) throw new Error(otherGrant.error.code);
   });
   afterAll(async () => {
     await corpus.dispose();
   });
   test("matches the original programme gate for archive, missing and empty Products after an Account-scoped exclusion", async () => {
-    const original = new PublishedSeriesComposition(corpus.measured.prisma);
+    const original = new PublishedSeriesComposition(
+      corpus.measured.prisma,
+      assembleProductMaterialReading(corpus.measured.prisma),
+    );
     const ids = [
       ...corpus.products,
       ...corpus.archivedProducts,
@@ -426,7 +422,7 @@ describe("reader archive gate with current Product exclusions", () => {
       ),
     ).toEqual({
       ok: true,
-      value: { items: [{ productId: corpus.archived, sold: true }] },
+      value: { items: [{ productId: corpus.archived, sold: false }] },
     });
   });
 });

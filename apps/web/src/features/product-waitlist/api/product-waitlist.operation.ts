@@ -19,7 +19,13 @@ const sourceSchema = z
 
 /** Starts joining a Product waitlist; a guest is sent to sign in first. */
 export const beginWaitlistIntentOperation = defineMutationOperation({
-  input: productInput.extend({ source: sourceSchema.optional() }),
+  input: productInput.extend({
+    source: sourceSchema.optional(),
+    productSlug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
+      .max(120),
+  }),
   method: "POST",
   path: "/api/product-waitlist/intent",
   result: waitlistMutationSchema,

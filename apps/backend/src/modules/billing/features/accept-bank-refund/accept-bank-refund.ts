@@ -1,14 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import {
-  lockBillingSubscription,
-  type BillingPrisma,
-} from "../../../../infrastructure/prisma/index.js";
-import { paidPeriodCommandSchema } from "../../../account-rights/index.js";
+import { type BillingPrisma } from "../../../../infrastructure/prisma/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
-import { advanceSubscription } from "../../shared/subscription-outcome.js";
 import { unsettledRefundStates } from "../../shared/refund-amounts.js";
 
 type Purchase = Awaited<
@@ -21,6 +16,10 @@ export async function acceptBankRefund(
   purchase: Purchase,
   now: Date,
 ): Promise<void> {
+  await tx.billingPurchase.update({
+    where: { id: purchase.id },
+    data: { refundReviewRequired: false },
+  });
   const kind = "full_refund_confirmed";
   if (
     await tx.billingPaymentEvent.findUnique({
@@ -64,12 +63,6 @@ export async function acceptBankRefund(
   }
   const remaining = purchase.amountKopecks - recorded;
   if (remaining < 0n) throw new Error("Refund history exceeds purchase amount");
-  const changesAccess =
-    remaining > 0n ||
-    refunds.some((row) => unsettledRefundStates.includes(row.state));
-  const renewalCanceled = changesAccess
-    ? await cancelRenewal(tx, purchase.id, now)
-    : false;
   const decisionRef = randomUUID(),
     refundRef = randomUUID();
   if (remaining > 0n) {
@@ -82,8 +75,8 @@ export async function acceptBankRefund(
         operationId: null,
         amountKopecks: remaining,
         basis: "withdrawal",
-        access: "revoke",
-        recurring: renewalCanceled ? "cancel" : "keep",
+        access: "keep",
+        recurring: "keep",
         reason: "Full refund confirmed by T-Bank; initiated outside Platform",
         state: "executed",
         revision: 1,
@@ -109,8 +102,7 @@ export async function acceptBankRefund(
     });
     await recordRefundNotice(tx, purchase, refundRef, remaining, now);
   }
-  // Исторически выполненный Platform-возврат сохраняет принятые тогда последствия.
-  if (changesAccess) await revokePaidAccess(tx, purchase.id, decisionRef);
+  // A bank refund is financial history. Only an explicit owner command may withdraw Product Access.
   await tx.billingPaymentEvent.create({
     data: {
       id: randomUUID(),
@@ -146,78 +138,4 @@ async function recordRefundNotice(
     },
     now,
   );
-}
-
-/** Отмена дальнейших списаний как следствие возврата: оплаченный срок при этом не сокращается. */
-async function cancelRenewal(
-  tx: BillingPrisma,
-  purchaseRef: string,
-  now: Date,
-): Promise<boolean> {
-  const purchase = await tx.billingPurchase.findUniqueOrThrow({
-    where: { id: purchaseRef },
-  });
-  if (purchase.subscriptionRef === null) return false;
-  await lockBillingSubscription(tx, purchase.subscriptionRef);
-  const subscription = await tx.billingSubscription.findUniqueOrThrow({
-    where: { id: purchase.subscriptionRef },
-  });
-  if (
-    subscription.state !== "active" ||
-    purchase.periodIndex !== subscription.periodIndex
-  )
-    return false;
-  await advanceSubscription(
-    tx,
-    subscription,
-    { state: "canceled", pendingChange: {} },
-    "renewal_canceled",
-    {
-      paidUntil: subscription.paidUntil.toISOString(),
-      refundedPurchaseRef: purchaseRef,
-    },
-    now,
-  );
-  return true;
-}
-
-/**
- * Отзыв оплаченных прав этой покупки. Повторяются ровно те условия, которые выдал платёж, с
- * новой revision: независимые manual, lifetime и legacy основания остаются нетронутыми.
- * Редакция отзыва выше редакции выдачи: даже при перестановке доставки старая выдача
- * не восстанавливает отозванное основание. Восстановление не обращается в банк за возвратом.
- */
-async function revokePaidAccess(
-  tx: BillingPrisma,
-  purchaseRef: string,
-  decisionRef: string,
-): Promise<void> {
-  const rows = await tx.billingFulfillment.findMany({ where: { purchaseRef } });
-  const commands = rows.flatMap((row) => {
-    const parsed = paidPeriodCommandSchema.safeParse(row.payload);
-    return parsed.success ? [parsed.data] : [];
-  });
-  const latest = new Map<string, z.infer<typeof paidPeriodCommandSchema>>();
-  for (const command of commands) {
-    const previous = latest.get(command.periodRef);
-    if (previous === undefined || command.revision > previous.revision)
-      latest.set(command.periodRef, command);
-  }
-  for (const command of latest.values()) {
-    if (command.revoked) continue;
-    const eventRef = randomUUID();
-    await tx.billingFulfillment.create({
-      data: {
-        eventRef,
-        purchaseRef,
-        payload: {
-          ...command,
-          eventRef,
-          revision: command.revision + 1,
-          revoked: true,
-          terms: { ...command.terms, reason: `Refund decision ${decisionRef}` },
-        },
-      },
-    });
-  }
 }

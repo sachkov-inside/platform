@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleVideos,
   type ProviderVideo,
@@ -217,18 +217,7 @@ describe("MaterialAuthoring", () => {
         materialId: created.value.materialId,
       }),
     ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
-    expect(bodyRowRead).toHaveBeenCalledOnce();
-    expect(bodyRowRead).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: {
-          id: true,
-          publicationState: true,
-          access: true,
-          contentVersion: true,
-          primaryVideoId: true,
-        },
-      }),
-    );
+    expect(bodyRowRead).not.toHaveBeenCalled();
     expect(tagRead).not.toHaveBeenCalled();
     expect(seriesRead).not.toHaveBeenCalled();
     bodyRowRead.mockRestore();

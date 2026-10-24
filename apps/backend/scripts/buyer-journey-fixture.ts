@@ -8,7 +8,6 @@ import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { z } from "zod";
-import { productCapability } from "@inside/access-capabilities";
 import { parsePlatformConfig } from "../src/config/platform-config.js";
 import { startLocalBankDouble } from "../src/development/bank-double/start-local-bank-double.js";
 import { seedLocalDevelopment } from "../src/development/seed-local-development.js";
@@ -16,10 +15,7 @@ import { createApiApplication } from "../src/entrypoints/api/create-api-applicat
 import { createPrismaClient } from "../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../src/migrations/index.js";
 import { bootstrapOwnerAccount } from "../src/modules/accounts/index.js";
-import {
-  BillingPayments,
-  BillingPricing,
-} from "../src/modules/billing/index.js";
+import { BillingPayments } from "../src/modules/billing/index.js";
 
 /**
  * Стенд сквозного пути покупателя: настоящие API, PostgreSQL, миграции и сид продукта, двойник
@@ -41,7 +37,6 @@ const telegramSecret = "synthetic-buyer-journey-telegram-sign-in-775";
 const apiBaseUrl = `http://127.0.0.1:${String(environment.BUYER_JOURNEY_API_PORT)}`;
 const bankOrigin = `http://127.0.0.1:${String(environment.BUYER_JOURNEY_BANK_PORT)}`;
 const productId = "72000000-0000-4000-8000-000000000007";
-const courseOfferId = "72000000-0000-4000-8000-000000000503";
 
 async function listen(server: Server): Promise<string> {
   await new Promise<void>((resolve) =>
@@ -357,29 +352,9 @@ await prisma.productCommunity.upsert({
     updatedAt: new Date(),
   },
 });
-// Предложение продукта получает сроки предложения курса: материалы и общий чат без срока,
-// сопровождение — шесть месяцев с оплаты.
-const pricing = app.get(BillingPricing);
-const current = await prisma.billingOffer.findUniqueOrThrow({
-  where: { id: courseOfferId },
-});
-const capability = productCapability(productId);
-const saved = await pricing.manage(owner.accountId, {
-  operation: "offers.save",
-  operationId: randomUUID(),
-  expectedRevision: current.revision,
-  value: {
-    id: courseOfferId,
-    name: current.name,
-    benefits: [capability, "community", "support"],
-    benefitPeriods: [
-      { capability, months: null },
-      { capability: "community", months: null },
-      { capability: "support", months: 6 },
-    ],
-  },
-});
-if (!saved.ok) throw new Error(`Course offer terms: ${saved.error.code}`);
+// The real local seed creates a direct Product Price. Current immutable v6 is deliberately
+// unapproved for the new model; this fixture must exercise honest unavailable admission.
+// Positive approved-model payment proof uses the distinct synthetic owning legal-provider seam.
 
 // Роль billing-worker: подтверждённая оплата превращается в права без ожидания очереди.
 const payments = app.get(BillingPayments);

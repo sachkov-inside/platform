@@ -31,13 +31,6 @@ function digest(body) {
   return checksum(canonical(state));
 }
 
-/** @param {import('./package.mjs').Manifest} manifest
- * @param {import('./local-boundaries.mjs').LocalRequest} request */
-export async function validateSourcePractices(manifest, request) {
-  for (const definition of manifest.practiceDefinitions ?? [])
-    await request("/authoring/import/practices/validate", definition);
-}
-
 /** Recover an uncertain request before reading current versions; never invent another key. An
  * unfinished publication of a practice resumes only when this run approves its lesson (#805).
  * @param {import('./journal.mjs').JournalContext} context
@@ -79,81 +72,6 @@ export async function replayPracticeImports(context, request, publicationOf) {
     resources[key] = {
       practiceVersion: receipt.practiceVersion,
       digest: digest(operation.body),
-    };
-    await context.persist();
-  }
-}
-
-/**
- * Practice context follows its lesson (#804): a private draft never carries a published practice.
- *
- * @param {import('./package.mjs').Manifest} manifest
- * @param {(materialSourceId: string) => import('./local-sync.mjs').DesiredPublication} publicationOf
- * @returns {import('./package.mjs').Manifest}
- */
-export function practicesFollowLessons(manifest, publicationOf) {
-  if (manifest.practiceDefinitions === undefined) return manifest;
-  return {
-    ...manifest,
-    practiceDefinitions: manifest.practiceDefinitions.map((definition) =>
-      publicationOf(definition.sourceReference.materialSourceId) === "draft"
-        ? { ...definition, publicationState: "unpublished" }
-        : definition,
-    ),
-  };
-}
-
-/** Absence is a no-op; publicationState is the explicit full-state decision of the package.
- * @param {import('./package.mjs').Manifest} manifest
- * @param {import('./journal.mjs').JournalContext} context
- * @param {import('./local-boundaries.mjs').LocalRequest} request */
-export async function syncSourcePractices(manifest, context, request) {
-  const resources = (context.journal.resources ??= {});
-  for (const definition of manifest.practiceDefinitions ?? []) {
-    const material =
-      context.journal.materials[definition.sourceReference.materialSourceId];
-    if (
-      material === undefined ||
-      material.revision !== definition.sourceReference.materialSourceRevision
-    )
-      throw new Error(
-        `${definition.practiceId}: lesson source was not synchronized`,
-      );
-    const { current } = await request(
-      "/authoring/import/practices/validate",
-      definition,
-    );
-    const key = `practice:${definition.practiceId}`;
-    const previous =
-      resources[key] === undefined
-        ? undefined
-        : storedSchema.parse(resources[key]);
-    if (
-      previous !== undefined &&
-      previous.practiceVersion !== current?.practiceVersion
-    )
-      throw new Error(
-        `${definition.practiceId}: target changed; reconcile before overwriting`,
-      );
-    const body = {
-      ...definition,
-      materialId: material.materialId,
-      expectedContentVersion: material.contentVersion,
-      expectedPracticeVersion: current?.practiceVersion ?? null,
-    };
-    const desired = digest(body);
-    if (previous?.digest === desired) continue;
-    const receipt = practiceReceiptSchema.parse(
-      await applyJournaled(
-        context,
-        { path: "/authoring/import/practices/apply", body },
-        (operation, idempotencyKey) =>
-          request(operation.path, operation.body, idempotencyKey),
-      ),
-    );
-    resources[key] = {
-      practiceVersion: receipt.practiceVersion,
-      digest: desired,
     };
     await context.persist();
   }

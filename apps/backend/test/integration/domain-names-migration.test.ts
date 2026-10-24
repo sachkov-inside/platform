@@ -1,21 +1,15 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import {
   contractDigest,
   commandDigest,
 } from "../../src/infrastructure/contracts/canonical-digest.js";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
-import {
-  assembleAccessGrants,
-  paidPeriodCommandSchema,
-} from "../../src/modules/account-rights/index.js";
-import {
-  BillingPayments,
-  BillingSubscriptions,
-} from "../../src/modules/billing/index.js";
-import { ProductDirectory } from "../../src/modules/materials/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
+import { BillingPayments } from "../../src/modules/billing/index.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleApplySourceTask } from "../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
-import { BankFixture } from "./setup/bank.js";
-import { syntheticTbankConfig } from "../support/bank-terminal.js";
-import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { expect, test } from "vitest";
@@ -161,7 +155,7 @@ test("upgrades persisted product rights, tariff snapshots and closed access with
   }
 });
 
-test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt", async () => {
+test("retains a pre-upgrade paid receipt and malformed legacy fulfillment passively without executing it", async () => {
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
@@ -243,7 +237,11 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       clock: () => now,
     });
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      contentCatalog: new CoverageCatalog(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
+      sale: { payments: true },
       prisma: database.prisma,
       grants,
       bank: undefined,
@@ -260,7 +258,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       value: {
         status: "configuration_idle",
         inspected: 0,
-        applied: 1,
+        applied: 0,
         failed: 0,
       },
     });
@@ -277,11 +275,15 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       { where: { eventRef } },
     );
     expect(migrated.appliedAt).toEqual(now);
-    expect(
-      await grants.applyPaidPeriod(
-        paidPeriodCommandSchema.parse(migrated.payload),
-      ),
-    ).toEqual(result);
+    expect(migrated.payload).toMatchObject({
+      eventRef,
+      accountId,
+      terms: {
+        capabilities: ["materials"],
+        coverage: { productIds: [productId], materialIds: [] },
+        reason: command.terms.reason,
+      },
+    });
     expect(
       await database.prisma.accessReceipt.findUniqueOrThrow({
         where: {
@@ -304,7 +306,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
   }
 });
 
-test("replays and accepts an unexpired change quote saved before the rename", async () => {
+test("preserves an old subscription change quote and its fingerprint as passive history", async () => {
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
@@ -432,93 +434,37 @@ test("replays and accepts an unexpired change quote saved before the rename", as
       },
     });
     await upgradeToLatest(database);
-    await seedPurchaseInvitation(database.prisma, accountId, offerId);
-    const accounts = assembleAccounts({
-      prisma: database.prisma,
-      emailFingerprintKey: "synthetic-migration-fingerprint-00000",
-    });
-    const grants = assembleAccessGrants({
-      prisma: database.prisma,
-      accounts,
-      clock: () => now,
-    });
-    const bank = new BankFixture(
-      syntheticTbankConfig({
-        environment: "demo",
-        terminalKey: "SYNTHETICMIGRATION",
-        password: "synthetic-test-password",
-        bindingEncryptionKey: Buffer.alloc(32, 51).toString("base64"),
-        recurringCardConfirmed: true,
-        cardOnlyHostedConfirmed: true,
-        cardBinding: { confirmed: true, checkType: "3DS" },
-        minimumKopecks: 100,
-        maximumKopecks: 10000000,
-        returnUrl: "https://inside.example.test/subscription/return",
-        notificationUrl:
-          "https://inside.example.test/billing/tbank/notification",
-        receipt: { taxation: "usn_income", tax: "none" },
-      }),
+    const retained = await database.prisma.billingChangeQuote.findUniqueOrThrow(
+      { where: { id: changeQuoteRef } },
     );
-    const subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
-      prisma: database.prisma,
-      grants,
-      bank: bank.client(),
-      clock: () => now,
-      contact: {
-        read: () => Promise.resolve({ ok: true, contact: null, documents: [] }),
-        readConsents: () =>
-          Promise.reject(
-            new Error("scheduled change must not request new consent"),
-          ),
-      },
-      payments: {
-        subscriptionEmail: () => Promise.resolve({ ok: true, value: null }),
-        dispatch: () =>
-          Promise.reject(new Error("scheduled change must not dispatch")),
-        status: () =>
-          Promise.reject(new Error("scheduled change must not charge")),
-        history: () => Promise.resolve({ ok: true, value: [] }),
-      },
-      notices: { readNotices: () => Promise.resolve([]) },
+    expect(retained).toMatchObject({
+      accountId,
+      subscriptionRef,
+      operationId,
+      fingerprint,
+      baseRevision: 1,
     });
-    expect(await subscriptions.quoteChange(accountId, command)).toMatchObject({
-      ok: true,
-      value: {
-        changeQuoteRef,
-        plan: {
-          snapshot: {
-            offer: {
-              name: offer.name,
-              benefits: [`product:${productId}`],
-              coverage: { productIds: [productId], materialIds: [] },
-            },
-          },
+    expect(retained.plan).toEqual({
+      ...plan,
+      snapshot: {
+        ...plan.snapshot,
+        offer: {
+          id: offer.id,
+          revision: 1,
+          name: offer.name,
+          benefits: [`product:${productId}`],
+          archived: false,
+          published: true,
+          coverage: { productIds: [productId], materialIds: [] },
+          eligibility: "everyone",
         },
       },
     });
-    const change = {
-      operationId: randomUUID(),
-      expectedRevision: 1,
-      changeQuoteRef,
-    };
-    const accepted = await subscriptions.change(accountId, change);
-    expect(accepted).toMatchObject({
-      ok: true,
-      value: {
-        payment: null,
-        subscription: {
-          revision: 2,
-          pendingChange: {
-            changeQuoteRef,
-            snapshot: { offer: { benefits: [`product:${productId}`] } },
-          },
-        },
-      },
-    });
-    expect(await subscriptions.change(accountId, change)).toEqual(accepted);
-    expect(bank.initCalls).toBe(0);
-    expect(bank.chargeCalls).toBe(0);
+    expect(
+      await database.prisma.billingSubscription.findUniqueOrThrow({
+        where: { id: subscriptionRef },
+      }),
+    ).toMatchObject({ revision: 1, state: "active" });
   } finally {
     await pool.end();
     await database.dispose();
@@ -631,7 +577,10 @@ test("replays an imported pre-upgrade task under its renamed operation and field
     const current = { ...unchanged, productId: guideId, access: "closed" };
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: () => true },
     });
     expect(await apply(current, { actor, idempotencyKey })).toEqual({

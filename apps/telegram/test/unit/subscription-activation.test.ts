@@ -1,13 +1,13 @@
 import { fixedTestInstant } from "../support/fixed-clock.js";
-import { ownAccessText } from "../../src/modules/subscription-activation/activation-view.js";
-import type { OwnAccess } from "../../src/modules/subscription-activation/activation-contract.js";
+import { ownAccessText } from "../../src/modules/course-activation/activation-view.js";
+import type { OwnAccess } from "../../src/modules/course-activation/activation-contract.js";
 import { describe, expect, it } from "vitest";
 import {
   GrammyUpdateAdapter,
   prepareTelegramUpdateForInbox,
 } from "../../src/adapters/telegram/grammy-update.adapter.js";
-import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
-import { activationValidator } from "../../src/modules/subscription-activation/activation-contract.js";
+import { SourceGroupProof } from "../../src/modules/course-activation/source-group-proof.js";
+import { activationValidator } from "../../src/modules/course-activation/activation-contract.js";
 import { loadActivationConfig } from "../../src/config/activation-config.js";
 import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
@@ -187,3 +187,70 @@ it("keeps admission restriction and cabinet guidance visible with maximum-length
     "Срок каждого отдельного права, полный состав и история — в кабинете.",
   );
 });
+
+it("accepts an honest unknown historical acquisition date in own Product grounds", () => {
+  const access: OwnAccess = {
+    contractVersion: "inside.subscription-activation.v1",
+    enrollments: [],
+    grounds: [
+      {
+        source: "manual",
+        capabilities: ["materials"],
+        startsAt: null,
+        validUntil: null,
+        active: true,
+      },
+    ],
+    admission: { state: "checking", admissionRestriction: null },
+  };
+  const valid = activationValidator("ownAccessResponse");
+  expect(valid({ ok: true, value: access })).toBe(true);
+  expect(
+    valid({
+      ok: true,
+      value: {
+        ...access,
+        grounds: [{ ...access.grounds[0], startsAt: "not-a-date" }],
+      },
+    }),
+  ).toBe(false);
+  expect(ownAccessText(access)).toContain("кабинете");
+});
+
+it.each([
+  ["paid", "покупка"],
+  ["manual", "назначение владельца"],
+  ["legacy", "ранее полученный доступ"],
+  ["course_activation", "активация курса"],
+  ["unknown", "источник не уточнён"],
+])(
+  "own Product access names factual %s origin without inventing a purchase",
+  (source, label) => {
+    const access: OwnAccess = {
+      contractVersion: "inside.subscription-activation.v1",
+      enrollments: [],
+      grounds: [
+        {
+          source,
+          capabilities: ["materials"],
+          startsAt: null,
+          validUntil: null,
+          active: true,
+        },
+      ],
+      admission: { state: "checking", admissionRestriction: null },
+    };
+    const valid = activationValidator("ownAccessResponse");
+    expect(valid({ ok: true, value: access })).toBe(true);
+    expect(
+      valid({
+        ok: true,
+        value: {
+          ...access,
+          grounds: [{ ...access.grounds[0], source: "invented" }],
+        },
+      }),
+    ).toBe(false);
+    expect(ownAccessText(access)).toContain(`Действующее основание: ${label}.`);
+  },
+);

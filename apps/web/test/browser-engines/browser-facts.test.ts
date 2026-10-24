@@ -19,7 +19,6 @@ function runningBrowser(): Browser {
 }
 const accountA = "00000000-0000-4000-8000-000000000001";
 const materialId = "10000000-0000-4000-8000-000000000001";
-const operationRef = "00000000-0000-4000-8000-000000000010";
 const material = {
   materialId,
   access: "free",
@@ -35,7 +34,6 @@ const material = {
   topic: "Архитектура",
   topicSlug: "architecture",
 };
-const ok = (result: unknown) => ({ ok: true, value: { operationRef, result } });
 
 function readingFixture() {
   const state = { isRead: false, version: 0 };
@@ -210,11 +208,6 @@ function fixture(billing?: (page: Page) => Promise<void>) {
         });
       },
     );
-    await page.route("**/api/authoring/billing/**", (route) =>
-      route.fulfill({
-        json: ok({ outcome: "people", items: [], nextCursor: null }),
-      }),
-    );
     await billing?.(page);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -356,248 +349,6 @@ test("without BroadcastChannel bookmark writes update the list in the same docum
   }
 }, 30_000);
 
-function accessFixture() {
-  const state = { assigned: false, invitation: "absent" };
-  const tier = {
-    id: "00000000-0000-4000-8000-000000000101",
-    revision: 3,
-    name: "Assigned tariff",
-    benefits: ["materials"],
-    coverage: { productIds: [], materialIds: [] },
-  };
-  const issued = () => ({
-    id: "00000000-0000-4000-8000-000000000020",
-    code: "Synthetic",
-    startParameter: "i_Synthetic",
-    offerId: tier.id,
-    offerRevision: 3,
-    mode: "purchase",
-    state: state.invitation,
-    issuedAt: "2030-01-01T00:00:00.000Z",
-    expiresAt: "2030-02-01T00:00:00.000Z",
-    claimedAt: null,
-    redeemedAt: null,
-    revokedAt:
-      state.invitation === "revoked" ? "2030-01-02T00:00:00.000Z" : null,
-    accountId: null,
-    revision: 1,
-    link: null,
-  });
-  const attach = fixture(async (page) => {
-    await page.route("**/api/authoring/billing/**", async (route) => {
-      const path = new URL(route.request().url()).pathname;
-      let result: unknown;
-      if (path.endsWith("/enrollments/assign")) {
-        state.assigned = true;
-        result = {
-          outcome: "enrollment",
-          value: {
-            id: operationRef,
-            accountId: accountA,
-            tier,
-            origin: "manual",
-            startsAt: "2030-01-01T00:00:00.000Z",
-            endsAt: null,
-            endPolicy: "fixed",
-            revision: 1,
-            state: "active",
-            renewal: "not_applicable",
-          },
-        };
-      } else if (path.endsWith("/people/list")) {
-        result = {
-          outcome: "people",
-          items: [
-            {
-              accountId: accountA,
-              telegramIdentityRef: null,
-              grounds: state.assigned
-                ? [
-                    {
-                      kind: "enrollment",
-                      id: operationRef,
-                      revision: 1,
-                      source: "manual",
-                      offer: { id: tier.id, name: tier.name },
-                      capabilities: ["materials"],
-                      purchaseRef: null,
-                      startsAt: "2030-01-01T00:00:00.000Z",
-                      endsAt: null,
-                      revokedAt: null,
-                      endPolicy: "fixed",
-                      state: "active",
-                    },
-                  ]
-                : [],
-            },
-          ],
-          nextCursor: null,
-        };
-      } else if (path.endsWith("/tiers/list")) {
-        result = {
-          outcome: "tiers",
-          items: [
-            {
-              tier,
-              availableForAssignment: true,
-              published: false,
-              archived: false,
-            },
-          ],
-          nextCursor: null,
-        };
-      } else if (path.endsWith("/access-summary")) {
-        result = {
-          outcome: "accessSummary",
-          value: {
-            asOf: "2030-01-01T00:00:00.000Z",
-            active: state.assigned
-              ? [
-                  {
-                    offerId: tier.id,
-                    name: tier.name,
-                    paid: 0,
-                    gift: 1,
-                    course: 0,
-                  },
-                ]
-              : [],
-            invitations: {
-              issued: state.invitation === "issued" ? 1 : 0,
-              opened: 0,
-              purchaseOpened: 0,
-              paid: 0,
-              expired: 0,
-              revoked: state.invitation === "revoked" ? 1 : 0,
-            },
-            attention: [],
-            revenue: [],
-          },
-        };
-      } else {
-        if (path.endsWith("/invitations/issue")) state.invitation = "issued";
-        if (path.endsWith("/invitations/revoke")) state.invitation = "revoked";
-        result = path.endsWith("/invitations/list")
-          ? {
-              outcome: "invitations",
-              items: state.invitation === "absent" ? [] : [issued()],
-              nextCursor: null,
-            }
-          : { outcome: "invitation", value: issued() };
-      }
-      await route.fulfill({ json: ok(result) });
-    });
-  }).attach;
-  return { attach };
-}
-
-test("People and Summary observe an assignment from another open document", async () => {
-  const context = await runningBrowser().newContext();
-  try {
-    const { attach } = accessFixture();
-    const writer = await context.newPage();
-    const reader = await context.newPage();
-    await attach(writer);
-    await attach(reader);
-    const people = writer.getByRole("region", { name: "People", exact: true });
-    await browserExpect(
-      reader.getByText("Действующего доступа пока нет."),
-    ).toBeVisible();
-    await people.locator("summary").click();
-    await people
-      .getByLabel("Тариф для назначения")
-      .selectOption({ label: "Assigned tariff" });
-    await people.getByLabel("Причина назначения").fill("Contract test");
-    await people.getByRole("button", { name: "Назначить без оплаты" }).click();
-    await browserExpect(
-      people.getByText("Тариф назначен. Платёж и списания не создавались."),
-    ).toBeVisible();
-    await browserExpect(
-      reader
-        .getByRole("region", { name: "People", exact: true })
-        .locator("summary")
-        .getByText("Assigned tariff", { exact: true }),
-    ).toBeVisible();
-    await browserExpect(
-      reader
-        .getByRole("region", { name: "Summary", exact: true })
-        .getByText("Assigned tariff", { exact: true }),
-    ).toBeVisible();
-  } finally {
-    await context.close();
-  }
-}, 30_000);
-
-for (const channel of ["BroadcastChannel", "window fallback"] as const) {
-  test(`Invitations and Summary observe issue and revoke through ${channel}`, async () => {
-    const context = await runningBrowser().newContext();
-    try {
-      if (channel === "window fallback")
-        await context.addInitScript(() => {
-          Reflect.deleteProperty(globalThis, "BroadcastChannel");
-        });
-      const { attach } = accessFixture();
-      const writer = await context.newPage();
-      await attach(writer, { secondary: channel === "window fallback" });
-      const reader =
-        channel === "window fallback" ? writer : await context.newPage();
-      if (reader !== writer) await attach(reader);
-      const summary = reader.getByRole("region", {
-        name: channel === "window fallback" ? "Secondary Summary" : "Summary",
-        exact: true,
-      });
-      const issuedCount = summary
-        .locator("dl > div")
-        .filter({ has: reader.getByText("Выдано", { exact: true }) })
-        .locator("dd");
-      const revokedCount = summary
-        .locator("dl > div")
-        .filter({ has: reader.getByText("Отозвано", { exact: true }) })
-        .locator("dd");
-      await browserExpect(issuedCount).toHaveText("0");
-      const invitations = writer.getByRole("region", {
-        name: "Invitations",
-        exact: true,
-      });
-      await invitations
-        .getByLabel("Предложение", { exact: true })
-        .selectOption({ label: "Материалы" });
-      await invitations
-        .getByRole("button", { name: "Создать приглашение" })
-        .click();
-      await browserExpect(
-        invitations.locator("[data-issued-invitation]"),
-      ).toBeVisible();
-      const readerInvitations = reader.getByRole("region", {
-        name:
-          channel === "window fallback"
-            ? "Secondary Invitations"
-            : "Invitations",
-        exact: true,
-      });
-      await browserExpect(readerInvitations.getByRole("listitem")).toHaveCount(
-        1,
-      );
-      await browserExpect(issuedCount).toHaveText("1");
-      await invitations
-        .getByRole("button", { name: "Отозвать", exact: true })
-        .click();
-      await browserExpect(
-        invitations.getByText("Приглашение отозвано.", { exact: true }),
-      ).toBeVisible();
-      await browserExpect(
-        readerInvitations
-          .getByRole("listitem")
-          .getByText("Отозвано", { exact: true }),
-      ).toBeVisible();
-      await browserExpect(revokedCount).toHaveText("1");
-      await browserExpect(issuedCount).toHaveText("0");
-    } finally {
-      await context.close();
-    }
-  }, 30_000);
-}
-
 test("a write supersedes an initial bookmark read that captured the old answer", async () => {
   const context = await runningBrowser().newContext();
   let release: () => void = () => undefined;
@@ -736,3 +487,341 @@ test("Product community cache never shows Account A's group while Account B is b
     await page.close();
   }
 });
+
+test("Product access writes refresh a second owner surface without committing its draft filters", async () => {
+  const context = await runningBrowser().newContext();
+  const productId = "10000000-0000-4000-8000-000000000009";
+  const draftProductId = "10000000-0000-4000-8000-000000000099";
+  let access = "revoked";
+  let revision = 2;
+  const record = () => ({
+    accountId: accountA,
+    productId,
+    access,
+    revision,
+    firstIssuedAt: "2030-01-01T00:00:00Z",
+  });
+  const attach = async (page: Page) => {
+    await page.route("**/api/authoring/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("content/list")) {
+        await route.fulfill({
+          json: {
+            ok: true,
+            value: {
+              operationRef: accountA,
+              result: {
+                outcome: "content",
+                items: [
+                  {
+                    id: productId,
+                    kind: "product",
+                    title: "Test Product",
+                    slug: "test-product",
+                    available: true,
+                  },
+                ],
+              },
+            },
+          },
+        });
+        return;
+      }
+      const input = z
+        .object({
+          productId: z.string().optional(),
+          accountId: z.string().optional(),
+        })
+        .parse(route.request().postDataJSON());
+      if (path.endsWith("/issue") || path.endsWith("/restore")) {
+        access = "active";
+        revision += 1;
+      }
+      if (path.endsWith("/revoke")) {
+        access = "revoked";
+        revision += 1;
+      }
+      let value: unknown = { ok: true, value: record() };
+      if (path.endsWith("/issue"))
+        value = { ok: true, outcome: "issued", value: record() };
+      if (path.endsWith("/list"))
+        value = {
+          ok: true,
+          value:
+            input.productId === draftProductId ||
+            (input.accountId !== undefined && input.accountId !== accountA)
+              ? []
+              : [record()],
+          nextCursor: null,
+        };
+      if (path.endsWith("/read"))
+        value = {
+          ok: true,
+          value: {
+            ...record(),
+            sources: [],
+            actions: [
+              {
+                id: "30000000-0000-4000-8000-000000000001",
+                kind: "issue",
+                actorId: accountA,
+                reason: "First source",
+                recordedAt: "2030-01-01T00:00:00Z",
+                revision: 1,
+              },
+              {
+                id: "30000000-0000-4000-8000-000000000002",
+                kind: "source_recorded",
+                actorId: accountA,
+                reason: "Second source",
+                recordedAt: "2030-01-01T00:00:00Z",
+                revision: 1,
+              },
+            ],
+          },
+        };
+      if (path.endsWith("/preview-revoke"))
+        value = {
+          ok: true,
+          value: {
+            accountId: accountA,
+            productId,
+            revision,
+            affectedCount: 0,
+            affected: [],
+          },
+        };
+      await route.fulfill({ json: { ok: true, value } });
+    });
+    await page.goto(`${baseURL}?productAccess=1`);
+    await page.getByRole("button", { name: "Показать права" }).click();
+    await browserExpect(
+      page.getByText("Доступ отозван · первая выдача", { exact: false }),
+    ).toBeVisible();
+  };
+  try {
+    const writer = await context.newPage();
+    const reader = await context.newPage();
+    const historyWarnings: string[] = [];
+    writer.on("console", (message) => {
+      if (message.type() === "error") historyWarnings.push(message.text());
+    });
+    reader.on("console", (message) => {
+      if (message.type() === "error") historyWarnings.push(message.text());
+    });
+    await attach(writer);
+    await attach(reader);
+    const cabinet = await context.newPage();
+    await cabinet.route("**/api/account/billing", (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          value: {
+            products: [
+              {
+                id: productId,
+                slug: "test-product",
+                name: "Test Product",
+                materials: {
+                  state: access === "active" ? "available" : "revoked",
+                },
+                community: { state: "unavailable" },
+              },
+            ],
+            access: { grounds: [] },
+            notices: [],
+            payments: [],
+          },
+        },
+      }),
+    );
+    await cabinet.goto(`${baseURL}?billing=1`);
+    await browserExpect(
+      cabinet.getByText("Доступ отозван", { exact: true }),
+    ).toBeVisible();
+    await reader.getByRole("button", { name: "История права" }).click();
+    await browserExpect(
+      reader.getByText("Доступ отозван. Первая выдача", { exact: false }),
+    ).toBeVisible();
+    await browserExpect(
+      reader.getByText("First source", { exact: false }),
+    ).toBeVisible();
+    await browserExpect(
+      reader.getByText("Second source", { exact: false }),
+    ).toBeVisible();
+    expect(
+      historyWarnings.filter((message) => message.includes("same key")),
+    ).toEqual([]);
+    await reader
+      .getByLabel("Причина выдачи", { exact: true })
+      .fill("Unsaved reason");
+    await writer.getByRole("button", { name: "История права" }).click();
+    await writer.getByLabel("Основание выдачи").fill("manual-source");
+    await writer
+      .getByLabel("Причина выдачи", { exact: true })
+      .fill("Owner reason");
+    await writer
+      .getByRole("button", { name: "Выдать бессрочный доступ" })
+      .click();
+    await browserExpect(
+      reader.getByText("Бессрочный доступ открыт.", { exact: false }),
+    ).toBeVisible();
+    await browserExpect(
+      cabinet.getByText("Доступ открыт", { exact: true }),
+    ).toBeVisible();
+    await browserExpect(
+      reader.getByLabel("Причина выдачи", { exact: true }),
+    ).toHaveValue("Unsaved reason");
+    await reader
+      .getByRole("textbox", { name: "Продукт", exact: true })
+      .fill(draftProductId);
+    await writer
+      .getByRole("combobox", { name: "Продукт", exact: true })
+      .selectOption(productId);
+    await writer.getByRole("button", { name: "Проверить доступ" }).click();
+    await writer
+      .getByRole("textbox", { name: "Причина", exact: true })
+      .fill("Withdrawal");
+    await writer
+      .getByRole("button", { name: "Отозвать доступ к продукту", exact: true })
+      .click();
+    await browserExpect(
+      reader.getByText("Доступ отозван · первая выдача", { exact: false }),
+    ).toBeVisible();
+    await browserExpect(
+      reader.getByRole("textbox", { name: "Продукт", exact: true }),
+    ).toHaveValue(draftProductId);
+    await browserExpect(
+      cabinet.getByText("Доступ отозван", { exact: true }),
+    ).toBeVisible();
+    await writer.getByRole("button", { name: "История права" }).click();
+    await writer.getByLabel("Причина восстановления").fill("Restoration");
+    await writer
+      .getByRole("button", { name: "Явно восстановить доступ" })
+      .click();
+    await browserExpect(
+      reader.getByText("Доступ открыт · первая выдача", { exact: false }),
+    ).toBeVisible();
+    await browserExpect(
+      reader.getByLabel("Причина выдачи", { exact: true }),
+    ).toHaveValue("Unsaved reason");
+    await reader
+      .getByRole("textbox", { name: "Account", exact: true })
+      .fill("00000000-0000-4000-8000-000000000002");
+    await reader
+      .getByRole("textbox", { name: "Продукт", exact: true })
+      .fill("");
+    await reader.getByRole("button", { name: "Показать права" }).click();
+    await browserExpect(
+      reader.getByRole("button", { name: "История права" }),
+    ).toHaveCount(0);
+    const isolatedRefresh = reader.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith("/products/list"),
+    );
+    await writer
+      .getByRole("button", { name: "Выдать бессрочный доступ" })
+      .click();
+    await isolatedRefresh;
+    await browserExpect(
+      reader.getByRole("button", { name: "История права" }),
+    ).toHaveCount(0);
+    await browserExpect(
+      reader.getByRole("textbox", { name: "Account", exact: true }),
+    ).toHaveValue("00000000-0000-4000-8000-000000000002");
+  } finally {
+    await context.close();
+  }
+}, 30_000);
+
+test("a denied access write emits no fact; fallback updates a second cache in the same document", async () => {
+  const context = await runningBrowser().newContext();
+  try {
+    await context.addInitScript(() => {
+      Reflect.deleteProperty(globalThis, "BroadcastChannel");
+    });
+    const page = await context.newPage();
+    const productId = "10000000-0000-4000-8000-000000000009";
+    let active = false;
+    let deny = true;
+    await page.route("**/api/authoring/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      const record = {
+        accountId: accountA,
+        productId,
+        access: active ? "active" : "revoked",
+        revision: 2,
+        firstIssuedAt: null,
+      };
+      if (path.endsWith("/issue") && deny) {
+        await route.fulfill({ json: { ok: false, code: "forbidden" } });
+        return;
+      }
+      if (path.endsWith("/issue")) active = true;
+      await route.fulfill({
+        json: {
+          ok: true,
+          value: path.endsWith("/list")
+            ? { ok: true, value: [record], nextCursor: null }
+            : path.endsWith("/issue")
+              ? {
+                  ok: true,
+                  outcome: "issued",
+                  value: { ...record, access: "active" },
+                }
+              : {
+                  operationRef: accountA,
+                  result: { outcome: "content", items: [] },
+                },
+        },
+      });
+    });
+    await page.goto(`${baseURL}?productAccess=1&secondary=1`);
+    const reader = page.getByRole("region", { name: "Secondary access" });
+    const writer = page.locator(".admin-section").first();
+    await writer.getByRole("button", { name: "Показать права" }).click();
+    await reader.getByRole("button", { name: "Показать права" }).click();
+    await browserExpect(
+      reader.getByText("Доступ отозван · первая выдача дата неизвестна"),
+    ).toBeVisible();
+    await writer
+      .getByRole("textbox", { name: "Account", exact: true })
+      .fill(accountA);
+    await writer
+      .getByRole("textbox", { name: "Продукт", exact: true })
+      .fill(productId);
+    await writer.getByLabel("Основание выдачи").fill("owner-source");
+    await writer.getByLabel("Причина выдачи").fill("owner reason");
+    await page.evaluate(() => {
+      let announcements = 0;
+      window.addEventListener("inside.enrollments.changed", () => {
+        announcements += 1;
+      });
+      Object.defineProperty(window, "receivedAccessAnnouncements", {
+        get: () => announcements,
+      });
+    });
+    await writer
+      .getByRole("button", { name: "Выдать бессрочный доступ" })
+      .click();
+    await browserExpect(writer.getByRole("alert")).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => Reflect.get(window, "receivedAccessAnnouncements") as unknown,
+      ),
+    ).toBe(0);
+    deny = false;
+    await writer
+      .getByRole("button", { name: "Выдать бессрочный доступ" })
+      .click();
+    await browserExpect(
+      reader.getByText("Доступ открыт · первая выдача дата неизвестна"),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => Reflect.get(window, "receivedAccessAnnouncements") as unknown,
+      ),
+    ).toBe(1);
+  } finally {
+    await context.close();
+  }
+}, 30_000);

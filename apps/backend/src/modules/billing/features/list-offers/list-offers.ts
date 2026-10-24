@@ -1,26 +1,26 @@
-import { z } from "zod";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
 import { productIdFromCapability } from "@inside/access-capabilities";
+import { z } from "zod";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accessCapabilitySchema } from "../../../account-rights/index.js";
 import {
   failure,
   idSchema,
-  paymentModeSchema,
   priceSnapshotSchema,
   type PricingResult,
 } from "../../domain/pricing.js";
-import { selectPricesForOptions } from "../../shared/select-price.js";
-import { type PurchaseGrounds } from "../../shared/offer-eligibility.js";
-import { paymentAdmission } from "../../shared/payment-admission.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
-import { hasText } from "../../../../infrastructure/contracts/text.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
+import { selectPricesForOptions } from "../../shared/select-price.js";
 
 export const listOffersSchema = z.strictObject({
+  productId: idSchema.optional(),
   cursor: idSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   /** Витрина подписки и витрина руководства спрашивают разные способы оплаты одного каталога. */
-  mode: paymentModeSchema.optional(),
+  mode: z.literal("one_time").optional(),
   /** Что именно открывает предложение: страница руководства спрашивает своё право. */
   capability: accessCapabilitySchema.optional(),
 });
@@ -29,15 +29,10 @@ export const offersPageSchema = z.strictObject({
   nextCursor: idSchema.nullable(),
 });
 export interface ListOffersOptions {
+  readonly contentCatalog?: CoverageCatalog | undefined;
   /** Публичная витрина видит только предложения, включённые в продажу; владелец — весь непустой каталог. */
   readonly publishedOnly?: boolean;
-  /**
-   * Основания читателя витрины: Offer с ограничением допуска виден только допущенному Account.
-   * Владельческий каталог их не передаёт и видит всё.
-   */
-  readonly grounds?: PurchaseGrounds;
   readonly sale?: SaleCapability;
-  readonly recurringAllowed?: boolean;
 }
 export async function listOffers(
   prisma: BillingPrismaClient,
@@ -53,43 +48,25 @@ export async function listOffers(
   const parsed = listOffersSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   try {
-    const { cursor, limit, mode, capability } = parsed.data;
-    const productId =
+    const { cursor, limit, capability } = parsed.data;
+    const legacyProductId =
       capability === undefined ? null : productIdFromCapability(capability);
-    const rows = await prisma.billingPaymentOption.findMany({
+    if (
+      parsed.data.productId !== undefined &&
+      capability !== undefined &&
+      legacyProductId !== parsed.data.productId
+    )
+      return failure("invalid_request");
+    const productId = parsed.data.productId ?? legacyProductId;
+    const rows = await prisma.billingProductPrice.findMany({
       where: {
         archived: false,
-        offer: {
-          archived: false,
-          ...(options.publishedOnly === true ? { published: true } : {}),
-          ...(capability === undefined
-            ? {}
-            : productId !== null
-              ? {
-                  OR: [
-                    { benefits: { has: capability } },
-                    {
-                      benefits: { has: "materials" },
-                      OR: [
-                        {
-                          coverage: {
-                            path: ["productIds"],
-                            array_contains: [productId],
-                          },
-                        },
-                        { coverage: { path: ["wholePlatform"], equals: true } },
-                      ],
-                    },
-                  ],
-                }
-              : { benefits: { has: capability } }),
-        },
-        ...(mode === undefined ? {} : { mode }),
-        ...(hasText(cursor) ? { id: { gt: cursor } } : {}),
+        ...(options.publishedOnly === true ? { published: true } : {}),
+        ...(productId === null ? {} : { productId }),
+        ...(hasText(cursor) ? { AND: [{ productId: { gt: cursor } }] } : {}),
       },
-      orderBy: { id: "asc" },
+      orderBy: { productId: "asc" },
       take: limit + 1,
-      include: { offer: true },
     });
     const page = rows.slice(0, limit);
     const items = [];
@@ -97,18 +74,31 @@ export async function listOffers(
     const prices = await selectPricesForOptions(prisma, page, now, undefined, {
       allowUnpublished: options.publishedOnly !== true,
     });
-    for (const row of page) {
-      const price = prices.get(row.id);
+    const metadata =
+      options.publishedOnly !== true
+        ? undefined
+        : await options.contentCatalog?.resolveMany(
+            page.map((row) => ({
+              productIds: [row.productId],
+              materialIds: [],
+            })),
+          );
+    for (const [index, row] of page.entries()) {
+      if (
+        options.publishedOnly === true &&
+        metadata?.[index]?.some(
+          (entry) => entry.kind === "product" && entry.available,
+        ) !== true
+      )
+        continue;
+      const price = prices.get(row.productId);
       if (price === undefined) continue;
       if (
         price.ok &&
-        (options.grounds === undefined ||
+        (options.publishedOnly !== true ||
           paymentAdmission({
-            context: "storefront",
             snapshot: price.value,
-            grounds: options.grounds,
-            sale: options.sale ?? { payments: false, subscriptions: false },
-            recurringAllowed: options.recurringAllowed ?? true,
+            sale: options.sale ?? { payments: false },
           }).ok)
       )
         items.push(price.value);
@@ -117,7 +107,8 @@ export async function listOffers(
       ok: true,
       value: {
         items,
-        nextCursor: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
+        nextCursor:
+          rows.length > limit ? (page.at(-1)?.productId ?? null) : null,
       },
     };
   } catch (error) {

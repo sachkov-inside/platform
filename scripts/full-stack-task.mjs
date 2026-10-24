@@ -87,7 +87,14 @@ export async function seedFullStackTask(origin, accessToken) {
     expectedOrderVersion: order.orderVersion,
     orderedMaterialIds: [lesson.materialId],
     chapters: [{ id: chapterId, name: "Глава 1", summary: "" }],
-    chapterAssignments: { [lesson.materialId]: chapterId },
+    programmePlacements: [
+      {
+        id: randomUUID(),
+        materialId: lesson.materialId,
+        chapterId,
+        stepGroup: null,
+      },
+    ],
   });
   const code = "fullstack-task";
   await request("/authoring/import/tasks/apply", {

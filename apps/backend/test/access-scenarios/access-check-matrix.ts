@@ -234,7 +234,7 @@ const webTests = {
   memberVideo:
     "member primary Video denies anonymous and non-member access while authorizing its owner",
   practiceDenied:
-    "practice Reader keeps assignment metadata and protected body out of guest and denied views",
+    "practical Task Reader keeps protected requirements and body out of guest and denied views",
 } as const;
 /** Сценарии отдельных identities через Web/BFF (#904). */
 const identityTests = {
@@ -541,7 +541,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "платформа отказывает в решении и запуске возврата даже владельцу и администратору",
+        "scoped Billing permission admits owner reads while Materials permission stays denied",
       ),
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
@@ -557,7 +557,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "владелец читает платежи, условия и остаток к возврату без банковских секретов",
+        "scoped Billing permission admits owner reads while Materials permission stays denied",
       ),
       "nest-http": test(
         billingHttp,
@@ -612,7 +612,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "nest-http": test(
         billingHttp,
-        "public catalog, trusted quote identity, owner authorization and wire conflicts",
+        "public Product catalogue stays closed under current legal terms; owner price commands use trusted identity",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
       "web-bff": identityTest("ordinaryAccount"),
@@ -649,17 +649,17 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "платформа отказывает в решении и запуске возврата даже владельцу и администратору",
+        "scoped Billing permission admits owner reads while Materials permission stays denied",
       ),
       "nest-http": test(
         billingHttp,
-        "public catalog, trusted quote identity, owner authorization and wire conflicts",
+        "public Product catalogue stays closed under current legal terms; owner price commands use trusted identity",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
       // Сценарий идёт в `pnpm smoke:enrollments` обязательного CI job `integration`, а не в nightly.
       "web-bff": test(
         webFullstack("enrollment.spec.ts"),
-        "owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL",
+        "owner issues, withdraws and explicitly restores one Product right through real BFF and PostgreSQL",
       ),
       production: notApplicable(noAdministratorInProduction),
     },
