@@ -5,6 +5,8 @@ RUN npm install --global corepack@0.36.0 \
     && corepack install --global pnpm@11.27.1
 
 FROM toolchain AS build
+ARG SOURCE_COMMIT
+ARG RELEASE_VERSION
 WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json tsconfig.nest-app.json ./
 COPY patches ./patches
@@ -13,7 +15,7 @@ COPY apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY apps/backend/prisma ./apps/backend/prisma
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/telegram/package.json ./apps/telegram/package.json
-COPY packages/runtime-identity/package.json ./packages/runtime-identity/package.json
+COPY packages/runtime-identity ./packages/runtime-identity
 COPY packages/material-blocks ./packages/material-blocks
 COPY packages/legal ./packages/legal
 COPY packages/access-capabilities ./packages/access-capabilities
@@ -21,6 +23,10 @@ COPY --chown=node:node docs/contracts ./docs/contracts
 RUN pnpm install --frozen-lockfile
 COPY apps/telegram/tsconfig.json apps/telegram/tsconfig.build.json ./apps/telegram/
 COPY apps/telegram/src ./apps/telegram/src
+COPY apps/telegram/scripts/write-image-identity.mjs ./apps/telegram/scripts/write-image-identity.mjs
+RUN mkdir /workspace/.telegram-build-identity \
+    && node apps/telegram/scripts/write-image-identity.mjs \
+      "$RELEASE_VERSION" "$SOURCE_COMMIT" /workspace/.telegram-build-identity/release-identity.json
 # Deploy verifies a new production lockfile. Allow registry metadata requests:
 # a frozen install can verify package age without caching full metadata (#1224).
 RUN pnpm --filter @inside/telegram build \
@@ -35,6 +41,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /workspace/.production/telegram/package.json ./
 COPY --from=build --chown=node:node /workspace/.production/telegram/node_modules ./node_modules
 COPY --from=build --chown=node:node /workspace/apps/telegram/dist ./dist
+COPY --from=build --chown=node:node /workspace/.telegram-build-identity/ ./
 USER node
 EXPOSE 3002
 CMD ["node", "dist/main.js"]

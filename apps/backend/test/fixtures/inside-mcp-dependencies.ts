@@ -17,8 +17,13 @@ export function refusingMcpToolDependencies(): Omit<
 > {
   return {
     telemetry: { summary: refuse },
+    queues: { read: refuse },
+    participants: { read: refuse },
+    retention: { read: refuse },
     authoring: stubMaterialAuthoring(),
     billing: { execute: refuse },
+    diagnostics: { read: refuse },
+    funnel: { readDiagnostics: refuse },
     communications: { execute: refuse },
     videos: { attachExisting: refuse, initUpload: refuse, reconcile: refuse },
   };

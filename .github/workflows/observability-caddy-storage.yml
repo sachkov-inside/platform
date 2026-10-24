@@ -1,0 +1,110 @@
+name: Observability native Caddy storage
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/observability-caddy-storage.yml
+      - .github/workflows/ci.yml
+      - .github/workflows/ci-gate-recovery.yml
+      - infra/observability/pilot/**
+      - scripts/observability-caddy-storage/**
+      - scripts/observability-caddy-storage.test.mjs
+      - scripts/observability-pilot/**
+      - scripts/observability-umami/process-owner.mjs
+      - scripts/process-group-signal.mjs
+      - scripts/process-group-signal.d.mts
+      - scripts/heavy-check.sh
+      - scripts/heavy-check/**
+      - scripts/ci-coverage-plan.mjs
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .node-version
+      - .npmrc
+      - tsconfig*.json
+      - docs/runbooks/observability-caddy-pilot.md
+      - docs/runbooks/observability-pilot.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observability-caddy-storage-${{ github.event.pull_request.number }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  native-caddy:
+    name: Isolated native Caddy (${{ matrix.case }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [baseline, failure, timeout, interruption]
+    env:
+      CADDY_PILOT_CASE: ${{ matrix.case }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pinned Node.js for standard-library contracts
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Verify whole raw boundaries and owned process cleanup
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh node --test scripts/observability-caddy-storage.test.mjs
+      - name: Bind exact source and disk admission
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-caddy-storage/caddy_storage.py admission \
+            --output "$RUNNER_TEMP/inside-caddy-storage-private" \
+            --metadata "$RUNNER_TEMP/inside-caddy-storage-metadata"
+      - name: Run native observation or prove expected fault cleanup
+        # Each fresh project retains the existing600s worker and90s cleanup budgets.
+        timeout-minutes: 22
+        run: |
+          set +e
+          bash scripts/heavy-check.sh python3 scripts/observability-caddy-storage/caddy_storage.py run \
+            --output "$RUNNER_TEMP/inside-caddy-storage-private"
+          code=$?
+          set -e
+          if [ "$CADDY_PILOT_CASE" = baseline ]; then
+            test "$code" -eq 0
+          else
+            python3 scripts/observability-caddy-storage/caddy_storage.py verify-fault \
+              --output "$RUNNER_TEMP/inside-caddy-storage-private" \
+              --case "$CADDY_PILOT_CASE" --exit-code "$code"
+          fi
+      - name: Recover only the registered disposable project
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          python3 scripts/observability-caddy-storage/caddy_storage.py recover \
+            --output "$RUNNER_TEMP/inside-caddy-storage-private"
+      - name: Collect only validated curated evidence
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-caddy-storage/caddy_storage.py collect \
+            --output "$RUNNER_TEMP/inside-caddy-storage-private" \
+            --metadata "$RUNNER_TEMP/inside-caddy-storage-metadata" \
+            --public "$RUNNER_TEMP/inside-caddy-storage-public"
+      - name: Upload curated Caddy evidence
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-caddy-storage-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/inside-caddy-storage-public
+          if-no-files-found: warn
+          retention-days: 7

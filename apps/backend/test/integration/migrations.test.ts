@@ -181,12 +181,16 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "reading_activity", [
       "commands",
       "events",
+      "learning_started_events",
       "material_states",
       "material_visits",
       "product_learning_started",
       "reader_preferences",
     ]);
-    await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
+    await expectTables(testDatabase, "bookmarks", [
+      "bookmarked_materials",
+      "activity_events",
+    ]);
     await expectTables(testDatabase, "sales_funnel", [
       "bot_events",
       "product_waitlist_intakes",

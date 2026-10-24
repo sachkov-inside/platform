@@ -178,9 +178,13 @@ describe("application CI workflow contract", () => {
       ["modules", "check:unit:modules"],
       ["contracts", "check:contracts"],
     ]) {
+      const environment =
+        part === "tooling"
+          ? '        env:\n          INSIDE_CORE_SOURCE_PROGRESS: "1"\n'
+          : "";
       assert.ok(
         jobBlock("unit-checks").includes(
-          `if: \${{ matrix.part == '${part}' }}\n        run: pnpm ${command}`,
+          `if: \${{ matrix.part == '${part}' }}\n${environment}        run: pnpm ${command}`,
         ),
       );
     }

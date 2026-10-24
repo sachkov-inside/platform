@@ -113,6 +113,7 @@ jobs:
           push: true
           build-args: |
             SOURCE_COMMIT=${{ needs.plan.outputs.source_sha }}
+            RELEASE_VERSION=${{ needs.plan.outputs.version }}
           tags: ghcr.io/sachkov-inside/inside-telegram:${{ needs.plan.outputs.version }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

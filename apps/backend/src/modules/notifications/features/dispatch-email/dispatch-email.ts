@@ -1,3 +1,5 @@
+import { notificationTraceparent } from "../../../../infrastructure/observability/notification-trace.js";
+import { observeEmailNotification } from "../../../../infrastructure/observability/technical-telemetry.js";
 import { randomUUID } from "node:crypto";
 import {
   lockNotification,
@@ -20,6 +22,38 @@ import type { SendNotificationEmail } from "../../ports/notification-sources.js"
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const retryDelaysMs = [1_000, 5_000, 30_000] as const;
+async function resultTraceparent(
+  transaction: NotificationsPrisma,
+  result: Pick<
+    DeliveryResult,
+    | "operationId"
+    | "deliveryRef"
+    | "commandRevision"
+    | "attemptRef"
+    | "payloadDigest"
+  >,
+): Promise<string | null> {
+  const inbox = await transaction.notificationEmailInbox.findUnique({
+    where: { operationId: result.operationId },
+  });
+  if (
+    !inbox ||
+    inbox.deliveryId !== result.deliveryRef ||
+    inbox.commandRevision !== result.commandRevision ||
+    inbox.digest !== `sha256:${result.payloadDigest}`
+  )
+    return null;
+  if (!hasText(result.attemptRef))
+    return notificationTraceparent(inbox.traceparent) ?? null;
+  const attempt = await transaction.notificationEmailAttempt.findUnique({
+    where: { id: result.attemptRef },
+  });
+  return attempt?.operationId === result.operationId &&
+    attempt.deliveryId === result.deliveryRef
+    ? (notificationTraceparent(attempt.traceparent) ?? null)
+    : null;
+}
+
 async function persistResult(
   transaction: NotificationsPrisma,
   command: DeliveryCommand,
@@ -52,6 +86,7 @@ async function persistResult(
     transaction.notificationOutbox,
     "emailResult",
     result,
+    { traceparent: await resultTraceparent(transaction, result) },
   );
   await transaction.notificationEmailEffect.update({
     where: { deliveryId: command.deliveryRef },
@@ -76,6 +111,7 @@ async function replayResult(
     transaction.notificationOutbox,
     "emailResult",
     result,
+    { traceparent: await resultTraceparent(transaction, result) },
   );
   await transaction.notificationOutbox.update({
     where: { scope_messageId: { scope: "email", messageId: result.messageId } },
@@ -87,6 +123,7 @@ export async function acceptEmailCommand(
   input: unknown,
   lane: "emailMaterial" | "emailSubscription",
   now: () => Date,
+  metadata?: { readonly traceparent?: unknown },
 ) {
   const { value: command, envelope } = parseWire(lane, input, deliverySchema);
   if (
@@ -99,6 +136,7 @@ export async function acceptEmailCommand(
     await lockNotification(transaction, `email:${command.deliveryRef}`);
     const inserted = await transaction.notificationEmailInbox.createMany({
       data: {
+        traceparent: notificationTraceparent(metadata?.traceparent) ?? null,
         operationId: command.operationId,
         deliveryId: command.deliveryRef,
         commandRevision: command.commandRevision,
@@ -197,217 +235,225 @@ export async function dispatchEmail(
       command.binding.channel !== "email"
     )
       continue;
-    const attemptRef = randomUUID();
-    const request = {
-      contractVersion: "inside.notification-dispatch.v1",
-      operationId: randomUUID(),
-      deliveryOperationId: command.operationId,
-      deliveryRef: command.deliveryRef,
-      commandRevision: command.commandRevision,
-      payloadDigest: inbox.digest.slice("sha256:".length),
-      attemptRef,
-    };
-    const permit = await authorizeDispatch(deps, "email", request);
-    // The recipient owner resolves the verified Account contact or immutable order snapshot.
-    const email =
-      permit.status === "allowed"
-        ? await deps.recipients.email(command.binding)
-        : null;
-    const started = await deps.prisma.$transaction(async (transaction) => {
-      await lockNotification(transaction, `email:${row.deliveryId}`);
-      const current =
-        await transaction.notificationEmailEffect.findUniqueOrThrow({
-          where: { deliveryId: row.deliveryId },
-        });
-      if (
-        current.operationId !== row.operationId ||
-        !["accepted", "retrying"].includes(current.state) ||
-        current.nextAttemptAt > deps.now()
-      )
-        return false;
-      if (
-        Date.parse(command.notAfter) <= deps.now().getTime() ||
-        permit.status === "denied" ||
-        (permit.status === "allowed" &&
-          (!hasText(email) ||
-            Date.parse(permit.validUntil) <= deps.now().getTime()))
-      ) {
-        await persistResult(
-          transaction,
-          command,
-          inbox.digest.slice("sha256:".length),
-          deps.now(),
-          {
-            state: "suppressed",
-            reason:
-              permit.status === "denied" &&
-              !["not_found", "payload_conflict"].includes(permit.reason)
-                ? permit.reason
-                : !hasText(email) && permit.status === "allowed"
-                  ? "binding_conflict"
-                  : "expired",
-          },
-        );
-        return false;
-      }
-      if (permit.status !== "allowed") {
-        const delay = retryDelaysMs[current.retries];
-        if (delay === undefined)
-          await persistResult(
-            transaction,
-            command,
-            inbox.digest.slice("sha256:".length),
-            deps.now(),
-            {
-              state: "failed",
-              reason: "retry_exhausted",
-              attemptRef: current.attemptRef,
+    const binding = command.binding;
+    return observeEmailNotification(
+      category === "material" ? "dispatchMaterial" : "dispatchSubscription",
+      inbox.traceparent,
+      async (traceparent) => {
+        const attemptRef = randomUUID();
+        const request = {
+          contractVersion: "inside.notification-dispatch.v1",
+          operationId: randomUUID(),
+          deliveryOperationId: command.operationId,
+          deliveryRef: command.deliveryRef,
+          commandRevision: command.commandRevision,
+          payloadDigest: inbox.digest.slice("sha256:".length),
+          attemptRef,
+        };
+        const permit = await authorizeDispatch(deps, "email", request);
+        // The recipient owner resolves the verified Account contact or immutable order snapshot.
+        const email =
+          permit.status === "allowed"
+            ? await deps.recipients.email(binding)
+            : null;
+        const started = await deps.prisma.$transaction(async (transaction) => {
+          await lockNotification(transaction, `email:${row.deliveryId}`);
+          const current =
+            await transaction.notificationEmailEffect.findUniqueOrThrow({
+              where: { deliveryId: row.deliveryId },
+            });
+          if (
+            current.operationId !== row.operationId ||
+            !["accepted", "retrying"].includes(current.state) ||
+            current.nextAttemptAt > deps.now()
+          )
+            return false;
+          if (
+            Date.parse(command.notAfter) <= deps.now().getTime() ||
+            permit.status === "denied" ||
+            (permit.status === "allowed" &&
+              (!hasText(email) ||
+                Date.parse(permit.validUntil) <= deps.now().getTime()))
+          ) {
+            await persistResult(
+              transaction,
+              command,
+              inbox.digest.slice("sha256:".length),
+              deps.now(),
+              {
+                state: "suppressed",
+                reason:
+                  permit.status === "denied" &&
+                  !["not_found", "payload_conflict"].includes(permit.reason)
+                    ? permit.reason
+                    : !hasText(email) && permit.status === "allowed"
+                      ? "binding_conflict"
+                      : "expired",
+              },
+            );
+            return false;
+          }
+          if (permit.status !== "allowed") {
+            const delay = retryDelaysMs[current.retries];
+            if (delay === undefined)
+              await persistResult(
+                transaction,
+                command,
+                inbox.digest.slice("sha256:".length),
+                deps.now(),
+                {
+                  state: "failed",
+                  reason: "retry_exhausted",
+                  attemptRef: current.attemptRef,
+                },
+              );
+            else {
+              await transaction.notificationEmailEffect.update({
+                where: { deliveryId: row.deliveryId },
+                data: { retries: { increment: 1 } },
+              });
+              await persistResult(
+                transaction,
+                command,
+                inbox.digest.slice("sha256:".length),
+                deps.now(),
+                {
+                  state: "retrying",
+                  reason: "source_unavailable",
+                  attemptRef: current.attemptRef,
+                  nextAttemptAt: new Date(
+                    deps.now().getTime() + delay,
+                  ).toISOString(),
+                },
+              );
+            }
+            return false;
+          }
+          await transaction.notificationEmailAttempt.create({
+            data: {
+              traceparent: traceparent ?? null,
+              id: attemptRef,
+              deliveryId: row.deliveryId,
+              operationId: command.operationId,
+              permitRef: permit.permitRef,
+              startedAt: deps.now(),
+              state: "unknown",
             },
-          );
-        else {
+          });
           await transaction.notificationEmailEffect.update({
             where: { deliveryId: row.deliveryId },
-            data: { retries: { increment: 1 } },
+            data: { attemptRef, permitRef: permit.permitRef },
           });
+          // Commit unknown and its result before I/O. Restart can publish evidence but can never retry this effect.
           await persistResult(
             transaction,
             command,
             inbox.digest.slice("sha256:".length),
             deps.now(),
-            {
-              state: "retrying",
-              reason: "source_unavailable",
-              attemptRef: current.attemptRef,
-              nextAttemptAt: new Date(
-                deps.now().getTime() + delay,
-              ).toISOString(),
-            },
+            { state: "unknown", attemptRef, reason: "interrupted_attempt" },
           );
-        }
-        return false;
-      }
-      await transaction.notificationEmailAttempt.create({
-        data: {
-          id: attemptRef,
-          deliveryId: row.deliveryId,
-          operationId: command.operationId,
-          permitRef: permit.permitRef,
-          startedAt: deps.now(),
-          state: "unknown",
-        },
-      });
-      await transaction.notificationEmailEffect.update({
-        where: { deliveryId: row.deliveryId },
-        data: { attemptRef, permitRef: permit.permitRef },
-      });
-      // Commit unknown and its result before I/O. Restart can publish evidence but can never retry this effect.
-      await persistResult(
-        transaction,
-        command,
-        inbox.digest.slice("sha256:".length),
-        deps.now(),
-        { state: "unknown", attemptRef, reason: "interrupted_attempt" },
-      );
-      return true;
-    });
-    if (!started || !hasText(email)) return true;
-    // A commit or process pause can outlive the five-second permit. This process can
-    // prove no I/O occurred here; its durable attempt is resolved as not_sent below.
-    const outcome =
-      permit.status !== "allowed" ||
-      Date.parse(permit.validUntil) <= deps.now().getTime() ||
-      Date.parse(command.notAfter) <= deps.now().getTime()
-        ? { state: "not_sent" as const, retryAfterMs: 0 }
-        : await send({
-            email,
-            subject: command.subject ?? "",
-            text: command.text,
-            operationId: command.operationId,
-          }).catch((error: unknown) =>
-            dependencyFailure(
-              { module: "notifications", operation: "dispatchEmail" },
-              error,
-              { state: "unknown" as const },
-            ),
-          );
-    await deps.prisma.$transaction(async (transaction) => {
-      await lockNotification(transaction, `email:${row.deliveryId}`);
-      const effect =
-        await transaction.notificationEmailEffect.findUniqueOrThrow({
-          where: { deliveryId: row.deliveryId },
+          return true;
         });
-      if (effect.attemptRef !== attemptRef || effect.state !== "unknown")
-        throw new Error("email_attempt_conflict");
-      const receiptRef = outcome.state === "sent" ? randomUUID() : null;
-      await transaction.notificationEmailAttempt.update({
-        where: { id: attemptRef },
-        data: { state: outcome.state, receiptRef, completedAt: deps.now() },
-      });
-      if (outcome.state === "sent" && hasText(receiptRef))
-        await persistResult(
-          transaction,
-          command,
-          inbox.digest.slice("sha256:".length),
-          deps.now(),
-          { state: "sent", attemptRef, receiptRef },
-        );
-      else if (outcome.state === "failed")
-        await persistResult(
-          transaction,
-          command,
-          inbox.digest.slice("sha256:".length),
-          deps.now(),
-          { state: "failed", attemptRef, reason: outcome.reason },
-        );
-      else if (outcome.state === "unknown")
-        await persistResult(
-          transaction,
-          command,
-          inbox.digest.slice("sha256:".length),
-          deps.now(),
-          { state: "unknown", attemptRef, reason: "lost_response" },
-        );
-      else if (outcome.state === "not_sent") {
-        const delay = retryDelaysMs[effect.retries];
-        const next = new Date(
-          deps.now().getTime() + Math.max(delay ?? 0, outcome.retryAfterMs),
-        );
-        if (
-          delay === undefined ||
-          next.getTime() >= Date.parse(command.notAfter)
-        )
-          await persistResult(
-            transaction,
-            command,
-            inbox.digest.slice("sha256:".length),
-            deps.now(),
-            { state: "failed", attemptRef, reason: "retry_exhausted" },
-          );
-        else {
-          await transaction.notificationEmailEffect.update({
-            where: { deliveryId: row.deliveryId },
-            data: { retries: { increment: 1 } },
+        if (!started || !hasText(email)) return true;
+        // A commit or process pause can outlive the five-second permit. This process can
+        // prove no I/O occurred here; its durable attempt is resolved as not_sent below.
+        const outcome =
+          permit.status !== "allowed" ||
+          Date.parse(permit.validUntil) <= deps.now().getTime() ||
+          Date.parse(command.notAfter) <= deps.now().getTime()
+            ? { state: "not_sent" as const, retryAfterMs: 0 }
+            : await send({
+                email,
+                subject: command.subject ?? "",
+                text: command.text,
+                operationId: command.operationId,
+              }).catch((error: unknown) =>
+                dependencyFailure(
+                  { module: "notifications", operation: "dispatchEmail" },
+                  error,
+                  { state: "unknown" as const },
+                ),
+              );
+        await deps.prisma.$transaction(async (transaction) => {
+          await lockNotification(transaction, `email:${row.deliveryId}`);
+          const effect =
+            await transaction.notificationEmailEffect.findUniqueOrThrow({
+              where: { deliveryId: row.deliveryId },
+            });
+          if (effect.attemptRef !== attemptRef || effect.state !== "unknown")
+            throw new Error("email_attempt_conflict");
+          const receiptRef = outcome.state === "sent" ? randomUUID() : null;
+          await transaction.notificationEmailAttempt.update({
+            where: { id: attemptRef },
+            data: { state: outcome.state, receiptRef, completedAt: deps.now() },
           });
-          await persistResult(
-            transaction,
-            command,
-            inbox.digest.slice("sha256:".length),
-            deps.now(),
-            {
-              state: "retrying",
-              attemptRef,
-              reason: "rate_limited",
-              nextAttemptAt: next.toISOString(),
-            },
-          );
-        }
-      }
-      await transaction.notificationEmailInbox.update({
-        where: { operationId: command.operationId },
-        data: { completedAt: deps.now() },
-      });
-    });
-    return true;
+          if (outcome.state === "sent" && hasText(receiptRef))
+            await persistResult(
+              transaction,
+              command,
+              inbox.digest.slice("sha256:".length),
+              deps.now(),
+              { state: "sent", attemptRef, receiptRef },
+            );
+          else if (outcome.state === "failed")
+            await persistResult(
+              transaction,
+              command,
+              inbox.digest.slice("sha256:".length),
+              deps.now(),
+              { state: "failed", attemptRef, reason: outcome.reason },
+            );
+          else if (outcome.state === "unknown")
+            await persistResult(
+              transaction,
+              command,
+              inbox.digest.slice("sha256:".length),
+              deps.now(),
+              { state: "unknown", attemptRef, reason: "lost_response" },
+            );
+          else if (outcome.state === "not_sent") {
+            const delay = retryDelaysMs[effect.retries];
+            const next = new Date(
+              deps.now().getTime() + Math.max(delay ?? 0, outcome.retryAfterMs),
+            );
+            if (
+              delay === undefined ||
+              next.getTime() >= Date.parse(command.notAfter)
+            )
+              await persistResult(
+                transaction,
+                command,
+                inbox.digest.slice("sha256:".length),
+                deps.now(),
+                { state: "failed", attemptRef, reason: "retry_exhausted" },
+              );
+            else {
+              await transaction.notificationEmailEffect.update({
+                where: { deliveryId: row.deliveryId },
+                data: { retries: { increment: 1 } },
+              });
+              await persistResult(
+                transaction,
+                command,
+                inbox.digest.slice("sha256:".length),
+                deps.now(),
+                {
+                  state: "retrying",
+                  attemptRef,
+                  reason: "rate_limited",
+                  nextAttemptAt: next.toISOString(),
+                },
+              );
+            }
+          }
+          await transaction.notificationEmailInbox.update({
+            where: { operationId: command.operationId },
+            data: { completedAt: deps.now() },
+          });
+        });
+        return true;
+      },
+    );
   }
   return false;
 }

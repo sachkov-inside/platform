@@ -1,3 +1,6 @@
+import { shutdownApiDeliveryTelemetry } from "./api-delivery-lifecycle.js";
+import { WaitlistConfirmationPump } from "../../modules/sales-funnel/index.js";
+import { TrackingHitPump } from "../../modules/communications/index.js";
 import type { NestApplicationOptions } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
@@ -16,6 +19,12 @@ import {
   observeHttpRequests,
   StructuredNestLogger,
 } from "../../infrastructure/observability/index.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../../infrastructure/runtime-identity.js";
+import { PLATFORM_CONFIG } from "../../config/platform-config.js";
+import { technicalTelemetryFromEnvironment } from "../../infrastructure/observability/technical-telemetry-runtime.js";
 import { ApiModule } from "./api.module.js";
 
 const MAX_HTTP_BODY_BYTES = 2 * 1_024 * 1_024;
@@ -32,7 +41,23 @@ export async function createApiApplication(
     }),
     { logger: new StructuredNestLogger(), ...options, rawBody: true },
   );
-  observeHttpRequests(app.getHttpAdapter().getInstance(), "api");
+  const runtimeConfig = app.get<PlatformConfig>(PLATFORM_CONFIG);
+  const telemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-api",
+    mode: runtimeConfig.mode,
+    identity: app.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+  });
+  const trackingPump = app.get(TrackingHitPump);
+  trackingPump.observeDeliveries(telemetry);
+  const waitlistPump = app.get(WaitlistConfirmationPump);
+  waitlistPump.observeDeliveries(telemetry);
+  const fastify = app.getHttpAdapter().getInstance();
+  observeHttpRequests(fastify, "api", telemetry);
+  fastify.addHook("onClose", async () => {
+    // Nest disposes Fastify before OnApplicationShutdown. Drain the API-owned pump before its SDK.
+    await shutdownApiDeliveryTelemetry([trackingPump, waitlistPump], telemetry);
+  });
   await app.register(multipart, {
     limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
   });

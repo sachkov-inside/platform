@@ -1,0 +1,41 @@
+{
+  "metrics": {
+    "backend": "http://metrics:8428/",
+    "paths": [
+      "/api/v1/query",
+      "/api/v1/query_range",
+      "/api/v1/labels",
+      "/api/v1/label/[^/]+/values",
+      "/api/v1/series",
+      "/api/v1/metadata",
+      "/api/v1/status/buildinfo"
+    ]
+  },
+  "logs": {
+    "backend": "http://logs:9428/",
+    "paths": [
+      "/select/logsql/query",
+      "/select/logsql/hits",
+      "/select/logsql/stats_query",
+      "/select/logsql/stats_query_range",
+      "/select/logsql/field_names",
+      "/select/logsql/field_values",
+      "/select/logsql/stream_field_names",
+      "/select/logsql/stream_field_values",
+      "/select/logsql/stream_ids",
+      "/select/logsql/streams",
+      "/select/logsql/facets"
+    ]
+  },
+  "traces": {
+    "backend": "http://traces:10428/",
+    "paths": [
+      "/select/jaeger/api/services",
+      "/select/jaeger/api/operations",
+      "/select/jaeger/api/services/[^/]+/operations",
+      "/select/jaeger/api/traces",
+      "/select/jaeger/api/traces/[0-9a-fA-F]{32}",
+      "/select/jaeger/api/dependencies"
+    ]
+  }
+}

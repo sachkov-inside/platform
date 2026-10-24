@@ -1,7 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import { context, createContextKey } from "@opentelemetry/api";
+
 import { z } from "zod";
 import { diagnosticText } from "@inside/contracts/diagnostic-error";
+
+import { technicalLogCorrelation } from "./technical-telemetry.js";
 
 import type { BackendProcess } from "../../config/platform-config.js";
 
@@ -20,12 +24,26 @@ export interface LogContext {
 export type LogLevel = "info" | "warn" | "error";
 
 const contexts = new AsyncLocalStorage<LogContext>();
+const logScopeKey = createContextKey("inside.log.scope");
+class LogScope {
+  constructor(readonly value: LogContext) {}
+}
 
 export function runWithLogContext<Value>(
-  context: LogContext,
+  scope: LogContext,
   work: () => Value,
 ): Value {
-  return contexts.run(context, work);
+  // ALS preserves disabled-runtime behaviour; the OTel key carries the same scope through bound Node emitters.
+  return contexts.run(scope, () =>
+    context.with(
+      context.active().setValue(logScopeKey, new LogScope(scope)),
+      work,
+    ),
+  );
+}
+function currentLogContext(): LogContext | undefined {
+  const scope = context.active().getValue(logScopeKey);
+  return scope instanceof LogScope ? scope.value : contexts.getStore();
 }
 
 /**
@@ -41,7 +59,8 @@ export function writeLog(
     time: new Date().toISOString(),
     level,
     event,
-    ...contexts.getStore(),
+    ...currentLogContext(),
+    ...technicalLogCorrelation(),
     ...fields,
   });
   if (level === "error") console.error(line);

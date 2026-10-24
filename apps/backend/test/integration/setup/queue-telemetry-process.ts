@@ -1,0 +1,303 @@
+import type { ChildProcess } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
+import {
+  spawnOwned,
+  stopOwned,
+} from "../../../../../scripts/owned-process.mjs";
+
+const PROCESS_FACT_BUDGET_MS = 25_000;
+const PROCESS_CLEANUP_BUDGET_MS = 10_000;
+
+export async function boundedProcessFact<Value>(
+  fact: Promise<Value>,
+  budgetMs = PROCESS_FACT_BUDGET_MS,
+): Promise<Value> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const deadline = new Promise<never>((_, reject) => {
+      // deterministic-test-allow duration-wait: bound a real process/message fact; timer is cleared in finally.
+      timer = setTimeout(
+        () => reject(new Error("queue fixture process deadline")),
+        budgetMs,
+      );
+    });
+    return await Promise.race([fact, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export interface QueueTelemetryProcess {
+  readonly child: ChildProcess;
+  readonly firstMessage: Promise<unknown>;
+  readonly exited: Promise<readonly [number | null, NodeJS.Signals | null]>;
+  readonly messages: unknown[];
+  readonly output: string[];
+  readonly outputOverflow: boolean;
+  readonly protocolFailed: boolean;
+  stop(): Promise<void>;
+  finish(): Promise<readonly [number | null, NodeJS.Signals | null]>;
+}
+
+/** The independent Python supervisor survives test-worker exit/SIGKILL and reaps the command tree. */
+export function launchQueueTelemetryProcess(
+  input: {
+    readonly databaseUrl: string;
+    readonly endpoint: string;
+    readonly brokerUrls?: {
+      readonly billing: string;
+      readonly materials: string;
+      readonly notifications: string;
+      readonly email: string;
+    };
+  } & (
+    | {
+        readonly mode: "produce" | "crash" | "retry" | "ownership";
+      }
+    | {
+        readonly mode: "notification";
+        readonly action:
+          | "fail-publish"
+          | "confirm-crash"
+          | "publish"
+          | "accept-crash"
+          | "accept"
+          | "audience";
+        readonly urls: {
+          readonly materials: string;
+          readonly notifications: string;
+        };
+      }
+    | {
+        readonly mode: "email";
+        readonly brokerUrls: {
+          readonly billing: string;
+          readonly materials: string;
+          readonly notifications: string;
+          readonly email: string;
+        };
+        readonly enabled: boolean;
+        readonly phase:
+          | "normal"
+          | "before-smtp"
+          | "after-smtp"
+          | "before-result-ack"
+          | "legacy-command";
+        readonly smtpPort: number;
+        readonly encryptionKey: string;
+      }
+    | {
+        readonly mode: "worker";
+        readonly worker:
+          | "profile-avatars-worker"
+          | "video-deletions-worker"
+          | "billing-worker"
+          | "notifications-worker";
+        readonly enabled: boolean;
+      }
+  ),
+): QueueTelemetryProcess {
+  const child = spawnOwned(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      fileURLToPath(
+        new URL(
+          input.mode === "email"
+            ? "../fixtures/email-technical-worker.ts"
+            : input.mode === "notification"
+              ? "../fixtures/notification-technical-worker.ts"
+              : input.mode === "worker"
+                ? "../fixtures/technical-worker.ts"
+                : "../fixtures/pg-boss-telemetry-worker.ts",
+          import.meta.url,
+        ),
+      ),
+    ],
+    {
+      stdio: [input.mode === "email" ? "pipe" : "ignore", "pipe", "pipe"],
+      env: {
+        ...(input.mode === "worker" ||
+        input.mode === "notification" ||
+        input.mode === "email"
+          ? {
+              PATH: process.env["PATH"],
+              NODE_ENV: "test",
+              DATABASE_URL: input.databaseUrl,
+              KINESCOPE_PROVIDER_MODE: "test",
+              ...((input.mode === "worker" || input.mode === "email") &&
+              input.enabled
+                ? { INSIDE_OTEL_ENABLED: "true" }
+                : {}),
+              ...(input.brokerUrls === undefined
+                ? {}
+                : {
+                    NOTIFICATIONS_BROKER_URLS: JSON.stringify(input.brokerUrls),
+                  }),
+              ...(input.mode === "notification" ||
+              input.mode === "email" ||
+              input.worker === "notifications-worker"
+                ? {
+                    NOTIFICATIONS_PLATFORM_ORIGIN:
+                      "https://inside.example.test",
+                    NOTIFICATIONS_TELEGRAM_SECRET:
+                      "synthetic-notification-secret-00000",
+                  }
+                : {}),
+              ...(input.mode === "email"
+                ? {
+                    BILLING_CONTACT_ENCRYPTION_KEY: input.encryptionKey,
+                    BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+                    BILLING_CONTACT_SMTP_PORT: String(input.smtpPort),
+                    BILLING_CONTACT_FROM: "noreply@example.test",
+                  }
+                : {}),
+              INSIDE_OTEL_ENDPOINT: input.endpoint,
+            }
+          : Object.fromEntries(
+              Object.entries(process.env).filter(
+                ([key]) => !key.startsWith("OTEL_EXPORTER_OTLP"),
+              ),
+            )),
+        PG_BOSS_TELEMETRY_FIXTURE: JSON.stringify(input),
+      },
+    },
+  );
+  const messages: unknown[] = [];
+  const output: string[] = [];
+  let message: ((value: unknown) => void) | undefined;
+  let rejectMessage: ((error: unknown) => void) | undefined;
+  const firstMessage = new Promise<unknown>((resolve, reject) => {
+    message = resolve;
+    rejectMessage = reject;
+  });
+  const exited = new Promise<readonly [number | null, NodeJS.Signals | null]>(
+    (resolve, reject) => {
+      child.once("error", (error) => {
+        rejectMessage?.(error);
+        reject(error);
+      });
+      // close includes supervisor reaping and closure of inherited stdout/stderr descriptors.
+      child.once("close", (code, signal) => {
+        rejectMessage?.(new Error("queue fixture closed before message"));
+        resolve([code, signal]);
+      });
+    },
+  );
+  let outputBytes = 0;
+  let outputOverflow = false;
+  let protocolFailed = false;
+  const retainChunk = (chunk: string) => {
+    if (input.mode !== "email") return true;
+    outputBytes += Buffer.byteLength(chunk);
+    if (outputBytes <= 1024 * 1024) return true;
+    outputOverflow = true;
+    rejectMessage?.(new Error("email fixture output quota exceeded"));
+    return false;
+  };
+  if (input.mode === "email")
+    child.stdin?.on("error", () => {
+      protocolFailed = true;
+      rejectMessage?.(new Error("email fixture stop pipe failed"));
+    });
+  let buffered = "";
+  child.stdout?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk: string) => {
+    if (!retainChunk(chunk)) return;
+    buffered += chunk;
+    for (;;) {
+      const end = buffered.indexOf("\n");
+      if (end < 0) break;
+      const line = buffered.slice(0, end);
+      buffered = buffered.slice(end + 1);
+      try {
+        const record = z
+          .record(z.string(), z.unknown())
+          .parse(JSON.parse(line));
+        if (typeof record["kind"] === "string") {
+          messages.push(record);
+          message?.(record);
+        } else output.push(`${line}\n`);
+      } catch {
+        if (input.mode === "email") {
+          protocolFailed = true;
+          output.push(`${line}\n`);
+        }
+        rejectMessage?.(new Error("invalid queue fixture protocol"));
+      }
+    }
+  });
+  if (input.mode === "email")
+    child.stdout?.on("end", () => {
+      if (buffered !== "") {
+        protocolFailed = true;
+        output.push(buffered);
+      }
+    });
+  if (
+    input.mode === "worker" ||
+    input.mode === "notification" ||
+    input.mode === "email"
+  ) {
+    let errors = "";
+    child.stderr?.setEncoding("utf8");
+    if (input.mode === "email")
+      child.stderr?.on("end", () => {
+        if (errors !== "") output.push(errors);
+      });
+    child.stderr?.on("data", (chunk: string) => {
+      if (!retainChunk(chunk)) return;
+      errors += chunk;
+      for (;;) {
+        const end = errors.indexOf("\n");
+        if (end < 0) break;
+        output.push(`${errors.slice(0, end)}\n`);
+        errors = errors.slice(end + 1);
+      }
+    });
+  } else child.stderr?.resume();
+  // Consume early rejection until the caller awaits the bounded fact.
+  void firstMessage.catch(() => undefined);
+  void exited.catch(() => undefined);
+  return {
+    child,
+    firstMessage,
+    exited,
+    messages,
+    output,
+    get outputOverflow() {
+      return outputOverflow;
+    },
+    get protocolFailed() {
+      return protocolFailed;
+    },
+    finish: async () => {
+      if (input.mode !== "email")
+        throw new Error("fixture has no graceful stop protocol");
+      child.stdin?.end("stop\n");
+      return boundedProcessFact(exited, PROCESS_CLEANUP_BUDGET_MS);
+    },
+    stop: async () => {
+      await boundedProcessFact(stopOwned(child, 0), PROCESS_CLEANUP_BUDGET_MS);
+      await boundedProcessFact(exited, PROCESS_CLEANUP_BUDGET_MS);
+    },
+  };
+}
+
+/** Attempt every owned cleanup in dependency order; a failed cleanup must fail the contract. */
+export async function finishFixtureCleanup(
+  steps: readonly (() => unknown)[],
+): Promise<void> {
+  const failures: unknown[] = [];
+  for (const step of steps) {
+    try {
+      await step();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0)
+    throw new AggregateError(failures, "queue fixture cleanup failed");
+}

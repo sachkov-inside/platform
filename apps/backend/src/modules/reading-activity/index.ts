@@ -3,3 +3,7 @@ export { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
 
 export { PersonalHome } from "./facets/personal-home/personal-home.js";
 export { MaterialFirstOpens } from "./features/list-first-opens/list-first-opens.js";
+
+export { ReadingActivityFacts } from "./features/read-confirmed-activity/read-confirmed-activity.js";
+
+export { ReadingActivityRetention } from "./features/retain-activity/retain-activity.js";

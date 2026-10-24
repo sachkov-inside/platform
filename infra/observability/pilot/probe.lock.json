@@ -1,0 +1,42 @@
+{
+  "source": "https://github.com/docker-library/busybox",
+  "tag": "1.37.0-musl",
+  "image": "docker.io/library/busybox@sha256:c542a2b3cb3c982440890284aac884e89dbf468d5ff1c206fd2ba8ea23257420",
+  "manifest": {
+    "annotations": {
+      "com.docker.official-images.bashbrew.arch": "arm64v8",
+      "org.opencontainers.image.base.name": "scratch",
+      "org.opencontainers.image.created": "2026-09-08T23:04:09Z",
+      "org.opencontainers.image.revision": "b6edf7d5c5200d629d7c3f7758293a3675471dde",
+      "org.opencontainers.image.source": "https://github.com/docker-library/busybox.git",
+      "org.opencontainers.image.url": "https://hub.docker.com/_/busybox",
+      "org.opencontainers.image.version": "1.37.0-musl"
+    },
+    "digest": "sha256:c542a2b3cb3c982440890284aac884e89dbf468d5ff1c206fd2ba8ea23257420",
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "platform": {
+      "architecture": "arm64",
+      "os": "linux",
+      "variant": "v8"
+    },
+    "size": 608
+  },
+  "config": {
+    "mediaType": "application/vnd.oci.image.config.v1+json",
+    "digest": "sha256:c47382cc45d95424ac48d1bbad44a510a6fca13878bc8d7ab3a104716c9bb3ff",
+    "size": 480
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:4cf0e1ea6158c6e9d26a3c01b704b7d0eb913d9f2f47324a6b05e8468bae4d5d",
+      "size": 899665,
+      "unpacked_bytes": 1853440,
+      "unpacked_digest": "sha256:22ce1f054f04b6baff364841b2999329a9c516d27ac3e2577843469ebe515d86"
+    }
+  ],
+  "compressed_bytes": 899665,
+  "unpacked_bytes": 1853440,
+  "observed_at": "2026-10-19",
+  "bootstrap_scope": "limited preflight before VM measurement; included in 4GiB pilot growth budget"
+}

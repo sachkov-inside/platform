@@ -324,6 +324,7 @@ function violationsFor(source, specifier) {
   const importsPg = specifier === "pg" || specifier.startsWith("pg/");
   const ownsPostgresLifecycle = [
     "src/infrastructure/postgres/migrate-to-latest.ts",
+    "src/infrastructure/prisma/prisma-adapter.ts",
     "src/infrastructure/worker-runtime.ts",
   ].includes(sourcePath);
   const importsDeletedGeneratedPersistence =
@@ -377,6 +378,13 @@ function databaseReferenceViolations(sourceFile, program) {
       if (
         sourcePath === "src/infrastructure/operational-readiness.ts" &&
         ["public.platform_migrations", "pgboss.version"].includes(reference)
+      ) {
+        return [];
+      }
+      // The infrastructure reader owns only these fixed pg-boss metadata tables.
+      if (
+        sourcePath === "src/infrastructure/pg-boss-queue-diagnostics.ts" &&
+        ["pgboss.version", "pgboss.queue", "pgboss.job"].includes(reference)
       ) {
         return [];
       }

@@ -239,3 +239,15 @@ describe("a mutation operation's browser adapter", () => {
     );
   });
 });
+
+it("optional reports forward their abort signal without changing the ordinary mutation adapter", async () => {
+  const controller = new AbortController();
+  const request = vi.fn<typeof fetch>(() =>
+    Promise.resolve(Response.json({ kind: "renamed", name: "Report" })),
+  );
+  vi.stubGlobal("fetch", request);
+  await renameOperation.sendWithSignal({ name: "Report" }, controller.signal);
+  expect(request.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
+  await renameOperation.send({ name: "Report" });
+  expect(request.mock.calls[1]?.[1]?.signal).toBeUndefined();
+});

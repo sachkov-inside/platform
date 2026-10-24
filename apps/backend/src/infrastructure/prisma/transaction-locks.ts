@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "./generated/client.js";
+import { beginPostgresObservation } from "../observability/technical-telemetry.js";
 
 interface AdvisoryLockTransaction {
   $executeRaw(query: Prisma.Sql): Promise<number>;
@@ -83,7 +84,18 @@ export async function lockProductTaskSubmissions(
 export async function lockMaterialSlugAllocation(
   transaction: AdvisoryLockTransaction,
 ): Promise<void> {
-  await lockTransactionKey(transaction, "materials:slug-allocation");
+  const observation = beginPostgresObservation("material-slug-lock");
+  let failed = false;
+  try {
+    await observation.run(() =>
+      lockTransactionKey(transaction, "materials:slug-allocation"),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    observation.complete(failed, () => undefined);
+  }
 }
 
 /** Same key as the durable Telegram binding trigger; holds a verified binding through commit. */
@@ -244,6 +256,18 @@ export async function tryLockBillingMethodFlow(
     `),
     );
   return rows[0]?.acquired === true;
+}
+
+/** Serializes actual bookmark add/remove transitions, including an initially absent pair. */
+export async function lockBookmarkPair(
+  transaction: AdvisoryLockTransaction,
+  accountId: string,
+  materialId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `bookmark:${accountId.toLowerCase()}:${materialId.toLowerCase()}`,
+  );
 }
 
 /** Join replay is serialized before membership changes; every writer uses the same member key. */

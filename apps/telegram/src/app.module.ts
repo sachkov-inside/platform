@@ -1,3 +1,8 @@
+import {
+  TELEGRAM_OBSERVABILITY,
+  disabledTelegramObservability,
+  type TelegramObservability,
+} from "./observability/telegram-observability.js";
 import { MaterialAnnouncements } from "./modules/communications/material-announcements.js";
 import {
   MATERIAL_ANNOUNCEMENT_SOURCE,
@@ -106,6 +111,7 @@ import {
 import { createDatabase } from "./database/create-database.js";
 import { DATABASE, type Database } from "./database/database.js";
 import { DatabaseLifecycle } from "./database/database-lifecycle.js";
+import { DatabaseInitialization } from "./database/database-initialization.js";
 import { BotContacts } from "./modules/bot-contacts/bot-contacts.js";
 import { SignInAccountLink } from "./modules/bot-sign-in/sign-in-account-link.js";
 import { BotSignIn } from "./modules/bot-sign-in/bot-sign-in.js";
@@ -155,7 +161,25 @@ import { RUNTIME_COUNTERS } from "./shared/runtime-counters.js";
 
 @Module({})
 export class AppModule {
+  /** Legacy raw Nest fixtures retain their own isolated database cleanup. */
   static register(config: ApplicationConfig): DynamicModule {
+    return this.compose(config);
+  }
+
+  /** Production always supplies its one lifetime-owned database. */
+  static registerManaged(
+    config: ApplicationConfig,
+    database: Database,
+    telemetry: TelegramObservability,
+  ): DynamicModule {
+    return this.compose(config, database, telemetry);
+  }
+
+  private static compose(
+    config: ApplicationConfig,
+    database?: Database,
+    telemetry: TelegramObservability = disabledTelegramObservability,
+  ): DynamicModule {
     return {
       module: AppModule,
       controllers: [
@@ -168,12 +192,17 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        { provide: TELEGRAM_OBSERVABILITY, useValue: telemetry },
         {
           provide: WAITLIST_CONFIRMATION_AUTHORIZATION,
-          useValue: new HttpWaitlistConfirmationAdapter(
-            config.platformAuthorAuthorizationUrl,
-            config.platformAuthorAuthorizationSecret,
-          ),
+          inject: [TELEGRAM_OBSERVABILITY],
+          useFactory: (telemetry: TelegramObservability) =>
+            new HttpWaitlistConfirmationAdapter(
+              config.platformAuthorAuthorizationUrl,
+              config.platformAuthorAuthorizationSecret,
+              fetch,
+              telemetry,
+            ),
         },
         {
           provide: WaitlistConfirmations,
@@ -183,6 +212,7 @@ export class AppModule {
             CLOCK,
             WAITLIST_CONFIRMATION_AUTHORIZATION,
             COMMUNICATION_TRANSPORT,
+            TELEGRAM_OBSERVABILITY,
           ],
           useFactory: (
             database: Database,
@@ -190,6 +220,7 @@ export class AppModule {
             clock: Clock,
             authorization: WaitlistConfirmationAuthorization,
             transport: CommunicationTransport,
+            telemetry: TelegramObservability,
           ) =>
             new WaitlistConfirmations(
               database,
@@ -197,6 +228,7 @@ export class AppModule {
               clock,
               authorization,
               transport,
+              telemetry,
             ),
         },
 
@@ -254,12 +286,16 @@ export class AppModule {
         { provide: APPLICATION_CONFIG, useValue: config },
         { provide: CLOCK, useValue: systemClock },
         { provide: MONOTONIC_CLOCK, useValue: systemMonotonicClock },
-        {
-          provide: DATABASE,
-          inject: [APPLICATION_CONFIG],
-          useFactory: (applicationConfig: ApplicationConfig) =>
-            createDatabase(applicationConfig.databaseUrl),
-        },
+        ...(database === undefined
+          ? [
+              {
+                provide: DATABASE,
+                inject: [APPLICATION_CONFIG],
+                useFactory: (applicationConfig: ApplicationConfig) =>
+                  createDatabase(applicationConfig.databaseUrl),
+              },
+            ]
+          : [{ provide: DATABASE, useValue: database }]),
         {
           provide: TELEGRAM_MESSAGES,
           inject: [APPLICATION_CONFIG],
@@ -501,7 +537,9 @@ export class AppModule {
         BotContacts,
         BotSignIn,
         SignInAccountLink,
-        DatabaseLifecycle,
+        ...(database === undefined
+          ? [DatabaseLifecycle]
+          : [DatabaseInitialization]),
         IdentityLinking,
         IdentityLinkRecovery,
         InMemoryIdentityLinkingAdapter,

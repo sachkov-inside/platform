@@ -1,3 +1,7 @@
+import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
+import { ParticipantDiagnostics } from "../../src/entrypoints/mcp/participant-diagnostics.js";
+import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
+import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -30,7 +34,10 @@ import {
   type LogtoAccessTokenVerifier,
 } from "../../src/modules/accounts/index.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { BillingOperations } from "../../src/modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import {
   CONTENT_ACCESS,
@@ -131,6 +138,11 @@ describe("scoped learner access over the learner MCP transport", () => {
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
+      diagnostics: application.get(PaymentDiagnostics),
+      funnel: application.get(SalesFunnel),
+      queues: application.get(QueueDiagnostics),
+      participants: application.get(ParticipantDiagnostics),
+      retention: application.get(ActivityRetentionDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

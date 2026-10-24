@@ -7,7 +7,6 @@ import {
   Wait,
   type StartedTestContainer,
 } from "testcontainers";
-import { expect } from "vitest";
 import { z } from "zod";
 import {
   LOCAL_NOTIFICATION_BROKER_CREDENTIALS,
@@ -17,6 +16,8 @@ import {
 import type { NotificationPrincipal } from "../../../src/infrastructure/notification-transport/wire.js";
 
 const testBrokerHeartbeatSeconds = 5;
+const BROKER_ADMIN_TIMEOUT_SECONDS = 5;
+const BROKER_ADMIN_KILL_GRACE_SECONDS = 1;
 
 /** Each call owns one disposable broker, its local principal URLs and any TLS files. */
 export async function startNotificationBroker(input: {
@@ -116,8 +117,19 @@ export async function startNotificationBroker(input: {
 /** Runs `rabbitmqctl` inside the broker container and fails the test on a non-zero exit. */
 export function brokerAdmin(broker: StartedTestContainer) {
   return async (args: string[]) => {
-    const result = await broker.exec(["rabbitmqctl", ...args]);
-    expect(result.exitCode, result.output).toBe(0);
+    // Bound Erlang startup and RPC, then escalate the CLI. The fixture container owns final cleanup.
+    const result = await broker.exec([
+      "timeout",
+      "-k",
+      String(BROKER_ADMIN_KILL_GRACE_SECONDS),
+      String(BROKER_ADMIN_TIMEOUT_SECONDS),
+      "rabbitmqctl",
+      "--timeout",
+      String(BROKER_ADMIN_TIMEOUT_SECONDS),
+      ...args,
+    ]);
+    if (result.exitCode !== 0)
+      throw new Error("notification_broker_admin_failed");
     return result.output;
   };
 }
@@ -144,10 +156,10 @@ export async function brokerDiagnostics(
         // Bound CLI startup too: rabbitmqctl's own timeout starts after Erlang has loaded.
         const result = await broker.exec([
           "timeout",
-          "5",
+          String(BROKER_ADMIN_TIMEOUT_SECONDS),
           "rabbitmqctl",
           "--timeout",
-          "5",
+          String(BROKER_ADMIN_TIMEOUT_SECONDS),
           command ?? "list_queues",
           "-p",
           vhost,

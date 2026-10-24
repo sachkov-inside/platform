@@ -1,3 +1,10 @@
+import {
+  DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticSnapshotOptions,
+  diagnosticSourceBudgetFailure,
+  setDiagnosticStatementBudget,
+  type DiagnosticSourceBudgetFailure,
+} from "../../../../infrastructure/diagnostic-read-budget.js";
 import type { AccountRights } from "../../../account-rights/index.js";
 import { ProductWaitlists } from "../../facets/product-waitlists/product-waitlists.js";
 import { z } from "zod";
@@ -5,6 +12,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import {
   Prisma,
   type SalesFunnelPrismaClient,
+  type SalesFunnelPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type {
@@ -32,12 +40,18 @@ export type ReadFunnelReportDependencies = {
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly links: Pick<
     TelegramAccountLinks,
-    "findCurrentAccounts" | "readBinding"
+    | "readBinding"
+    | "findCurrentAccounts"
+    | "findCurrentAccountsForDiagnostics"
+    | "findCurrentIdentitiesForDiagnostics"
   >;
-  readonly outlines: Pick<ProductOutlines, "list">;
-  readonly firstOpens: Pick<MaterialFirstOpens, "list">;
-  readonly sales: Pick<BillingProductSales, "list">;
-  readonly surveyRespondents: Pick<BillingSurveyRespondentSales, "read">;
+  readonly outlines: Pick<ProductOutlines, "list" | "listForDiagnostics">;
+  readonly firstOpens: Pick<MaterialFirstOpens, "list" | "listForDiagnostics">;
+  readonly sales: Pick<BillingProductSales, "list" | "listForDiagnostics">;
+  readonly surveyRespondents: Pick<
+    BillingSurveyRespondentSales,
+    "read" | "readForDiagnostics"
+  >;
   readonly clock: () => Date;
 };
 
@@ -81,11 +95,23 @@ const failure = (code: FunnelReportErrorCode): FunnelReportResult => ({
  * a known bot entry whose first step for this Product falls in it. Every later step counts who of
  * that cohort has reached it by now.
  */
+export function readFunnelReport(
+  dependencies: ReadFunnelReportDependencies,
+  actorId: string,
+  input: unknown,
+): Promise<FunnelReportResult>;
+export function readFunnelReport(
+  dependencies: ReadFunnelReportDependencies,
+  actorId: string,
+  input: unknown,
+  diagnostics: true,
+): Promise<FunnelReportResult | DiagnosticSourceBudgetFailure>;
 export async function readFunnelReport(
   dependencies: ReadFunnelReportDependencies,
   actorId: string,
   input: unknown,
-): Promise<FunnelReportResult> {
+  diagnostics = false,
+): Promise<FunnelReportResult | DiagnosticSourceBudgetFailure> {
   const parsed = funnelReportQuerySchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   const from = new Date(parsed.data.from);
@@ -105,8 +131,13 @@ export async function readFunnelReport(
     );
   if (!permission.allowed) return failure("forbidden");
 
-  const outlines = await dependencies.outlines.list();
-  if (!outlines.ok) return failure("dependency_unavailable");
+  const outlines = await (diagnostics
+    ? dependencies.outlines.listForDiagnostics()
+    : dependencies.outlines.list());
+  if (!outlines.ok)
+    return outlines.error.code === "source_budget_exceeded"
+      ? diagnosticSourceBudgetFailure
+      : failure("dependency_unavailable");
   const product =
     parsed.data.productId === undefined
       ? undefined
@@ -124,8 +155,9 @@ export async function readFunnelReport(
   if (parsed.data.chapterId !== undefined && chapter === undefined)
     return failure("chapter_not_found");
 
+  // The bounded diagnostic projection has no waitlist field or demand-query budget.
   const waitlist =
-    product === undefined
+    product === undefined || diagnostics
       ? { ok: true as const, value: null }
       : await new ProductWaitlists(dependencies).demand({
           productId: product.id,
@@ -133,16 +165,29 @@ export async function readFunnelReport(
           to,
         });
   if (!waitlist.ok) return failure("dependency_unavailable");
-  const [journal, surveyRespondents] = await Promise.all([
-    readJournal(dependencies.prisma),
-    dependencies.surveyRespondents.read({
+  const [initialJournal, surveyRespondents] = await Promise.all([
+    diagnostics
+      ? readJournalForDiagnostics(dependencies.prisma, { from, to })
+      : readJournal(dependencies.prisma),
+    (diagnostics
+      ? dependencies.surveyRespondents.readForDiagnostics.bind(
+          dependencies.surveyRespondents,
+        )
+      : dependencies.surveyRespondents.read.bind(
+          dependencies.surveyRespondents,
+        ))({
       productId: product?.id ?? null,
       from,
       to,
     }),
   ]);
+  let journal = initialJournal;
   if (journal === undefined) return failure("dependency_unavailable");
-  if (!surveyRespondents.ok) return failure(surveyRespondents.error.code);
+  if ("ok" in journal) return journal;
+  if (!surveyRespondents.ok)
+    return surveyRespondents.error.code === "source_budget_exceeded"
+      ? diagnosticSourceBudgetFailure
+      : failure(surveyRespondents.error.code);
   const measured: Readonly<Record<PlatformStep, boolean>> = {
     openedChapter: product !== undefined && chapter !== undefined,
     checkout: product !== undefined,
@@ -173,22 +218,104 @@ export async function readFunnelReport(
   }
 
   if (product !== undefined) {
+    let diagnosticAccountIds: readonly string[] = [];
+    if (diagnostics) {
+      const initialAttribution = await attributeAccounts(
+        dependencies.links,
+        journal.contacts,
+        true,
+      );
+      if (initialAttribution === undefined)
+        return failure("dependency_unavailable");
+      if ("ok" in initialAttribution) return initialAttribution;
+      const [candidateOpens, candidateSales] = await Promise.all([
+        dependencies.firstOpens.listForDiagnostics(
+          product.chapters.flatMap((item) => item.materialIds),
+          { from, to },
+        ),
+        dependencies.sales.listForDiagnostics(product.id, { from, to }),
+      ]);
+      if (!candidateOpens.ok || !candidateSales.ok) {
+        if (
+          (!candidateOpens.ok &&
+            candidateOpens.error.code === "source_budget_exceeded") ||
+          (!candidateSales.ok &&
+            candidateSales.error.code === "source_budget_exceeded")
+        )
+          return diagnosticSourceBudgetFailure;
+        return failure("dependency_unavailable");
+      }
+      diagnosticAccountIds = [
+        ...new Set([
+          ...initialAttribution.keys(),
+          ...candidateOpens.value.keys(),
+          ...candidateSales.value.checkout.keys(),
+          ...candidateSales.value.paid.keys(),
+        ]),
+      ];
+      if (diagnosticAccountIds.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+        return diagnosticSourceBudgetFailure;
+      const identities =
+        await dependencies.links.findCurrentIdentitiesForDiagnostics(
+          diagnosticAccountIds,
+        );
+      if (!identities.ok)
+        return identities.error.code === "source_budget_exceeded"
+          ? diagnosticSourceBudgetFailure
+          : failure("dependency_unavailable");
+      const completeJournal = await readJournalForDiagnostics(
+        dependencies.prisma,
+        {
+          from,
+          to,
+          accountIds: diagnosticAccountIds,
+          identityRefs: identities.identityRefs,
+        },
+      );
+      if (completeJournal === undefined)
+        return failure("dependency_unavailable");
+      if ("ok" in completeJournal) return completeJournal;
+      journal = completeJournal;
+    }
     const attribution = await attributeAccounts(
       dependencies.links,
       journal.contacts,
+      diagnostics,
     );
     if (attribution === undefined) return failure("dependency_unavailable");
+    if ("ok" in attribution) return attribution;
     const [opens, productOpens, sales] = await Promise.all([
       chapter === undefined
         ? Promise.resolve({ ok: true as const, value: new Map<string, Date>() })
-        : dependencies.firstOpens.list(chapter.materialIds),
-      dependencies.firstOpens.list(
-        product.chapters.flatMap((item) => item.materialIds),
-      ),
-      dependencies.sales.list(product.id),
+        : diagnostics
+          ? dependencies.firstOpens.listForDiagnostics(chapter.materialIds, {
+              accountIds: diagnosticAccountIds,
+            })
+          : dependencies.firstOpens.list(chapter.materialIds),
+      diagnostics
+        ? dependencies.firstOpens.listForDiagnostics(
+            product.chapters.flatMap((item) => item.materialIds),
+            { accountIds: diagnosticAccountIds },
+          )
+        : dependencies.firstOpens.list(
+            product.chapters.flatMap((item) => item.materialIds),
+          ),
+      diagnostics
+        ? dependencies.sales.listForDiagnostics(product.id, {
+            accountIds: diagnosticAccountIds,
+          })
+        : dependencies.sales.list(product.id),
     ]);
-    if (!opens.ok || !productOpens.ok || !sales.ok)
+    if (!opens.ok || !productOpens.ok || !sales.ok) {
+      if (
+        (!opens.ok && opens.error.code === "source_budget_exceeded") ||
+        (!productOpens.ok &&
+          productOpens.error.code === "source_budget_exceeded") ||
+        (!sales.ok && sales.error.code === "source_budget_exceeded")
+      )
+        return diagnosticSourceBudgetFailure;
       return failure("dependency_unavailable");
+    }
     const reached: Readonly<Record<PlatformStep, ReadonlyMap<string, Date>>> = {
       openedChapter: opens.value,
       checkout: sales.value.checkout,
@@ -223,12 +350,7 @@ export async function readFunnelReport(
 
   const ordered = [...rows.entries()]
     .map(([key, counts]) => ({ source: sourceOf(key), counts }))
-    .sort((left, right) => {
-      const byKind = sourceRank(left.source) - sourceRank(right.source);
-      return byKind !== 0
-        ? byKind
-        : sourceCode(left.source).localeCompare(sourceCode(right.source));
-    });
+    .sort((left, right) => compareFunnelSources(left.source, right.source));
   const total = (step: keyof FunnelCounts, isMeasured: boolean) =>
     isMeasured ? sum(ordered.map((item) => item.counts[step] ?? 0)) : null;
   // Before the bot reports anything its steps are unknown, not zero.
@@ -279,11 +401,89 @@ const firstEntries = Prisma.sql`
   order by contact_ref, occurred_at, event_id
 `;
 
+async function readJournalForDiagnostics(
+  prisma: SalesFunnelPrismaClient,
+  scope: {
+    readonly from: Date;
+    readonly to: Date;
+    readonly accountIds?: readonly string[];
+    readonly identityRefs?: readonly string[];
+  },
+) {
+  try {
+    return await prisma.$transaction(async (transaction) => {
+      await setDiagnosticStatementBudget(transaction);
+      const accountIds = [...new Set(scope.accountIds ?? [])];
+      const identityRefs = [...new Set(scope.identityRefs ?? [])];
+      if (
+        accountIds.length > DIAGNOSTIC_SOURCE_ROW_LIMIT ||
+        identityRefs.length > DIAGNOSTIC_SOURCE_ROW_LIMIT
+      )
+        return diagnosticSourceBudgetFailure;
+      const rows = contactRowsSchema.parse(
+        await transaction.$queryRaw(Prisma.sql`
+        with candidates as (
+          select distinct contact_ref from sales_funnel.bot_events
+          where kind = 'bot_entered' and occurred_at >= ${scope.from} and occurred_at < ${scope.to}
+          union
+          select contact_ref from sales_funnel.bot_events
+          where kind = 'account_linked' and account_id = any(${accountIds}::uuid[])
+          union
+          select contact_ref from sales_funnel.bot_events
+          where kind = 'account_linked' and telegram_identity_ref = any(${identityRefs}::text[])
+        )
+        select entry.source_code, entry.occurred_at as entered_at,
+               consent.granted_at as consented_at, link.account_id, link.telegram_identity_ref
+        from candidates
+        join lateral (
+          select source_code, occurred_at from sales_funnel.bot_events
+          where contact_ref = candidates.contact_ref and kind = 'bot_entered'
+          order by occurred_at, event_id limit 1
+        ) entry on true
+        left join lateral (
+          select min(occurred_at) as granted_at from sales_funnel.bot_events
+          where contact_ref = candidates.contact_ref and kind = 'marketing_consent' and granted
+        ) consent on true
+        left join lateral (
+          select account_id, telegram_identity_ref from sales_funnel.bot_events
+          where contact_ref = candidates.contact_ref and kind = 'account_linked'
+          order by occurred_at desc, event_id desc limit 1
+        ) link on true
+        where (entry.occurred_at >= ${scope.from} and entry.occurred_at < ${scope.to})
+           or link.account_id = any(${accountIds}::uuid[])
+           or (link.account_id is null and link.telegram_identity_ref = any(${identityRefs}::text[]))
+        limit ${DIAGNOSTIC_SOURCE_ROW_LIMIT + 1}
+      `),
+      );
+      if (rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+        return diagnosticSourceBudgetFailure;
+      const lastReceived = lastReceivedSchema.parse(
+        await transaction.$queryRaw(Prisma.sql`
+        select received_at from sales_funnel.bot_events order by received_at desc limit 1
+      `),
+      );
+      return {
+        contacts: rows,
+        lastReceivedAt: lastReceived[0]?.received_at ?? null,
+      };
+    }, diagnosticSnapshotOptions);
+  } catch (error) {
+    return dependencyFailure(
+      { module: "sales-funnel", operation: "readFunnelDiagnostics" },
+      error,
+      undefined,
+    );
+  }
+}
+
 /**
  * Every contact with its first entry, its first consent and its latest reported link, or
  * undefined when the journal is unavailable.
  */
-async function readJournal(prisma: SalesFunnelPrismaClient) {
+async function readJournal(
+  prisma: SalesFunnelPrisma,
+  operation = "readFunnelReport",
+) {
   try {
     const [contacts, lastReceived] = await Promise.all([
       prisma.$queryRaw(Prisma.sql`
@@ -319,7 +519,7 @@ async function readJournal(prisma: SalesFunnelPrismaClient) {
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "sales-funnel", operation: "readFunnelReport" },
+      { module: "sales-funnel", operation },
       error,
       undefined,
     );
@@ -333,13 +533,22 @@ async function readJournal(prisma: SalesFunnelPrismaClient) {
  * contact without an entry gives no source.
  */
 async function attributeAccounts(
-  links: Pick<TelegramAccountLinks, "findCurrentAccounts" | "readBinding">,
+  links: Pick<
+    TelegramAccountLinks,
+    "findCurrentAccounts" | "findCurrentAccountsForDiagnostics"
+  >,
   contacts: readonly ContactRow[],
+  diagnostics: boolean,
 ): Promise<
   | ReadonlyMap<string, { readonly key: SourceKey; readonly enteredAt: Date }>
   | undefined
+  | DiagnosticSourceBudgetFailure
 > {
-  const resolved = await links.findCurrentAccounts(
+  const resolved = await (
+    diagnostics
+      ? links.findCurrentAccountsForDiagnostics.bind(links)
+      : links.findCurrentAccounts.bind(links)
+  )(
     contacts.flatMap((contact) =>
       contact.entered_at !== null &&
       contact.account_id === null &&
@@ -348,7 +557,10 @@ async function attributeAccounts(
         : [],
     ),
   );
-  if (!resolved.ok) return undefined;
+  if (!resolved.ok)
+    return resolved.error.code === "source_budget_exceeded"
+      ? diagnosticSourceBudgetFailure
+      : undefined;
   const earliest = new Map<
     string,
     { readonly key: SourceKey; readonly enteredAt: Date }
@@ -375,6 +587,16 @@ function sourceOf(key: SourceKey): FunnelSource {
   if (key === OUTSIDE_BOT) return { kind: "outside_bot" };
   if (key === UNLABELLED) return { kind: "unlabelled" };
   return { kind: "label", code: key.slice(LABEL_PREFIX.length) };
+}
+
+export function compareFunnelSources(
+  left: FunnelSource,
+  right: FunnelSource,
+): number {
+  const byKind = sourceRank(left) - sourceRank(right);
+  return byKind !== 0
+    ? byKind
+    : sourceCode(left).localeCompare(sourceCode(right));
 }
 
 function sourceRank(source: FunnelSource) {

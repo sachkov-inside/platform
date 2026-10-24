@@ -1,3 +1,5 @@
+import { ReadingActivityRetention } from "./features/retain-activity/retain-activity.js";
+import { ReadingActivityFacts } from "./features/read-confirmed-activity/read-confirmed-activity.js";
 import { MaterialFirstOpens } from "./features/list-first-opens/list-first-opens.js";
 import { GetLearningHomeController } from "./features/get-learning-home/get-learning-home.controller.js";
 import { GetSeriesContinuationController } from "./features/get-series-continuation/get-series-continuation.controller.js";
@@ -43,6 +45,18 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
     GetContinueMaterialsController,
   ],
   providers: [
+    {
+      provide: ReadingActivityRetention,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new ReadingActivityRetention(prisma),
+    },
+    {
+      provide: ReadingActivityFacts,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new ReadingActivityFacts(prisma),
+    },
     {
       provide: MaterialFirstOpens,
       inject: [PrismaClientProvider],
@@ -101,6 +115,6 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
         }),
     },
   ],
-  exports: [MaterialFirstOpens],
+  exports: [ReadingActivityRetention, ReadingActivityFacts, MaterialFirstOpens],
 })
 export class ReadingActivityModule {}

@@ -1,3 +1,4 @@
+import { readPaidGrantDiagnostics } from "../../features/read-paid-grant-diagnostics/read-paid-grant-diagnostics.js";
 import {
   readActivationContinuation,
   readActivationIntent,
@@ -235,6 +236,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     };
   }
   return Object.freeze({
+    readPaidGrantDiagnostics: (
+      keys: readonly {
+        readonly accountId: string;
+        readonly sourceRef: string;
+      }[],
+    ) => readPaidGrantDiagnostics(prisma, keys),
     lookupRecipient: (actorId: string, identityRef: string) =>
       manage(actorId, "billing:manage", async () => {
         if (!z.string().trim().min(1).max(256).safeParse(identityRef).success)

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { TechnicalTelemetry } from "./technical-telemetry.js";
 import type { BackendProcess } from "../../config/platform-config.js";
 import { describeError, runWithLogContext, writeLog } from "./log.js";
 
@@ -50,8 +51,9 @@ export function observeJob<
   processName: BackendProcess,
   queue: string,
   handler: (jobs: Jobs) => Promise<Result>,
+  telemetry?: Pick<TechnicalTelemetry, "runJob">,
 ): (jobs: Jobs) => Promise<Result> {
-  return (jobs) =>
+  const observed = (jobs: Jobs) =>
     runWithLogContext(
       { process: processName, queue, requestId: jobs[0]?.id ?? randomUUID() },
       async () => {
@@ -63,4 +65,8 @@ export function observeJob<
         }
       },
     );
+  return (jobs) =>
+    telemetry === undefined
+      ? observed(jobs)
+      : telemetry.runJob(() => observed(jobs));
 }

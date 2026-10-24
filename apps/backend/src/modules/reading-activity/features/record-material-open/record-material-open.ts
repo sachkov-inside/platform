@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
+  Prisma,
   lockReadingCommand,
   lockReadingPair,
   type ReadingActivityPrismaClient,
@@ -138,13 +140,15 @@ export async function recordMaterialOpen(
           update: { lastOpenedAt: now },
         });
         for (const productId of facts.value.productIds ?? []) {
-          await transaction.productLearningStarted.upsert({
-            where: {
-              accountId_productId: { accountId: command.accountId, productId },
-            },
-            create: { accountId: command.accountId, productId, startedAt: now },
-            update: {},
+          const started = await transaction.productLearningStarted.createMany({
+            data: [{ accountId: command.accountId, productId, startedAt: now }],
+            skipDuplicates: true,
           });
+          if (started.count > 0)
+            await transaction.$executeRaw(Prisma.sql`
+            insert into reading_activity.learning_started_events (event_id, account_id, product_id, command_id, occurred_at)
+            values (${randomUUID()}::uuid, ${command.accountId}::uuid, ${productId}::uuid, ${command.commandId}::uuid, ${now})
+          `);
         }
         const outcome = { openedAt: visit.lastOpenedAt.toISOString() };
         await transaction.readingCommand.create({

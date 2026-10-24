@@ -1,3 +1,4 @@
+import { observeEmailNotification } from "../../../../infrastructure/observability/technical-telemetry.js";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import {
@@ -50,7 +51,10 @@ export class Notifications {
     );
     this.transport = {
       ...transport,
-      accept: (envelope: NotificationEnvelope) => this.acceptEvent(envelope),
+      accept: (
+        envelope: NotificationEnvelope,
+        metadata?: { readonly traceparent?: unknown },
+      ) => this.acceptEvent(envelope, metadata),
       observe: async () => ({
         ...(await transport.observe()),
         emailPending: await deps.prisma.notificationEmailEffect.count({
@@ -62,7 +66,10 @@ export class Notifications {
       }),
     };
   }
-  async acceptEvent(envelope: NotificationEnvelope) {
+  async acceptEvent(
+    envelope: NotificationEnvelope,
+    metadata?: { readonly traceparent?: unknown },
+  ) {
     if (
       envelope.lane === "emailMaterial" ||
       envelope.lane === "emailSubscription"
@@ -72,9 +79,11 @@ export class Notifications {
         JSON.parse(envelope.payload),
         envelope.lane,
         this.deps.now,
+        metadata,
       );
     return assembleNotificationTransport(this.deps.prisma, 1_000).accept(
       envelope,
+      metadata,
     );
   }
   readPreferences(accountId: string) {
@@ -157,10 +166,21 @@ export class Notifications {
         });
         for (const row of rows) {
           try {
-            const outcome = await this.acceptDeliveryResult(
-              channel,
-              JSON.parse(row.payload),
-            );
+            const outcome =
+              channel === "email"
+                ? await observeEmailNotification(
+                    "projectResult",
+                    row.traceparent,
+                    () =>
+                      this.acceptDeliveryResult(
+                        channel,
+                        JSON.parse(row.payload),
+                      ),
+                  )
+                : await this.acceptDeliveryResult(
+                    channel,
+                    JSON.parse(row.payload),
+                  );
             if (outcome === "deferred") {
               await this.deps.prisma.notificationInbox.update({
                 where: {

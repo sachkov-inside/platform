@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
@@ -16,7 +16,122 @@ const repositoryRoot = resolve(
 /** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 
+/**
+ * Literal repository COPY forms only. Inherit named build stages, never COPY --from.
+ * Unsupported forms cannot certify an importer before the first frozen install.
+ * @param {string} dockerfile @param {string} importer
+ */
+function suppliesWorkspaceImporter(dockerfile, importer) {
+  /** @type {Map<string, {cwd: string, copies: {source: string, destination: string}[]}>} */
+  const stages = new Map();
+  let stage = {
+    cwd: "/",
+    copies: /** @type {{source: string, destination: string}[]} */ ([]),
+  };
+  for (const raw of dockerfile.replace(/\\\n/gu, " ").split("\n")) {
+    const line = raw.trim();
+    const from = /^FROM (\S+)(?: AS (\S+))?$/iu.exec(line);
+    if (from) {
+      const inherited = stages.get(from[1] ?? "");
+      stage = {
+        cwd: inherited?.cwd ?? "/",
+        copies: [...(inherited?.copies ?? [])],
+      };
+      if (from[2]) stages.set(from[2], stage);
+    } else if (line.startsWith("WORKDIR ")) {
+      stage.cwd = posix.resolve(stage.cwd, line.slice(8).trim());
+    } else if (
+      /^RUN\s/u.test(line) &&
+      line.includes("pnpm install --frozen-lockfile")
+    ) {
+      const expected = posix.resolve("/workspace", importer);
+      return stage.copies.some(({ source, destination }) => {
+        if (source !== importer && !importer.startsWith(source + "/"))
+          return false;
+        return (
+          posix.resolve(destination, posix.relative(source, importer)) ===
+          expected
+        );
+      });
+    } else if (line.startsWith("COPY ")) {
+      const words = line.slice(5).trim().split(/\s+/u);
+      if (words.some((word) => word.startsWith("--from="))) continue;
+      while (words[0]?.startsWith("--chown=")) words.shift();
+      if (
+        words.some((word) => /[[\]"'$*?]/u.test(word) || word.startsWith("--"))
+      )
+        continue;
+      const destination = words.pop();
+      if (!destination) continue;
+      for (const word of words) {
+        const source = posix.normalize(word.replace(/^\.\//u, ""));
+        const directoryDestination =
+          destination.endsWith("/") || destination === ".";
+        // A copied directory contributes its contents at destination; a literal
+        // package.json source uses its basename only for directory destinations.
+        const target =
+          source.endsWith("/package.json") && directoryDestination
+            ? posix.join(destination, posix.basename(source))
+            : destination;
+        stage.copies.push({
+          source,
+          destination: posix.resolve(stage.cwd, target),
+        });
+      }
+    }
+  }
+  return false;
+}
+
 describe("release image contract", () => {
+  it("recognizes literal importer copies only at the intended stage, location and install order", () => {
+    const importer = "packages/runtime-identity/package.json";
+    const start = "FROM node AS inputs\nWORKDIR /workspace\n";
+    const install = "RUN pnpm install --frozen-lockfile\n";
+    const file =
+      "COPY packages/runtime-identity/package.json ./packages/runtime-identity/package.json\n";
+    const directory =
+      "COPY --chown=node:node packages/runtime-identity ./packages/runtime-identity\n";
+    for (const copy of [file, directory]) {
+      assert.equal(
+        suppliesWorkspaceImporter(start + copy + install, importer),
+        true,
+      );
+      assert.equal(
+        suppliesWorkspaceImporter(
+          start + copy + "FROM inputs AS build\n" + install,
+          importer,
+        ),
+        true,
+      );
+      assert.equal(
+        suppliesWorkspaceImporter(start + install + copy, importer),
+        false,
+      );
+      assert.equal(
+        suppliesWorkspaceImporter(
+          start +
+            copy +
+            "FROM node AS unrelated\nWORKDIR /workspace\n" +
+            install,
+          importer,
+        ),
+        false,
+      );
+    }
+    for (const copy of [
+      "",
+      "COPY packages/other ./packages/runtime-identity\n",
+      "COPY packages/runtime-identity ./wrong\n",
+      "COPY packages/runtime-identity/package.json ./wrong/package.json\n",
+      "COPY --from=other packages/runtime-identity ./packages/runtime-identity\n",
+    ])
+      assert.equal(
+        suppliesWorkspaceImporter(start + copy + install, importer),
+        false,
+      );
+  });
+
   it("supplies every workspace importer before frozen install in all application Docker contexts", () => {
     for (const path of [
       "apps/backend/Dockerfile",
@@ -24,10 +139,6 @@ describe("release image contract", () => {
       "apps/telegram/infra/production/Dockerfile",
     ]) {
       const dockerfile = read(path);
-      const dependencyStage = dockerfile.slice(
-        0,
-        dockerfile.indexOf("pnpm install --frozen-lockfile"),
-      );
       for (const importer of [
         "apps/backend/package.json",
         "apps/web/package.json",
@@ -38,7 +149,7 @@ describe("release image contract", () => {
         "packages/access-capabilities",
       ]) {
         assert.ok(
-          dependencyStage.includes(` ${importer} `),
+          suppliesWorkspaceImporter(dockerfile, importer),
           `${path} must supply root workspace importer ${importer} before frozen install`,
         );
       }
