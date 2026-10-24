@@ -5,7 +5,7 @@ import {
   LEARNING_TASKS,
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type { INestApplicationContext } from "@nestjs/common";
 import {
@@ -62,19 +62,23 @@ registerFixedClock();
 const toolText = z.object({
   content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
 });
-const practicePart = z.object({
+const taskPart = z.object({
   ok: z.literal(true),
   value: z.object({
     contextVersion: z.string(),
     contentSha256: z.string(),
     partCount: z.number().int().positive(),
+    part: z.number().int().nonnegative(),
+    partSha256: z.string(),
+    contentBytes: z.number().int().positive(),
+    endOfContext: z.boolean(),
     data: z.string(),
     nextPart: z.number().int().nullable(),
   }),
 });
 
 /** Закреплённый контекст задания, который клиент мог сохранить до отзыва права. */
-interface PinnedPractice {
+interface PinnedTask {
   readonly contextVersion: string;
   readonly contentSha256: string;
   readonly partCount: number;
@@ -85,7 +89,7 @@ interface PinnedPractice {
 /**
  * Scoped ученик через настоящий learner MCP transport (#903, пробел 5 из #902): процесс MCP поднят
  * целиком, клиент MCP ходит по Streamable HTTP на `/mcp/learning` с подписанным токеном Account,
- * право — настоящий AccessGrant одного Product. Отказ инструмента — `isError` с кодом в ответе
+ * доступ даёт lifetime Product Access одного Product. Отказ инструмента — `isError` с кодом в ответе
  * JSON-RPC; транспорт не обязан отвечать HTTP 403. Каждая клетка доказана наличием или отсутствием
  * секрета Product. Строки матрицы проверок доступа: `test/access-scenarios/access-check-matrix.ts`.
  */
@@ -155,10 +159,10 @@ describe("scoped learner access over the learner MCP transport", () => {
     await identity.close();
   });
 
-  test("material and practice calls without an Account token get 401 and no protected bytes", async () => {
+  test("Material and Task calls without an Account token get 401 and no protected bytes", async () => {
     for (const [name, arguments_] of [
       ["learning_material_read", { slug: world.productA.slug }],
-      ["learning_practice_read", { practiceId: world.productA.practiceId }],
+      ["learning_task_read", { code: world.productA.taskCode }],
     ] as const) {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -177,41 +181,41 @@ describe("scoped learner access over the learner MCP transport", () => {
       expect(response.status).toBe(401);
       expect(response.headers.get("www-authenticate")).toContain("Bearer");
       expect(body).not.toContain(world.productA.bodySecret);
-      expect(body).not.toContain(world.productA.practiceSecret);
+      expect(body).not.toContain(world.productA.taskSecret);
     }
   });
 
-  test("Account without entitlement reads the public Material and no protected Material or practice part", async () => {
+  test("Account without entitlement reads the public Material and no protected Material or Task part", async () => {
     const { learner } = await connectedLearner();
     expect(await readPublic(learner)).toBe("open");
     for (const product of [world.productA, world.productB])
       await expectClosed(learner, product);
   });
 
-  test("Account without entitlement reads every pinned part of a free practice while paid Products stay closed", async () => {
+  test("Account without entitlement reads every pinned part of a free Task while paid Products stay closed", async () => {
     const { learner } = await connectedLearner();
     await expectOpen(learner, world.freeProduct);
     for (const product of [world.productA, world.productB])
       await expectClosed(learner, product);
   });
 
-  test("learner of Product A reads its Material and every pinned practice part while Product B stays closed", async () => {
+  test("learner of Product A reads its Material and every pinned Task part while Product B stays closed", async () => {
     const { learner, accountId } = await connectedLearner();
     await world.grantProduct(accountId, world.productA.productId);
     await expectOpen(learner, world.productA);
     await expectClosed(learner, world.productB);
   });
 
-  test("learner of Product B reads its Material and every pinned practice part while Product A stays closed", async () => {
+  test("learner of Product B reads its Material and every pinned Task part while Product A stays closed", async () => {
     const { learner, accountId } = await connectedLearner();
     await world.grantProduct(accountId, world.productB.productId);
     await expectOpen(learner, world.productB);
     await expectClosed(learner, world.productA);
   });
 
-  test("expired Product A grant reads the public Material and no protected Material or practice part", async () => {
+  test("expired Product A grant reads the public Material and no protected Material or Task part", async () => {
     const { learner, accountId } = await connectedLearner();
-    await world.grantRevokedProduct(accountId, world.productA.productId);
+    await world.grantExpiredProduct(accountId, world.productA.productId);
     expect(await readPublic(learner)).toBe("open");
     await expectClosed(learner, world.productA);
   });
@@ -230,17 +234,37 @@ describe("scoped learner access over the learner MCP transport", () => {
     await expectClosed(learner, world.productA);
     // Клиент продолжает чтение по версии и хешу, закреплённым до отзыва: ни одна часть не выдаётся.
     for (let part = 0; part < pinned.partCount; part += 1) {
-      const cached = await practice(learner, world.productA, {
+      const cached = await task(learner, world.productA, {
         part,
         expectedContextVersion: pinned.contextVersion,
         expectedContentSha256: pinned.contentSha256,
       });
       expect(cached.isError).toBe(true);
-      expect(text(cached)).toContain("practice_not_available");
-      expect(text(cached)).not.toContain(world.productA.practiceSecret);
+      expect(text(cached)).toContain("task_not_available");
+      expect(text(cached)).not.toContain(world.productA.taskSecret);
       expect(text(cached)).not.toContain(world.productA.bodySecret);
     }
     await expectOpen(learner, world.productB);
+  });
+
+  test("learner surface registers Task reading and rejects the retired Practice tool", async () => {
+    const { learner, accountId } = await connectedLearner();
+    await world.grantProduct(accountId, world.productA.productId);
+    const registered = (await learner.listTools()).tools.map(
+      (tool) => tool.name,
+    );
+    expect(registered).toContain("learning_task_read");
+    expect(registered).not.toContain("learning_practice_read");
+    await expect(
+      learner.callTool({
+        name: "learning_practice_read",
+        arguments: {
+          practiceId: `scoped:practice-a-${world.productA.productId}`,
+        },
+      }),
+    ).rejects.toMatchObject({
+      message: "Tool learning_practice_read not found",
+    });
   });
 
   async function connectedLearner(): Promise<{
@@ -295,7 +319,7 @@ describe("scoped learner access over the learner MCP transport", () => {
     return "open";
   }
 
-  function practice(
+  function task(
     learner: Client,
     product: ScopedProduct,
     pin: {
@@ -305,30 +329,38 @@ describe("scoped learner access over the learner MCP transport", () => {
     },
   ) {
     return learner.callTool({
-      name: "learning_practice_read",
-      arguments: { practiceId: product.practiceId, ...pin },
+      name: "learning_task_read",
+      arguments: { code: product.taskCode, ...pin },
     });
+  }
+
+  function sha256(value: string) {
+    return createHash("sha256").update(value).digest("hex");
   }
 
   /** Материал и все части задания открыты: тело и контекст содержат секреты Product целиком. */
   async function expectOpen(
     learner: Client,
     product: ScopedProduct,
-  ): Promise<PinnedPractice> {
+  ): Promise<PinnedTask> {
     const read = await readMaterial(learner, product.slug);
     expect(read.isError).toBe(false);
     expect(text(read)).toContain(product.bodySecret);
 
-    const first = practicePart.parse(
-      JSON.parse(text(await practice(learner, product, { part: 0 }))),
+    const first = taskPart.parse(
+      JSON.parse(text(await task(learner, product, { part: 0 }))),
     ).value;
     expect(first.partCount).toBeGreaterThan(1);
+    expect(first.part).toBe(0);
+    expect(first.nextPart).toBe(1);
+    expect(first.endOfContext).toBe(false);
+    expect(first.partSha256).toBe(sha256(first.data));
     let context = first.data;
     for (let part = 1; part < first.partCount; part += 1) {
-      const next = practicePart.parse(
+      const next = taskPart.parse(
         JSON.parse(
           text(
-            await practice(learner, product, {
+            await task(learner, product, {
               part,
               expectedContextVersion: first.contextVersion,
               expectedContentSha256: first.contentSha256,
@@ -336,9 +368,21 @@ describe("scoped learner access over the learner MCP transport", () => {
           ),
         ),
       ).value;
+      expect(next.contextVersion).toBe(first.contextVersion);
+      expect(next.contentSha256).toBe(first.contentSha256);
+      expect(next.partCount).toBe(first.partCount);
+      expect(next.contentBytes).toBe(first.contentBytes);
+      expect(next.part).toBe(part);
+      expect(next.partSha256).toBe(sha256(next.data));
+      expect(next.endOfContext).toBe(part === first.partCount - 1);
+      expect(next.nextPart).toBe(
+        part === first.partCount - 1 ? null : part + 1,
+      );
       context += next.data;
     }
-    expect(context).toContain(product.practiceSecret);
+    expect(sha256(context)).toBe(first.contentSha256);
+    expect(Buffer.byteLength(context, "utf8")).toBe(first.contentBytes);
+    expect(context).toContain(product.taskSecret);
     expect(context).toContain(product.bodySecret);
     expect(context).toContain(`END_CONTEXT:${first.contextVersion}`);
     return {
@@ -358,10 +402,10 @@ describe("scoped learner access over the learner MCP transport", () => {
     expect(read.isError).toBe(true);
     expect(text(read)).toContain("material_not_available");
     expect(text(read)).not.toContain(product.bodySecret);
-    const first = await practice(learner, product, { part: 0 });
+    const first = await task(learner, product, { part: 0 });
     expect(first.isError).toBe(true);
-    expect(text(first)).toContain("practice_not_available");
-    expect(text(first)).not.toContain(product.practiceSecret);
+    expect(text(first)).toContain("task_not_available");
+    expect(text(first)).not.toContain(product.taskSecret);
     expect(text(first)).not.toContain(product.bodySecret);
   }
 });

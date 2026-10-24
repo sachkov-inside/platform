@@ -1,4 +1,7 @@
-import { seedHistoricalPractice } from "./legacy-practice-fixture.js";
+import { assembleApplySourceTask } from "../../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
+import { ProductDirectory } from "../../../src/modules/products/index.js";
+import { assembleProductMaterialReading } from "../../../src/modules/materials/index.js";
+import { fixedTestInstant } from "../../support/fixed-clock.js";
 import { grantProductFixture, revokeProductFixture } from "./product-access.js";
 import { randomUUID } from "node:crypto";
 
@@ -7,9 +10,9 @@ import type { TestDatabase } from "./test-database.js";
 
 /**
  * Мир для проверок scoped ученика через настоящий транспорт: два Product с закрытым материалом,
- * файлом, видео и заданием и один публичный материал. Право ученика — настоящий AccessGrant
- * `product:<id>` через владельческий facade, без legacy bridge и `wholePlatform`. Секрет каждого Product —
- * уникальный текст в теле и в названии задания: транспорт доказывает доступ наличием этих bytes,
+ * файлом, видео и заданием и один публичный материал. Ученик получает lifetime Product Access через владельческий facade, без legacy bridge и `wholePlatform`.
+ * Секрет каждого Product содержит
+ * уникальный текст в теле и требованиях задания: транспорт доказывает доступ наличием этих bytes,
  * а отказ — их отсутствием.
  */
 export interface ScopedProduct {
@@ -21,11 +24,11 @@ export interface ScopedProduct {
   readonly protectedObjectKey: string;
   readonly videoId: string;
   readonly providerVideoId: string;
-  readonly practiceId: string;
+  readonly taskCode: string;
   /** Текст, который есть только в закрытом теле. */
   readonly bodySecret: string;
-  /** Название задания: его отдают список заданий и контекст задания только Account с правом. */
-  readonly practiceSecret: string;
+  /** Секрет требований, защищённый у закрытого Task. */
+  readonly taskSecret: string;
 }
 
 export interface PublicMaterial {
@@ -41,8 +44,8 @@ export interface ScopedProductsWorld {
   readonly publicMaterial: PublicMaterial;
   /** Бессрочное право на один Product; возвращает ссылку для отзыва. */
   grantProduct(accountId: string, productId: string): Promise<string>;
-  /** Explicitly withdrawn lifetime Product Access. */
-  grantRevokedProduct(accountId: string, productId: string): Promise<void>;
+  /** Passive historical grant that expired before the current clock instant. */
+  grantExpiredProduct(accountId: string, productId: string): Promise<void>;
   revokeGrant(grantRef: string): Promise<void>;
 }
 
@@ -140,13 +143,13 @@ export async function createScopedProductsWorld(
       },
     });
     const bodySecret = `CLOSED-BODY-${label}-${randomUUID()}`;
-    const practiceSecret = `CLOSED-PRACTICE-${label}-${randomUUID()}`;
+    const taskSecret = `CLOSED-TASK-${label}-${randomUUID()}`;
     const assetId = randomUUID(),
       videoId = randomUUID(),
       providerVideoId = randomUUID();
     let protectedObjectKey = "";
     const created = await sourceMaterial({
-      key: `product-${label}-${productId}`,
+      key: `product-${label.toLowerCase()}-${productId}`,
       access,
       productIds: [productId],
       body: async (materialId) => {
@@ -224,39 +227,65 @@ export async function createScopedProductsWorld(
       where: { id: created.materialId },
       data: { primaryVideoId: videoId },
     });
-    const practiceId = `scoped:practice-${label.toLowerCase()}-${productId}`;
-    await seedHistoricalPractice(database, {
-      actor: owner,
-      idempotencyKey: `scoped-practice-${productId}`,
-      practiceId,
-      materialId: created.materialId,
-      expectedContentVersion: created.contentVersion,
-      expectedPracticeVersion: null,
-      publicationState: "published",
-      definition: {
-        schemaVersion: 1,
-        title: practiceSecret,
-        businessInputs: `Закрытые вводные ${practiceSecret}`,
-        expectedOutcome: "Объяснить требования.",
-        allowedFreedom: "Любой формат.",
-        criteria: [
-          {
-            id: "scope",
-            requirement: "Ученик видит только свой Product.",
-            acceptableEvidence: ["Требование с причиной."],
-          },
-        ],
-      },
-      sourceReference: {
-        materialSourceId: created.source.id,
-        materialSourceRevision: created.source.revision,
-      },
-      provenance: {
-        repository: "synthetic/scoped",
-        commit: "b".repeat(40),
-        path: `practices/${productId}.json`,
+    const chapterId = randomUUID();
+    await database.prisma.productChapter.create({
+      data: { id: chapterId, productId, name: `Chapter ${label}`, ordinal: 1 },
+    });
+    await database.prisma.productProgrammePlacement.create({
+      data: {
+        id: randomUUID(),
+        productId,
+        materialId: created.materialId,
+        chapterId,
+        ordinal: 1,
       },
     });
+    const taskCode = `scoped-task-${label.toLowerCase()}-${productId}`;
+    const applyTask = assembleApplySourceTask({
+      prisma: database.prisma,
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
+      authorPolicy: { canManage: (id) => id === owner },
+    });
+    const imported = await applyTask(
+      {
+        sourceId: `scoped:${taskCode}`,
+        code: taskCode,
+        productId,
+        chapterId,
+        position: 1,
+        title: `Task ${label}`,
+        access,
+        expectedRevision: null,
+        publicationState: "published",
+        programmeVisibility: "embedded",
+        embeddedMaterialSourceId: created.source.id,
+        relatedMaterialSourceIds: [],
+        definition: {
+          schemaVersion: 1,
+          situation: `Закрытые вводные ${taskSecret}`,
+          result: ["Объяснить требования."],
+          freedom: "Любой формат.",
+          criteria: [
+            {
+              id: "scope",
+              level: "required",
+              requirement: "Ученик видит только свой Product.",
+              acceptableEvidence: ["Требование с причиной."],
+            },
+          ],
+        },
+        provenance: {
+          repository: "synthetic/scoped",
+          commit: "b".repeat(40),
+          path: `tasks/${productId}.json`,
+        },
+      },
+      { actor: owner, idempotencyKey: `scoped-task-${productId}` },
+    );
+    if (!imported.ok) throw new Error(imported.error.code);
     return {
       productId,
       slug: created.slug,
@@ -266,9 +295,9 @@ export async function createScopedProductsWorld(
       protectedObjectKey,
       videoId,
       providerVideoId,
-      practiceId,
+      taskCode,
       bodySecret,
-      practiceSecret,
+      taskSecret,
     };
   }
 
@@ -300,13 +329,21 @@ export async function createScopedProductsWorld(
     publicMaterial: { slug: publicCreated.slug, bodyText },
     grantProduct: (accountId, productId) =>
       grantProductFixture(database.prisma, accountId, productId),
-    async grantRevokedProduct(accountId, productId) {
-      const target = await grantProductFixture(
-        database.prisma,
-        accountId,
-        productId,
-      );
-      await revokeProductFixture(database.prisma, target);
+    async grantExpiredProduct(accountId, productId) {
+      await database.prisma.accessGrant.create({
+        data: {
+          id: randomUUID(),
+          accountId,
+          source: "manual",
+          sourceRef: randomUUID(),
+          capabilities: [`product:${productId}`],
+          startsAt: new Date(fixedTestInstant() - 2 * 86_400_000),
+          validUntil: new Date(fixedTestInstant() - 86_400_000),
+          revision: 1,
+          reason:
+            "Historical expired Product grant, without current Product Access",
+        },
+      });
     },
     async revokeGrant(target) {
       await revokeProductFixture(database.prisma, target);
