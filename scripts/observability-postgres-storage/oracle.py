@@ -287,6 +287,29 @@ def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owne
         return _diagnosed(_report('malformed','malformed'),diagnose,reason)
 
 
+def previous_committed_pending(raw_values,raw_timestamps,*,evaluated_at,completed_us,previous,expected):
+    """Only an exact already-committed frame may await a newer ACKed frame's visibility.
+
+    This is a fixture publication barrier, never a healthy verdict for stale source data.
+    The ordinary evaluate() contract and ten-second freshness gate remain unchanged.
+    """
+    fields={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}
+    if (type(previous) is not dict or type(expected) is not dict or set(previous)!=fields or set(expected)!=fields
+            or any(type(value) is not int or not 0<=value<=_MAX for frame in (previous,expected) for value in frame.values())
+            or not 0<previous['sample_us']<expected['sample_us']):return False
+    checked=evaluate(raw_values,raw_timestamps,evaluated_at=evaluated_at,completed_us=completed_us,expected=previous,diagnose=True)
+    if diagnostic_reason(checked)!='oracle_stale_healthy_sample_match':return False
+    # A stale verdict intentionally precedes expected-value matching. Explicitly compare
+    # ALL seven families here; a reused timestamp or altered counter is not a prior frame.
+    try:values,_=_vector(raw_values,evaluated_at)
+    except (ValueError,KeyError,TypeError,UnicodeError,OverflowError,RecursionError):return False
+    wanted={'inside.postgresql.server.'+suffix:previous[key] for suffix,key in (
+        ('backends','connected_backends'),('waiting_locks','waiting_locks'),('deadlocks_since_reset','deadlocks'),
+        ('postmaster_start_time_microseconds','postmaster_us'),('statistics_reset_time_microseconds','stats_reset_us'),('sample_time_microseconds','sample_us'))}
+    wanted['inside.postgresql.server.available']=1
+    return values==wanted
+
+
 def evaluate_protocol(raw_values,raw_timestamps,raw_global,*,evaluated_at,completed_us,expected):
     """Full protocol-only seven-family vector; clean rows alone do not prove pipeline completion."""
     try:
