@@ -60,8 +60,8 @@ export type AccountsPrismaClient = AccountsPrisma &
 export type AccountProfilesPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
-  | "memberProfile"
-  | "memberProfileAuditEvent"
+  | "accountProfile"
+  | "accountProfileAuditEvent"
   | "profileAvatar"
   | "profileAvatarRendition"
 >;

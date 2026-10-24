@@ -81,8 +81,8 @@ describe("AccountProfiles", () => {
     storedObjects.clear();
     deletedObjectKeys.length = 0;
     signedGetRequests.length = 0;
-    await database.prisma.memberProfile.deleteMany();
-    await database.prisma.memberProfileAuditEvent.deleteMany();
+    await database.prisma.accountProfile.deleteMany();
+    await database.prisma.accountProfileAuditEvent.deleteMany();
     await database.prisma.account.deleteMany();
     await Promise.all([
       insertAccount(database, ownerAccountId, "owner"),
@@ -116,9 +116,9 @@ describe("AccountProfiles", () => {
       ok: true,
       value: { displayName: "Кирилл Сачков", version: 1, status: "active" },
     });
-    await expect(database.prisma.memberProfile.count()).resolves.toBe(2);
+    await expect(database.prisma.accountProfile.count()).resolves.toBe(2);
     await expect(
-      database.prisma.memberProfileAuditEvent.findMany({
+      database.prisma.accountProfileAuditEvent.findMany({
         orderBy: { createdAt: "asc" },
         select: { event: true },
       }),
@@ -151,9 +151,9 @@ describe("AccountProfiles", () => {
       ok: false,
       error: { code: "conflict", currentVersion: 2 },
     });
-    await expect(database.prisma.memberProfile.count()).resolves.toBe(1);
+    await expect(database.prisma.accountProfile.count()).resolves.toBe(1);
 
-    const audit = await database.prisma.memberProfileAuditEvent.findMany();
+    const audit = await database.prisma.accountProfileAuditEvent.findMany();
     expect(JSON.stringify(audit)).not.toContain("Новое имя");
     expect(JSON.stringify(audit)).not.toContain("Новая биография");
     expect(audit.map(({ event }) => event)).toEqual([
@@ -166,7 +166,7 @@ describe("AccountProfiles", () => {
     await createOwnerProfile(profiles);
     // The internal Profile identifier stays for owner moderation; the API no longer returns it.
     const { publicProfileId } =
-      await database.prisma.memberProfile.findUniqueOrThrow({
+      await database.prisma.accountProfile.findUniqueOrThrow({
         where: { accountId: ownerAccountId },
       });
 
@@ -183,7 +183,7 @@ describe("AccountProfiles", () => {
       moderateAccountProfile(database.prisma, publicProfileId, "restore"),
     ).resolves.toMatchObject({ ok: true, changed: true, status: "active" });
     await expect(
-      database.prisma.memberProfile.findUniqueOrThrow({
+      database.prisma.accountProfile.findUniqueOrThrow({
         where: { accountId: ownerAccountId },
         select: { publicProfileId: true },
       }),
@@ -195,7 +195,7 @@ describe("AccountProfiles", () => {
       },
     );
     await expect(
-      database.prisma.memberProfileAuditEvent.findMany({
+      database.prisma.accountProfileAuditEvent.findMany({
         where: { accountId: ownerAccountId },
         orderBy: { createdAt: "asc" },
         select: { event: true },
@@ -256,7 +256,7 @@ describe("AccountProfiles", () => {
     });
     expect(secondProfile.ok).toBe(true);
     await expect(
-      database.prisma.memberProfile.update({
+      database.prisma.accountProfile.update({
         data: { avatarId: firstAvatarId },
         where: { accountId: secondAccountId },
       }),
@@ -309,7 +309,7 @@ describe("AccountProfiles", () => {
       ),
     ).toBe(true);
 
-    await database.prisma.memberProfile.update({
+    await database.prisma.accountProfile.update({
       data: { status: "disabled" },
       where: { accountId: ownerAccountId },
     });
@@ -320,7 +320,7 @@ describe("AccountProfiles", () => {
         size: 320,
       }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
-    await database.prisma.memberProfile.update({
+    await database.prisma.accountProfile.update({
       data: { status: "active" },
       where: { accountId: ownerAccountId },
     });

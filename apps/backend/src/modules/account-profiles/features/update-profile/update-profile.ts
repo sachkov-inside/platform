@@ -37,7 +37,7 @@ export async function updateProfile(
 
   try {
     return await prisma.$transaction(async (transaction) => {
-      const updated = await transaction.memberProfile.updateMany({
+      const updated = await transaction.accountProfile.updateMany({
         where: {
           accountId: command.accountId,
           version: command.expectedVersion,
@@ -50,7 +50,7 @@ export async function updateProfile(
         },
       });
       if (updated.count === 0) {
-        const current = await transaction.memberProfile.findUnique({
+        const current = await transaction.accountProfile.findUnique({
           where: { accountId: command.accountId },
           select: { version: true },
         });
@@ -62,7 +62,7 @@ export async function updateProfile(
             });
       }
 
-      const stored = await transaction.memberProfile.findUniqueOrThrow({
+      const stored = await transaction.accountProfile.findUniqueOrThrow({
         where: { accountId: command.accountId },
       });
       const publicProfileId = parsePublicProfileId(stored.publicProfileId);

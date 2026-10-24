@@ -63,7 +63,7 @@ export async function cleanupProfileAvatarOrphans(
           return null;
         }
         await lockProfileAvatarOwner(transaction, avatar.accountId);
-        const current = await transaction.memberProfile.findUnique({
+        const current = await transaction.accountProfile.findUnique({
           select: { avatarId: true },
           where: { accountId: avatar.accountId },
         });

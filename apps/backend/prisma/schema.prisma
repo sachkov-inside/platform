@@ -45,7 +45,7 @@ model AccountAuditEvent {
   @@schema("accounts")
 }
 
-model MemberProfile {
+model AccountProfile {
   accountId       String   @id @map("account_id") @db.Uuid
   publicProfileId String   @unique(map: "account_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
   displayName     String   @map("display_name") @db.VarChar(80)
@@ -74,8 +74,8 @@ model ProfileAvatar {
   readyAt             DateTime? @map("ready_at") @db.Timestamptz
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
-  currentProfile      MemberProfile? @relation("CurrentProfileAvatar")
-  ownerProfile        MemberProfile  @relation("ProfileOwnedAvatars", fields: [accountId], references: [accountId], onDelete: Cascade)
+  currentProfile      AccountProfile? @relation("CurrentProfileAvatar")
+  ownerProfile        AccountProfile  @relation("ProfileOwnedAvatars", fields: [accountId], references: [accountId], onDelete: Cascade)
   renditions          ProfileAvatarRendition[]
 
   @@unique([id, accountId], map: "profile_avatars_id_account_unique")
@@ -98,7 +98,7 @@ model ProfileAvatarRendition {
   @@schema("account_profiles")
 }
 
-model MemberProfileAuditEvent {
+model AccountProfileAuditEvent {
   id              String   @id @db.Uuid
   event           String
   accountId       String   @map("account_id") @db.Uuid

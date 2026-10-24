@@ -29,7 +29,7 @@ export async function changeProfileAvatar(
   command: ChangeProfileAvatarCommand,
 ): Promise<ChangeProfileAvatarResult> {
   try {
-    const profile = await dependencies.prisma.memberProfile.findUnique({
+    const profile = await dependencies.prisma.accountProfile.findUnique({
       where: { accountId: command.accountId },
     });
     if (profile === null)
@@ -129,7 +129,7 @@ async function uploadAvatar(
 
   return prisma.$transaction(async (transaction) => {
     await lockProfileAvatarOwner(transaction, accountId);
-    const current = await transaction.memberProfile.findUnique({
+    const current = await transaction.accountProfile.findUnique({
       where: { accountId },
     });
     if (current === null) {
@@ -143,7 +143,7 @@ async function uploadAvatar(
       });
       return { error: { code: "profile_not_found" }, ok: false };
     }
-    const changed = await transaction.memberProfile.updateMany({
+    const changed = await transaction.accountProfile.updateMany({
       data: { avatarId, updatedAt: new Date(), version: { increment: 1 } },
       where: { accountId, version: expectedVersion },
     });
@@ -178,7 +178,7 @@ async function uploadAvatar(
         where: { accountId, id: current.avatarId },
       });
     }
-    await transaction.memberProfileAuditEvent.create({
+    await transaction.accountProfileAuditEvent.create({
       data: {
         accountId,
         event:
@@ -187,7 +187,7 @@ async function uploadAvatar(
         publicProfileId: current.publicProfileId,
       },
     });
-    const updated = await transaction.memberProfile.findUnique({
+    const updated = await transaction.accountProfile.findUnique({
       where: { accountId },
     });
     const projection =
@@ -204,12 +204,12 @@ async function removeAvatar(
 ): Promise<ChangeProfileAvatarResult> {
   return prisma.$transaction(async (transaction) => {
     await lockProfileAvatarOwner(transaction, accountId);
-    const current = await transaction.memberProfile.findUnique({
+    const current = await transaction.accountProfile.findUnique({
       where: { accountId },
     });
     if (current === null)
       return { error: { code: "profile_not_found" }, ok: false };
-    const changed = await transaction.memberProfile.updateMany({
+    const changed = await transaction.accountProfile.updateMany({
       data: {
         avatarId: null,
         updatedAt: new Date(),
@@ -227,7 +227,7 @@ async function removeAvatar(
         },
         where: { accountId, id: current.avatarId },
       });
-      await transaction.memberProfileAuditEvent.create({
+      await transaction.accountProfileAuditEvent.create({
         data: {
           accountId,
           event: "avatar_removed",
@@ -236,7 +236,7 @@ async function removeAvatar(
         },
       });
     }
-    const updated = await transaction.memberProfile.findUnique({
+    const updated = await transaction.accountProfile.findUnique({
       where: { accountId },
     });
     const projection =

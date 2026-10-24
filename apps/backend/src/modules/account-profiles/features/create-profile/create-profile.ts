@@ -28,14 +28,14 @@ export async function createProfile(
 
   try {
     return await prisma.$transaction(async (transaction) => {
-      const existing = await transaction.memberProfile.findUnique({
+      const existing = await transaction.accountProfile.findUnique({
         where: { accountId: command.accountId },
         select: { accountId: true },
       });
       if (existing !== null) return profileFailure({ code: "profile_exists" });
 
       const publicProfileId = newPublicProfileId();
-      const stored = await transaction.memberProfile.create({
+      const stored = await transaction.accountProfile.create({
         data: {
           accountId: command.accountId,
           publicProfileId,
@@ -58,7 +58,7 @@ export async function createProfile(
   } catch (error) {
     // Уже созданный профиль — гонка двух запросов, а не сбой.
     try {
-      const existing = await prisma.memberProfile.findUnique({
+      const existing = await prisma.accountProfile.findUnique({
         where: { accountId: command.accountId },
         select: { accountId: true },
       });

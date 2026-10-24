@@ -16,7 +16,7 @@ export async function appendAccountProfileAuditEvent(
   accountId: AccountId,
   publicProfileId: PublicProfileId,
 ): Promise<void> {
-  await prisma.memberProfileAuditEvent.create({
+  await prisma.accountProfileAuditEvent.create({
     data: { id: randomUUID(), event, accountId, publicProfileId },
   });
 }

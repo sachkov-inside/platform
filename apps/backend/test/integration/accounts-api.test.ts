@@ -347,14 +347,14 @@ describe("Accounts API", () => {
       url: `/authoring/series/${productId}/order`,
       headers: authorization,
     });
-    expect(initialOrder.statusCode).toBe(200);
+    expect(initialOrder.statusCode).toBe(404);
     const canonicalOrder = await server.inject({
       method: "GET",
       url: `/authoring/products/${productId}/order`,
       headers: authorization,
     });
     expect(canonicalOrder.statusCode).toBe(200);
-    expect(canonicalOrder.json()).toEqual(initialOrder.json());
+
     expect(
       (
         await server.inject({
@@ -363,7 +363,7 @@ describe("Accounts API", () => {
         })
       ).statusCode,
     ).toBe(401);
-    const initialOrderBody = initialOrder.json<{
+    const initialOrderBody = canonicalOrder.json<{
       readonly items: readonly { readonly materialId: string }[];
       readonly orderVersion: string;
     }>();
@@ -385,9 +385,21 @@ describe("Accounts API", () => {
     expect(reordered.statusCode).toBe(200);
     expect(reordered.json()).toMatchObject({ productId });
 
-    const staleOrder = await server.inject({
+    const retiredOrder = await server.inject({
       method: "PUT",
       url: `/authoring/series/${productId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: initialOrderBody.orderVersion,
+        orderedMaterialIds: [initial.materialId, companionReceipt.materialId],
+        programmePlacements,
+      },
+    });
+    expect(retiredOrder.statusCode).toBe(404);
+
+    const staleOrder = await server.inject({
+      method: "PUT",
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
@@ -644,7 +656,7 @@ describe("Accounts API", () => {
 
     expect(created.json()).not.toHaveProperty("profile.publicProfileId");
     // A Profile has no address for other members: the former member page and its avatar are gone.
-    const stored = await database.prisma.memberProfile.findUniqueOrThrow({
+    const stored = await database.prisma.accountProfile.findUniqueOrThrow({
       where: { accountId: ownerAccountId },
     });
     for (const url of [
@@ -724,7 +736,7 @@ describe("Accounts API", () => {
     });
     expect(removedDeleteRoute.statusCode).toBe(404);
     await expect(
-      database.prisma.memberProfileAuditEvent.findMany({
+      database.prisma.accountProfileAuditEvent.findMany({
         where: { accountId: ownerAccountId },
         orderBy: { createdAt: "asc" },
         select: { event: true },

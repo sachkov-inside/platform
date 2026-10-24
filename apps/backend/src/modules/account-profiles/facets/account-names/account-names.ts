@@ -10,7 +10,7 @@ export class AccountNames {
     if (!z.array(z.uuid()).max(100).safeParse(accountIds).success)
       return { ok: false } as const;
     try {
-      const rows = await this.prisma.memberProfile.findMany({
+      const rows = await this.prisma.accountProfile.findMany({
         where: { accountId: { in: [...accountIds] }, status: "active" },
         select: { accountId: true, displayName: true },
       });

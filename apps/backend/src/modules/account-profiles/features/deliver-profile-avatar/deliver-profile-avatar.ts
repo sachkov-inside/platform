@@ -26,7 +26,7 @@ export async function deliverProfileAvatar(
   if (avatarId === undefined) return notFound();
 
   try {
-    const profile = await dependencies.prisma.memberProfile.findUnique({
+    const profile = await dependencies.prisma.accountProfile.findUnique({
       where: { accountId: input.accountId },
       select: { avatarId: true, status: true },
     });

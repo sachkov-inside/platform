@@ -17,7 +17,7 @@ export async function readPrivateProfile(
   accountId: AccountId,
 ): Promise<AccountProfileResult<PrivateProfileState, ReadPrivateProfileError>> {
   try {
-    const stored = await prisma.memberProfile.findUnique({
+    const stored = await prisma.accountProfile.findUnique({
       where: { accountId },
     });
     if (stored === null) return { ok: true, value: { kind: "missing" } };

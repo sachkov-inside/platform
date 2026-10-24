@@ -34,7 +34,7 @@ export async function moderateAccountProfile(
 
   try {
     return await prisma.$transaction(async (transaction) => {
-      const current = await transaction.memberProfile.findUnique({
+      const current = await transaction.accountProfile.findUnique({
         where: { publicProfileId },
         select: { accountId: true, status: true },
       });
@@ -51,7 +51,7 @@ export async function moderateAccountProfile(
         };
       }
 
-      await transaction.memberProfile.update({
+      await transaction.accountProfile.update({
         where: { publicProfileId },
         data: {
           status: targetStatus,

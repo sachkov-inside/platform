@@ -575,7 +575,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       title: "Имя",
     });
     const subject = await learner();
-    await db.prisma.memberProfile.create({
+    await db.prisma.accountProfile.create({
       data: {
         accountId: subject.accountId,
         publicProfileId: randomUUID(),
@@ -592,7 +592,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     expect(listed.ok && listed.value.submissions[0]?.person).not.toHaveProperty(
       "bio",
     );
-    await db.prisma.memberProfile.update({
+    await db.prisma.accountProfile.update({
       where: { accountId: subject.accountId },
       data: { displayName: "Борис" },
     });
@@ -600,7 +600,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     expect(updated.ok && updated.value.submissions[0]?.person.displayName).toBe(
       "Борис",
     );
-    await db.prisma.memberProfile.update({
+    await db.prisma.accountProfile.update({
       where: { accountId: subject.accountId },
       data: { status: "disabled" },
     });
