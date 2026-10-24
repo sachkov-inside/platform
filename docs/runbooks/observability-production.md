@@ -186,6 +186,29 @@ storage guard и cleanup. Она создаёт только собственн�
 Публикуются только `production-proof.json`, `evidence.json`, `cleanup.json`, `worker-outcome.json`;
 весь private directory содержит ключи и не является отчётом для публикации.
 
+На отдельном Linux runner дополнительная команда исполняет ту же проверку, а затем два повтора
+idle/steady/spike по [фиксированному профилю](../../infra/observability/production/workload.json):
+
+```bash
+bash scripts/heavy-check.sh python3 scripts/observability-production/measure.py run \
+  --host-metrics --output /absolute/task-owned/fresh-private-directory
+```
+
+Профиль `host-metrics` здесь включается только на собственном disposable Linux runner.
+Без флага он остаётся выключенным. Проверяются реальные `up`, наличие принадлежащих Compose
+container series и отсутствие container series без service/project. Совместно с ingestion
+выполняются ограниченные metrics/logs/traces queries, снимаются CPU counters, charged memory,
+working set/file cache, доступные IO counters и размеры четырёх собственных volumes.
+`production-measurements.json` сохраняет фактические samples, длительности, ingestion lag,
+наблюдаемые drops и ошибки. Missing IO/volume/drop counter остаётся `null`, не нулём.
+Максимум memory samples называется наблюдаемым максимумом, не гарантированным peak.
+
+Это синтетический technical topology measurement. Shared PostgreSQL/Umami, весь корпус приложения,
+HTTP p95 ON/OFF, полная история/restore и запас физического Timeweb хоста остаются отдельными
+требованиями. Поле `acceptance` сохраняет `pending`, даже если выполнение профиля завершено.
+Linux CI запускает этот публичный путь с теми же pin, storage guard и cleanup; не ослабляет их
+из-за недоступности Mac registry или занятого локального стенда.
+
 Обзор Grafana подготовлен в `owner-overview/dashboard.json`: сравнение HTTP API/MCP,
 host/container metrics, queue/dependency/export symptoms. Его production data и визуальная приёмка
 проверяются отдельно. NoData не заменяется нулём. Семь суток production-наблюдений и измерения
