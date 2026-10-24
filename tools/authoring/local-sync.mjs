@@ -1,3 +1,4 @@
+import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // @ts-check
 import { contentMaterials, contentTasks } from "./package.mjs";
 import { z } from "zod";
@@ -24,7 +25,6 @@ import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import {
-  loadPackage,
   canonical,
   checksum,
   materialRevision,
@@ -727,6 +727,17 @@ export async function syncLocal(
     await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
+    if (pkg.legacyPractices.length) {
+      const resources = (journal.resources ??= {});
+      const key = `legacy-practice-package:${pkg.id}`;
+      resources[key] ??= {
+        sourcePackageId: pkg.id,
+        originalPractices: pkg.legacyPractices,
+        taskSources: (pkg.manifest.tasks ?? []).map((task) => task.sourceId),
+      };
+      await persist();
+    }
+
     if (
       pkg.manifest.selection.contentOnly &&
       (!reviewed ||

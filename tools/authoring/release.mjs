@@ -1,3 +1,4 @@
+import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // @ts-check
 import { contentMaterials, manifestSchema } from "./package.mjs";
 import { mkdir, readFile } from "node:fs/promises";
@@ -6,7 +7,6 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import {
-  loadPackage,
   materialRevision,
   canonical,
   checksum,

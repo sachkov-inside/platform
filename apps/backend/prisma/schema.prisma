@@ -2085,3 +2085,18 @@ model ProductAccessAction {
   @@map("product_access_actions")
   @@schema("account_rights")
 }
+
+// Immutable bridge from legacy source-bound requirements. Practice and Task versions are distinct.
+model LegacyPracticeMigration {
+  practiceId String @id @map("practice_id")
+  practiceVersion BigInt @map("practice_version")
+  definitionDigest String @map("definition_digest") @db.Char(64)
+  boundContentVersion BigInt @map("bound_content_version")
+  original Json
+  importReceipts Json @map("import_receipts")
+  disposition String
+  taskId String? @map("task_id") @db.Uuid
+  taskVersion Int? @map("task_version")
+  @@map("legacy_practice_migrations")
+  @@schema("product_tasks")
+}

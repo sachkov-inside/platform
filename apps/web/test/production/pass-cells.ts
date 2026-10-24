@@ -80,7 +80,7 @@ const surfaceChecks: Readonly<Record<string, string>> = {
   "assets@browser": "картинка закрытого урока: redirect на хранилище",
   "video@browser": "основное видео: playback session",
   "practice@browser": "блок «Проверка практики» и id задания на странице урока",
-  "practice@learner-mcp": "часть 0 задания через learning_practice_read",
+  "practice@learner-mcp": "часть 0 задания через learning_task_read",
   "materials-authoring@browser":
     "инструменты материалов: GET /api/authoring/materials",
   "billing-operations@owner-mcp": "каталог тарифов: billing_tiers_list",
@@ -103,7 +103,7 @@ export function passCellCheck(id: string): string {
       : action === "read-free-practice" &&
           surface === "practice" &&
           transport === "learner-mcp"
-        ? "все закреплённые части через learning_practice_read, SHA-256 и END_CONTEXT"
+        ? "все закреплённые части через learning_task_read, SHA-256 и END_CONTEXT"
         : surfaceChecks[`${surface}@${transport}`];
   if (check === undefined) throw new Error(`No check for pass cell ${id}`);
   return `${actionLabels[action] ?? action}: ${check}`;

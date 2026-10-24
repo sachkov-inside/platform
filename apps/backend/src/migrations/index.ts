@@ -1,4 +1,8 @@
 import {
+  name as legacyPracticeTasksName,
+  statement as legacyPracticeTasksStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0111-legacy-practice-tasks.js";
+import {
   name as productSalesStateName,
   statement as productSalesStateStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0110-product-sales-state.js";
@@ -710,6 +714,7 @@ export const platformMigrations = [
   { name: productPricesName, statement: productPricesStatement },
   { name: paymentReviewName, statement: paymentReviewStatement },
   { name: productSalesStateName, statement: productSalesStateStatement },
+  { name: legacyPracticeTasksName, statement: legacyPracticeTasksStatement },
 ] as const;
 
 export function migrateToLatest(

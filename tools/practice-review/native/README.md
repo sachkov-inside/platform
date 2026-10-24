@@ -1,4 +1,4 @@
-# Native learner practice experiment
+# Native learner Task review experiment
 
 This local acceptance harness uses the real Platform MCP HTTP server, OAuth bearer
 verifier and learner composition with synthetic Materials/ContentAccess ports.
@@ -126,3 +126,15 @@ its read-only sandbox, Claude gets Read/Glob/Grep/Bash. `task-gates.mts` judges 
 - the report covers every criterion once, within the oracle, and claims `obtainedByRun` only after
   a run; the bad project gets no `confirmed` for deduplication or ownership;
 - login, process, unchanged project and logout, as in the practice trials.
+
+
+## Current Task consumer and legacy history (#1710)
+
+`matrix.mts` uses explicit synthetic Product Tasks and `learning_task_read`; `package-adapter.mts`
+includes the complete version-pinned Material through the production Task serializer. The
+`task-readonly` client profile exposes only that read tool. The matrix still requires every part,
+matching context/content/part SHA-256, END_CONTEXT, complete criterion coverage, observed current
+files and the existing runtime/sandbox evidence. It does not call the old Practice port.
+The separate `task-v3` profile retains its consent and saved-submission checks.
+Earlier experiment reports remain historical evidence of their original protocol, not current
+production/editorial acceptance. No real native model run is implied by the adapter/gate test suite.
