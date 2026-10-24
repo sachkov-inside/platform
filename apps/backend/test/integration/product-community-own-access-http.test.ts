@@ -1,4 +1,7 @@
-import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
 import { randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -72,7 +75,7 @@ async function holder() {
   await linkTelegramAccount(db.prisma, {
     accountId,
     identityRef,
-    now: new Date(),
+    now: new Date(fixedTestInstant()),
   });
   const binding = bindingLookupResponseSchema.parse(
     (await send("binding", { contractVersion: version, identityRef })).json(),
@@ -93,7 +96,7 @@ async function product(accountId: string, nullMapping = false) {
         productId: id,
         groupRef: null,
         updatedBy: accountId,
-        updatedAt: new Date(),
+        updatedAt: new Date(fixedTestInstant()),
       },
     });
   return { id, grant };
