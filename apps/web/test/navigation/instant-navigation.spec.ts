@@ -865,9 +865,11 @@ test("авторская запись сбрасывает общий кеш: с
     const guest = await browser.newContext();
     const guestPage = await guest.newPage();
     await guestPage.goto(`${baseURL}${product}`);
-    await expect(
-      guestPage.locator("[data-application-content] [data-product-landing]"),
-    ).toBeVisible();
+    const landing = guestPage
+      .locator("[data-application-content] [data-product-landing]")
+      .filter({ visible: true });
+    await expect(landing).toHaveCount(1);
+    await expect(landing).toBeVisible();
     await guest.close();
   };
 
@@ -1138,9 +1140,11 @@ test("Главная ↔ продукт: свой скелет продукта,
 
   const productReady = async () => {
     await page.waitForURL((url) => url.pathname === product);
-    await expect(
-      page.locator("[data-application-content] [data-product-landing]"),
-    ).toBeVisible();
+    const landing = page
+      .locator("[data-application-content] [data-product-landing]")
+      .filter({ visible: true });
+    await expect(landing).toHaveCount(1);
+    await expect(landing).toBeVisible();
   };
   const homeReady = async () => {
     await page.waitForURL((url) => url.pathname === "/");

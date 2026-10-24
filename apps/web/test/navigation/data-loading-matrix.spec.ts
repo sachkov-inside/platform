@@ -16,6 +16,17 @@ const backend = `http://127.0.0.1:${backendPort}`;
 const course = "/products/performance-course";
 const programme = `${course}/programme`;
 const lesson = "/materials/data-loading-image-lesson";
+
+async function visibleCourseLanding(page: Page) {
+  // Suspense may retain an article in a hidden S-container while the visible article is ready.
+  const landing = page
+    .locator('[data-product-landing="performance-course"]')
+    .filter({ visible: true });
+  await expect(landing).toHaveCount(1);
+  await expect(landing).toBeVisible();
+  return landing;
+}
+
 const recordsSchema = z.object({
   records: z.array(
     z.object({
@@ -268,9 +279,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
         else {
           if (path === "warm") {
             await page.goto(course, { waitUntil: "commit" });
-            await expect(
-              page.locator('[data-product-landing="performance-course"]'),
-            ).toBeVisible();
+            await visibleCourseLanding(page);
             await page
               .locator('a[href="/"]')
               .filter({ visible: true })
@@ -328,37 +337,35 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           });
           await link.click();
         }
-        await expect(
-          page.locator('[data-product-landing="performance-course"]'),
-        ).toBeVisible();
+        const landing = await visibleCourseLanding(page);
         const bodyReady = await page.evaluate(() => performance.now());
         if (role === "active-owner") {
-          await expect(page.locator(".aie-cohort-status")).toHaveCount(0);
+          await expect(landing.locator(".aie-cohort-status")).toHaveCount(0);
           for (const selector of [
             ".aie-learning-film",
             ".aie-learning-status",
           ]) {
             await expect(
-              page
+              landing
                 .locator(selector)
                 .getByRole("link", { name: "Продолжить обучение" }),
             ).toHaveAttribute("href", "/products/performance-course/programme");
           }
           await expect(
-            page.locator(".aie-status-lead .aie-status-default"),
+            landing.locator(".aie-status-lead .aie-status-default"),
           ).toBeHidden();
         } else {
           await expect(
-            page.locator(".aie-cohort-status").filter({ visible: true }),
+            landing.locator(".aie-cohort-status").filter({ visible: true }),
           ).toBeVisible();
           await expect(
-            page
+            landing
               .locator(".aie-cohort-status-countdown")
               .filter({ visible: true }),
           ).toContainText("до старта");
         }
         await expect(
-          page.locator(".start-countdown-badge").first(),
+          landing.locator(".start-countdown-badge").first(),
         ).toContainText("до старта");
         const optionalReady = await page.evaluate(() => performance.now());
         await documentResponse?.finished();
@@ -720,9 +727,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
             .first()
             .click();
         } else await page.goto(course, { waitUntil: "commit" });
-        await expect(
-          page.locator('[data-product-landing="performance-course"]'),
-        ).toBeVisible();
+        await visibleCourseLanding(page);
         await page.clock.runFor(250);
         // Clock advancement starts prefetch; the completed body is its independent barrier.
         await expect.poll(() => feedResponses.length).toBe(1);
