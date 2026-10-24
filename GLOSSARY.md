@@ -336,7 +336,8 @@ _Avoid_: author, member, Telegram administrator
 **Account Profile**:
 The Account holder's private presentation: display name, biography and avatar, separate from
 sign-in identity and access. An authorized author may read its active display name for Task
-submissions, without a public profile, biography or avatar projection.
+submissions, and the owner with sales permission may read it in the admin People directory, without
+a public profile, biography or avatar projection.
 _Avoid_: Account, public internet profile, identity record
 
 **Account Rights**:

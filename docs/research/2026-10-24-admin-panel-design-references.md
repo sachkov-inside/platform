@@ -363,7 +363,7 @@ only if the platform actually records views for the same population.
   (same Polaris source).
 - Empty chart: say what will appear and how to make it appear, link to the action
   ([NN/g empty states](https://www.nngroup.com/articles/empty-state-interface-design/)).
-- Use the `dataviz` skill, when available, before writing chart code.
+- Chart colour, axis and interaction rules are a separate design decision; this note does not prescribe tooling.
 
 ## 7. Visual polish
 
