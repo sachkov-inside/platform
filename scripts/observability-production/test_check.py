@@ -1,5 +1,9 @@
 """The HTTP observation must prove the expected value in its captured response."""
 import json
+import io
+from contextlib import redirect_stdout
+from pathlib import Path
+import tempfile
 import unittest
 
 import check
@@ -17,6 +21,20 @@ class QueryReadiness(unittest.TestCase):
                          (200, '{"status":"success","data":{"resultType":"vector","result":[]}}')):
             with self.subTest(response=response):
                 self.assertFalse(check.query_one(response))
+
+    def test_job_feedback_does_not_publish_provider_or_exception_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / 'readiness.json').write_text(json.dumps([{'probe': 'measured_platform-host',
+                'outcome': 'timed_out', 'last_http_status': None, 'body': 'private-sentinel'}]))
+            (path / 'container-states.json').write_text(json.dumps([{'service': 'host-agent',
+                'state': 'running', 'exit_code': 0, 'Error': 'private-sentinel'}]))
+            captured = io.StringIO()
+            with redirect_stdout(captured): check.feedback(path)
+            self.assertNotIn('private-sentinel', captured.getvalue())
+            self.assertIn('host-agent', captured.getvalue())
+            (path / 'readiness.json').write_text(json.dumps([{'probe': 'private-sentinel'}]))
+            with self.assertRaises(ValueError), redirect_stdout(io.StringIO()): check.feedback(path)
 
 
 if __name__ == '__main__':

@@ -228,6 +228,9 @@ def prepare(output, *, host_metrics):
     check.prepare(output)
     plan = json.loads((output / 'compose.json').read_text())
     plan['services']['alloy']['ports'].append('127.0.0.1:14318:4318')
+    if host_metrics:
+        # Explicit fixture opt-in persists through supervisor cleanup/recovery commands.
+        plan['services']['host-agent'].pop('profiles', None)
     pilot.write_json(output / 'compose.json', plan)
     pilot.write_json(output / 'measurement-mode.json', {'host_metrics': host_metrics})
 
