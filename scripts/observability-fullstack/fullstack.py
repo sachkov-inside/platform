@@ -61,6 +61,8 @@ def inputs(output, images):
     monitor=output/'monitoring'
     production.prepare(monitor,data=output/'monitoring-data',project='inside-observability-full-'+os.urandom(6).hex())
     core=json.loads((monitor/'compose.json').read_text())
+    # Every fixture service is acquired explicitly; unprofiled down must include this owner.
+    core['services']['host-agent'].pop('profiles',None)
     watchdog=output/'watchdog-fixture';watchdog.mkdir(mode=0o755)
     expected_mount={'type':'bind','source':'/var/lib/inside/watchdog/metrics','target':'/watchdog-metrics','read_only':True,'bind':{'create_host_path':False}}
     for mount in core['services']['host-agent'].get('volumes',[]):
@@ -114,7 +116,7 @@ def inputs(output, images):
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
     pilot.write_json(output/'fullstack-source.json',{'source':source,'images':pins,'profile':settings,
-        'capacity_scope':'whole isolated process topology; physical Timeweb verification and seven days remain open'})
+        'capacity_scope':'whole isolated process topology; source-cache sampler workload, physical Timeweb verification and seven days remain open'})
 
 
 def mode(output,enabled):
@@ -224,7 +226,7 @@ def worker(output):
     if owner['supervisor_pid']!=os.getppid():raise ValueError('external_supervisor_required')
     compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
     profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
-    report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['physical Timeweb host verification','seven days'],'controlled_outage':None}
+    report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
     pilot.write_json(output/'fullstack-proof.json',report)
     try:
         with pilot.worker_storage_guard(owner,compose,output):
@@ -301,7 +303,7 @@ def evaluate(report):
         return sum(values)/len(values) if values else None
     off,on=cpu('off'),cpu('on')
     hosts=[sample for row in phases for sample in row['host_samples']]
-    return acceptance.assess({'complete':len(phases)==12 and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
+    return acceptance.assess({'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
         'oom':any('process_replaced_or_oom' in row['errors'] for row in phases),
         'enospc':any(row['disk_free_fraction']==0 or row['free_inodes']==0 for row in hosts),
         'unexplained_loss':sum(row['unexpected_failures']+(row['unexplained_probe_loss'] or 0) for row in loads),
@@ -345,7 +347,7 @@ def main():
         stage.require_consumer(str(args.output.resolve()))
         pilot.run(args.output,prepare_inputs=lambda output:inputs(output,args.images),worker_script=Path(__file__).resolve(),
             ports=(18427,13000,14318,1514,13301),services=SERVICES,project_prefix=PREFIX,
-            scope='representative whole-process Linux resource corpus; production rollout evidence incomplete',missing=['physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
+            scope='representative whole-process Linux resource corpus; production rollout evidence incomplete',missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
 
 
 if __name__=='__main__':

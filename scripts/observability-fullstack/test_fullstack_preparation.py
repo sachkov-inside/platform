@@ -34,6 +34,7 @@ class Preparation(unittest.TestCase):
             self.assertEqual(plan['services']['grafana']['user'],f'{secret.st_uid}:{secret.st_gid}')
             self.assertEqual(secret.st_mode&0o777,0o600)
             self.assertIn('storage',plan['services']['loadgen']['networks'])
+            self.assertNotIn('profiles',plan['services']['host-agent'])
             for name in fullstack.APPS:
                 self.assertNotIn('ports',plan['services'][name])
                 self.assertEqual(plan['services'][name]['pull_policy'],'never')
