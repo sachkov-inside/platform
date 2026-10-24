@@ -1,6 +1,8 @@
+import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import {
   StartResponseDeliveryQueue,
   replyStateCounts,
+  hasDueReply,
   replyAttemptOutcomeCounts,
 } from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -337,72 +339,90 @@ describe("sales funnel events", () => {
     ]);
   });
 
-  it("retires an already queued consent prompt without sending, starving traffic or erasing its receipt", async () => {
-    await text("/start");
-    const queue = app.get(StartResponseDeliveryQueue);
-    const old = {
-      botIdentity: "inside",
-      telegramUserId: "42",
-      privateChatId: "42",
-      messageText: "retired consent prompt",
-      sourceKey: "marketing-consent:inside:1711",
-      now,
-      buttons: [{ text: "old consent", callbackData: "marketing:consent" }],
-    };
-    await queue.enqueue(old);
-    // Restrict the public claim to the retired prompt: unrelated welcome work is preserved.
-    expect(await queue.claimNext(now, false, old.sourceKey)).toBeUndefined();
-    expect(await queue.enqueue(old)).toBe(false);
-    expect(await replyStateCounts(database)).toMatchObject({ rejected: 1 });
-  });
-
-  it("keeps an uncertain historical consent prompt terminal and preserves its external-attempt evidence", async () => {
-    await text("/start");
-    const queue = app.get(StartResponseDeliveryQueue);
-    const old = {
-      botIdentity: "inside",
-      telegramUserId: "42",
-      privateChatId: "42",
-      messageText: "old uncertain consent prompt",
-      sourceKey: "marketing-consent:inside:1712",
-      now,
-    };
-    await queue.enqueue(old);
-    // A historical fixture restores an attempt from the retired sender, not a new current send.
-    const receipt = await database
-      .selectFrom("start_response_deliveries")
-      .select("id")
-      .where("source_key", "=", old.sourceKey)
-      .executeTakeFirstOrThrow();
-    await database
-      .insertInto("start_response_delivery_attempts")
-      .values({
-        start_response_delivery_id: receipt.id,
-        attempt_number: 1,
-        attempted_at: now,
-        diagnostic_code: "historical_lost_response",
-        outcome: "transport_unknown",
-        provider_error_code: null,
-        provider_message_id: null,
-      })
-      .execute();
-    await database
-      .updateTable("start_response_deliveries")
-      .set({
-        state: "retry_scheduled",
-        attempt_count: 1,
-      })
-      .where("id", "=", receipt.id)
-      .execute();
-    expect(await queue.claimNext(now, false, old.sourceKey)).toBeUndefined();
-    expect(await replyStateCounts(database)).toMatchObject({
-      unknown_exhausted: 1,
-    });
-    expect(await replyAttemptOutcomeCounts(database)).toMatchObject({
-      transport_unknown: 1,
-    });
-    expect(await queue.enqueue(old)).toBe(false);
-  });
+  it.each([false, true])(
+    "retires a historical consent prompt (unknown=%s) while unfiltered ordinary traffic keeps its receipt and attempts",
+    async (unknown) => {
+      await app.get(BotContacts).observeStart(
+        {
+          botIdentity: "inside",
+          telegramUserId: "42",
+          privateChatId: "42",
+          updateId: "1",
+          observedAt: now,
+        },
+        "none",
+      );
+      const queue = app.get(StartResponseDeliveryQueue);
+      const old = {
+        botIdentity: "inside",
+        telegramUserId: "42",
+        privateChatId: "42",
+        messageText: "retired consent prompt",
+        sourceKey: "marketing-consent:inside:1711",
+        now,
+        buttons: [{ text: "old consent", callbackData: "marketing:consent" }],
+      };
+      await queue.enqueue(old);
+      if (unknown) {
+        // Restored evidence from the retired sender, never a new current send.
+        const receipt = await database
+          .selectFrom("start_response_deliveries")
+          .select("id")
+          .where("source_key", "=", old.sourceKey)
+          .executeTakeFirstOrThrow();
+        await database
+          .insertInto("start_response_delivery_attempts")
+          .values({
+            start_response_delivery_id: receipt.id,
+            attempt_number: 1,
+            attempted_at: now,
+            diagnostic_code: "historical_lost_response",
+            outcome: "transport_unknown",
+            provider_error_code: null,
+            provider_message_id: null,
+          })
+          .execute();
+        await database
+          .updateTable("start_response_deliveries")
+          .set({ state: "retry_scheduled", attempt_count: 1 })
+          .where("id", "=", receipt.id)
+          .execute();
+      }
+      const ordinary = {
+        ...old,
+        buttons: [],
+        messageText: "ordinary current reply",
+        sourceKey: "ordinary-service:inside:1711",
+      };
+      await queue.enqueue(ordinary);
+      expect(await hasDueReply(database, "inside", now)).toBe(true);
+      const claimed = await queue.claimNext(now);
+      expect(claimed).toMatchObject({
+        messageText: "ordinary current reply",
+        attemptNumber: 1,
+      });
+      if (!claimed) throw new Error("Ordinary due reply was starved");
+      expect(
+        await queue.recordResult(
+          claimed,
+          { kind: "delivered", providerMessageId: "1711001" },
+          now,
+        ),
+      ).toBe(true);
+      expect(await queue.enqueue(ordinary)).toBe(false);
+      expect(await queue.enqueue(old)).toBe(false);
+      expect(await queue.claimNext(now)).toBeUndefined();
+      expect(await hasDueReply(database, "inside", now)).toBe(false);
+      expect(await replyStateCounts(database)).toMatchObject(
+        unknown
+          ? { unknown_exhausted: 1, delivered: 1 }
+          : { rejected: 1, delivered: 1 },
+      );
+      expect(await replyAttemptOutcomeCounts(database)).toMatchObject(
+        unknown ? { transport_unknown: 1, delivered: 1 } : { delivered: 1 },
+      );
+    },
+  );
 
   it("reports a confirmed link, including one of a bot contact from before communication records", async () => {
     await publishDefaultFunnel();

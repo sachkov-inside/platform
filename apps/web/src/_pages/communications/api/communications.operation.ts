@@ -44,7 +44,7 @@ export const listFunnelsOperation = defineMutationOperation({
   transportFailure: communicationsFailure,
 });
 
-/** Reads one CommunicationSequence. */
+/** Reads one Funnel. */
 export const readFunnelOperation = defineMutationOperation({
   input: z.object({ funnelId: z.guid() }),
   method: "POST",
@@ -53,7 +53,7 @@ export const readFunnelOperation = defineMutationOperation({
   transportFailure: communicationsFailure,
 });
 
-/** Saves a CommunicationSequence draft at the revision the author edited. */
+/** Saves a Funnel draft at the revision the author edited. */
 export const saveFunnelOperation = defineMutationOperation({
   input: saveSchema,
   method: "POST",
@@ -62,7 +62,7 @@ export const saveFunnelOperation = defineMutationOperation({
   transportFailure: communicationsFailure,
 });
 
-/** Previews what publishing the CommunicationSequence draft changes. */
+/** Previews what publishing the Funnel draft changes. */
 export const previewFunnelOperation = defineMutationOperation({
   input: commandSchema,
   method: "POST",
@@ -71,7 +71,7 @@ export const previewFunnelOperation = defineMutationOperation({
   transportFailure: communicationsFailure,
 });
 
-/** Publishes the CommunicationSequence draft. */
+/** Publishes the Funnel draft. */
 export const publishFunnelOperation = defineMutationOperation({
   input: commandSchema,
   method: "POST",
@@ -80,7 +80,7 @@ export const publishFunnelOperation = defineMutationOperation({
   transportFailure: communicationsFailure,
 });
 
-/** Pauses, resumes, archives or restores a CommunicationSequence. */
+/** Pauses, resumes, archives or restores a Funnel. */
 export const changeFunnelLifecycleOperation = defineMutationOperation({
   input: lifecycleSchema,
   method: "POST",
@@ -107,7 +107,7 @@ export const saveIntroOperation = defineMutationOperation({
   transportFailure: communicationsFailure,
 });
 
-/** Reads one page of a CommunicationSequence's deliveries. */
+/** Reads one page of a Funnel's deliveries. */
 export const readDeliveriesOperation = defineMutationOperation({
   input: z.object({ funnelId: z.guid(), cursor: z.string().optional() }),
   method: "POST",

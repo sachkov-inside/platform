@@ -2,7 +2,7 @@ import styles from "./broadcasts.module.css";
 import { Button } from "@/shared/ui/button";
 import {
   type StatisticsResult,
-  type CommunicationSequence,
+  type Funnel,
   type Entry,
   type Contact,
   errorMessage,
@@ -20,7 +20,7 @@ export function AnalyticsPanel({
   onNextDeliveries,
 }: {
   readonly result: StatisticsResult | undefined;
-  readonly funnels: readonly CommunicationSequence[];
+  readonly funnels: readonly Funnel[];
   readonly deliveries: z.infer<typeof deliveryListSchema> | undefined;
   readonly onContact: (contact: Contact) => void;
   readonly onNextContacts: (cursor: string) => void;
@@ -65,7 +65,7 @@ export function AnalyticsPanel({
           title: "Доставка",
           hint: "Участники и отправленные части для выбранных коммуникаций.",
           values: {
-            "Участники последовательностей": s.uniqueParticipants,
+            "Участники воронок": s.uniqueParticipants,
             "Отправлено частей": s.deliveries.sent,
             "Пропущено частей": s.deliveries.suppressed,
             "Ошибок отправки": s.deliveries.failed,
@@ -214,7 +214,7 @@ export function EntryHistory({
   funnels,
 }: {
   readonly entries: readonly Entry[];
-  readonly funnels: readonly CommunicationSequence[];
+  readonly funnels: readonly Funnel[];
 }) {
   const sources = funnels.flatMap((f) => f.sources);
   return entries.length > 0 ? (

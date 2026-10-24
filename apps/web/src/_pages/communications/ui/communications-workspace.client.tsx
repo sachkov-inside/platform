@@ -10,15 +10,15 @@ import {
   partSchema,
   lifecycleLabels,
   messages,
-  newSequence,
+  newFunnel,
   type Failure,
-  type CommunicationSequence,
+  type Funnel,
   type Intro,
   type Preview,
   type Result,
 } from "../model/communications";
 import { PostLibrary } from "./post-library.client";
-import { SequenceDelay } from "./funnel-delay.client";
+import { FunnelDelay } from "./funnel-delay.client";
 import type { Part } from "../model/communications";
 import type { SavedPost } from "../model/broadcasts";
 import { sampleOperation } from "../model/sample-operation";
@@ -33,8 +33,8 @@ export function CommunicationsWorkspace({
   actions: CommunicationsActions;
 }) {
   const cache = useQueryClient();
-  const [selected, setSelected] = useState<CommunicationSequence | null>(null);
-  const [saved, setSaved] = useState<CommunicationSequence | null>(null);
+  const [selected, setSelected] = useState<Funnel | null>(null);
+  const [saved, setSaved] = useState<Funnel | null>(null);
   const [introDraft, setIntroDraft] = useState<Intro | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [notice, setNotice] = useState("");
@@ -97,7 +97,7 @@ export function CommunicationsWorkspace({
       success(result.value);
     }
   }
-  function acceptFunnel(funnel: CommunicationSequence) {
+  function acceptFunnel(funnel: Funnel) {
     setSelected(funnel);
     setSaved(funnel);
     setPreview(null);
@@ -122,7 +122,7 @@ export function CommunicationsWorkspace({
       received(result, (value) => {
         acceptFunnel(value);
         setNotice(
-          "Последовательность опубликована. Отправленные шаги не будут повторены.",
+          "Воронка опубликована. Отправленные шаги не будут повторены.",
         );
       });
     },
@@ -144,7 +144,7 @@ export function CommunicationsWorkspace({
     onSuccess: (result) => {
       received(result, (value) => {
         acceptFunnel(value);
-        setNotice("Состояние последовательности обновлено.");
+        setNotice("Состояние воронки обновлено.");
       });
     },
   });
@@ -269,7 +269,7 @@ export function CommunicationsWorkspace({
       />
     );
   }
-  function edit(value: CommunicationSequence) {
+  function edit(value: Funnel) {
     setSelected(value);
     setPreview(null);
     setNotice("");
@@ -304,12 +304,12 @@ export function CommunicationsWorkspace({
             </Link>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-            Последовательности Telegram
+            Воронки Telegram
           </h1>
           <p className="max-w-2xl text-muted-foreground">
             Создайте посты в меню /admin вашего Telegram-бота. Здесь соберите из
-            них знакомство, первый ответ и шаги последовательности, проверьте
-            охват и опубликуйте изменения.
+            них знакомство, первый ответ и шаги воронки, проверьте охват и
+            опубликуйте изменения.
           </p>
         </header>
         <div
@@ -342,9 +342,7 @@ export function CommunicationsWorkspace({
             role="status"
             className="space-y-5 rounded-xl border border-border bg-card p-6"
           >
-            <p className="text-sm text-muted-foreground">
-              Загружаем последовательности…
-            </p>
+            <p className="text-sm text-muted-foreground">Загружаем воронки…</p>
             <div aria-hidden="true" className="grid gap-4 sm:grid-cols-2">
               {[0, 1].map((key) => (
                 <div
@@ -360,7 +358,7 @@ export function CommunicationsWorkspace({
             className="rounded-xl border border-border bg-card p-6"
           >
             <h2 className="mb-2 text-lg font-semibold">
-              Не удалось открыть последовательности
+              Не удалось открыть воронки
             </h2>
             <p className="text-sm text-muted-foreground">
               {messages[listFailure.code]}
@@ -381,22 +379,21 @@ export function CommunicationsWorkspace({
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 id="funnel-list-heading" className="text-xl font-semibold">
-                  Ваши последовательности
+                  Ваши воронки
                 </h2>
                 <Button
                   type="button"
                   className="min-h-12"
                   disabled={busy || dirty}
                   onClick={() => {
-                    const value = newSequence();
+                    const value = newFunnel();
                     setSelected(value);
                     setSaved(value);
                     setPreview(null);
                     setFailure(null);
                   }}
                 >
-                  <Plus aria-hidden="true" className="size-4" /> Создать
-                  последовательность
+                  <Plus aria-hidden="true" className="size-4" /> Создать воронку
                 </Button>
               </div>
               {list.data.value.funnels.length === 0 ? (
@@ -409,8 +406,8 @@ export function CommunicationsWorkspace({
                     Первый шаг к знакомству
                   </h3>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                    Последовательностей пока нет. Начните со стандартной, она
-                    открывается при обычном запуске бота.
+                    Воронок пока нет. Начните со стандартной, она открывается
+                    при обычном запуске бота.
                   </p>
                 </div>
               ) : (
@@ -425,7 +422,7 @@ export function CommunicationsWorkspace({
                           {funnel.name}
                         </h3>
                         <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <SequenceStatus lifecycle={funnel.lifecycle} />
+                          <FunnelStatus lifecycle={funnel.lifecycle} />
                           {funnel.isDefault ? "Стандартная" : "Тематическая"} ·
                           Шагов: {funnel.steps.length}
                         </p>
@@ -447,7 +444,7 @@ export function CommunicationsWorkspace({
                       >
                         {selected?.funnelId === funnel.funnelId
                           ? "Открыта в редакторе"
-                          : "Открыть последовательность"}
+                          : "Открыть воронку"}
                       </Button>
                     </li>
                   ))}
@@ -478,14 +475,13 @@ export function CommunicationsWorkspace({
                         setCursor(list.data.value.nextCursor ?? undefined);
                     }}
                   >
-                    Следующие последовательности
+                    Следующие воронки
                   </Button>
                 ) : null}
               </div>
               {dirty ? (
                 <p className="text-sm text-muted-foreground">
-                  Сохраните правки или отмените их перед переключением
-                  последовательности.
+                  Сохраните правки или отмените их перед переключением воронки.
                 </p>
               ) : null}
             </section>
@@ -495,9 +491,9 @@ export function CommunicationsWorkspace({
               </summary>
               <div className="mt-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Отправляется перед первым входом в любую последовательность.
-                  Изменение этого блока не повторяет знакомство. Сохранение
-                  сразу меняет блок для новых получателей.
+                  Отправляется перед первым входом в любую воронку. Изменение
+                  этого блока не повторяет знакомство. Сохранение сразу меняет
+                  блок для новых получателей.
                 </p>
                 {intro.isPending ? (
                   <p role="status">Загружаем знакомство…</p>
@@ -557,17 +553,12 @@ export function CommunicationsWorkspace({
               </div>
             </details>
             {selected ? (
-              <section
-                aria-label="Редактор последовательности"
-                className="space-y-6"
-              >
+              <section aria-label="Редактор воронки" className="space-y-6">
                 <h2 className="break-words text-2xl font-semibold tracking-tight">
-                  {selected.revision === 0
-                    ? "Новая последовательность"
-                    : selected.name}
+                  {selected.revision === 0 ? "Новая воронка" : selected.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  <SequenceStatus lifecycle={selected.lifecycle} /> ·
+                  <FunnelStatus lifecycle={selected.lifecycle} /> ·
                   Опубликованная версия:{" "}
                   {selected.publishedRevision ?? "ещё нет"} ·{" "}
                   {dirty
@@ -594,12 +585,10 @@ export function CommunicationsWorkspace({
                   }}
                 >
                   <fieldset disabled={busy} className="min-w-0 space-y-6">
-                    <legend className="sr-only">
-                      Настройки последовательности
-                    </legend>
+                    <legend className="sr-only">Настройки воронки</legend>
                     <div className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                       <label className="block text-sm font-medium">
-                        Название последовательности
+                        Название воронки
                         <input
                           className={fieldClass}
                           name="funnel-name"
@@ -620,12 +609,11 @@ export function CommunicationsWorkspace({
                             edit({ ...selected, isDefault: e.target.checked });
                           }}
                         />
-                        Стандартная последовательность для обычного запуска бота
+                        Стандартная воронка для обычного запуска бота
                       </label>
                       <p className="text-sm text-muted-foreground">
                         Назначение вступает в силу при публикации. Тематическая
-                        ссылка не подписывает человека на стандартную
-                        последовательность.
+                        ссылка не подписывает человека на стандартную воронку.
                       </p>
                     </div>
                     <div className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
@@ -714,7 +702,7 @@ export function CommunicationsWorkspace({
                               </Button>
                             </div>
                           </div>
-                          <SequenceDelay
+                          <FunnelDelay
                             name={`delay-${step.stepId}`}
                             value={step.delaySeconds}
                             onChange={(delaySeconds) => {
@@ -770,10 +758,9 @@ export function CommunicationsWorkspace({
                     <section className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                       <h3 className="text-xl font-semibold">Источники входа</h3>
                       <p className="text-sm text-muted-foreground">
-                        Несколько источников могут вести в одну
-                        последовательность. Код остаётся неизменным после
-                        сохранения. Новые ссылки начинают работать после
-                        публикации.
+                        Несколько источников могут вести в одну воронку. Код
+                        остаётся неизменным после сохранения. Новые ссылки
+                        начинают работать после публикации.
                       </p>
                       {selected.sources.map((source, index) => (
                         <div
@@ -947,7 +934,7 @@ export function CommunicationsWorkspace({
                         <li>Переставлено: {preview.reorderedStepIds.length}</li>
                         <li>Ожидаемый охват: {preview.eligibleContacts}</li>
                         <li>
-                          Завершили последовательность и получат новые шаги:{" "}
+                          Завершили воронку и получат новые шаги:{" "}
                           {preview.completedParticipantsReceivingNewSteps}
                         </li>
                       </ul>
@@ -1006,7 +993,7 @@ export function CommunicationsWorkspace({
                             });
                           }}
                         >
-                          Опубликовать последовательность
+                          Опубликовать воронку
                         </Button>
                       )}
                     </div>
@@ -1015,7 +1002,7 @@ export function CommunicationsWorkspace({
                 {selected.publishedRevision !== null ? (
                   <section className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                     <h3 className="text-xl font-semibold">
-                      Управление последовательностью
+                      Управление воронкой
                     </h3>
                     <div className="flex flex-wrap gap-3">
                       {(selected.lifecycle === "archived"
@@ -1137,11 +1124,7 @@ export function CommunicationsWorkspace({
   );
 }
 
-function SequenceStatus({
-  lifecycle,
-}: {
-  lifecycle: CommunicationSequence["lifecycle"];
-}) {
+function FunnelStatus({ lifecycle }: { lifecycle: Funnel["lifecycle"] }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
       <span

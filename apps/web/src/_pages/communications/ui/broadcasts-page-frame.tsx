@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import styles from "./broadcasts.module.css";
 
 /**
- * Рамка страницы рассылок: прокручиваемое содержимое маршрута, возврат к последовательностям и сетка
+ * Рамка страницы рассылок: прокручиваемое содержимое маршрута, возврат к воронкам и сетка
  * разделов. Приложение и Storybook берут её отсюда, поэтому панели видны в том же кадре, что и
  * на `/authoring/communications/broadcasts`.
  */
@@ -26,7 +26,7 @@ export function BroadcastsPageFrame({
           href="/authoring/communications"
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
-          Последовательности Telegram
+          Воронки Telegram
         </Link>
         {children}
       </div>

@@ -180,7 +180,7 @@ export const templateResultSchema = success({
 });
 export type Broadcast = z.infer<typeof broadcastSchema>;
 export type Part = z.infer<typeof partSchema>;
-export type CommunicationSequence = z.infer<typeof funnelSchema>;
+export type Funnel = z.infer<typeof funnelSchema>;
 export type Entry = z.infer<typeof entrySchema>;
 export type Contact = z.infer<typeof contactSchema>;
 export type StatisticsResult = z.infer<typeof statisticsResultSchema>;

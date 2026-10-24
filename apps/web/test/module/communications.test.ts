@@ -10,7 +10,7 @@ import {
 } from "../../src/_pages/communications/api/communications.browser";
 import {
   contentSchema,
-  newSequence,
+  newFunnel,
   funnelSchema,
   previewSchema,
 } from "../../src/_pages/communications/model/communications";
@@ -64,7 +64,7 @@ describe("communications browser and presentation boundary", () => {
     ).toBe(false);
   });
   it("preserves operation identity and stale revision on repeated save without publishing", async () => {
-    const draft = { ...newSequence(), name: "Test" };
+    const draft = { ...newFunnel(), name: "Test" };
     draft.entryResponse.parts.push({
       partId: id,
       content: { type: "text", text: "Hello", entities: [], buttons: [] },

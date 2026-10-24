@@ -43,7 +43,7 @@ export function PostLibrary(
       <p className={styles["hint"]}>
         Откройте /admin в боте и создайте пост. Текст, медиа и форматирование
         сохранятся. Здесь можно настроить кнопки и выбрать пост для рассылки или
-        последовательности.
+        воронки.
       </p>
       <Button
         type="button"
@@ -227,7 +227,7 @@ function PostDetails({
                     setSaved(result);
                     setButtons(result.content.buttons);
                     setMessage(
-                      "Пост сохранён. Уже выбранные сообщения рассылок и последовательностей не изменились.",
+                      "Пост сохранён. Уже выбранные сообщения рассылок и воронок не изменились.",
                     );
                   } else
                     setMessage(
