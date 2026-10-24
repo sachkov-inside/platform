@@ -16,6 +16,7 @@ BINDING_INPUTS = (*recovery.FOUNDATION_INPUTS,
     'infra/observability/umami/recovery-cache.lock.json', 'infra/observability/umami/inputs.lock.json',
     'infra/observability/umami/schema-fixture.sql',
     'scripts/observability-umami/recovery.py', 'scripts/observability-umami/recovery_runtime.py',
+    'scripts/observability-umami/foundation.py', 'infra/production/database/libpq-version.c',
     'scripts/observability-umami/prepare.py', 'scripts/observability-umami/runtime.py',
     'scripts/observability-umami/retention.py', 'scripts/observability-umami/retention.sql',
     'scripts/observability-umami/retention-corpus.sql', 'scripts/observability-umami/retention-proof.sql',
@@ -26,9 +27,15 @@ BINDING_INPUTS = (*recovery.FOUNDATION_INPUTS,
 IMAGE_INSPECT = '{"id":{{json .Id}},"architecture":{{json .Architecture}},"os":{{json .Os}}}'
 
 
-def prepare_bound_inputs(output):
-    cache = recovery.validate_cache(json.loads(recovery.CACHE_LOCK.read_text()))
+def _cache(output):
+    local=output/'foundation-cache.json'
+    return recovery.validate_cache(json.loads((local if local.exists() else recovery.CACHE_LOCK).read_text()))
+
+
+def prepare_bound_inputs(output, *, cache_path=None):
+    cache = recovery.validate_cache(json.loads((cache_path or recovery.CACHE_LOCK).read_text()))
     recovery.prepare_inputs(output, foundation_image=cache['image'])
+    if cache_path is not None:pilot.write_json(output/'foundation-cache.json',cache)
     pilot.write_json(output / 'recovery-inputs.json', {
         'schema': 1, 'foundation_source': cache['source'], 'foundation_image': cache['image'],
         'inputs': {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in BINDING_INPUTS},
@@ -70,7 +77,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         record()
     record()
     try:
-        cache = recovery.validate_cache(json.loads(recovery.CACHE_LOCK.read_text()))
+        cache = _cache(output)
         binding = json.loads((output / 'recovery-inputs.json').read_text())
         if (not isinstance(binding, dict) or binding.get('schema') != 1
                 or binding.get('foundation_source') != cache['source'] or binding.get('foundation_image') != cache['image']
@@ -83,6 +90,11 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
             actual = json.loads(execute(['docker'], ['image', 'inspect', reference, '--format', IMAGE_INSPECT]))
             if actual != {'id': cache['image'], 'architecture': cache['architecture'], 'os': 'linux'}:
                 raise RuntimeError('recovery_cache_unavailable_or_changed')
+        if cache['schema']==2:
+            import foundation
+            identity=json.loads(execute(['docker'],['image','inspect',cache['image'],'--format',foundation.INSPECT]))
+            if identity!={'id':cache['image'],'architecture':cache['architecture'],'os':'linux','source':cache['source']}:
+                raise ValueError('recovery_foundation_source_identity')
         report['stage'] = 'fresh_destination'
         record()
         plan = json.loads((output / 'compose.json').read_text())
@@ -547,7 +559,8 @@ def _database_corpus(output, compose, project, plan, source, report, record, exe
         return _sql(compose, service, payload, execute=execute, role=role, database=database, timeout=timeout)
     stage('source_setup')
     version = execute(compose, ['exec', '-T', 'db', 'pgbackrest', 'version']).strip()
-    if version != 'pgBackRest 2.57.0':
+    expected=_cache(output).get('pgbackrest_version','2.57.0')
+    if version != 'pgBackRest '+expected:
         raise ValueError('unexpected_pgbackrest_version')
     sql('db', (output / 'init.sql').read_text() + """
 REVOKE CONNECT ON DATABASE inside FROM PUBLIC;
@@ -657,6 +670,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('run', 'worker', 'recover'))
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--foundation-cache',type=Path)
     args = parser.parse_args()
     output = args.output.resolve()
     # Explicit service targets still control acquisition. Enrol all profiles for
@@ -666,7 +680,7 @@ def main():
     prepared_here = False
     def prepare_owned(path):
         nonlocal prepared_here
-        prepare_bound_inputs(path)
+        prepare_bound_inputs(path,cache_path=args.foundation_cache)
         prepared_here = True
     try:
         if args.action == 'worker':
