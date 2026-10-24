@@ -2,6 +2,7 @@
 import argparse
 from pathlib import Path
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/observability-pilot'))
