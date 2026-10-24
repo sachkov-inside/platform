@@ -6,13 +6,14 @@ import tempfile
 import unittest
 import binding
 import hosted
-from test_hosted import metadata
+from test_hosted import metadata, _synthetic_source_checkout
 
 
 class Artifacts(unittest.TestCase):
     def test_all_shared_and_new_executable_inputs_are_hash_bound(self):
         value=binding.source('a'*40,'b'*40)
-        for name in ('scripts/production-runtime-configuration.sh','scripts/observability-resource/client.mjs',
+        for name in ('apps/web/app/layout.tsx','apps/web/src/shared/config/runtime-config.server.ts',
+                     'scripts/production-runtime-configuration.sh','scripts/observability-resource/client.mjs',
                      'scripts/observability-resource/runtime.py','scripts/observability-resource/sdk_diagnostics.py','infra/observability/resource/profile.json',
                      'scripts/observability-pilot/orbstack.py','scripts/observability-pilot/storage_policy.py'):
             self.assertRegex(value['inputs'][name],r'^[a-f0-9]{64}$')
@@ -26,6 +27,7 @@ class Artifacts(unittest.TestCase):
                     binding.write(output,value)
                 self.assertFalse(output.exists())
 
+    @_synthetic_source_checkout()
     def test_collect_excludes_credentials_and_rejects_named_symlinks(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);output=root/'owned';output.mkdir()

@@ -6,6 +6,7 @@ import unittest
 import acquisition
 import hosted
 import sys
+from test_hosted import _synthetic_source_checkout
 
 
 class Outcome(unittest.TestCase):
@@ -214,6 +215,7 @@ class StorageStopCause(unittest.TestCase):
 
 
 class ClosedPublicProjection(unittest.TestCase):
+    @_synthetic_source_checkout()
     def test_padding_is_removed_and_only_verified_canonical_outcome_is_published(self):
         from test_hosted import metadata
         import binding
@@ -237,6 +239,7 @@ class ClosedPublicProjection(unittest.TestCase):
             self.assertEqual(acquisition.read(root/'public'/acquisition.NAME, source)['outcome'], 'command_exit')
             self.assertFalse((root/'public'/'.resource-acquisition.new').exists())
 
+    @_synthetic_source_checkout()
     def test_private_duplicate_extra_nonfinite_and_oversize_records_are_refused_before_publication(self):
         from test_hosted import metadata
         with tempfile.TemporaryDirectory() as directory:
