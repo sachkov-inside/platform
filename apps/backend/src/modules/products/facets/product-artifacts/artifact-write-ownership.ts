@@ -4,7 +4,7 @@ import {
   contentWriter,
   type ContentWriteTarget,
 } from "../../../../infrastructure/content-authoring/content-write-policy.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import type { ProductArtifactError } from "./product-artifacts.js";
 
 /** Load ownership inside the mutation transaction, including old and proposed placements. */
@@ -30,7 +30,7 @@ export async function checkArtifactWrite(
     placedIds = artifact.placements.map(({ productId }) => productId);
   }
   const ids = [...new Set([...placedIds, ...productIds])];
-  await lockSeries(transaction, ids);
+  await lockProduct(transaction, ids);
   const products = await transaction.product.findMany({
     where: { id: { in: ids } },
     select: { id: true, sourceId: true },

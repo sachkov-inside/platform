@@ -53,8 +53,6 @@
   "material_load",
   "material_preview",
   "material_save",
-  "playlist_load_composition",
-  "playlist_save_composition",
   "product_load_composition",
   "product_save_composition",
   "product_set_chapter_attachments",

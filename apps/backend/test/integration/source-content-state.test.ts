@@ -26,7 +26,7 @@ const metadata = {
   topicId: null,
   formatId: "note" as const,
   tagIds: [],
-  seriesIds: [] as string[],
+  productIds: [] as string[],
 };
 const taskDefinition = {
   schemaVersion: 1 as const,
@@ -84,7 +84,7 @@ describe("source state reads for authoring delivery (#1672)", () => {
       id: "inside-content:lesson",
       path: "course/lesson.md",
       revision: "a".repeat(64),
-      showInFeed: false,
+      version: 2 as const,
       commit: firstCommit,
     };
     const reserved = await authoring.reserveSourceMaterial({ actor, source });
@@ -124,7 +124,7 @@ describe("source state reads for authoring delivery (#1672)", () => {
               path: "course/lesson.md",
               revision: "a".repeat(64),
               commit: firstCommit,
-              showInFeed: false,
+              version: 2 as const,
             },
             memberships: [],
           },
@@ -144,7 +144,7 @@ describe("source state reads for authoring delivery (#1672)", () => {
       metadata: {
         ...metadata,
         topicId: topic.value.id,
-        seriesIds: [productId],
+        productIds: [productId],
       },
       body: representativeDocument("Imported lesson"),
     };
@@ -158,15 +158,15 @@ describe("source state reads for authoring delivery (#1672)", () => {
         source: { ...source, commit: firstCommit },
       }),
     ).toMatchObject({ ok: false, error: { code: "idempotency_key_reused" } });
-    const order = await authoring.loadSeriesOrder({
+    const order = await authoring.loadProductOrder({
       actor,
-      seriesId: productId,
+      productId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
     const programme = await authoring.reorderSourceProduct({
       actor,
       sourceId: "inside-content:product",
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [materialId],
       programmePlacements: [
@@ -197,7 +197,7 @@ describe("source state reads for authoring delivery (#1672)", () => {
       id: source.id,
       path: source.path,
       revision: source.revision,
-      showInFeed: source.showInFeed,
+      version: 2,
       commit: secondCommit,
     });
 
@@ -252,7 +252,7 @@ describe("source state reads for authoring delivery (#1672)", () => {
       id: source.id,
       path: source.path,
       revision: source.revision,
-      showInFeed: source.showInFeed,
+      version: 2,
     });
 
     expect(

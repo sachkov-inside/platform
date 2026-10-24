@@ -174,10 +174,10 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
         },
       });
       await db.prisma.productMembership.create({
-        data: { seriesId: productId, materialId: id },
+        data: { productId: productId, materialId: id },
       });
       await db.prisma.publishedMaterialProductMembership.create({
-        data: { seriesId: productId, materialId: id },
+        data: { productId: productId, materialId: id },
       });
       await db.prisma.materialAsset.create({
         data: {

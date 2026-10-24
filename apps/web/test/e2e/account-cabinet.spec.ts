@@ -261,7 +261,7 @@ test("возврат во вкладку не прячет продолжени�
       json: {
         kind: "ready",
         continuation: {
-          series: {
+          product: {
             collection: {
               count: 4,
               cover: null,

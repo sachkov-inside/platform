@@ -2,9 +2,9 @@ export type InvalidReferenceError = {
   readonly code: "invalid_reference";
   readonly issues: readonly { readonly code: string; readonly path: string }[];
 };
-export type SeriesOrdinalConflictError = {
-  readonly code: "series_ordinal_conflict";
-  readonly seriesId: string;
+export type ProductOrdinalConflictError = {
+  readonly code: "product_ordinal_conflict";
+  readonly productId: string;
   readonly ordinal: number;
 };
 export type SystemError =

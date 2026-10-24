@@ -4,11 +4,7 @@ import type {
 } from "../../../products/index.js";
 import { assembleListPublishedSiteMaterials } from "../../features/list-published-site-materials/list-published-site-materials.js";
 import { readHomeProjections } from "../../features/read-home-projections/read-home-projections.js";
-import {
-  assembleReadPublishedPractice,
-  assembleListPublishedPractices,
-} from "../../features/read-published-practice/read-published-practice.js";
-import { readHomePinnedSeries } from "../../features/read-home-pinned-series/read-home-pinned-series.js";
+import { readHomePinnedProduct } from "../../features/read-home-pinned-product/read-home-pinned-product.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { listPublishedMaterialProjections } from "../../features/list-published-material-projections/list-published-material-projections.js";
 import type { ListPublishedMaterialProjectionsQuery } from "../../features/list-published-material-projections/list-published-material-projections.contract.js";
@@ -43,10 +39,8 @@ export function assemblePublishedMaterialReader(dependencies: {
       dependencies.prisma,
       dependencies.products,
     ),
-    readPractice: assembleReadPublishedPractice(dependencies),
-    listPractices: assembleListPublishedPractices(dependencies),
     readHomeProjections: () => readHomeProjections(dependencies),
-    readHomePinnedSeries: () => readHomePinnedSeries(dependencies.products),
+    readHomePinnedProduct: () => readHomePinnedProduct(dependencies.products),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
       discoverPublishedMaterialProjections(
         dependencies,

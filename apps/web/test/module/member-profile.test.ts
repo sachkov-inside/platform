@@ -28,7 +28,7 @@ const profile = {
   displayName: "Кирилл",
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
-  version: 2,
+  version: 2 as const,
 } as const;
 
 describe("Account Profile web workflow", () => {

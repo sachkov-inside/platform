@@ -15,18 +15,18 @@ import {
   productChapterDraftsSchema,
   productProgrammePlacementsSchema,
 } from "../../shared/product-chapters.js";
-import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
+import { productStepGroupsSchema } from "../../shared/product-step-groups.js";
 import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 import { productPageSchema } from "../../domain/product-page.js";
 import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
 
 import type { CreateDraftError } from "../../features/create-draft/create-draft.contract.js";
 import type { DeleteDraftError } from "../../features/delete-draft/delete-draft.contract.js";
-import type { LoadSeriesOrderError } from "../../features/load-series-order/load-series-order.contract.js";
+import type { LoadProductOrderError } from "../../features/load-product-order/load-product-order.contract.js";
 import type { LoadMaterialError } from "../../features/load-material/load-material.contract.js";
 import type { PreviewMaterialError } from "../../features/preview-material/preview-material.contract.js";
 import type { SaveMaterialError } from "../../features/save-material/save-material.contract.js";
-import type { ReorderSeriesError } from "../../features/reorder-series/reorder-series.contract.js";
+import type { ReorderProductError } from "../../features/reorder-product/reorder-product.contract.js";
 import type { TransitionMaterialPublicationError } from "../../features/transition-material-publication/transition-material-publication.contract.js";
 import type { ValidateMaterialError } from "../../features/validate-material/validate-material.contract.js";
 import type { CreateContentCollectionError } from "../../features/create-content-collection/create-content-collection.contract.js";
@@ -42,14 +42,14 @@ import {
   materialMetadataSelectionWireSchema,
   materialMetadataWireSchema,
   publicationStateWireSchema,
-  seriesMembershipWireSchema,
+  productMembershipWireSchema,
 } from "../material-authoring-wire.js";
 
 export const materialIdSchema = materialIdWireSchema;
 export const platformSessionHeaderSchema = z.uuid();
 export const idempotencyKeySchema = idempotencyKeyWireSchema;
 export const contentVersionSchema = contentVersionWireSchema;
-export const seriesMembershipSchema = seriesMembershipWireSchema;
+export const productMembershipSchema = productMembershipWireSchema;
 export const materialMetadataSchema = materialMetadataWireSchema;
 export const materialMetadataSelectionSchema =
   materialMetadataSelectionWireSchema;
@@ -122,7 +122,7 @@ export const deleteDraftBodySchema = z
   })
   .strict();
 
-export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+export const productOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 export const productChapterSchema = z
   .object({
     supplementaryMaterialIds: z.array(z.uuid()).optional(),
@@ -132,7 +132,7 @@ export const productChapterSchema = z
     summary: z.string().max(PRODUCT_CHAPTER_SUMMARY_MAX),
   })
   .strict();
-export const seriesOrderSchema = z
+export const productOrderSchema = z
   .object({
     archived: z.boolean(),
     programmePlacements: productProgrammePlacementsSchema,
@@ -150,18 +150,18 @@ export const seriesOrderSchema = z
         .strict(),
     ),
     name: z.string().min(1),
-    orderVersion: seriesOrderVersionSchema,
-    seriesId: z.uuid(),
+    orderVersion: productOrderVersionSchema,
+    productId: z.uuid(),
   })
   .strict();
-export const reorderSeriesBodySchema = z
+export const reorderProductBodySchema = z
   .object({
     chapters: productChapterDraftsSchema.optional(),
     programmePlacements: productProgrammePlacementsSchema.optional(),
     chapterAssignments: productChapterAssignmentsSchema.optional(),
-    expectedOrderVersion: seriesOrderVersionSchema,
+    expectedOrderVersion: productOrderVersionSchema,
     orderedMaterialIds: z.array(materialIdSchema),
-    stepGroups: seriesStepGroupsSchema.optional(),
+    stepGroups: productStepGroupsSchema.optional(),
     /** Руководство с держателями права, снятие материалов из которого автор подтвердил. */
     confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
   })
@@ -171,13 +171,13 @@ export const reorderSeriesBodySchema = z
       new Set(orderedMaterialIds).size === orderedMaterialIds.length,
     { path: ["orderedMaterialIds"], message: "Material IDs must be unique" },
   );
-export const reorderSeriesReceiptSchema = z
-  .object({ seriesId: z.uuid(), orderVersion: seriesOrderVersionSchema })
+export const reorderProductReceiptSchema = z
+  .object({ productId: z.uuid(), orderVersion: productOrderVersionSchema })
   .strict();
 
 export const contentCollectionKindSchema = z.enum([
   "product",
-  "series",
+  "product",
   "topic",
 ]);
 const introductionField = z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX);
@@ -294,7 +294,7 @@ export const materialAuthoringProblemSchema = z.looseObject({
   retryable: z.boolean().optional(),
   issues: z.array(validationIssueSchema).optional(),
   currentContentVersion: contentVersionSchema.optional(),
-  currentOrderVersion: seriesOrderVersionSchema.optional(),
+  currentOrderVersion: productOrderVersionSchema.optional(),
   currentVersion: z.number().int().positive().optional(),
   currentState: publicationStateWireSchema.optional(),
   targetState: publicationStateWireSchema.optional(),
@@ -335,10 +335,10 @@ type MaterialAuthoringTransportError =
   | CreateDraftError
   | DeleteDraftError
   | LoadMaterialError
-  | LoadSeriesOrderError
+  | LoadProductOrderError
   | PreviewMaterialError
   | SaveMaterialError
-  | ReorderSeriesError
+  | ReorderProductError
   | TransitionMaterialPublicationError
   | ValidateMaterialError
   | CreateContentCollectionError
@@ -354,15 +354,15 @@ export function statusForMaterialAuthoringError(
     case "forbidden":
       return 403;
     case "material_not_found":
-    case "series_not_found":
+    case "product_not_found":
     case "content_collection_not_found":
       return 404;
     case "draft_deletion_forbidden":
     case "idempotency_key_reused":
     case "invalid_publication_transition":
-    case "series_ordinal_conflict":
+    case "product_ordinal_conflict":
     case "stale_content_version":
-    case "stale_series_order":
+    case "stale_product_order":
     case "stale_home_pin":
     case "content_collection_slug_conflict":
     case "stale_content_collection_version":

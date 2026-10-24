@@ -33,7 +33,7 @@ import {
 } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
+import { PublishedProductComposition } from "../../src/modules/products/index.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import {
   ReadingActivity,
@@ -114,7 +114,7 @@ describe("independent product, library, support and shared chat rights", () => {
     };
   }
   async function material(
-    seriesIds: string[],
+    productIds: string[],
     publicationState: "draft" | "published" = "published",
     access: "free" | "closed" = "closed",
   ) {
@@ -128,7 +128,7 @@ describe("independent product, library, support and shared chat rights", () => {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds,
+      productIds,
     };
     const created = await materials.authoring.createDraft({
       actor: owner,
@@ -176,14 +176,14 @@ describe("independent product, library, support and shared chat rights", () => {
       authorPolicy: { canManage: () => false },
       contentAccess,
     }).publishedMaterialReader;
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor: owner,
-      seriesId: productId,
+      productId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const programmeFixture = await materials.authoring.reorderSeries({
+    const programmeFixture = await materials.authoring.reorderProduct({
       actor: owner,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: order.value.items.map(({ materialId }) => materialId),
       programmePlacements: order.value.items.map(({ materialId }) => ({
@@ -194,7 +194,7 @@ describe("independent product, library, support and shared chat rights", () => {
       })),
     });
     if (!programmeFixture.ok) throw new Error(programmeFixture.error.code);
-    const composition = new PublishedSeriesComposition(
+    const composition = new PublishedProductComposition(
       db.prisma,
       assembleProductMaterialReading(db.prisma),
     );
@@ -221,7 +221,7 @@ describe("independent product, library, support and shared chat rights", () => {
     ]) {
       expect(
         await discoverPublishedMaterials(reader, contentAccess, videos, {
-          kind: "series",
+          kind: "product",
           slug,
           first: null,
           subject: denied,
@@ -256,7 +256,7 @@ describe("independent product, library, support and shared chat rights", () => {
         unavailableAccess,
         videos,
         {
-          kind: "series",
+          kind: "product",
           slug,
           first: null,
           subject,
@@ -285,16 +285,16 @@ describe("independent product, library, support and shared chat rights", () => {
       reader,
       contentAccess,
       videos,
-      { kind: "series", slug, first: null, subject },
+      { kind: "product", slug, first: null, subject },
     );
     expect(programme).toMatchObject({
       ok: true,
       value: { items: [{ availability: "available" }] },
     });
     expect(
-      await reading.getSeriesProgress({
+      await reading.getProductProgress({
         accountId: buyer,
-        seriesId: productId,
+        productId: productId,
       }),
     ).toMatchObject({ ok: true, value: { total: 1, read: 0 } });
     const home = new PersonalHome({
@@ -308,16 +308,16 @@ describe("independent product, library, support and shared chat rights", () => {
         read: () => Promise.resolve({ ok: true as const, value: [] }),
       },
     });
-    expect(await home.getSeries(buyer, slug)).toMatchObject({
+    expect(await home.getProduct(buyer, slug)).toMatchObject({
       ok: true,
       value: { total: 1, read: 0 },
     });
     expect(
-      await reading.getSeriesProgress({
+      await reading.getProductProgress({
         accountId: randomUUID(),
-        seriesId: productId,
+        productId: productId,
       }),
-    ).toMatchObject({ ok: false, error: { code: "series_not_found" } });
+    ).toMatchObject({ ok: false, error: { code: "product_not_found" } });
   });
 
   test("product A allows its shared Material and direct resource only; B, draft and forged product context stay denied", async () => {

@@ -15,9 +15,9 @@ export const publicationStateWireSchema = z.enum([
   "published",
   "unpublished",
 ]);
-export const seriesMembershipWireSchema = z
+export const productMembershipWireSchema = z
   .object({
-    seriesId: uuidWireSchema,
+    productId: uuidWireSchema,
     ordinal: z.number().int().positive(),
   })
   .strict();
@@ -37,7 +37,7 @@ const materialMetadataSelectionBaseShape = {
 export const materialMetadataSelectionWireSchema = z
   .object({
     ...materialMetadataSelectionBaseShape,
-    seriesIds: z.array(uuidWireSchema).max(100),
+    productIds: z.array(uuidWireSchema).max(100),
   })
   .strict();
 
@@ -49,7 +49,7 @@ export const materialMetadataWireSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
       .max(120)
       .nullable(),
-    seriesMemberships: z.array(seriesMembershipWireSchema).max(100),
+    productMemberships: z.array(productMembershipWireSchema).max(100),
   })
   .strict();
 export const materialBodySnapshotWireSchema = z

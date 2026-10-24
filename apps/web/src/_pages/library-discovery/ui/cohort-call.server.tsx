@@ -12,13 +12,13 @@ import {
   CohortStatusView,
   type CohortCall,
 } from "@/features/ai-engineering-course";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
 
-type ResolvedSeries = Extract<
-  PublishedSeriesResult,
+type ResolvedProduct = Extract<
+  PublishedProductResult,
   { readonly kind: "ready" | "empty" }
 >;
 
@@ -35,7 +35,7 @@ export function PendingCohortCall({ slug }: { readonly slug: string }) {
 export async function PersonalCohortCall({
   result,
 }: {
-  readonly result: ResolvedSeries;
+  readonly result: ResolvedProduct;
 }) {
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return <PendingCohortCall slug={slug} />;
@@ -85,7 +85,7 @@ export async function PersonalCohortCall({
 export async function PersonalCohortStatus({
   result,
 }: {
-  readonly result: ResolvedSeries;
+  readonly result: ResolvedProduct;
 }) {
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;
@@ -119,7 +119,7 @@ export async function PersonalCohortStatus({
 export async function PersonalCourseFilmOverlay({
   result,
 }: {
-  readonly result: ResolvedSeries;
+  readonly result: ResolvedProduct;
 }) {
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;

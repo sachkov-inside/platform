@@ -22,11 +22,11 @@ export class ProductCatalogue {
     ];
     const memberships = await prisma.productMembership.findMany({
       where: { materialId: { in: canonicalIds } },
-      select: { materialId: true, seriesId: true },
+      select: { materialId: true, productId: true },
     });
     const products = await prisma.product.findMany({
       where: {
-        id: { in: [...new Set(memberships.map((entry) => entry.seriesId))] },
+        id: { in: [...new Set(memberships.map((entry) => entry.productId))] },
       },
       select: { id: true, archivedAt: true },
     });
@@ -38,7 +38,7 @@ export class ProductCatalogue {
     const productsByMaterial = new Map<string, string[]>();
     for (const membership of memberships) {
       const productIds = productsByMaterial.get(membership.materialId) ?? [];
-      productIds.push(membership.seriesId);
+      productIds.push(membership.productId);
       productsByMaterial.set(membership.materialId, productIds);
     }
     return new Map(

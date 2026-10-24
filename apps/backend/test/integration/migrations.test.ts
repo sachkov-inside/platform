@@ -50,7 +50,7 @@ const materialTables = [
   "topics",
 ] as const;
 const productTables = [
-  "home_series_pin",
+  "home_product_pin",
   "product_artifact_material_links",
   "product_artifact_placements",
   "product_artifact_versions",
@@ -59,9 +59,9 @@ const productTables = [
   "product_chapter_supplementary_materials",
   "product_programme_placements",
   "product_material_removals",
-  "published_material_series_memberships",
+  "published_material_product_memberships",
   "series",
-  "series_memberships",
+  "product_memberships",
 ] as const;
 const contentCoverTables = [
   "content_cover_renditions",
@@ -159,7 +159,7 @@ const migratedTagRowsSchema = z.array(z.object({ tag_id: z.uuid() }).strict());
 const migratedSearchRowsSchema = z.array(
   z.object({ content_version: z.bigint(), plain_text: z.string() }).strict(),
 );
-const migratedSeriesRowsSchema = z.array(
+const migratedProductRowsSchema = z.array(
   z.object({ material_id: z.uuid(), ordinal: z.number().int() }).strict(),
 );
 
@@ -576,10 +576,10 @@ describe("Platform migrations", () => {
             '60000000-0000-4000-8000-000000000001',
             '40000000-0000-4000-8000-000000000001'
           );
-          insert into materials.material_revision_series_memberships (
+          insert into materials.material_revision_product_memberships (
             revision_id,
             material_id,
-            series_id,
+            product_id,
             ordinal
           ) values (
             '70000000-0000-4000-8000-000000000001',
@@ -625,9 +625,9 @@ describe("Platform migrations", () => {
             '10000000-0000-4000-8000-000000000001',
             '2026-08-27T08:01:00.000Z'
           );
-          insert into materials.published_material_series_memberships (
+          insert into materials.published_material_product_memberships (
             material_id,
-            series_id,
+            product_id,
             ordinal
           ) values (
             '60000000-0000-4000-8000-000000000001',
@@ -711,10 +711,10 @@ describe("Platform migrations", () => {
             '10000000-0000-4000-8000-000000000001',
             'membership'
           );
-          insert into materials.material_revision_series_memberships (
+          insert into materials.material_revision_product_memberships (
             revision_id,
             material_id,
-            series_id,
+            product_id,
             ordinal
           ) values (
             '70000000-0000-4000-8000-000000000003',
@@ -722,8 +722,8 @@ describe("Platform migrations", () => {
             '50000000-0000-4000-8000-000000000001',
             1
           );
-          insert into materials.series_memberships (
-            series_id,
+          insert into materials.product_memberships (
+            product_id,
             material_id,
             ordinal
           ) values (
@@ -832,14 +832,14 @@ describe("Platform migrations", () => {
       expect(tags).toEqual([
         { tag_id: "40000000-0000-4000-8000-000000000001" },
       ]);
-      const seriesMemberships = migratedSeriesRowsSchema.parse(
+      const productMemberships = migratedProductRowsSchema.parse(
         await database.prisma.$queryRaw(Prisma.sql`
           select material_id, ordinal
           from products.product_programme_placements
           order by material_id
         `),
       );
-      expect(seriesMemberships).toEqual([
+      expect(productMemberships).toEqual([
         {
           material_id: "60000000-0000-4000-8000-000000000001",
           ordinal: 1,
@@ -852,16 +852,16 @@ describe("Platform migrations", () => {
       await expect(
         database.prisma.productMembership.findMany({
           orderBy: { materialId: "asc" },
-          select: { materialId: true, seriesId: true },
+          select: { materialId: true, productId: true },
         }),
       ).resolves.toEqual([
         {
           materialId: "60000000-0000-4000-8000-000000000001",
-          seriesId: "50000000-0000-4000-8000-000000000001",
+          productId: "50000000-0000-4000-8000-000000000001",
         },
         {
           materialId: "60000000-0000-4000-8000-000000000002",
-          seriesId: "50000000-0000-4000-8000-000000000001",
+          productId: "50000000-0000-4000-8000-000000000001",
         },
       ]);
       const search = migratedSearchRowsSchema.parse(

@@ -31,7 +31,7 @@ const projection: PublishedMaterialProjectionDto = {
   topic: { id: "topic", name: "Topic", slug: "topic" },
   format: { id: "guide", name: "Guide", slug: "guide" },
   tags: [],
-  seriesMemberships: [],
+  productMemberships: [],
 };
 const body: RenderedMaterialBody = {
   schemaVersion: 1,

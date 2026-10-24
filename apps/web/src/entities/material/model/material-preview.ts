@@ -19,7 +19,7 @@ export interface MaterialPreview {
     readonly label: string;
     readonly steps: readonly string[];
   };
-  readonly seriesMemberships: readonly {
+  readonly productMemberships: readonly {
     readonly name: string;
     readonly ordinal: number;
     readonly stepGroup?: string | null | undefined;

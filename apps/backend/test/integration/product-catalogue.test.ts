@@ -49,7 +49,7 @@ test("Product archive facts track catalogue membership even when content is unpu
       access: "free",
       topicId,
       formatId: "guide",
-      seriesIds: [],
+      productIds: [],
       tagIds: [],
       difficulty: null,
       outcomes: [],
@@ -59,7 +59,7 @@ test("Product archive facts track catalogue membership even when content is unpu
   // Migration/fixture setup can link an archived Product; authoring prohibits new links to it.
   await database.prisma.productMembership.create({
     data: {
-      seriesId: productId,
+      productId: productId,
       materialId: draft.value.materialId,
     },
   });
@@ -96,12 +96,12 @@ test("Product cover selection joins the caller transaction and rolls back with i
     data: { id, slug: "cover-owner", name: "Cover owner" },
   });
   const selection = new ProductCoverSelection();
-  const owner = { kind: "series", id };
+  const owner = { kind: "product", id };
   const missingCoverId = randomUUID();
   await database.prisma.contentCover.create({
     data: {
       id: missingCoverId,
-      seriesId: id,
+      productId: id,
       state: "ready",
       uploadConfirmed: true,
     },

@@ -341,7 +341,7 @@
         "kind": {
           "enum": [
             "material",
-            "series"
+            "product"
           ]
         },
         "targetId": {

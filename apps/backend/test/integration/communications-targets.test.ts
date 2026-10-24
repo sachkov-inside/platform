@@ -87,7 +87,7 @@ describe("communications promised public targets against Materials PostgreSQL", 
       },
     ]);
   });
-  test("detects unpublished, paid, missing and incomplete targets through the owning Materials seam", async () => {
+  test("detects unpublished, protected and missing Material targets while Product pages remain public through the owning Materials seam", async () => {
     const actor = randomUUID();
     const authoring = assembleMaterials({
       prisma: database.prisma,
@@ -105,7 +105,7 @@ describe("communications promised public targets against Materials PostgreSQL", 
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Target body"),
     });
@@ -127,28 +127,28 @@ describe("communications promised public targets against Materials PostgreSQL", 
       targetId: null,
       reason: "not_found",
     });
-    const seriesId = randomUUID();
+    const productId = randomUUID();
     await database.prisma.product.create({
-      data: { id: seriesId, slug: "test-series", name: "Series" },
+      data: { id: productId, slug: "test-series", name: "Product" },
     });
     expect(
-      await targets.check({ kind: "series", slug: "test-series" }),
-    ).toEqual({ targetId: seriesId, reason: "incomplete" });
+      await targets.check({ kind: "product", slug: "test-series" }),
+    ).toEqual({ targetId: productId, reason: "eligible" });
     await database.prisma.productMembership.create({
-      data: { seriesId, materialId },
+      data: { productId, materialId },
     });
-    const order = await authoring.loadSeriesOrder({ actor, seriesId });
+    const order = await authoring.loadProductOrder({ actor, productId });
     if (!order.ok) throw new Error(order.error.code);
-    const programme = await authoring.reorderSeries({
+    const programme = await authoring.reorderProduct({
       actor,
-      seriesId,
+      productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [materialId],
     });
     if (!programme.ok) throw new Error(programme.error.code);
     expect(
-      (await targets.check({ kind: "series", slug: "test-series" })).reason,
-    ).toBe("incomplete");
+      (await targets.check({ kind: "product", slug: "test-series" })).reason,
+    ).toBe("eligible");
     const topicId = randomUUID();
     const formatId = "note";
     await database.prisma.topic.create({
@@ -164,7 +164,7 @@ describe("communications promised public targets against Materials PostgreSQL", 
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [seriesId],
+      productIds: [productId],
     };
     const published = await authoring.saveMaterial({
       actor,
@@ -180,8 +180,8 @@ describe("communications promised public targets against Materials PostgreSQL", 
       await targets.check({ kind: "material", slug: "public-target" }),
     ).toEqual({ targetId: materialId, reason: "eligible" });
     expect(
-      await targets.check({ kind: "series", slug: "test-series" }),
-    ).toEqual({ targetId: seriesId, reason: "eligible" });
+      await targets.check({ kind: "product", slug: "test-series" }),
+    ).toEqual({ targetId: productId, reason: "eligible" });
     const paid = await authoring.saveMaterial({
       actor,
       materialId,
@@ -196,8 +196,8 @@ describe("communications promised public targets against Materials PostgreSQL", 
       (await targets.check({ kind: "material", slug: "public-target" })).reason,
     ).toBe("not_free");
     expect(
-      (await targets.check({ kind: "series", slug: "test-series" })).reason,
-    ).toBe("not_free");
+      (await targets.check({ kind: "product", slug: "test-series" })).reason,
+    ).toBe("eligible");
     expect(
       await validateTargets(
         [

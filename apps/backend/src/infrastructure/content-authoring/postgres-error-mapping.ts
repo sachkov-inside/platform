@@ -4,13 +4,13 @@ import { isRetryablePostgresError } from "../postgres/is-retryable-postgres-erro
 import type {
   DuplicateTagError,
   InvalidReferenceError,
-  SeriesOrdinalConflictError,
+  ProductOrdinalConflictError,
   SystemError,
 } from "./authoring-errors.js";
 interface MaterialMetadata {
   readonly tagIds: readonly string[];
-  readonly seriesMemberships: readonly {
-    readonly seriesId: string;
+  readonly productMemberships: readonly {
+    readonly productId: string;
     readonly ordinal: number;
   }[];
 }
@@ -35,14 +35,14 @@ interface PostgreSqlErrorSignals {
 type PostgresOperationError =
   | DuplicateTagError
   | InvalidReferenceError
-  | SeriesOrdinalConflictError
+  | ProductOrdinalConflictError
   | SystemError;
 
 const referenceConstraints = new Map<string, string>([
   ["materials_topic_fk", "/metadata/topicId"],
   ["materials_format_fk", "/metadata/formatId"],
   ["material_tags_tag_fk", "/metadata/tagIds"],
-  ["series_memberships_series_fk", "/metadata/seriesMemberships"],
+  ["product_memberships_product_fk", "/metadata/productMemberships"],
 ]);
 
 export function mapPostgresError(
@@ -63,15 +63,15 @@ export function mapPostgresError(
   }
   if (
     uniqueViolation &&
-    (hasConstraint(signals, "series_memberships_ordinal_unique") ||
-      hasFields(signals, ["series_id", "ordinal"])) &&
-    metadata?.seriesMemberships.length === 1
+    (hasConstraint(signals, "product_memberships_ordinal_unique") ||
+      hasFields(signals, ["product_id", "ordinal"])) &&
+    metadata?.productMemberships.length === 1
   ) {
-    const membership = metadata.seriesMemberships[0];
+    const membership = metadata.productMemberships[0];
     if (membership !== undefined) {
       return {
-        code: "series_ordinal_conflict",
-        seriesId: membership.seriesId,
+        code: "product_ordinal_conflict",
+        productId: membership.productId,
         ordinal: membership.ordinal,
       };
     }

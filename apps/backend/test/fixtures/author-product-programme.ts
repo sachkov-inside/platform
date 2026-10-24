@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import type { ReorderSeriesCommand } from "../../src/modules/products/features/reorder-series/reorder-series.contract.js";
+import type { ReorderProductCommand } from "../../src/modules/products/features/reorder-product/reorder-product.contract.js";
 
 type Authoring = ReturnType<typeof assembleMaterials>["authoring"];
 
 /** Fixture intent: replace the primary programme explicitly, retaining existing occurrence IDs. */
 export async function authorProductProgramme(
   authoring: Authoring,
-  command: ReorderSeriesCommand,
+  command: ReorderProductCommand,
 ) {
-  const loaded = await authoring.loadSeriesOrder({
+  const loaded = await authoring.loadProductOrder({
     actor: command.actor,
-    seriesId: command.seriesId,
+    productId: command.productId,
   });
   if (!loaded.ok) throw new Error(loaded.error.code);
   const current = loaded.value;
@@ -41,7 +41,7 @@ export async function authorProductProgramme(
       ];
     },
   );
-  return authoring.reorderSeries({
+  return authoring.reorderProduct({
     ...command,
     programmePlacements: command.programmePlacements ?? programmePlacements,
   });

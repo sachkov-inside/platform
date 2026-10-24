@@ -96,7 +96,7 @@ z.strictObject({
 ]);
 
 export const targetSchema = z.strictObject({
-  "kind": z.enum(["material","series"]),
+  "kind": z.enum(["material","product"]),
   "targetId": z.guid(),
 });
 

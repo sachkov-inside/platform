@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { contentCoverSchema } from "@/entities/material.model";
 
-export type ContentCollectionKind = "series" | "topic";
+export type ContentCollectionKind = "product" | "topic";
 
 /** One introduction field holds an authored paragraph, not a headline. */
 export const PRODUCT_INTRODUCTION_FIELD_MAX = 4000;
@@ -26,7 +26,7 @@ export const contentCollectionSchema = z
     cover: contentCoverSchema.nullable().optional(),
     id: z.uuid(),
     introduction: productIntroductionSchema.nullable().default(null),
-    kind: z.enum(["series", "topic"]),
+    kind: z.enum(["product", "topic"]),
     materialCount: z.number().int().nonnegative(),
     name: z.string(),
     // Страница Product из авторского оригинала (#671); список автора её не рисует, поэтому схема
@@ -67,9 +67,9 @@ export interface SetContentCollectionArchiveInput {
   readonly kind: ContentCollectionKind;
 }
 
-const contentCollectionKindSchema = z.enum(["series", "topic"]);
+const contentCollectionKindSchema = z.enum(["product", "topic"]);
 
-/** The JSON body of a new Series or Topic; another field is ignored, as the former form did. */
+/** The JSON body of a new Product or Topic; another field is ignored, as the former form did. */
 export const createContentCollectionInputSchema = z.object({
   kind: contentCollectionKindSchema,
   name: z.string(),
@@ -88,7 +88,7 @@ export const updateContentCollectionInputSchema = z.object({
   summary: z.string(),
 });
 
-/** The JSON body of archiving or restoring a Series or Topic. */
+/** The JSON body of archiving or restoring a Product or Topic. */
 export const setContentCollectionArchiveInputSchema = z.object({
   archived: z.boolean(),
   collectionId: z.uuid(),

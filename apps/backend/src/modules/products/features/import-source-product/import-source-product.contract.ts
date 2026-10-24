@@ -2,7 +2,7 @@ import { z } from "zod";
 import { authoringSourceIdSchema } from "../../../../infrastructure/content-authoring/authoring-source.js";
 import { contentCollectionInputSchema } from "../create-content-collection/create-content-collection.js";
 import { updateContentCollectionCommandSchema } from "../update-content-collection/update-content-collection.js";
-import { reorderSeriesCommandSchema } from "../reorder-series/reorder-series.js";
+import { reorderProductCommandSchema } from "../reorder-product/reorder-product.js";
 import type { Result } from "../../../../infrastructure/content-authoring/result.js";
 import type {
   ForbiddenError,
@@ -11,7 +11,7 @@ import type {
 } from "../../../../infrastructure/content-authoring/authoring-errors.js";
 import type { CreateContentCollectionResult } from "../create-content-collection/create-content-collection.contract.js";
 import type { UpdateContentCollectionResult } from "../update-content-collection/update-content-collection.contract.js";
-import type { ReorderSeriesResult } from "../reorder-series/reorder-series.contract.js";
+import type { ReorderProductResult } from "../reorder-product/reorder-product.contract.js";
 
 const sourceId = authoringSourceIdSchema;
 export const reserveSourceProductBodySchema = contentCollectionInputSchema
@@ -26,7 +26,7 @@ export const updateSourceProductBodySchema = z
     source: updateContentCollectionCommandSchema.shape.source.unwrap(),
   });
 export const reorderSourceProductBodySchema = z
-  .object(reorderSeriesCommandSchema.shape)
+  .object(reorderProductCommandSchema.shape)
   .omit({ actor: true })
   .extend({ sourceId });
 // Описание проверяется до первой записи переноса: пакет с непроходимым описанием отклоняется целиком.
@@ -66,4 +66,4 @@ export type ReorderSourceProductOperation = (
   command: z.input<typeof reorderSourceProductBodySchema> & {
     readonly actor: string;
   },
-) => Promise<ReorderSeriesResult>;
+) => Promise<ReorderProductResult>;

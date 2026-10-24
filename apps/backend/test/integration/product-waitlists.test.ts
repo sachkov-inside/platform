@@ -662,7 +662,7 @@ test("archive racing dispatch fails closed instead of authorizing a stale audien
       await outsideTransaction(() =>
         eventually(async () => {
           const rows = await db.prisma.$queryRaw<{ waiting: bigint }[]>(
-            Prisma.sql`SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%products.series%' `,
+            Prisma.sql`SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%products.product%' `,
           );
           expect(Number(rows[0]?.waiting)).toBeGreaterThan(0);
         }, 10000),

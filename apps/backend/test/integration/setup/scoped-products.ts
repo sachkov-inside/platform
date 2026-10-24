@@ -83,7 +83,7 @@ export async function createScopedProductsWorld(
       id: `scoped:${input.key}`,
       path: `lessons/${input.key}.md`,
       revision: "a".repeat(64),
-      showInFeed: false,
+      version: 2 as const,
     };
     const reserved = await materials.authoring.reserveSourceMaterial({
       actor: owner,
@@ -106,7 +106,7 @@ export async function createScopedProductsWorld(
         topicId,
         formatId: "guide",
         tagIds: [],
-        seriesIds: [...input.productIds],
+        productIds: [...input.productIds],
         difficulty: null,
         outcomes: [],
       },

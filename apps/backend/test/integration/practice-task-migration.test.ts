@@ -24,7 +24,7 @@ test("historical Practice migration retains complete requirements, source pins a
   await migrateThrough(database, "0110_product_sales_state");
   const productId = randomUUID();
   const chapterId = randomUUID();
-  await database.prisma.product.create({
+  await historicalProduct(database, {
     data: { id: productId, slug: "migration-course", name: "Migration course" },
   });
   await database.prisma.productChapter.create({
@@ -50,8 +50,8 @@ test("historical Practice migration retains complete requirements, source pins a
     insert into materials.materials (id, title, summary, access, publication_state, content_version, source_id, source_revision, source_path, schema_version, body, created_by)
     values (${materialId}::uuid, 'Original lesson', '', 'free', 'draft', 7, 'fixture:lesson', ${"a".repeat(64)}, 'lesson.md', 1, '{"blocks":[]}'::jsonb, ${randomUUID()}::uuid)
   `);
-  await database.prisma.productMembership.create({
-    data: { seriesId: productId, materialId },
+  await historicalMembership(database, {
+    data: { productId: productId, materialId },
   });
   await database.prisma.productProgrammePlacement.create({
     data: { id: randomUUID(), productId, chapterId, materialId, ordinal: 1 },
@@ -60,7 +60,7 @@ test("historical Practice migration retains complete requirements, source pins a
     materialSourceId: "fixture:lesson",
     materialSourceRevision: "a".repeat(64),
   };
-  await database.prisma.practiceDefinition.create({
+  await historicalPractice(database, {
     data: {
       practiceId: "fixture:requirements",
       materialId,
@@ -94,9 +94,10 @@ test("historical Practice migration retains complete requirements, source pins a
       receipt,
     },
   });
-  const original = await database.prisma.practiceDefinition.findUniqueOrThrow({
-    where: { practiceId: "fixture:requirements" },
-  });
+  const original = await historicalPracticeRows(
+    database,
+    "fixture:requirements",
+  ).then((rows) => rows[0]);
   await upgradeToLatest(database);
   const task = await database.prisma.productTask.findUniqueOrThrow({
     where: { sourceId: "fixture:requirements" },
@@ -120,7 +121,7 @@ test("historical Practice migration retains complete requirements, source pins a
   });
   expect(version?.definitionDigest).toBe(taskDefinitionDigest(parsed));
   expect(
-    await database.prisma.practiceDefinition.findUniqueOrThrow({
+    await database.prisma.historicalPracticeDefinition.findUniqueOrThrow({
       where: { practiceId: "fixture:requirements" },
     }),
   ).toEqual(original);
@@ -150,7 +151,7 @@ test("historical Practice migration retains complete requirements, source pins a
     bound_content_version: 7n,
     task_id: task.id,
     task_version: 1,
-    original: { definition, definition_digest: original.definitionDigest },
+    original: { definition, definition_digest: original?.definitionDigest },
   });
   await expect(
     database.prisma.productTaskVersion.update({
@@ -171,7 +172,7 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
   const products = [randomUUID(), randomUUID()];
   const chapters = [randomUUID(), randomUUID()];
   for (const [index, productId] of products.entries()) {
-    await database.prisma.product.create({
+    await historicalProduct(database, {
       data: {
         id: productId,
         slug: `passive-${String(index)}`,
@@ -228,7 +229,7 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
         sourcePath: "lesson.md",
       },
     });
-    await database.prisma.practiceDefinition.create({
+    await historicalPractice(database, {
       data: {
         practiceId: `fixture:${label}`,
         materialId,
@@ -247,8 +248,8 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
     });
     for (const ownerIndex of index === 0 ? [] : index === 1 ? [0, 1] : [0]) {
       const productId = products[ownerIndex] ?? "";
-      await database.prisma.productMembership.create({
-        data: { seriesId: productId, materialId },
+      await historicalMembership(database, {
+        data: { productId: productId, materialId },
       });
       await database.prisma.productProgrammePlacement.create({
         data: {
@@ -363,9 +364,7 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
     progress: await database.prisma.productTaskReviewProgress.findMany({
       orderBy: { taskId: "asc" },
     }),
-    practices: await database.prisma.practiceDefinition.findMany({
-      orderBy: { practiceId: "asc" },
-    }),
+    practices: await historicalPracticeRows(database),
     tasks: await database.prisma.productTask.findMany({
       orderBy: { code: "asc" },
     }),
@@ -413,7 +412,7 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
     }),
   ).toEqual(submission);
   expect(
-    await database.prisma.practiceDefinition.findMany({
+    await database.prisma.historicalPracticeDefinition.findMany({
       orderBy: { practiceId: "asc" },
     }),
   ).toEqual(before.practices);
@@ -506,7 +505,7 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
     {
       practice_id: "fixture:existing",
       disposition: "existing_task",
-      task_version: 2,
+      task_version: 2 as const,
     },
     {
       practice_id: "fixture:source-collision",
@@ -520,3 +519,54 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
     },
   ]);
 });
+
+async function historicalProduct(
+  db: TestDatabase,
+  input: { data: { id: string; slug: string; name: string } },
+) {
+  const { id, slug, name } = input.data;
+  await db.prisma.$executeRaw(
+    Prisma.sql`insert into products.series(id,slug,name) values (${id}::uuid,${slug},${name})`,
+  );
+}
+async function historicalMembership(
+  db: TestDatabase,
+  input: { data: { productId: string; materialId: string } },
+) {
+  const { productId, materialId } = input.data;
+  await db.prisma.$executeRaw(
+    Prisma.sql`insert into products.series_memberships(series_id,material_id) values (${productId}::uuid,${materialId}::uuid)`,
+  );
+}
+async function historicalPractice(
+  db: TestDatabase,
+  input: {
+    data: {
+      practiceId: string;
+      materialId: string;
+      definition: unknown;
+      definitionDigest: string;
+      practiceVersion: bigint;
+      boundSourceId: string;
+      boundSourceRevision: string;
+      boundContentVersion: bigint;
+      publicationState: string;
+      sourceRepository: string;
+      sourceCommit: string;
+      sourcePath: string;
+      updatedAt: Date;
+    };
+  },
+) {
+  const d = input.data;
+  await db.prisma.$executeRaw(
+    Prisma.sql`insert into materials.practice_definitions(practice_id,material_id,definition,definition_digest,practice_version,bound_source_id,bound_source_revision,bound_content_version,publication_state,source_repository,source_commit,source_path,updated_at) values (${d.practiceId},${d.materialId}::uuid,${JSON.stringify(d.definition)}::jsonb,${d.definitionDigest},${d.practiceVersion},${d.boundSourceId},${d.boundSourceRevision},${d.boundContentVersion},${d.publicationState},${d.sourceRepository},${d.sourceCommit},${d.sourcePath},${d.updatedAt})`,
+  );
+}
+async function historicalPracticeRows(db: TestDatabase, practiceId?: string) {
+  return db.prisma.$queryRaw<
+    Awaited<ReturnType<typeof db.prisma.historicalPracticeDefinition.findMany>>
+  >(
+    Prisma.sql`select practice_id as "practiceId", material_id as "materialId", definition, definition_digest as "definitionDigest", practice_version as "practiceVersion", bound_source_id as "boundSourceId", bound_source_revision as "boundSourceRevision", bound_content_version as "boundContentVersion", publication_state as "publicationState", source_repository as "sourceRepository", source_commit as "sourceCommit", source_path as "sourcePath", updated_at as "updatedAt" from materials.practice_definitions ${practiceId === undefined ? Prisma.empty : Prisma.sql`where practice_id=${practiceId}`} order by practice_id`,
+  );
+}

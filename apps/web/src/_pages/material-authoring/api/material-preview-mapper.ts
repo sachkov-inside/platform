@@ -10,8 +10,8 @@ import type { MaterialPreviewPresentation } from "@/widgets/material-authoring/m
 
 import type { MaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 
-const seriesMembershipSchema = z
-  .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
+const productMembershipSchema = z
+  .object({ ordinal: z.number().int().positive(), productId: z.uuid() })
   .strict();
 
 const previewSchema = z
@@ -26,7 +26,7 @@ const previewSchema = z
         difficulty: materialDifficultySchema.nullable(),
         outcomes: z.array(z.string()),
         formatId: materialFormatSchema.nullable(),
-        seriesMemberships: z.array(seriesMembershipSchema),
+        productMemberships: z.array(productMembershipSchema),
         slug: z.string().nullable(),
         summary: z.string().nullable(),
         tagIds: z.array(z.uuid()),
@@ -44,9 +44,9 @@ export interface MappedCurrentMaterialPreview {
   readonly formatId: string | null;
   readonly materialId: string;
   readonly publicationState: "draft" | "published" | "unpublished";
-  readonly seriesMemberships: readonly {
+  readonly productMemberships: readonly {
     readonly ordinal: number;
-    readonly seriesId: string;
+    readonly productId: string;
   }[];
   readonly preview: MaterialPreviewPresentation;
   readonly summary: string | null;
@@ -100,7 +100,7 @@ export function mapCurrentMaterialPreview(
         ),
         publicationState: current.publicationState,
       },
-      seriesMemberships: current.metadata.seriesMemberships,
+      productMemberships: current.metadata.productMemberships,
       summary: current.metadata.summary,
       tagIds: current.metadata.tagIds,
       title: current.metadata.title,

@@ -63,7 +63,7 @@ export class ValidateAuthorContentController {
   @ApiOperation({
     operationId: "validateTelegramAuthorContent",
     summary:
-      "Check public Material and Series targets in an immutable author content snapshot",
+      "Check public Material and Product targets in an immutable author content snapshot",
   })
   @ApiBody({ schema: toOpenApiSchema(contentValidationRequestSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(contentValidationResponseSchema) })

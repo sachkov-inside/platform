@@ -39,7 +39,7 @@ export class SaveMaterialController {
     operationId: "saveCurrentMaterial",
     summary: "Atomically Save the complete current Material state",
     description:
-      "Source-owned Materials return forbidden. Incompatible Product membership changes return invalid_reference with material_source_mismatch at /metadata/seriesIds/<index>; removing a membership uses /metadata/seriesIds.",
+      "Source-owned Materials return forbidden. Incompatible Product membership changes return invalid_reference with material_source_mismatch at /metadata/productIds/<index>; removing a membership uses /metadata/productIds.",
   })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(materialIdSchema) })
   @ApiHeader({

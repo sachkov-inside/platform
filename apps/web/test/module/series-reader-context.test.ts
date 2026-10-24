@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
+import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
-const selectedSeries = parseMaterialReaderReturnTarget(
+const selectedProduct = parseMaterialReaderReturnTarget(
   "/series/platform-inside?from=%2F",
 );
 
-describe("Series Reader context", () => {
+describe("Product Reader context", () => {
   it("keeps project references outside curricular positions", () => {
-    const series = {
+    const product = {
       kind: "ready" as const,
       reference: { name: "Course", slug: "platform-inside" },
       chapters: [
@@ -21,10 +21,10 @@ describe("Series Reader context", () => {
       ],
     };
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "aie-product-brief",
-        returnTarget: selectedSeries,
-        series,
+        returnTarget: selectedProduct,
+        product,
       }),
     ).toMatchObject({
       supplementary: true,
@@ -35,10 +35,10 @@ describe("Series Reader context", () => {
       },
     });
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "lesson",
-        returnTarget: selectedSeries,
-        series,
+        returnTarget: selectedProduct,
+        product,
       }),
     ).toMatchObject({ currentPosition: 1, totalMaterials: 1 });
   });
@@ -47,10 +47,10 @@ describe("Series Reader context", () => {
     "does not guess a product from memberships when from is %s",
     (from) => {
       expect(
-        resolveSeriesReaderContext({
+        resolveProductReaderContext({
           currentMaterialSlug: "shared",
           returnTarget: parseMaterialReaderReturnTarget(from),
-          series: {
+          product: {
             kind: "ready",
             reference: {
               name: "Selected",
@@ -73,38 +73,38 @@ describe("Series Reader context", () => {
     "keeps programme navigation distinct from a product named programme: %s",
     (origin, expected) => {
       expect(
-        resolveSeriesReaderContext({
+        resolveProductReaderContext({
           currentMaterialSlug: "first",
           returnTarget: parseMaterialReaderReturnTarget(origin),
-          series: {
+          product: {
             kind: "ready",
             reference: { name: "Programme", slug: "programme" },
             items: [{ slug: "first", title: "Первый урок" }],
           },
-        })?.series.href,
+        })?.product.href,
       ).toBe(expected);
     },
   );
   it("opens the programme even when the lesson was entered from the product description", () => {
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "first",
         returnTarget: parseMaterialReaderReturnTarget(
           "/products/ai-engineering",
         ),
-        series: {
+        product: {
           kind: "ready",
           reference: { name: "AI Engineering", slug: "ai-engineering" },
           items: [{ slug: "first", title: "Первый урок" }],
         },
-      })?.series.href,
+      })?.product.href,
     ).toBe("/products/ai-engineering/programme");
   });
-  it("keeps the selected Series order when one Material belongs to several Series", () => {
-    const result = resolveSeriesReaderContext({
+  it("keeps the selected Product order when one Material belongs to several Product", () => {
+    const result = resolveProductReaderContext({
       currentMaterialSlug: "shared-material",
-      returnTarget: selectedSeries,
-      series: {
+      returnTarget: selectedProduct,
+      product: {
         kind: "ready",
         reference: {
           name: "Создание Platform Inside",
@@ -128,7 +128,7 @@ describe("Series Reader context", () => {
         href: "/materials/first?from=%2Fseries%2Fplatform-inside%3Ffrom%3D%252F",
         title: "Сначала границы",
       },
-      series: {
+      product: {
         hasModeVariants: false,
         href: "/products/platform-inside/programme",
         name: "Создание Platform Inside",
@@ -136,18 +136,18 @@ describe("Series Reader context", () => {
       totalMaterials: 3,
     });
 
-    const otherSeries = parseMaterialReaderReturnTarget(
+    const otherProduct = parseMaterialReaderReturnTarget(
       "/series/review-series",
     );
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "shared-material",
-        returnTarget: otherSeries,
-        series: {
+        returnTarget: otherProduct,
+        product: {
           kind: "ready",
           reference: {
             name: "Review",
-            slug: "review-series",
+            slug: "review-product",
           },
           items: [
             { slug: "shared-material", title: "Общий материал" },
@@ -157,17 +157,17 @@ describe("Series Reader context", () => {
         },
       })?.next,
     ).toEqual({
-      href: "/materials/review-video?from=%2Fseries%2Freview-series",
+      href: "/materials/review-video?from=%2Fseries%2Freview-product",
       title: "Видео-разбор",
     });
   });
 
   it("preserves linear navigation for an explicit empty chapter list", () => {
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "first",
-        returnTarget: selectedSeries,
-        series: {
+        returnTarget: selectedProduct,
+        product: {
           kind: "ready",
           reference: { name: "Selected", slug: "platform-inside" },
           chapters: [],
@@ -184,17 +184,17 @@ describe("Series Reader context", () => {
     });
   });
 
-  it("uses the complete Series composition beyond a catalog page boundary", () => {
+  it("uses the complete Product composition beyond a catalog page boundary", () => {
     const items = Array.from({ length: 30 }, (_, index) => ({
       slug: `material-${String(index + 1)}`,
       title: `Материал ${String(index + 1)}`,
     }));
 
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "material-24",
-        returnTarget: selectedSeries,
-        series: {
+        returnTarget: selectedProduct,
+        product: {
           kind: "ready",
           items,
           reference: {
@@ -211,12 +211,12 @@ describe("Series Reader context", () => {
     });
   });
 
-  it("does not invent navigation for a Series that does not contain the Material", () => {
+  it("does not invent navigation for a Product that does not contain the Material", () => {
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "independent-material",
-        returnTarget: selectedSeries,
-        series: {
+        returnTarget: selectedProduct,
+        product: {
           kind: "ready",
           reference: {
             name: "Создание Platform Inside",
@@ -230,13 +230,13 @@ describe("Series Reader context", () => {
 });
 
 it("retains the originating lesson and marks the reference outside the step sequence", () => {
-  const context = resolveSeriesReaderContext({
+  const context = resolveProductReaderContext({
     currentMaterialSlug: "aie-product-brief",
     returnTarget: parseMaterialReaderReturnTarget(
       "/products/course/programme?at=lesson",
     ),
     anchor: { kind: "material", slug: "lesson" },
-    series: {
+    product: {
       kind: "ready",
       reference: { slug: "course", name: "Курс" },
       chapters: [
@@ -263,7 +263,7 @@ it("retains the originating lesson and marks the reference outside the step sequ
 });
 
 it("follows repeated flat programme positions while excluding catalogue-only documents", () => {
-  const series = {
+  const product = {
     kind: "ready" as const,
     reference: { name: "Flat", slug: "flat" },
     chapters: [],
@@ -278,8 +278,8 @@ it("follows repeated flat programme positions while excluding catalogue-only doc
       { id: "a2", materialId: "a", chapterId: null, stepGroup: null },
     ],
   };
-  const context = resolveSeriesReaderContext({
-    series,
+  const context = resolveProductReaderContext({
+    product,
     currentMaterialSlug: "a",
     placementId: "a2",
     returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
@@ -292,8 +292,8 @@ it("follows repeated flat programme positions while excluding catalogue-only doc
   });
   expect(context?.previous?.href).toContain("placement=b1");
   expect(
-    resolveSeriesReaderContext({
-      series,
+    resolveProductReaderContext({
+      product,
       currentMaterialSlug: "extra",
       returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
     }),

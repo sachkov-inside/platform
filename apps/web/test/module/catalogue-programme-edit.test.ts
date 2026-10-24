@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editCatalogueProgramme } from "@/features/series-order/model/catalogue-programme-edit";
+import { editCatalogueProgramme } from "@/features/product-order/model/catalogue-programme-edit";
 
 const placement = (id: string, materialId: string) => ({
   id,

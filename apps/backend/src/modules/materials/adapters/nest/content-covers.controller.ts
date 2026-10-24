@@ -72,7 +72,7 @@ export class AuthoringContentCoverController {
   @ApiOperation({
     operationId: "uploadContentCover",
     summary:
-      "Upload or replace one author-owned Material, Topic, or Series cover",
+      "Upload or replace one author-owned Material, Topic, or Product cover",
   })
   @ApiParam({
     name: "ownerKind",
@@ -323,7 +323,7 @@ async function readCoverUpload(
 }
 
 /** Owners an authoring import creates: Topics are never source-owned. */
-const importedCoverOwnerKindSchema = z.enum(["material", "series"]);
+const importedCoverOwnerKindSchema = z.enum(["material", "product"]);
 
 /** Source-scoped cover changes for Materials and Products owned by an authoring import. */
 @MaterialAuthoringEndpoint()

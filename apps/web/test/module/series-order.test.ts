@@ -6,21 +6,21 @@ vi.mock("@/shared/auth/index.server", () => ({
   readLogtoBffConfig: vi.fn().mockReturnValue({}),
 }));
 
-import { getSeriesOrder } from "@/features/series-order.server";
+import { getProductOrder } from "@/features/product-order.server";
 import {
-  executeReorderSeries,
-  reorderSeriesInvalidInput,
-} from "@/features/series-order/api/reorder-series.server";
-import { reorderSeriesOperation } from "@/features/series-order/api/series-order.operation";
+  executeReorderProduct,
+  reorderProductInvalidInput,
+} from "@/features/product-order/api/reorder-product.server";
+import { reorderProductOperation } from "@/features/product-order/api/product-order.operation";
 
-const seriesId = "96000000-0000-4000-8000-000000000001";
+const productId = "96000000-0000-4000-8000-000000000001";
 const firstId = "96000000-0000-4000-8000-000000000002";
 const secondId = "96000000-0000-4000-8000-000000000003";
 const chapterId = "96000000-0000-4000-8000-000000000004";
 const orderVersion = "a".repeat(64);
 
-describe("Series order web adapters", () => {
-  it("maps the backend Series contract to the Russian playlist presentation", async () => {
+describe("Product order web adapters", () => {
+  it("maps the backend Product contract to the Russian playlist presentation", async () => {
     const request = vi.fn().mockResolvedValue({
       body: {
         archived: false,
@@ -49,14 +49,14 @@ describe("Series order web adapters", () => {
         ],
         name: "Создание Platform Inside",
         orderVersion,
-        seriesId,
+        productId,
       },
       ok: true,
       response: Response.json({}),
     });
 
     await expect(
-      getSeriesOrder(seriesId, "access-token", request),
+      getProductOrder(productId, "access-token", request),
     ).resolves.toEqual({
       kind: "ready",
       order: {
@@ -84,7 +84,7 @@ describe("Series order web adapters", () => {
         ],
         name: "Создание Platform Inside",
         orderVersion,
-        seriesId,
+        productId,
       },
     });
   });
@@ -95,7 +95,7 @@ describe("Series order web adapters", () => {
     form["chapters"] = chapters;
     form["chapterAssignments"] = { [firstId]: chapterId };
     const save = vi.fn().mockResolvedValue({
-      body: { orderVersion, seriesId },
+      body: { orderVersion, productId },
       ok: true,
       response: Response.json({}),
     });
@@ -113,7 +113,7 @@ describe("Series order web adapters", () => {
     form["chapters"] = [{ id: chapterId, name: " ", summary: "" }];
     await expect(reorder(form, "token", save)).resolves.toEqual({
       kind: "error",
-      reference: "series-order-form",
+      reference: "product-order-form",
     });
     expect(save).not.toHaveBeenCalled();
   });
@@ -122,7 +122,7 @@ describe("Series order web adapters", () => {
     const form = validInput();
     form["stepGroups"] = { [firstId]: "  Release  " };
     const save = vi.fn().mockResolvedValue({
-      body: { orderVersion, seriesId },
+      body: { orderVersion, productId },
       ok: true,
       response: Response.json({}),
     });
@@ -133,7 +133,7 @@ describe("Series order web adapters", () => {
       {
         expectedOrderVersion: orderVersion,
         orderedMaterialIds: [secondId, firstId],
-        seriesId,
+        productId,
         stepGroups: { [firstId]: "Release" },
       },
       "token",
@@ -148,7 +148,7 @@ describe("Series order web adapters", () => {
     form["stepGroups"] = { [firstId]: " " };
     await expect(reorder(form, "token", save)).resolves.toEqual({
       kind: "error",
-      reference: "series-order-form",
+      reference: "product-order-form",
     });
     expect(save).not.toHaveBeenCalled();
   });
@@ -156,7 +156,7 @@ describe("Series order web adapters", () => {
   it("submits one complete order and maps optimistic conflicts", async () => {
     const input = validInput();
     const save = vi.fn().mockResolvedValue({
-      body: { orderVersion: "b".repeat(64), seriesId },
+      body: { orderVersion: "b".repeat(64), productId },
       ok: true,
       response: Response.json({}),
     });
@@ -168,14 +168,14 @@ describe("Series order web adapters", () => {
       {
         expectedOrderVersion: orderVersion,
         orderedMaterialIds: [secondId, firstId],
-        seriesId,
+        productId,
       },
       "access-token",
     );
 
     const conflict = vi.fn().mockResolvedValue({
       ok: false,
-      problem: { code: "stale_series_order" },
+      problem: { code: "stale_product_order" },
       response: Response.json({}, { status: 409 }),
     });
     await expect(reorder(input, "access-token", conflict)).resolves.toEqual({
@@ -208,7 +208,7 @@ describe("Series order web adapters", () => {
       response: Response.json({}, { status: 422 }),
     });
     await expect(reorder(validInput(), "access-token", other)).resolves.toEqual(
-      { kind: "error", reference: "series-order-save" },
+      { kind: "error", reference: "product-order-save" },
     );
   });
 
@@ -229,7 +229,7 @@ describe("Series order web adapters", () => {
 
   it("asks to confirm a removal from a bought product and passes the confirmation", async () => {
     const products = [
-      { productId: seriesId, holders: 3, name: "Купленный продукт" },
+      { productId: productId, holders: 3, name: "Купленный продукт" },
     ];
     const refused = vi.fn().mockResolvedValue({
       ok: false,
@@ -241,23 +241,23 @@ describe("Series order web adapters", () => {
     ).resolves.toEqual({ products, kind: "removal_confirmation_required" });
 
     const save = vi.fn().mockResolvedValue({
-      body: { orderVersion: "c".repeat(64), seriesId },
+      body: { orderVersion: "c".repeat(64), productId },
       ok: true,
       response: Response.json({}),
     });
     const confirmed = validInput();
-    confirmed["confirmedProductRemovals"] = [seriesId];
+    confirmed["confirmedProductRemovals"] = [productId];
     await expect(
       reorder(confirmed, "access-token", save),
     ).resolves.toMatchObject({ kind: "saved" });
     expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({ confirmedProductRemovals: [seriesId] }),
+      expect.objectContaining({ confirmedProductRemovals: [productId] }),
       "access-token",
     );
     confirmed["confirmedProductRemovals"] = ["not-a-uuid"];
     await expect(reorder(confirmed, "access-token", save)).resolves.toEqual({
       kind: "error",
-      reference: "series-order-form",
+      reference: "product-order-form",
     });
   });
 });
@@ -266,7 +266,7 @@ function validInput(): Record<string, unknown> {
   return {
     expectedOrderVersion: orderVersion,
     orderedMaterialIds: [secondId, firstId],
-    seriesId,
+    productId,
   };
 }
 
@@ -274,10 +274,10 @@ function validInput(): Record<string, unknown> {
 function reorder(
   body: Record<string, unknown>,
   accessToken: string,
-  save: Parameters<typeof executeReorderSeries>[2],
+  save: Parameters<typeof executeReorderProduct>[2],
 ) {
-  const input = reorderSeriesOperation.input.safeParse(body);
+  const input = reorderProductOperation.input.safeParse(body);
   return input.success
-    ? executeReorderSeries(input.data, accessToken, save)
-    : Promise.resolve(reorderSeriesInvalidInput());
+    ? executeReorderProduct(input.data, accessToken, save)
+    : Promise.resolve(reorderProductInvalidInput());
 }

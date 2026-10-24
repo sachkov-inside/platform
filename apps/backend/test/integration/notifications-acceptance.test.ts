@@ -530,7 +530,7 @@ describe("приёмка обоих источников Notifications (реал
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...productIds],
+      productIds: [...productIds],
     };
     const created = value(
       await materials.authoring.createDraft({

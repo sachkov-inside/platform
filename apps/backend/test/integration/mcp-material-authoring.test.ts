@@ -361,7 +361,7 @@ describe("delegated Material authoring over MCP", () => {
     });
 
     const createdPlaylist = await callTool("content_collection_create", {
-      kind: "series",
+      kind: "product",
       name: "MCP Platform path",
       slug: "mcp-platform-path",
       summary: "An ordered MCP-managed path.",
@@ -381,7 +381,7 @@ describe("delegated Material authoring over MCP", () => {
     });
     const materialId = successfulMaterialId(material);
     const initialComposition = await callTool("playlist_load_composition", {
-      seriesId: playlist["id"],
+      productId: playlist["id"],
     });
     const initial = successfulValue(initialComposition);
     expect(initial["items"]).toEqual([]);
@@ -402,11 +402,13 @@ describe("delegated Material authoring over MCP", () => {
           },
         ],
         stepGroups: { [materialId]: "  MCP instruction  " },
-        seriesId: playlist["id"],
+        productId: playlist["id"],
       }),
     ).toMatchObject({ structuredContent: { ok: true } });
     expect(
-      await callTool("playlist_load_composition", { seriesId: playlist["id"] }),
+      await callTool("playlist_load_composition", {
+        productId: playlist["id"],
+      }),
     ).toMatchObject({
       structuredContent: {
         ok: true,
@@ -427,7 +429,7 @@ describe("delegated Material authoring over MCP", () => {
       collectionId: playlist["id"],
       expectedVersion: playlist["version"],
       introduction,
-      kind: "series",
+      kind: "product",
       name: "MCP Platform journey",
       summary: "A refined ordered path.",
     });
@@ -438,7 +440,7 @@ describe("delegated Material authoring over MCP", () => {
           introduction,
           name: "MCP Platform journey",
           slug: "mcp-platform-path",
-          version: 2,
+          version: 2 as const,
         },
       },
     });
@@ -447,7 +449,7 @@ describe("delegated Material authoring over MCP", () => {
       await callTool("content_collection_update", {
         collectionId: playlist["id"],
         expectedVersion: 2,
-        kind: "series",
+        kind: "product",
         name: "MCP Platform journey",
         summary: "A refined ordered path.",
       }),
@@ -458,7 +460,7 @@ describe("delegated Material authoring over MCP", () => {
       await callTool("content_collection_update", {
         collectionId: playlist["id"],
         expectedVersion: playlist["version"],
-        kind: "series",
+        kind: "product",
         name: "Stale",
         summary: "",
       }),
@@ -475,7 +477,7 @@ describe("delegated Material authoring over MCP", () => {
         archived: true,
         collectionId: playlist["id"],
         expectedVersion: 3,
-        kind: "series",
+        kind: "product",
       }),
     ).toMatchObject({
       structuredContent: {
@@ -484,7 +486,7 @@ describe("delegated Material authoring over MCP", () => {
       },
     });
     const listed = await callTool("content_collection_list", {
-      kind: "series",
+      kind: "product",
     });
     expect(listed).toMatchObject({ structuredContent: { ok: true } });
     // Закрытое руководство фикстуры лежит в том же каталоге коллекций: ищем плейлист по id.
@@ -814,7 +816,7 @@ function metadata(title: string, access: "free" | "closed") {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: access === "closed" ? [closedProductId] : [],
+    productIds: access === "closed" ? [closedProductId] : [],
   };
 }
 

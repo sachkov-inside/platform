@@ -183,7 +183,7 @@ test("retains a pre-upgrade paid receipt and malformed legacy fulfillment passiv
         reason: "guide: is part of the original reason",
       },
     };
-    const fingerprint = commandDigest({ version: 2, value: command });
+    const fingerprint = commandDigest({ version: 2 as const, value: command });
     const result = { ok: true, grantRef: grantId, revision: 1 };
     await pool.query(
       "insert into accounts.accounts(id, logto_issuer, logto_subject) values ($1, 'https://identity.example.test', $2)",

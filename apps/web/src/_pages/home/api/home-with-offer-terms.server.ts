@@ -27,7 +27,7 @@ export async function fillPinnedOfferTerms(
   result: HomeResult,
 ): Promise<HomeResult> {
   if (result.kind !== "ready") return result;
-  const pinned = result.value.pinnedSeries;
+  const pinned = result.value.pinnedProduct;
   if (pinned === null || (pinned.card === null && pinned.hero === null))
     return result;
   // Поток читается рядом со сроками: он нужен наклейке «до старта N дней» на анимации курса.
@@ -53,15 +53,15 @@ function presentPinnedTerms(
   terms: OneTimeOfferTerms | null,
   countdown: string | null,
 ): HomeResult {
-  if (result.kind !== "ready" || result.value.pinnedSeries === null)
+  if (result.kind !== "ready" || result.value.pinnedProduct === null)
     return result;
-  const pinned = result.value.pinnedSeries;
+  const pinned = result.value.pinnedProduct;
   const fill = (text: string) => fillOneTimeTerms(text, terms);
   return {
     ...result,
     value: {
       ...result.value,
-      pinnedSeries: {
+      pinnedProduct: {
         ...pinned,
         card:
           pinned.card === null

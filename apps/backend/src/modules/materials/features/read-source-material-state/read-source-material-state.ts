@@ -20,7 +20,7 @@ const querySchema = readSourceMaterialStateQuerySchema.extend({
 
 interface MembershipRow {
   readonly materialId: string;
-  readonly seriesId: string;
+  readonly productId: string;
   readonly ordinal: number;
   readonly chapterId: string | null;
 }
@@ -55,7 +55,6 @@ export function assembleReadSourceMaterialState(
               sourcePath: true,
               sourceRevision: true,
               sourceCommit: true,
-              showInFeed: true,
               slug: true,
               access: true,
               contentVersion: true,
@@ -96,11 +95,11 @@ export function assembleReadSourceMaterialState(
                 path: row.sourcePath,
                 revision: row.sourceRevision,
                 commit: row.sourceCommit,
-                showInFeed: row.showInFeed,
+                version: 2 as const,
               },
               memberships: (membershipsByMaterial.get(row.id) ?? []).map(
                 (membership) => ({
-                  productId: membership.seriesId,
+                  productId: membership.productId,
                   ordinal: membership.ordinal,
                   chapterId: membership.chapterId,
                 }),

@@ -6,7 +6,7 @@ import { assembleProductMaterialReading } from "../../src/modules/materials/inde
 import {
   ProductDirectory,
   ProductOutlines,
-  PublishedSeriesComposition,
+  PublishedProductComposition,
   ProductCompositionsReading,
 } from "../../src/modules/products/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -63,7 +63,7 @@ describe("Products directory over owner publication facts", () => {
         id: sourceId,
         path: `${sourceId}.md`,
         revision: "a".repeat(64),
-        showInFeed: false,
+        version: 2 as const,
       };
       const reserved = await materials.authoring.reserveSourceMaterial({
         actor,
@@ -87,7 +87,7 @@ describe("Products directory over owner publication facts", () => {
             topicId,
             formatId: "guide",
             tagIds: [],
-            seriesIds: [],
+            productIds: [],
             difficulty: null,
             outcomes: [],
           },
@@ -100,8 +100,8 @@ describe("Products directory over owner publication facts", () => {
     draftId = await reserve(draftSource, false);
     await db.prisma.productMembership.createMany({
       data: [
-        { seriesId: productId, materialId: publishedId },
-        { seriesId: productId, materialId: draftId },
+        { productId: productId, materialId: publishedId },
+        { productId: productId, materialId: draftId },
       ],
     });
     await db.prisma.productProgrammePlacement.createMany({
@@ -165,7 +165,7 @@ describe("Products directory over owner publication facts", () => {
       materials.find((material) => material.materialId === draftId),
     ).toEqual({ sourceId: draftSource, materialId: draftId, published: null });
     expect(materials).toHaveLength(2);
-    const published = new PublishedSeriesComposition(
+    const published = new PublishedProductComposition(
       db.prisma,
       assembleProductMaterialReading(db.prisma),
       compositions,

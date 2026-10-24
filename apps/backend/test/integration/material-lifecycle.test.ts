@@ -29,7 +29,7 @@ function metadata(title: string) {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: [],
+    productIds: [],
   };
 }
 
@@ -595,7 +595,7 @@ describe("Material lifecycle", () => {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
     };
     const created = await authoring.createDraft({
       actor: ownerId,

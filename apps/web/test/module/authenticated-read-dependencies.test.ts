@@ -17,7 +17,7 @@ vi.mock("@/shared/api/backend/index.server", async (importOriginal) => ({
 }));
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import { handleAuthoringMaterialsRequest } from "@/_pages/authoring-materials/api/authoring-materials-route.server";
-import { handleHomePinReadRequest } from "@/features/series-order/api/home-pin-route.server";
+import { handleHomePinReadRequest } from "@/features/product-order/api/home-pin-route.server";
 const request = () => new Request("https://inside.example.test/api/read");
 const capabilities = [
   [

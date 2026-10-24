@@ -59,24 +59,9 @@ export type PracticeImportError =
   | { readonly code: "idempotency_conflict" }
   | SystemError;
 export type PracticeImportReceipt = z.infer<typeof practiceImportReceiptSchema>;
-export type ApplySourcePracticeOperation = (
+export type ReadHistoricalPracticeReceiptOperation = (
   input: z.infer<typeof applySourcePracticeBodySchema> & {
     readonly actor: string;
     readonly idempotencyKey: string;
   },
 ) => Promise<Result<PracticeImportReceipt, PracticeImportError>>;
-
-export const validateSourcePracticeResultSchema = z
-  .object({
-    valid: z.literal(true),
-    current: practiceImportReceiptSchema.nullable(),
-  })
-  .strict();
-export type ValidateSourcePracticeOperation = (
-  input: z.infer<typeof sourcePracticeSchema> & { readonly actor: string },
-) => Promise<
-  Result<
-    z.infer<typeof validateSourcePracticeResultSchema>,
-    PracticeImportError
-  >
->;

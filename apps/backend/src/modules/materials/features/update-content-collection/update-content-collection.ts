@@ -47,7 +47,7 @@ export const updateContentCollectionCommandSchema = z
       })
       .strict()
       .optional(),
-    kind: z.enum(["product", "series", "topic"]),
+    kind: z.enum(["product", "topic"]),
     name: z.string().trim().min(1).max(120),
     /** Адрес, оформление и страница перенесённого Product; их пишет только source-scoped импорт. */
     source: z
@@ -126,7 +126,7 @@ export function assembleUpdateContentCollection(
           transaction,
           command.kind === "topic"
             ? { kind: "topic", topicId: command.collectionId }
-            : { kind: "series", seriesId: command.collectionId },
+            : { kind: "product", productId: command.collectionId },
           dependencies.discovery,
         );
         const collection = await persistence.load(command.collectionId);

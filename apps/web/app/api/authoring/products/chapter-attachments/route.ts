@@ -1,4 +1,4 @@
-import { handleChapterAttachmentsRequest } from "@/features/series-order.server";
+import { handleChapterAttachmentsRequest } from "@/features/product-order.server";
 export function PUT(request: Request): Promise<Response> {
   return handleChapterAttachmentsRequest(request);
 }

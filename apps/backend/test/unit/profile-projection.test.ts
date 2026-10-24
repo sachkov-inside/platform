@@ -10,7 +10,7 @@ const storedProfile = {
   publicProfileId: "40000000-0000-4000-8000-000000000001",
   status: "active",
   updatedAt: new Date("2026-09-01T10:00:00.000Z"),
-  version: 2,
+  version: 2 as const,
 };
 
 describe("Account Profile persistence projection", () => {

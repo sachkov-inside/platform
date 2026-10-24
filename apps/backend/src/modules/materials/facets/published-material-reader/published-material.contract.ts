@@ -35,10 +35,10 @@ export interface PublishedMaterialProjectionDto {
     readonly id: string;
     readonly name: string;
   }[];
-  readonly seriesMemberships: readonly {
+  readonly productMemberships: readonly {
     readonly ordinal: number;
     readonly stepGroup?: string | null;
-    readonly series: {
+    readonly product: {
       readonly id: string;
       readonly name: string;
       readonly slug: string;

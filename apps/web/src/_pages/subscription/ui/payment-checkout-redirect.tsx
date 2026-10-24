@@ -10,7 +10,7 @@ import { checkoutProductSlug } from "../model/checkout-product";
 
 const catalogSchema = z.object({
   facets: z.object({
-    series: z.array(z.object({ id: z.uuid(), slug: z.string().min(1) })),
+    products: z.array(z.object({ id: z.uuid(), slug: z.string().min(1) })),
   }),
 });
 
@@ -32,7 +32,7 @@ export async function PaymentCheckoutRedirect({
   ]);
   if (!catalog.ok || offers.kind === "unavailable")
     throw new Error("Checkout catalog unavailable");
-  const products = catalogSchema.parse(catalog.body).facets.series;
+  const products = catalogSchema.parse(catalog.body).facets.products;
   const slug = checkoutProductSlug(products, offers.offers, productId);
   const query = new URLSearchParams();
   if (productId !== undefined) query.set("productId", productId);

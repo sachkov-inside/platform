@@ -23,7 +23,7 @@ const metadata = {
   tagIds: [],
   difficulty: null,
   outcomes: [],
-  seriesIds: [],
+  productIds: [],
 };
 function noteBody(text: string, href?: string) {
   return {
@@ -97,7 +97,7 @@ describe("Home feed public note excerpts", () => {
         metadata: {
           ...metadata,
           access,
-          seriesIds: access === "closed" ? [closedProductId] : [],
+          productIds: access === "closed" ? [closedProductId] : [],
         },
         body: noteBody(text, href),
         primaryVideoId: null,
@@ -166,7 +166,7 @@ describe("Home feed public note excerpts", () => {
       materialId: created.value.materialId,
       expectedContentVersion: version,
       publicationState: "published",
-      metadata: { ...metadata, seriesIds: [closedProductId] },
+      metadata: { ...metadata, productIds: [closedProductId] },
       body: noteBody(
         "Archived note secret",
         "https://example.com/archived-secret",

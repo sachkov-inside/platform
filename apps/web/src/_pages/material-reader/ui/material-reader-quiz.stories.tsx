@@ -64,7 +64,7 @@ const meta = {
       difficulty: "basic",
       outcomes: [],
       publishedAt: "2026-10-09T09:00:00.000Z",
-      seriesMemberships: [],
+      productMemberships: [],
       slug: "quiz-proof",
       summary:
         "Учебная фикстура: как поставить агенту задачу и проверить результат.",

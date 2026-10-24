@@ -3,7 +3,7 @@ import { renderToStaticMarkup, renderToReadableStream } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ProductSale } from "@/entities/subscription.sale.server";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
 const fakes = vi.hoisted(() => ({ state: vi.fn() }));
@@ -27,13 +27,13 @@ import { productWaitlistKey } from "@/features/product-waitlist";
 
 const productId = "10000000-0000-4000-8000-000000001568";
 const result: Extract<
-  PublishedSeriesResult,
+  PublishedProductResult,
   { readonly kind: "ready" | "empty" }
 > = {
   kind: "empty",
-  discoveryKind: "series",
+  discoveryKind: "product",
   chapters: [],
-  relatedSeries: [],
+  relatedProduct: [],
   topics: [],
   reference: {
     id: productId,

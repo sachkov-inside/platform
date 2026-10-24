@@ -96,13 +96,13 @@ describe("ReadingActivity HTTP", () => {
     const topicId = randomUUID();
     const formatId = "note";
     const actor = randomUUID();
-    const seriesId = randomUUID();
+    const productId = randomUUID();
     await database.prisma.topic.create({
       data: { id: topicId, name: "Reading", slug: "reading" },
     });
 
     await database.prisma.product.create({
-      data: { id: seriesId, name: "Series", slug: "series" },
+      data: { id: productId, name: "Product", slug: "product" },
     });
     const materials = assembleMaterials({
       prisma: database.prisma,
@@ -120,7 +120,7 @@ describe("ReadingActivity HTTP", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [seriesId],
+        productIds: [productId],
       },
       body: representativeDocument("Public content stays public."),
     });
@@ -134,14 +134,14 @@ describe("ReadingActivity HTTP", () => {
     });
     if (!published.ok) throw new Error(published.error.code);
     const materialId = published.value.materialId;
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor,
-      seriesId,
+      productId,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const programme = await materials.authoring.reorderSeries({
+    const programme = await materials.authoring.reorderProduct({
       actor,
-      seriesId,
+      productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [materialId],
       programmePlacements: [
@@ -235,20 +235,20 @@ describe("ReadingActivity HTTP", () => {
     ).toBe(400);
     const progress = await server.inject({
       method: "GET",
-      url: `/reading-activity/series/${seriesId}`,
+      url: `/reading-activity/series/${productId}`,
       headers,
     });
     expect(progress.statusCode).toBe(200);
     expect(progress.headers["cache-control"]).toBe("private, no-store");
     expect(progress.json()).toEqual({
-      seriesId,
+      productId,
       read: 0,
       total: 1,
       allRead: false,
     });
     const productProgress = await server.inject({
       method: "GET",
-      url: `/reading-activity/products/${seriesId}`,
+      url: `/reading-activity/products/${productId}`,
       headers,
     });
     expect(productProgress.statusCode).toBe(200);
@@ -258,7 +258,7 @@ describe("ReadingActivity HTTP", () => {
       (
         await server.inject({
           method: "GET",
-          url: `/reading-activity/products/${seriesId}`,
+          url: `/reading-activity/products/${productId}`,
         })
       ).statusCode,
     ).toBe(401);
@@ -268,7 +268,7 @@ describe("ReadingActivity HTTP", () => {
     });
     const productPage = await server.inject({
       method: "GET",
-      url: "/library/products/series",
+      url: "/library/products/product",
     });
     expect(legacyPage.statusCode).toBe(200);
     expect(productPage.statusCode).toBe(200);
@@ -369,16 +369,16 @@ describe("ReadingActivity HTTP", () => {
     for (const endpoint of [
       {
         url: "/reading-activity/learning-home",
-        own: { video: null, series: started },
-        other: { video: null, series: null },
+        own: { video: null, product: started },
+        other: { video: null, product: null },
       },
       {
-        url: "/reading-activity/series-continuation/series",
+        url: "/reading-activity/product-continuation/product",
         own: started,
         other: unstarted,
       },
       {
-        url: "/reading-activity/product-continuation/series",
+        url: "/reading-activity/product-continuation/product",
         own: started,
         other: unstarted,
       },
@@ -406,7 +406,7 @@ describe("ReadingActivity HTTP", () => {
       (
         await server.inject({
           method: "GET",
-          url: "/reading-activity/series-continuation/missing",
+          url: "/reading-activity/product-continuation/missing",
           headers,
         })
       ).statusCode,

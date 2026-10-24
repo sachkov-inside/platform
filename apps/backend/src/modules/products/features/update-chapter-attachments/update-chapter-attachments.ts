@@ -2,9 +2,9 @@ import { transactionHandle } from "../../../../infrastructure/prisma/transaction
 import { z } from "zod";
 import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
 import {
-  lockSeries,
-  loadSeriesOrderSnapshot,
-} from "../../infrastructure/postgres/series-order.js";
+  lockProduct,
+  loadProductOrderSnapshot,
+} from "../../infrastructure/postgres/product-order.js";
 import { productOrderVersion } from "../../shared/product-order-version.js";
 import { authorizeManager } from "../../../../infrastructure/content-authoring/author-policy.js";
 import {
@@ -18,10 +18,10 @@ import {
 } from "../../shared/application-result.js";
 import { mapPostgresReadError } from "../../../../infrastructure/content-authoring/postgres-error-mapping.js";
 import type {
-  ReorderSeriesReceiptDto,
-  ReorderSeriesError,
-  ReorderSeriesResult,
-} from "../reorder-series/reorder-series.contract.js";
+  ReorderProductReceiptDto,
+  ReorderProductError,
+  ReorderProductResult,
+} from "../reorder-product/reorder-product.contract.js";
 
 export const chapterAttachmentsBodySchema = z
   .object({
@@ -42,7 +42,7 @@ const commandSchema = chapterAttachmentsBodySchema.extend({
 });
 export type UpdateChapterAttachmentsOperation = (
   command: z.input<typeof commandSchema>,
-) => Promise<ReorderSeriesResult>;
+) => Promise<ReorderProductResult>;
 
 /** Platform-owned navigation links can change without changing source-owned content or programme. */
 export function assembleUpdateChapterAttachments(
@@ -54,8 +54,8 @@ export function assembleUpdateChapterAttachments(
     const command = parsed.value;
 
     return executeAuthoringTransaction<
-      ReorderSeriesReceiptDto,
-      ReorderSeriesError
+      ReorderProductReceiptDto,
+      ReorderProductError
     >(
       dependencies.prisma,
       async (transaction, rollback) => {
@@ -66,14 +66,14 @@ export function assembleUpdateChapterAttachments(
         );
         if (!permission.ok) return rollback(permission.error);
 
-        await lockSeries(transaction, [command.productId]);
-        const snapshot = await loadSeriesOrderSnapshot(
+        await lockProduct(transaction, [command.productId]);
+        const snapshot = await loadProductOrderSnapshot(
           transaction,
           command.productId,
           dependencies.materials,
         );
         if (snapshot === undefined)
-          return rollback({ code: "series_not_found" });
+          return rollback({ code: "product_not_found" });
         if (
           !snapshot.chapters.some(
             (chapter) => chapter.id === command.chapterId,
@@ -104,9 +104,9 @@ export function assembleUpdateChapterAttachments(
           snapshot.programmePlacements,
         );
         if (next === currentOrderVersion)
-          return { seriesId: command.productId, orderVersion: next };
+          return { productId: command.productId, orderVersion: next };
         if (command.expectedOrderVersion !== currentOrderVersion)
-          return rollback({ code: "stale_series_order", currentOrderVersion });
+          return rollback({ code: "stale_product_order", currentOrderVersion });
         await transaction.productChapterSupplementaryMaterial.deleteMany({
           where: { chapterId: command.chapterId, productId: command.productId },
         });
@@ -119,7 +119,7 @@ export function assembleUpdateChapterAttachments(
               ordinal: index + 1,
             })),
           });
-        return { seriesId: command.productId, orderVersion: next };
+        return { productId: command.productId, orderVersion: next };
       },
       mapPostgresReadError,
       "updateChapterAttachments",

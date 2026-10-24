@@ -109,7 +109,7 @@ export function assembleCreateDraft(
             const memberships = await loadChangedProductMemberships(
               transaction,
               newMaterialId,
-              selection.value.toValues().seriesIds,
+              selection.value.toValues().productIds,
               dependencies.memberships,
             );
             const sourceError = checkContentWrite(
@@ -142,7 +142,6 @@ export function assembleCreateDraft(
                 sourcePath: source?.path ?? null,
                 sourceRevision: source?.revision ?? null,
                 sourceCommit: source?.commit ?? null,
-                showInFeed: source?.showInFeed ?? true,
                 notifyTelegram: false,
                 slug: sourceSlug,
                 title: materializedMetadata.title,

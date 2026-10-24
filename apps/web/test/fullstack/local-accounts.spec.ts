@@ -41,7 +41,7 @@ test("local accounts: fresh owner, private draft and real denials survive restar
           difficulty: "unassigned",
           formatId: "unassigned",
           topicId: "unassigned",
-          seriesIds: [],
+          productIds: [],
           submissionId: randomUUID(),
           document: {
             type: "doc",

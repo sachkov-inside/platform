@@ -8,7 +8,7 @@ import {
 
 import {
   materialDocumentWireSchema,
-  materialSeriesIdsWireSchema,
+  materialProductIdsWireSchema,
 } from "./material-document-wire";
 
 const issueSchema = z
@@ -53,7 +53,7 @@ export const createMaterialDraftInputSchema = z.object({
     .max(MATERIAL_OUTCOMES.maxCount)
     .readonly()
     .default([]),
-  seriesIds: materialSeriesIdsWireSchema,
+  productIds: materialProductIdsWireSchema,
   submissionId: z.uuid(),
   summary: z.string().trim().max(500),
   tagIds: z.array(z.uuid()).max(100).readonly().default([]),

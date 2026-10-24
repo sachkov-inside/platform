@@ -1313,7 +1313,7 @@ export class CommunicationsService {
         validationErrors: Array<{
           reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
           target: {
-            kind: 'material' | 'series';
+            kind: 'material' | 'product';
             targetId: string;
           };
         }>;
@@ -1462,7 +1462,7 @@ export class CommunicationsService {
         reason: 'eligible' | 'not_found' | 'not_published' | 'not_free' | 'incomplete';
         safeUrl: (string | string | null);
         target: {
-          kind: 'material' | 'series';
+          kind: 'material' | 'product';
           targetId: string;
         };
       }>;
@@ -2607,7 +2607,7 @@ export class CommunicationsService {
         validationErrors: Array<{
           reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
           target: {
-            kind: 'material' | 'series';
+            kind: 'material' | 'product';
             targetId: string;
           };
         }>;
@@ -2756,7 +2756,7 @@ export class CommunicationsService {
         reason: 'eligible' | 'not_found' | 'not_published' | 'not_free' | 'incomplete';
         safeUrl: (string | string | null);
         target: {
-          kind: 'material' | 'series';
+          kind: 'material' | 'product';
           targetId: string;
         };
       }>;
@@ -3383,7 +3383,7 @@ export class CommunicationsService {
     });
   }
   /**
-   * Check public Material and Series targets in an immutable author content snapshot
+   * Check public Material and Product targets in an immutable author content snapshot
    * @returns any
    * @throws ApiError
    */

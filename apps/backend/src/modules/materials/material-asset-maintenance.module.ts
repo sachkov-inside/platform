@@ -70,7 +70,7 @@ import { MaterialContentModule } from "./material-content.module.js";
             selection: routeContentCoverSelection({
               material: new MaterialCoverSelection(),
               topic: new MaterialCoverSelection(),
-              series: products,
+              product: products,
             }),
           }),
         }),

@@ -8,7 +8,7 @@ import {
   readProductAccess,
   readProductSalePresentation,
 } from "@/entities/subscription.sale.server";
-import { getSeriesContinuation } from "@/features/reading-progress.server";
+import { getProductContinuation } from "@/features/reading-progress.server";
 import { communityEntrySchema } from "@/features/community-entry";
 import {
   requestCurrentBilling,
@@ -38,7 +38,7 @@ export const readProductReaderState = cache(
     const common = { productId, slug, access, signedIn: token !== undefined };
     if (access === "open" && token !== undefined) {
       const onboarding = readOnboarding(productId, token);
-      const continuation = await getSeriesContinuation(slug, token);
+      const continuation = await getProductContinuation(slug, token);
       return {
         ...common,
         kind: "learning",

@@ -23,7 +23,7 @@ import type { CreateContentCollectionOperation } from "./create-content-collecti
 export const contentCollectionInputSchema = z
   .object({
     actor: accountId,
-    kind: z.enum(["product", "series", "topic"]),
+    kind: z.enum(["product", "topic"]),
     name: z.string().trim().min(1).max(120),
     slug: collectionSlug,
     summary: z.string().trim().max(500),
@@ -63,7 +63,7 @@ export function assembleCreateContentCollection(
         });
       },
       (error) =>
-        isPostgresUniqueViolation(error, "series_slug_unique")
+        isPostgresUniqueViolation(error, "product_slug_unique")
           ? { code: "content_collection_slug_conflict" as const }
           : mapPostgresReadError(error),
       "createProduct",

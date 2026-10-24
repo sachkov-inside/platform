@@ -55,7 +55,7 @@ const materialSource = {
   id: "inside-content:product-import-lesson",
   path: "lesson.md",
   revision: "c".repeat(64),
-  showInFeed: false,
+  version: 2 as const,
 };
 
 describe("authoring source Product completion", () => {
@@ -225,7 +225,7 @@ describe("authoring source Product completion", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
       },
     });
     if (!lesson.ok) throw new Error(lesson.error.code);
@@ -253,7 +253,7 @@ describe("authoring source Product completion", () => {
     expect(
       await authoring.setHomePin({
         actor,
-        seriesId: product.id,
+        productId: product.id,
         expectedVersion: pin.value.version,
       }),
     ).toMatchObject({ ok: true });
@@ -357,14 +357,14 @@ describe("authoring source Product completion", () => {
     });
     expect(
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "page-product",
         first: 10,
       }),
     ).toMatchObject({ ok: false });
     const discovered =
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "page-product-renamed",
         first: 10,
       });
@@ -389,7 +389,7 @@ describe("authoring source Product completion", () => {
     expect(home).toMatchObject({
       ok: true,
       value: {
-        pinnedSeries: {
+        pinnedProduct: {
           id: product.id,
           slug: "page-product-renamed",
           presentation: "ai-first-process",
@@ -472,7 +472,7 @@ describe("authoring source Product completion", () => {
       selection: routeContentCoverSelection({
         material: new MaterialCoverSelection(),
         topic: new MaterialCoverSelection(),
-        series: new ProductCoverSelection(),
+        product: new ProductCoverSelection(),
       }),
       prisma: database.prisma,
       objectStorage,
@@ -530,7 +530,7 @@ describe("authoring source Product completion", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
     });
     if (!plain.ok) throw new Error(plain.error.code);
@@ -556,7 +556,7 @@ describe("authoring source Product completion", () => {
         actor,
         expectedCoverId: null,
         kind: "remove",
-        owner: { id: product.id, kind: "series" },
+        owner: { id: product.id, kind: "product" },
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(
@@ -565,7 +565,7 @@ describe("authoring source Product completion", () => {
           actor,
           expectedCoverId: null,
           kind: "remove",
-          owner: { id: product.id, kind: "series" },
+          owner: { id: product.id, kind: "product" },
         },
         "inside-content:other",
       ),
@@ -576,7 +576,7 @@ describe("authoring source Product completion", () => {
           actor,
           expectedCoverId: null,
           kind: "upload",
-          owner: { id: product.id, kind: "series" },
+          owner: { id: product.id, kind: "product" },
           ...(await coverUpload("#abcdef")),
         },
         "inside-content:cover-product",

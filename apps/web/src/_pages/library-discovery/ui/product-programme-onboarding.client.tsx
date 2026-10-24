@@ -9,7 +9,7 @@ import { TelegramLinkAction } from "@/features/account-access";
 import { useMaterialReading } from "@/entities/material";
 import { useCurrentBilling } from "@/features/billing-subscription";
 import { hasPaidProductAccess } from "../model/product-onboarding";
-import { useSeriesLearning } from "./series-learning.client";
+import { useProductLearning } from "./product-learning.client";
 
 interface OnboardingPresentation {
   readonly incomplete: boolean;
@@ -51,7 +51,7 @@ export function ProductProgrammeOnboarding({
     currentAccountId,
     purchased,
   );
-  const learning = useSeriesLearning();
+  const learning = useProductLearning();
   const result = query.data;
   const entry = result?.ok === true ? result.value : null;
   const complete =

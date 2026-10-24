@@ -1033,7 +1033,7 @@ catalog_sql() {
 }
 # ProductPrice is the current sale-configuration owner. This disposable row exercises only
 # startup configuration; it neither approves legal terms nor executes a purchase.
-catalog_sql "insert into products.series (id, slug, name)
+catalog_sql "insert into products.products (id, slug, name)
   values ('$sale_offer_id', 'production-smoke-product', 'Production smoke Product');"
 catalog_sql "insert into billing.product_prices (product_id, revision, name, price_kopecks, published, archived, updated_at)
   values ('$sale_offer_id', 1, 'Production smoke Product', 100000, true, false, now());"

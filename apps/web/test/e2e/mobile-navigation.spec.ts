@@ -6,7 +6,7 @@ const catalog = {
   kind: "ready",
   facets: {
     formats: [],
-    series: [],
+    products: [],
     topics: [
       {
         id: "platform",
@@ -22,7 +22,7 @@ const catalog = {
     availability: "available",
     format: "Гайд",
     formatSlug: "guide",
-    seriesMemberships: [],
+    productMemberships: [],
     slug: `navigation-${String(index)}`,
     summary: "Материал для проверки возврата к чтению.",
     tags: [],
@@ -396,9 +396,9 @@ test("changing account identity clears remembered tabs and the previous account 
         ...catalog,
         facets: {
           ...catalog.facets,
-          series: Array.from({ length: 5 }, (_, index) => ({
-            id: `series-${String(index)}`,
-            slug: `series-${String(index)}`,
+          product: Array.from({ length: 5 }, (_, index) => ({
+            id: `product-${String(index)}`,
+            slug: `product-${String(index)}`,
             name: `Продукт ${String(index)}`,
             count: 1,
             summary: "Продукт для проверки возврата",

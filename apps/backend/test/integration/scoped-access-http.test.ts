@@ -164,7 +164,7 @@ describe("scoped Account access over Nest HTTP", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: {
         schemaVersion: 1,

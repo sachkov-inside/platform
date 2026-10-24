@@ -4,16 +4,16 @@ import type { MaterialId } from "../domain/material-identifiers.js";
 import type { MaterialsPrismaTransaction } from "../../../infrastructure/prisma/index.js";
 import {
   findReferenceIssues,
-  findSeriesOrdinalConflict,
+  findProductOrdinalConflict,
 } from "../infrastructure/postgres/reference-integrity-persistence.js";
 import type {
   InvalidReferenceError,
-  SeriesOrdinalConflictError,
+  ProductOrdinalConflictError,
 } from "../facets/material-authoring/material-authoring.contract.js";
 import type { Rollback } from "./application-result.js";
 
 type ReferenceIntegrityError =
-  InvalidReferenceError | SeriesOrdinalConflictError;
+  InvalidReferenceError | ProductOrdinalConflictError;
 
 export async function requireReferenceIntegrity(
   transaction: MaterialsPrismaTransaction,
@@ -31,13 +31,13 @@ export async function requireReferenceIntegrity(
   if (issues.length > 0) {
     rollback({ code: "invalid_reference", issues });
   }
-  const conflict = await findSeriesOrdinalConflict(
+  const conflict = await findProductOrdinalConflict(
     transaction,
     materialId,
     metadata,
     products,
   );
   if (conflict !== undefined) {
-    rollback({ code: "series_ordinal_conflict", ...conflict });
+    rollback({ code: "product_ordinal_conflict", ...conflict });
   }
 }

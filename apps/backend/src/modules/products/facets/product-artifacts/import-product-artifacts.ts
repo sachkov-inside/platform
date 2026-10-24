@@ -9,7 +9,7 @@ import {
   type ContentWriteTarget,
   type ContentWriter,
 } from "../../../../infrastructure/content-authoring/content-write-policy.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import { executeAuthoringTransaction } from "../../shared/application-result.js";
 import {
   IMPORT_ARTIFACT_LIMIT,
@@ -106,7 +106,7 @@ export async function applyAuthoringImport(
         const productIds = [
           ...new Set([command.productId, ...placedProductIds]),
         ];
-        await lockSeries(transaction, productIds);
+        await lockProduct(transaction, productIds);
         const products = await transaction.product.findMany({
           where: { id: { in: productIds } },
           select: { id: true, sourceId: true },

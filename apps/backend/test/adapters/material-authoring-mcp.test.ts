@@ -52,7 +52,7 @@ describe("Material authoring MCP adapter", () => {
     const commands: unknown[] = [];
     ({ client, server } = await connect(
       stubMaterialAuthoring({
-        loadSeriesOrder: (command) => {
+        loadProductOrder: (command) => {
           commands.push(command);
           return Promise.resolve(forbiddenAuthoringResult);
         },
@@ -65,11 +65,11 @@ describe("Material authoring MCP adapter", () => {
     });
     const legacy = await client.callTool({
       name: "playlist_load_composition",
-      arguments: { seriesId: productId },
+      arguments: { productId: productId },
     });
     expect(commands).toEqual([
-      { actor: accountId, seriesId: productId },
-      { actor: accountId, seriesId: productId },
+      { actor: accountId, productId: productId },
+      { actor: accountId, productId: productId },
     ]);
     expect(canonical).toEqual(legacy);
     expect(canonical.isError).toBe(true);
@@ -181,7 +181,7 @@ describe("Material authoring MCP adapter", () => {
               cover: null,
               metadata: {
                 ...incompleteMetadata("Loaded"),
-                seriesMemberships: [],
+                productMemberships: [],
                 slug: null,
               },
               body: emptyBody(),
@@ -236,7 +236,7 @@ function incompleteMetadata(title: string) {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: [],
+    productIds: [],
   };
 }
 

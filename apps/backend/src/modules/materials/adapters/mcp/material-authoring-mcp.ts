@@ -5,7 +5,7 @@ import {
   productChapterDraftsSchema,
   productProgrammePlacementsSchema,
 } from "../../shared/product-chapters.js";
-import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
+import { productStepGroupsSchema } from "../../shared/product-step-groups.js";
 import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
@@ -28,7 +28,7 @@ const applicationResult = z.discriminatedUnion("ok", [
     .strict(),
 ]);
 
-const collectionKindSchema = z.enum(["product", "series", "topic"]);
+const collectionKindSchema = z.enum(["product", "topic"]);
 const introductionField = z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX);
 const productIntroductionSchema = z
   .object({
@@ -40,7 +40,7 @@ const productIntroductionSchema = z
   .strict();
 const collectionIdSchema = z.uuid();
 const collectionVersionSchema = z.number().int().positive();
-const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+const productOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 
 type AuthoringResult =
   | { readonly ok: true; readonly value: unknown }
@@ -57,7 +57,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     { name: "inside-platform-material-authoring", version: "1.0.0" },
     {
       instructions:
-        "Product is the standalone product, distinct from the Material format guide. Legacy series fields and playlist tools are compatibility aliases. Manage Topics, Products, Product composition, and the complete current Material through the same Platform application rules. " +
+        "Product is the standalone product, distinct from the Material format guide. Manage Topics, Products, Product composition, and the complete current Material through the same Platform application rules. " +
         "Save may publish, unpublish, replace live content, or change access immediately. " +
         "Always reload after stale content, collection, or Product order errors; successful Saves have no server-side Undo or history.",
     },
@@ -313,74 +313,6 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   );
 
   server.registerTool(
-    "playlist_load_composition",
-    {
-      title: "Load Product composition",
-      description:
-        "Load the complete ordered Product and the searchable pool of Materials with its optimistic order version.",
-      inputSchema: z.object({ seriesId: collectionIdSchema }).strict(),
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    ({ seriesId }) =>
-      toToolResult(
-        dependencies.authoring.loadSeriesOrder({
-          actor: dependencies.accountId,
-          seriesId,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "playlist_save_composition",
-    {
-      title: "Save complete Product composition",
-      description:
-        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Omitting programmePlacements preserves existing programme positions and their identifiers; orderedMaterialIds changes catalogue membership only. Legacy chapterAssignments update retained positions. Each chapter must stay one continuous programme run.",
-      inputSchema: z
-        .object({
-          chapters: productChapterDraftsSchema.optional(),
-          programmePlacements: productProgrammePlacementsSchema.optional(),
-          chapterAssignments: productChapterAssignmentsSchema.optional(),
-          expectedOrderVersion: seriesOrderVersionSchema,
-          orderedMaterialIds: z.array(materialIdWireSchema),
-          stepGroups: seriesStepGroupsSchema.optional(),
-          seriesId: collectionIdSchema,
-        })
-        .strict(),
-      annotations: {
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    ({
-      chapterAssignments,
-      chapters,
-      programmePlacements,
-      expectedOrderVersion,
-      orderedMaterialIds,
-      seriesId,
-      stepGroups,
-    }) =>
-      toToolResult(
-        dependencies.authoring.reorderSeries({
-          actor: dependencies.accountId,
-          chapterAssignments,
-          chapters,
-          programmePlacements,
-          expectedOrderVersion,
-          orderedMaterialIds,
-          seriesId,
-          stepGroups,
-        }),
-      ),
-  );
-
-  server.registerTool(
     "product_load_composition",
     {
       title: "Load Product composition",
@@ -395,9 +327,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     },
     ({ productId }) =>
       toToolResult(
-        dependencies.authoring.loadSeriesOrder({
+        dependencies.authoring.loadProductOrder({
           actor: dependencies.accountId,
-          seriesId: productId,
+          productId: productId,
         }),
       ),
   );
@@ -413,9 +345,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           chapters: productChapterDraftsSchema.optional(),
           programmePlacements: productProgrammePlacementsSchema.optional(),
           chapterAssignments: productChapterAssignmentsSchema.optional(),
-          expectedOrderVersion: seriesOrderVersionSchema,
+          expectedOrderVersion: productOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
-          stepGroups: seriesStepGroupsSchema.optional(),
+          stepGroups: productStepGroupsSchema.optional(),
           productId: collectionIdSchema,
           confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
         })
@@ -437,14 +369,14 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       confirmedProductRemovals,
     }) =>
       toToolResult(
-        dependencies.authoring.reorderSeries({
+        dependencies.authoring.reorderProduct({
           actor: dependencies.accountId,
           chapterAssignments,
           chapters,
           programmePlacements,
           expectedOrderVersion,
           orderedMaterialIds,
-          seriesId: productId,
+          productId: productId,
           stepGroups,
           confirmedProductRemovals: confirmedProductRemovals ?? [],
         }),
@@ -461,7 +393,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         .object({
           productId: collectionIdSchema,
           chapterId: collectionIdSchema,
-          expectedOrderVersion: seriesOrderVersionSchema,
+          expectedOrderVersion: productOrderVersionSchema,
           materialIds: z.array(materialIdWireSchema).max(200),
         })
         .strict(),

@@ -98,7 +98,7 @@ describe("Sales funnel report on PostgreSQL", () => {
         formatId: "guide",
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
         summary: `${title} summary.`,
         tagIds: [],
         title,
@@ -128,14 +128,14 @@ describe("Sales funnel report on PostgreSQL", () => {
     material.third = await publish("Агенты");
     firstChapter = randomUUID();
     secondChapter = randomUUID();
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor: author,
-      seriesId: productId,
+      productId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
     const saved = await authorProductProgramme(materials.authoring, {
       actor: author,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [material.first, material.second, material.third],
       chapters: [

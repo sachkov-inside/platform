@@ -1,4 +1,8 @@
 import {
+  name as historicalAuthoringContractName,
+  statement as historicalAuthoringContractStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0113-historical-authoring-contract.js";
+import {
   name as canonicalProductStorageName,
   statement as canonicalProductStorageStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0112-canonical-product-storage.js";
@@ -722,6 +726,10 @@ export const platformMigrations = [
   {
     name: canonicalProductStorageName,
     statement: canonicalProductStorageStatement,
+  },
+  {
+    name: historicalAuthoringContractName,
+    statement: historicalAuthoringContractStatement,
   },
 ] as const;
 

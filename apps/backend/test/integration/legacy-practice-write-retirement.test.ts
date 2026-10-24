@@ -70,32 +70,32 @@ test("retired Practice authoring rejects new concurrent operations without rows 
       receipt,
     },
   });
-  expect(await authoring.applySourcePractice(command)).toEqual({
+  expect(await authoring.readHistoricalPracticeReceipt(command)).toEqual({
     ok: true,
     value: receipt,
   });
   expect(
-    await authoring.applySourcePractice({
+    await authoring.readHistoricalPracticeReceipt({
       ...command,
       definition: { ...command.definition, title: "Rewritten" },
     }),
   ).toEqual({ ok: false, error: { code: "idempotency_conflict" } });
   expect(
-    await authoring.applySourcePractice({
+    await authoring.readHistoricalPracticeReceipt({
       ...command,
       actor: "33333333-3333-4333-8333-333333333333",
     }),
   ).toEqual({ ok: false, error: { code: "forbidden" } });
   const results = await Promise.all(
     ["new-one", "new-two"].map((idempotencyKey) =>
-      authoring.applySourcePractice({ ...command, idempotencyKey }),
+      authoring.readHistoricalPracticeReceipt({ ...command, idempotencyKey }),
     ),
   );
   expect(results).toEqual([
     { ok: false, error: { code: "practice_definition_retired" } },
     { ok: false, error: { code: "practice_definition_retired" } },
   ]);
-  expect(await database.prisma.practiceDefinition.count()).toBe(0);
+  expect(await database.prisma.historicalPracticeDefinition.count()).toBe(0);
   expect(await database.prisma.practiceImportReceipt.findMany()).toMatchObject([
     { idempotencyKey: command.idempotencyKey, receipt },
   ]);

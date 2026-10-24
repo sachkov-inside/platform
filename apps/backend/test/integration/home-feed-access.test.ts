@@ -19,7 +19,7 @@ let database: TestDatabase;
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
   await seedLocalDevelopment(database.prisma, { demo: "published" });
-  await database.prisma.material.updateMany({ data: { showInFeed: false } });
+  await database.prisma.material.updateMany({ data: { version: 2 } });
   await database.prisma.material.updateMany({
     where: {
       slug: {
@@ -29,7 +29,7 @@ beforeAll(async () => {
         ],
       },
     },
-    data: { showInFeed: true },
+    data: { version: 2 },
   });
 });
 afterAll(async () => {
@@ -88,7 +88,7 @@ for (const subject of [
       {},
       { q: "Developer Pipeline" },
       { topicSlugs: ["platform"] },
-      { seriesSlugs: ["platform-inside"] },
+      { productSlugs: ["platform-inside"] },
     ]) {
       const discovery = await listPublishedMaterials(
         materials.publishedMaterialReader,

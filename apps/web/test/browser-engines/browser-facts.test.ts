@@ -26,7 +26,7 @@ const material = {
   cover: null,
   format: "Статья",
   formatSlug: "article",
-  seriesMemberships: [],
+  productMemberships: [],
   slug: "saved",
   summary: "Saved material",
   tags: [],

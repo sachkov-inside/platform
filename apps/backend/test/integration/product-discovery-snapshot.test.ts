@@ -28,7 +28,7 @@ async function fixture() {
     },
   });
   await db.prisma.productMembership.create({
-    data: { seriesId: productId, materialId: first },
+    data: { productId: productId, materialId: first },
   });
   await db.prisma.productProgrammePlacement.create({
     data: {
@@ -40,7 +40,7 @@ async function fixture() {
     },
   });
   await db.prisma.publishedMaterialProductMembership.create({
-    data: { seriesId: productId, materialId: first },
+    data: { productId: productId, materialId: first },
   });
   return { productId, first, second, extra };
 }
@@ -65,12 +65,14 @@ test("discovery keeps catalogue, published ordinals, authored groups and archive
       });
       await tx.productProgrammePlacement.deleteMany({ where: { productId } });
       await tx.publishedMaterialProductMembership.deleteMany({
-        where: { seriesId: productId },
+        where: { productId: productId },
       });
-      await tx.productMembership.deleteMany({ where: { seriesId: productId } });
+      await tx.productMembership.deleteMany({
+        where: { productId: productId },
+      });
       await tx.productMembership.createMany({
         data: [extra, second].map((materialId) => ({
-          seriesId: productId,
+          productId: productId,
           materialId,
         })),
       });
@@ -85,7 +87,7 @@ test("discovery keeps catalogue, published ordinals, authored groups and archive
       });
       await tx.publishedMaterialProductMembership.createMany({
         data: [extra, second].map((materialId) => ({
-          seriesId: productId,
+          productId: productId,
           materialId,
         })),
       });
@@ -124,10 +126,10 @@ test("discovery keeps catalogue, published ordinals, authored groups and archive
     before.products.find((entry) => entry.id === productId)?.archivedAt,
   ).toBeNull();
   expect(
-    before.memberships.filter((entry) => entry.seriesId === productId),
+    before.memberships.filter((entry) => entry.productId === productId),
   ).toEqual([
     {
-      seriesId: productId,
+      productId: productId,
       materialId: first,
       ordinal: 1,
       chapterId: null,
@@ -135,8 +137,10 @@ test("discovery keeps catalogue, published ordinals, authored groups and archive
     },
   ]);
   expect(
-    before.publishedMemberships.filter((entry) => entry.seriesId === productId),
-  ).toEqual([{ seriesId: productId, materialId: first, ordinal: 1 }]);
+    before.publishedMemberships.filter(
+      (entry) => entry.productId === productId,
+    ),
+  ).toEqual([{ productId: productId, materialId: first, ordinal: 1 }]);
   expect(reads).toBe(1);
   const after = await new ProductDiscovery(db.prisma).snapshot();
   expect(
@@ -144,12 +148,12 @@ test("discovery keeps catalogue, published ordinals, authored groups and archive
   ).toEqual(new Date("2026-10-01"));
   expect(
     after.memberships.find(
-      (entry) => entry.seriesId === productId && entry.materialId === second,
+      (entry) => entry.productId === productId && entry.materialId === second,
     ),
   ).toMatchObject({ ordinal: 2, stepGroup: "Release" });
   expect(
     after.publishedMemberships.find(
-      (entry) => entry.seriesId === productId && entry.materialId === second,
+      (entry) => entry.productId === productId && entry.materialId === second,
     )?.ordinal,
   ).toBe(2);
 });
@@ -173,7 +177,8 @@ test("discovery reads and rolls back the exact caller transaction without a seco
       ).not.toBeNull();
       expect(
         inside.memberships.find(
-          (entry) => entry.seriesId === productId && entry.materialId === first,
+          (entry) =>
+            entry.productId === productId && entry.materialId === first,
         )?.stepGroup,
       ).toBe("Uncommitted");
       throw new Error("caller rollback");
@@ -185,7 +190,7 @@ test("discovery reads and rolls back the exact caller transaction without a seco
   ).toBeNull();
   expect(
     outside.memberships.find(
-      (entry) => entry.seriesId === productId && entry.materialId === first,
+      (entry) => entry.productId === productId && entry.materialId === first,
     )?.stepGroup,
   ).toBe("Start");
 });
@@ -195,7 +200,7 @@ test("discovery preserves first occurrence metadata and deterministic catalogue-
   const another = randomUUID();
   await db.prisma.productMembership.createMany({
     data: [second, extra, another].map((materialId) => ({
-      seriesId: productId,
+      productId: productId,
       materialId,
     })),
   });
@@ -219,7 +224,7 @@ test("discovery preserves first occurrence metadata and deterministic catalogue-
   });
   const snapshot = await new ProductDiscovery(db.prisma).snapshot();
   const memberships = snapshot.memberships.filter(
-    (entry) => entry.seriesId === productId,
+    (entry) => entry.productId === productId,
   );
   expect(memberships.find((entry) => entry.materialId === first)).toMatchObject(
     { ordinal: 1, stepGroup: "Start" },

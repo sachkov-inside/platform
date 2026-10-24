@@ -22,7 +22,7 @@ export function assembleLoadHomePin(
     try {
       const pin = await dependencies.prisma.homeProductPin.findUniqueOrThrow({
         where: { id: 1 },
-        select: { seriesId: true, version: true },
+        select: { productId: true, version: true },
       });
       return { ok: true, value: pin };
     } catch (error) {

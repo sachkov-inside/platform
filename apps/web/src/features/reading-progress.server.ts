@@ -5,8 +5,8 @@ export {
 export { handleMaterialOpen } from "./reading-progress/api/material-open-route.server";
 
 export {
-  getSeriesContinuation,
-  handleSeriesContinuation,
-} from "./reading-progress/api/series-continuation.server";
+  getProductContinuation,
+  handleProductContinuation,
+} from "./reading-progress/api/product-continuation.server";
 
 export { handlePersonalHome } from "./reading-progress/api/personal-home-route.server";

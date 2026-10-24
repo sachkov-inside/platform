@@ -156,7 +156,7 @@ test("production startup-refusal fixture targets the current Product price owner
     source.indexOf('catalog_sql "insert into'),
     source.indexOf("record_stage_timing routes-and-sale-configuration"),
   );
-  assert.match(fixture, /insert into products\.series \(id, slug, name\)/u);
+  assert.match(fixture, /insert into products\.product \(id, slug, name\)/u);
   assert.match(
     fixture,
     /insert into billing\.product_prices\s*\(product_id, revision, name, price_kopecks, published, archived, updated_at\)/u,

@@ -16,7 +16,7 @@ const meta = {
   title: "Features/Product Task/Submission Workspace",
   args: {
     code: "practice-task",
-    version: 2,
+    version: 2 as const,
     accepting: true,
     history: notSubmittedYet,
     learnerMcpUrl,

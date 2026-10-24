@@ -97,7 +97,9 @@ describe("Content Library discovery", () => {
       hasNext: true,
     });
     expect(
-      result.value.relatedSeries.find(({ slug }) => slug === "platform-inside"),
+      result.value.relatedProduct.find(
+        ({ slug }) => slug === "platform-inside",
+      ),
     ).toMatchObject({
       matchingMaterialCount: 2,
       name: "Создание Platform Inside",
@@ -121,7 +123,7 @@ describe("Content Library discovery", () => {
     expect(JSON.stringify(result)).not.toContain("schemaVersion");
   });
 
-  test("derives every related Series beyond the current Topic material page", async () => {
+  test("derives every related Product beyond the current Topic material page", async () => {
     const topic = await testDatabase.prisma.topic.findUniqueOrThrow({
       where: { slug: "platform" },
       select: { id: true },
@@ -135,10 +137,10 @@ describe("Content Library discovery", () => {
     if (target === undefined || published.length < 2) {
       throw new Error("Expected a second published Topic Material");
     }
-    const beyondPageSeriesId = "75000000-0000-4000-8000-000000000010";
+    const beyondPageProductId = "75000000-0000-4000-8000-000000000010";
     await testDatabase.prisma.product.create({
       data: {
-        id: beyondPageSeriesId,
+        id: beyondPageProductId,
         name: "Beyond first page",
         slug: "beyond-first-page",
         summary: "A derived Playlist outside the current material page.",
@@ -148,13 +150,13 @@ describe("Content Library discovery", () => {
       testDatabase.prisma.productMembership.create({
         data: {
           materialId: target.materialId,
-          seriesId: beyondPageSeriesId,
+          productId: beyondPageProductId,
         },
       }),
       testDatabase.prisma.publishedMaterialProductMembership.create({
         data: {
           materialId: target.materialId,
-          seriesId: beyondPageSeriesId,
+          productId: beyondPageProductId,
         },
       }),
     ]);
@@ -179,7 +181,7 @@ describe("Content Library discovery", () => {
     expect(
       result.value.items.map(({ materialId }) => materialId),
     ).not.toContain(target.materialId);
-    expect(result.value.relatedSeries).toContainEqual(
+    expect(result.value.relatedProduct).toContainEqual(
       expect.objectContaining({
         matchingMaterialCount: 1,
         slug: "beyond-first-page",
@@ -188,7 +190,7 @@ describe("Content Library discovery", () => {
     );
   });
 
-  test("keeps Series in author-defined ordinal order for free and closed teasers", async () => {
+  test("keeps Product in author-defined ordinal order for free and closed teasers", async () => {
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
@@ -199,7 +201,7 @@ describe("Content Library discovery", () => {
       contentAccess,
       emptyCatalogVideos,
       {
-        kind: "series",
+        kind: "product",
         slug: "platform-inside",
         first: null,
         subject: anonymousSubject,
@@ -209,7 +211,7 @@ describe("Content Library discovery", () => {
     expect(result).toMatchObject({
       ok: true,
       value: {
-        kind: "series",
+        kind: "product",
         reference: {
           introduction: {
             audience: "Engineers who own a product surface end to end.",
@@ -229,12 +231,12 @@ describe("Content Library discovery", () => {
           expect.objectContaining({
             slug: "kak-ustroen-inside-platform",
             availability: "available",
-            seriesMemberships: [expect.objectContaining({ ordinal: 1 })],
+            productMemberships: [expect.objectContaining({ ordinal: 1 })],
           }),
           expect.objectContaining({
             slug: "developer-pipeline-bez-poteri-konteksta",
             availability: "locked",
-            seriesMemberships: [expect.objectContaining({ ordinal: 2 })],
+            productMemberships: [expect.objectContaining({ ordinal: 2 })],
           }),
         ],
       },
@@ -345,8 +347,8 @@ describe("Content Library discovery", () => {
         contentAccess,
         emptyCatalogVideos,
         {
-          kind: "series",
-          slug: "missing-series",
+          kind: "product",
+          slug: "missing-product",
           first: 24,
           subject: anonymousSubject,
         },
@@ -398,9 +400,9 @@ describe("Content Library discovery", () => {
       expect(catalog.value.facets.topics.map(({ slug }) => slug)).not.toContain(
         "platform",
       );
-      expect(catalog.value.facets.series.map(({ slug }) => slug)).not.toContain(
-        "platform-inside",
-      );
+      expect(
+        catalog.value.facets.products.map(({ slug }) => slug),
+      ).not.toContain("platform-inside");
 
       const topic = await discoverPublishedMaterials(
         publishedMaterialReader,
@@ -413,12 +415,12 @@ describe("Content Library discovery", () => {
           subject: anonymousSubject,
         },
       );
-      const series = await discoverPublishedMaterials(
+      const product = await discoverPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
         emptyCatalogVideos,
         {
-          kind: "series",
+          kind: "product",
           slug: "platform-inside",
           first: 24,
           subject: anonymousSubject,
@@ -429,10 +431,10 @@ describe("Content Library discovery", () => {
         value: { reference: { slug: "platform" } },
       });
       if (!topic.ok) throw new Error(topic.error.code);
-      expect(topic.value.relatedSeries.map(({ slug }) => slug)).not.toContain(
+      expect(topic.value.relatedProduct.map(({ slug }) => slug)).not.toContain(
         "platform-inside",
       );
-      expect(series).toMatchObject({
+      expect(product).toMatchObject({
         ok: false,
         error: { code: "discovery_not_found" },
       });

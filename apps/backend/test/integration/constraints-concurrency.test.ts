@@ -11,8 +11,8 @@ const actor = "a0000000-0000-4000-8000-000000000001";
 const topicId = "a0000000-0000-4000-8000-000000000002";
 const formatId = "note";
 const tagId = "a0000000-0000-4000-8000-000000000004";
-const seriesId = "a0000000-0000-4000-8000-000000000005";
-const secondSeriesId = "a0000000-0000-4000-8000-000000000006";
+const productId = "a0000000-0000-4000-8000-000000000005";
+const secondProductId = "a0000000-0000-4000-8000-000000000006";
 
 describe("material authoring integrity contract", () => {
   let testDatabase: TestDatabase;
@@ -28,8 +28,8 @@ describe("material authoring integrity contract", () => {
     });
     await testDatabase.prisma.product.createMany({
       data: [
-        { id: seriesId, slug: "build", name: "Build" },
-        { id: secondSeriesId, slug: "operate", name: "Operate" },
+        { id: productId, slug: "build", name: "Build" },
+        { id: secondProductId, slug: "operate", name: "Operate" },
       ],
     });
   });
@@ -56,7 +56,7 @@ describe("material authoring integrity contract", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument(),
     } as const;
@@ -93,7 +93,7 @@ describe("material authoring integrity contract", () => {
     expect(corrected.ok).toBe(true);
   });
 
-  test("rejects duplicate Tags while appending selected Series", async () => {
+  test("rejects duplicate Tags while appending selected Product", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -107,7 +107,7 @@ describe("material authoring integrity contract", () => {
       tagIds: [tagId],
       difficulty: null,
       outcomes: [],
-      seriesIds: [seriesId],
+      productIds: [productId],
     } as const;
     const first = await authoring.createDraft({
       actor,
@@ -124,7 +124,7 @@ describe("material authoring integrity contract", () => {
         metadata: {
           ...metadata,
           tagIds: [tagId, tagId],
-          seriesIds: [],
+          productIds: [],
         },
         body: representativeDocument(),
       }),
@@ -151,7 +151,7 @@ describe("material authoring integrity contract", () => {
       body: representativeDocument(),
     });
     if (!first.ok || !second.ok || !third.ok) {
-      throw new Error("Selected Series append failed");
+      throw new Error("Selected Product append failed");
     }
     const loaded = await Promise.all(
       [first, second, third].map((created) =>
@@ -164,8 +164,10 @@ describe("material authoring integrity contract", () => {
     for (const result of loaded) {
       if (!result.ok) throw new Error(result.error.code);
       expect(
-        result.value.metadata.seriesMemberships.map((entry) => entry.seriesId),
-      ).toEqual([seriesId]);
+        result.value.metadata.productMemberships.map(
+          (entry) => entry.productId,
+        ),
+      ).toEqual([productId]);
     }
   });
 
@@ -180,14 +182,14 @@ describe("material authoring integrity contract", () => {
         idempotencyKey: key,
         metadata: {
           title: `${side} playlist append`,
-          summary: "The Series row lock appends both Materials.",
+          summary: "The Product row lock appends both Materials.",
           access: "free",
           topicId,
           formatId,
           tagIds: [],
           difficulty: null,
           outcomes: [],
-          seriesIds: [secondSeriesId],
+          productIds: [secondProductId],
         },
         body: representativeDocument(),
       });
@@ -198,9 +200,9 @@ describe("material authoring integrity contract", () => {
     ]);
     expect(left.ok).toBe(true);
     expect(right.ok).toBe(true);
-    const catalogue = await authoring.loadSeriesOrder({
+    const catalogue = await authoring.loadProductOrder({
       actor,
-      seriesId: secondSeriesId,
+      productId: secondProductId,
     });
     if (!catalogue.ok) throw new Error(catalogue.error.code);
     expect(catalogue.value.items.map((item) => item.materialId).sort()).toEqual(
@@ -226,7 +228,7 @@ describe("material authoring integrity contract", () => {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
     } as const;
     const created = await authoring.createDraft({
       actor,
@@ -280,7 +282,7 @@ describe("material authoring integrity contract", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument(),
     });
@@ -303,7 +305,7 @@ describe("material authoring integrity contract", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument(),
     });

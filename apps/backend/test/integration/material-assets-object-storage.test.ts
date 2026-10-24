@@ -350,7 +350,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: null,

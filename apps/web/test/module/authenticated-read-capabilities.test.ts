@@ -13,7 +13,7 @@ import { handleReadBillingContact } from "@/features/billing-contact.server";
 import { handleReadNotificationPreferences } from "@/features/notification-preferences.server";
 import { handleAcceptedDocumentsRequest } from "@/features/accepted-documents.server";
 import { handleBookmarkList } from "@/features/bookmarks.server";
-import { handleHomePinReadRequest } from "@/features/series-order/api/home-pin-route.server";
+import { handleHomePinReadRequest } from "@/features/product-order/api/home-pin-route.server";
 import { readAuthenticatedBilling } from "@/entities/subscription.server";
 import { loadTaskSubmissions } from "@/_pages/task-submissions/api/load-task-submissions.server";
 import { loadSalesFunnelReport } from "@/_pages/sales-funnel-report/api/sales-funnel-report.server";

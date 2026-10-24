@@ -49,7 +49,7 @@ const materialState: SourceMaterialState = {
         path: "course/lesson.md",
         revision: "a".repeat(64),
         commit: "c".repeat(40),
-        showInFeed: false,
+        version: 2 as const,
       },
       memberships: [
         {

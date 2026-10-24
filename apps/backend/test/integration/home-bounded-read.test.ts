@@ -175,7 +175,7 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
     const group = Math.floor(n / 9);
     const materialId = id(n + 1);
     const topicId = id(100000 + group);
-    const seriesId = id(200000 + group);
+    const productId = id(200000 + group);
     const videoId = id(300000 + n);
     const formatId =
       ["video", "guide", "note"][Math.floor((n % 9) / 3)] ?? "note";
@@ -186,9 +186,9 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
         slug: `topic-${group}`,
       });
       products.push({
-        id: seriesId,
-        name: `Series-${String(group).padStart(4, "0")}`,
-        slug: `series-${group}`,
+        id: productId,
+        name: `Product-${String(group).padStart(4, "0")}`,
+        slug: `product-${group}`,
         summary: "fixed",
       });
     }
@@ -216,17 +216,17 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
     });
     publications.push({ ...metadata, materialId, publicSearchText: "fixed" });
     for (const [groupId, ordinal] of [
-      [seriesId, (n % 9) + 1],
+      [productId, (n % 9) + 1],
       [product, n + 1],
     ] as const) {
-      memberships.push({ materialId, seriesId: groupId });
+      memberships.push({ materialId, productId: groupId });
       placements.push({
         id: id(400000 + n * 2 + (groupId === product ? 1 : 0)),
         materialId,
         productId: groupId,
         ordinal,
       });
-      publishedMemberships.push({ materialId, seriesId: groupId });
+      publishedMemberships.push({ materialId, productId: groupId });
     }
     if (formatId === "video")
       videos.push({
@@ -353,12 +353,12 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
   if (corpus === undefined) throw new Error("Missing scenario corpus");
   return corpus.run(async () => {
     const { prisma, materials } = corpus;
-    const seriesId = id(200008);
+    const productId = id(200008);
     const coverId = id(700000);
     await prisma.contentCover.create({
       data: {
         id: coverId,
-        seriesId,
+        productId,
         state: "ready",
         currentlyReferenced: true,
         renditions: {
@@ -374,7 +374,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       },
     });
     await prisma.product.update({
-      where: { id: seriesId },
+      where: { id: productId },
       data: {
         coverId,
         presentation: "ai-engineering-course",
@@ -394,7 +394,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     });
     await prisma.homeProductPin.update({
       where: { id: 1 },
-      data: { seriesId },
+      data: { productId },
     });
     await prisma.product.create({
       data: { id: id(600000), name: "A-empty", slug: "empty" },
@@ -421,7 +421,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     });
     await prisma.material.update({
       where: { id: id(4) },
-      data: { showInFeed: false },
+      data: { version: 2 },
     });
     // A public note outside the first four Playlists is still a legacy feed preview.
     await prisma.materialSearchDocument.createMany({
@@ -442,14 +442,14 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       prisma,
       authorPolicy: { canManage: () => true },
     }).authoring;
-    const order = await authoring.loadSeriesOrder({
+    const order = await authoring.loadProductOrder({
       actor,
-      seriesId: id(200005),
+      productId: id(200005),
     });
     if (!order.ok) throw new Error(order.error.code);
-    const reordered = await authoring.reorderSeries({
+    const reordered = await authoring.reorderProduct({
       actor,
-      seriesId: id(200005),
+      productId: id(200005),
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [
         id(52),
@@ -473,7 +473,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     // Legacy visibility flags do not change feed previews or the complete catalogue.
     await prisma.material.updateMany({
       where: { id: { in: Array.from({ length: 6 }, (_, n) => id(28 + n)) } },
-      data: { showInFeed: false },
+      data: { version: 2 },
     });
     await prisma.materialSearchDocument.create({
       data: {
@@ -543,8 +543,8 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
                   ? "unknown"
                   : "inactive",
           },
-          pinnedSeries: {
-            id: seriesId,
+          pinnedProduct: {
+            id: productId,
             count: 9,
             presentation: "ai-engineering-course",
             card: { eyebrow: "Course", subtitle: "Learn", action: "Open" },
@@ -578,7 +578,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     const subject = { kind: "anonymous" as const };
     // The same pin also appears among Playlists after reordering; enrichment remains unique.
     await prisma.product.update({
-      where: { id: seriesId },
+      where: { id: productId },
       data: { name: "A-pin" },
     });
     const enriched: string[] = [];
@@ -614,7 +614,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     expect(enriched.length).toBeLessThanOrEqual(39);
     expect(new Set(enriched).size).toBe(enriched.length);
     await prisma.product.update({
-      where: { id: seriesId },
+      where: { id: productId },
       data: { archivedAt: new Date("2026-01-02") },
     });
     expect(
@@ -626,9 +626,9 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         false,
         subject,
       ),
-    ).toMatchObject({ ok: true, value: { pinnedSeries: null } });
+    ).toMatchObject({ ok: true, value: { pinnedProduct: null } });
     await prisma.product.update({
-      where: { id: seriesId },
+      where: { id: productId },
       data: { archivedAt: null },
     });
     await prisma.publishedMaterial.deleteMany({
@@ -645,7 +645,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         false,
         subject,
       ),
-    ).toMatchObject({ ok: true, value: { pinnedSeries: null } });
+    ).toMatchObject({ ok: true, value: { pinnedProduct: null } });
     // A visible enrichment dependency retains its public failure contract.
     expect(
       await readHomeContent(

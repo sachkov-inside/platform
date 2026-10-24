@@ -9,7 +9,7 @@ import type { HomePinDto } from "../load-home-pin/load-home-pin.contract.js";
 
 export interface SetHomePinCommand {
   readonly actor: string;
-  readonly seriesId: string | null;
+  readonly productId: string | null;
   readonly expectedVersion: number;
 }
 export type SetHomePinError =

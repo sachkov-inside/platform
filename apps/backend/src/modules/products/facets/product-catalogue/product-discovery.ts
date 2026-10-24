@@ -1,4 +1,4 @@
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import { z } from "zod";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { readProductPage } from "../../shared/product-page-reader.js";
@@ -20,7 +20,7 @@ export interface ProductMetadataFact {
   readonly coverId: string | null;
 }
 export interface ProductCatalogueMembershipFact {
-  readonly seriesId: string;
+  readonly productId: string;
   readonly materialId: string;
 }
 
@@ -31,11 +31,11 @@ export class ProductDiscovery {
   async homePin() {
     const pin = await this.prisma.homeProductPin.findUniqueOrThrow({
       where: { id: 1 },
-      select: { seriesId: true },
+      select: { productId: true },
     });
-    if (pin.seriesId === null) return null;
+    if (pin.productId === null) return null;
     const product = await this.prisma.product.findUnique({
-      where: { id: pin.seriesId },
+      where: { id: pin.productId },
       select: { page: true, presentation: true, slug: true },
     });
     if (product === null) return null;
@@ -44,7 +44,7 @@ export class ProductDiscovery {
       `Home pinned Product ${product.slug}`,
     );
     return {
-      id: pin.seriesId,
+      id: pin.productId,
       presentation: product.presentation,
       card: page?.card ?? null,
       hero: productPageHero(page),
@@ -62,7 +62,7 @@ export class ProductDiscovery {
     const prisma =
       handle === undefined ? this.prisma : productsTransaction(handle);
     if (handle !== undefined && query?.ids !== undefined)
-      await lockSeries(prisma, query.ids);
+      await lockProduct(prisma, query.ids);
     return prisma.product.findMany({
       ...(query === undefined
         ? {}
@@ -119,8 +119,8 @@ export class ProductDiscovery {
     productIds: readonly string[],
   ): Promise<ProductCatalogueMembershipFact[]> {
     return this.prisma.productMembership.findMany({
-      where: { seriesId: { in: [...productIds] } },
-      select: { seriesId: true, materialId: true },
+      where: { productId: { in: [...productIds] } },
+      select: { productId: true, materialId: true },
     });
   }
 
@@ -164,13 +164,13 @@ export class ProductDiscovery {
           'archivedAt', product.archived_at, 'coverId', product.cover_id
         ) order by product.id) from products.products product), '[]'::jsonb) as products,
         coalesce((select jsonb_agg(jsonb_build_object(
-          'seriesId', membership.product_id, 'materialId', membership.material_id,
+          'productId', membership.product_id, 'materialId', membership.material_id,
           'ordinal', membership.ordinal, 'chapterId', membership.chapter_id,
           'stepGroup', membership.step_group
         ) order by membership.product_id, membership.material_id)
           from catalogue membership), '[]'::jsonb) as memberships,
         coalesce((select jsonb_agg(jsonb_build_object(
-          'seriesId', published.product_id, 'materialId', published.material_id,
+          'productId', published.product_id, 'materialId', published.material_id,
           'ordinal', coalesce(membership.ordinal, 1)
         ) order by published.product_id, published.material_id)
           from products.published_material_product_memberships published
@@ -199,7 +199,7 @@ const discoverySnapshotSchema = z.object({
   ),
   memberships: z.array(
     z.object({
-      seriesId: z.uuid(),
+      productId: z.uuid(),
       materialId: z.uuid(),
       ordinal: z.number().int(),
       chapterId: z.uuid().nullable(),
@@ -208,7 +208,7 @@ const discoverySnapshotSchema = z.object({
   ),
   publishedMemberships: z.array(
     z.object({
-      seriesId: z.uuid(),
+      productId: z.uuid(),
       materialId: z.uuid(),
       ordinal: z.number().int(),
     }),

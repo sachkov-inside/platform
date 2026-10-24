@@ -12,7 +12,7 @@ import {
   assembleMaterialResourceFacts,
   assembleProductMaterialReading,
 } from "../modules/materials/index.js";
-import { PublishedSeriesComposition } from "../modules/products/index.js";
+import { PublishedProductComposition } from "../modules/products/index.js";
 import { ReadingActivity } from "../modules/reading-activity/index.js";
 import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
         const reading = new ReadingActivity({
           prisma,
           materialContent: materials.materialContent,
-          composition: new PublishedSeriesComposition(
+          composition: new PublishedProductComposition(
             prisma,
             assembleProductMaterialReading(prisma),
           ),

@@ -8,7 +8,8 @@ export const authoringSourceIdSchema = z.string().trim().min(1).max(200);
  */
 export const authoringSourceCommitSchema = z.hash("sha1").toLowerCase();
 
-export const authoringSourceSchema = z
+/** Exact historical source format. Read-only receipt decoding, never current writes. */
+export const historicalAuthoringSourceV1Schema = z
   .object({
     id: authoringSourceIdSchema,
     path: z
@@ -32,6 +33,12 @@ export const authoringSourceSchema = z
      */
     commit: authoringSourceCommitSchema.nullable().optional(),
   })
+  .strict();
+
+/** Current authoring source format; feed inclusion follows publication and access. */
+export const authoringSourceSchema = historicalAuthoringSourceV1Schema
+  .omit({ showInFeed: true })
+  .extend({ version: z.literal(2) })
   .strict();
 
 export type AuthoringSource = z.infer<typeof authoringSourceSchema>;

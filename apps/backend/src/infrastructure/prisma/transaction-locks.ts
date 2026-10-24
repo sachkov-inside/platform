@@ -44,10 +44,10 @@ export async function lockMaterialReferenceChanges(
   }
 }
 
-/** Serializes a cover change of one Material, Topic or Series with its orphan cleanup. */
+/** Serializes a cover change of one Material, Topic or Product with its orphan cleanup. */
 export async function lockContentCoverOwner(
   transaction: AdvisoryLockTransaction,
-  owner: Readonly<{ id: string; kind: "material" | "series" | "topic" }>,
+  owner: Readonly<{ id: string; kind: "material" | "product" | "topic" }>,
 ): Promise<void> {
   await lockTransactionKey(transaction, `${owner.kind}:${owner.id}`);
 }

@@ -51,9 +51,9 @@ export type {
   ProductChapterEntry,
 } from "./shared/product-order-version.js";
 export {
-  seriesStepGroupSchema,
-  seriesStepGroupsSchema,
-} from "./shared/series-step-groups.js";
+  productStepGroupSchema,
+  productStepGroupsSchema,
+} from "./shared/product-step-groups.js";
 export {
   PRODUCT_MATERIALS,
   type ProductMaterials,
@@ -83,24 +83,24 @@ export type {
 } from "./features/list-content-collections/list-content-collections.contract.js";
 export type {
   ProductChapterDto,
-  SeriesOrderMaterialDto,
-  SeriesOrderDto,
-  LoadSeriesOrderQuery,
-  SeriesNotFoundError,
-  LoadSeriesOrderError,
-  LoadSeriesOrderResult,
-  LoadSeriesOrderOperation,
-} from "./features/load-series-order/load-series-order.contract.js";
+  ProductOrderMaterialDto,
+  ProductOrderDto,
+  LoadProductOrderQuery,
+  ProductNotFoundError,
+  LoadProductOrderError,
+  LoadProductOrderResult,
+  LoadProductOrderOperation,
+} from "./features/load-product-order/load-product-order.contract.js";
 export type {
-  ReorderSeriesCommand,
-  ReorderSeriesReceiptDto,
-  StaleSeriesOrderError,
-  ReorderSeriesError,
-  ReorderSeriesResult,
-  ReorderSeriesOperation,
-} from "./features/reorder-series/reorder-series.contract.js";
-export { productChapterPlacementIssues } from "./features/reorder-series/product-chapter-placement.js";
-export { reorderSeriesCommandSchema } from "./features/reorder-series/reorder-series.js";
+  ReorderProductCommand,
+  ReorderProductReceiptDto,
+  StaleProductOrderError,
+  ReorderProductError,
+  ReorderProductResult,
+  ReorderProductOperation,
+} from "./features/reorder-product/reorder-product.contract.js";
+export { productChapterPlacementIssues } from "./features/reorder-product/product-chapter-placement.js";
+export { reorderProductCommandSchema } from "./features/reorder-product/reorder-product.js";
 export {
   reserveSourceProductBodySchema,
   updateSourceProductBodySchema,
@@ -168,9 +168,9 @@ export {
 } from "./features/read-product-directory/read-product-directory.js";
 export { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
 export {
-  PublishedSeriesComposition,
-  type PublishedSeriesCompositionResult,
-} from "./features/read-published-series-composition/read-published-series-composition.js";
+  PublishedProductComposition,
+  type PublishedProductCompositionResult,
+} from "./features/read-published-product-composition/read-published-product-composition.js";
 export { ProductCompositionsReading } from "./facets/product-compositions-reading/product-compositions-reading.js";
 export { ProductReadingModule } from "./product-reading.module.js";
 export {

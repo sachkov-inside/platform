@@ -3,7 +3,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   ProductCompositions,
   ProductCompositionsReading,
-  PublishedSeriesComposition,
+  PublishedProductComposition,
 } from "../../src/modules/products/index.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import {
@@ -39,7 +39,7 @@ async function fixture() {
   });
   await db.prisma.productMembership.createMany({
     data: [first, second].map((materialId) => ({
-      seriesId: productId,
+      productId: productId,
       materialId,
     })),
   });
@@ -104,7 +104,7 @@ test("oversized catalogue is rejected before loading any Material facts", async 
     await db.prisma.productMembership.createMany({
       data: ids
         .slice(offset, offset + 500)
-        .map((materialId) => ({ seriesId: productId, materialId })),
+        .map((materialId) => ({ productId: productId, materialId })),
     });
   const materials = assembleProductMaterialReading(db.prisma);
   let enriched = false;
@@ -125,8 +125,8 @@ test("oversized catalogue is rejected before loading any Material facts", async 
   ).rejects.toThrow("Product composition exceeds its bound");
   expect(enriched).toBe(false);
   expect(
-    await new PublishedSeriesComposition(db.prisma, materials).read(productId),
-  ).toEqual({ ok: false, error: { code: "series_too_large" } });
+    await new PublishedProductComposition(db.prisma, materials).read(productId),
+  ).toEqual({ ok: false, error: { code: "product_too_large" } });
 });
 
 test("composition joins the caller handle without a nested transaction or a second connection", async () => {

@@ -33,7 +33,7 @@ export {
   requestContinueMaterials,
   requestRecordMaterialOpen,
   requestLearningHome,
-  requestSeriesContinuation,
+  requestProductContinuation,
 } from "./personal-home.server";
 
 export * from "./billing-contact.server";

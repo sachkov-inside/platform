@@ -16,7 +16,7 @@ const referenceSchema = z
 const referencesSchema = z
   .object({
     formats: z.array(referenceSchema.extend({ id: materialFormatSchema })),
-    series: z.array(referenceSchema),
+    products: z.array(referenceSchema),
     tags: z.array(referenceSchema),
     topics: z.array(referenceSchema),
   })
@@ -24,7 +24,7 @@ const referencesSchema = z
 
 export interface MaterialAuthoringReferences {
   readonly formats: readonly MaterialAuthoringReference[];
-  readonly series: readonly MaterialAuthoringReference[];
+  readonly products: readonly MaterialAuthoringReference[];
   readonly tags: readonly MaterialAuthoringReference[];
   readonly topics: readonly MaterialAuthoringReference[];
 }
@@ -76,7 +76,7 @@ export async function getMaterialAuthoringReferences(
     kind: "ready",
     references: {
       formats: parsed.data.formats.map(toOption),
-      series: parsed.data.series.map(toOption),
+      products: parsed.data.products.map(toOption),
       tags: parsed.data.tags.map(toOption),
       topics: parsed.data.topics.map(toOption),
     },

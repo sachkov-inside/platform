@@ -29,52 +29,19 @@ import {
   applySourcePracticeBodySchema,
   practiceImportReceiptSchema,
   type PracticeImportError,
-  sourcePracticeSchema,
-  validateSourcePracticeResultSchema,
 } from "./import-source-practice.contract.js";
 
 @MaterialAuthoringEndpoint()
-@Controller("authoring/import/practices")
+@Controller("authoring/history/practice-receipts")
 export class ImportSourcePracticeController {
   constructor(
     @Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring,
   ) {}
 
-  @Post("validate")
+  @Post()
   @HttpCode(200)
   @ApiOperation({
-    operationId: "validateSourcePractice",
-    summary:
-      "Validate authored practice data and inspect its current CAS version without writes",
-  })
-  @ApiBody({ schema: toOpenApiSchema(sourcePracticeSchema) })
-  @ApiOkResponse({
-    schema: toOpenApiSchema(validateSourcePracticeResultSchema),
-  })
-  @ApiMaterialAuthoringErrors(400, 401, 403, 500, 503)
-  async validate(
-    @CurrentAccount() account: AuthenticatedAccount,
-    @Body() input: unknown,
-  ) {
-    const parsed = sourcePracticeSchema.safeParse(input);
-    if (!parsed.success)
-      throw problemException(
-        400,
-        "invalid_request_shape",
-        "Practice definition is malformed",
-      );
-    const result = await this.authoring.validateSourcePractice({
-      ...parsed.data,
-      actor: account.accountId,
-    });
-    if (!result.ok) throwImportError(result.error);
-    return result.value;
-  }
-
-  @Post("apply")
-  @HttpCode(200)
-  @ApiOperation({
-    operationId: "applySourcePractice",
+    operationId: "readHistoricalPracticeReceipt",
     summary:
       "Replay an authorized historical Practice receipt; new writes are retired",
   })
@@ -98,7 +65,7 @@ export class ImportSourcePracticeController {
         "invalid_request_shape",
         "Practice import request is malformed",
       );
-    const result = await this.authoring.applySourcePractice({
+    const result = await this.authoring.readHistoricalPracticeReceipt({
       ...parsed.data,
       actor: account.accountId,
       idempotencyKey: key ?? "",

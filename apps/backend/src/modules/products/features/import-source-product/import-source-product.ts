@@ -10,7 +10,7 @@ import {
   isPostgresUniqueViolation,
   mapPostgresReadError,
 } from "../../../../infrastructure/content-authoring/postgres-error-mapping.js";
-import { assembleReorderSeries } from "../reorder-series/reorder-series.js";
+import { assembleReorderProduct } from "../reorder-product/reorder-product.js";
 import { assembleUpdateContentCollection } from "../update-content-collection/update-content-collection.js";
 import {
   reserveSourceProductBodySchema,
@@ -64,7 +64,7 @@ export function assembleReserveSourceProduct(
         return result;
       },
       (error) =>
-        isPostgresUniqueViolation(error, "series_slug_unique")
+        isPostgresUniqueViolation(error, "product_slug_unique")
           ? { code: "content_collection_slug_conflict" as const }
           : mapPostgresReadError(error),
       "reserveSourceProduct",
@@ -118,6 +118,6 @@ export function assembleReorderSourceProduct(
     );
     if (!parsed.ok) return parsed;
     const { sourceId, ...command } = parsed.value;
-    return assembleReorderSeries(dependencies, sourceId)(command);
+    return assembleReorderProduct(dependencies, sourceId)(command);
   };
 }

@@ -16,5 +16,5 @@ export const materialDocumentWireSchema = z.custom<JSONContent>(
     JSON.stringify(value).length <= MAX_MATERIAL_DOCUMENT_JSON_LENGTH,
 );
 
-/** Series memberships in editor order; the Route Handler checks their identifiers. */
-export const materialSeriesIdsWireSchema = z.array(z.string()).readonly();
+/** Product memberships in editor order; the Route Handler checks their identifiers. */
+export const materialProductIdsWireSchema = z.array(z.string()).readonly();

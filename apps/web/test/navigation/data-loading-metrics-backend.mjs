@@ -55,7 +55,7 @@ const priceSchema = z
     ),
   })
   .loose();
-const homeSchema = z.object({ pinnedSeries: z.object({}).loose() }).loose();
+const homeSchema = z.object({ pinnedProduct: z.object({}).loose() }).loose();
 const readerSchema = z.object({
   projection: z.object({}).loose(),
   body: z.object({ blocks: z.array(z.unknown()) }).loose(),
@@ -239,7 +239,7 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
     );
     const projection = {
       ...template.projection,
-      ...(subscription ? { seriesMemberships: [] } : {}),
+      ...(subscription ? { productMemberships: [] } : {}),
       materialId: metricsMaterialId,
       slug: subscription
         ? "data-loading-subscription-lesson"
@@ -316,8 +316,8 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
           ...result,
           value: {
             ...value,
-            pinnedSeries: {
-              ...value.pinnedSeries,
+            pinnedProduct: {
+              ...value.pinnedProduct,
               id: metricsProductId,
               slug: "performance-course",
               name: "Курс на 120 материалов",

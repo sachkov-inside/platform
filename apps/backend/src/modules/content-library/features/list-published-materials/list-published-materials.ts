@@ -37,8 +37,8 @@ const querySchema = z
     formatSlugs: facetSlugsSchema.optional(),
     first: z.number().int().min(1).max(24),
     q: z.string().max(120).optional(),
-    seriesSlugs: facetSlugsSchema.optional(),
-    sort: z.enum(["newest", "relevance", "series", "title"]).optional(),
+    productSlugs: facetSlugsSchema.optional(),
+    sort: z.enum(["newest", "relevance", "product", "title"]).optional(),
     topicSlugs: facetSlugsSchema.optional(),
   })
   .strict()
@@ -54,12 +54,12 @@ const querySchema = z
       });
     }
     if (
-      query.sort === "series" &&
-      new Set(query.seriesSlugs ?? []).size !== 1
+      query.sort === "product" &&
+      new Set(query.productSlugs ?? []).size !== 1
     ) {
       context.addIssue({
         code: "custom",
-        message: "Series order requires exactly one Series filter",
+        message: "Product order requires exactly one Product filter",
         path: ["sort"],
       });
     }
@@ -91,7 +91,7 @@ const projectionCursorSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
-      kind: z.literal("series"),
+      kind: z.literal("product"),
       materialId: z.uuid(),
       ordinal: z.number().int().positive(),
     })
@@ -145,7 +145,7 @@ export async function listPublishedMaterials(
     first: parsed.data.first,
     feedOnly: normalized.feedOnly,
     formatSlugs: normalized.formatSlugs,
-    seriesSlugs: normalized.seriesSlugs,
+    productSlugs: normalized.productSlugs,
     sort: normalized.sort,
     topicSlugs: normalized.topicSlugs,
     ...(normalized.q === undefined ? {} : { q: normalized.q }),
@@ -157,7 +157,7 @@ export async function listPublishedMaterials(
 
   const projections = uniqueProjections([
     ...page.value.items,
-    ...page.value.facets.series.flatMap(({ previewItems }) => previewItems),
+    ...page.value.facets.products.flatMap(({ previewItems }) => previewItems),
   ]);
   const projected = await projectPublishedCatalogItems(
     contentAccess,
@@ -189,7 +189,7 @@ export async function listPublishedMaterials(
           ...facet,
           previewItems: [],
         })),
-        series: page.value.facets.series.map((facet) => ({
+        products: page.value.facets.products.map((facet) => ({
           ...facet,
           previewItems: facet.previewItems.flatMap(({ materialId }) => {
             const item = projectedById.get(materialId);
@@ -224,8 +224,8 @@ interface NormalizedCatalogQuery {
   readonly feedOnly: boolean;
   readonly formatSlugs: readonly string[];
   readonly q: string | undefined;
-  readonly seriesSlugs: readonly string[];
-  readonly sort: "newest" | "relevance" | "series" | "title";
+  readonly productSlugs: readonly string[];
+  readonly sort: "newest" | "relevance" | "product" | "title";
   readonly topicSlugs: readonly string[];
 }
 
@@ -233,18 +233,18 @@ function normalizeQuery(
   query: z.infer<typeof querySchema>,
 ): NormalizedCatalogQuery {
   const q = query.q?.trim().replace(/\s+/gu, " ");
-  const seriesSlugs = uniqueSorted(query.seriesSlugs ?? []);
+  const productSlugs = uniqueSorted(query.productSlugs ?? []);
   return {
     canonicalTopicSlug: query.canonicalTopicSlug,
     feedOnly: query.feedOnly ?? false,
     formatSlugs: uniqueSorted(query.formatSlugs ?? []),
     q: q === undefined || q.length === 0 ? undefined : q,
-    seriesSlugs,
+    productSlugs,
     sort:
       query.sort ??
       (q === undefined || q.length === 0
-        ? seriesSlugs.length === 1
-          ? "series"
+        ? productSlugs.length === 1
+          ? "product"
           : "newest"
         : "relevance"),
     topicSlugs: uniqueSorted(query.topicSlugs ?? []),
@@ -303,7 +303,7 @@ function isDefaultQuery(query: NormalizedCatalogQuery): boolean {
     query.q === undefined &&
     query.canonicalTopicSlug === undefined &&
     query.formatSlugs.length === 0 &&
-    query.seriesSlugs.length === 0 &&
+    query.productSlugs.length === 0 &&
     query.sort === "newest" &&
     query.topicSlugs.length === 0
   );

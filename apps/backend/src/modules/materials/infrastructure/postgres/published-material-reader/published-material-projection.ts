@@ -6,7 +6,7 @@ import {
   type DiscoverySnapshot,
 } from "../product-discovery-facts.js";
 import type { HomeProjections } from "../../../features/read-home-projections/read-home-projections.contract.js";
-import type { HomePinnedSeries } from "../../../features/read-home-pinned-series/read-home-pinned-series.js";
+import type { HomePinnedProduct } from "../../../features/read-home-pinned-product/read-home-pinned-product.js";
 import {
   productCompositionChapters,
   readProductCompositionAccess,
@@ -47,7 +47,7 @@ interface PublishedMaterialProjectionSearchValues {
   readonly first: number;
   readonly formatSlugs: readonly string[];
   readonly q?: string;
-  readonly seriesSlugs: readonly string[];
+  readonly productSlugs: readonly string[];
   readonly sort: PublishedMaterialProjectionSort;
   readonly topicSlugs: readonly string[];
 }
@@ -85,7 +85,7 @@ export interface PublishedMaterialDiscoveryPage {
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
   };
-  readonly relatedSeries: readonly {
+  readonly relatedProduct: readonly {
     readonly id: string;
     readonly matchingMaterialCount: number;
     readonly name: string;
@@ -104,7 +104,7 @@ export interface PublishedMaterialDiscoveryPage {
   readonly hasNext: boolean;
 }
 
-const relatedSeriesRowSchema = z
+const relatedProductRowSchema = z
   .object({
     id: z.uuid(),
     matching_material_count: z.coerce.number().int().nonnegative(),
@@ -166,7 +166,7 @@ const publishedMaterialProjectionRowSchema = z.object({
   format_name: z.string(),
   format_slug: z.string(),
   tags: z.array(z.object({ id: z.uuid(), name: z.string() })),
-  series_memberships: z.array(
+  product_memberships: z.array(
     z.object({
       id: z.uuid(),
       name: z.string(),
@@ -180,7 +180,7 @@ const publishedMaterialProjectionRowSchema = z.object({
 const searchedPublishedMaterialProjectionRowSchema =
   publishedMaterialProjectionRowSchema.extend({
     search_rank: z.coerce.number().nonnegative(),
-    series_ordinal: z.coerce.number().int().positive().nullable(),
+    product_ordinal: z.coerce.number().int().positive().nullable(),
     title_key: z.string(),
   });
 
@@ -204,7 +204,7 @@ const projectionMetadataRowSchema = z
         slug: materialFormatSchema,
       }),
     ),
-    series: z.array(facetOptionSchema),
+    products: z.array(facetOptionSchema),
     topics: z.array(facetOptionSchema),
     total_count: z.coerce.number().int().nonnegative(),
   })
@@ -268,7 +268,7 @@ function projectionQueries(
       .parse(rawRows);
     const previewProjections = await selectPublishedMaterialProjectionsByIds(
       prisma,
-      metadata.series.flatMap(({ previewMaterialIds }) => previewMaterialIds),
+      metadata.products.flatMap(({ previewMaterialIds }) => previewMaterialIds),
     );
     const previewById = new Map(
       previewProjections.map((projection) => [
@@ -288,7 +288,7 @@ function projectionQueries(
         formats: metadata.formats.map((facet) =>
           projectFacet(facet, previewById),
         ),
-        series: metadata.series.map((facet) =>
+        products: metadata.products.map((facet) =>
           projectFacet(facet, previewById),
         ),
         topics: metadata.topics.map((facet) =>
@@ -304,12 +304,12 @@ function projectionQueries(
   /** Home selects its visible groups before hydrating previews; catalog metadata stays independent. */
   async function selectHomeMaterialProjections(
     prisma: MaterialsPrisma,
-    pin: HomePinnedSeries | null,
+    pin: HomePinnedProduct | null,
   ): Promise<HomeProjections> {
     const homeMetadataSchema = z
       .object({
         topics: z.array(facetOptionSchema),
-        series: z.array(facetOptionSchema),
+        products: z.array(facetOptionSchema),
       })
       .strict();
     const feedQuery = (format: string) =>
@@ -319,7 +319,7 @@ function projectionQueries(
           first: 7,
           feedOnly: true,
           formatSlugs: [format],
-          seriesSlugs: [],
+          productSlugs: [],
           topicSlugs: [],
           sort: "newest",
         },
@@ -343,29 +343,29 @@ function projectionQueries(
           limit 8
         ) as topic), '[]'::jsonb) as topics,
         coalesce((select jsonb_agg(jsonb_build_object(
-          'id', series.id, 'name', series.name, 'slug', series.slug, 'summary', series.summary,
-          'count', series.count, 'cover', ${coverProjectionSql(Prisma.sql`series.cover_id`)},
+          'id', product.id, 'name', product.name, 'slug', product.slug, 'summary', product.summary,
+          'count', product.count, 'cover', ${coverProjectionSql(Prisma.sql`product.cover_id`)},
           'previewMaterialIds', array(
             select membership.material_id
             from (${relations.publishedMemberships}) as membership
             join materials.published_materials as publication on publication.material_id = membership.material_id
-            where membership.series_id = series.id
+            where membership.product_id = product.id
             order by membership.ordinal, membership.material_id
             limit 3
           )
-        ) order by series.name, series.id) from (
+        ) order by product.name, product.id) from (
           select ranked.* from (
-            select series.id, series.name, series.slug, series.summary, series.cover_id,
+            select product.id, product.name, product.slug, product.summary, product.cover_id,
               count(*)::integer as count,
-              row_number() over (order by series.name, series.id) as position
+              row_number() over (order by product.name, product.id) as position
             from (${relations.publishedMemberships}) as membership
             join materials.published_materials as publication on publication.material_id = membership.material_id
-            join (${relations.products}) as series on series.id = membership.series_id
-            where series.archived_at is null
-            group by series.id, series.name, series.slug, series.summary, series.cover_id
+            join (${relations.products}) as product on product.id = membership.product_id
+            where product.archived_at is null
+            group by product.id, product.name, product.slug, product.summary, product.cover_id
           ) as ranked
           where ranked.position <= 4 or ranked.id = ${pin?.id ?? null}::uuid
-        ) as series), '[]'::jsonb) as series
+        ) as product), '[]'::jsonb) as products
     `),
       prisma.$queryRaw(feedQuery("video")),
       prisma.$queryRaw(feedQuery("guide")),
@@ -377,19 +377,19 @@ function projectionQueries(
     const notes = await projectHomeFeedNotes(prisma, rawNotes);
     const previews = await selectPublishedMaterialProjectionsByIds(
       prisma,
-      metadata.series.flatMap(({ previewMaterialIds }) => previewMaterialIds),
+      metadata.products.flatMap(({ previewMaterialIds }) => previewMaterialIds),
     );
     const previewById = new Map(
       previews.map((item) => [item.materialId, item]),
     );
-    const series = metadata.series.map((facet) =>
+    const product = metadata.products.map((facet) =>
       projectFacet(facet, previewById),
     );
-    const pinnedFacet = series.find((facet) => facet.id === pin?.id);
+    const pinnedFacet = product.find((facet) => facet.id === pin?.id);
     return {
       topics: metadata.topics.map((facet) => projectFacet(facet, previewById)),
-      playlists: series.slice(0, 4),
-      pinnedSeries:
+      playlists: product.slice(0, 4),
+      pinnedProduct:
         pin === null || pinnedFacet === undefined
           ? null
           : { ...pinnedFacet, ...pin },
@@ -429,14 +429,14 @@ function projectionQueries(
         await prisma.$queryRaw(Prisma.sql`
       select distinct membership.material_id
       from (${relations.publishedMemberships}) as membership
-      join (${relations.products}) as series on series.id = membership.series_id
-      where series.archived_at is null
+      join (${relations.products}) as product on product.id = membership.product_id
+      where product.archived_at is null
         and membership.material_id in (${Prisma.join(excerptIds)})
         and (
           select count(*)
           from (${relations.publishedMemberships}) as earlier
           join materials.published_materials as publication on publication.material_id = earlier.material_id
-          where earlier.series_id = membership.series_id
+          where earlier.product_id = membership.product_id
             and (earlier.ordinal, earlier.material_id) < (membership.ordinal, membership.material_id)
             and ${projectionScopeSql(true)}
         ) < 3
@@ -489,7 +489,7 @@ function projectionQueries(
       format.name as format_name,
       format.slug as format_slug,
       ${searchRank} as search_rank,
-      ${seriesOrdinalSql(sort)} as series_ordinal,
+      ${productOrdinalSql(sort)} as product_ordinal,
       lower(publication.title) as title_key,
       coalesce(
         (
@@ -507,26 +507,26 @@ function projectionQueries(
         (
           select jsonb_agg(
             jsonb_build_object(
-              'id', series.id,
-              'name', series.name,
-              'slug', series.slug,
+              'id', product.id,
+              'name', product.name,
+              'slug', product.slug,
               'ordinal', membership.ordinal,
               'stepGroup', current_membership.step_group
             )
-            order by series.name, membership.ordinal
+            order by product.name, membership.ordinal
           )
           from (${relations.publishedMemberships}) as membership
           left join (${relations.memberships}) as current_membership
-            on current_membership.series_id = membership.series_id and current_membership.material_id = membership.material_id
-          join (${relations.products}) as series on series.id = membership.series_id
+            on current_membership.product_id = membership.product_id and current_membership.material_id = membership.material_id
+          join (${relations.products}) as product on product.id = membership.product_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
-      ) as series_memberships
+      ) as product_memberships
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
     join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
-    ${seriesSortJoinsSql(values, sort)}
+    ${productSortJoinsSql(values, sort)}
     where ${filters}
       ${cursorSql(values.after, sort, searchRank)}
     ${orderSql(sort)}
@@ -555,16 +555,16 @@ function projectionQueries(
         Prisma.sql`format.slug in (${Prisma.join(values.formatSlugs)})`,
       );
     }
-    if (values.seriesSlugs.length > 0) {
+    if (values.productSlugs.length > 0) {
       conditions.push(Prisma.sql`
       exists (
         select 1
         from (${relations.publishedMemberships}) as selected_membership
         join (${relations.products}) as selected_series
-          on selected_series.id = selected_membership.series_id
+          on selected_series.id = selected_membership.product_id
         where selected_membership.material_id = publication.material_id
           and selected_series.archived_at is null
-          and selected_series.slug in (${Prisma.join(values.seriesSlugs)})
+          and selected_series.slug in (${Prisma.join(values.productSlugs)})
       )
     `);
     }
@@ -611,7 +611,7 @@ function projectionQueries(
         and (${searchRank}, publication.published_at, publication.material_id)
           < (${after.rank}, ${new Date(after.publishedAt)}, ${after.materialId}::uuid)
       `;
-      case "series":
+      case "product":
         return Prisma.sql`
         and (selected_membership.ordinal, publication.material_id)
           > (${after.ordinal}, ${after.materialId}::uuid)
@@ -630,7 +630,7 @@ function projectionQueries(
         return Prisma.sql`order by publication.published_at desc, publication.material_id desc`;
       case "relevance":
         return Prisma.sql`order by search_rank desc, publication.published_at desc, publication.material_id desc`;
-      case "series":
+      case "product":
         return Prisma.sql`order by selected_membership.ordinal, publication.material_id`;
       case "title":
         return Prisma.sql`order by title_key, publication.material_id`;
@@ -649,7 +649,7 @@ function projectionQueries(
       ? filteredPublicationsSql(projectionScopeSql(feedOnly))
       : filteredPublications;
     const facetPublications = independentPublications;
-    const seriesPublications = independentPublications;
+    const productPublications = independentPublications;
     const rows = projectionMetadataRowSchema.array().parse(
       await prisma.$queryRaw(Prisma.sql`
       select
@@ -721,29 +721,29 @@ function projectionQueries(
               order by option.name, option.id
             )
             from (
-              select series.id, series.name, series.slug, series.summary,
-                ${coverProjectionSql(Prisma.sql`series.cover_id`)} as cover,
+              select product.id, product.name, product.slug, product.summary,
+                ${coverProjectionSql(Prisma.sql`product.cover_id`)} as cover,
                 array(
                   select preview_membership.material_id
                   from (${relations.publishedMemberships}) as preview_membership
-                  join (${seriesPublications}) as preview_publication
+                  join (${productPublications}) as preview_publication
                     on preview_publication.material_id = preview_membership.material_id
-                  where preview_membership.series_id = series.id
+                  where preview_membership.product_id = product.id
                   order by preview_membership.ordinal, preview_membership.material_id
                   limit 3
                 ) as preview_material_ids,
                 count(*)::integer as count
               from (${relations.publishedMemberships}) as membership
-              join (${relations.products}) as series on series.id = membership.series_id
-              join (${seriesPublications}) as publication
+              join (${relations.products}) as product on product.id = membership.product_id
+              join (${productPublications}) as publication
                 on publication.material_id = membership.material_id
-              where series.archived_at is null
-                ${seriesSearchSql(q)}
-              group by series.id, series.name, series.slug, series.summary, series.cover_id
+              where product.archived_at is null
+                ${productSearchSql(q)}
+              group by product.id, product.name, product.slug, product.summary, product.cover_id
             ) as option
           ),
           '[]'::jsonb
-        ) as series
+        ) as products
     `),
     );
     const row = rows[0];
@@ -753,22 +753,22 @@ function projectionQueries(
     return row;
   }
 
-  function seriesSearchSql(q: string | undefined): Prisma.Sql {
+  function productSearchSql(q: string | undefined): Prisma.Sql {
     return q === undefined
       ? Prisma.empty
       : Prisma.sql`
         and (
           to_tsvector(
             'russian'::regconfig,
-            concat_ws(' ', series.name, series.summary)
+            concat_ws(' ', product.name, product.summary)
           ) @@ websearch_to_tsquery('russian'::regconfig, ${q})
           or to_tsvector(
             'english'::regconfig,
-            concat_ws(' ', series.name, series.summary)
+            concat_ws(' ', product.name, product.summary)
           ) @@ websearch_to_tsquery('english'::regconfig, ${q})
           or to_tsvector(
             'simple'::regconfig,
-            concat_ws(' ', series.name, series.summary)
+            concat_ws(' ', product.name, product.summary)
           ) @@ websearch_to_tsquery('simple'::regconfig, ${q})
         )
       `;
@@ -830,28 +830,30 @@ function projectionQueries(
       : values.sort;
   }
 
-  function seriesOrdinalSql(sort: PublishedMaterialProjectionSort): Prisma.Sql {
-    return sort === "series"
+  function productOrdinalSql(
+    sort: PublishedMaterialProjectionSort,
+  ): Prisma.Sql {
+    return sort === "product"
       ? Prisma.sql`selected_membership.ordinal`
       : Prisma.sql`null::integer`;
   }
 
-  function seriesSortJoinsSql(
+  function productSortJoinsSql(
     values: PublishedMaterialProjectionSearchValues,
     sort: PublishedMaterialProjectionSort,
   ): Prisma.Sql {
-    if (sort !== "series") {
+    if (sort !== "product") {
       return Prisma.empty;
     }
-    const slug = values.seriesSlugs[0];
-    if (slug === undefined || values.seriesSlugs.length !== 1) {
-      throw new TypeError("Series order requires exactly one Series filter");
+    const slug = values.productSlugs[0];
+    if (slug === undefined || values.productSlugs.length !== 1) {
+      throw new TypeError("Product order requires exactly one Product filter");
     }
     return Prisma.sql`
     join (${relations.publishedMemberships}) as selected_membership
       on selected_membership.material_id = publication.material_id
     join (${relations.products}) as selected_series
-      on selected_series.id = selected_membership.series_id
+      on selected_series.id = selected_membership.product_id
      and selected_series.archived_at is null
      and selected_series.slug = ${slug}
   `;
@@ -875,14 +877,14 @@ function projectionQueries(
           publishedAt: row.published_at.toISOString(),
           rank: row.search_rank,
         };
-      case "series":
-        if (row.series_ordinal === null) {
-          throw new TypeError("Series continuation ordinal is missing");
+      case "product":
+        if (row.product_ordinal === null) {
+          throw new TypeError("Product continuation ordinal is missing");
         }
         return {
           kind: sort,
           materialId: row.material_id,
-          ordinal: row.series_ordinal,
+          ordinal: row.product_ordinal,
         };
       case "title":
         return {
@@ -898,7 +900,7 @@ function projectionQueries(
     slug: string,
     first: number,
   ): Promise<PublishedMaterialDiscoveryPage | undefined> {
-    const [reference, rawRows, rawRelatedSeries] = await Promise.all([
+    const [reference, rawRows, rawRelatedProduct] = await Promise.all([
       prisma.topic.findUnique({
         where: { slug },
         select: {
@@ -922,44 +924,44 @@ function projectionQueries(
           ),
       prisma.$queryRaw(Prisma.sql`
       select
-        series.id,
-        series.name,
-        series.slug,
-        series.summary,
-        series.cover_id,
+        product.id,
+        product.name,
+        product.slug,
+        product.summary,
+        product.cover_id,
         count(*)::integer as matching_material_count,
         (
           select count(*)::integer
           from (${relations.publishedMemberships}) as total_membership
           join materials.published_materials as total_publication
             on total_publication.material_id = total_membership.material_id
-          where total_membership.series_id = series.id
+          where total_membership.product_id = product.id
 
         ) as total_material_count
       from (${relations.publishedMemberships}) as membership
       join materials.published_materials as publication
         on publication.material_id = membership.material_id
       join materials.topics as topic on topic.id = publication.topic_id
-      join (${relations.products}) as series on series.id = membership.series_id
+      join (${relations.products}) as product on product.id = membership.product_id
       where topic.slug = ${slug}
-        and series.archived_at is null
+        and product.archived_at is null
 
-      group by series.id, series.name, series.slug, series.summary, series.cover_id
-      order by series.name, series.id
+      group by product.id, product.name, product.slug, product.summary, product.cover_id
+      order by product.name, product.id
     `),
     ]);
     if (reference === null) {
       return undefined;
     }
     const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
-    const relatedSeries = relatedSeriesRowSchema
+    const relatedProduct = relatedProductRowSchema
       .array()
-      .parse(rawRelatedSeries);
+      .parse(rawRelatedProduct);
     const covers = await loadContentCoverProjections(
       transactionHandle(prisma),
       [
         reference.coverId,
-        ...relatedSeries.map(({ cover_id }) => cover_id),
+        ...relatedProduct.map(({ cover_id }) => cover_id),
       ].flatMap((coverId) => (coverId === null ? [] : [coverId])),
     );
     return {
@@ -977,17 +979,17 @@ function projectionQueries(
             ? null
             : (covers.get(reference.coverId) ?? null),
       },
-      relatedSeries: relatedSeries.map((series) => ({
-        id: series.id,
-        matchingMaterialCount: series.matching_material_count,
-        name: series.name,
-        slug: series.slug,
-        summary: series.summary,
-        totalMaterialCount: series.total_material_count,
+      relatedProduct: relatedProduct.map((product) => ({
+        id: product.id,
+        matchingMaterialCount: product.matching_material_count,
+        name: product.name,
+        slug: product.slug,
+        summary: product.summary,
+        totalMaterialCount: product.total_material_count,
         cover:
-          series.cover_id === null
+          product.cover_id === null
             ? null
-            : (covers.get(series.cover_id) ?? null),
+            : (covers.get(product.cover_id) ?? null),
       })),
       topics: [],
       items: rows.slice(0, first).map(toProjection),
@@ -995,7 +997,7 @@ function projectionQueries(
     };
   }
 
-  async function selectPublishedMaterialProjectionsBySeries(
+  async function selectPublishedMaterialProjectionsByProduct(
     prisma: MaterialsPrisma,
     slug: string,
     first: number | null,
@@ -1100,7 +1102,7 @@ function projectionQueries(
             ? null
             : (covers.get(reference.coverId) ?? null),
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: topics.map(({ cover_id, ...topic }) => ({
         ...topic,
         cover: cover_id === null ? null : (covers.get(cover_id) ?? null),
@@ -1146,7 +1148,7 @@ function projectionQueries(
                 select 1
                 from (${relations.publishedMemberships}) as candidate_series
                 join (${relations.publishedMemberships}) as source_series
-                  on source_series.series_id = candidate_series.series_id
+                  on source_series.product_id = candidate_series.product_id
                 where candidate_series.material_id = publication.material_id
                   and source_series.material_id = ${source.materialId}::uuid
               )
@@ -1171,7 +1173,7 @@ function projectionQueries(
                 select count(*)::integer
                 from (${relations.publishedMemberships}) as candidate_series
                 join (${relations.publishedMemberships}) as source_series
-                  on source_series.series_id = candidate_series.series_id
+                  on source_series.product_id = candidate_series.product_id
                 where candidate_series.material_id = publication.material_id
                   and source_series.material_id = ${source.materialId}::uuid
               )
@@ -1195,7 +1197,7 @@ function projectionQueries(
         summary: source.summary,
         cover: source.cover,
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       items: rows.slice(0, first).map(toProjection),
       hasNext: rows.length > first,
@@ -1248,22 +1250,22 @@ function projectionQueries(
         (
           select jsonb_agg(
             jsonb_build_object(
-              'id', series.id,
-              'name', series.name,
-              'slug', series.slug,
+              'id', product.id,
+              'name', product.name,
+              'slug', product.slug,
               'ordinal', membership.ordinal,
               'stepGroup', current_membership.step_group
             )
-            order by series.name, membership.ordinal
+            order by product.name, membership.ordinal
           )
           from (${relations.publishedMemberships}) as membership
           left join (${relations.memberships}) as current_membership
-            on current_membership.series_id = membership.series_id and current_membership.material_id = membership.material_id
-          join (${relations.products}) as series on series.id = membership.series_id
+            on current_membership.product_id = membership.product_id and current_membership.material_id = membership.material_id
+          join (${relations.products}) as product on product.id = membership.product_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
-      ) as series_memberships
+      ) as product_memberships
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
     join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
@@ -1310,11 +1312,11 @@ function projectionQueries(
         slug: row.format_slug,
       },
       tags: row.tags,
-      seriesMemberships: row.series_memberships.map(
+      productMemberships: row.product_memberships.map(
         ({ id, name, ordinal, slug, stepGroup }) => ({
           ordinal,
           stepGroup,
-          series: { id, name, slug },
+          product: { id, name, slug },
         }),
       ),
     };
@@ -1358,7 +1360,7 @@ function projectionQueries(
     selectHomeMaterialProjections,
     selectPublishedMaterialProjectionsByIds,
     selectPublishedMaterialProjectionsByTopic,
-    selectPublishedMaterialProjectionsBySeries,
+    selectPublishedMaterialProjectionsByProduct,
     selectRelatedPublishedMaterialProjections,
   };
 }
@@ -1446,18 +1448,20 @@ export async function selectPublishedMaterialProjectionsByTopic(
   );
 }
 
-export async function selectPublishedMaterialProjectionsBySeries(
+export async function selectPublishedMaterialProjectionsByProduct(
   context: MaterialProgrammeContext,
   ...args: Tail<
-    Parameters<ProjectionQueries["selectPublishedMaterialProjectionsBySeries"]>
+    Parameters<ProjectionQueries["selectPublishedMaterialProjectionsByProduct"]>
   >
-): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionsBySeries"]> {
+): ReturnType<
+  ProjectionQueries["selectPublishedMaterialProjectionsByProduct"]
+> {
   const queries = projectionQueries(
     await context.products.snapshot(),
     context.compositions,
   );
   return hydrateProjectionCovers(
-    await queries.selectPublishedMaterialProjectionsBySeries(
+    await queries.selectPublishedMaterialProjectionsByProduct(
       context.prisma,
       ...args,
     ),

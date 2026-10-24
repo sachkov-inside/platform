@@ -15,19 +15,19 @@ registerFixedClock();
 const actor = "89000000-0000-4000-8000-000000000001";
 const topicId = "89000000-0000-4000-8000-000000000002";
 const formatId = "guide";
-const seriesId = "89000000-0000-4000-8000-000000000004";
+const productId = "89000000-0000-4000-8000-000000000004";
 
-describe("Series order", () => {
+describe("Product order", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await testDatabase.prisma.topic.create({
-      data: { id: topicId, slug: "series-order", name: "Series order" },
+      data: { id: topicId, slug: "product-order", name: "Product order" },
     });
 
     await testDatabase.prisma.product.create({
-      data: { id: seriesId, slug: "platform", name: "Platform" },
+      data: { id: productId, slug: "platform", name: "Platform" },
     });
   });
 
@@ -39,12 +39,12 @@ describe("Series order", () => {
     const { Prisma } = await import("../../src/infrastructure/prisma/index.js");
     const rows = await testDatabase.prisma.$queryRaw(Prisma.sql`
       select table_schema as schema from information_schema.tables
-      where table_name = 'series' and table_schema in ('materials', 'products')
+      where table_name = 'products' and table_schema in ('materials', 'products')
     `);
     expect(rows).toEqual([{ schema: "products" }]);
   });
 
-  test("Product and legacy Series share identity, mutable version and archive state", async () => {
+  test("Product and legacy Product share identity, mutable version and archive state", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -60,16 +60,16 @@ describe("Series order", () => {
     expect(created.value.kind).toBe("product");
     const legacy = await authoring.listContentCollections({
       actor,
-      kind: "series",
+      kind: "product",
     });
     if (!legacy.ok) throw new Error(legacy.error.code);
     expect(legacy.value.find(({ id }) => id === created.value.id)).toEqual({
       ...created.value,
-      kind: "series",
+      kind: "product",
     });
     const archived = await authoring.setContentCollectionArchive({
       actor,
-      kind: "series",
+      kind: "product",
       collectionId: created.value.id,
       expectedVersion: created.value.version,
       archived: true,
@@ -105,7 +105,7 @@ describe("Series order", () => {
       created.push(
         await authoring.createDraft({
           actor,
-          idempotencyKey: `series-order-create-${index}`,
+          idempotencyKey: `product-order-create-${index}`,
           metadata: metadata(title),
           body: representativeDocument(`${title} body.`),
         }),
@@ -130,7 +130,7 @@ describe("Series order", () => {
     ].entries()) {
       const published = await authoring.saveMaterial({
         actor,
-        idempotencyKey: `series-order-publish-${index}`,
+        idempotencyKey: `product-order-publish-${index}`,
         materialId,
         expectedContentVersion: 1,
         publicationState: "published",
@@ -140,17 +140,17 @@ describe("Series order", () => {
       if (!published.ok) throw new Error(published.error.code);
     }
 
-    const catalogue = await authoring.loadSeriesOrder({ actor, seriesId });
+    const catalogue = await authoring.loadProductOrder({ actor, productId });
     if (!catalogue.ok) throw new Error(catalogue.error.code);
     expect(catalogue.value.programmePlacements).toEqual([]);
     const programme = await authorProductProgramme(authoring, {
       actor,
-      seriesId,
+      productId,
       expectedOrderVersion: catalogue.value.orderVersion,
       orderedMaterialIds: materialIds,
     });
     if (!programme.ok) throw new Error(programme.error.code);
-    const loaded = await authoring.loadSeriesOrder({ actor, seriesId });
+    const loaded = await authoring.loadProductOrder({ actor, productId });
     if (!loaded.ok) throw new Error(loaded.error.code);
     expect(loaded.value).toMatchObject({
       items: [
@@ -175,20 +175,20 @@ describe("Series order", () => {
       ],
       name: "Platform",
       orderVersion: loaded.value.orderVersion,
-      seriesId,
+      productId,
     });
     expect(loaded.value.orderVersion).toMatch(/^[a-f0-9]{64}$/u);
     const reversed = [...materialIds].reverse();
     const reordered = await authorProductProgramme(authoring, {
       actor,
-      seriesId,
+      productId,
       expectedOrderVersion: loaded.value.orderVersion,
       orderedMaterialIds: reversed,
     });
-    expect(reordered).toMatchObject({ ok: true, value: { seriesId } });
+    expect(reordered).toMatchObject({ ok: true, value: { productId } });
     if (!reordered.ok) throw new Error(reordered.error.code);
 
-    const after = await authoring.loadSeriesOrder({ actor, seriesId });
+    const after = await authoring.loadProductOrder({ actor, productId });
     if (!after.ok) throw new Error(after.error.code);
     expect(
       after.value.programmePlacements.map((placement) => placement.materialId),
@@ -218,13 +218,13 @@ describe("Series order", () => {
     await expect(
       authorProductProgramme(authoring, {
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: loaded.value.orderVersion,
         orderedMaterialIds: reversed,
       }),
     ).resolves.toEqual({
       ok: true,
-      value: { seriesId, orderVersion: reordered.value.orderVersion },
+      value: { productId, orderVersion: reordered.value.orderVersion },
     });
   });
 
@@ -233,7 +233,7 @@ describe("Series order", () => {
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
     });
-    const initial = await authoring.loadSeriesOrder({ actor, seriesId });
+    const initial = await authoring.loadProductOrder({ actor, productId });
     if (!initial.ok) throw new Error(initial.error.code);
     const currentIds = initial.value.items.map(({ materialId }) => materialId);
     const [firstMaterialId, secondMaterialId] = currentIds;
@@ -243,7 +243,7 @@ describe("Series order", () => {
     const moved = [secondMaterialId, firstMaterialId, ...currentIds.slice(2)];
     const first = await authorProductProgramme(authoring, {
       actor,
-      seriesId,
+      productId,
       expectedOrderVersion: initial.value.orderVersion,
       orderedMaterialIds: moved,
     });
@@ -252,108 +252,111 @@ describe("Series order", () => {
     await expect(
       authorProductProgramme(authoring, {
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: initial.value.orderVersion,
         orderedMaterialIds: [...moved].reverse(),
       }),
     ).resolves.toEqual({
       ok: false,
       error: {
-        code: "stale_series_order",
+        code: "stale_product_order",
         currentOrderVersion: first.value.orderVersion,
       },
     });
 
     const appended = await authoring.createDraft({
       actor,
-      idempotencyKey: "series-order-membership-change",
+      idempotencyKey: "product-order-membership-change",
       metadata: metadata("Appended"),
       body: representativeDocument("Appended body."),
     });
     if (!appended.ok) throw new Error(appended.error.code);
-    const afterAppend = await authoring.loadSeriesOrder({ actor, seriesId });
+    const afterAppend = await authoring.loadProductOrder({ actor, productId });
     if (!afterAppend.ok) throw new Error(afterAppend.error.code);
     expect(
       afterAppend.value.items.map(({ materialId }) => materialId),
     ).toContain(appended.value.materialId);
     const changed = await authorProductProgramme(authoring, {
       actor,
-      seriesId,
+      productId,
       expectedOrderVersion: afterAppend.value.orderVersion,
       orderedMaterialIds: moved,
     });
-    expect(changed).toMatchObject({ ok: true, value: { seriesId } });
-    const afterRemoval = await authoring.loadSeriesOrder({ actor, seriesId });
+    expect(changed).toMatchObject({ ok: true, value: { productId } });
+    const afterRemoval = await authoring.loadProductOrder({ actor, productId });
     if (!afterRemoval.ok) throw new Error(afterRemoval.error.code);
     expect(
       afterRemoval.value.items.map(({ materialId }) => materialId),
     ).toEqual(moved);
   });
 
-  test("keeps one Material in a second Series when the author removes it from the first", async () => {
+  test("keeps one Material in a second Product when the author removes it from the first", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
     });
-    const [firstSeries, secondSeries] = await Promise.all([
+    const [firstProduct, secondProduct] = await Promise.all([
       authoring.createContentCollection({
         actor,
-        kind: "series",
-        name: "First independent Series",
-        slug: "first-independent-series",
+        kind: "product",
+        name: "First independent Product",
+        slug: "first-independent-product",
         summary: "First explicit order.",
       }),
       authoring.createContentCollection({
         actor,
-        kind: "series",
-        name: "Second independent Series",
-        slug: "second-independent-series",
+        kind: "product",
+        name: "Second independent Product",
+        slug: "second-independent-product",
         summary: "Second explicit order.",
       }),
     ]);
-    if (!firstSeries.ok || !secondSeries.ok) {
-      throw new Error("Expected two Series");
+    if (!firstProduct.ok || !secondProduct.ok) {
+      throw new Error("Expected two Product");
     }
     const shared = await authoring.createDraft({
       actor,
-      idempotencyKey: "series-order-shared-material",
+      idempotencyKey: "product-order-shared-material",
       metadata: {
         ...metadata("Shared Material"),
-        seriesIds: [firstSeries.value.id, secondSeries.value.id],
+        productIds: [firstProduct.value.id, secondProduct.value.id],
       },
       body: representativeDocument("Shared body."),
     });
     if (!shared.ok) throw new Error(shared.error.code);
 
-    const firstOrder = await authoring.loadSeriesOrder({
+    const firstOrder = await authoring.loadProductOrder({
       actor,
-      seriesId: firstSeries.value.id,
+      productId: firstProduct.value.id,
     });
     if (!firstOrder.ok) throw new Error(firstOrder.error.code);
-    const removed = await authoring.reorderSeries({
+    const removed = await authoring.reorderProduct({
       actor,
       expectedOrderVersion: firstOrder.value.orderVersion,
       orderedMaterialIds: [],
-      seriesId: firstSeries.value.id,
+      productId: firstProduct.value.id,
     });
     if (!removed.ok) throw new Error(removed.error.code);
 
     const [firstAfterRemoval, secondAfterRemoval, material] = await Promise.all(
       [
-        authoring.loadSeriesOrder({ actor, seriesId: firstSeries.value.id }),
-        authoring.loadSeriesOrder({ actor, seriesId: secondSeries.value.id }),
+        authoring.loadProductOrder({ actor, productId: firstProduct.value.id }),
+        authoring.loadProductOrder({
+          actor,
+          productId: secondProduct.value.id,
+        }),
         authoring.loadMaterial({ actor, materialId: shared.value.materialId }),
       ],
     );
     if (!firstAfterRemoval.ok || !secondAfterRemoval.ok || !material.ok) {
-      throw new Error("Expected preserved Material and Series");
+      throw new Error("Expected preserved Material and Product");
     }
     expect(firstAfterRemoval.value.items).toEqual([]);
     expect(secondAfterRemoval.value.items).toMatchObject([
       { materialId: shared.value.materialId, ordinal: 1 },
     ]);
-    expect(material.value.metadata.seriesMemberships).toEqual([
-      { ordinal: 1, seriesId: secondSeries.value.id },
+    expect(material.value.metadata.productMemberships).toEqual([
+      { ordinal: 1, productId: secondProduct.value.id },
     ]);
   });
 
@@ -362,7 +365,7 @@ describe("Series order", () => {
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
     });
-    const initial = await authoring.loadSeriesOrder({ actor, seriesId });
+    const initial = await authoring.loadProductOrder({ actor, productId });
     if (!initial.ok) throw new Error(initial.error.code);
     const currentIds = initial.value.items.map(({ materialId }) => materialId);
     if (currentIds.length < 3)
@@ -373,13 +376,13 @@ describe("Series order", () => {
     const results = await Promise.all([
       authorProductProgramme(authoring, {
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: initial.value.orderVersion,
         orderedMaterialIds: firstOrder,
       }),
       authorProductProgramme(authoring, {
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: initial.value.orderVersion,
         orderedMaterialIds: secondOrder,
       }),
@@ -389,7 +392,7 @@ describe("Series order", () => {
     const rejected = results.find(({ ok }) => !ok);
     expect(rejected).toMatchObject({
       ok: false,
-      error: { code: "stale_series_order" },
+      error: { code: "stale_product_order" },
     });
   });
 
@@ -400,33 +403,33 @@ describe("Series order", () => {
     });
     const unassigned = await authoring.createDraft({
       actor,
-      idempotencyKey: "series-order-archived-unassigned",
-      metadata: { ...metadata("Unassigned"), seriesIds: [] },
+      idempotencyKey: "product-order-archived-unassigned",
+      metadata: { ...metadata("Unassigned"), productIds: [] },
       body: representativeDocument("Unassigned body."),
     });
     if (!unassigned.ok) throw new Error(unassigned.error.code);
     await testDatabase.prisma.product.update({
-      where: { id: seriesId },
+      where: { id: productId },
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
     try {
-      const loaded = await authoring.loadSeriesOrder({ actor, seriesId });
+      const loaded = await authoring.loadProductOrder({ actor, productId });
       if (!loaded.ok) throw new Error(loaded.error.code);
       expect(loaded.value.archived).toBe(true);
       const currentIds = loaded.value.items.map(({ materialId }) => materialId);
-      const reordered = await authoring.reorderSeries({
+      const reordered = await authoring.reorderProduct({
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: loaded.value.orderVersion,
         orderedMaterialIds: rotateLeft(currentIds),
       });
       if (!reordered.ok) throw new Error(reordered.error.code);
 
       await expect(
-        authoring.reorderSeries({
+        authoring.reorderProduct({
           actor,
-          seriesId,
+          productId,
           expectedOrderVersion: reordered.value.orderVersion,
           orderedMaterialIds: [
             ...rotateLeft(currentIds),
@@ -439,7 +442,7 @@ describe("Series order", () => {
           code: "invalid_reference",
           issues: [
             {
-              code: "series_archived",
+              code: "product_archived",
               path: `/orderedMaterialIds/${String(currentIds.length)}`,
             },
           ],
@@ -447,7 +450,7 @@ describe("Series order", () => {
       });
     } finally {
       await testDatabase.prisma.product.update({
-        where: { id: seriesId },
+        where: { id: productId },
         data: { archivedAt: null },
       });
     }
@@ -460,12 +463,12 @@ describe("Series order", () => {
     });
     const savedDraft = await authoring.createDraft({
       actor,
-      idempotencyKey: "series-order-concurrent-save-create",
+      idempotencyKey: "product-order-concurrent-save-create",
       metadata: metadata("Concurrent save"),
       body: representativeDocument("Concurrent save body."),
     });
     if (!savedDraft.ok) throw new Error(savedDraft.error.code);
-    const beforeSave = await authoring.loadSeriesOrder({ actor, seriesId });
+    const beforeSave = await authoring.loadProductOrder({ actor, productId });
     if (!beforeSave.ok) throw new Error(beforeSave.error.code);
     const beforeSaveIds = beforeSave.value.items.map(
       ({ materialId }) => materialId,
@@ -474,16 +477,16 @@ describe("Series order", () => {
     const [saved, reorderedWithSave] = await Promise.all([
       authoring.saveMaterial({
         actor,
-        idempotencyKey: "series-order-concurrent-save",
+        idempotencyKey: "product-order-concurrent-save",
         materialId: savedDraft.value.materialId,
         expectedContentVersion: 1,
         publicationState: "draft",
         metadata: metadata("Concurrent save"),
         body: representativeDocument("Saved concurrently with reorder."),
       }),
-      authoring.reorderSeries({
+      authoring.reorderProduct({
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: beforeSave.value.orderVersion,
         orderedMaterialIds: saveOrder,
       }),
@@ -493,12 +496,12 @@ describe("Series order", () => {
 
     const deletedDraft = await authoring.createDraft({
       actor,
-      idempotencyKey: "series-order-concurrent-delete-create",
+      idempotencyKey: "product-order-concurrent-delete-create",
       metadata: metadata("Concurrent delete"),
       body: representativeDocument("Concurrent delete body."),
     });
     if (!deletedDraft.ok) throw new Error(deletedDraft.error.code);
-    const beforeDelete = await authoring.loadSeriesOrder({ actor, seriesId });
+    const beforeDelete = await authoring.loadProductOrder({ actor, productId });
     if (!beforeDelete.ok) throw new Error(beforeDelete.error.code);
     const beforeDeleteIds = beforeDelete.value.items.map(
       ({ materialId }) => materialId,
@@ -507,37 +510,37 @@ describe("Series order", () => {
     const [deleted, reorderedWithDelete] = await Promise.all([
       authoring.deleteDraft({
         actor,
-        idempotencyKey: "series-order-concurrent-delete",
+        idempotencyKey: "product-order-concurrent-delete",
         materialId: deletedDraft.value.materialId,
         expectedContentVersion: 1,
       }),
-      authoring.reorderSeries({
+      authoring.reorderProduct({
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: beforeDelete.value.orderVersion,
         orderedMaterialIds: deleteOrder,
       }),
     ]);
     expect(deleted.ok).toBe(true);
     if (!reorderedWithDelete.ok) {
-      expect(reorderedWithDelete.error.code).toBe("stale_series_order");
+      expect(reorderedWithDelete.error.code).toBe("stale_product_order");
     }
   });
 
-  test("round-trips Series-scoped step labels, preserves legacy writes and excludes drafts", async () => {
+  test("round-trips Product-scoped step labels, preserves legacy writes and excludes drafts", async () => {
     const { authoring, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
     });
     const collection = await authoring.createContentCollection({
       actor,
-      kind: "series",
+      kind: "product",
       slug: "step-labels",
       name: "Step labels",
       summary: "Mixed composition",
     });
     if (!collection.ok) throw new Error(collection.error.code);
-    const selectedSeriesId = collection.value.id;
+    const selectedProductId = collection.value.id;
     const ids: string[] = [];
     for (const [index, title] of [
       "Prepare",
@@ -550,7 +553,7 @@ describe("Series order", () => {
         idempotencyKey: `step-label-${index}`,
         metadata: {
           ...metadata(title),
-          seriesIds: [selectedSeriesId, seriesId],
+          productIds: [selectedProductId, productId],
         },
         body: representativeDocument(title),
       });
@@ -565,7 +568,7 @@ describe("Series order", () => {
           publicationState: "published",
           metadata: {
             ...metadata(title),
-            seriesIds: [selectedSeriesId, seriesId],
+            productIds: [selectedProductId, productId],
           },
           body: representativeDocument(title),
         });
@@ -577,14 +580,14 @@ describe("Series order", () => {
     const last = ids[3];
     if (first === undefined || hidden === undefined || last === undefined)
       throw new Error("Expected four Materials");
-    const initial = await authoring.loadSeriesOrder({
+    const initial = await authoring.loadProductOrder({
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
     });
     if (!initial.ok) throw new Error(initial.error.code);
     const grouped = await authorProductProgramme(authoring, {
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
       expectedOrderVersion: initial.value.orderVersion,
       orderedMaterialIds: ids,
       stepGroups: {
@@ -595,9 +598,9 @@ describe("Series order", () => {
     });
     if (!grouped.ok) throw new Error(grouped.error.code);
     expect(grouped.value.orderVersion).not.toBe(initial.value.orderVersion);
-    const loaded = await authoring.loadSeriesOrder({
+    const loaded = await authoring.loadProductOrder({
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
     expect(loaded.value.items.map(({ stepGroup }) => stepGroup)).toEqual([
@@ -606,38 +609,38 @@ describe("Series order", () => {
       "Hidden-only label",
       "Release",
     ]);
-    const publicSeries = await publishedMaterialReader.discoverProjections({
-      kind: "series",
+    const publicProduct = await publishedMaterialReader.discoverProjections({
+      kind: "product",
       slug: "step-labels",
       first: null,
     });
-    if (!publicSeries.ok) throw new Error(publicSeries.error.code);
+    if (!publicProduct.ok) throw new Error(publicProduct.error.code);
     expect(
-      publicSeries.value.items.map(({ materialId }) => materialId),
+      publicProduct.value.items.map(({ materialId }) => materialId),
     ).toEqual([first, ids[1], last]);
-    expect(JSON.stringify(publicSeries.value)).not.toContain(
+    expect(JSON.stringify(publicProduct.value)).not.toContain(
       "Hidden-only label",
     );
     expect(
-      publicSeries.value.items[0]?.seriesMemberships.find(
-        ({ series }) => series.id === seriesId,
+      publicProduct.value.items[0]?.productMemberships.find(
+        ({ product }) => product.id === productId,
       )?.stepGroup,
     ).toBeNull();
     expect(
-      publicSeries.value.items[0]?.seriesMemberships.find(
-        ({ series }) => series.id === selectedSeriesId,
+      publicProduct.value.items[0]?.productMemberships.find(
+        ({ product }) => product.id === selectedProductId,
       )?.stepGroup,
     ).toBe("Release");
     const stale = await authorProductProgramme(authoring, {
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
       expectedOrderVersion: initial.value.orderVersion,
       orderedMaterialIds: ids,
       stepGroups: {},
     });
     expect(stale).toMatchObject({
       ok: false,
-      error: { code: "stale_series_order" },
+      error: { code: "stale_product_order" },
     });
     const saved = await authoring.loadMaterial({ actor, materialId: first });
     if (!saved.ok) throw new Error(saved.error.code);
@@ -649,21 +652,21 @@ describe("Series order", () => {
       publicationState: "published",
       metadata: {
         ...metadata("Prepare"),
-        seriesIds: [selectedSeriesId, seriesId],
+        productIds: [selectedProductId, productId],
       },
       body: representativeDocument("Edited body"),
     });
     if (!resaved.ok) throw new Error(resaved.error.code);
     const legacy = await authorProductProgramme(authoring, {
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
       expectedOrderVersion: grouped.value.orderVersion,
       orderedMaterialIds: [last, first],
     });
     if (!legacy.ok) throw new Error(legacy.error.code);
-    const afterLegacy = await authoring.loadSeriesOrder({
+    const afterLegacy = await authoring.loadProductOrder({
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
     });
     if (!afterLegacy.ok) throw new Error(afterLegacy.error.code);
     expect(
@@ -683,7 +686,7 @@ describe("Series order", () => {
       expect(
         await authorProductProgramme(authoring, {
           actor,
-          seriesId: selectedSeriesId,
+          productId: selectedProductId,
           expectedOrderVersion: legacy.value.orderVersion,
           orderedMaterialIds: [last, first],
           stepGroups,
@@ -692,15 +695,15 @@ describe("Series order", () => {
     }
     const cleared = await authorProductProgramme(authoring, {
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
       expectedOrderVersion: legacy.value.orderVersion,
       orderedMaterialIds: [last, first],
       stepGroups: {},
     });
     expect(cleared.ok).toBe(true);
-    const afterClear = await authoring.loadSeriesOrder({
+    const afterClear = await authoring.loadProductOrder({
       actor,
-      seriesId: selectedSeriesId,
+      productId: selectedProductId,
     });
     if (!afterClear.ok) throw new Error(afterClear.error.code);
     expect(afterClear.value.items.map(({ stepGroup }) => stepGroup)).toEqual([
@@ -715,17 +718,17 @@ describe("Series order", () => {
       authorPolicy: { canManage: (accountId) => accountId === actor },
     });
     await expect(
-      authoring.loadSeriesOrder({
+      authoring.loadProductOrder({
         actor: "89000000-0000-4000-8000-000000000099",
-        seriesId,
+        productId,
       }),
     ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
     await expect(
-      authoring.loadSeriesOrder({
+      authoring.loadProductOrder({
         actor,
-        seriesId: "89000000-0000-4000-8000-000000000099",
+        productId: "89000000-0000-4000-8000-000000000099",
       }),
-    ).resolves.toEqual({ ok: false, error: { code: "series_not_found" } });
+    ).resolves.toEqual({ ok: false, error: { code: "product_not_found" } });
   });
 });
 
@@ -735,7 +738,7 @@ function metadata(title: string) {
     formatId,
     difficulty: null,
     outcomes: [],
-    seriesIds: [seriesId],
+    productIds: [productId],
     summary: `${title} summary.`,
     tagIds: [],
     title,

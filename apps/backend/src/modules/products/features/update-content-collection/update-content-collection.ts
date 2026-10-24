@@ -2,7 +2,7 @@ import {
   checkContentWrite,
   contentWriter,
 } from "../../../../infrastructure/content-authoring/content-write-policy.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import { z } from "zod";
 
 import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
@@ -55,7 +55,7 @@ export const updateContentCollectionCommandSchema = z
       })
       .strict()
       .optional(),
-    kind: z.enum(["product", "series", "topic"]),
+    kind: z.enum(["product", "topic"]),
     name: z.string().trim().min(1).max(120),
     /** Адрес, оформление и страница перенесённого Product; их пишет только source-scoped импорт. */
     source: z
@@ -97,7 +97,7 @@ export function assembleUpdateContentCollection(
         if (!permission.ok) return rollback(permission.error);
 
         if (command.kind !== "topic") {
-          await lockSeries(transaction, [command.collectionId]);
+          await lockProduct(transaction, [command.collectionId]);
           const currentSource = await transaction.product.findUnique({
             where: { id: command.collectionId },
             select: { sourceId: true },
@@ -156,7 +156,7 @@ export function assembleUpdateContentCollection(
         await dependencies.materials.refreshSearch(
           (
             await transaction.productMembership.findMany({
-              where: { seriesId: command.collectionId },
+              where: { productId: command.collectionId },
               select: { materialId: true },
             })
           ).map((entry) => entry.materialId),

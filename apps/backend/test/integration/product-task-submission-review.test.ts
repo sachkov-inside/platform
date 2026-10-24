@@ -436,7 +436,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         id: passed,
         outcome: "passed",
         attempt: 3,
-        version: 2,
+        version: 2 as const,
         summary: "Самопроверка пройдена.",
       },
       {

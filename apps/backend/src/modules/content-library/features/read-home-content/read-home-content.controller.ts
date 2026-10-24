@@ -46,7 +46,7 @@ import { readHomeContent } from "./read-home-content.js";
 
 const homeContentHttpSchema = z
   .object({
-    pinnedSeries: publishedCatalogFacetHttpSchema
+    pinnedProduct: publishedCatalogFacetHttpSchema
       .extend({
         presentation: z.string(),
         card: productPageCardSchema.nullable(),

@@ -29,7 +29,7 @@ export function assembleListAuthoringReferences(
     }
 
     try {
-      const [series, tags, topics] = await Promise.all([
+      const [product, tags, topics] = await Promise.all([
         dependencies.discovery
           .metadata()
           .then((products) =>
@@ -58,7 +58,7 @@ export function assembleListAuthoringReferences(
             name,
             archived: false,
           })),
-          series: series.map(({ archivedAt, ...item }) => ({
+          products: product.map(({ archivedAt, ...item }) => ({
             ...item,
             archived: archivedAt !== null,
           })),

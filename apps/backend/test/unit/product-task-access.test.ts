@@ -24,7 +24,7 @@ function access(
   } = {},
 ) {
   const membershipRequests: (readonly string[] | undefined)[] = [];
-  const task = { taskId, productId, version: 2, ...facts };
+  const task = { taskId, productId, version: 2 as const, ...facts };
   const contentAccess = assembleContentAccess({
     materialResourceFacts: {
       findMany: () => Promise.resolve([]),

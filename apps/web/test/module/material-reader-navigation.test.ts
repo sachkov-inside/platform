@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   catalogReaderReturnHref,
-  seriesReaderReturnHref,
+  productReaderReturnHref,
   collectionDiscoveryHref,
   materialReaderHref,
   materialReaderOriginHref,
@@ -12,12 +12,12 @@ import {
 
 describe("Material Reader navigation", () => {
   it("preserves Product and legacy contexts, page and selected Material", () => {
-    for (const prefix of ["products", "guides", "series"]) {
+    for (const prefix of ["products", "guides", "product"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
       expect(parseMaterialReaderReturnTarget(href)).toEqual({
         href,
-        kind: "series",
-        seriesSlug: "platform-inside",
+        kind: "product",
+        productSlug: "platform-inside",
         label: "Назад к продукту",
       });
       expect(
@@ -37,8 +37,8 @@ describe("Material Reader navigation", () => {
     expect(parseMaterialReaderReturnTarget("/guides/course/programme")).toEqual(
       {
         href: "/guides/course/programme",
-        kind: "series",
-        seriesSlug: "course",
+        kind: "product",
+        productSlug: "course",
         label: "Назад к программе",
       },
     );
@@ -50,17 +50,17 @@ describe("Material Reader navigation", () => {
     );
     const topicHref = materialReaderOriginHref("topic", "platform");
     expect(
-      collectionDiscoveryHref("series", "platform-inside", topicHref),
+      collectionDiscoveryHref("product", "platform-inside", topicHref),
     ).toBe("/products/platform-inside?from=%2F%3Ftopic%3Dplatform");
-    const seriesHref = materialReaderOriginHref("series", "platform-inside");
-    expect(materialReaderHref("inside-platform-overview", seriesHref)).toBe(
+    const productHref = materialReaderOriginHref("product", "platform-inside");
+    expect(materialReaderHref("inside-platform-overview", productHref)).toBe(
       "/materials/inside-platform-overview?from=%2Fproducts%2Fplatform-inside",
     );
-    expect(parseMaterialReaderReturnTarget(seriesHref)).toEqual({
+    expect(parseMaterialReaderReturnTarget(productHref)).toEqual({
       href: "/products/platform-inside",
-      kind: "series",
+      kind: "product",
       label: "Назад к продукту",
-      seriesSlug: "platform-inside",
+      productSlug: "platform-inside",
     });
 
     expect(parseMaterialReaderReturnTarget("/topics/platform")).toEqual({
@@ -94,7 +94,7 @@ describe("Material Reader navigation", () => {
       filteredLibrary.href,
     );
     expect(
-      collectionDiscoveryHref("series", "platform-inside", nestedTopic),
+      collectionDiscoveryHref("product", "platform-inside", nestedTopic),
     ).toBe("/products/platform-inside?from=%2F%3Ftopic%3Dplatform");
   });
 
@@ -120,20 +120,20 @@ describe("Material Reader navigation", () => {
   });
 });
 
-describe("Series return context", () => {
+describe("Product return context", () => {
   it("retains page, material and navigation origin through a Reader link", () => {
-    const href = seriesReaderReturnHref(
+    const href = productReaderReturnHref(
       internalRoute("/series/platform?from=%2F"),
       2,
       "ci",
     );
     expect(parseMaterialReaderReturnTarget(href)).toMatchObject({
-      kind: "series",
-      seriesSlug: "platform",
+      kind: "product",
+      productSlug: "platform",
       href,
     });
     expect(materialReaderHref("ci", href)).toContain("page%3D2%26at%3Dci");
-    expect(seriesReaderReturnHref(href, 1)).toBe(
+    expect(productReaderReturnHref(href, 1)).toBe(
       "/series/platform?from=%2F&page=1",
     );
   });
@@ -145,7 +145,7 @@ describe("Series return context", () => {
     "at=bad%22slug",
     "from=https://evil.example",
     "other=2",
-  ])("rejects invalid Series return context: %s", (query) => {
+  ])("rejects invalid Product return context: %s", (query) => {
     expect(
       parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind,
     ).toBe("home");

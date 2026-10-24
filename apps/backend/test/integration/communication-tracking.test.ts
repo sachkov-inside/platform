@@ -125,7 +125,7 @@ test("resolves canonical Product pages and compatibility routes, refusing missin
       name: "Tracking Product",
     },
   });
-  for (const route of ["products", "series", "guides"]) {
+  for (const route of ["products", "product", "guides"]) {
     target = `${origin}/${route}/tracking-product`;
     expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
       kind: "resolved",

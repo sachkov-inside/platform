@@ -17,7 +17,7 @@ import {
   MaterialShareButton,
   materialReadingLabels,
 } from "@/entities/material";
-import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
+import type { ProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { Button } from "@/shared/ui/button";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
@@ -82,19 +82,19 @@ export function MaterialReaderLoading() {
 export function MaterialReaderPending({
   material,
   returnTarget = homeMaterialReaderReturnTarget,
-  seriesContext = null,
+  productContext = null,
 }: {
   readonly material: MaterialReaderMetadata;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly seriesContext?: SeriesReaderContext | null;
+  readonly productContext?: ProductReaderContext | null;
 }) {
   const topActions = (
     <ReaderTopActions
-      context={seriesContext?.programme == null ? seriesContext : null}
+      context={productContext?.programme == null ? productContext : null}
       nextStep={
-        seriesContext?.supplementary === true
+        productContext?.supplementary === true
           ? null
-          : seriesContext?.programme?.next
+          : productContext?.programme?.next
       }
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
@@ -117,9 +117,9 @@ export function MaterialReaderPending({
       data-material-reader-state="pending"
     >
       <ReaderFrame
-        context={seriesContext}
+        context={productContext}
         repeatAtBottom={false}
-        hideReturn={seriesContext !== null}
+        hideReturn={productContext !== null}
         target={returnTarget}
         topNavigation={
           <>
@@ -132,13 +132,13 @@ export function MaterialReaderPending({
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          {seriesContext?.programme == null ? null : (
+          {productContext?.programme == null ? null : (
             <div className="mb-4">{topActions}</div>
           )}
           <MaterialReaderHeader
             material={material}
-            programme={seriesContext?.programme}
-            supplementary={seriesContext?.supplementary ?? false}
+            programme={productContext?.programme}
+            supplementary={productContext?.supplementary ?? false}
             showShare={false}
           />
           <div
@@ -150,7 +150,7 @@ export function MaterialReaderPending({
             <ReaderBodySkeleton />
           </div>
           <MaterialReaderFooter
-            seriesContext={seriesContext}
+            productContext={productContext}
             format={material.format.slug}
           />
         </div>
@@ -246,23 +246,23 @@ export function MaterialReaderAccess({
   invitation,
   material,
   returnTarget = homeMaterialReaderReturnTarget,
-  seriesContext = null,
+  productContext = null,
 }: {
   readonly readingAction?: React.ReactNode;
   readonly invitation: PurchaseInvitation | null;
   readonly material: MaterialReaderMetadata;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly seriesContext?: SeriesReaderContext | null;
+  readonly productContext?: ProductReaderContext | null;
 }) {
   const membership =
-    material.seriesMemberships.find(
-      ({ series }) => series.slug === returnTarget.seriesSlug,
+    material.productMemberships.find(
+      ({ product }) => product.slug === returnTarget.productSlug,
     ) ??
-    (material.seriesMemberships.length === 1
-      ? material.seriesMemberships[0]
+    (material.productMemberships.length === 1
+      ? material.productMemberships[0]
       : undefined);
   const courseHref =
-    membership === undefined ? undefined : productPath(membership.series.slug);
+    membership === undefined ? undefined : productPath(membership.product.slug);
   const copy =
     courseHref === undefined
       ? accessCopy[invitation?.kind ?? "none"]
@@ -277,11 +277,11 @@ export function MaterialReaderAccess({
       : "Получить доступ";
   const topActions = (
     <ReaderTopActions
-      context={seriesContext?.programme == null ? seriesContext : null}
+      context={productContext?.programme == null ? productContext : null}
       nextStep={
-        seriesContext?.supplementary === true
+        productContext?.supplementary === true
           ? null
-          : seriesContext?.programme?.next
+          : productContext?.programme?.next
       }
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
@@ -305,15 +305,15 @@ export function MaterialReaderAccess({
         <ReaderHistoryTracker
           path={materialPath(material.slug)}
           originHref={
-            seriesContext?.supplementary === true
-              ? seriesContext.programme?.current.href
+            productContext?.supplementary === true
+              ? productContext.programme?.current.href
               : undefined
           }
         />
         <ReaderFrame
-          context={seriesContext}
+          context={productContext}
           repeatAtBottom={false}
-          hideReturn={seriesContext !== null}
+          hideReturn={productContext !== null}
           target={returnTarget}
           topNavigation={
             <>
@@ -326,13 +326,13 @@ export function MaterialReaderAccess({
           }
         >
           <div className="mx-auto max-w-[43rem]">
-            {seriesContext?.programme == null ? null : (
+            {productContext?.programme == null ? null : (
               <div className="mb-4">{topActions}</div>
             )}
             <MaterialReaderHeader
               material={material}
-              programme={seriesContext?.programme}
-              supplementary={seriesContext?.supplementary ?? false}
+              programme={productContext?.programme}
+              supplementary={productContext?.supplementary ?? false}
               showShare={false}
             />
             <section
@@ -384,9 +384,9 @@ export function MaterialReaderAccess({
                 )}
               </div>
             </section>
-            {seriesContext?.programme == null ? readingAction : null}
+            {productContext?.programme == null ? readingAction : null}
             <MaterialReaderFooter
-              seriesContext={seriesContext}
+              productContext={productContext}
               format={material.format.slug}
             />
           </div>

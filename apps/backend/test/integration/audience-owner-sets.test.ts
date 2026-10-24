@@ -291,7 +291,7 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
       },
     });
     await database.prisma.productMembership.create({
-      data: { seriesId: resource, materialId: resource },
+      data: { productId: resource, materialId: resource },
     });
     await database.prisma.productAccess.createMany({
       data: ids.slice(1).map((id, index) => ({
@@ -465,7 +465,7 @@ describe("25-recipient Material expansion owner cost", () => {
       },
     });
     await prisma.productMembership.create({
-      data: { seriesId: resource, materialId: resource },
+      data: { productId: resource, materialId: resource },
     });
     await prisma.productAccess.createMany({
       data: ids.slice(0, 24).map((id) => ({

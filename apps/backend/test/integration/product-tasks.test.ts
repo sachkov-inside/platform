@@ -375,7 +375,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       id: `inside-content:review-${id}`,
       path: `reviews/${id}.md`,
       revision: "a".repeat(64),
-      showInFeed: false,
+      version: 2 as const,
     };
     const reserved = await materials.authoring.reserveSourceMaterial({
       actor: owner,
@@ -397,7 +397,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         topicId,
         formatId: "guide",
         tagIds: [],
-        seriesIds: [],
+        productIds: [],
         difficulty: null,
         outcomes: [],
       },
@@ -608,7 +608,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         id: material.sourceId,
         path: `reviews/${material.sourceId.slice("inside-content:review-".length)}.md`,
         revision: "b".repeat(64),
-        showInFeed: false,
+        version: 2 as const,
       },
       primaryVideoId: null,
       idempotencyKey: randomUUID(),
@@ -624,7 +624,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
       },
     });
     if (!updated.ok) throw new Error(JSON.stringify(updated.error));
@@ -739,7 +739,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
                 id: material.sourceId,
                 path: `reviews/${material.sourceId.slice("inside-content:review-".length)}.md`,
                 revision: "b".repeat(64),
-                showInFeed: false,
+                version: 2 as const,
               },
               primaryVideoId: null,
               idempotencyKey: randomUUID(),
@@ -755,7 +755,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
                 tagIds: [],
                 difficulty: null,
                 outcomes: [],
-                seriesIds: [productId],
+                productIds: [productId],
               },
             });
             if (!changed.ok) throw new Error(changed.error.code);
@@ -1540,12 +1540,12 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     const material = await publishedMaterial("free");
     await db.prisma.productMembership.create({
       data: {
-        seriesId: productId,
+        productId: productId,
         materialId: material.materialId,
       },
     });
     await db.prisma.publishedMaterialProductMembership.create({
-      data: { seriesId: productId, materialId: material.materialId },
+      data: { productId: productId, materialId: material.materialId },
     });
     await db.prisma.productProgrammePlacement.create({
       data: {
@@ -1914,7 +1914,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       ok: true,
       value: {
         task: {
-          version: 2,
+          version: 2 as const,
           definition: {
             schemaVersion: 2,
             criteria: [{ task: "Создай заявку" }],
@@ -1998,7 +1998,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     if (!currentHistory.ok) throw new Error(currentHistory.error.code);
     expect(
       currentHistory.value.versions.find((item) => item.version === 2),
-    ).toEqual({ version: 2, criteria: v2.criteria });
+    ).toEqual({ version: 2 as const, criteria: v2.criteria });
   });
 
   test("reports a legacy Material migration and refuses Task import without changing that Material", async () => {
@@ -2106,7 +2106,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       id: `inside-task-page:${body.sourceId}`,
       path: "task-pages/asset-task.md",
       revision: "e".repeat(64),
-      showInFeed: false,
+      version: 2 as const,
     };
     const reserved = await authoring.reserveSourceMaterial({
       actor: owner,
@@ -2190,7 +2190,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         topicId,
         formatId: "guide",
         tagIds: [],
-        seriesIds: [],
+        productIds: [],
         difficulty: null,
         outcomes: [],
       },

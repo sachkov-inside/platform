@@ -4,7 +4,7 @@ import {
   checkContentWrite,
   contentWriter,
 } from "../../../../infrastructure/content-authoring/content-write-policy.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import { importedMaterialsSchema } from "./product-artifact-commands.js";
 import {
   dependencyUnavailable,
@@ -40,7 +40,7 @@ export async function attachImportedProductArtifactMaterials(
           include: { placements: true },
         });
         if (artifact === null) return { code: "artifact_not_found" };
-        await lockSeries(transaction, [input.productId]);
+        await lockProduct(transaction, [input.productId]);
         const product = await transaction.product.findUnique({
           where: { id: input.productId },
           select: { sourceId: true },
@@ -84,7 +84,10 @@ export async function attachImportedProductArtifactMaterials(
         );
         if (sourceError !== null) return { code: "forbidden" };
         const memberships = await transaction.productMembership.count({
-          where: { seriesId: input.productId, materialId: { in: materialIds } },
+          where: {
+            productId: input.productId,
+            materialId: { in: materialIds },
+          },
         });
         if (memberships !== materialIds.length) return { code: "forbidden" };
         const attached =

@@ -51,17 +51,17 @@ test("Product authoring preserves repeated programme identities separately from 
     summary: "Catalogue and repeated placements",
   });
   if (!product.ok) throw new Error(product.error.code);
-  const empty = await authoring.loadSeriesOrder({
+  const empty = await authoring.loadProductOrder({
     actor,
-    seriesId: product.value.id,
+    productId: product.value.id,
   });
   if (!empty.ok) throw new Error(empty.error.code);
   const chapterId = randomUUID();
   const first = randomUUID();
   const repeated = randomUUID();
-  const ordered = await authoring.reorderSeries({
+  const ordered = await authoring.reorderProduct({
     actor,
-    seriesId: product.value.id,
+    productId: product.value.id,
     expectedOrderVersion: empty.value.orderVersion,
     orderedMaterialIds: [materialId],
     chapters: [
@@ -78,9 +78,9 @@ test("Product authoring preserves repeated programme identities separately from 
     ],
   });
   if (!ordered.ok) throw new Error(ordered.error.code);
-  const loaded = await authoring.loadSeriesOrder({
+  const loaded = await authoring.loadProductOrder({
     actor,
-    seriesId: product.value.id,
+    productId: product.value.id,
   });
   if (!loaded.ok) throw new Error(loaded.error.code);
   expect(loaded.value.items.map((item) => item.materialId)).toEqual([
@@ -112,9 +112,9 @@ test("Product authoring preserves repeated programme identities separately from 
     compositions[0]?.programmePlacements.map((placement) => placement.id),
   ).toEqual([first, repeated]);
   expect(compositions[0]?.materials).toEqual([]);
-  const invalid = await authoring.reorderSeries({
+  const invalid = await authoring.reorderProduct({
     actor,
-    seriesId: product.value.id,
+    productId: product.value.id,
     expectedOrderVersion: ordered.value.orderVersion,
     orderedMaterialIds: [materialId, randomUUID()],
     chapters: loaded.value.chapters.map(
@@ -135,7 +135,7 @@ test("Product authoring preserves repeated programme identities separately from 
     error: { code: "invalid_reference" },
   });
   expect(
-    await authoring.loadSeriesOrder({ actor, seriesId: product.value.id }),
+    await authoring.loadProductOrder({ actor, productId: product.value.id }),
   ).toEqual(loaded);
 });
 

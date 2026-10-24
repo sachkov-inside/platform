@@ -158,13 +158,13 @@ export function productReaderStateRoute(request, url, owner) {
   if (url.pathname === "/library/home" && pinned !== null) {
     const original = envelope.parse(owner.baseRoute("GET", url, false));
     const home = z
-      .object({ pinnedSeries: z.record(z.string(), z.unknown()) })
+      .object({ pinnedProduct: z.record(z.string(), z.unknown()) })
       .loose()
       .parse(original.value);
     return reply({
       ...home,
-      pinnedSeries: {
-        ...home.pinnedSeries,
+      pinnedProduct: {
+        ...home.pinnedProduct,
         id: pinned.id,
         slug: pinned.slug,
         name: `Reader state ${pinned.scenario}`,

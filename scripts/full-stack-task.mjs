@@ -45,7 +45,7 @@ export async function seedFullStackTask(origin, accessToken) {
     id: "synthetic:fullstack-task-lesson",
     path: "task-lesson.md",
     revision: "a".repeat(64),
-    showInFeed: false,
+    version: 2,
   };
   const reserved = receipt.parse(
     await request("/authoring/import/materials/reserve", { source }),
@@ -64,7 +64,7 @@ export async function seedFullStackTask(origin, accessToken) {
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "guide",
         tagIds: [],
-        seriesIds: [product.id],
+        productIds: [product.id],
         difficulty: null,
         outcomes: [],
       },
@@ -83,7 +83,7 @@ export async function seedFullStackTask(origin, accessToken) {
     .parse(await request(`/authoring/products/${product.id}/order`));
   await request("/authoring/import/products/composition", {
     sourceId: productSourceId,
-    seriesId: product.id,
+    productId: product.id,
     expectedOrderVersion: order.orderVersion,
     orderedMaterialIds: [lesson.materialId],
     chapters: [{ id: chapterId, name: "Глава 1", summary: "" }],

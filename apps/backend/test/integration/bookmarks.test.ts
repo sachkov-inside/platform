@@ -106,7 +106,7 @@ describe("Bookmarks on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: access === "closed" ? [closedProductId] : [],
+        productIds: access === "closed" ? [closedProductId] : [],
       },
       body: representativeDocument("Bookmark me."),
     });

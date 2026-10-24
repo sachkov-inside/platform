@@ -76,7 +76,7 @@ for (const [index, size] of sizes.entries()) {
     );
     if (!references.result.ok || !products.result.ok || !topics.result.ok)
       throw new Error("Selector read failed");
-    expect(references.result.value.series).toHaveLength(size);
+    expect(references.result.value.products).toHaveLength(size);
     expect(references.result.value.topics).toHaveLength(size);
     expect(references.result.value.tags).toHaveLength(size);
     expect(products.result.value).toHaveLength(size);
@@ -110,15 +110,15 @@ describe("complete authoring selector save", () => {
       formatId: "note",
       topicId: id(522, 1000),
       tagIds: [id(523, 1000)],
-      seriesIds: [id(521, 1000)],
+      productIds: [id(521, 1000)],
     };
     expect(references.value.topics.at(-1)?.id).toBe(metadata.topicId);
     expect(references.value.tags.at(-1)?.id).toBe(metadata.tagIds[0]);
-    expect(references.value.series.at(-1)?.id).toBe(metadata.seriesIds[0]);
+    expect(references.value.products.at(-1)?.id).toBe(metadata.productIds[0]);
     const created = await entry.authoring.createDraft({
       actor,
       idempotencyKey: "create-thousandth-choice",
-      metadata: { ...metadata, tagIds: [], seriesIds: [] },
+      metadata: { ...metadata, tagIds: [], productIds: [] },
       body: representativeDocument("Authoring selector save."),
     });
     if (!created.ok) throw new Error(created.error.code);
@@ -154,7 +154,9 @@ describe("complete authoring selector save", () => {
         metadata: {
           topicId: metadata.topicId,
           tagIds: metadata.tagIds,
-          seriesMemberships: [{ seriesId: metadata.seriesIds[0], ordinal: 1 }],
+          productMemberships: [
+            { productId: metadata.productIds[0], ordinal: 1 },
+          ],
         },
       },
     });

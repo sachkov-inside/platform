@@ -1,13 +1,13 @@
 import { practiceDefinitionDigest } from "../../../src/modules/materials/domain/practice-definition.js";
 import { fingerprintCommand } from "../../../src/modules/materials/shared/canonical-command-fingerprint.js";
-import type { ApplySourcePracticeOperation } from "../../../src/modules/materials/features/import-source-practice/import-source-practice.contract.js";
+import type { ReadHistoricalPracticeReceiptOperation } from "../../../src/modules/materials/features/import-source-practice/import-source-practice.contract.js";
 import type { TestDatabase } from "./test-database.js";
 
 /** Historical restore fixture for the retained read/receipt decoder. Current authoring must not
  * create these rows. It exercises no retired write policy or CAS implementation. */
 export async function seedHistoricalPractice(
   database: Pick<TestDatabase, "prisma">,
-  command: Parameters<ApplySourcePracticeOperation>[0],
+  command: Parameters<ReadHistoricalPracticeReceiptOperation>[0],
 ) {
   const definitionDigest = practiceDefinitionDigest(
     command.definition,
@@ -21,7 +21,7 @@ export async function seedHistoricalPractice(
     boundContentVersion: command.expectedContentVersion,
     publicationState: command.publicationState,
   };
-  await database.prisma.practiceDefinition.create({
+  await database.prisma.historicalPracticeDefinition.create({
     data: {
       practiceId: command.practiceId,
       materialId: command.materialId,

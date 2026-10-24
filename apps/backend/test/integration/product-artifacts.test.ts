@@ -492,7 +492,7 @@ describe("Product Artifacts", () => {
         productId: productB,
         preview: false,
         subject: { kind: "anonymous" },
-        version: 2,
+        version: 2 as const,
       }),
     ).toEqual({ error: { code: "artifact_not_found" }, ok: false });
 
@@ -598,7 +598,9 @@ describe("Product Artifacts", () => {
     const list = await artifacts.listForProduct({ actor: owner, productId });
     expect(list).toMatchObject({
       ok: true,
-      value: [{ version: 2, content: { filename: "customer-brief.md" } }],
+      value: [
+        { version: 2 as const, content: { filename: "customer-brief.md" } },
+      ],
     });
     const repeated = await artifacts.applyAuthoringImport({
       actor: owner,
@@ -864,7 +866,7 @@ describe("Product Artifacts", () => {
       });
       await db.prisma.productMembership.create({
         data: {
-          seriesId: index === 1 ? productIds[1] : productIds[0],
+          productId: index === 1 ? productIds[1] : productIds[0],
           materialId: id,
         },
       });
@@ -956,7 +958,7 @@ describe("Product Artifacts", () => {
     });
     await db.prisma.productMembership.create({
       data: {
-        seriesId: unplacedProduct,
+        productId: unplacedProduct,
         materialId: materialIds[0],
       },
     });
@@ -1005,9 +1007,9 @@ describe("Product Artifacts", () => {
     const locked = deferredSignal();
     const release = deferredSignal();
     const composition = db.prisma.$transaction(async (transaction) => {
-      await transaction.$queryRaw`select id from products.series where id = ${command.productId}::uuid for update`;
+      await transaction.$queryRaw`select id from products.products where id = ${command.productId}::uuid for update`;
       await transaction.productMembership.deleteMany({
-        where: { seriesId: command.productId, materialId: materialIds[0] },
+        where: { productId: command.productId, materialId: materialIds[0] },
       });
       locked.resolve();
       await release.promise;
@@ -1019,7 +1021,7 @@ describe("Product Artifacts", () => {
         .poll(
           () =>
             db.prisma
-              .$queryRaw`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%products.series%') as blocked`,
+              .$queryRaw`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%products.product%') as blocked`,
         )
         .toEqual([{ blocked: true }]);
     } finally {

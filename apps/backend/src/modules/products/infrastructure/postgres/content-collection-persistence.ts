@@ -67,7 +67,7 @@ interface ContentCollectionPersistence {
 
 export function contentCollectionPersistence(
   prisma: ProductsPrisma,
-  kind: "product" | "series" | "topic",
+  kind: "product" | "topic",
   loadCovers: ProductAuthoringDependencies["loadCovers"],
 ): ContentCollectionPersistence {
   const project = async (
@@ -75,7 +75,7 @@ export function contentCollectionPersistence(
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
     const [materialCount, covers] = await Promise.all([
-      prisma.productMembership.count({ where: { seriesId: record.id } }),
+      prisma.productMembership.count({ where: { productId: record.id } }),
       loadCovers(
         record.coverId === null ? [] : [record.coverId],
         transactionHandle(prisma),
@@ -108,12 +108,12 @@ export function contentCollectionPersistence(
           orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
         prisma.productMembership.groupBy({
-          by: ["seriesId"],
+          by: ["productId"],
           _count: { _all: true },
         }),
       ]);
       const countById = new Map(
-        counts.map(({ seriesId, _count }) => [seriesId, _count._all]),
+        counts.map(({ productId, _count }) => [productId, _count._all]),
       );
       const covers = await loadCovers(
         records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
@@ -143,7 +143,7 @@ export function contentCollectionPersistence(
           },
         })
       ).count,
-    slugConstraint: "series_slug_unique",
+    slugConstraint: "product_slug_unique",
     updateMetadata: async ({
       expectedVersion,
       id,

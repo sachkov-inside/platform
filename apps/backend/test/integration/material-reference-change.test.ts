@@ -39,7 +39,7 @@ const metadata = {
   formatId: null,
   difficulty: null,
   outcomes: [],
-  seriesIds: [],
+  productIds: [],
   summary: null,
   tagIds: [],
   title: null,

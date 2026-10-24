@@ -117,12 +117,12 @@ async function expireServerCatalogCache(baseURL: string) {
     },
   });
   const response = await author.put("/api/authoring/home-pin", {
-    data: { expectedVersion: 1, seriesId: null },
+    data: { expectedVersion: 1, productId: null },
   });
   expect(response.status(), "авторская запись закрепа принята").toBe(200);
   expect(await response.json()).toEqual({
     kind: "ready",
-    pin: { seriesId: null, version: 2 },
+    pin: { productId: null, version: 2 },
   });
   await author.dispose();
 }
@@ -289,7 +289,7 @@ async function rscRequestsSettled(page: Page) {
 async function personalPartLanded(page: Page) {
   await expect(
     page.locator(
-      "[data-application-content] [data-series-access-pending]:visible, [data-application-content] [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible",
+      "[data-application-content] [data-product-access-pending]:visible, [data-application-content] [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible",
     ),
   ).toHaveCount(0);
 }
@@ -1059,11 +1059,11 @@ test("снимки перехода «программа → урок → про
   const programmeAnchors = [
     "[data-programme-part='back']",
     "[data-programme-part='header']",
-    "[data-series-ordinal='1']",
+    "[data-product-ordinal='1']",
   ];
   await expect(
     page
-      .locator("[data-application-content] [data-series-access-pending]")
+      .locator("[data-application-content] [data-product-access-pending]")
       .first(),
   ).toBeVisible();
   const programmeSharedPart = await boxesOf(page, programmeAnchors);
@@ -1071,7 +1071,7 @@ test("снимки перехода «программа → урок → про
     path: evidenceFile(`lesson-to-programme-loading-${project}.png`),
   });
   await expect(
-    page.locator("[data-application-content] [data-series-access-pending]"),
+    page.locator("[data-application-content] [data-product-access-pending]"),
   ).toHaveCount(0);
   expect(
     await boxesOf(page, programmeAnchors),

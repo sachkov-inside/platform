@@ -53,7 +53,7 @@ export async function loadCurrentMaterial(
   if (row === null) {
     return undefined;
   }
-  const [tags, seriesMemberships, covers] = await Promise.all([
+  const [tags, productMemberships, covers] = await Promise.all([
     prisma.materialTag.findMany({
       where: { materialId },
       select: { tagId: true },
@@ -75,7 +75,7 @@ export async function loadCurrentMaterial(
     topicId: row.topicId,
     formatId: row.formatId,
     tagIds: tags.map(({ tagId }) => tagId),
-    seriesMemberships,
+    productMemberships,
   });
   const body = bodyOperations.accept({
     schemaVersion: row.schemaVersion,
@@ -104,7 +104,7 @@ export async function loadCurrentMaterial(
               id: row.sourceId,
               path: row.sourcePath,
               revision: row.sourceRevision,
-              showInFeed: row.showInFeed,
+              version: 2 as const,
               commit: row.sourceCommit,
             }),
       lifecycle: Material.restore({
@@ -164,7 +164,7 @@ export function toMaterialDto(
             id: material.source.id,
             path: material.source.path,
             revision: material.source.revision,
-            showInFeed: material.source.showInFeed,
+            version: 2 as const,
             // Absent rather than null: clients that predate the commit read `source` strictly,
             // and only a newer client records a commit.
             ...(material.source.commit === null
@@ -202,7 +202,7 @@ export async function replaceCurrentRelations(
   }
   await products.replace(
     materialId,
-    metadata.seriesMemberships,
+    metadata.productMemberships,
     transactionHandle(transaction),
   );
 }

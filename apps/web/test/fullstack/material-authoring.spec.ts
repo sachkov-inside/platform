@@ -1710,12 +1710,12 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   ).toBeVisible();
 });
 
-test("author edits series metadata on a dedicated page and returns to the list after autosave", async ({
+test("author edits product metadata on a dedicated page and returns to the list after autosave", async ({
   context,
   page,
 }) => {
   await signInFullStack(context, "OWNER");
-  const title = `Full-stack series ${randomUUID()}`;
+  const title = `Full-stack product ${randomUUID()}`;
   await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
   await page
@@ -1723,7 +1723,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     .fill(title);
   await page
     .getByRole("textbox", { name: "Адрес", exact: false })
-    .fill(`series-${randomUUID()}`);
+    .fill(`product-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await expect(
@@ -1817,7 +1817,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
   ).toBeVisible();
 });
 
-test("trusted author reorders a PostgreSQL series with keyboard controls", async ({
+test("trusted author reorders a PostgreSQL product with keyboard controls", async ({
   context,
   page,
 }) => {
@@ -1901,7 +1901,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     "/api/authoring/series/order",
     "PUT",
     {
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: catalogue.orderVersion,
       orderedMaterialIds: programmeItems.map((item) => item.materialId),
       programmePlacements: programmeItems.map((item) => ({
@@ -2027,7 +2027,7 @@ test("trusted author walks a product chapter through Previews that stay closed t
       chapters: [{ id: chapterId, name: chapterName, summary: "" }],
       expectedOrderVersion: order.orderVersion,
       orderedMaterialIds,
-      seriesId: productId,
+      productId: productId,
     },
   );
   expect(await placed.json()).toMatchObject({ kind: "saved" });
@@ -2166,7 +2166,7 @@ test("trusted author walks a product chapter through Previews that stay closed t
         chapters: [],
         expectedOrderVersion: current.orderVersion,
         orderedMaterialIds,
-        seriesId: productId,
+        productId: productId,
       },
     );
     expect(await restored.json()).toMatchObject({ kind: "saved" });

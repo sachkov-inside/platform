@@ -71,7 +71,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
       stage: "published",
       topicId: "software-engineering",
       access: "free",
-      showInFeed: false,
+      version: 2,
       difficulty: null,
       outcomes: null,
       markdown: `![Схема вариантов](assets/схема%20один.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}\n\n${advice}`,

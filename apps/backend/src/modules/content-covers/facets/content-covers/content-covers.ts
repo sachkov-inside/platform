@@ -28,7 +28,7 @@ interface AuthorPolicy {
 
 export const contentCoverOwnerKindSchema = z.enum([
   "material",
-  "series",
+  "product",
   "topic",
 ]);
 
@@ -361,7 +361,7 @@ async function changeCurrentCover(
         pending.failureCode !== null ||
         !pending.uploadConfirmed ||
         pending.materialId !== expectedOwner.materialId ||
-        pending.seriesId !== expectedOwner.seriesId ||
+        pending.productId !== expectedOwner.productId ||
         pending.topicId !== expectedOwner.topicId
       ) {
         return dependencyUnavailable();
@@ -434,7 +434,7 @@ async function abandonCover(
 function ownerColumns(owner: ContentCoverOwner) {
   return {
     materialId: owner.kind === "material" ? owner.id : null,
-    seriesId: owner.kind === "series" ? owner.id : null,
+    productId: owner.kind === "product" ? owner.id : null,
     topicId: owner.kind === "topic" ? owner.id : null,
   };
 }

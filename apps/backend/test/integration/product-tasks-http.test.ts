@@ -132,7 +132,7 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
       },
       body: representativeDocument("Глава 1"),
     });
@@ -155,14 +155,14 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         sourceRevision: "a".repeat(64),
       },
     });
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor: owner,
-      seriesId: productId,
+      productId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const programme = await materials.authoring.reorderSeries({
+    const programme = await materials.authoring.reorderProduct({
       actor: owner,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [anchorId],
       programmePlacements: [

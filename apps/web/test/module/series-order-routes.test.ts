@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({ token: vi.fn(), save: vi.fn() }));
 vi.mock("@/shared/api/backend/index.server", () => ({
-  requestSeriesReorder: fakes.save,
+  requestProductReorder: fakes.save,
   BackendConnectionError: class extends Error {},
 }));
 vi.mock("@/shared/auth/session-adapter.server", () => ({
@@ -14,9 +14,8 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 }));
 
 import { PUT as productOrder } from "../../app/api/authoring/products/order/route";
-import { PUT as legacyOrder } from "../../app/api/authoring/series/order/route";
 
-const seriesId = "96000000-0000-4000-8000-000000000001";
+const productId = "96000000-0000-4000-8000-000000000001";
 const materialId = "96000000-0000-4000-8000-000000000002";
 const orderVersion = "a".repeat(64);
 
@@ -25,19 +24,16 @@ beforeEach(() => {
   fakes.token.mockResolvedValue("trusted-token");
   fakes.save.mockResolvedValue({
     ok: true,
-    body: { seriesId, orderVersion },
+    body: { productId, orderVersion },
     response: new Response(),
   });
 });
 
-it.each([
-  ["products", productOrder],
-  ["series", legacyOrder],
-] as const)(
+it.each([["products", productOrder]] as const)(
   "saves composition through the %s route with the authenticated identity",
   async (segment, save) => {
     const body = JSON.stringify({
-      seriesId,
+      productId,
       expectedOrderVersion: orderVersion,
       orderedMaterialIds: [materialId],
     });
@@ -59,7 +55,7 @@ it.each([
     expect(response.headers.get("cache-control")).toBe("no-store, private");
     expect(fakes.save).toHaveBeenCalledWith(
       {
-        seriesId,
+        productId,
         expectedOrderVersion: orderVersion,
         orderedMaterialIds: [materialId],
       },

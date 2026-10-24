@@ -119,17 +119,17 @@ describe("local development seed", () => {
       },
       {
         durationSeconds: 810,
-        providerVideoId: "local-series-release-docker",
+        providerVideoId: "local-product-release-docker",
         state: "ready",
       },
       {
         durationSeconds: 630,
-        providerVideoId: "local-series-release-overview",
+        providerVideoId: "local-product-release-overview",
         state: "ready",
       },
       {
         durationSeconds: 542,
-        providerVideoId: "local-series-review-video",
+        providerVideoId: "local-product-review-video",
         state: "ready",
       },
     ]);
@@ -158,8 +158,8 @@ describe("local development seed", () => {
         emptyCatalogVideos,
         {
           first: null,
-          kind: "series",
-          slug: "demo-series-harness",
+          kind: "product",
+          slug: "demo-product-harness",
           subject: anonymousSubject,
         },
       ),
@@ -169,8 +169,8 @@ describe("local development seed", () => {
         emptyCatalogVideos,
         {
           first: null,
-          kind: "series",
-          slug: "demo-series-review",
+          kind: "product",
+          slug: "demo-product-review",
           subject: anonymousSubject,
         },
       ),
@@ -208,7 +208,7 @@ describe("local development seed", () => {
     if (!standalone.ok) throw new Error(standalone.error.code);
     expect(standalone.value.items).toContainEqual(
       expect.objectContaining({
-        seriesMemberships: [],
+        productMemberships: [],
         slug: "demo-295-samostoyatelnaya-zametka",
       }),
     );
@@ -459,7 +459,7 @@ describe("local development seed after a demo content change", () => {
       difficulty: metadata.difficulty,
       formatId: metadata.formatId,
       outcomes: metadata.outcomes,
-      seriesIds: metadata.seriesMemberships.map(({ seriesId }) => seriesId),
+      productIds: metadata.productMemberships.map(({ productId }) => productId),
       summary: metadata.summary,
       tagIds: metadata.tagIds,
       title: metadata.title,
@@ -494,10 +494,10 @@ describe("local development seed after a demo content change", () => {
   async function writtenState() {
     return {
       productMemberships: await testDatabase.prisma.productMembership.findMany({
-        orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
+        orderBy: [{ productId: "asc" }, { materialId: "asc" }],
         select: {
           materialId: true,
-          seriesId: true,
+          productId: true,
         },
       }),
       programme: await testDatabase.prisma.productProgrammePlacement.findMany({

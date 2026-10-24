@@ -58,9 +58,9 @@ const meta = {
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: aiEngineeringCourseChapters,
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI Engineering",
@@ -122,7 +122,7 @@ export const OptionalFields: Story = {
           access: "free",
           availability: "available",
           format: "Гайд",
-          seriesMemberships: [
+          productMemberships: [
             { name: "AI Engineering", ordinal: 1, slug: "ai-engineering" },
           ],
           slug: "course-intro",

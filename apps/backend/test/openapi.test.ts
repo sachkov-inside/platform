@@ -128,13 +128,13 @@ describe("OpenAPI contract", () => {
         name: "sort",
         required: false,
         schema: {
-          enum: ["newest", "relevance", "series", "title"],
+          enum: ["newest", "relevance", "product", "title"],
           type: "string",
         },
       },
       {
         in: "query",
-        name: "series",
+        name: "product",
         required: false,
         schema: facetParameterSchema,
       },

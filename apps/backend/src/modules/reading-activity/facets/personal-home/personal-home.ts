@@ -1,6 +1,6 @@
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
-import type { PublishedSeriesComposition } from "../../../products/index.js";
+import type { PublishedProductComposition } from "../../../products/index.js";
 import type {
   MaterialContent,
   PublishedMaterialReader,
@@ -13,7 +13,7 @@ import {
 } from "../../features/record-material-open/record-material-open.js";
 import { getContinueMaterials } from "../../features/get-continue-materials/get-continue-materials.js";
 import { getLearningHome } from "../../features/get-learning-home/get-learning-home.js";
-import { getSeriesContinuation } from "../../features/get-series-continuation/get-series-continuation.js";
+import { getProductContinuation } from "../../features/get-product-continuation/get-product-continuation.js";
 export class PersonalHome {
   constructor(
     private readonly dependencies: {
@@ -23,7 +23,7 @@ export class PersonalHome {
         "authorize" | "checkAvailabilityMany" | "checkProductAccess"
       >;
       readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
-      readonly composition: Pick<PublishedSeriesComposition, "read">;
+      readonly composition: Pick<PublishedProductComposition, "read">;
       readonly reader: Pick<PublishedMaterialReader, "discoverProjections">;
       readonly selection: Pick<PublishedMaterialSelection, "read">;
       readonly videos: Pick<Videos, "loadReadyDurations" | "loadProgressMany">;
@@ -35,8 +35,8 @@ export class PersonalHome {
   getLearning(accountId: string) {
     return getLearningHome(this.dependencies, accountId);
   }
-  getSeries(accountId: string, slug: string) {
-    return getSeriesContinuation(this.dependencies, accountId, slug);
+  getProduct(accountId: string, slug: string) {
+    return getProductContinuation(this.dependencies, accountId, slug);
   }
   getContinue(accountId: string) {
     return getContinueMaterials(this.dependencies, accountId);

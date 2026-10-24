@@ -1,6 +1,6 @@
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import Link from "next/link";
-import type { ProductOnboardingPanel } from "./series-journey-controls.client";
+import type { ProductOnboardingPanel } from "./product-journey-controls.client";
 
 import {
   billingActionClass,
@@ -13,7 +13,7 @@ import { Button } from "@/shared/ui/button";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
-  type PublishedSeriesResult,
+  type PublishedProductResult,
 } from "@/features/library-discovery";
 import {
   productHref as productPageHref,
@@ -28,23 +28,23 @@ import {
   programmePreorderRowClass,
   programmePurchaseRowClass,
 } from "./programme-purchase-row";
-import { SeriesJourney } from "./series-journey";
+import { ProductJourney } from "./product-journey";
 import {
   PendingPurchaseRow,
-  PendingSeriesLearning,
+  PendingProductLearning,
   ProgrammeProgress,
-} from "./series-learning.client";
+} from "./product-learning.client";
 import { CourseMark } from "@/features/ai-engineering-course";
 
-type ResolvedSeriesResult = Extract<
-  PublishedSeriesResult,
+type ResolvedProductResult = Extract<
+  PublishedProductResult,
   { kind: "ready" | "empty" }
 >;
 
 /**
  * Программа руководства: главы, материалы и состояния доступа. Продажа живёт здесь одним
  * приглашением: страница продукта продаёт смыслом, цену и оформление показывает страница оплаты.
- * Программу рисует сервер; прогресс читателя приходит в браузере через `SeriesLearningProvider`.
+ * Программу рисует сервер; прогресс читателя приходит в браузере через `ProductLearningProvider`.
  */
 export function ProductProgrammeView({
   artifacts,
@@ -56,7 +56,7 @@ export function ProductProgrammeView({
   onboarding,
 }: {
   readonly artifacts?: ReaderProductArtifactsResult;
-  readonly result: ResolvedSeriesResult;
+  readonly result: ResolvedProductResult;
   readonly productOffer?: PriceSnapshot | null;
   /** Цена предзаказа: пока поток набирается, кнопка оплаты становится предзаказом. */
   readonly preorder?: PreorderPrice | null;
@@ -162,34 +162,34 @@ export function ProductProgrammeView({
         <ProgrammeProgress />
       </header>
 
-      <SeriesJourney
+      <ProductJourney
         {...(onboarding === undefined ? {} : { onboarding })}
         accessPending={accessPending}
         {...(artifacts === undefined ? {} : { artifacts })}
         currentHref={currentHref}
-        result={{ ...result, discoveryKind: "series" }}
+        result={{ ...result, discoveryKind: "product" }}
       />
     </div>
   );
 }
 
 /** Программа на общих данных, пока личная часть идёт (ADR 0027). */
-export function PendingSeries({
+export function PendingProduct({
   artifacts,
   result,
 }: {
   readonly artifacts: ReaderProductArtifactsResult;
-  readonly result: ResolvedSeriesResult;
+  readonly result: ResolvedProductResult;
 }) {
   return (
-    <PendingSeriesLearning>
+    <PendingProductLearning>
       <ProductProgrammeView artifacts={artifacts} pending result={result} />
-    </PendingSeriesLearning>
+    </PendingProductLearning>
   );
 }
 
 /** Есть ли в программе урок под замком для того, чьими глазами прочитан состав. */
-function hasLockedItems(result: ResolvedSeriesResult): boolean {
+function hasLockedItems(result: ResolvedProductResult): boolean {
   return (
     result.kind === "ready" &&
     result.items.some((item) => item.availability === "locked")
@@ -206,7 +206,7 @@ export function programmePurchase({
   subscriptionOffered,
 }: {
   readonly productOffer: PriceSnapshot | null;
-  readonly result: ResolvedSeriesResult;
+  readonly result: ResolvedProductResult;
   readonly subscriptionOffered: boolean;
 }): PurchaseInvitation | null {
   if (!hasLockedItems(result)) return null;

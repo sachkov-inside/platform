@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
+import { PublishedProductComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
@@ -100,7 +100,7 @@ describe("Personal Home on PostgreSQL", () => {
       prisma: database.prisma,
       materialContent: materials.materialContent,
       contentAccess,
-      composition: new PublishedSeriesComposition(
+      composition: new PublishedProductComposition(
         database.prisma,
         assembleProductMaterialReading(database.prisma),
       ),
@@ -114,7 +114,7 @@ describe("Personal Home on PostgreSQL", () => {
     overrides: Partial<ConstructorParameters<typeof PersonalHome>[0]> = {},
   ) {
     return new PersonalHome({
-      composition: new PublishedSeriesComposition(
+      composition: new PublishedProductComposition(
         database.prisma,
         assembleProductMaterialReading(database.prisma),
       ),
@@ -133,12 +133,12 @@ describe("Personal Home on PostgreSQL", () => {
   async function material(
     access: "free" | "closed" = "free",
     withVideo = false,
-    seriesIds: string[] = [],
+    productIds: string[] = [],
   ) {
     const memberships =
-      access === "closed" && seriesIds.length === 0
+      access === "closed" && productIds.length === 0
         ? [closedProductId]
-        : seriesIds;
+        : productIds;
     const metadata = {
       title: `Home ${randomUUID()}`,
       summary: "Continue test",
@@ -148,7 +148,7 @@ describe("Personal Home on PostgreSQL", () => {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: memberships,
+      productIds: memberships,
     };
     const body = representativeDocument("Personal Home text.");
     const draft = await materials.authoring.createDraft({
@@ -180,15 +180,15 @@ describe("Personal Home on PostgreSQL", () => {
       publicationState: "published",
     });
     if (!saved.ok) throw new Error(saved.error.code);
-    for (const seriesId of memberships) {
-      const order = await materials.authoring.loadSeriesOrder({
+    for (const productId of memberships) {
+      const order = await materials.authoring.loadProductOrder({
         actor,
-        seriesId,
+        productId,
       });
       if (!order.ok) throw new Error(order.error.code);
-      const programme = await materials.authoring.reorderSeries({
+      const programme = await materials.authoring.reorderProduct({
         actor,
-        seriesId,
+        productId,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: order.value.items.map(
           ({ materialId }) => materialId,
@@ -294,7 +294,7 @@ describe("Personal Home on PostgreSQL", () => {
     const second = createPrismaClient(database.url);
     try {
       const other = new PersonalHome({
-        composition: new PublishedSeriesComposition(
+        composition: new PublishedProductComposition(
           database.prisma,
           assembleProductMaterialReading(database.prisma),
         ),
@@ -563,24 +563,24 @@ describe("Personal Home on PostgreSQL", () => {
       await pool.end();
     }
   });
-  async function series() {
+  async function product() {
     const id = randomUUID();
-    const slug = `series-${id}`;
+    const slug = `product-${id}`;
     await database.prisma.product.create({
-      data: { id, slug, name: "Learning series" },
+      data: { id, slug, name: "Learning product" },
     });
     return { id, slug };
   }
-  test("learning Home keeps completed visits as series history, highlights author order and excludes all-read series", async () => {
+  test("learning Home keeps completed visits as product history, highlights author order and excludes all-read product", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     const first = await material("free", false, [collection.id]);
     const second = await material("free", false, [collection.id]);
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: { total: 2, read: 0, continuation: null },
     });
@@ -597,19 +597,19 @@ describe("Personal Home on PostgreSQL", () => {
       ok: true,
       value: {
         video: null,
-        series: { collection: { id: collection.id }, total: 2, read: 1 },
+        product: { collection: { id: collection.id }, total: 2, read: 1 },
       },
     });
-    if (!current.ok || current.value.series === null)
-      throw new Error("Missing series");
-    expect(current.value.series.continuation?.materialSlug).toBe(
-      current.value.series.collection.previewItems.find(
+    if (!current.ok || current.value.product === null)
+      throw new Error("Missing product");
+    expect(current.value.product.continuation?.materialSlug).toBe(
+      current.value.product.collection.previewItems.find(
         (item) => item.materialId === second.materialId,
       )?.slug,
     );
     expect(await home.getLearning(randomUUID())).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
     await reading.setReadingState({
       accountId,
@@ -620,7 +620,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
     await reading.setReadingState({
       accountId,
@@ -631,7 +631,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     expect(await home.getLearning(accountId)).toMatchObject({
       ok: true,
-      value: { series: { total: 2, read: 1 } },
+      value: { product: { total: 2, read: 1 } },
     });
     await database.prisma.product.update({
       where: { id: collection.id },
@@ -640,7 +640,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
   });
   test("learning video searches beyond six text visits and rejects ended, completed or replaced Video progress", async () => {
@@ -663,7 +663,7 @@ describe("Personal Home on PostgreSQL", () => {
           material: { materialId: video.materialId },
           resume: { kind: "position", positionSeconds: 123 },
         },
-        series: null,
+        product: null,
       },
     });
     await videos.saveProgress({
@@ -674,7 +674,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
     expect(
       await database.prisma.readingMaterialState.count({
@@ -696,7 +696,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
     await reading.setReadingState({
       accountId,
@@ -724,12 +724,12 @@ describe("Personal Home on PostgreSQL", () => {
     });
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
   });
-  test("series durations stay bounded as the corpus grows and include next beyond previews", async () => {
+  test("product durations stay bounded as the corpus grows and include next beyond previews", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     const entries = [];
     const loadReadyDurations = vi.fn((ids: readonly string[]) =>
       videos.loadReadyDurations(ids),
@@ -739,7 +739,7 @@ describe("Personal Home on PostgreSQL", () => {
       while (entries.length < size)
         entries.push(await material("free", true, [collection.id]));
       loadReadyDurations.mockClear();
-      const result = await observedHome.getSeries(accountId, collection.slug);
+      const result = await observedHome.getProduct(accountId, collection.slug);
       expect(result).toMatchObject({
         ok: true,
         value: { total: size, read: 0, continuation: null },
@@ -759,7 +759,7 @@ describe("Personal Home on PostgreSQL", () => {
       durationSeconds: 600,
     });
     loadReadyDurations.mockClear();
-    const result = await observedHome.getSeries(accountId, collection.slug);
+    const result = await observedHome.getProduct(accountId, collection.slug);
     expect(loadReadyDurations).toHaveBeenCalledExactlyOnceWith([
       ...entries.slice(0, 3).map((entry) => entry.videoId),
       next.videoId,
@@ -785,7 +785,7 @@ describe("Personal Home on PostgreSQL", () => {
       durationSeconds: 600,
     });
     expect(
-      await observedHome.getSeries(accountId, collection.slug),
+      await observedHome.getProduct(accountId, collection.slug),
     ).toMatchObject({
       ok: true,
       value: { continuation: { resume: { kind: "reached-end" } } },
@@ -804,7 +804,7 @@ describe("Personal Home on PostgreSQL", () => {
       const degraded = await makeHome({
         ...videos,
         loadReadyDurations,
-      }).getSeries(accountId, collection.slug);
+      }).getProduct(accountId, collection.slug);
       expect(degraded).toMatchObject({
         ok: true,
         value: { total: 30, continuation: { resume: { kind: "start" } } },
@@ -817,9 +817,9 @@ describe("Personal Home on PostgreSQL", () => {
       ).toBe(true);
     }
   });
-  test("series keeps the discovery limit and rejects incomplete or failed mandatory dependencies", async () => {
+  test("product keeps the discovery limit and rejects incomplete or failed mandatory dependencies", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     await material("free", false, [collection.id]);
     const discoverProjections = vi.fn(
       async (
@@ -835,13 +835,13 @@ describe("Personal Home on PostgreSQL", () => {
       },
     );
     expect(
-      await makeHome(videos, { reader: { discoverProjections } }).getSeries(
+      await makeHome(videos, { reader: { discoverProjections } }).getProduct(
         accountId,
         collection.slug,
       ),
     ).toEqual({ ok: false, error: { code: "dependency_unavailable" } });
     expect(discoverProjections).toHaveBeenCalledExactlyOnceWith({
-      kind: "series",
+      kind: "product",
       slug: collection.slug,
       first: 10_000,
       subject: { kind: "account", accountId },
@@ -886,28 +886,31 @@ describe("Personal Home on PostgreSQL", () => {
       },
     ]) {
       expect(
-        await makeHome(videos, overrides).getSeries(accountId, collection.slug),
+        await makeHome(videos, overrides).getProduct(
+          accountId,
+          collection.slug,
+        ),
       ).toEqual({ ok: false, error: { code: "dependency_unavailable" } });
     }
-    expect(await home.getSeries(accountId, "absent-series")).toEqual({
+    expect(await home.getProduct(accountId, "absent-product")).toEqual({
       ok: false,
-      error: { code: "series_not_found" },
+      error: { code: "product_not_found" },
     });
   });
-  test("series continuation follows reorder and publication while counting all published manual marks", async () => {
+  test("product continuation follows reorder and publication while counting all published manual marks", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     const first = await material("free", false, [collection.id]);
     const second = await material("free", false, [collection.id]);
     await open(accountId, first);
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor,
-      seriesId: collection.id,
+      productId: collection.id,
     });
     if (!order.ok) throw new Error(order.error.code);
-    await materials.authoring.reorderSeries({
+    await materials.authoring.reorderProduct({
       actor,
-      seriesId: collection.id,
+      productId: collection.id,
       expectedOrderVersion: order.value.orderVersion,
       programmePlacements: [second.materialId, first.materialId].map(
         (materialId) => {
@@ -921,7 +924,7 @@ describe("Personal Home on PostgreSQL", () => {
       ),
       orderedMaterialIds: [second.materialId, first.materialId],
     });
-    const result = await home.getSeries(accountId, collection.slug);
+    const result = await home.getProduct(accountId, collection.slug);
     if (!result.ok) throw new Error(result.error.code);
     expect(result.value.collection.previewItems[0]?.materialId).toBe(
       second.materialId,
@@ -936,21 +939,21 @@ describe("Personal Home on PostgreSQL", () => {
       idempotencyKey: randomUUID(),
       publicationState: "unpublished",
     });
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: { total: 1, read: 0 },
     });
   });
   test("Product onboarding remembers learning started after a real lesson open", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     const first = await material("free", false, [collection.id]);
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: { started: false },
     });
     await open(accountId, first);
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: { started: true },
     });
@@ -961,26 +964,26 @@ describe("Personal Home on PostgreSQL", () => {
       idempotencyKey: randomUUID(),
       publicationState: "unpublished",
     });
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: { started: true, total: 0 },
     });
   });
-  test("series resumes the latest visit, advances after completion, skips locked items and wraps to unfinished entries", async () => {
+  test("product resumes the latest visit, advances after completion, skips locked items and wraps to unfinished entries", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     const first = await material("free", false, [collection.id]);
     const second = await material("free", true, [collection.id]);
     const locked = await material("closed", false, [collection.id]);
     const last = await material("free", false, [collection.id]);
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor,
-      seriesId: collection.id,
+      productId: collection.id,
     });
     if (!order.ok) throw new Error(order.error.code);
-    await materials.authoring.reorderSeries({
+    await materials.authoring.reorderProduct({
       actor,
-      seriesId: collection.id,
+      productId: collection.id,
       expectedOrderVersion: order.value.orderVersion,
       programmePlacements: [
         first.materialId,
@@ -1025,7 +1028,7 @@ describe("Personal Home on PostgreSQL", () => {
       if (!result.ok) throw new Error(result.error.code);
       return result.value.metadata.slug;
     };
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: {
         read: 0,
@@ -1043,7 +1046,7 @@ describe("Personal Home on PostgreSQL", () => {
       expectedVersion: 0,
       isRead: true,
     });
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: {
         read: 1,
@@ -1059,7 +1062,7 @@ describe("Personal Home on PostgreSQL", () => {
       expectedVersion: 0,
       isRead: true,
     });
-    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+    expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
       ok: true,
       value: {
         read: 2,
@@ -1068,23 +1071,23 @@ describe("Personal Home on PostgreSQL", () => {
       },
     });
   });
-  test("series history survives expiry and resumes after rejoining; Videos failure still allows series continuation", async () => {
+  test("product history survives expiry and resumes after rejoining; Videos failure still allows product continuation", async () => {
     const accountId = randomUUID();
-    const collection = await series();
+    const collection = await product();
     const item = await material("closed", false, [collection.id]);
     try {
       membershipActive = true;
       await open(accountId, item);
       expect(await home.getLearning(accountId)).toMatchObject({
         ok: true,
-        value: { series: { collection: { id: collection.id } } },
+        value: { product: { collection: { id: collection.id } } },
       });
       membershipActive = false;
       expect(await home.getLearning(accountId)).toEqual({
         ok: true,
-        value: { video: null, series: null },
+        value: { video: null, product: null },
       });
-      expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+      expect(await home.getProduct(accountId, collection.slug)).toMatchObject({
         ok: true,
         value: { total: 1, continuation: null },
       });
@@ -1101,7 +1104,7 @@ describe("Personal Home on PostgreSQL", () => {
       });
       expect(await unavailable.getLearning(accountId)).toMatchObject({
         ok: true,
-        value: { series: { continuation: { resume: { kind: "start" } } } },
+        value: { product: { continuation: { resume: { kind: "start" } } } },
       });
     } finally {
       membershipActive = false;

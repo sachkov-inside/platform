@@ -35,7 +35,7 @@ async function expectNoGlobalProgrammeContinue(programme: Locator) {
   await expect(
     programme
       .getByRole("link", { name: "Продолжить", exact: true })
-      .and(programme.locator("a:not([data-series-continuation])")),
+      .and(programme.locator("a:not([data-product-continuation])")),
   ).toHaveCount(0);
   return header;
 }
@@ -53,19 +53,19 @@ test("product product leads to the programme and the programme keeps the Reader 
   );
 
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
-  await page.goto("/products/demo-series-harness");
+  await page.goto("/products/demo-product-harness");
   await expect(
-    page.locator('[data-product-landing="demo-series-harness"]:visible'),
+    page.locator('[data-product-landing="demo-product-harness"]:visible'),
   ).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
+  await expect(page).toHaveURL(/\/products\/demo-product-harness\/programme/u);
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   const programme = page.locator(
-    '[data-product-programme="demo-series-harness"]:visible',
+    '[data-product-programme="demo-product-harness"]:visible',
   );
   const header = await expectNoGlobalProgrammeContinue(programme);
   await expect(
@@ -80,7 +80,7 @@ test("product product leads to the programme and the programme keeps the Reader 
     '[data-route-material="demo-295-finalnyy-gayd"]',
   );
   await expect(finalRow).toHaveCount(1);
-  await expect(finalRow).toHaveAttribute("data-series-ordinal", "2");
+  await expect(finalRow).toHaveAttribute("data-product-ordinal", "2");
   const opened = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/reading-progress/open" &&
@@ -93,7 +93,7 @@ test("product product leads to the programme and the programme keeps the Reader 
   expect((await opened).status()).toBe(200);
   const programmeReturnHref = expectProgrammeReturnTarget(
     new URL(page.url()).searchParams.get("from"),
-    "/products/demo-series-harness/programme?page=1&at=demo-295-finalnyy-gayd",
+    "/products/demo-product-harness/programme?page=1&at=demo-295-finalnyy-gayd",
   );
   const programmeReturn = await expectLinearProgrammeReturn(
     page,
@@ -107,7 +107,7 @@ test("product product leads to the programme and the programme keeps the Reader 
   await page.reload();
   await expectNoGlobalProgrammeContinue(programme);
   await expect(finalRow).toHaveCount(1);
-  await expect(finalRow).toHaveAttribute("data-series-ordinal", "2");
+  await expect(finalRow).toHaveAttribute("data-product-ordinal", "2");
   await expect(finalRow).toBeInViewport();
   // Продолжение подтверждает открытие в этом сценарии, независимо от прежних посещений аккаунта.
   const continuation = finalRow.getByRole("link", {
@@ -120,7 +120,7 @@ test("product product leads to the programme and the programme keeps the Reader 
   await expect(continuation).toHaveCount(1);
   await expect(continuation).toBeVisible();
   await expect(continuation).toHaveAttribute(
-    "data-series-continuation",
+    "data-product-continuation",
     "true",
   );
   const placementId = new URL(programmeReturnHref, page.url()).searchParams.get(
@@ -139,7 +139,7 @@ test("product product leads to the programme and the programme keeps the Reader 
     page.getByRole("navigation", { name: "Страницы маршрута" }),
   ).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page })
-    .include('[data-product-programme="demo-series-harness"]')
+    .include('[data-product-programme="demo-product-harness"]')
     .analyze();
   expect(accessibility.violations).toEqual([]);
   await prepareEvidenceDirectory("issue-529");
@@ -207,7 +207,7 @@ test("product programme marks the last opened material as the place to continue"
     }
   }
 
-  await page.goto("/products/demo-series-harness/programme");
+  await page.goto("/products/demo-product-harness/programme");
   const current = page.locator('[aria-current="step"]:visible');
   // Место возврата обозначено выделением строки, а не словами: подпись убрал #441 вместе с
   // прочими лишними статусами маршрута, и это решение о внешнем виде остаётся в силе.
@@ -230,13 +230,13 @@ test("product programme appends a real composition and restores Reader return po
     },
   );
   await page.goto("/account");
-  const slug = `series-journey-${randomUUID()}`;
+  const slug = `product-journey-${randomUUID()}`;
   const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/collections",
     "POST",
     {
-      kind: "series",
+      kind: "product",
       name: "Demo #426 · Длинный маршрут",
       slug,
       summary: "Локальная проверка прохождения продукта.",
@@ -299,7 +299,7 @@ test("product programme appends a real composition and restores Reader return po
       "/api/authoring/series/order",
       "PUT",
       {
-        seriesId: collection.id,
+        productId: collection.id,
         expectedOrderVersion: order.orderVersion,
         orderedMaterialIds: [ids[0], importedPracticeId],
       },
@@ -313,7 +313,7 @@ test("product programme appends a real composition and restores Reader return po
       "/api/authoring/series/order",
       "PUT",
       {
-        seriesId: collection.id,
+        productId: collection.id,
         expectedOrderVersion: order.orderVersion,
         orderedMaterialIds: ids.slice(0, 13),
         programmePlacements: ids.slice(0, 13).map((materialId) => ({
@@ -334,13 +334,15 @@ test("product programme appends a real composition and restores Reader return po
     ).toBeVisible();
     // Early reveal can already append row 13 and remove the fallback button. Row 12 remains
     // mounted in either state, so approaching it must reveal the rest without clicking a button.
-    const loadedBoundary = page.locator('[data-series-ordinal="12"]:visible');
+    const loadedBoundary = page.locator('[data-product-ordinal="12"]:visible');
     await loadedBoundary.scrollIntoViewIfNeeded();
-    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
+    await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
+      13,
+    );
     await expect(
       page.getByRole("navigation", { name: "Страницы маршрута" }),
     ).toHaveCount(0);
-    const row = page.locator('[data-series-ordinal="13"]:visible');
+    const row = page.locator('[data-product-ordinal="13"]:visible');
     const materialSlug = await row.getAttribute("data-route-material");
     expect(materialSlug).not.toBeNull();
     await row.getByRole("heading").getByRole("link").click();
@@ -360,7 +362,9 @@ test("product programme appends a real composition and restores Reader return po
     await expect(row).toBeInViewport();
     await page.reload();
     await expect(row).toBeInViewport();
-    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
+    await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
+      13,
+    );
     await expect(
       page.locator("p:visible", { hasText: "Показано 13 из 13 материалов" }),
     ).toHaveCount(0);
@@ -368,7 +372,9 @@ test("product programme appends a real composition and restores Reader return po
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     await page.goBack();
     await expect(row).toBeInViewport();
-    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
+    await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
+      13,
+    );
     // Возврат загружает документ заново. Пока личная часть в пути, на экране программа на общих
     // данных (ADR 0027); личная часть сменяет её своим деревом, и выбранная там вкладка пропадает.
     // «Всё открыто» пишет только личная часть.
@@ -379,7 +385,9 @@ test("product programme appends a real composition and restores Reader return po
     await sections.getByRole("button", { name: /^Материалы/u }).click();
     await sections.getByRole("button", { name: /^Программа/u }).click();
     await loadedBoundary.scrollIntoViewIfNeeded();
-    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
+    await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
+      13,
+    );
     await prepareEvidenceDirectory("issue-529");
     await screenshotWholePage(page, {
       path: resolve(
@@ -405,7 +413,7 @@ test("product programme appends a real composition and restores Reader return po
       "/api/authoring/series/order",
       "PUT",
       {
-        seriesId: collection.id,
+        productId: collection.id,
         expectedOrderVersion: order.orderVersion,
         orderedMaterialIds: [],
         programmePlacements: [],
@@ -418,7 +426,7 @@ test("product programme appends a real composition and restores Reader return po
       "/api/authoring/collections/archive",
       "PUT",
       {
-        kind: "series",
+        kind: "product",
         collectionId: collection.id,
         expectedVersion: collection.version,
         archived: true,

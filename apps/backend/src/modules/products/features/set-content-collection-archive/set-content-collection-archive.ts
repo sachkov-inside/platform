@@ -1,5 +1,5 @@
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import { z } from "zod";
 
 import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
@@ -30,7 +30,7 @@ const commandSchema = z
     archived: z.boolean(),
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
-    kind: z.enum(["product", "series", "topic"]),
+    kind: z.enum(["product", "topic"]),
   })
   .strict();
 
@@ -53,7 +53,7 @@ export function assembleSetContentCollectionArchive(
         if (!permission.ok) return rollback(permission.error);
 
         if (command.kind !== "topic") {
-          await lockSeries(transaction, [command.collectionId]);
+          await lockProduct(transaction, [command.collectionId]);
           const source = await transaction.product.findUnique({
             where: { id: command.collectionId },
             select: { sourceId: true },

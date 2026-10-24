@@ -36,10 +36,10 @@ export interface PublishedMaterialCatalogItemDto {
     readonly id: string;
     readonly name: string;
   }[];
-  readonly seriesMemberships: readonly {
+  readonly productMemberships: readonly {
     readonly ordinal: number;
     readonly stepGroup?: string | null;
-    readonly series: {
+    readonly product: {
       readonly id: string;
       readonly name: string;
       readonly slug: string;
@@ -50,7 +50,7 @@ export interface PublishedMaterialCatalogItemDto {
 export interface PublishedMaterialCatalogPageDto {
   readonly facets: {
     readonly formats: readonly PublishedMaterialCatalogFacetDto[];
-    readonly series: readonly PublishedMaterialCatalogFacetDto[];
+    readonly products: readonly PublishedMaterialCatalogFacetDto[];
     readonly topics: readonly PublishedMaterialCatalogFacetDto[];
   };
   readonly items: readonly PublishedMaterialCatalogItemDto[];
@@ -85,7 +85,7 @@ export interface ListPublishedMaterialsQuery {
   readonly formatSlugs?: readonly string[];
   readonly first: number;
   readonly q?: string;
-  readonly seriesSlugs?: readonly string[];
-  readonly sort?: "newest" | "relevance" | "series" | "title";
+  readonly productSlugs?: readonly string[];
+  readonly sort?: "newest" | "relevance" | "product" | "title";
   readonly topicSlugs?: readonly string[];
 }

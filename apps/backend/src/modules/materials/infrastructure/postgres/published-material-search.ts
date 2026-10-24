@@ -9,7 +9,7 @@ import {
 
 export type PublishedMaterialSearchScope =
   | { readonly kind: "materials"; readonly materialIds: readonly string[] }
-  | { readonly kind: "series"; readonly seriesId: string }
+  | { readonly kind: "product"; readonly productId: string }
   | { readonly kind: "topic"; readonly topicId: string };
 
 export async function refreshPublishedMaterialSearchProjections(
@@ -40,11 +40,11 @@ export async function refreshPublishedMaterialSearchProjections(
       coalesce(
         (
           select string_agg(
-            concat_ws(' ', series.name, series.summary),
-            ' ' order by series.name
+            concat_ws(' ', product.name, product.summary),
+            ' ' order by product.name
           )
           from (${relations.publishedMemberships}) as membership
-          join (${relations.products}) as series on series.id = membership.series_id
+          join (${relations.products}) as product on product.id = membership.product_id
           where membership.material_id = publication.material_id
         ),
         ''
@@ -64,12 +64,12 @@ function searchScopeSql(
   switch (scope.kind) {
     case "materials":
       return Prisma.sql`publication.material_id in (${Prisma.join(scope.materialIds)})`;
-    case "series":
+    case "product":
       return Prisma.sql`exists (
         select 1
         from (${relations.publishedMemberships}) as membership
         where membership.material_id = publication.material_id
-          and membership.series_id = ${scope.seriesId}::uuid
+          and membership.product_id = ${scope.productId}::uuid
       )`;
     case "topic":
       return Prisma.sql`publication.topic_id = ${scope.topicId}::uuid`;

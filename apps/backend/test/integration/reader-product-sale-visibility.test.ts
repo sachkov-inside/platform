@@ -17,7 +17,7 @@ import {
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   ProductDirectory,
-  PublishedSeriesComposition,
+  PublishedProductComposition,
 } from "../../src/modules/products/index.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { readProductSaleAvailability } from "../../src/modules/content-library/features/read-product-sale-availability/read-product-sale-availability.js";
@@ -161,7 +161,7 @@ describe.each([1, 10, 100])(
         },
         contentAccess: corpus.dependencies.contentAccess,
       };
-      const original = new PublishedSeriesComposition(
+      const original = new PublishedProductComposition(
         corpus.measured.prisma,
         assembleProductMaterialReading(corpus.measured.prisma),
       );
@@ -311,7 +311,7 @@ describe("reader Product composition policy", () => {
         })),
       });
       await corpus.database.prisma.productMembership.createMany({
-        data: chunk.map((materialId) => ({ seriesId: oversized, materialId })),
+        data: chunk.map((materialId) => ({ productId: oversized, materialId })),
       });
       await corpus.database.prisma.productProgrammePlacement.createMany({
         data: chunk.map((materialId, index) => ({
@@ -379,7 +379,7 @@ describe("reader archive gate with current Product exclusions", () => {
     await corpus.dispose();
   });
   test("matches the original programme gate for archive, missing and empty Products after an Account-scoped exclusion", async () => {
-    const original = new PublishedSeriesComposition(
+    const original = new PublishedProductComposition(
       corpus.measured.prisma,
       assembleProductMaterialReading(corpus.measured.prisma),
     );

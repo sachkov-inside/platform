@@ -49,7 +49,7 @@ export async function findReferenceIssues(
     ...(
       await products.inspectReferences(
         materialId,
-        metadata.seriesMemberships,
+        metadata.productMemberships,
         transactionHandle(transaction),
       )
     ).issues,
@@ -57,18 +57,18 @@ export async function findReferenceIssues(
   return issues.sort((left, right) => left.path.localeCompare(right.path));
 }
 
-export async function findSeriesOrdinalConflict(
+export async function findProductOrdinalConflict(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   metadata: MaterialMetadata,
   products: ProductMemberships,
 ): Promise<
-  { readonly seriesId: string; readonly ordinal: number } | undefined
+  { readonly productId: string; readonly ordinal: number } | undefined
 > {
   return (
     await products.inspectReferences(
       materialId,
-      metadata.seriesMemberships,
+      metadata.productMemberships,
       transactionHandle(transaction),
     )
   ).conflict;

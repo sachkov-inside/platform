@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const contentCoverOwnerKindSchema = z.enum([
   "material",
-  "series",
+  "product",
   "topic",
 ]);
 

@@ -111,7 +111,7 @@ describe("opaque transaction owner handoff", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("An author mutation."),
     };

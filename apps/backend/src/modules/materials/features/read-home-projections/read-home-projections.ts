@@ -2,14 +2,14 @@ import type { MaterialDiscoveryContext } from "../../infrastructure/postgres/pub
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { selectHomeMaterialProjections } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { loadHomePinnedSeries } from "../read-home-pinned-series/read-home-pinned-series.js";
+import { loadHomePinnedProduct } from "../read-home-pinned-product/read-home-pinned-product.js";
 import type { ReadHomeProjectionsOperation } from "./read-home-projections.contract.js";
 
 export async function readHomeProjections(
   prisma: MaterialDiscoveryContext,
 ): ReturnType<ReadHomeProjectionsOperation> {
   try {
-    const pin = await loadHomePinnedSeries(prisma.products);
+    const pin = await loadHomePinnedProduct(prisma.products);
     return {
       ok: true,
       value: await selectHomeMaterialProjections(prisma, pin),

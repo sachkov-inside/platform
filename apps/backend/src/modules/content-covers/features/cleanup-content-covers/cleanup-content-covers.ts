@@ -46,8 +46,8 @@ export function assembleContentCoverMaintenance(dependencies: {
               ? { kind: "material" as const, id: initial.materialId }
               : initial.topicId !== null
                 ? { kind: "topic" as const, id: initial.topicId }
-                : initial.seriesId !== null
-                  ? { kind: "series" as const, id: initial.seriesId }
+                : initial.productId !== null
+                  ? { kind: "product" as const, id: initial.productId }
                   : null;
           // content_covers_exactly_one_owner makes an ownerless cover unreachable.
           if (owner === null) return null;

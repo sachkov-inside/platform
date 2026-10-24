@@ -1,7 +1,7 @@
 import { transactionHandle } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
 import { authorizeManager } from "../../../../infrastructure/content-authoring/author-policy.js";
 import { executeAuthoringTransaction } from "../../shared/application-result.js";
 import {
@@ -19,7 +19,7 @@ import type {
 const commandSchema = z
   .object({
     actor: accountId,
-    seriesId: entityId.nullable(),
+    productId: entityId.nullable(),
     expectedVersion: z.number().int().positive(),
   })
   .strict();
@@ -45,39 +45,39 @@ export function assembleSetHomePin(
           transactionHandle(transaction),
         );
         if (!authorized.ok) return rollback(authorized.error);
-        if (command.seriesId !== null) {
-          await lockSeries(transaction, [command.seriesId]);
-          const series = await transaction.product.findUnique({
-            where: { id: command.seriesId },
+        if (command.productId !== null) {
+          await lockProduct(transaction, [command.productId]);
+          const product = await transaction.product.findUnique({
+            where: { id: command.productId },
             select: { archivedAt: true },
           });
-          if (series?.archivedAt !== null)
+          if (product?.archivedAt !== null)
             return rollback({
               code: "invalid_reference",
-              issues: [{ code: "series_not_available", path: "/seriesId" }],
+              issues: [{ code: "product_not_available", path: "/productId" }],
             });
           const count =
             await transaction.publishedMaterialProductMembership.count({
-              where: { seriesId: command.seriesId },
+              where: { productId: command.productId },
             });
           if (count === 0)
             return rollback({
               code: "invalid_reference",
               issues: [
                 {
-                  code: "series_has_no_published_materials",
-                  path: "/seriesId",
+                  code: "product_has_no_published_materials",
+                  path: "/productId",
                 },
               ],
             });
         }
         const updated = await transaction.homeProductPin.updateMany({
           where: { id: 1, version: command.expectedVersion },
-          data: { seriesId: command.seriesId, version: { increment: 1 } },
+          data: { productId: command.productId, version: { increment: 1 } },
         });
         if (updated.count === 0) return rollback({ code: "stale_home_pin" });
         return {
-          seriesId: command.seriesId,
+          productId: command.productId,
           version: command.expectedVersion + 1,
         };
       },

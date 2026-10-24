@@ -96,7 +96,7 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
         id: `fixture:${code}`,
         path: `${code}.md`,
         revision: "a".repeat(64),
-        showInFeed: false,
+        version: 2 as const,
       };
       const reserved = await materials.authoring.reserveSourceMaterial({
         actor,
@@ -118,7 +118,7 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
           topicId,
           formatId: "guide",
           tagIds: [],
-          seriesIds: [],
+          productIds: [],
           difficulty: null,
           outcomes: [],
         },
@@ -126,7 +126,7 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
       });
       if (!applied.ok) throw new Error(applied.error.code);
       await database.prisma.productMembership.create({
-        data: { seriesId: productId, materialId: applied.value.materialId },
+        data: { productId: productId, materialId: applied.value.materialId },
       });
       await database.prisma.productProgrammePlacement.create({
         data: {
@@ -178,7 +178,7 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
           stage: "published",
           topicId: null,
           access: "free",
-          showInFeed: false,
+          version: 2 as const,
           difficulty: null,
           outcomes: [],
           markdown: "Lesson",

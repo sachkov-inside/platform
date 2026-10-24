@@ -17,9 +17,9 @@ import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
 import {
-  SeriesContinuationAction,
-  SeriesRowArticle,
-} from "./series-continuation.client";
+  ProductContinuationAction,
+  ProductRowArticle,
+} from "./product-continuation.client";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -30,9 +30,9 @@ export interface MaterialCardProps {
   };
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
-  /** Series-owned context rendered below the row title. */
+  /** Product-owned context rendered below the row title. */
   readonly rowAnnotation?: React.ReactNode;
-  readonly seriesOrdinal?: number;
+  readonly productOrdinal?: number;
   readonly readingStatus?: React.ReactElement;
   readonly showAccessDetails?: boolean;
   readonly showFormat?: boolean;
@@ -41,7 +41,7 @@ export interface MaterialCardProps {
    * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
    */
   readonly accessPending?: boolean;
-  readonly variant: "feed" | "row" | "series";
+  readonly variant: "feed" | "row" | "product";
 }
 
 /** Safe published Material summary rendered in the accepted public visual language. */
@@ -51,7 +51,7 @@ export function MaterialCard({
   returnHref,
   readerContext,
   rowAnnotation,
-  seriesOrdinal,
+  productOrdinal,
   readingStatus = material.materialId === undefined ? undefined : (
     <SavedMaterialReadingStatus
       materialId={material.materialId}
@@ -70,15 +70,15 @@ export function MaterialCard({
     readerContext,
   );
 
-  if (variant === "series") {
+  if (variant === "product") {
     return (
-      <SeriesMaterialRow
+      <ProductMaterialRow
         showFormat={showFormat}
         accessPending={accessPending}
         headingLevel={headingLevel}
         material={material}
         readerHref={readerHref}
-        ordinal={seriesOrdinal}
+        ordinal={productOrdinal}
         readingStatus={readingStatus}
       />
     );
@@ -353,7 +353,7 @@ function MaterialRow({
         {showAccessDetails ? (
           <span
             className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground"
-            data-series-access
+            data-product-access
           >
             {material.availability === "locked" ? (
               <span className="inline-flex items-center gap-1.5 font-medium">
@@ -389,9 +389,9 @@ function MaterialRow({
 /**
  * Compact programme row. Learning outcomes and difficulty remain in metadata. The row renders
  * on the server; which lesson continues the reader's path arrives in the browser through
- * `SeriesContinuationProvider`.
+ * `ProductContinuationProvider`.
  */
-function SeriesMaterialRow({
+function ProductMaterialRow({
   showFormat,
   accessPending,
   headingLevel: Heading,
@@ -414,7 +414,7 @@ function SeriesMaterialRow({
   const locked = !pending && material.availability === "locked";
   const unavailable = !pending && material.availability === "unavailable";
   return (
-    <SeriesRowArticle
+    <ProductRowArticle
       availability={pending ? "pending" : material.availability}
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
@@ -426,7 +426,7 @@ function SeriesMaterialRow({
           <span
             aria-hidden="true"
             className="w-4 shrink-0 text-left text-xs font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-lg sm:leading-6"
-            data-series-preview
+            data-product-preview
           >
             {ordinal}
           </span>
@@ -435,7 +435,7 @@ function SeriesMaterialRow({
           <span
             aria-hidden="true"
             className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
-            data-series-format
+            data-product-format
           >
             {material.format}
           </span>
@@ -456,7 +456,7 @@ function SeriesMaterialRow({
         </div>
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
-            <span className="tabular-nums max-sm:hidden" data-series-duration>
+            <span className="tabular-nums max-sm:hidden" data-product-duration>
               {duration}
             </span>
           )}
@@ -464,7 +464,7 @@ function SeriesMaterialRow({
             <span
               aria-hidden="true"
               className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
-              data-series-access-pending
+              data-product-access-pending
             />
           ) : locked ? (
             <>
@@ -478,8 +478,8 @@ function SeriesMaterialRow({
           )}
         </span>
       </div>
-      <SeriesContinuationAction href={readerHref} slug={material.slug} />
-    </SeriesRowArticle>
+      <ProductContinuationAction href={readerHref} slug={material.slug} />
+    </ProductRowArticle>
   );
 }
 

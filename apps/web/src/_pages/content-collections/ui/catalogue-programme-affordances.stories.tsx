@@ -7,13 +7,13 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import { Button } from "@/shared/ui/button";
-import { SeriesEditorPageFrame } from "./series-editor-page-frame";
+import { ProductEditorPageFrame } from "./product-editor-page-frame";
 import {
-  type SeriesOrderPresentation,
-  type CreateSeriesOrderMaterialSearchQueryOptions,
-  type SeriesOrderMaterialSearchResult,
-} from "@/features/series-order";
-import { SeriesOrderManager } from "@/features/series-order";
+  type ProductOrderPresentation,
+  type CreateProductOrderMaterialSearchQueryOptions,
+  type ProductOrderMaterialSearchResult,
+} from "@/features/product-order";
+import { ProductOrderManager } from "@/features/product-order";
 
 const productId = "95000000-0000-4000-8000-000000000010";
 const firstId = "95000000-0000-4000-8000-000000000001";
@@ -58,12 +58,12 @@ const save = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
     Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
   ),
 );
-const createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions =
+const createMaterialSearchQueryOptions: CreateProductOrderMaterialSearchQueryOptions =
   ({ page, search }) =>
     queryOptions({
-      queryKey: ["series-order", "material-search", search, page] as const,
+      queryKey: ["product-order", "material-search", search, page] as const,
       queryFn: () =>
-        Promise.resolve<SeriesOrderMaterialSearchResult>({
+        Promise.resolve<ProductOrderMaterialSearchResult>({
           kind: "ready",
           items: [],
           page: 1,
@@ -74,13 +74,13 @@ const createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOpti
 const environment = authoringPageEnvironment(
   `/authoring/products/${productId}`,
   {
-    frame: SeriesEditorPageFrame,
+    frame: ProductEditorPageFrame,
   },
 );
 const meta = {
   ...environment,
-  title: "Features/Series order/Catalogue programme affordances",
-  component: SeriesOrderManager,
+  title: "Features/Product order/Catalogue programme affordances",
+  component: ProductOrderManager,
   decorators: [withMutationFetch(save), ...environment.decorators],
   args: {
     embedded: true,
@@ -95,11 +95,11 @@ const meta = {
       items: [firstItem, secondItem],
       name: "Состав продукта",
       options: [{ label: "Состав продукта", value: productId }],
-      seriesId: productId,
+      productId: productId,
       orderVersion: "a".repeat(64),
     },
   },
-} satisfies Meta<typeof SeriesOrderManager>;
+} satisfies Meta<typeof ProductOrderManager>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -139,14 +139,16 @@ export const CatalogueOnly: Story = {
   },
 };
 
-const mixed: SeriesOrderPresentation = {
+const mixed: ProductOrderPresentation = {
   ...meta.args.presentation,
   programmePlacements: [firstPlacement, secondPlacement, repeatedPlacement],
   items: [firstItem, secondItem, extraItem],
 };
 
 /** The reload response is the worked public-PostgreSQL result from the programme diagnosis. */
-function ReloadableProgramme(props: ComponentProps<typeof SeriesOrderManager>) {
+function ReloadableProgramme(
+  props: ComponentProps<typeof ProductOrderManager>,
+) {
   const [reloaded, setReloaded] = useState(false);
   const presentation = reloaded
     ? {
@@ -170,7 +172,7 @@ function ReloadableProgramme(props: ComponentProps<typeof SeriesOrderManager>) {
       >
         Перечитать состав
       </Button>
-      <SeriesOrderManager
+      <ProductOrderManager
         {...props}
         key={reloaded ? "reloaded" : "initial"}
         presentation={presentation}

@@ -22,9 +22,9 @@ const meta = {
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -70,9 +70,9 @@ export const DefaultTemplateShowsTheSameDescription: Story = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -96,9 +96,9 @@ export const DefaultTemplateShowsEveryField: Story = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -128,9 +128,9 @@ export const EveryBlockFieldIsShown: Story = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -162,7 +162,7 @@ const freeLesson = {
   access: "free" as const,
   availability: "available" as const,
   format: "Гайд",
-  seriesMemberships: [
+  productMemberships: [
     { name: "AI-first разработка", ordinal: 1, slug: "working-with-agents" },
   ],
   slug: "first-lesson",
@@ -181,9 +181,9 @@ export const FreeEntryOpensWholeProgramme: Story = {
   args: {
     result: {
       kind: "ready",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       items: [freeLesson],
       hasNext: false,

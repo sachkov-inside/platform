@@ -18,7 +18,7 @@ export async function materializeMetadataSelection(
   return selection.materialize(
     await products.assignSelected(
       materialId,
-      values.seriesIds,
+      values.productIds,
       transactionHandle(transaction),
     ),
     slug,

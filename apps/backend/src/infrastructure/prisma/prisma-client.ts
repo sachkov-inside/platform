@@ -6,7 +6,6 @@ export type MaterialsPrisma = Pick<
   | "$executeRaw"
   | "$queryRaw"
   | "authoringIdempotency"
-  | "practiceDefinition"
   | "practiceImportReceipt"
   | "materialAnnouncement"
   | "materialAnnouncementRevision"

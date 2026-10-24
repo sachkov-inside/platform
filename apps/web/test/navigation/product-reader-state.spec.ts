@@ -217,7 +217,7 @@ test("Home displays the same Product learning state while its shared pin stays p
       `${baseURL}/api/authoring/home-pin`,
       {
         headers: { origin: baseURL },
-        data: { expectedVersion: 1, seriesId: null },
+        data: { expectedVersion: 1, productId: null },
       },
     );
     expect(response.status()).toBe(200);
@@ -290,7 +290,7 @@ for (const optional of ["all", "community"] as const) {
       await request.post(`${backend}/__product-reader-state?pin=${slug}`);
       await page.request.put(`${baseURL}/api/authoring/home-pin`, {
         headers: { origin: baseURL },
-        data: { expectedVersion: 1, seriesId: null },
+        data: { expectedVersion: 1, productId: null },
       });
       await request.delete(`${backend}/__product-reader-state`);
       await request.post(
@@ -369,7 +369,7 @@ for (const optional of ["all", "community"] as const) {
         await request.post(`${backend}/__product-reader-state?pin=`);
         await page.request.put(`${baseURL}/api/authoring/home-pin`, {
           headers: { origin: baseURL },
-          data: { expectedVersion: 1, seriesId: null },
+          data: { expectedVersion: 1, productId: null },
         });
       }
     });

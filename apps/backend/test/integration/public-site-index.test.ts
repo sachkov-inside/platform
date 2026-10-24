@@ -75,26 +75,26 @@ beforeAll(async () => {
   });
   await database.prisma.productMembership.createMany({
     data: [
-      { materialId: id(1), seriesId: id(2001) },
-      { materialId: id(2), seriesId: id(2003) },
+      { materialId: id(1), productId: id(2001) },
+      { materialId: id(2), productId: id(2003) },
     ],
   });
   const authoring = assembleMaterials({
     prisma: database.prisma,
     authorPolicy: { canManage: () => true },
   }).authoring;
-  for (const [seriesId, materialId] of [
+  for (const [productId, materialId] of [
     [id(2001), id(1)],
     [id(2003), id(2)],
   ] as const) {
-    const order = await authoring.loadSeriesOrder({
+    const order = await authoring.loadProductOrder({
       actor: id(3001),
-      seriesId,
+      productId,
     });
     if (!order.ok) throw new Error(order.error.code);
     const programme = await authorProductProgramme(authoring, {
       actor: id(3001),
-      seriesId,
+      productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [materialId],
     });
@@ -102,12 +102,12 @@ beforeAll(async () => {
   }
   await expect(
     database.prisma.publishedMaterialProductMembership.findMany({
-      orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
-      select: { materialId: true, seriesId: true },
+      orderBy: [{ productId: "asc" }, { materialId: "asc" }],
+      select: { materialId: true, productId: true },
     }),
   ).resolves.toEqual([
-    { materialId: id(1), seriesId: id(2001) },
-    { materialId: id(2), seriesId: id(2003) },
+    { materialId: id(1), productId: id(2001) },
+    { materialId: id(2), productId: id(2003) },
   ]);
 
   measured = createQueryEventClient(database.url);
@@ -158,7 +158,7 @@ test("site traversal preserves the complete public catalog addresses while readi
       expect(page.value.facets.topics.map(({ slug }) => slug)).toEqual([
         "index-topic",
       ]);
-      expect(page.value.facets.series.map(({ slug }) => slug)).toEqual([
+      expect(page.value.facets.products.map(({ slug }) => slug)).toEqual([
         "index-product",
       ]);
       if (page.value.nextCursor === null) break;
@@ -278,7 +278,7 @@ test("unpublishing is visible on the next traversal and collection metadata", as
     { where: { materialId: id(1) } },
   );
   await database.prisma.publishedMaterialProductMembership.delete({
-    where: { materialId_seriesId: { materialId: id(1), seriesId: id(2001) } },
+    where: { materialId_productId: { materialId: id(1), productId: id(2001) } },
   });
   await database.prisma.publishedMaterial.delete({
     where: { materialId: id(1) },
@@ -308,7 +308,7 @@ test("unpublishing is visible on the next traversal and collection metadata", as
       data: { ...publication, outcomes: [] },
     });
     await database.prisma.publishedMaterialProductMembership.create({
-      data: { materialId: id(1), seriesId: id(2001) },
+      data: { materialId: id(1), productId: id(2001) },
     });
   }
 });

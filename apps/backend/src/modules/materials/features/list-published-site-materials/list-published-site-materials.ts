@@ -76,14 +76,14 @@ export function assembleListPublishedSiteMaterials(
               where publication.topic_id = topic.id
             ) order by topic.name, topic.id
           ) as topic_slugs, array(
-            select series.slug from jsonb_to_recordset(${JSON.stringify(candidates)}::jsonb)
-              as series(id uuid, slug text, name text, "materialIds" uuid[])
+            select product.slug from jsonb_to_recordset(${JSON.stringify(candidates)}::jsonb)
+              as product(id uuid, slug text, name text, "materialIds" uuid[])
             where exists (
               select 1 from materials.published_materials as publication
               join materials.topics as topic on topic.id = publication.topic_id
               join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
-              where publication.material_id = any(series."materialIds")
-            ) order by series.name, series.id
+              where publication.material_id = any(product."materialIds")
+            ) order by product.name, product.id
           ) as product_slugs
         `),
         );

@@ -387,7 +387,7 @@ describe("оплата, выдача прав и доступ к материа�
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...productIds],
+      productIds: [...productIds],
     };
     const created = await materials.authoring.createDraft({
       actor: owner,
@@ -413,15 +413,15 @@ describe("оплата, выдача прав и доступ к материа�
     productId: string,
     ordered: readonly MaterialId[],
   ): Promise<string> {
-    const loaded = await materials.authoring.loadSeriesOrder({
+    const loaded = await materials.authoring.loadProductOrder({
       actor: owner,
-      seriesId: productId,
+      productId: productId,
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const id = randomUUID();
     const saved = await authorProductProgramme(materials.authoring, {
       actor: owner,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: loaded.value.orderVersion,
       orderedMaterialIds: [...ordered],
       chapters: [{ id, name: "Первая глава", summary: "" }],
@@ -686,7 +686,7 @@ describe("оплата, выдача прав и доступ к материа�
       materials.publishedMaterialReader,
       access,
       videos,
-      { first: null, kind: "series", slug: productSlug, subject },
+      { first: null, kind: "product", slug: productSlug, subject },
     );
     return value(discovered);
   }

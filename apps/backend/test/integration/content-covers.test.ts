@@ -44,7 +44,7 @@ registerFixedClock();
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
-const seriesId = "72000000-0000-4000-8000-000000000007";
+const productId = "72000000-0000-4000-8000-000000000007";
 
 describe("ContentCovers", () => {
   let database: TestDatabase;
@@ -53,7 +53,7 @@ describe("ContentCovers", () => {
     routeContentCoverSelection({
       material: new MaterialCoverSelection(),
       topic: new MaterialCoverSelection(),
-      series: new ProductCoverSelection(),
+      product: new ProductCoverSelection(),
     });
   const stored = new Map<string, Uint8Array>();
   const signed: Parameters<ObjectStorage["signGet"]>[0][] = [];
@@ -138,7 +138,7 @@ describe("ContentCovers", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
     });
     if (!created.ok) throw new Error(created.error.code);
@@ -387,7 +387,7 @@ describe("ContentCovers", () => {
       });
       for (const discovery of [
         { kind: "topic", slug: "platform" },
-        { kind: "series", slug: "platform-inside" },
+        { kind: "product", slug: "platform-inside" },
       ] as const) {
         const discovered = await publishedMaterialReader.discoverProjections({
           ...discovery,
@@ -636,7 +636,7 @@ describe("ContentCovers", () => {
     },
   );
 
-  test.each(["topic", "series"] as const)(
+  test.each(["topic", "product"] as const)(
     "retains cleanup records after deleting a %s",
     async (kind) => {
       const id = randomUUID();
@@ -688,7 +688,7 @@ describe("ContentCovers", () => {
 
   test.each([
     { id: topicId, kind: "topic" as const },
-    { id: seriesId, kind: "series" as const },
+    { id: productId, kind: "product" as const },
   ])("keeps $kind cover ownership concrete", async (owner) => {
     const covers = assembleContentCovers({
       selection: selection(),
@@ -710,7 +710,7 @@ describe("ContentCovers", () => {
     });
     expect(row).toMatchObject({
       materialId: null,
-      seriesId: owner.kind === "series" ? owner.id : null,
+      productId: owner.kind === "product" ? owner.id : null,
       topicId: owner.kind === "topic" ? owner.id : null,
     });
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
@@ -728,11 +728,11 @@ describe("ContentCovers", () => {
     const collection =
       owner.kind === "topic"
         ? catalog.value.facets.topics.find(({ id }) => id === owner.id)
-        : catalog.value.facets.series.find(({ id }) => id === owner.id);
+        : catalog.value.facets.products.find(({ id }) => id === owner.id);
     expect(collection).toMatchObject({ cover: result.value.cover });
     await expect(
       publishedMaterialReader.discoverProjections({
-        first: owner.kind === "series" ? null : 12,
+        first: owner.kind === "product" ? null : 12,
         kind: owner.kind,
         slug: owner.kind === "topic" ? "platform" : "platform-inside",
       }),

@@ -5,16 +5,16 @@ import type { ContentWriteTarget } from "../../../../infrastructure/content-auth
 import type { HeldProductRemoval } from "../../../../infrastructure/content-authoring/authoring-errors.js";
 import { productsTransaction } from "../../infrastructure/transaction.js";
 import {
-  appendSelectedSeriesMemberships,
-  lockMaterialSeries,
-} from "../../infrastructure/postgres/series-order.js";
+  appendSelectedProductMemberships,
+  lockMaterialProduct,
+} from "../../infrastructure/postgres/product-order.js";
 import {
   heldProductRemovals,
   recordProductRemovals,
 } from "../../shared/product-removal-confirmation.js";
 import type { ProductAccessHolders } from "../../ports/product-access-holders.js";
 export interface MaterialMembership {
-  readonly seriesId: string;
+  readonly productId: string;
   readonly ordinal: number;
 }
 /** Owns the catalogue's Material relationship, its atomic edits, publication projection and removal audit. */
@@ -29,7 +29,7 @@ export class ProductMemberships {
         handle === undefined ? this.prisma : productsTransaction(handle),
         { materialId },
       )
-    ).map(({ seriesId, ordinal }) => ({ seriesId, ordinal }));
+    ).map(({ productId, ordinal }) => ({ productId, ordinal }));
   }
 
   async publishedProductIds(
@@ -41,16 +41,16 @@ export class ProductMemberships {
         handle,
       ).publishedMaterialProductMembership.findMany({
         where: { materialId },
-        select: { seriesId: true },
+        select: { productId: true },
       })
-    ).map((row) => row.seriesId);
+    ).map((row) => row.productId);
   }
   async assignSelected(
     materialId: string,
     selectedIds: readonly string[],
     handle: TransactionHandle,
   ): Promise<readonly MaterialMembership[]> {
-    return appendSelectedSeriesMemberships(
+    return appendSelectedProductMemberships(
       productsTransaction(handle),
       materialId,
       selectedIds,
@@ -61,7 +61,7 @@ export class ProductMemberships {
     selectedIds: readonly string[],
     handle: TransactionHandle,
   ): Promise<void> {
-    return lockMaterialSeries(
+    return lockMaterialProduct(
       productsTransaction(handle),
       materialId,
       selectedIds,
@@ -73,12 +73,12 @@ export class ProductMemberships {
     handle: TransactionHandle,
   ): Promise<readonly ContentWriteTarget[]> {
     const transaction = productsTransaction(handle);
-    await lockMaterialSeries(transaction, materialId, selectedIds);
+    await lockMaterialProduct(transaction, materialId, selectedIds);
     const current = await transaction.productMembership.findMany({
       where: { materialId },
-      select: { seriesId: true },
+      select: { productId: true },
     });
-    const before = new Set(current.map(({ seriesId }) => seriesId));
+    const before = new Set(current.map(({ productId }) => productId));
     const after = new Set(selectedIds);
     const changed = [...new Set([...before, ...after])].filter(
       (id) => before.has(id) !== after.has(id),
@@ -92,8 +92,8 @@ export class ProductMemberships {
       kind: "membership",
       sourceId: product.sourceId,
       path: selectedIds.includes(product.id)
-        ? `/metadata/seriesIds/${String(selectedIds.indexOf(product.id))}`
-        : "/metadata/seriesIds",
+        ? `/metadata/productIds/${String(selectedIds.indexOf(product.id))}`
+        : "/metadata/productIds",
     }));
   }
   async replace(
@@ -102,19 +102,19 @@ export class ProductMemberships {
     handle: TransactionHandle,
   ): Promise<void> {
     const transaction = productsTransaction(handle);
-    const selected = memberships.map((entry) => entry.seriesId);
+    const selected = memberships.map((entry) => entry.productId);
     const current = await transaction.productMembership.findMany({
       where: { materialId },
-      select: { seriesId: true },
+      select: { productId: true },
     });
     await transaction.productMembership.deleteMany({
-      where: { materialId, seriesId: { notIn: selected } },
+      where: { materialId, productId: { notIn: selected } },
     });
-    const existing = new Set(current.map((entry) => entry.seriesId));
+    const existing = new Set(current.map((entry) => entry.productId));
     const added = selected.filter((id) => !existing.has(id));
     if (added.length > 0)
       await transaction.productMembership.createMany({
-        data: added.map((seriesId) => ({ materialId, seriesId })),
+        data: added.map((productId) => ({ materialId, productId })),
       });
   }
 
@@ -130,7 +130,7 @@ export class ProductMemberships {
     if (memberships !== null && memberships.length > 0)
       await tx.publishedMaterialProductMembership.createMany({
         data: memberships.map((entry) => ({
-          seriesId: entry.seriesId,
+          productId: entry.productId,
           materialId,
         })),
       });
@@ -158,38 +158,38 @@ export class ProductMemberships {
     readonly conflict?: MaterialMembership;
   }> {
     const tx = productsTransaction(handle);
-    await lockMaterialSeries(
+    await lockMaterialProduct(
       tx,
       materialId,
-      memberships.map((entry) => entry.seriesId),
+      memberships.map((entry) => entry.productId),
     );
     const current = new Set(
       (
         await tx.productMembership.findMany({
           where: { materialId },
-          select: { seriesId: true },
+          select: { productId: true },
         })
-      ).map((entry) => entry.seriesId),
+      ).map((entry) => entry.productId),
     );
     const products = await tx.product.findMany({
-      where: { id: { in: memberships.map((entry) => entry.seriesId) } },
+      where: { id: { in: memberships.map((entry) => entry.productId) } },
       select: { id: true, archivedAt: true },
     });
     const known = new Map(products.map((product) => [product.id, product]));
     const issues = memberships.flatMap((entry, index) =>
-      !known.has(entry.seriesId)
+      !known.has(entry.productId)
         ? [
             {
-              code: "series_not_found",
-              path: `/metadata/seriesMemberships/${index}/seriesId`,
+              code: "product_not_found",
+              path: `/metadata/productMemberships/${index}/productId`,
             },
           ]
-        : known.get(entry.seriesId)?.archivedAt !== null &&
-            !current.has(entry.seriesId)
+        : known.get(entry.productId)?.archivedAt !== null &&
+            !current.has(entry.productId)
           ? [
               {
-                code: "series_archived",
-                path: `/metadata/seriesMemberships/${index}/seriesId`,
+                code: "product_archived",
+                path: `/metadata/productMemberships/${index}/productId`,
               },
             ]
           : [],

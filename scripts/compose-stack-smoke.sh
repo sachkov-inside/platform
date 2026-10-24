@@ -102,7 +102,7 @@ seed_price_snapshot="$(
     --username "${POSTGRES_USER:-inside}" \
     --dbname "${POSTGRES_DB:-inside}" \
     --tuples-only --no-align \
-    --command "select product.id::text || ':' || price.price_kopecks::text || ':' || price.published::text || ':' || price.archived::text || ':' || price.name from billing.product_prices price join products.series product on product.id = price.product_id where product.id = '72000000-0000-4000-8000-000000000007';"
+    --command "select product.id::text || ':' || price.price_kopecks::text || ':' || price.published::text || ':' || price.archived::text || ':' || price.name from billing.product_prices price join products.products product on product.id = price.product_id where product.id = '72000000-0000-4000-8000-000000000007';"
 )"
 if [[ "$seed_price_snapshot" != '72000000-0000-4000-8000-000000000007:3000:true:false:Руководство «Создание Platform Inside»' ]]; then
   echo "Unexpected seeded Product price: $seed_price_snapshot" >&2

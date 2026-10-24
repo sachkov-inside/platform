@@ -283,7 +283,7 @@ describe("Accounts API", () => {
     });
 
     await database.prisma.product.create({
-      data: { id: seriesId, name: "Platform", slug: "platform" },
+      data: { id: productId, name: "Platform", slug: "platform" },
     });
 
     const created = await server.inject({
@@ -316,7 +316,7 @@ describe("Accounts API", () => {
 
     const fixtureOrder = await server.inject({
       method: "GET",
-      url: `/authoring/products/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
     });
     const programmePlacements = [
@@ -330,7 +330,7 @@ describe("Accounts API", () => {
     }));
     const programmeFixture = await server.inject({
       method: "PUT",
-      url: `/authoring/products/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: fixtureOrder.json<{ orderVersion: string }>()
@@ -344,13 +344,13 @@ describe("Accounts API", () => {
     expect(programmeFixture.statusCode).toBe(200);
     const initialOrder = await server.inject({
       method: "GET",
-      url: `/authoring/series/${seriesId}/order`,
+      url: `/authoring/series/${productId}/order`,
       headers: authorization,
     });
     expect(initialOrder.statusCode).toBe(200);
     const canonicalOrder = await server.inject({
       method: "GET",
-      url: `/authoring/products/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
     });
     expect(canonicalOrder.statusCode).toBe(200);
@@ -359,7 +359,7 @@ describe("Accounts API", () => {
       (
         await server.inject({
           method: "GET",
-          url: `/authoring/products/${seriesId}/order`,
+          url: `/authoring/products/${productId}/order`,
         })
       ).statusCode,
     ).toBe(401);
@@ -374,7 +374,7 @@ describe("Accounts API", () => {
 
     const reordered = await server.inject({
       method: "PUT",
-      url: `/authoring/products/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
@@ -383,11 +383,11 @@ describe("Accounts API", () => {
       },
     });
     expect(reordered.statusCode).toBe(200);
-    expect(reordered.json()).toMatchObject({ seriesId });
+    expect(reordered.json()).toMatchObject({ productId });
 
     const staleOrder = await server.inject({
       method: "PUT",
-      url: `/authoring/series/${seriesId}/order`,
+      url: `/authoring/series/${productId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
@@ -400,7 +400,7 @@ describe("Accounts API", () => {
       readonly code: string;
       readonly currentOrderVersion?: string;
     }>();
-    expect(staleOrderBody.code).toBe("stale_series_order");
+    expect(staleOrderBody.code).toBe("stale_product_order");
     expect(staleOrderBody.currentOrderVersion).toMatch(/^[a-f0-9]{64}$/u);
 
     const corpus = await server.inject({
@@ -690,7 +690,7 @@ describe("Accounts API", () => {
     expect(readPrivateProfile(updated.json<unknown>())).toMatchObject({
       displayName: "Кирилл",
       bio: null,
-      version: 2,
+      version: 2 as const,
     });
 
     const conflict = await server.inject({
@@ -770,7 +770,7 @@ describe("Accounts API", () => {
 
 const topicId = "73000000-0000-4000-8000-000000000001";
 const formatId = "guide";
-const seriesId = "73000000-0000-4000-8000-000000000003";
+const productId = "73000000-0000-4000-8000-000000000003";
 
 function materialDraftPayload(
   title: string,
@@ -787,7 +787,7 @@ function materialDraftPayload(
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [seriesId],
+      productIds: [productId],
     },
     body: representativeDocument(text),
   };

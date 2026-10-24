@@ -8,7 +8,7 @@ export class ProductCoverSelection {
     owner: { readonly kind: string; readonly id: string },
     handle: TransactionHandle,
   ) {
-    if (owner.kind !== "series") return undefined;
+    if (owner.kind !== "product") return undefined;
     const prisma = productsTransaction(handle);
     await prisma.$queryRaw(
       Prisma.sql`select id from products.products where id = ${owner.id}::uuid for update`,
@@ -25,7 +25,7 @@ export class ProductCoverSelection {
     coverId: string | null,
     handle: TransactionHandle,
   ): Promise<void> {
-    if (owner.kind !== "series")
+    if (owner.kind !== "product")
       throw new TypeError("Product cover selection requires a Product owner");
     await productsTransaction(handle).product.update({
       where: { id: owner.id },
@@ -37,7 +37,7 @@ export class ProductCoverSelection {
     coverId: string,
     handle: TransactionHandle,
   ): Promise<boolean> {
-    if (owner.kind !== "series") return false;
+    if (owner.kind !== "product") return false;
     return (
       (await productsTransaction(handle).product.findFirst({
         where: { id: owner.id, coverId },

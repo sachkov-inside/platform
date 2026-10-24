@@ -34,7 +34,7 @@ function metadata(title: string) {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: [],
+    productIds: [],
   };
 }
 
@@ -247,7 +247,7 @@ describe("анонс первой публикации материала", () =
     const source = publicAnnouncements();
     await database.prisma.material.update({
       where: { id },
-      data: { showInFeed: false },
+      data: { version: 2 },
     });
     expect(
       (
@@ -275,7 +275,7 @@ describe("анонс первой публикации материала", () =
       await database.prisma.material.update({
         where: { id },
         data: {
-          showInFeed: true,
+          version: 2 as const,
           access: "free",
           publicationState: "published",
         },

@@ -340,7 +340,7 @@ model ProductChapterSupplementaryMaterial {
 
 model HomeProductPin {
   id       Int     @id
-  seriesId String? @map("product_id") @db.Uuid
+  productId String? @map("product_id") @db.Uuid
   version  Int     @default(1)
 
   @@map("home_product_pin")
@@ -354,7 +354,6 @@ model Material {
   sourcePath       String?   @map("source_path")
   sourceRevision   String?   @map("source_revision")
   sourceCommit     String?   @map("source_commit") @db.Char(40)
-  showInFeed       Boolean   @default(true) @map("show_in_feed")
   id               String    @id @db.Uuid
   slug             String?   @unique(map: "materials_slug_unique")
   title            String?
@@ -392,10 +391,10 @@ model MaterialTag {
 }
 
 model ProductMembership {
-  seriesId   String @map("product_id") @db.Uuid
+  productId   String @map("product_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
 
-  @@id([seriesId, materialId], map: "product_memberships_primary")
+  @@id([productId, materialId], map: "product_memberships_primary")
   @@map("product_memberships")
   @@schema("products")
 }
@@ -444,7 +443,7 @@ model ContentCover {
   id                  String    @id @db.Uuid
   materialId          String?   @map("material_id") @db.Uuid
   topicId             String?   @map("topic_id") @db.Uuid
-  seriesId            String?   @map("product_id") @db.Uuid
+  productId            String?   @map("product_id") @db.Uuid
   state               String
   failureCode         String?   @map("failure_code") @db.VarChar(64)
   currentlyReferenced Boolean   @default(false) @map("currently_referenced")
@@ -457,7 +456,7 @@ model ContentCover {
 
   @@unique([id, materialId], map: "content_covers_material_identity")
   @@unique([id, topicId], map: "content_covers_topic_identity")
-  @@unique([id, seriesId], map: "content_covers_product_identity")
+  @@unique([id, productId], map: "content_covers_product_identity")
   @@index([currentlyReferenced, orphanedAt, updatedAt], map: "content_covers_orphan_idx")
   @@map("content_covers")
   @@schema("content_covers")
@@ -489,9 +488,9 @@ model PublishedMaterialTag {
 
 model PublishedMaterialProductMembership {
   materialId String @map("material_id") @db.Uuid
-  seriesId   String @map("product_id") @db.Uuid
+  productId   String @map("product_id") @db.Uuid
 
-  @@id([materialId, seriesId], map: "published_material_product_primary")
+  @@id([materialId, productId], map: "published_material_product_primary")
   @@map("published_material_product_memberships")
   @@schema("products")
 }
@@ -1796,7 +1795,7 @@ model TributeImportReview {
  @@schema("account_rights")
 }
 
-model PracticeDefinition {
+model HistoricalPracticeDefinition {
   practiceId String @id @map("practice_id")
   materialId String @map("material_id") @db.Uuid
   definition Json
@@ -1811,7 +1810,7 @@ model PracticeDefinition {
   sourcePath String @map("source_path")
   updatedAt DateTime @map("updated_at") @db.Timestamptz
   @@index([materialId, publicationState], map: "practice_definitions_material_idx")
-  @@map("practice_definitions")
+  @@map("historical_practice_definitions")
   @@schema("materials")
 }
 

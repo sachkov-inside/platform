@@ -76,7 +76,7 @@ test.beforeEach(async ({ browser, baseURL }) => {
       `${baseURL}/api/authoring/home-pin`,
       {
         headers: { origin: baseURL },
-        data: { expectedVersion: 1, seriesId: null },
+        data: { expectedVersion: 1, productId: null },
       },
     );
     expect(response.status()).toBe(200);

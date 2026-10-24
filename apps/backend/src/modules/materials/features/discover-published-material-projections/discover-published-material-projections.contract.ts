@@ -7,7 +7,7 @@ import type {
 } from "../../facets/material-authoring/content-collection.contract.js";
 import type { Result } from "../../result.js";
 
-export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";
+export type PublishedMaterialDiscoveryKind = "related" | "product" | "topic";
 
 export interface DiscoverPublishedMaterialProjectionsQuery {
   readonly subject?: Subject;
@@ -51,7 +51,7 @@ export interface PublishedMaterialDiscoveryPageDto {
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
   };
-  readonly relatedSeries: readonly {
+  readonly relatedProduct: readonly {
     readonly id: string;
     readonly matchingMaterialCount: number;
     readonly name: string;

@@ -35,7 +35,7 @@ const controlSchema = z
   .partial()
   .passthrough();
 const homePinSchema = z
-  .object({ expectedVersion: z.number(), seriesId: z.unknown() })
+  .object({ expectedVersion: z.number(), productId: z.unknown() })
   .passthrough();
 
 // Порт задаёт `playwright.navigation.config.ts`; при отдельном запуске сервер берёт свободный.
@@ -175,10 +175,10 @@ const lessons = [
   outcomes: ["Понимать, как устроен переход между страницами"],
   primaryVideoId: null,
   publishedAt: `2026-09-0${String(n)}T09:00:00.000Z`,
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: n,
-      series: { id: product.id, name: product.name, slug: product.slug },
+      product: { id: product.id, name: product.name, slug: product.slug },
       stepGroup: null,
     },
   ],
@@ -200,10 +200,10 @@ const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
   publishedAt: new Date(Date.UTC(2026, 5, index + 1)).toISOString(),
   format:
     index % 2 === 0 ? { id: "video", name: "Видео", slug: "video" } : format,
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: index + 1,
-      series: {
+      product: {
         id: performanceProduct.id,
         name: performanceProduct.name,
         slug: performanceProduct.slug,
@@ -229,10 +229,10 @@ const referenceLessons = [
   ...performanceTemplate,
   ...item,
   materialId: `33333333-3333-4333-8333-${String(index + 801).padStart(12, "0")}`,
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: index + 1,
-      series: {
+      product: {
         id: referenceProduct.id,
         name: referenceProduct.name,
         slug: referenceProduct.slug,
@@ -248,7 +248,7 @@ const lessonsOf = (product) =>
     : product.slug === referenceProduct.slug
       ? referenceLessons
       : lessons.filter(
-          (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
+          (lesson) => lesson.productMemberships[0]?.product.id === product.id,
         );
 
 /**
@@ -309,7 +309,7 @@ function body(lesson, entitled) {
     })),
   };
   const written =
-    lesson.seriesMemberships[0]?.series.id === modesProductId ? [step] : [];
+    lesson.productMemberships[0]?.product.id === modesProductId ? [step] : [];
   return {
     schemaVersion: 1,
     blocks: [
@@ -388,12 +388,12 @@ function anchorParagraph(text) {
 /** @param {Lesson} lesson */
 function readerProjection(lesson) {
   const { availability: _availability, ...rest } = projection(lesson, false);
-  const { seriesMemberships, ...base } = rest;
+  const { productMemberships, ...base } = rest;
   return {
     ...base,
-    seriesMemberships: seriesMemberships.map(({ ordinal, series }) => ({
+    productMemberships: productMemberships.map(({ ordinal, product }) => ({
       ordinal,
-      series,
+      product,
     })),
   };
 }
@@ -434,9 +434,9 @@ function route(method, url, entitled) {
     const lesson = lessons[0];
     if (lesson === undefined) throw new Error("Missing free lesson fixture");
     return json({
-      kind: "series",
+      kind: "product",
       hasNext: false,
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         ...products[0],
@@ -473,7 +473,7 @@ function route(method, url, entitled) {
       membership: { kind: entitled ? "active" : "unknown" },
       notes: [],
       // Закреплённый продукт приходит с оформлением и подписями карточки (#671).
-      pinnedSeries: {
+      pinnedProduct: {
         ...collection(entitled),
         presentation: "default",
         card: {
@@ -501,7 +501,7 @@ function route(method, url, entitled) {
     return json({
       facets: {
         formats: [],
-        series: products
+        product: products
           .filter((item) => item.slug !== archivedProductSlug)
           .map((item) => ({
             id: item.id,
@@ -555,7 +555,7 @@ function route(method, url, entitled) {
       }),
     });
   }
-  const discovery = /^\/library\/(products|series|topics)\/([^/]+)$/u.exec(
+  const discovery = /^\/library\/(products|product|topics)\/([^/]+)$/u.exec(
     path,
   );
   if (discovery !== null) {
@@ -576,7 +576,7 @@ function route(method, url, entitled) {
           slug: topic.slug,
           summary: "Тема для проверки переходов.",
         },
-        relatedSeries: [],
+        relatedProduct: [],
         topics: [],
       });
     }
@@ -634,7 +634,7 @@ function route(method, url, entitled) {
       ].filter((chapter) => chapter.materialIds.length > 0),
       hasNext: false,
       items: items.map((lesson) => projection(lesson, entitled)),
-      kind: "series",
+      kind: "product",
       reference: {
         ...(product.slug === performanceProduct.slug
           ? {
@@ -654,7 +654,7 @@ function route(method, url, entitled) {
         slug: product.slug,
         summary: "Синтетический продукт для проверки мгновенных переходов.",
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [
         { cover: null, id: topic.id, name: topic.name, slug: topic.slug },
       ],
@@ -676,7 +676,7 @@ function route(method, url, entitled) {
         slug: related[1],
         summary: "",
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
     });
   }
@@ -728,7 +728,7 @@ function route(method, url, entitled) {
           : chromeCollision
             ? "33333333-3333-4333-8333-333333333313"
             : "33333333-3333-4333-8333-333333333312",
-        seriesMemberships: [],
+        productMemberships: [],
         title: source ? "Ссылки на раздел" : "Целевой материал",
       }),
       body: anchorBody(source, chromeCollision),
@@ -742,7 +742,7 @@ function route(method, url, entitled) {
     ].find((candidate) => candidate.slug === material[1]);
     if (
       lesson === undefined ||
-      (lesson.seriesMemberships[0]?.series.slug === archivedProductSlug &&
+      (lesson.productMemberships[0]?.product.slug === archivedProductSlug &&
         !entitled)
     ) {
       return json(
@@ -1096,10 +1096,10 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
-    const { expectedVersion, seriesId } = homePinSchema.parse(
+    const { expectedVersion, productId } = homePinSchema.parse(
       JSON.parse(await readBody(request)),
     );
-    if (authorized) send(200, { seriesId, version: expectedVersion + 1 });
+    if (authorized) send(200, { productId, version: expectedVersion + 1 });
     else
       send(401, {
         code: "invalid_proof",

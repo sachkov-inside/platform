@@ -197,7 +197,7 @@ export function assembleSaveMaterial(
                 ? await loadChangedProductMemberships(
                     transaction,
                     command.materialId,
-                    selection.value.toValues().seriesIds,
+                    selection.value.toValues().productIds,
                     dependencies.memberships,
                   )
                 : [];
@@ -353,7 +353,7 @@ export function assembleSaveMaterial(
                 dependencies.memberships,
               );
             } else {
-              // Composition has its own version. Reload it under the same series locks; never
+              // Composition has its own version. Reload it under the same product locks; never
               // recreate a membership from the earlier authoring snapshot during a status change.
               const current = await loadCurrentMaterial(
                 transaction,
@@ -365,7 +365,7 @@ export function assembleSaveMaterial(
                 return rollback({ code: "material_not_found" });
               if (!current.ok) return rollback(current.error);
               materializedMetadata = selection.value.materialize(
-                current.value.metadata.seriesMemberships,
+                current.value.metadata.productMemberships,
                 slug,
               );
             }
@@ -442,8 +442,8 @@ export function assembleSaveMaterial(
               );
             const nextProductIds =
               next.value.publicationState === "published"
-                ? materializedMetadata.seriesMemberships.map(
-                    ({ seriesId }) => seriesId,
+                ? materializedMetadata.productMemberships.map(
+                    ({ productId }) => productId,
                   )
                 : [];
             const heldRemovals = await dependencies.memberships.heldRemovals(
@@ -492,7 +492,6 @@ export function assembleSaveMaterial(
                             sourceRevision: source.revision,
                             // A source write without a commit no longer comes from a known commit.
                             sourceCommit: source.commit ?? null,
-                            showInFeed: source.showInFeed,
                           }),
                       notifyTelegram:
                         command.notifyTelegram ?? locked.notifyTelegram,
@@ -664,8 +663,8 @@ async function replacePublishedProjections(
       readonly difficulty: MaterialDifficulty | null;
       readonly formatId: string;
       readonly outcomes: readonly string[];
-      readonly seriesMemberships: readonly {
-        readonly seriesId: string;
+      readonly productMemberships: readonly {
+        readonly productId: string;
         readonly ordinal: number;
       }[];
       readonly slug: string;
@@ -732,7 +731,7 @@ async function replacePublishedProjections(
   }
   await products.setPublication(
     values.materialId,
-    values.metadata.seriesMemberships,
+    values.metadata.productMemberships,
     transactionHandle(transaction),
   );
   await refreshPublishedMaterialSearchProjections(

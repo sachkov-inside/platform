@@ -46,7 +46,7 @@ const submissionId = "94000000-0000-4000-8000-000000000011";
 const formatId = "guide";
 const topicId = "94000000-0000-4000-8000-000000000013";
 const tagId = "94000000-0000-4000-8000-000000000014";
-const seriesId = "94000000-0000-4000-8000-000000000015";
+const productId = "94000000-0000-4000-8000-000000000015";
 const videoId = "94000000-0000-4000-8000-000000000016";
 
 describe("Material Authoring action workflow", () => {
@@ -92,7 +92,7 @@ describe("Material Authoring action workflow", () => {
       expect.objectContaining({
         formatId,
         idempotencyKey: `web-create-${submissionId}`,
-        seriesIds: [seriesId],
+        productIds: [productId],
         tagIds: [tagId],
         topicId,
       }),
@@ -216,7 +216,7 @@ describe("Material Authoring action workflow", () => {
               "Назвать место, где она застревает",
             ],
             formatId,
-            seriesMemberships: [{ ordinal: 4, seriesId }],
+            productMemberships: [{ ordinal: 4, productId }],
             slug: "saved-material",
             summary: "Saved summary",
             tagIds: [tagId],
@@ -248,7 +248,7 @@ describe("Material Authoring action workflow", () => {
         contentVersion: 7,
         materialId,
         readOnly: false,
-        seriesIds: [seriesId],
+        productIds: [productId],
         status: "published",
         title: "Saved Material",
         unselectedVideoUpload: {
@@ -258,13 +258,13 @@ describe("Material Authoring action workflow", () => {
       },
       kind: "ready",
       references: {
-        references: { series: [{ label: "Build", value: seriesId }] },
+        references: { product: [{ label: "Build", value: productId }] },
       },
     });
     expect(dependencies.load).toHaveBeenCalledWith(materialId, "access-token");
   });
 
-  it("rejects malformed Current Material document and Series payloads at the adapter boundary", async () => {
+  it("rejects malformed Current Material document and Product payloads at the adapter boundary", async () => {
     const malformedCurrent = {
       load: vi.fn().mockResolvedValue({
         ok: true,
@@ -278,7 +278,7 @@ describe("Material Authoring action workflow", () => {
             difficulty: null,
             outcomes: [],
             formatId: null,
-            seriesMemberships: [],
+            productMemberships: [],
             slug: null,
             summary: null,
             tagIds: [],
@@ -303,10 +303,10 @@ describe("Material Authoring action workflow", () => {
     if (!response.ok) throw new Error("Preview fixture must succeed");
     const malformedPreview = z
       .looseObject({
-        metadata: z.looseObject({ seriesMemberships: z.array(z.unknown()) }),
+        metadata: z.looseObject({ productMemberships: z.array(z.unknown()) }),
       })
       .parse(structuredClone(response.body));
-    malformedPreview.metadata.seriesMemberships = [{ ordinal: 0, seriesId }];
+    malformedPreview.metadata.productMemberships = [{ ordinal: 0, productId }];
     expect(mapCurrentMaterialPreview(malformedPreview).ok).toBe(false);
   });
 
@@ -409,7 +409,7 @@ describe("Material Authoring action workflow", () => {
         materialId,
         publicationState: "published",
         primaryVideoId: null,
-        seriesIds: [seriesId],
+        productIds: [productId],
         summary: "Saved summary",
         tagIds: [tagId],
         title: "Saved Material",
@@ -482,7 +482,7 @@ describe("Material Authoring action workflow", () => {
           issues: [
             {
               code: "material_source_mismatch",
-              path: "/metadata/seriesIds/0",
+              path: "/metadata/productIds/0",
             },
           ],
           status: 422,
@@ -496,7 +496,7 @@ describe("Material Authoring action workflow", () => {
       kind: "invalid_input",
       issues: [
         {
-          path: "/metadata/seriesIds/0",
+          path: "/metadata/productIds/0",
           message:
             "Материалы, перенесённые из источника, и материалы, созданные в редакторе, не смешиваются в одном продукте. Уберите несовместимый материал или продукт из состава и сохраните изменения.",
         },
@@ -506,7 +506,7 @@ describe("Material Authoring action workflow", () => {
 
   it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
     const products = [
-      { productId: seriesId, holders: 2, name: "Купленный продукт" },
+      { productId: productId, holders: 2, name: "Купленный продукт" },
     ];
     const refused = {
       ...successfulSaveDependencies(),
@@ -525,10 +525,10 @@ describe("Material Authoring action workflow", () => {
     ).resolves.toEqual({ products, kind: "removal_confirmation_required" });
 
     const dependencies = successfulSaveDependencies();
-    const input = validSaveInput({ confirmedProductRemovals: [seriesId] });
+    const input = validSaveInput({ confirmedProductRemovals: [productId] });
     await executeSaveMaterial(input, "access-token", dependencies);
     expect(dependencies.save).toHaveBeenCalledWith(
-      expect.objectContaining({ confirmedProductRemovals: [seriesId] }),
+      expect.objectContaining({ confirmedProductRemovals: [productId] }),
       "access-token",
     );
   });
@@ -593,7 +593,7 @@ function validDraftInput(
     outcomes: ["Собрать один production path", "Проверить его одним прогоном"],
     formatId,
     submissionId,
-    seriesIds: [seriesId],
+    productIds: [productId],
     summary: "Проверяем create, validation и current Preview.",
     tagIds: [tagId],
     title: "Один production path",
@@ -643,7 +643,7 @@ function successfulPreview(): typeof requestMaterialPreview {
           "Apply the documented workflow",
         ],
         formatId,
-        seriesMemberships: [],
+        productMemberships: [],
         slug: "one-production-path",
         summary: "Проверяем create, validation и current Preview.",
         tagIds: [tagId],
@@ -661,7 +661,7 @@ function successfulReferences() {
     ok: true,
     body: {
       formats: [{ archived: false, id: formatId, name: "Гайд" }],
-      series: [{ archived: false, id: seriesId, name: "Build" }],
+      product: [{ archived: false, id: productId, name: "Build" }],
       tags: [{ archived: false, id: tagId, name: "delivery" }],
       topics: [{ archived: false, id: topicId, name: "Platform" }],
     },
@@ -692,7 +692,7 @@ function validSaveInput(
     materialId,
     primaryVideoId: null,
     publicationState: "published",
-    seriesIds: [seriesId],
+    productIds: [productId],
     submissionId,
     summary: "Saved summary",
     tagIds: [tagId],

@@ -168,7 +168,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
           selection: routeContentCoverSelection({
             material: materials,
             topic: materials,
-            series: products,
+            product: products,
           }),
           prisma,
           objectStorage,

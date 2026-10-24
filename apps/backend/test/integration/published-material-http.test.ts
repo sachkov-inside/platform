@@ -126,10 +126,10 @@ describe("published Material HTTP contract", () => {
           slug: "guide",
         },
         tags: [{ name: "Full stack" }],
-        seriesMemberships: [
+        productMemberships: [
           {
             ordinal: 1,
-            series: {
+            product: {
               name: "Создание Platform Inside",
               slug: "platform-inside",
             },
@@ -216,7 +216,7 @@ describe("published Material HTTP contract", () => {
     expect(home.membership).toStrictEqual({ kind: "notOffered" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain(
-      "demo-progress-series",
+      "demo-progress-product",
     );
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
     expect(home.videos.map(({ slug }) => slug)).toContain(
@@ -262,7 +262,7 @@ describe("published Material HTTP contract", () => {
           expect.objectContaining({ slug: "note" }),
         ],
         topics: [expect.objectContaining({ slug: "platform" })],
-        series: [],
+        products: [],
       },
     });
     expect(response.body).not.toContain("schemaVersion");
@@ -270,12 +270,12 @@ describe("published Material HTTP contract", () => {
     expect(response.body).not.toContain("Закрытое содержимое для участников");
   });
 
-  test("returns Topic, ordered Series and related generated views", async () => {
+  test("returns Topic, ordered Product and related generated views", async () => {
     const topic = await server.inject({
       method: "GET",
       url: "/library/topics/platform",
     });
-    const series = await server.inject({
+    const product = await server.inject({
       method: "GET",
       url: "/library/series/platform-inside",
     });
@@ -298,13 +298,13 @@ describe("published Material HTTP contract", () => {
       reference: { name: "Platform", slug: "platform" },
     });
     expect(topicBody.items).toEqual([]);
-    expect(series.statusCode).toBe(200);
-    const seriesBody = series.json<{
+    expect(product.statusCode).toBe(200);
+    const productBody = product.json<{
       readonly kind: string;
       readonly items: readonly { readonly slug: string }[];
     }>();
-    expect(seriesBody.kind).toBe("series");
-    expect(seriesBody.items.map(({ slug }) => slug)).toEqual([
+    expect(productBody.kind).toBe("product");
+    expect(productBody.items.map(({ slug }) => slug)).toEqual([
       "kak-ustroen-inside-platform",
       "developer-pipeline-bez-poteri-konteksta",
     ]);
@@ -320,7 +320,7 @@ describe("published Material HTTP contract", () => {
         slug: "developer-pipeline-bez-poteri-konteksta",
       }),
     ]);
-    for (const response of [topic, series, related]) {
+    for (const response of [topic, product, related]) {
       expect(response.headers["cache-control"]).toBe(
         "public, max-age=30, stale-while-revalidate=60",
       );
@@ -409,8 +409,8 @@ describe("published Material HTTP contract", () => {
       .update(
         JSON.stringify({
           formatSlugs: [],
-          seriesSlugs: ["platform-inside"],
-          sort: "series",
+          productSlugs: ["platform-inside"],
+          sort: "product",
           topicSlugs: [],
         }),
       )
@@ -430,7 +430,7 @@ describe("published Material HTTP contract", () => {
 
     const response = await server.inject({
       method: "GET",
-      url: `/library/materials?series=platform-inside&sort=series&after=${after}`,
+      url: `/library/materials?product=platform-inside&sort=product&after=${after}`,
     });
 
     expect(response.statusCode).toBe(400);

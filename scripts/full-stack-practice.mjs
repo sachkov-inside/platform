@@ -33,7 +33,7 @@ export async function seedFullStackPractice(
     id: practiceId,
     path: "practice.md",
     revision: "a".repeat(64),
-    showInFeed: false,
+    version: 2,
   };
   const product = z.object({ id: z.uuid() }).parse(
     await request("/authoring/import/products/reserve", {
@@ -60,7 +60,7 @@ export async function seedFullStackPractice(
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "guide",
         tagIds: [],
-        seriesIds: [product.id],
+        productIds: [product.id],
         difficulty: null,
         outcomes: [],
       },
@@ -82,7 +82,7 @@ export async function seedFullStackPractice(
     .parse(await request(`/authoring/products/${product.id}/order`));
   await request("/authoring/import/products/composition", {
     sourceId: `synthetic:fullstack-practice-product-${access}`,
-    seriesId: product.id,
+    productId: product.id,
     expectedOrderVersion: order.orderVersion,
     orderedMaterialIds: [saved.materialId],
     chapters: [{ id: chapterId, name: "Практика", summary: "" }],

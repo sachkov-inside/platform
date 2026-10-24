@@ -10,7 +10,7 @@ import {
 import { ProductCompositionsReading } from "./facets/product-compositions-reading/product-compositions-reading.js";
 import { ProductDirectory } from "./features/read-product-directory/read-product-directory.js";
 import { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
-import { PublishedSeriesComposition } from "./features/read-published-series-composition/read-published-series-composition.js";
+import { PublishedProductComposition } from "./features/read-published-product-composition/read-published-product-composition.js";
 @Module({
   imports: [PrismaModule],
   providers: [
@@ -49,7 +49,7 @@ import { PublishedSeriesComposition } from "./features/read-published-series-com
       ) => new ProductOutlines(prisma, materials, compositions),
     },
     {
-      provide: PublishedSeriesComposition,
+      provide: PublishedProductComposition,
       inject: [
         PrismaClientProvider,
         PRODUCT_MATERIAL_READING,
@@ -59,13 +59,13 @@ import { PublishedSeriesComposition } from "./features/read-published-series-com
         prisma: PrismaClientProvider,
         materials: ProductMaterialReading,
         compositions: ProductCompositionsReading,
-      ) => new PublishedSeriesComposition(prisma, materials, compositions),
+      ) => new PublishedProductComposition(prisma, materials, compositions),
     },
   ],
   exports: [
     ProductDirectory,
     ProductOutlines,
-    PublishedSeriesComposition,
+    PublishedProductComposition,
     ProductCompositionsReading,
   ],
 })

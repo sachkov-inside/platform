@@ -131,7 +131,7 @@ export function mapLibraryDiscoveryResult<
       items: z.array(publishedMaterialProjectionSchema),
       kind: z.literal(discoveryKind),
       reference: discoveryReferenceSchema,
-      relatedSeries: z.array(relatedPlaylistSchema),
+      relatedProduct: z.array(relatedPlaylistSchema),
       topics: z.array(discoveryTopicSchema),
     })
     .strict();
@@ -169,7 +169,7 @@ export function mapLibraryDiscoveryResult<
       discoveryKind,
       kind: "empty",
       reference,
-      relatedSeries: parsed.data.relatedSeries,
+      relatedProduct: parsed.data.relatedProduct,
       topics: parsed.data.topics,
     };
   }
@@ -181,7 +181,7 @@ export function mapLibraryDiscoveryResult<
     items: parsed.data.items.map(toMaterialPreview),
     kind: "ready",
     reference,
-    relatedSeries: parsed.data.relatedSeries,
+    relatedProduct: parsed.data.relatedProduct,
     topics: parsed.data.topics,
   };
 }

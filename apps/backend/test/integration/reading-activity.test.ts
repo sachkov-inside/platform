@@ -17,7 +17,7 @@ import {
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
+import { PublishedProductComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   materialId,
@@ -50,7 +50,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   let reading: ReadingActivity;
   let materials: ReturnType<typeof assembleMaterials>;
   let membership: ReturnType<typeof assemblePriorParticipantsFixture>;
-  let composition: PublishedSeriesComposition;
+  let composition: PublishedProductComposition;
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
@@ -68,7 +68,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => new Date(),
     });
-    composition = new PublishedSeriesComposition(
+    composition = new PublishedProductComposition(
       database.prisma,
       assembleProductMaterialReading(database.prisma),
     );
@@ -119,7 +119,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     }
   }
   async function material(
-    seriesIds: string[] = [],
+    productIds: string[] = [],
     access: "free" | "closed" = "free",
   ) {
     const created = await materials.authoring.createDraft({
@@ -134,7 +134,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds,
+        productIds,
       },
       body: representativeDocument("Read me."),
     });
@@ -147,7 +147,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       publicationState: "published",
     });
     if (!published.ok) throw new Error(published.error.code);
-    await placeInProgramme(seriesIds, published.value.materialId);
+    await placeInProgramme(productIds, published.value.materialId);
     return published.value.materialId;
   }
   function command(materialId: string, isRead = true, expectedVersion = 0) {
@@ -183,10 +183,10 @@ describe("ReadingActivity on PostgreSQL", () => {
     });
     if (!changed.ok) throw new Error(changed.error.code);
   }
-  async function series() {
+  async function product() {
     const id = randomUUID();
     await database.prisma.product.create({
-      data: { id, slug: `series-${id}`, name: "Reading series" },
+      data: { id, slug: `product-${id}`, name: "Reading product" },
     });
     return id;
   }
@@ -317,7 +317,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   test("free non-member and revoked member retain private marks; protected marks still require current access", async () => {
     const free = await material();
     // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
-    const protectedId = await material([await series()], "closed");
+    const protectedId = await material([await product()], "closed");
     const memberId = checkedAccountId(randomUUID());
     expect(await reading.setReadingState(command(free))).toMatchObject({
       ok: true,
@@ -329,7 +329,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const products = await database.prisma.productMembership.findMany({
       where: { materialId: protectedId },
     });
-    const productId = products[0]?.seriesId;
+    const productId = products[0]?.productId;
     if (productId === undefined) throw new Error("Missing Product fixture");
     const target = await grantProductFixture(
       database.prisma,
@@ -463,7 +463,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       id: "inside-content:source-mark-lesson",
       path: "lessons/original.md",
       revision: "a".repeat(64),
-      showInFeed: false,
+      version: 2 as const,
     };
     const reserved = await materials.authoring.reserveSourceMaterial({
       actor,
@@ -488,7 +488,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [product.value.id],
+        productIds: [product.value.id],
       },
       body: representativeDocument("Original text"),
     } satisfies Parameters<typeof materials.authoring.applySourceMaterial>[0];
@@ -539,9 +539,9 @@ describe("ReadingActivity on PostgreSQL", () => {
         applied,
       );
       expect(
-        await reading.getSeriesProgress({
+        await reading.getProductProgress({
           accountId,
-          seriesId: product.value.id,
+          productId: product.value.id,
         }),
       ).toMatchObject({
         ok: true,
@@ -555,19 +555,19 @@ describe("ReadingActivity on PostgreSQL", () => {
       await reading.getReadingStates({ accountId, materialIds: [lesson] }),
     ).toEqual(marks);
     expect(
-      await reading.getSeriesProgress({
+      await reading.getProductProgress({
         accountId: randomUUID(),
-        seriesId: product.value.id,
+        productId: product.value.id,
       }),
     ).toMatchObject({ ok: true, value: { read: 0, total: 1 } });
   });
 
   test("a transferred Product keeps reader progress when its address changes", async () => {
-    const seriesId = await series();
-    const lesson = await material([seriesId]);
+    const productId = await product();
+    const lesson = await material([productId]);
     // Imported Products accept only imported lessons, so the source is attached after composition.
     await database.prisma.product.update({
-      where: { id: seriesId },
+      where: { id: productId },
       data: { sourceId: "inside-content:progress-product" },
     });
     const reserved = await materials.authoring.reserveSourceProduct({
@@ -584,7 +584,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const moved = await materials.authoring.updateSourceProduct({
       actor,
       sourceId: "inside-content:progress-product",
-      collectionId: seriesId,
+      collectionId: productId,
       expectedVersion: reserved.value.version,
       name: reserved.value.name,
       summary: "",
@@ -599,53 +599,53 @@ describe("ReadingActivity on PostgreSQL", () => {
       value: { slug: "progress-product-moved" },
     });
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId }),
+      await reading.getProductProgress({ accountId, productId }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 1, allRead: true } });
   });
 
-  test("shared material, composition changes, publication and archive use the current Series set", async () => {
-    const a = await series();
-    const b = await series();
+  test("shared material, composition changes, publication and archive use the current Product set", async () => {
+    const a = await product();
+    const b = await product();
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: a }),
+      await reading.getProductProgress({ accountId, productId: a }),
     ).toMatchObject({ ok: true, value: { read: 0, total: 0, allRead: false } });
     const shared = await material([a, b]);
     expect(await reading.setReadingState(command(shared))).toMatchObject({
       ok: true,
     });
-    for (const seriesId of [a, b])
+    for (const productId of [a, b])
       expect(
-        await reading.getSeriesProgress({ accountId, seriesId }),
+        await reading.getProductProgress({ accountId, productId }),
       ).toMatchObject({
         ok: true,
         value: { read: 1, total: 1, allRead: true },
       });
     const extra = await material([a], "closed");
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: a }),
+      await reading.getProductProgress({ accountId, productId: a }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 2, allRead: false } });
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor,
-      seriesId: a,
+      productId: a,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const reordered = await materials.authoring.reorderSeries({
+    const reordered = await materials.authoring.reorderProduct({
       actor,
-      seriesId: a,
+      productId: a,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [extra, shared],
     });
     expect(reordered).toMatchObject({ ok: true });
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: a }),
+      await reading.getProductProgress({ accountId, productId: a }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 2 } });
     await transition(shared, "unpublished");
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: b }),
+      await reading.getProductProgress({ accountId, productId: b }),
     ).toMatchObject({ ok: true, value: { total: 0, allRead: false } });
     await transition(shared, "published");
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: b }),
+      await reading.getProductProgress({ accountId, productId: b }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
     const loaded = await materials.authoring.loadMaterial({
       actor,
@@ -668,31 +668,31 @@ describe("ReadingActivity on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [b],
+        productIds: [b],
       },
     });
     expect(saved).toMatchObject({ ok: true });
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: a }),
+      await reading.getProductProgress({ accountId, productId: a }),
     ).toMatchObject({ ok: true, value: { read: 0, total: 1 } });
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: b }),
+      await reading.getProductProgress({ accountId, productId: b }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
     await database.prisma.product.update({
       where: { id: b },
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
-    expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toEqual(
-      { ok: false, error: { code: "series_not_found" } },
-    );
+    expect(
+      await reading.getProductProgress({ accountId, productId: b }),
+    ).toEqual({ ok: false, error: { code: "product_not_found" } });
     expect(
       await reading.getReadingStates({ accountId, materialIds: [shared] }),
     ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
   });
 
   test("progress counts each published Programme Material once and excludes catalogue attachments and unpublished occurrences", async () => {
-    const productId = await series();
+    const productId = await product();
     const first = await material([productId]);
     const second = await material([productId]);
     const attachment = await material([productId]);
@@ -712,17 +712,17 @@ describe("ReadingActivity on PostgreSQL", () => {
     await reading.setReadingState(command(first));
     await reading.setReadingState(command(attachment));
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: productId }),
+      await reading.getProductProgress({ accountId, productId: productId }),
     ).toEqual({
       ok: true,
-      value: { seriesId: productId, total: 2, read: 1, allRead: false },
+      value: { productId: productId, total: 2, read: 1, allRead: false },
     });
     await reading.setReadingState(command(second));
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId: productId }),
+      await reading.getProductProgress({ accountId, productId: productId }),
     ).toEqual({
       ok: true,
-      value: { seriesId: productId, total: 2, read: 2, allRead: true },
+      value: { productId: productId, total: 2, read: 2, allRead: true },
     });
     expect(await composition.read(productId)).toEqual({
       ok: true,
@@ -730,17 +730,17 @@ describe("ReadingActivity on PostgreSQL", () => {
     });
   });
 
-  test("Series progress includes more than one catalog page and never exposes another Account's numerator", async () => {
-    const seriesId = await series();
+  test("Product progress includes more than one catalog page and never exposes another Account's numerator", async () => {
+    const productId = await product();
     let last = "";
     for (let index = 0; index < 101; index += 1)
-      last = await material([seriesId]);
+      last = await material([productId]);
     await reading.setReadingState(command(last));
     expect(
-      await reading.getSeriesProgress({ accountId, seriesId }),
+      await reading.getProductProgress({ accountId, productId }),
     ).toMatchObject({ ok: true, value: { total: 101, read: 1 } });
     expect(
-      await reading.getSeriesProgress({ accountId: randomUUID(), seriesId }),
+      await reading.getProductProgress({ accountId: randomUUID(), productId }),
     ).toMatchObject({ ok: true, value: { total: 101, read: 0 } });
   });
 
@@ -827,7 +827,7 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(
+          composition: new PublishedProductComposition(
             prisma,
             assembleProductMaterialReading(prisma),
           ),
@@ -847,7 +847,7 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(
+          composition: new PublishedProductComposition(
             prisma,
             assembleProductMaterialReading(prisma),
           ),

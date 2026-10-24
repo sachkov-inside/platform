@@ -316,13 +316,17 @@ try {
   const authoring = app.get<MaterialAuthoring>(MATERIAL_AUTHORING);
   const topicId = randomUUID(),
     formatId = "guide",
-    seriesId = randomUUID();
+    productId = randomUUID();
   await prisma.topic.create({
     data: { id: topicId, slug: "proof-topic", name: "Synthetic proof" },
   });
 
   await prisma.product.create({
-    data: { id: seriesId, slug: "telegram-proof", name: "Тестовая серия #310" },
+    data: {
+      id: productId,
+      slug: "telegram-proof",
+      name: "Тестовая серия #310",
+    },
   });
   const metadata = {
     title: "Тестовый материал Telegram #310",
@@ -333,7 +337,7 @@ try {
     topicId,
     formatId,
     tagIds: [],
-    seriesIds: [seriesId],
+    productIds: [productId],
   };
   const body = {
     schemaVersion: 1 as const,

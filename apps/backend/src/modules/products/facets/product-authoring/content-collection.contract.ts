@@ -1,4 +1,4 @@
-export type ContentCollectionKind = "product" | "series" | "topic";
+export type ContentCollectionKind = "product" | "topic";
 
 /**
  * Author-written fields that tell a reader who a Product is for, what they will be

@@ -6,7 +6,7 @@ import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
-import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
+import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import {
@@ -43,10 +43,10 @@ const material = {
     "Проверять, что шапка стоит на месте",
   ],
   publishedAt: "2026-09-17T05:00:00.000Z",
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: 3,
-      series: {
+      product: {
         id: "72000000-0000-4000-8000-000000000005",
         name: "Создание Platform Inside",
         slug: "ai-engineering",
@@ -75,10 +75,10 @@ const body = Array.from({ length: 8 }, (_, index): ReaderBlock => ({
 const returnTarget = parseMaterialReaderReturnTarget(
   "/products/ai-engineering/programme",
 );
-const seriesContext = resolveSeriesReaderContext({
+const productContext = resolveProductReaderContext({
   currentMaterialSlug: material.slug,
   returnTarget,
-  series: {
+  product: {
     ...courseSource,
     chapters: courseSource.chapters.map((chapter) => ({
       ...chapter,
@@ -117,7 +117,7 @@ function SharedPart({
         <MaterialReaderPending
           material={material}
           returnTarget={returnTarget}
-          seriesContext={seriesContext}
+          productContext={productContext}
         />
       }
     >
@@ -168,7 +168,7 @@ function PersonalPart({
         />
       }
       returnTarget={returnTarget}
-      seriesContext={seriesContext}
+      productContext={productContext}
     />
   ) : (
     <MaterialReaderAccess
@@ -178,7 +178,7 @@ function PersonalPart({
       }}
       material={material}
       returnTarget={returnTarget}
-      seriesContext={seriesContext}
+      productContext={productContext}
     />
   );
 }
@@ -302,7 +302,7 @@ export const PendingVideo: Story = {
     <MaterialReaderPending
       material={videoMaterial}
       returnTarget={returnTarget}
-      seriesContext={seriesContext}
+      productContext={productContext}
     />
   ),
   play: async ({ canvasElement }) => {
@@ -328,7 +328,7 @@ export const LockedVideo: Story = {
       invitation={null}
       material={videoMaterial}
       returnTarget={returnTarget}
-      seriesContext={seriesContext}
+      productContext={productContext}
     />
   ),
 };

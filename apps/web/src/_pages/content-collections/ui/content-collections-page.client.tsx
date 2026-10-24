@@ -11,7 +11,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Activity, useState } from "react";
 
-import { useHomePin, HomeSeriesPinButton } from "@/features/series-order";
+import { useHomePin, HomeProductPinButton } from "@/features/product-order";
 import Link from "next/link";
 import { formatMaterialCount } from "@/features/library-discovery";
 import { MutationNotice } from "./collection-mutation-notice";
@@ -85,7 +85,7 @@ export function ContentCollectionsPageClient({
         setSlug("");
         setSummary("");
         setCreateOpen(false);
-        if (kind === "series")
+        if (kind === "product")
           router.push(authoringProductEditorHref(result.collection.id));
       }
     },
@@ -195,7 +195,7 @@ export function ContentCollectionsPageClient({
             </span>
           </div>
           <input
-            aria-label={kind === "series" ? "Поиск продуктов" : "Поиск тем"}
+            aria-label={kind === "product" ? "Поиск продуктов" : "Поиск тем"}
             type="search"
             placeholder="Найти по названию"
             className={`${fieldClassName} mt-4`}
@@ -223,8 +223,8 @@ export function ContentCollectionsPageClient({
                 Нажмите «Создать», чтобы добавить первую запись.
               </p>
             </div>
-          ) : kind === "series" ? (
-            <SeriesList collections={shownCollections.filter(matchesSearch)} />
+          ) : kind === "product" ? (
+            <ProductList collections={shownCollections.filter(matchesSearch)} />
           ) : (
             <div className="mt-4 grid gap-3">
               {shownCollections.map((collection) => (
@@ -432,7 +432,7 @@ const collectionPageSize = 20;
 const fieldClassName =
   "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-60";
 
-function SeriesList({
+function ProductList({
   collections,
 }: {
   readonly collections: readonly ContentCollection[];
@@ -469,7 +469,7 @@ function SeriesList({
         aria-label="Все продукты"
       >
         {collections.map((collection) => {
-          const pinned = controls.pin?.seriesId === collection.id;
+          const pinned = controls.pin?.productId === collection.id;
           return (
             <li
               className="flex items-center gap-3 py-4 sm:gap-5"
@@ -502,9 +502,9 @@ function SeriesList({
                   </span>
                 </span>
               </Link>
-              <HomeSeriesPinButton
-                seriesId={collection.id}
-                seriesName={collection.name}
+              <HomeProductPinButton
+                productId={collection.id}
+                productName={collection.name}
                 archived={collection.archived}
                 controls={controls}
               />

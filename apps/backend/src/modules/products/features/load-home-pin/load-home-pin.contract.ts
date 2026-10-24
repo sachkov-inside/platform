@@ -5,7 +5,7 @@ import type {
 } from "../../../../infrastructure/content-authoring/authoring-errors.js";
 
 export interface HomePinDto {
-  readonly seriesId: string | null;
+  readonly productId: string | null;
   readonly version: number;
 }
 export type LoadHomePinOperation = (query: {
