@@ -9,7 +9,7 @@ import { buildFixtures } from "../fixtures.mjs";
 import { packageDependencies } from "./package-adapter.mjs";
 import { anonymousSubject } from "../../../apps/backend/src/modules/content-access/index.js";
 
-await test("the native review matrix reads complete pinned Task context and full Material while the old Practice port refuses", async (t) => {
+await test("the native review matrix reads complete pinned Task context and full Material without exposing the retired Practice port", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-native-package-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const fixtures = await buildFixtures(root);
@@ -66,15 +66,7 @@ await test("the native review matrix reads complete pinned Task context and full
     context.terminalMarker,
     `END_CONTEXT:${first.value.contextVersion}`,
   );
-  assert.equal(
-    (
-      await dependencies.reader.readPractice({
-        subject: anonymousSubject,
-        practiceId: "synthetic:brief",
-      })
-    ).ok,
-    false,
-  );
+  assert.equal("readPractice" in dependencies.reader, false);
   assert.equal(
     (
       await dependencies.tasks.read({
