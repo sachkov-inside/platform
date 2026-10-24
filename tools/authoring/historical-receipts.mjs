@@ -20,10 +20,11 @@ export async function recoverHistoricalReceipt(
       try {
         return await request(path, original.body, key);
       } catch (error) {
+        // A lookup failure says nothing about the original mutation's outcome.
+        // Only the proven-absent reply may enter the journal's mutation rejection policy.
         if (
           error instanceof Error &&
           "status" in error &&
-          error.status === 404 &&
           !isAbsentReceipt(error)
         )
           throw new Error(
