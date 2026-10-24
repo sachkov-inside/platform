@@ -134,7 +134,9 @@ const acceptance = {
   text: acceptedText,
   digest: acceptedHash,
 };
-const external = { init: 0, charges: 0, telegram: 0, states: [] as string[] };
+function createExternalEffects() {
+  return { init: 0, charges: 0, telegram: 0, states: [] as string[] };
+}
 
 const originalPracticeDefinition = {
   schemaVersion: 1 as const,
@@ -211,7 +213,6 @@ const originalSourceCommand = {
   actor: id("owner"),
   idempotencyKey: "original-source",
 };
-let originalSourceRecords: { material_id: string; original: unknown }[] = [];
 
 async function seedLegacy(url: string) {
   const pool = new Pool({ connectionString: url, max: 1 });
@@ -632,6 +633,7 @@ const preservedTables = [
 async function preservedFacts(
   before: Awaited<ReturnType<typeof state>>,
   database: RestoreDatabase,
+  originalSourceRecords: readonly { material_id: string; original: unknown }[],
 ) {
   const after = await state(database);
   for (const table of preservedTables) {
@@ -738,6 +740,7 @@ async function preservedFacts(
 
 async function recover(
   database: RestoreDatabase,
+  external: ReturnType<typeof createExternalEffects>,
   expectedApplied: number | null = 0,
 ) {
   const { prisma, refused } = guardTransactionConnections(
@@ -1120,6 +1123,9 @@ async function recover(
 }
 
 test("full mixed legacy and recovered archives restore into empty databases and recover without repeating bank, access or history effects", async () => {
+  // One ledger belongs to this complete restore scenario, across every fresh application owner.
+  const external = createExternalEffects();
+  let originalSourceRecords: { material_id: string; original: unknown }[] = [];
   expect(migrationRegistryIdentity(platformMigrations.slice(0, 103))).toBe(
     "sha256:4202eac8e733fe5f60198130a06eb9a4b4b46aafa05c7f2ebf642c78cf8e4468",
   );
@@ -1140,10 +1146,10 @@ test("full mixed legacy and recovered archives restore into empty databases and 
   const legacyState = await state(source);
   const legacy = await postgres.backup(source);
   await migrateToLatest(source.url);
-  await recover(source, 2);
-  await preservedFacts(legacyState, source);
+  await recover(source, external, 2);
+  await preservedFacts(legacyState, source, originalSourceRecords);
   const recovered = await state(source);
-  await recover(source);
+  await recover(source, external);
   expect(await state(source)).toEqual(recovered);
   const upgraded = await postgres.backup(source);
   await expect(postgres.restore(upgraded, source)).rejects.toThrow(
@@ -1152,23 +1158,23 @@ test("full mixed legacy and recovered archives restore into empty databases and 
   const restored = await postgres.emptyDatabase();
   await postgres.restore(upgraded, restored);
   expect(await state(restored)).toEqual(recovered);
-  await preservedFacts(legacyState, restored);
+  await preservedFacts(legacyState, restored, originalSourceRecords);
   expect(await migrateToLatest(restored.url)).toEqual({
     appliedMigrations: [],
   });
   for (let pass = 0; pass < 2; pass++) {
-    await recover(restored);
+    await recover(restored, external);
     expect(await state(restored)).toEqual(recovered);
   }
   const rolledBack = await postgres.emptyDatabase();
   await postgres.restore(legacy, rolledBack);
   expect(await state(rolledBack)).toEqual(legacyState);
   await migrateToLatest(rolledBack.url);
-  await preservedFacts(legacyState, rolledBack);
+  await preservedFacts(legacyState, rolledBack, originalSourceRecords);
   const heldState = await state(rolledBack);
   const externalBeforeHold = structuredClone(external);
   for (let pass = 0; pass < 2; pass++) {
-    await recover(rolledBack, null);
+    await recover(rolledBack, external, null);
     expect(await state(rolledBack)).toEqual(heldState);
   }
   expect(external).toEqual(externalBeforeHold);
