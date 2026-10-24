@@ -4,8 +4,7 @@ prometheus.exporter.unix "host" {
   procfs_path = "/host/proc"
   sysfs_path = "/sys"
   rootfs_path = "/rootfs"
-  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "stat", "time", "vmstat", "textfile"]
-  textfile { directory = "/watchdog-metrics" }
+  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "stat", "time", "vmstat"]
   filesystem {
     mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker)($|/)"
   }
@@ -26,14 +25,10 @@ prometheus.scrape "host" {
 }
 prometheus.relabel "host" {
   forward_to = [prometheus.remote_write.host.receiver]
-  rule {
-    source_labels = ["__name__", "check"]
-    regex = "inside_watchdog_completed_at_seconds;|inside_watchdog_(value|observed_at_seconds);(purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)|community_operations|telegram_(ready|community_oldest_due_seconds|activation_oldest_pending_seconds|update_failed_total|delivery_rejected_total|update_failed_reset|delivery_rejected_reset|webhook_pending|webhook_last_error_timestamp_seconds)|backup_(last_success_timestamp_seconds|timer_(incr|diff|full)|success_(incr|diff|full))|host_available_memory_bytes|host_disk_used_percent|container_(down|unhealthy|oom)|source_(containers|backups|platform_database|telegram_database|telegram_metrics|telegram_webhook))|up;|node_.+;"
-    action = "keep"
-  }
+
   rule {
     source_labels = ["__name__"]
-    regex = "inside_watchdog_(value|observed_at_seconds|completed_at_seconds)|up|node_(cpu_seconds_total|memory_(MemTotal|MemAvailable|Cached|Buffers)_bytes|filesystem_((size|avail|free)_bytes|files|files_free|readonly)|disk_(reads_completed_total|writes_completed_total|io_time_seconds_total)|network_(receive|transmit)_bytes_total|load(1|5|15)|boot_time_seconds|vmstat_oom_kill)"
+    regex = "up|node_(cpu_seconds_total|memory_(MemTotal|MemAvailable|Cached|Buffers)_bytes|filesystem_((size|avail|free)_bytes|files|files_free|readonly)|disk_(reads_completed_total|writes_completed_total|io_time_seconds_total)|network_(receive|transmit)_bytes_total|load(1|5|15)|boot_time_seconds|vmstat_oom_kill)"
     action = "keep"
   }
   rule {
@@ -46,7 +41,7 @@ prometheus.relabel "host" {
   }
   rule {
     action = "labelkeep"
-    regex = "__name__|instance|job|cpu|mode|device|mountpoint|fstype|check"
+    regex = "__name__|instance|job|cpu|mode|device|mountpoint|fstype"
   }
 }
 prometheus.scrape "containers" {
@@ -88,6 +83,61 @@ prometheus.relabel "containers" {
     regex = "__name__|instance|job|service|project|interface|device"
   }
 }
+// Dedicated five-second cache scrape. Native observations are never duplicated by the
+// fifteen-second host scrape, and scraper up never substitutes for source availability.
+prometheus.exporter.unix "owner_cache" {
+  set_collectors = ["textfile"]
+  textfile { directory = "/watchdog-metrics" }
+}
+prometheus.scrape "owner_cache" {
+  targets = prometheus.exporter.unix.owner_cache.targets
+  scrape_interval = "5s"
+  scrape_timeout = "2s"
+  body_size_limit = "1MiB"
+  sample_limit = 2000
+  forward_to = [prometheus.relabel.owner_cache.receiver]
+}
+prometheus.relabel "owner_cache" {
+  forward_to = [prometheus.remote_write.host.receiver]
+  rule {
+    source_labels = ["__name__", "check", "source", "server", "handler"]
+    regex = "up;;;;|node_textfile_scrape_error;;;;|inside_watchdog_completed_at_seconds;;;;|inside_watchdog_(value|observed_at_seconds);(purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)|community_operations|telegram_(ready|community_oldest_due_seconds|activation_oldest_pending_seconds|update_failed_total|delivery_rejected_total|update_failed_reset|delivery_rejected_reset|webhook_pending|webhook_last_error_timestamp_seconds)|backup_(last_success_timestamp_seconds|timer_(incr|diff|full)|success_(incr|diff|full))|host_available_memory_bytes|host_disk_used_percent|container_(down|unhealthy|oom)|source_(containers|backups|platform_database|telegram_database|telegram_metrics|telegram_webhook));;;|inside_production_source_(available|observed_at_seconds);;(postgresql|caddy);;|inside_postgresql_server_(backends|waiting_locks|deadlocks_since_reset|postmaster_start_time_microseconds|statistics_reset_time_microseconds|sample_time_microseconds);;;;|caddy_process_start_time_seconds;;;;|caddy_http_(requests_total|request_errors_total|requests_in_flight|request_duration_seconds_(bucket|sum|count));;;public;subroute"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["__name__"]
+    regex = "up|node_textfile_scrape_error|inside_watchdog_(value|observed_at_seconds|completed_at_seconds)|inside_production_source_(available|observed_at_seconds)|inside_postgresql_server_(backends|waiting_locks|deadlocks_since_reset|postmaster_start_time_microseconds|statistics_reset_time_microseconds|sample_time_microseconds)|caddy_process_start_time_seconds|caddy_http_(requests_total|request_errors_total|requests_in_flight|request_duration_seconds_(bucket|sum|count))"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["method"]
+    regex = "(|GET|HEAD|PUT|POST|DELETE|CONNECT|OPTIONS|TRACE|PATCH|OTHER)"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["code"]
+    regex = "(|[1-5][0-9]{2})"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["le"]
+    regex = "(|0[.]005|0[.]01|0[.]025|0[.]05|0[.]1|0[.]25|0[.]5|1|2[.]5|5|10|[+]Inf)"
+    action = "keep"
+  }
+  rule {
+    target_label = "instance"
+    replacement = "production-host"
+  }
+  rule {
+    target_label = "job"
+    replacement = "platform-owner-cache"
+  }
+  rule {
+    action = "labelkeep"
+    regex = "__name__|instance|job|check|source|server|handler|method|code|le"
+  }
+}
+
 prometheus.remote_write "host" {
   endpoint {
     url = "http://metrics:8428/api/v1/write"
