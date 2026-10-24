@@ -32,7 +32,7 @@ describe("identity-linking rollback fixture", () => {
   let membershipRemoved: boolean;
   let identityRemoved: boolean;
   let identityRestored = false;
-  // Every distinct preparation phase retains Vitest's existing bounded hook budget.
+  // Acquisition uses the migration owner budget; later migration phases keep their existing bounds.
   beforeAll(async () => {
     acquisition = createMigrationDatabase(
       databaseUrl,
