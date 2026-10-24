@@ -87,9 +87,18 @@ class Processes(unittest.TestCase):
             self.assertTrue(ca.exists())
             (output/'cleanup.json').write_text(json.dumps({'down':'passed','residue':'passed'}))
             runtime.cleanup_private(output,acquired=True)
-            self.assertFalse(env.exists())
+            self.assertTrue(env.is_file())
+            self.assertEqual(env.read_text(), '')
             self.assertFalse(key.exists())
             self.assertFalse(ca.exists())
+            # Compose must still parse env_file on a second always-recovery pass.
+            runtime.cleanup_private(output,acquired=True)
+            self.assertEqual(env.read_text(), '')
+            external=output/'external';external.write_text('unrelated')
+            env.unlink();env.hardlink_to(external)
+            runtime.cleanup_private(output,acquired=True)
+            self.assertEqual(external.read_text(),'unrelated')
+            self.assertEqual(env.read_text(),'')
 
     def test_resource_recovery_rechecks_prefix_and_daemon_before_any_cleanup(self):
         identity={'platform':'linux','context':'default','endpoint':'unix:///fixture/docker.sock','daemon_id':'owned',
