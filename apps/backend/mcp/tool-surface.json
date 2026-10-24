@@ -12,6 +12,7 @@
   "billing_productPrices_archive",
   "billing_productPrices_list",
   "billing_productPrices_save",
+  "billing_productSalesState_save",
   "billing_promotions_archive",
   "billing_promotions_save",
   "billing_recipients_lookup",
