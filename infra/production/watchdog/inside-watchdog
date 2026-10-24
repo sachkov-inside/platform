@@ -97,13 +97,16 @@ fi
 run_dir="$(mktemp -d "$state_dir/run.XXXXXX")"
 trap 'rm -r "$run_dir"' EXIT
 observations="$run_dir/observations"
-mkdir "$observations" "$run_dir/metrics"
+mkdir "$observations"
+metrics_enabled=true
+mkdir "$run_dir/metrics" || metrics_enabled=false
 
 # Closed numeric cache of observations ALREADY read below. Never export SQL rows, log text,
 # credentials, container names or user identifiers. Missing checks remain unknown; zero is
 # published only when a source actually returned that zero. No extra acquisition is performed.
 snapshot_value() {
   local check="$1" value="$2"
+  [[ "$metrics_enabled" == true ]] || return 0
   [[ "$value" =~ ^[0-9]+$ && ${#value} -le 15 ]] || return 0
   case "$check" in
     purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|\
@@ -115,8 +118,10 @@ snapshot_value() {
     host_available_memory_bytes|host_disk_used_percent|container_down|container_unhealthy|container_oom|\
     source_containers|source_backups|source_platform_database|source_telegram_database|source_telegram_metrics|source_telegram_webhook)
       printf 'inside_watchdog_value{check="%s"} %s\ninside_watchdog_observed_at_seconds{check="%s"} %s\n' \
-        "$check" "$value" "$check" "$now" >"$run_dir/metrics/$check" ;;
+        "$check" "$value" "$check" "$now" >"$run_dir/metrics/$check" || metrics_enabled=false ;;
+
   esac
+  return 0
 }
 for source in containers backups platform_database telegram_database telegram_metrics telegram_webhook; do
   snapshot_value "source_$source" 0
@@ -148,12 +153,16 @@ held() {
 # Платформа и foundation: контейнер не работает, unhealthy или убит по памяти. Одноразовые службы,
 # завершившиеся с кодом 0 (например, migrations Logto), — норма.
 check_containers() {
-  local project listing name state status ids oom_listing oom_name oom down=0 unhealthy=0 killed=0
+  local project listing name state status ids oom_listing oom_name oom down=0 unhealthy=0 killed=0 complete=true
   for project in $WATCHDOG_PROJECTS; do
     if ! listing="$(docker ps --all --filter "label=com.docker.compose.project=$project" \
       --format '{{.Names}}	{{.State}}	{{.Status}}' 2>/dev/null)"; then
       hold container.
       return
+    fi
+    if [[ -z "$listing" ]]; then
+      complete=false
+      continue
     fi
     while IFS=$'\t' read -r name state status; do
       [[ -n "$name" ]] || continue
@@ -183,7 +192,10 @@ check_containers() {
       hold container.
       return
     fi
-    [[ -n "$ids" ]] || continue
+    if [[ -z "$ids" ]]; then
+      complete=false
+      continue
+    fi
     # shellcheck disable=SC2086
     if ! oom_listing="$(docker inspect --format '{{.Name}} {{.State.OOMKilled}}' $ids 2>/dev/null)"; then
       hold container.
@@ -196,10 +208,12 @@ check_containers() {
       fi
     done <<<"$oom_listing"
   done
-  snapshot_value source_containers 1
-  snapshot_value container_down "$down"
-  snapshot_value container_unhealthy "$unhealthy"
-  snapshot_value container_oom "$killed"
+  if [[ "$complete" == true ]]; then
+    snapshot_value source_containers 1
+    snapshot_value container_down "$down"
+    snapshot_value container_unhealthy "$unhealthy"
+    snapshot_value container_oom "$killed"
+  fi
 }
 
 check_host() {
@@ -227,12 +241,13 @@ check_host() {
 # Бэкап: последний запуск каждого вида завершился успехом, таймеры включены, а самый свежий успешный
 # бэкап моложе порога. После перезагрузки systemd не помнит прошлых запусков; тогда возраст неизвестен.
 check_backup() {
-  local kind properties result exited newest=0
+  local kind properties result exited newest=0 complete=true
   local timer
   for kind in incr diff full; do
     # is-active печатает состояние и при ненулевом коде; пустой вывод значит, что systemd не ответил.
     timer="$(systemctl is-active "inside-pgbackrest-$kind.timer" 2>/dev/null || true)"
     if [[ -z "$timer" ]]; then
+      complete=false
       hold "backup.timer.$kind"
     elif [[ "$timer" != active ]]; then
       snapshot_value "backup_timer_$kind" 0
@@ -248,6 +263,7 @@ check_backup() {
     result="$(sed -n 's/^Result=//p' <<<"$properties")"
     exited="$(sed -n 's/^ExecMainExitTimestamp=@\{0,1\}//p' <<<"$properties")"
     if [[ ! "$exited" =~ ^[0-9]+$ ]]; then
+      complete=false
       # После перезагрузки systemd не помнит прошлый запуск: итог неизвестен до следующего.
       hold "backup.failed.$kind"
       continue
@@ -260,7 +276,7 @@ check_backup() {
       if (( exited > newest )); then newest="$exited"; fi
     fi
   done
-  snapshot_value source_backups 1
+  if [[ "$complete" == true ]]; then snapshot_value source_backups 1; fi
   if (( newest > 0 && newest <= now )); then snapshot_value backup_last_success_timestamp_seconds "$newest"; fi
   if (( newest == 0 )); then
     hold backup.age
@@ -524,6 +540,7 @@ check_logs
 # Publish only a completed check cycle. Interrupted or deployment-skipped cycles preserve the
 # previous timestamp so readers can mark it stale. This directory contains ONLY public aggregates.
 publish_snapshot() {
+  [[ "$metrics_enabled" == true ]] || return 1
   install -d -m 755 "$state_dir/metrics" || return 1
   {
     printf '# TYPE inside_watchdog_value gauge\n# TYPE inside_watchdog_observed_at_seconds gauge\n'

@@ -119,6 +119,54 @@ describe("production watchdog", () => {
     }
   });
 
+  it("withholds global container/backup health when a configured read is incomplete", () => {
+    const fixture = createFixture();
+    try {
+      assertRun(fixture);
+      assert.match(
+        fixture.snapshot(),
+        /inside_watchdog_value\{check="source_containers"\} 0\n/u,
+      );
+      assert.doesNotMatch(
+        fixture.snapshot(),
+        /check="container_(?:down|unhealthy|oom)"/u,
+      );
+      fixture.fake("backup-diff", "Result=success\nExecMainExitTimestamp=\n");
+      assertRun(fixture, now + 60);
+      assert.match(
+        fixture.snapshot(),
+        /inside_watchdog_value\{check="source_backups"\} 0\n/u,
+      );
+      assert.doesNotMatch(fixture.snapshot(), /check="backup_success_diff"/u);
+      assert.match(
+        fixture.snapshot(),
+        /inside_watchdog_value\{check="backup_success_full"\} 1\n/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("continues existing alerts after intermediate metrics writes are denied", () => {
+    const fixture = createFixture();
+    try {
+      writeExecutable(
+        resolve(fixture.bin, "mkdir"),
+        `#!/usr/bin/env bash
+/bin/mkdir "$@"
+for argument in "$@"; do
+  if [[ "$argument" == */run.*/metrics ]]; then chmod 500 "$argument"; fi
+done
+`,
+      );
+      fixture.fake("sql", "purchases|3\n");
+      assert.match(assertRun(fixture), /Покупок без итога/u);
+      assert.equal(fixture.snapshot(), "");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("stays silent for the expected production verification rejection", () => {
     const fixture = createFixture();
     try {
