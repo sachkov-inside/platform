@@ -210,3 +210,31 @@ def receipt(root):
             or type(v) is not str or re.fullmatch(r'[0-9a-f]{64}',v) is None for k,v in inputs.items())):refuse()
         return value['checkout_sha']
     except (OSError,ValueError,TypeError,KeyError,UnicodeError,RecursionError):refuse()
+
+
+def upload_operation(value):
+    """Fixed acquisition witness, never provider responses, command arguments or SQL."""
+    if (type(value) is not dict or set(value)!={'schema','phase','step','outcome','error','http_status','returncode'}
+            or type(value['schema']) is not int or value['schema']!=1 or value['phase'] not in PHASES
+            or value['step'] not in ('deadline','owner_before','payload','http_open','http_body','owner_after','complete')
+            or value['outcome'] not in ('running','passed','failed')
+            or value['error'] not in (None,'timeout','http_status','transport','command_failed','interrupted','invalid_result','operation_failed')
+            or value['http_status'] is not None and (type(value['http_status']) is not int or not 100<=value['http_status']<=599)
+            or value['returncode'] is not None and (type(value['returncode']) is not int or not -128<=value['returncode']<=255)):
+        refuse()
+    return value.copy()
+
+
+def persist_upload(root,value):
+    primary,tb=sys.exc_info()[1:]
+    try:
+        raw=(json.dumps(upload_operation(value),sort_keys=True,separators=(',',':'))+'\n').encode()
+        if len(raw)>1024:refuse()
+        with directory(Path(root)) as owned:
+            fd=os.open('postgres-upload.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600,dir_fd=owned)
+            try:
+                if os.write(fd,raw)!=len(raw):refuse()
+            finally:os.close(fd)
+    except BaseException:
+        if primary is None:raise
+        BaseException.__traceback__.__set__(primary,tb)
