@@ -590,3 +590,51 @@ test("archive closes intake discovery, joining and queued audience without delet
     });
   }
 });
+
+test("renaming the current Intake and editing the sales calendar preserve its joined generation", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: "stable",
+  });
+  let original:
+    Parameters<ProductWaitlists["confirmationCurrent"]>[0] | undefined;
+  await waitlists.dispatchConfirmations((command) => {
+    original = command;
+    return Promise.resolve("unavailable" as const);
+  });
+  if (original === undefined) throw new Error("Joined generation required");
+  await db.prisma.productWaitlistIntake.update({
+    where: { id: intakeId },
+    data: { name: "Переименованный набор" },
+  });
+  await db.prisma.billingProductSalesState.upsert({
+    where: { productId },
+    create: {
+      productId,
+      revision: 1,
+      name: "Changed presentation",
+      stage: "running",
+      startsOn: new Date("2020-01-01Z"),
+      nextEvent: "",
+    },
+    update: { revision: { increment: 1 }, startsOn: new Date("2020-01-01Z") },
+  });
+  expect(await waitlists.read(accountId, productId)).toMatchObject({
+    ok: true,
+    value: { intakeId, name: "Переименованный набор", active: true },
+  });
+  expect(await waitlists.confirmationCurrent(original)).toBe("accepted");
+  expect(
+    await waitlists.dispatchConfirmations(() =>
+      Promise.resolve("accepted" as const),
+    ),
+  ).toBe(1);
+  expect(
+    await waitlists.demand({
+      productId,
+      from: new Date("2030-03-01Z"),
+      to: new Date("2030-04-01Z"),
+    }),
+  ).toMatchObject({ ok: true, value: { joined: 1, withdrawn: 0 } });
+});

@@ -78,6 +78,11 @@ export async function loadProductOffers(
   | { readonly kind: "unavailable" }
 > {
   const result = await loadBillingOffers({ productId }, accessToken);
+  if (
+    result.kind === "ready" &&
+    result.offers.some((price) => price.product?.id !== productId)
+  )
+    return { kind: "unavailable" };
   return result;
 }
 

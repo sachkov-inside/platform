@@ -6,7 +6,6 @@ export interface ProductMaterialFacts {
   readonly publicationState: "draft" | "published" | "unpublished";
   readonly title: string | null;
   readonly access: "free" | "closed";
-  readonly showInFeed: boolean;
   readonly topicId: string | null;
   readonly hasModeVariants: boolean;
 }
