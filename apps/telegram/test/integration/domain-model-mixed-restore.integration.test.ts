@@ -23,6 +23,14 @@ import { conforming } from "../support/json.js";
 import { required } from "../support/required.js";
 import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
+import { loadComposition } from "../../src/modules/communications/author-drafts.js";
+import {
+  authorizeAuthor,
+  type AuthorAuthorization,
+} from "../../src/modules/communications/author-authorization.js";
+import { transactionWithExternalReads } from "../../src/database/external-reads.js";
+import { findPlatformLink } from "../../src/modules/identity-linking/platform-links.js";
+
 import {
   parseAuthorState,
   resolveAuthorCallback,
@@ -129,6 +137,8 @@ const historicalSession = {
       target: stepId,
       expectedRevision: 4,
     },
+    prompt: "button-url",
+    buttonTitle: "Original pending button",
     content: {
       type: "text",
       text: "Unsaved original text",
@@ -336,6 +346,22 @@ function waitlistProvider(database: Database, url: string) {
   );
 }
 async function seedLegacy(database: Database, url: string) {
+  for (const [accountRef, user] of [
+    ["synthetic-owner", "40000"],
+    ["other-author", "40001"],
+  ] as const) {
+    await seedCommunityBinding(
+      database,
+      {
+        accountRef,
+        telegramIdentityRef: randomUUID(),
+        linkRef: randomUUID(),
+        linkRevision: 1,
+      },
+      clock.now(),
+      user,
+    );
+  }
   const provider = notificationProvider(database);
   for (const { command, user, label } of commands) {
     await seedNotificationRecipient(database, command, clock.now(), user);
@@ -465,7 +491,7 @@ async function seedLegacy(database: Database, url: string) {
       ],
     );
     await pool.query(
-      "insert into communication_author_sessions(bot_identity,telegram_user_id,account_ref,state) values('inside',20000,'synthetic-owner',$1)",
+      "insert into communication_author_sessions(bot_identity,telegram_user_id,account_ref,state) values('inside',40000,'synthetic-owner',$1)",
       [historicalSession],
     );
     await pool.query(
@@ -474,7 +500,7 @@ async function seedLegacy(database: Database, url: string) {
     );
     await pool.query(
       "insert into communication_author_compositions(bot_identity,owner_account_ref,destination_id,state) values('inside','synthetic-owner',$1,$2)",
-      [sequenceId, historicalSession.composing],
+      [sequenceId, historicalSession],
     );
     for (const [index, command] of waitlist.entries())
       await pool.query(
@@ -500,7 +526,80 @@ async function state(database: RestoreDatabase) {
     await pool.end();
   }
 }
+async function authorizedComposition(owner: Database, user: string) {
+  const authorization: AuthorAuthorization = {
+    authorize: (subject) =>
+      Promise.resolve(
+        ["synthetic-owner", "other-author"].includes(subject.accountRef)
+          ? "allowed"
+          : "denied",
+      ),
+  };
+  return transactionWithExternalReads(owner, async (tx) => {
+    const input = {
+      botIdentity: "inside",
+      telegramUserId: user,
+      privateChatId: user,
+      updateId: "9001",
+      text: "",
+      content: null,
+    };
+    const link = await findPlatformLink(
+      tx,
+      { botIdentity: input.botIdentity, telegramUserId: user },
+      "share",
+    );
+    if (!link)
+      throw new Error(
+        "Composition reader requires its retained verified binding",
+      );
+    const permission = await authorizeAuthor(authorization, {
+      kind: "telegram",
+      accountRef: link.accountRef,
+      telegramIdentityRef: link.telegramIdentityRef,
+      botIdentity: input.botIdentity,
+    });
+    if (permission !== "allowed")
+      throw new Error(
+        "Composition reader requires current author authorization",
+      );
+    return loadComposition(
+      {
+        tx,
+        input,
+        accountRef: link.accountRef,
+        identityRef: link.telegramIdentityRef,
+      },
+      sequenceId,
+    );
+  });
+}
+
 async function currentReaders(owner: Database, url: string) {
+  const beforeEffects = [...external.sends],
+    beforeMutations = [...chat.calls];
+  const composer = await authorizedComposition(owner, "40000");
+  expect(composer).toEqual({
+    destination: {
+      kind: "sequence",
+      id: sequenceId,
+      target: stepId,
+      expectedRevision: 4,
+    },
+    prompt: "button-url",
+    buttonTitle: "Original pending button",
+    content: {
+      type: "text",
+      text: "Unsaved original text",
+      entities: [],
+      buttons: [],
+    },
+  });
+  await expect(authorizedComposition(owner, "40001")).rejects.toMatchObject({
+    code: "not_found",
+  });
+  expect(external.sends).toEqual(beforeEffects);
+  expect(chat.calls).toEqual(beforeMutations);
   const sequences = new CommunicationSequences(
     owner,
     config(url),
@@ -539,7 +638,7 @@ async function currentReaders(owner: Database, url: string) {
   const sessionRow = await owner
     .selectFrom("communication_author_sessions")
     .select("state")
-    .where("telegram_user_id", "=", "20000")
+    .where("telegram_user_id", "=", "40000")
     .executeTakeFirstOrThrow();
   const session = parseAuthorState(sessionRow.state);
   expect(session).toMatchObject({
