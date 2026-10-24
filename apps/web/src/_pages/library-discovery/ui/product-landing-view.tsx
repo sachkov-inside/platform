@@ -126,7 +126,12 @@ export function ProductLandingView({
   const page = productPage?.page ?? null;
   return (
     <>
-      <AnalyticsObservation event="product_view" />
+      {result.reference.id === undefined ? null : (
+        <AnalyticsObservation
+          event="product_view"
+          entityId={result.reference.id}
+        />
+      )}
       <View
         artifacts={artifacts}
         freeEntryHref={freeEntryHref}

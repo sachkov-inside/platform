@@ -136,7 +136,10 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
-      <AnalyticsObservation event="material_view" />
+      <AnalyticsObservation
+        event="material_view"
+        entityId={material.materialId}
+      />
       <ReaderHistoryTracker
         path={materialPath(material.slug)}
         originHref={

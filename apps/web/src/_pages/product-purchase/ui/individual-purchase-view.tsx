@@ -32,8 +32,11 @@ export function IndividualPurchaseView({
   const active = link.state === "active" && usable;
   return (
     <section className="mx-auto w-full min-w-0 max-w-[1080px] py-8 pb-20">
-      {active && !hasPurchase ? (
-        <AnalyticsObservation event="checkout_started" />
+      {active && link.product !== null && !hasPurchase ? (
+        <AnalyticsObservation
+          event="checkout_started"
+          entityId={link.product.id}
+        />
       ) : null}
       <HideMobileNavigation />
       <header className="mb-9">

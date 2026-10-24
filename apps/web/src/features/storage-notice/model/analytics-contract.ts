@@ -19,12 +19,12 @@ export const analyticsEventSchema = z.enum([
   "checkout_started",
 ]);
 export type AnalyticsEvent = z.infer<typeof analyticsEventSchema>;
-// Fixed labels replace URLs entirely. Even a personal slug cannot enter analytics storage.
+// Rebuilt paths contain only an owner-validated business UUID, never a personal slug.
 export const analyticsPaths: Record<AnalyticsEvent, string> = {
-  product_view: "/products/:slug",
-  material_view: "/materials/:slug",
-  access_restricted: "/materials/:slug/locked",
-  checkout_started: "/products/:slug/purchase",
+  product_view: "/products/:entityId",
+  material_view: "/materials/:entityId",
+  access_restricted: "/materials/:entityId/locked",
+  checkout_started: "/products/:entityId/purchase",
 };
 export const analyticsSourceSchema = z.enum([
   "direct",
@@ -36,6 +36,7 @@ export const analyticsSourceSchema = z.enum([
 export const analyticsCaptureSchema = z.strictObject({
   revision: z.string().min(1).max(16),
   event: analyticsEventSchema,
+  entityId: z.uuid(),
   campaign: analyticsSourceSchema,
   referrer: analyticsSourceSchema,
 });

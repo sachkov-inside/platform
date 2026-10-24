@@ -118,7 +118,11 @@ export async function handleMutationOperation<
   operation: MutationOperation<Input, Result>,
   implementation: NoInfer<MutationOperationImplementation<Input, Result>>,
 ): Promise<Response> {
-  const refused = refuseForeignOrOversized(request, sessionAdapter.baseUrl());
+  const refused = refuseForeignOrOversized(
+    request,
+    sessionAdapter.baseUrl(),
+    operation.maxBodyBytes,
+  );
   if (refused !== undefined) return refused;
 
   let accessToken: string;
@@ -131,7 +135,11 @@ export async function handleMutationOperation<
     );
   }
 
-  const input = await readOperationInput(request, operation.input);
+  const input = await readOperationInput(
+    request,
+    operation.input,
+    operation.maxBodyBytes,
+  );
   if (!input.ok) return input.response;
   if (!input.parsed.success) {
     return mutationResponse(
@@ -173,9 +181,14 @@ export async function handleOptionalMutationOperation<
   const refused = refuseForeignOrOversized(
     request,
     readLogtoBffConfig().baseUrl,
+    operation.maxBodyBytes,
   );
   if (refused !== undefined) return refused;
-  const input = await readOperationInput(request, operation.input);
+  const input = await readOperationInput(
+    request,
+    operation.input,
+    operation.maxBodyBytes,
+  );
   if (!input.ok) return input.response;
   if (!input.parsed.success) {
     return privateAuthenticatedResponse(
@@ -199,13 +212,19 @@ export async function handleOptionalMutationOperation<
 function refuseForeignOrOversized(
   request: Request,
   baseUrl: string,
+  maxBodyBytes = MAX_BROWSER_MUTATION_BYTES,
 ): Response | undefined {
+  if (
+    !Number.isSafeInteger(maxBodyBytes) ||
+    maxBodyBytes <= 0 ||
+    maxBodyBytes > MAX_BROWSER_MUTATION_BYTES
+  )
+    throw new RangeError("Invalid mutation body ceiling");
   if (!isSameOriginMutation(request, baseUrl)) {
     return mutationResponse(null, 403);
   }
   const contentLength = Number(request.headers.get("content-length"));
-  return Number.isFinite(contentLength) &&
-    contentLength > MAX_BROWSER_MUTATION_BYTES
+  return Number.isFinite(contentLength) && contentLength > maxBodyBytes
     ? mutationResponse(null, 413)
     : undefined;
 }
@@ -214,6 +233,7 @@ function refuseForeignOrOversized(
 async function readOperationInput<Input extends z.ZodType>(
   request: Request,
   schema: Input,
+  maxBodyBytes = MAX_BROWSER_MUTATION_BYTES,
 ): Promise<
   | {
       readonly ok: true;
@@ -221,7 +241,7 @@ async function readOperationInput<Input extends z.ZodType>(
     }
   | { readonly ok: false; readonly response: Response }
 > {
-  const body = await readJsonBody(request);
+  const body = await readJsonBody(request, maxBodyBytes);
   if (!body.ok)
     return { ok: false, response: mutationResponse(null, body.status) };
   try {
@@ -258,6 +278,7 @@ async function executeMutation(
 /** Reads a JSON body under the shared limit: 400 for another encoding or malformed JSON. */
 async function readJsonBody(
   request: Request,
+  maxBodyBytes: number,
 ): Promise<
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly status: 400 | 413 }
@@ -274,7 +295,7 @@ async function readJsonBody(
       request.body === null
         ? ""
         : await new Response(
-            limitBodyStream(request.body, MAX_BROWSER_MUTATION_BYTES, limit),
+            limitBodyStream(request.body, maxBodyBytes, limit),
           ).text();
   } catch {
     return { ok: false, status: limit.exceeded ? 413 : 400 };

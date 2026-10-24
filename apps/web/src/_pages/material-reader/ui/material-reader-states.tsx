@@ -303,7 +303,10 @@ export function MaterialReaderAccess({
   return (
     <div className="@container/material-reader">
       <div data-material-reader-state="access-required">
-        <AnalyticsObservation event="access_restricted" />
+        <AnalyticsObservation
+          event="access_restricted"
+          entityId={material.materialId}
+        />
         <ReaderHistoryTracker
           path={materialPath(material.slug)}
           originHref={
