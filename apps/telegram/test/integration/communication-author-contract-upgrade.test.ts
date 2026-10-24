@@ -1,3 +1,10 @@
+import { loadApplicationConfig } from "../../src/config/application-config.js";
+import { AuthorAdmin } from "../../src/modules/communications/author-admin.js";
+import { Communications } from "../../src/modules/communications/communications.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
+import { AuthorDelivery } from "../../src/modules/communications/author-delivery.js";
+import type { AuthorAuthorization } from "../../src/modules/communications/author-authorization.js";
+import type { AuthorContentValidation } from "../../src/modules/communications/author-content-validation.js";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import { expect, it } from "vitest";
@@ -82,3 +89,176 @@ it("upgrades an active historical batch dialog without resetting its draft or ch
     },
   );
 });
+
+it.each(["done", "message", "broadcast-done"] as const)(
+  "fresh AuthorAdmin resumes the original persisted %s update after migration",
+  async (mode) => {
+    await withMigrationDatabase(
+      required(process.env["DATABASE_URL"]),
+      `author_public_${randomUUID().replaceAll("-", "")}`,
+      async (database) => {
+        await migrateTo(database, "036-material-announcements");
+        const sequenceId = randomUUID();
+        const content = {
+          type: "text" as const,
+          text: "Original funnel authored text",
+          entities: [],
+          buttons: [],
+        };
+        const draft = {
+          funnelId: sequenceId,
+          name: "Preserved draft",
+          isDefault: false,
+          sources: [],
+          steps: [],
+          entryResponse: {
+            stepId: randomUUID(),
+            parts: [{ partId: randomUUID(), content }],
+          },
+        };
+        const broadcast = {
+          broadcastId: randomUUID(),
+          revision: 1,
+          state: "draft",
+          parts: [{ partId: randomUUID(), content }],
+          audience: { kind: "all" },
+          scheduledAt: null,
+          audienceSnapshotId: null,
+          snapshotSize: 0,
+        };
+        const original = {
+          version: 1,
+          token: "original-menu",
+          actions: [{ kind: "batch:done" }],
+          batch: mode === "broadcast-done" ? "broadcast" : "funnel",
+          libraryQuery: "literal funnel and series",
+          ...(mode === "broadcast-done"
+            ? { broadcast }
+            : {
+                funnelAuthor: {
+                  target: "entry",
+                  dirty: true,
+                  funnel: {
+                    ...draft,
+                    revision: 3,
+                    publishedRevision: null,
+                    lifecycle: "draft",
+                  },
+                },
+              }),
+        };
+        await sql`insert into communication_author_sessions(bot_identity,telegram_user_id,account_ref,state) values('fixture',42,'author',${JSON.stringify(original)}::jsonb)`.execute(
+          database,
+        );
+        await sql`insert into communication_funnels(funnel_id,bot_identity,owner_account_ref,revision,published_revision,lifecycle,draft,is_default) values(${sequenceId}::uuid,'fixture','author',3,null,'draft',${JSON.stringify(draft)}::jsonb,false)`.execute(
+          database,
+        );
+        await sql`insert into link_transactions(account_ref,bot_identity,candidate_telegram_user_id,confirmed_at,expires_at,link_transaction_ref,received_at,registered_at,return_correlation,state,token_digest) values('author','fixture',42,now(),now(),'link',now(),now(),'return','linked',${"a".repeat(43)})`.execute(
+          database,
+        );
+        await sql`insert into platform_links(bot_identity,telegram_user_id,account_ref,telegram_identity_ref,link_transaction_ref,linked_at,evidence_version) values('fixture',42,'author','identity','link',now(),0)`.execute(
+          database,
+        );
+        await migrateToLatest(database);
+        const config = loadApplicationConfig({
+          DATABASE_URL: required(process.env["DATABASE_URL"]),
+          TELEGRAM_BOT_IDENTITY: "fixture",
+          TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+          TELEGRAM_WEBHOOK_SECRET: "synthetic_webhook_secret_for_tests_only",
+          PLATFORM_INTEGRATION_SECRET:
+            "synthetic_platform_secret_for_tests_only",
+          PLATFORM_COMMUNICATIONS_SECRET:
+            "synthetic_communications_secret_for_tests",
+          TELEGRAM_WELCOME_TEXT: "Welcome",
+          TELEGRAM_LINK_RECEIPT_TEXT: "Receipt",
+          TELEGRAM_LINKED_MEMBER_TEXT: "Member",
+          TELEGRAM_LINKED_NON_MEMBER_TEXT: "Nonmember",
+          TELEGRAM_LINKED_UNAVAILABLE_TEXT: "Unavailable",
+          WORKERS_ENABLED: "false",
+        });
+        const authorization: AuthorAuthorization = {
+          authorize: async () => "allowed",
+        };
+        const validation: AuthorContentValidation = {
+          validate: async () => ({ status: "ok", targetErrors: [] }),
+        };
+        const posts = new Communications(database, config, authorization);
+        const sequences = new CommunicationSequences(
+          database,
+          config,
+          authorization,
+          { now: () => new Date("2026-10-24T05:00:00Z") },
+          validation,
+        );
+        const delivery = new AuthorDelivery(database, config, authorization, {
+          send: async () => {
+            throw new Error(
+              "Author continuation must not send provider messages",
+            );
+          },
+        });
+        const admin = new AuthorAdmin(
+          database,
+          config,
+          authorization,
+          posts,
+          sequences,
+          delivery,
+          validation,
+        );
+        expect(
+          await admin.handle({
+            botIdentity: "fixture",
+            updateId: "100",
+            telegramUserId: "42",
+            privateChatId: "42",
+            text: mode === "message" ? "Next message" : "",
+            content:
+              mode === "message" ? { ...content, text: "Next message" } : null,
+            ...(mode === "message"
+              ? {}
+              : {
+                  callbackData: "author:original-menu:0",
+                  callbackQueryId: "100",
+                }),
+          }),
+        ).toBe(true);
+        const row = await database
+          .selectFrom("communication_author_sessions")
+          .select("state")
+          .executeTakeFirstOrThrow();
+        const state = parseAuthorState(row.state);
+        expect(state?.libraryQuery).toBe(original.libraryQuery);
+        if (mode === "broadcast-done") {
+          expect(state?.batch).toBeUndefined();
+          expect(state?.broadcast).toEqual(broadcast);
+        } else {
+          expect(state?.sequenceAuthor?.sequence?.sequenceId).toBe(sequenceId);
+          if (mode === "message") {
+            expect(state?.batch).toBe("sequence");
+            expect(
+              state?.sequenceAuthor?.sequence?.entryResponse.parts.map(
+                (p) => p.content.text,
+              ),
+            ).toEqual([content.text, "Next message"]);
+          } else {
+            expect(state?.batch).toBeUndefined();
+            expect(state?.sequenceAuthor?.sequence?.revision).toBe(4);
+          }
+        }
+        expect(
+          await database
+            .selectFrom("communication_author_receipts")
+            .selectAll()
+            .execute(),
+        ).toHaveLength(1);
+        const archive = await sql<{
+          original: { state: unknown };
+        }>`select original from communication_historical_author_state where source_table='communication_author_sessions'`.execute(
+          database,
+        );
+        expect(archive.rows[0]?.original.state).toEqual(original);
+      },
+    );
+  },
+);
