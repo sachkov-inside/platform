@@ -1,0 +1,72 @@
+name: Production monitoring artifact smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/observability-production.yml
+      - infra/observability/production/**
+      - infra/observability/pilot/**
+      - scripts/observability-production*
+      - scripts/observability-production/**
+      - scripts/observability-pilot/**
+      - scripts/observability-resource/**
+      - scripts/observability-umami/**
+      - docs/runbooks/observability-production.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-monitoring-${{ github.event.pull_request.number }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  production-artifact:
+    name: Isolated production monitoring config, auth and stdout
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify preparation contracts
+        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-production -p 'test_*.py'
+      - name: Bind source and disk admission
+        run: >-
+          python3 scripts/observability-production/check.py admission
+          --output "$RUNNER_TEMP/production-monitoring-private"
+          --metadata "$RUNNER_TEMP/production-monitoring-metadata"
+      - name: Run actual generated topology through existing supervisor
+        timeout-minutes: 20
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-production/measure.py run --host-metrics
+          --output "$RUNNER_TEMP/production-monitoring-private"
+      - name: Recover only the registered project
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-production/check.py recover
+          --output "$RUNNER_TEMP/production-monitoring-private"
+      - name: Collect explicit public evidence
+        if: ${{ always() }}
+        run: >-
+          python3 scripts/observability-production/check.py collect
+          --output "$RUNNER_TEMP/production-monitoring-private"
+          --metadata "$RUNNER_TEMP/production-monitoring-metadata"
+          --public "$RUNNER_TEMP/production-monitoring-public"
+      - name: Upload curated results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: production-monitoring-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/production-monitoring-public
+          if-no-files-found: warn
+          retention-days: 7

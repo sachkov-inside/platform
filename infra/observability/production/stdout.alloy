@@ -1,0 +1,81 @@
+// Docker sends RFC5424 on loopback, without its raw dual-logging cache.
+// No message, exception, IP, hostname, header, SQL or URL is forwarded to storage.
+loki.relabel "stdout" {
+  forward_to = []
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    regex = "(platform-(api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq)|inside-telegram|postgres|pgbackrest|logto|logto-migrations)"
+    target_label = "service"
+    replacement = "$1"
+  }
+  rule {
+    source_labels = ["service"]
+    regex = ".+"
+    action = "keep"
+  }
+}
+loki.source.syslog "stdout" {
+  listener {
+    address = "0.0.0.0:1514"
+    protocol = "tcp"
+    syslog_format = "rfc5424"
+    max_message_length = 16384
+    label_structured_data = false
+    use_incoming_timestamp = false
+    labels = {environment = "production", source = "stdout"}
+  }
+  relabel_rules = loki.relabel.stdout.rules
+  forward_to = [loki.process.stdout.receiver]
+}
+loki.process "stdout" {
+  forward_to = [loki.write.stdout.receiver]
+  stage.json {
+    expressions = {level = "level", event = "event", trace = "traceId", span = "spanId", release = "release", request = "requestId"}
+  }
+  stage.template {
+    source = "safe"
+    template = `{"event":"{{ if regexMatch "^(request_completed|request_failed|request-error|job_completed|job_failed|telemetry_export_failed|telemetry_configuration_invalid|telemetry_context_unavailable|process_started|process_stopped)$" (printf "%v" .event) }}{{ .event }}{{ else }}stdout_redacted{{ end }}","level":"{{ if regexMatch "^(info|warn|error)$" (printf "%v" .level) }}{{ .level }}{{ else }}unknown{{ end }}","traceId":"{{ if regexMatch "^[0-9a-f]{32}$" (printf "%v" .trace) }}{{ .trace }}{{ end }}","spanId":"{{ if regexMatch "^[0-9a-f]{16}$" (printf "%v" .span) }}{{ .span }}{{ end }}","release":"{{ if regexMatch "^[0-9a-f]{40}$" (printf "%v" .release) }}{{ .release }}{{ end }}","requestId":"{{ if regexMatch "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" (printf "%v" .request) }}{{ .request }}{{ end }}"}`
+  }
+  stage.output { source = "safe" }
+  stage.label_keep { values = ["service", "environment", "source"] }
+}
+loki.write "stdout" {
+  endpoint {
+    url = "http://logs:9428/insert/loki/api/v1/push?_stream_fields=service,environment,source"
+    batch_size = "64KiB"
+    batch_wait = "1s"
+    remote_timeout = "3s"
+    min_backoff_period = "500ms"
+    max_backoff_period = "2s"
+    max_backoff_retries = 3
+  }
+}
+
+prometheus.scrape "stdout_health" {
+  targets = [{"__address__" = "127.0.0.1:12345"}]
+  scrape_interval = "5s"
+  scrape_timeout = "2s"
+  body_size_limit = "1MiB"
+  sample_limit = 2000
+  forward_to = [prometheus.relabel.stdout_health.receiver]
+}
+prometheus.relabel "stdout_health" {
+  forward_to = [prometheus.remote_write.collector_health.receiver]
+  rule {
+    source_labels = ["__name__"]
+    regex = "up|loki_source_syslog_(entries|parsing_errors|empty_messages)_total|loki_write_(sent_entries|dropped_entries)_total"
+    action = "keep"
+  }
+  rule {
+    target_label = "job"
+    replacement = "platform-stdout"
+  }
+  rule {
+    target_label = "instance"
+    replacement = "production"
+  }
+  rule {
+    regex = "__name__|job|instance|reason"
+    action = "labelkeep"
+  }
+}

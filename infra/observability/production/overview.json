@@ -1,0 +1,53 @@
+{
+  "coverage": "Production observations. Missing series, stale samples and stopped collection are UNKNOWN, never healthy. Host/container panels require the explicit Linux host-metrics profile. HTTP comparison below covers API/MCP. Structured stdout is an allowlisted projection; arbitrary messages are replaced. Queue gauges are cached observations, not worker liveness. Business facts and backup freshness remain authoritative through Platform MCP and Watchdog. See docs/runbooks/observability-production.md for source gaps, rollout and key revocation. Analytics is separately controlled; this technical stack does not activate tracking.",
+  "panels": [
+    {
+      "title": "Host available memory (fraction, keep at least 0.25)",
+      "query": "node_memory_MemAvailable_bytes{job=\"platform-host\"} / node_memory_MemTotal_bytes{job=\"platform-host\"}"
+    },
+    {
+      "title": "Host CPU busy fraction",
+      "query": "1 - avg(rate(node_cpu_seconds_total{job=\"platform-host\",mode=\"idle\"}[5m]))"
+    },
+    {
+      "title": "Filesystem available bytes",
+      "query": "node_filesystem_avail_bytes{job=\"platform-host\"}"
+    },
+    {
+      "title": "Filesystem available inodes",
+      "query": "node_filesystem_files_free{job=\"platform-host\"}"
+    },
+    {
+      "title": "Container working set bytes",
+      "query": "container_memory_working_set_bytes{job=\"platform-containers\"}"
+    },
+    {
+      "title": "Container CPU seconds per second",
+      "query": "rate(container_cpu_usage_seconds_total{job=\"platform-containers\"}[5m])"
+    },
+    {
+      "title": "Container OOM events (counter increase)",
+      "query": "increase(container_oom_events_total{job=\"platform-containers\"}[1h])"
+    },
+    {
+      "title": "Source age seconds",
+      "query": "time() - timestamp(up{job=~\"platform-host|platform-containers\"})"
+    },
+    {
+      "title": "Queue state observations",
+      "query": "{__name__=\"pgboss.queue.jobs\"}"
+    },
+    {
+      "title": "Dependency failures (observed)",
+      "query": "{__name__=~\"inside[.]dependency[.]operations(_total)?\",outcome=~\"error|timeout|unavailable\"}"
+    },
+    {
+      "title": "Trace drops (increase)",
+      "query": "increase({__name__=~\"telemetry[.]trace[.]dropped(_total)?\"}[5m])"
+    },
+    {
+      "title": "Stdout parsing and export failures",
+      "query": "{__name__=~\"loki_source_syslog_parsing_errors_total|loki_write_dropped_entries_total\"}"
+    }
+  ]
+}
