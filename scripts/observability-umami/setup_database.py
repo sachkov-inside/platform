@@ -20,7 +20,7 @@ DO $$ BEGIN
 IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='umami') AND
 (EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='umami') OR roleid=(SELECT oid FROM pg_roles WHERE rolname='umami')) OR
  EXISTS(SELECT 1 FROM pg_database WHERE datdba=(SELECT oid FROM pg_roles WHERE rolname='umami') AND datname<>'umami'))
-THEN RAISE EXCEPTION 'existing Umami role authority requires owner review'; END IF;
+THEN RAISE EXCEPTION 'existing Umami role authority requires owner review' USING ERRCODE='P1566'; END IF;
 IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='umami') THEN CREATE ROLE umami; END IF;
 END $$;
 ALTER ROLE umami LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 8 PASSWORD """+literal+""";

@@ -287,9 +287,14 @@ def _compare_completed_waits(compose, project, service, identity, execute):
             'same_owned_id_exited_zero': True}
 
 
-def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12):
-    return execute(compose, ['exec', '-T', service, 'psql', '-X', '-qAt', '-U', role,
-                   '-d', database, '-v', 'ON_ERROR_STOP=1'], payload=payload, timeout=timeout)
+def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12, fixture_phase=None):
+    args = ['exec', '-T', service, 'psql', '-X', '-qAt', '-U', role, '-d', database, '-v', 'ON_ERROR_STOP=1']
+    options = {}
+    if fixture_phase is not None:
+        if fixture_phase != 'membership_guard': raise ValueError('unknown_sql_fixture_phase')
+        args += ['-v', 'VERBOSITY=sqlstate']
+        options['fixture_phase'] = fixture_phase
+    return execute(compose, args, payload=payload, timeout=timeout, **options)
 
 
 def _await_sql(compose, service, *, execute, tcp=False, progress=None):

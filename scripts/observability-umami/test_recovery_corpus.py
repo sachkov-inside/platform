@@ -84,7 +84,7 @@ class CorpusCallbackContinuity(unittest.TestCase):
                         maintenance_active = True
                         maintenance_member = True
                     if 'existing Umami role authority' in payload and maintenance_member:
-                        raise runner.runtime.FixtureCommandFailed(returncode=1)
+                        raise runner.runtime.FixtureCommandFailed({'phase': 'membership_guard', 'error': 'existing_role_authority'}, returncode=3)
                     if 'REVOKE umami FROM some_other_app' in payload:
                         maintenance_member = False
                     if maintenance_active:
