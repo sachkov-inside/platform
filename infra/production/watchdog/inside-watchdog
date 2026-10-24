@@ -257,6 +257,7 @@ check_backup() {
     fi
     if ! properties="$(systemctl show "inside-pgbackrest-backup@$kind.service" \
       --property=Result --property=ExecMainExitTimestamp --timestamp=unix 2>/dev/null)"; then
+      complete=false
       hold backup.
       return
     fi

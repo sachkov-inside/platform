@@ -167,6 +167,25 @@ done
     }
   });
 
+  it("keeps backup source unknown after a nonzero systemctl show response", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake("show-fail-diff", "");
+      assertRun(fixture);
+      assert.match(
+        fixture.snapshot(),
+        /inside_watchdog_value\{check="source_backups"\} 0\n/u,
+      );
+      assert.doesNotMatch(fixture.snapshot(), /check="backup_success_diff"/u);
+      assert.match(
+        fixture.snapshot(),
+        /inside_watchdog_value\{check="backup_success_incr"\} 1\n/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("stays silent for the expected production verification rejection", () => {
     const fixture = createFixture();
     try {
@@ -758,6 +777,7 @@ case "$1" in
   is-active) echo active ;;
   show)
     kind="\${2#inside-pgbackrest-backup@}"
+    [[ -f "$fakes/show-fail-\${kind%.service}" ]] && exit 1
     cat "$fakes/backup-\${kind%.service}"
     ;;
 esac
