@@ -16,6 +16,7 @@ import { paymentAdmission } from "../../shared/payment-admission.js";
 import { selectPricesForOptions } from "../../shared/select-price.js";
 
 export const listOffersSchema = z.strictObject({
+  productId: idSchema.optional(),
   cursor: idSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   /** Витрина подписки и витрина руководства спрашивают разные способы оплаты одного каталога. */
@@ -48,8 +49,15 @@ export async function listOffers(
   if (!parsed.success) return failure("invalid_request");
   try {
     const { cursor, limit, capability } = parsed.data;
-    const productId =
+    const legacyProductId =
       capability === undefined ? null : productIdFromCapability(capability);
+    if (
+      parsed.data.productId !== undefined &&
+      capability !== undefined &&
+      legacyProductId !== parsed.data.productId
+    )
+      return failure("invalid_request");
+    const productId = parsed.data.productId ?? legacyProductId;
     const rows = await prisma.billingProductPrice.findMany({
       where: {
         archived: false,

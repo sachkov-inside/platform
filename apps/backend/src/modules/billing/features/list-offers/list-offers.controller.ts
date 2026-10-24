@@ -38,6 +38,11 @@ export class ListOffersController {
       "Read current one-time Product prices and their best available discount",
   })
   @ApiQuery({
+    name: "productId",
+    required: false,
+    schema: toOpenApiSchema(listOffersSchema.shape.productId),
+  })
+  @ApiQuery({
     name: "cursor",
     required: false,
     schema: toOpenApiSchema(listOffersSchema.shape.cursor),

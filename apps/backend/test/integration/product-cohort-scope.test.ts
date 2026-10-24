@@ -224,3 +224,36 @@ test("Product Sales State has its own public read without changing staged prices
     }),
   ).toMatchObject({ revision: 1, priceKopecks: 10000n, published: false });
 });
+
+test("canonical Product price scope selects one identity and rejects conflicting legacy capability", async () => {
+  const billing = assembleTestBillingPricing({
+    prisma: observer.prisma,
+    accounts: assembleAccounts({
+      prisma: observer.prisma,
+      emailFingerprintKey: "scope-test-key-00000000000000000000",
+    }),
+    sale: { payments: true },
+  });
+  const scoped = await billing.ownerCatalog({
+    productId: productId(101),
+    limit: 50,
+  });
+  expect(scoped).toMatchObject({
+    ok: true,
+    value: { items: [{ product: { id: productId(101) } }], nextCursor: null },
+  });
+  if (!scoped.ok) throw new Error(scoped.error.code);
+  expect(scoped.value.items).toHaveLength(1);
+  expect(
+    await billing.ownerCatalog({
+      productId: productId(101),
+      capability: `product:${productId(1)}`,
+    }),
+  ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  const publicRead = await server.inject({
+    method: "GET",
+    url: `/billing/product-prices?productId=${productId(101)}`,
+  });
+  expect(publicRead.statusCode).toBe(200);
+  expect(publicRead.json()).toEqual({ items: [], nextCursor: null });
+});

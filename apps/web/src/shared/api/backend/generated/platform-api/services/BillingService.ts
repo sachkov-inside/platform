@@ -1326,11 +1326,13 @@ export class BillingService {
     mode,
     limit = 50,
     cursor,
+    productId,
   }: {
     capability?: ('materials' | 'community' | 'reviews' | 'support' | string),
     mode?: 'one_time',
     limit?: number,
     cursor?: string,
+    productId?: string,
   }): CancelablePromise<{
     items: Array<{
       communityPolicy?: 'explicit';
@@ -1393,6 +1395,7 @@ export class BillingService {
         'mode': mode,
         'limit': limit,
         'cursor': cursor,
+        'productId': productId,
       },
       errors: {
         401: `Optional Account proof is invalid`,
