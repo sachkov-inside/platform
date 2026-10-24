@@ -2338,3 +2338,7 @@ native MCP описаны в [инструкции расследования](o
 Provisioned vendor dashboard остаётся временным semantic UI внутри #1566.
 Native grammar, latency/cost, Grafana variable/time semantics и визуальная приёмка
 ещё обязательны; этот source unit не означает полного покрытия #1565 или production GO.
+
+Полный воспроизводимый resource corpus для #1566 описан в
+[отдельном runbook](observability-fullstack-resource.md). Short SDK-only эксперимент сохраняется
+как узкая проверка, его `partial` и неизвестные counters не подтверждают размер production.

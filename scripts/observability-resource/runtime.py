@@ -43,14 +43,14 @@ MISSING = ['accepted representative workload', 'Web/workers/broker/Umami/full MC
            'production and seven days']
 
 
-def invoke(compose, args, *, timeout=COMMAND_SECONDS, retain_partial=False):
+def invoke(compose, args, *, timeout=COMMAND_SECONDS, retain_partial=False, payload=None):
     deadline = time.monotonic() + timeout
     pilot.assert_docker_identity(deadline=deadline)
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError('resource_command_deadline')
     try:
-        result = subprocess.run(pilot.docker_args(compose + args), capture_output=True, text=True, timeout=remaining)
+        result = subprocess.run(pilot.docker_args(compose + args), capture_output=True, text=True, timeout=remaining, **({} if payload is None else {'input':payload}))
     except subprocess.TimeoutExpired as error:
         if not retain_partial:
             raise
