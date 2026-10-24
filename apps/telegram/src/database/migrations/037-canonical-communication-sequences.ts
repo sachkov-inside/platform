@@ -47,7 +47,7 @@ export const canonicalCommunicationSequencesMigration: Migration = {
         for item in select key, val from jsonb_each(value) as items(key,val) loop
           canonical := case item.key when 'funnelId' then 'sequenceId' when 'funnelIds' then 'sequenceIds'
             when 'funnel' then 'sequence' when 'funnels' then 'sequences' when 'funnelAuthor' then 'sequenceAuthor' else item.key end;
-          if item.key in ('kind','target') and jsonb_typeof(item.val) = 'string' then
+          if item.key in ('kind','target','batch') and jsonb_typeof(item.val) = 'string' then
             if item.val #>> '{}' = 'funnel' then item.val := '"sequence"'::jsonb;
             elsif item.val #>> '{}' = 'funnels' then item.val := '"sequences"'::jsonb;
             elsif item.val #>> '{}' like 'f:%' then item.val := to_jsonb('seq:' || substring(item.val #>> '{}' from 3));
