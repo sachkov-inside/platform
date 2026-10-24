@@ -50,6 +50,32 @@ class Sources(unittest.TestCase):
                 self.assertNotIn('caddy_http', text)
                 self.assertIn('} 0\n', text)
 
+    def test_public_caddy_partition_requires_adaptation_instead_of_guessed_server(self):
+        value = {'admin': {'disabled': True}, 'apps': {'http': {'metrics': {}, 'servers': {
+            'srv0': {'listen': [':9091']}, 'srv1': {'listen': [':443']}}}}}
+        self.assertEqual(source_cache.select_caddy_server(json.dumps(value).encode()), 'srv1')
+        for mutation in ('no_metrics', 'public_admin', 'duplicate_public', 'unknown_role'):
+            bad = json.loads(json.dumps(value))
+            if mutation == 'no_metrics': bad['apps']['http'].pop('metrics')
+            if mutation == 'public_admin': bad['admin'] = {'listen': '0.0.0.0:2019'}
+            if mutation == 'duplicate_public': bad['apps']['http']['servers']['srv2'] = {'listen': [':443']}
+            if mutation == 'unknown_role': bad['apps']['http']['servers']['private-person'] = {'listen': [':443']}
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                source_cache.select_caddy_server(json.dumps(bad).encode())
+
+    def test_reader_bootstrap_refuses_preexisting_foreign_authority_before_role_settings(self):
+        sql = source_cache.postgres_setup_sql()
+        # The actual PG dependency catalogue includes ownership and ACL dependencies across DBs.
+        # No application schema/table query or grants are introduced by the reader.
+        guard = sql.index('FROM pg_shdepend')
+        self.assertLess(guard, sql.index('ALTER ROLE'))
+        self.assertIn("NOT(deptype='a' AND classid='pg_database'::regclass", sql)
+        self.assertIn("shobj_description", sql)
+        self.assertIn("ERRCODE='P1567'", sql)
+        self.assertNotIn('GRANT pg_monitor', sql)
+        self.assertNotIn('GRANT pg_read_all_stats', sql)
+        self.assertNotIn('GRANT SELECT', sql)
+
     def test_selected_partition_unknown_epoch_and_private_excluded_labels_refuse(self):
         raw = wire() + b'process_start_time_seconds 10\n'
         self.assertIn('requests_total', source_cache.caddy_projection(raw, 'srv0', 100))

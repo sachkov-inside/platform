@@ -40,11 +40,14 @@ def postgres_setup_sql():
 BEGIN;
 DO $$ BEGIN
 IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='postgres_source_reader') AND
-(EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader') OR roleid=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader')) OR
+(COALESCE(shobj_description((SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader'),'pg_authid'),'')<>'Inside monitoring PostgreSQL reader v1' OR
+ EXISTS(SELECT 1 FROM pg_shdepend WHERE refclassid='pg_authid'::regclass AND refobjid=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader') AND
+ NOT(deptype='a' AND classid='pg_database'::regclass AND objid=(SELECT oid FROM pg_database WHERE datname='inside'))) OR
+ EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader') OR roleid=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader')) OR
  EXISTS(SELECT 1 FROM pg_database WHERE datdba=(SELECT oid FROM pg_roles WHERE rolname='postgres_source_reader')) OR
  EXISTS(SELECT 1 FROM pg_roles WHERE rolname='postgres_source_reader' AND
  (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR rolinherit OR NOT rolcanlogin OR rolconnlimit<>1)))
-THEN RAISE EXCEPTION 'existing source reader authority requires owner review'; END IF;
+THEN RAISE EXCEPTION 'existing source reader authority requires owner review' USING ERRCODE='P1567'; END IF;
 IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='postgres_source_reader') THEN
  CREATE ROLE postgres_source_reader LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT 1;
 END IF;
@@ -55,6 +58,7 @@ ALTER ROLE postgres_source_reader SET statement_timeout='2s';
 ALTER ROLE postgres_source_reader SET lock_timeout='250ms';
 ALTER ROLE postgres_source_reader SET idle_in_transaction_session_timeout='3s';
 GRANT CONNECT ON DATABASE inside TO postgres_source_reader;
+COMMENT ON ROLE postgres_source_reader IS 'Inside monitoring PostgreSQL reader v1';
 COMMIT;
 """
 
@@ -62,6 +66,34 @@ COMMIT;
 def postgres_projection(raw, completed):
     observed = frame.decode(raw, int(completed * 1_000_000))
     return '\n'.join('inside_postgresql_server_' + name + ' ' + str(observed[key]) for name, key in frame.METRICS) + '\n'
+
+
+def select_caddy_server(raw):
+    """Admitted adaptation, not a guessed exporter label. Return only the finite public role."""
+    value = native_source.status.source_status.decode_json(raw)
+    if type(value) is not dict or type(value.get('admin')) is not dict:
+        raise ValueError('source_caddy_adaptation')
+    admin = value['admin']
+    if admin != {'disabled': True} and admin.get('listen') != '127.0.0.1:2019':
+        raise ValueError('source_caddy_admin')
+    apps = value.get('apps')
+    http = apps.get('http') if type(apps) is dict else None
+    if type(http) is not dict or http.get('metrics') != {} or type(http.get('servers')) is not dict:
+        raise ValueError('source_caddy_metrics')
+    servers = http['servers']
+    if not 1 <= len(servers) <= 64:
+        raise ValueError('source_caddy_servers')
+    selected = []
+    for name, server in servers.items():
+        if (type(name) is not str or re.fullmatch(r'srv(?:[0-9]|[1-5][0-9]|6[0-3])', name) is None
+                or type(server) is not dict or type(server.get('listen')) is not list
+                or not 1 <= len(server['listen']) <= 8 or any(type(item) is not str for item in server['listen'])):
+            raise ValueError('source_caddy_servers')
+        if any(item in (':443', '0.0.0.0:443', '[::]:443') for item in server['listen']):
+            selected.append(name)
+    if len(selected) != 1:
+        raise ValueError('source_caddy_public_partition')
+    return selected[0]
 
 
 def caddy_projection(raw, server, completed):
