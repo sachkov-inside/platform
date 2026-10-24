@@ -1,3 +1,4 @@
+import { AnalyticsObservation } from "@/features/storage-notice";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
 import { materialPath, productPath } from "@/shared/routing/public-page-path";
@@ -302,6 +303,7 @@ export function MaterialReaderAccess({
   return (
     <div className="@container/material-reader">
       <div data-material-reader-state="access-required">
+        <AnalyticsObservation event="access_restricted" />
         <ReaderHistoryTracker
           path={materialPath(material.slug)}
           originHref={
