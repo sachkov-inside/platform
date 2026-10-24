@@ -31,6 +31,20 @@ def prepare(output):
     pilot.write_json(output / 'compose.json', plan)
 
 
+def prepare_validation(output):
+    """Stateless, no-network parser checks. No application, store, host mounts or VM probe starts."""
+    prepare(output)
+    plan = json.loads((output / 'compose.json').read_text())
+    plan = {'services': {'alloy': {'image': plan['services']['alloy']['image'],
+        'user': f'{os.getuid()}:{os.getgid()}', 'network_mode': 'none', 'read_only': True,
+        'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'], 'logging': {'driver': 'none'},
+        'mem_limit': '512m', 'cpus': .25, 'pids_limit': 64, 'tmpfs': ['/tmp:size=16m'],
+        'volumes': [f'{output / "config.alloy"}:/config/collector.alloy:ro',
+                    f'{production.CONFIG / "host.alloy"}:/config/host.alloy:ro']}}}
+    pilot.write_json(output / 'compose.json', plan)
+    pilot.write_json(output / 'validation-only.json', {'validation_only': True})
+
+
 def request(path, *, token=None, method='GET', port=18427):
     return pilot.request(path, token=token, method=method, port=port)
 
@@ -57,6 +71,16 @@ def worker(output):
     if owner['supervisor_pid'] != os.getppid():
         raise ValueError('external_supervisor_required')
     compose = ['docker', 'compose', '-p', owner['project'], '-f', str(output / 'compose.json')]
+    if (output / 'validation-only.json').exists():
+        if json.loads((output / 'validation-only.json').read_text()) != {'validation_only': True}:
+            raise ValueError('invalid_validation_mode')
+        # The external lifecycle/host monitor still owns this bounded no-network container.
+        # Runtime ingestion always takes the stronger VM storage guard below.
+        for config in ('collector', 'host'):
+            pilot.command(compose + ['run', '--rm', '--no-deps', 'alloy', 'validate', '/config/' + config + '.alloy'])
+        pilot.write_json(output / 'production-validation.json', {'schema': 1, 'alloy_parser': 'passed',
+                         'runtime': 'not_executed', 'host_metrics': 'not_executed'})
+        return
     token = (output / 'reader.key').read_text().strip()
     with pilot.worker_storage_guard(owner, compose, output):
         pilot.command(compose + ['config', '--quiet'])
@@ -112,15 +136,18 @@ def worker(output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('run', 'worker'))
+    parser.add_argument('action', choices=('run', 'validate', 'worker'))
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if args.action == 'worker':
         worker(args.output)
     else:
-        pilot.run(args.output, prepare_inputs=prepare, worker_script=Path(__file__).resolve(),
-            ports=(18427, 1514, 13000), project_prefix='inside-observability-production-check-',
-            services=production.SERVICES, scope=SCOPE,
+        validation = args.action == 'validate'
+        pilot.run(args.output, prepare_inputs=prepare_validation if validation else prepare,
+            worker_script=Path(__file__).resolve(), ports=() if validation else (18427, 1514, 13000),
+            project_prefix='inside-observability-production-check-',
+            services=('alloy',) if validation else production.SERVICES,
+            scope='Stateless no-network Alloy parser validation only' if validation else SCOPE,
             missing=['production rollout', 'Linux host metrics', 'full resource acceptance', 'seven days'])
 
 
