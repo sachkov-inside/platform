@@ -551,6 +551,18 @@ export class BillingService {
         startsOn: string | null;
       };
     } | {
+      expectedRevision?: number;
+      operation: 'productSalesState.save';
+      operationId: string;
+      value: {
+        name: string;
+        nextEvent: string;
+        priceAfterStartKopecks: number | null;
+        productId: string;
+        stage: 'announcement' | 'preorder' | 'running' | 'between';
+        startsOn: string | null;
+      };
+    } | {
       cursor?: string;
       limit: number;
       operation: 'productPrices.list';
@@ -1385,6 +1397,38 @@ export class BillingService {
       errors: {
         401: `Optional Account proof is invalid`,
         500: `Account resolution failed`,
+      },
+    });
+  }
+  /**
+   * Read mutable Product sales presentation, independent of Intake and price admission
+   * @returns any
+   * @throws ApiError
+   */
+  public billingProductSalesStates({
+    cursor,
+    productId,
+  }: {
+    cursor?: string,
+    productId?: string,
+  }): CancelablePromise<{
+    items: Array<{
+      name: string;
+      nextEvent: string;
+      priceAfterStartKopecks: number | null;
+      productId: string;
+      revision: number;
+      stage: 'announcement' | 'preorder' | 'running' | 'between';
+      startsOn: string | null;
+    }>;
+    nextCursor: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/product-sales-states',
+      query: {
+        'cursor': cursor,
+        'productId': productId,
       },
     });
   }

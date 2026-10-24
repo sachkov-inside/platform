@@ -67,7 +67,7 @@ export function handleSavePromotion(request: Request): Promise<Response> {
 /** Поток продукта: запись каталога, которую страница курса читает без кеша. */
 export function handleSaveCohort(request: Request): Promise<Response> {
   return ownerCommand(request, saveBillingCohortOperation, (input) => ({
-    operation: "cohorts.save",
+    operation: "productSalesState.save",
     operationId: input.operationId,
     ...(input.expectedRevision === undefined
       ? {}

@@ -4,7 +4,7 @@ import {
   promotionSchema,
   revisionSchema,
 } from "../../domain/pricing.js";
-import { cohortValueSchema } from "../../domain/product-cohort.js";
+import { productSalesValueSchema } from "../../domain/product-sales-state.js";
 
 const envelope = {
   operationId: idSchema,
@@ -37,7 +37,12 @@ export const manageCatalogSchema = z.discriminatedUnion("operation", [
   z.strictObject({
     ...envelope,
     operation: z.literal("cohorts.save"),
-    value: cohortValueSchema,
+    value: productSalesValueSchema,
+  }),
+  z.strictObject({
+    ...envelope,
+    operation: z.literal("productSalesState.save"),
+    value: productSalesValueSchema,
   }),
 ]);
 export type ManageCatalogCommand = z.infer<typeof manageCatalogSchema>;

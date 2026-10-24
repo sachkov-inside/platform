@@ -23,7 +23,7 @@ const productId = (ordinal: number) =>
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
   observer = createQueryEventClient(database.url);
-  await database.prisma.billingProductCohort.createMany({
+  await database.prisma.billingProductSalesState.createMany({
     data: Array.from({ length: 101 }, (_, index) => ({
       productId: productId(index + 1),
       revision: 1,
@@ -196,4 +196,31 @@ test("owner catalogue cursor pages every Product price without skipping or repea
   process.stdout.write(
     `${JSON.stringify({ record: "PAG05", firstStatements: first.statements.length, secondStatements: second.statements.length, ownerCalls: 2, providerRequests: 0 })}\n`,
   );
+});
+
+test("Product Sales State has its own public read without changing staged prices by calendar", async () => {
+  const response = await server.inject({
+    method: "GET",
+    url: `/billing/product-sales-states?productId=${productId(101)}`,
+  });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toEqual({
+    items: [
+      {
+        productId: productId(101),
+        revision: 1,
+        name: "Cohort 101",
+        stage: "preorder",
+        startsOn: "2026-11-01",
+        nextEvent: "Launch",
+        priceAfterStartKopecks: null,
+      },
+    ],
+    nextCursor: null,
+  });
+  expect(
+    await database.prisma.billingProductPrice.findUniqueOrThrow({
+      where: { productId: productId(101) },
+    }),
+  ).toMatchObject({ revision: 1, priceKopecks: 10000n, published: false });
 });

@@ -169,7 +169,7 @@ export type BillingPrisma = Pick<
   | "billingNotice"
   | "billingNoticeRevision"
   | "billingSurveyRespondent"
-  | "billingProductCohort"
+  | "billingProductSalesState"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;

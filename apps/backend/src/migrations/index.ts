@@ -1,4 +1,8 @@
 import {
+  name as productSalesStateName,
+  statement as productSalesStateStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0110-product-sales-state.js";
+import {
   runMigrationsToLatest,
   type MigrationOutcome,
 } from "../infrastructure/postgres/migrate-to-latest.js";
@@ -705,6 +709,7 @@ export const platformMigrations = [
   { name: courseActivationName, statement: courseActivationStatement },
   { name: productPricesName, statement: productPricesStatement },
   { name: paymentReviewName, statement: paymentReviewStatement },
+  { name: productSalesStateName, statement: productSalesStateStatement },
 ] as const;
 
 export function migrateToLatest(
