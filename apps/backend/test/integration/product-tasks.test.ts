@@ -1225,11 +1225,8 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       value: { taskId: task.taskId },
     });
     if (!withdrawn.ok) throw new Error(withdrawn.error.code);
-    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
-      {
-        ok: false,
-        error: { code: "task_not_available" },
-      },
+    expect(await tasks.submissions({ subject, code: task.code })).toEqual(
+      history,
     );
     const republished = await apply(
       {
@@ -1324,7 +1321,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
   });
 
-  test("access is checked at submission; submissions return when access returns", async () => {
+  test("revocation preserves own version-pinned history while refusing fresh protected actions", async () => {
     const tasks = learning();
     const task = await imported({ access: "closed" });
     const subject = await learner();
@@ -1342,15 +1339,37 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       }),
     ).toEqual({ ok: false, error: { code: "task_not_available" } });
     const firstGrant = await grant(subject, [`product:${productId}`]);
+    const savedCommand = { ...submission, submissionKey: randomUUID() };
+    const saved = await tasks.submit({
+      subject,
+      source: "mcp",
+      submission: savedCommand,
+    });
+    expect(saved).toMatchObject({ ok: true });
+    await revoke(firstGrant);
+    expect(
+      await tasks.submit({ subject, source: "mcp", submission: savedCommand }),
+    ).toEqual(saved);
     expect(
       await tasks.submit({
         subject,
         source: "mcp",
-        submission: { ...submission, submissionKey: randomUUID() },
+        submission: { ...savedCommand, note: "Conflicting replay" },
       }),
-    ).toMatchObject({ ok: true });
-    await revoke(firstGrant);
-    expect(await tasks.submissions({ subject, code: task.code })).toEqual({
+    ).toMatchObject({ ok: false });
+    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
+      {
+        ok: true,
+        value: {
+          versions: [{ version: 1 }],
+          submissions: [{ taskVersion: 1 }],
+        },
+      },
+    );
+    const stranger = await learner();
+    expect(
+      await tasks.submissions({ subject: stranger, code: task.code }),
+    ).toEqual({
       ok: false,
       error: { code: "task_not_available" },
     });

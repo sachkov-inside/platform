@@ -13,7 +13,7 @@ import {
   type SalePaymentConfiguration,
 } from "../../features/assert-sale-configured/assert-sale-configured.js";
 import { listOffers } from "../../features/list-offers/list-offers.js";
-import { listProductCohorts } from "../../features/list-product-cohorts/list-product-cohorts.js";
+import { listProductSalesStates } from "../../features/list-product-sales-states/list-product-sales-states.js";
 import { manageCatalog } from "../../features/manage-catalog/manage-catalog.js";
 import {
   listPaymentLinks,
@@ -66,8 +66,12 @@ export class BillingPricing {
       },
     );
   }
+  productSalesStates(productId?: string, cursor?: string) {
+    return listProductSalesStates(this.dependencies.prisma, productId, cursor);
+  }
+  /** Old strict wire reader compatibility until separately built readers migrate (#1712). */
   cohorts(productId?: string, cursor?: string) {
-    return listProductCohorts(this.dependencies.prisma, productId, cursor);
+    return this.productSalesStates(productId, cursor);
   }
   ownerCatalog(input: unknown) {
     return listOffers(this.dependencies.prisma, input, this.clock, {

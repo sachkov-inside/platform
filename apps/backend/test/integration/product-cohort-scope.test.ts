@@ -23,7 +23,7 @@ const productId = (ordinal: number) =>
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
   observer = createQueryEventClient(database.url);
-  await database.prisma.billingProductCohort.createMany({
+  await database.prisma.billingProductSalesState.createMany({
     data: Array.from({ length: 101 }, (_, index) => ({
       productId: productId(index + 1),
       revision: 1,
@@ -196,4 +196,64 @@ test("owner catalogue cursor pages every Product price without skipping or repea
   process.stdout.write(
     `${JSON.stringify({ record: "PAG05", firstStatements: first.statements.length, secondStatements: second.statements.length, ownerCalls: 2, providerRequests: 0 })}\n`,
   );
+});
+
+test("Product Sales State has its own public read without changing staged prices by calendar", async () => {
+  const response = await server.inject({
+    method: "GET",
+    url: `/billing/product-sales-states?productId=${productId(101)}`,
+  });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toEqual({
+    items: [
+      {
+        productId: productId(101),
+        revision: 1,
+        name: "Cohort 101",
+        stage: "preorder",
+        startsOn: "2026-11-01",
+        nextEvent: "Launch",
+        priceAfterStartKopecks: null,
+      },
+    ],
+    nextCursor: null,
+  });
+  expect(
+    await database.prisma.billingProductPrice.findUniqueOrThrow({
+      where: { productId: productId(101) },
+    }),
+  ).toMatchObject({ revision: 1, priceKopecks: 10000n, published: false });
+});
+
+test("canonical Product price scope selects one identity and rejects conflicting legacy capability", async () => {
+  const billing = assembleTestBillingPricing({
+    prisma: observer.prisma,
+    accounts: assembleAccounts({
+      prisma: observer.prisma,
+      emailFingerprintKey: "scope-test-key-00000000000000000000",
+    }),
+    sale: { payments: true },
+  });
+  const scoped = await billing.ownerCatalog({
+    productId: productId(101),
+    limit: 50,
+  });
+  expect(scoped).toMatchObject({
+    ok: true,
+    value: { items: [{ product: { id: productId(101) } }], nextCursor: null },
+  });
+  if (!scoped.ok) throw new Error(scoped.error.code);
+  expect(scoped.value.items).toHaveLength(1);
+  expect(
+    await billing.ownerCatalog({
+      productId: productId(101),
+      capability: `product:${productId(1)}`,
+    }),
+  ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  const publicRead = await server.inject({
+    method: "GET",
+    url: `/billing/product-prices?productId=${productId(101)}`,
+  });
+  expect(publicRead.statusCode).toBe(200);
+  expect(publicRead.json()).toEqual({ items: [], nextCursor: null });
 });

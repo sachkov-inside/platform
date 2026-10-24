@@ -295,7 +295,8 @@ export class BillingOperations {
       case "productPrices.archive":
       case "promotions.save":
       case "promotions.archive":
-      case "cohorts.save": {
+      case "cohorts.save":
+      case "productSalesState.save": {
         const result = await this.dependencies.pricing.manage(actorId, command);
         return result.ok
           ? {

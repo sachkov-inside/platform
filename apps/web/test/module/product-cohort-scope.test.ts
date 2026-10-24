@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({ cohorts: vi.fn() }));
 vi.mock("@/shared/api/backend/index.server", () => ({
-  requestProductCohorts: fakes.cohorts,
+  requestProductSalesStates: fakes.cohorts,
 }));
 vi.mock("@/shared/auth/index.server", () => ({
   getOptionalPlatformAccessToken: vi.fn(),

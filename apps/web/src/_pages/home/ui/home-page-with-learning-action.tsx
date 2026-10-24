@@ -5,6 +5,10 @@ import { Suspense } from "react";
 import { CohortCallView } from "@/features/ai-engineering-course";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { hasText } from "@/shared/lib/text";
+import {
+  fillPinnedOfferTerms,
+  withoutPinnedOfferTerms,
+} from "../api/home-with-offer-terms.server";
 import { readHomeCourseAction } from "../api/home-course-action.server";
 import type { HomePinnedCollection, HomeResult } from "../model/home-view";
 import { HomePage } from "./home-page";
@@ -15,6 +19,20 @@ export function HomePageWithLearningAction({
 }: {
   readonly result: HomeResult;
 }) {
+  return (
+    <Suspense
+      fallback={
+        <HomeWithLearningAction result={withoutPinnedOfferTerms(result)} />
+      }
+    >
+      <HomeWithOfferTerms result={result} />
+    </Suspense>
+  );
+}
+async function HomeWithOfferTerms({ result }: { readonly result: HomeResult }) {
+  return <HomeWithLearningAction result={await fillPinnedOfferTerms(result)} />;
+}
+function HomeWithLearningAction({ result }: { readonly result: HomeResult }) {
   const series = result.kind === "ready" ? result.value.pinnedSeries : null;
   return (
     <HomePage

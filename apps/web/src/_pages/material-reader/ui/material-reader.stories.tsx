@@ -53,7 +53,6 @@ import {
   MaterialReaderUnexpectedError,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
-import { LearningPracticePrompts } from "./learning-practice-prompts";
 import { MaterialReaderView } from "./material-reader-view";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import {
@@ -477,17 +476,9 @@ const productModeReturnTarget = parseMaterialReaderReturnTarget(
   "/products/platform-inside",
 );
 
-/** Ни одного задания у урока: так выглядит большинство уроков, блок практики не рисуется. */
-const noPractices = { kind: "available", practices: [] } as const;
-const learnerMcp = {
-  url: "https://inside.example.test/mcp/learning",
-  publicClientId: "o92nmcpzb2te8z4loi82d",
-  setupUrl: "https://inside.example.test/practice-review-setup.txt",
-};
-
 /**
- * Действия под уроком, которые маршрут передаёт всегда: отметка о прочтении, закладка и проверка
- * практики. Гостю отметка и закладка предлагают войти; запросов они не делают.
+ * Основные действия под уроком: отметка о прочтении и закладка.
+ * Гостю они предлагают войти; запросов они не делают.
  */
 function readerActions(
   materialId: string,
@@ -525,9 +516,6 @@ function readerActions(
         compact
         materialId={materialId}
       />
-    ),
-    practiceActions: (
-      <LearningPracticePrompts connection={learnerMcp} result={noPractices} />
     ),
   };
 }

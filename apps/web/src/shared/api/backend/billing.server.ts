@@ -31,6 +31,18 @@ export function requestBillingOffers(
     accessToken === undefined ? {} : { accessToken },
   );
 }
+/** Mutable Product sales presentation is public, but never a cached admission decision. */
+export function requestProductSalesStates(productId?: string, cursor?: string) {
+  return executeGeneratedRequest(
+    (request) =>
+      new BillingService(request).billingProductSalesStates({
+        ...(productId === undefined ? {} : { productId }),
+        ...(cursor === undefined ? {} : { cursor }),
+      }),
+    200,
+    {},
+  );
+}
 /** Потоки продуктов публичны: запрос идёт без токена и одинаков для всех. */
 export function requestProductCohorts(productId?: string, cursor?: string) {
   return executeGeneratedRequest(

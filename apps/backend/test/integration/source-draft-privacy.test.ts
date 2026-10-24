@@ -1,3 +1,4 @@
+import { seedHistoricalPractice } from "./setup/legacy-practice-fixture.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { createHash, randomUUID } from "node:crypto";
 
@@ -267,29 +268,18 @@ describe("source-imported draft privacy", () => {
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     assetId = uploaded.value.assetId;
 
-    // The practice import: validate, then apply bound to the draft's current content version.
+    // Restore a historical private Practice row to exercise the retained read decoder. New authoring is retired.
     const practice = sourcePractice(practiceId, "unpublished");
     expect(
       await authoring.validateSourcePractice({ actor: owner, ...practice }),
     ).toEqual({ ok: true, value: { valid: true, current: null } });
-    expect(
-      await authoring.applySourcePractice({
-        actor: owner,
-        idempotencyKey: "draft-practice-import",
-        ...practice,
-        materialId: draftId,
-        expectedContentVersion: 2,
-        expectedPracticeVersion: null,
-      }),
-    ).toMatchObject({
-      ok: true,
-      value: {
-        practiceId,
-        practiceVersion: 1,
-        materialId: draftId,
-        boundContentVersion: 2,
-        publicationState: "unpublished",
-      },
+    await seedHistoricalPractice(database, {
+      actor: owner,
+      idempotencyKey: "draft-practice-import",
+      ...practice,
+      materialId: draftId,
+      expectedContentVersion: 2,
+      expectedPracticeVersion: null,
     });
   });
   afterAll(async () => {
@@ -498,7 +488,7 @@ describe("source-imported draft privacy", () => {
         expectedContentVersion: Number(current.contentVersion),
         expectedPracticeVersion: null,
       }),
-    ).toEqual({ ok: false, error: { code: "source_mismatch" } });
+    ).toEqual({ ok: false, error: { code: "practice_definition_retired" } });
     expect(
       await database.prisma.practiceDefinition.count({
         where: { practiceId: publishedId },

@@ -1,16 +1,13 @@
 "use client";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button } from "@/shared/ui/button";
-import { billingErrorMessage } from "@/entities/subscription";
-import {
-  configureProductCommunity,
-  readProductCommunityConfiguration,
-} from "../api/configuration.browser";
+import { useQuery } from "@tanstack/react-query";
+import { readProductCommunityConfiguration } from "../api/configuration.browser";
+
+/** Product rights include the fixed current community; this is a read-only owner fact. */
 export function ProductCommunitySettings({
   productId,
-  onSaved,
 }: {
   readonly productId: string;
+  /** Retained caller shape while old configuration clients migrate (#1712). */
   readonly onSaved: () => void;
 }) {
   const query = useQuery({
@@ -18,18 +15,8 @@ export function ProductCommunitySettings({
     queryFn: () => readProductCommunityConfiguration(productId),
     retry: false,
   });
-  const mutation = useMutation({
-    mutationFn: configureProductCommunity,
-    retry: false,
-    onSuccess: async (result) => {
-      if (!result.ok) return;
-      await query.refetch();
-      onSaved();
-    },
-  });
   const result = query.data;
-  if (query.data?.ok === false && query.data.code === "forbidden") return null;
-  const connected = result?.ok === true && result.value.groupRef === "primary";
+  if (result?.ok === false && result.code === "forbidden") return null;
   return (
     <section
       className="rounded-2xl border border-border bg-card p-5"
@@ -39,12 +26,8 @@ export function ProductCommunitySettings({
         className="text-xl font-semibold"
         id={`product-community-${productId}`}
       >
-        Группа Telegram
+        Общая группа Telegram
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Привязка группы не выдаёт доступ. Участие должно входить в права
-        продукта.
-      </p>
       {query.isPending ? (
         <p className="mt-3" role="status">
           Загружаем группу…
@@ -54,31 +37,10 @@ export function ProductCommunitySettings({
           Не удалось загрузить группу.
         </p>
       ) : (
-        <Button
-          className="mt-4"
-          type="button"
-          variant="outline"
-          disabled={mutation.isPending}
-          onClick={() => {
-            mutation.mutate({
-              productId,
-              groupRef: connected ? null : "primary",
-            });
-          }}
-        >
-          {connected ? "Отвязать текущую группу" : "Привязать текущую группу"}
-        </Button>
-      )}
-      {mutation.data?.ok === false ? (
-        <p className="mt-3" role="alert">
-          {billingErrorMessage(mutation.data.code)}
-        </p>
-      ) : null}
-      {connected ? (
         <p className="mt-3 text-sm" role="status">
-          Текущая группа Telegram привязана.
+          Все продукты используют общую группу Telegram.
         </p>
-      ) : null}
+      )}
     </section>
   );
 }

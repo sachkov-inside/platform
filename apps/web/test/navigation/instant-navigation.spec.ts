@@ -1507,7 +1507,7 @@ test("direct Product checkout has no tariff selector", async ({
   await expect(page.getByRole("radio")).toHaveCount(0);
 });
 
-test("public course body renders while personal practice is held", async ({
+test("public course body renders while personal Task workspace is held", async ({
   page,
   context,
   baseURL,
@@ -1534,9 +1534,9 @@ test("public course body renders while personal practice is held", async ({
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     await expect(page.locator("[data-course-reading]:visible")).toBeVisible();
     const requests = await backendRequests();
-    await testInfo.attach("held-private-practice-requests", {
+    await testInfo.attach("held-private-task-requests", {
       body: JSON.stringify({
-        privatePracticeHeld: true,
+        privateTaskHeld: true,
         publicBodyVisible: true,
         requests,
       }),
@@ -1552,9 +1552,7 @@ test("public course body renders while personal practice is held", async ({
         .every((item) => item.path === "/library/products/navigation-proof"),
     ).toBe(true);
     expect(
-      requests.some(
-        (item) => item.path.endsWith("/practices") && item.authorized,
-      ),
+      requests.some((item) => item.path.endsWith("/task") && item.authorized),
     ).toBe(true);
   } finally {
     await fetch(`${backend}/__practice-hold`, {

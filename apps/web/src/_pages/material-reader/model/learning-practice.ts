@@ -24,6 +24,7 @@ export type LearningPracticesView =
     }
   | { readonly kind: "unavailable" };
 
+/** Historical protocol decoder retained for compatibility tests, never a current Reader action. */
 export function practiceReviewPrompt(practice: LearningPractice): string {
   return [
     "Проверь мою работу по заданию с указанным ниже идентификатором.",

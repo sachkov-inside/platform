@@ -691,6 +691,45 @@ describe("ReadingActivity on PostgreSQL", () => {
     ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
   });
 
+  test("progress counts each published Programme Material once and excludes catalogue attachments and unpublished occurrences", async () => {
+    const productId = await series();
+    const first = await material([productId]);
+    const second = await material([productId]);
+    const attachment = await material([productId]);
+    const hidden = await material([productId]);
+    await database.prisma.productProgrammePlacement.deleteMany({
+      where: { productId, materialId: attachment },
+    });
+    await placeInProgramme([productId], first);
+    await transition(hidden, "unpublished");
+    const chapterId = randomUUID();
+    await database.prisma.productChapter.create({
+      data: { id: chapterId, productId, name: "Chapter", ordinal: 1 },
+    });
+    await database.prisma.productChapterSupplementaryMaterial.create({
+      data: { chapterId, productId, materialId: attachment, ordinal: 1 },
+    });
+    await reading.setReadingState(command(first));
+    await reading.setReadingState(command(attachment));
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: productId }),
+    ).toEqual({
+      ok: true,
+      value: { seriesId: productId, total: 2, read: 1, allRead: false },
+    });
+    await reading.setReadingState(command(second));
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: productId }),
+    ).toEqual({
+      ok: true,
+      value: { seriesId: productId, total: 2, read: 2, allRead: true },
+    });
+    expect(await composition.read(productId)).toEqual({
+      ok: true,
+      value: [first, second],
+    });
+  });
+
   test("Series progress includes more than one catalog page and never exposes another Account's numerator", async () => {
     const seriesId = await series();
     let last = "";

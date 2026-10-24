@@ -1021,7 +1021,7 @@ model BillingSurveyRespondent {
   @@map("survey_respondents")
   @@schema("billing")
 }
-model BillingProductCohort {
+model BillingProductSalesState {
   productId String @id @map("product_id") @db.Uuid
   revision Int
   name String
@@ -1030,7 +1030,7 @@ model BillingProductCohort {
   nextEvent String @default("") @map("next_event")
   priceAfterStartKopecks BigInt? @map("price_after_start_kopecks")
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
-  @@map("product_cohorts")
+  @@map("product_sales_states")
   @@schema("billing")
 }
 model BillingPricingCommand {
@@ -2084,4 +2084,19 @@ model ProductAccessAction {
   @@index([accountId, productId, revision])
   @@map("product_access_actions")
   @@schema("account_rights")
+}
+
+// Immutable bridge from legacy source-bound requirements. Practice and Task versions are distinct.
+model LegacyPracticeMigration {
+  practiceId String @id @map("practice_id")
+  practiceVersion BigInt @map("practice_version")
+  definitionDigest String @map("definition_digest") @db.Char(64)
+  boundContentVersion BigInt @map("bound_content_version")
+  original Json
+  importReceipts Json @map("import_receipts")
+  disposition String
+  taskId String? @map("task_id") @db.Uuid
+  taskVersion Int? @map("task_version")
+  @@map("legacy_practice_migrations")
+  @@schema("product_tasks")
 }

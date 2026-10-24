@@ -278,12 +278,13 @@ the local HTTP endpoint and tests need no production data or published course. A
 read returns one complete structured body; a client response/context limit must be reported as an
 incomplete client read, not converted into a successful course check.
 
-Practice review (#785) adds `learning_practice_read` to that same learner endpoint and two
-`materials:manage` import API operations under `/authoring/import/practices`. It adds no process,
-provider model key or learner progress storage. A local package can include `practiceDefinitions`
-with commit provenance; its source references must match the selected Material revisions. New
-migration `0072-practice-definitions` creates the current delivery projection and scoped import
-receipts. Author MCP permissions and tool inventory remain separate from the learner surface.
+Legacy Practice review (#785) retains `learning_practice_read` and read-only validation/historical
+receipt replay under `/authoring/import/practices` until ordered contraction (#1712). New Practice
+writes fail closed with409 `practice_definition_retired`; current import/release/native consumers
+use Product Tasks. Migration0111 retains original source-bound rows and receipts in an immutable
+mapping audit, with explicit passive dispositions for unresolved ownership. No new process, model
+provider key or production operation is introduced. Author MCP permissions and inventory remain
+separate from the learner surface.
 
 Product Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
 `materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-product-tasks`

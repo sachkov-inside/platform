@@ -269,14 +269,14 @@ export async function replayTaskImports(context, request, selected) {
  * @param {Manifest} manifest
  * @param {import('./journal.mjs').JournalContext} context
  * @param {import('./local-boundaries.mjs').LocalRequest} request
- * @param {{ productIdOf: (productSourceId: string) => string; selected: (sourceKey: string) => boolean; pageOf?: (task: ManifestTask) => Promise<import("./task-page.mjs").PageImport> }} options
+ * @param {{ productIdOf: (productSourceId: string) => string; selected: (sourceKey: string) => boolean; preservedLegacyTasks?: ReadonlySet<string>; pageOf?: (task: ManifestTask) => Promise<import("./task-page.mjs").PageImport> }} options
  * @returns {Promise<TaskChange[]>}
  */
 export async function syncSourceTasks(
   manifest,
   context,
   request,
-  { productIdOf, selected, pageOf },
+  { productIdOf, selected, pageOf, preservedLegacyTasks = new Set() },
 ) {
   const resources = (context.journal.resources ??= {});
   const positions = taskPositions(manifest);
@@ -291,6 +291,22 @@ export async function syncSourceTasks(
       throw new Error(
         `${task.sourceId}: material_to_task_migration requires a release decision`,
       );
+    if (preservedLegacyTasks.has(task.sourceId)) {
+      if (
+        current === null ||
+        current.definitionDigest !== checksum(canonical(task.definition))
+      )
+        throw new Error(
+          `${task.sourceId}: preserved legacy Task changed; reconcile explicitly`,
+        );
+      changes.push({
+        sourceId: task.sourceId,
+        title: task.title,
+        publication: current.publicationState,
+        change: "unchanged",
+      });
+      continue;
+    }
     const key = taskResourceKey(task.sourceId);
     const previous =
       resources[key] === undefined
@@ -364,9 +380,16 @@ export async function syncSourceTasks(
  * @param {import('./journal.mjs').Journal} journal
  * @param {import('./local-boundaries.mjs').LocalRequest} request
  * @param {(sourceKey: string) => boolean} selected
+ * @param {ReadonlySet<string>} [preservedLegacyTasks]
  * @returns {Promise<{ tasks: TaskChange[]; expected: Record<string, number> }>}
  */
-export async function previewTasks(manifest, journal, request, selected) {
+export async function previewTasks(
+  manifest,
+  journal,
+  request,
+  selected,
+  preservedLegacyTasks = new Set(),
+) {
   const resources = journal.resources ?? {};
   /** @type {TaskChange[]} */
   const tasks = [];
@@ -388,6 +411,22 @@ export async function previewTasks(manifest, journal, request, selected) {
       authoredTaskBody(manifest, task, task.publicationState),
     );
     expected[taskResourceKey(task.sourceId)] = current?.revision ?? 0;
+    if (preservedLegacyTasks.has(task.sourceId)) {
+      if (
+        current === null ||
+        current.definitionDigest !== checksum(canonical(task.definition))
+      )
+        throw new Error(
+          `${task.sourceId}: preserved legacy Task changed; reconcile explicitly`,
+        );
+      tasks.push({
+        sourceId: task.sourceId,
+        title: task.title,
+        publication: current.publicationState,
+        change: "unchanged",
+      });
+      continue;
+    }
     const stored = resources[taskResourceKey(task.sourceId)];
     const previous =
       stored === undefined ? undefined : taskJournalReceiptSchema.parse(stored);

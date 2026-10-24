@@ -21,6 +21,9 @@ import type { CurrentTask } from "../../../apps/backend/src/modules/product-task
 export function syntheticLearningTasks(input: {
   readonly code: string;
   readonly definition: unknown;
+  readonly practice?: Parameters<
+    typeof serializeLearningTaskContext
+  >[0]["practice"];
 }) {
   const definition = taskDefinitionSchema.parse(input.definition);
   const task: CurrentTask = {
@@ -40,13 +43,14 @@ export function syntheticLearningTasks(input: {
     definition,
     definitionDigest: taskDefinitionDigest(definition),
   };
-  const contextVersion = learningTaskContextVersion(task);
+  const contextVersion = learningTaskContextVersion(task, input.practice);
   const serialized = serializeLearningTaskContext({
     task,
     product: { slug: "synthetic-course", name: "Синтетический курс" },
     chapter: { name: "Глава 1" },
     relatedMaterials: [],
     submissionsEnabled: true,
+    ...(input.practice === undefined ? {} : { practice: input.practice }),
   });
   const submissions: unknown[] = [];
   const unavailable = {
@@ -75,9 +79,13 @@ export function syntheticLearningTasks(input: {
       if (query["code"] !== task.code) return Promise.resolve(unavailable);
       const part = typeof query["part"] === "number" ? query["part"] : 0;
       if (
-        part > 0 &&
-        (query["expectedContextVersion"] !== contextVersion ||
-          query["expectedContentSha256"] !== contentSha256(serialized))
+        (query["expectedContextVersion"] !== undefined &&
+          query["expectedContextVersion"] !== contextVersion) ||
+        (query["expectedContentSha256"] !== undefined &&
+          query["expectedContentSha256"] !== contentSha256(serialized)) ||
+        (part > 0 &&
+          (query["expectedContextVersion"] === undefined ||
+            query["expectedContentSha256"] === undefined))
       )
         return Promise.resolve({
           ok: false as const,

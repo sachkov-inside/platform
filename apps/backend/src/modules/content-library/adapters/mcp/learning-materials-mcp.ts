@@ -47,8 +47,7 @@ export function assembleLearnerMcpServer(
         "Images, files and video references are not their contents: report unavailable or uninspected media explicitly. " +
         "Only current versions exist; a version mismatch requires a fresh read and must not silently replace requested content. " +
         learningTaskInstructions +
-        // Lesson practice carries procedure v2 inside its own context; Product Tasks follow v3.
-        " Lesson practice (learning_practice_read) returns its own review procedure inside its context; follow that procedure only for lesson practice.",
+        " Current assignments use learning_task_read. learning_practice_read is retained only to decode historical source-bound contexts during migration.",
     },
   );
   const annotations = {
@@ -120,7 +119,7 @@ export function assembleLearnerMcpServer(
     "learning_practice_read",
     {
       description:
-        "Read the complete version-pinned practice context and full reference lesson in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext, tracking all indices. Only all parts form the context; complete is true only for a single-part context. Never grade with missing parts. No project access, writes or server grading.",
+        "Historical compatibility decoder; current assignments use learning_task_read. Read the complete version-pinned practice context and full reference lesson in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext, tracking all indices. Only all parts form the context; complete is true only for a single-part context. Never grade with missing parts. No project access, writes or server grading.",
       inputSchema: learningPracticeQuerySchema,
       annotations,
     },

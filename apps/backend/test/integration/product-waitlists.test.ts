@@ -1,3 +1,4 @@
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
 import { outsideTransaction } from "./setup/transaction-guard.js";
 import { eventually } from "./setup/eventually.js";
 import { grantProductFixture } from "./setup/product-access.js";
@@ -58,6 +59,7 @@ beforeAll(async () => {
   });
   waitlists = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -257,6 +259,7 @@ test("migration replay and application reconstruction preserve a confirmed membe
   await migrateToLatest(db.url);
   const reconstructed = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -325,6 +328,7 @@ test("a committed join queues one durable Telegram confirmation across replay an
   const confirmations: unknown[] = [];
   const reconstructed = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -531,5 +535,152 @@ test("joining waits for an access writer without reversing its binding and entit
     expect(await db.prisma.productWaitlistMembership.count()).toBe(0);
   } finally {
     await joining;
+  }
+});
+
+test("archive closes intake discovery, joining and queued audience without deleting withdrawal history", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: "archive",
+  });
+  await db.prisma.product.update({
+    where: { id: productId },
+    data: { archivedAt: new Date("2030-03-01T00:00:00Z") },
+  });
+  try {
+    expect(await waitlists.readIntake(productId)).toMatchObject({
+      ok: false,
+      error: { code: "intake_not_found" },
+    });
+    expect(
+      await waitlists.join(accountId, {
+        intakeId,
+        operationId: randomUUID(),
+        source: null,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "intake_not_found" } });
+    expect(await waitlists.notificationAudience(intakeId)).toMatchObject({
+      ok: true,
+      value: { accountIds: [] },
+    });
+    expect(
+      await waitlists.notificationMembership(intakeId, accountId),
+    ).toMatchObject({ ok: true, value: { active: false } });
+    expect(
+      await waitlists.dispatchConfirmations(() => {
+        throw new Error("Archived Product must suppress delivery");
+      }),
+    ).toBe(1);
+    expect(await waitlists.withdraw(accountId, { intakeId })).toMatchObject({
+      ok: true,
+      value: { active: false },
+    });
+    expect(
+      await waitlists.demand({
+        productId,
+        from: new Date("2030-03-01Z"),
+        to: new Date("2030-04-01Z"),
+      }),
+    ).toMatchObject({ ok: true, value: { joined: 1, withdrawn: 1 } });
+  } finally {
+    await db.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: null },
+    });
+  }
+});
+
+test("renaming the current Intake and editing the sales calendar preserve its joined generation", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: "stable",
+  });
+  let original:
+    Parameters<ProductWaitlists["confirmationCurrent"]>[0] | undefined;
+  await waitlists.dispatchConfirmations((command) => {
+    original = command;
+    return Promise.resolve("unavailable" as const);
+  });
+  if (original === undefined) throw new Error("Joined generation required");
+  await db.prisma.productWaitlistIntake.update({
+    where: { id: intakeId },
+    data: { name: "Переименованный набор" },
+  });
+  await db.prisma.billingProductSalesState.upsert({
+    where: { productId },
+    create: {
+      productId,
+      revision: 1,
+      name: "Changed presentation",
+      stage: "running",
+      startsOn: new Date("2020-01-01Z"),
+      nextEvent: "",
+    },
+    update: { revision: { increment: 1 }, startsOn: new Date("2020-01-01Z") },
+  });
+  expect(await waitlists.read(accountId, productId)).toMatchObject({
+    ok: true,
+    value: { intakeId, name: "Переименованный набор", active: true },
+  });
+  expect(await waitlists.confirmationCurrent(original)).toBe("accepted");
+  expect(
+    await waitlists.dispatchConfirmations(() =>
+      Promise.resolve("accepted" as const),
+    ),
+  ).toBe(1);
+  expect(
+    await waitlists.demand({
+      productId,
+      from: new Date("2030-03-01Z"),
+      to: new Date("2030-04-01Z"),
+    }),
+  ).toMatchObject({ ok: true, value: { joined: 1, withdrawn: 0 } });
+});
+
+test("archive racing dispatch fails closed instead of authorizing a stale audience", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  expect(
+    await waitlists.notificationMembership(intakeId, accountId),
+  ).toMatchObject({ ok: true, value: { active: true } });
+  let pending:
+    ReturnType<ProductWaitlists["notificationMembership"]> | undefined;
+  try {
+    await db.prisma.$transaction(async (tx) => {
+      await new ProductDiscovery(db.prisma).metadata(
+        { ids: [productId] },
+        transactionHandle(tx),
+      );
+      pending = outsideTransaction(() =>
+        waitlists.notificationMembership(intakeId, accountId),
+      );
+      await outsideTransaction(() =>
+        eventually(async () => {
+          const rows = await db.prisma.$queryRaw<{ waiting: bigint }[]>(
+            Prisma.sql`SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%products.series%' `,
+          );
+          expect(Number(rows[0]?.waiting)).toBeGreaterThan(0);
+        }, 10000),
+      );
+      await tx.product.update({
+        where: { id: productId },
+        data: { archivedAt: new Date("2030-03-05T12:00:00Z") },
+      });
+    });
+    const result = await pending;
+    if (result === undefined) throw new Error("Dispatch read required");
+    if (result.ok) expect(result.value.active).toBe(false);
+    else expect(result.error.code).toBe("dependency_unavailable");
+  } finally {
+    await pending;
+    await db.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: null },
+    });
   }
 });

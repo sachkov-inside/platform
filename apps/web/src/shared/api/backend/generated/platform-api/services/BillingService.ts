@@ -551,6 +551,18 @@ export class BillingService {
         startsOn: string | null;
       };
     } | {
+      expectedRevision?: number;
+      operation: 'productSalesState.save';
+      operationId: string;
+      value: {
+        name: string;
+        nextEvent: string;
+        priceAfterStartKopecks: number | null;
+        productId: string;
+        stage: 'announcement' | 'preorder' | 'running' | 'between';
+        startsOn: string | null;
+      };
+    } | {
       cursor?: string;
       limit: number;
       operation: 'productPrices.list';
@@ -1314,11 +1326,13 @@ export class BillingService {
     mode,
     limit = 50,
     cursor,
+    productId,
   }: {
     capability?: ('materials' | 'community' | 'reviews' | 'support' | string),
     mode?: 'one_time',
     limit?: number,
     cursor?: string,
+    productId?: string,
   }): CancelablePromise<{
     items: Array<{
       communityPolicy?: 'explicit';
@@ -1381,10 +1395,43 @@ export class BillingService {
         'mode': mode,
         'limit': limit,
         'cursor': cursor,
+        'productId': productId,
       },
       errors: {
         401: `Optional Account proof is invalid`,
         500: `Account resolution failed`,
+      },
+    });
+  }
+  /**
+   * Read mutable Product sales presentation, independent of Intake and price admission
+   * @returns any
+   * @throws ApiError
+   */
+  public billingProductSalesStates({
+    cursor,
+    productId,
+  }: {
+    cursor?: string,
+    productId?: string,
+  }): CancelablePromise<{
+    items: Array<{
+      name: string;
+      nextEvent: string;
+      priceAfterStartKopecks: number | null;
+      productId: string;
+      revision: number;
+      stage: 'announcement' | 'preorder' | 'running' | 'between';
+      startsOn: string | null;
+    }>;
+    nextCursor: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/product-sales-states',
+      query: {
+        'cursor': cursor,
+        'productId': productId,
       },
     });
   }

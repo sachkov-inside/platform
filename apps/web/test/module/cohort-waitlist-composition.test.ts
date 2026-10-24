@@ -1,35 +1,14 @@
 import { createElement, Fragment } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup, renderToReadableStream } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ProductSale } from "@/entities/subscription.sale.server";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
-const fakes = vi.hoisted(() => ({
-  access: vi.fn(),
-  sale: vi.fn(),
-  cohort: vi.fn(),
-  token: vi.fn(() => Promise.resolve("synthetic-viewer-token")),
-}));
-vi.mock("next/server", () => ({ connection: () => Promise.resolve() }));
-vi.mock("@/entities/subscription.catalog.server", () => ({
-  loadProductCohort: fakes.cohort,
-}));
-vi.mock("@/entities/subscription.sale.server", () => ({
-  readProductAccess: fakes.access,
-  readGuestProductSale: fakes.sale,
-  readViewerProductSale: fakes.sale,
-}));
-vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
-  getOptionalPlatformAccessToken: fakes.token,
-}));
-vi.mock("@/features/reading-progress.server", () => ({
-  getSeriesContinuation: () =>
-    Promise.resolve({
-      kind: "ready",
-      continuation: { materialSlug: "introduction" },
-    }),
+const fakes = vi.hoisted(() => ({ state: vi.fn() }));
+vi.mock("@/widgets/product-reader-state/index.server", () => ({
+  readProductReaderState: fakes.state,
 }));
 vi.mock("@/entities/material", () => ({
   useMaterialReading: () => ({ accountId: "viewer-account", resolved: true }),
@@ -81,9 +60,38 @@ const sale: ProductSale = {
     priceAfterStartKopecks: null,
   },
 };
+function readerState(access: "open" | "closed") {
+  const common = {
+    productId,
+    slug: "ai-engineering",
+    access,
+    signedIn: true,
+    sale: { ...sale, access },
+    waitlist: {
+      kind: "ready",
+      intakeId: "explicit-intake",
+      name: "Следующий набор",
+      active: true,
+    },
+  };
+  return access === "open"
+    ? {
+        ...common,
+        kind: "learning",
+        continuation: {
+          kind: "ready",
+          continuation: { materialSlug: "introduction" },
+        },
+        onboarding: Promise.resolve({ kind: "none" }),
+        presentation: Promise.resolve({
+          sale: common.sale,
+          waitlist: common.waitlist,
+        }),
+      }
+    : { ...common, kind: "sale" };
+}
 async function compose(access: "open" | "closed", active: boolean) {
-  fakes.access.mockResolvedValue(access);
-  fakes.sale.mockResolvedValue({ ...sale, access });
+  fakes.state.mockResolvedValue(readerState(access));
   const cache = new QueryClient();
   cache.setQueryData(productWaitlistKey("viewer-account", productId), {
     kind: "ready",
@@ -104,6 +112,7 @@ async function compose(access: "open" | "closed", active: boolean) {
         { client: cache },
         createElement(WaitlistProvider, {
           productId,
+          productSlug: "ai-engineering",
           children: createElement(Fragment, null, hero, lower),
         }),
       ),
@@ -115,7 +124,7 @@ async function compose(access: "open" | "closed", active: boolean) {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
-  fakes.cohort.mockResolvedValue({ kind: "ready", cohort: sale.cohort });
+  fakes.state.mockResolvedValue(readerState("open"));
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -137,17 +146,19 @@ test("active membership is hidden when learning is available", async () => {
   expect(html).not.toContain("Вступить в список ожидания");
   expect(html).toContain("aie-learning-status");
 });
-test("learners keep the countdown and can continue from the film without loading a sale", async () => {
-  fakes.access.mockResolvedValue("open");
-  const html = renderToStaticMarkup(
+test("the film displays the same learning state and sales countdown", async () => {
+  fakes.state.mockResolvedValue(readerState("open"));
+  const stream = await renderToReadableStream(
     await PersonalCourseFilmOverlay({ result }),
   );
+  await stream.allReady;
+  const html = await new Response(stream).text();
   expect(html).toContain("aie-learning-film");
   expect(html).toContain("Продолжить обучение");
   expect(html).toContain("/products/ai-engineering/programme");
   expect(html).toContain("до старта");
   expect(html).toContain("start-countdown-badge");
-  expect(fakes.sale).not.toHaveBeenCalled();
+  expect(fakes.state).toHaveBeenCalledWith(productId, "ai-engineering");
 });
 test("an inactive learner keeps learning without a new join CTA", async () => {
   const html = await compose("open", false);

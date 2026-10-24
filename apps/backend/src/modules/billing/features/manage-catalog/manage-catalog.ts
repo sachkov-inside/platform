@@ -108,7 +108,11 @@ async function changeCatalog(
   sale: SaleCapability,
   contentCatalog?: CoverageCatalog,
 ): Promise<ManageCatalogResult> {
-  if (command.operation === "cohorts.save") return saveCohort(tx, command);
+  if (
+    command.operation === "cohorts.save" ||
+    command.operation === "productSalesState.save"
+  )
+    return saveProductSalesState(tx, command);
   const id =
     "value" in command
       ? "productId" in command.value
@@ -216,12 +220,15 @@ async function changeCatalog(
  * предзаказа; списание берёт цену варианта оплаты. При неизменном составе прав владелец меняет
  * цену через productPrices.save, а снимки прежних покупок сохраняются.
  */
-async function saveCohort(
+async function saveProductSalesState(
   tx: BillingPrisma,
-  command: Extract<ManageCatalogCommand, { operation: "cohorts.save" }>,
+  command: Extract<
+    ManageCatalogCommand,
+    { operation: "cohorts.save" | "productSalesState.save" }
+  >,
 ): Promise<ManageCatalogResult> {
   const { productId, startsOn, ...value } = command.value;
-  const current = await tx.billingProductCohort.findUnique({
+  const current = await tx.billingProductSalesState.findUnique({
     where: { productId },
     select: { revision: true },
   });
@@ -234,7 +241,7 @@ async function saveCohort(
     revision,
     updatedAt: new Date(),
   };
-  await tx.billingProductCohort.upsert({
+  await tx.billingProductSalesState.upsert({
     where: { productId },
     create: { productId, ...data },
     update: data,

@@ -248,42 +248,6 @@ export function assembleReorderSeries(
             });
           }
         }
-        const removedIds = currentIds.filter(
-          (id) => !command.orderedMaterialIds.includes(id),
-        );
-        if (removedIds.length > 0) {
-          const protectedMaterials = (
-            await dependencies.materials.load(
-              removedIds,
-              transactionHandle(transaction),
-            )
-          ).filter(
-            (material) =>
-              material.sourceId !== null &&
-              material.publicationState === "published" &&
-              material.showInFeed &&
-              material.access !== "free",
-          );
-          for (const material of protectedMaterials) {
-            const other = await transaction.productMembership.findFirst({
-              where: {
-                materialId: material.id,
-                seriesId: { not: command.seriesId },
-              },
-              select: { seriesId: true },
-            });
-            if (other === null)
-              return rollback({
-                code: "invalid_reference",
-                issues: [
-                  {
-                    code: "standalone_feed_material_must_be_free",
-                    path: "/orderedMaterialIds",
-                  },
-                ],
-              });
-          }
-        }
         const foundMaterialIds = new Set(foundMaterials.map(({ id }) => id));
         const missingIndex = command.orderedMaterialIds.findIndex(
           (materialId) => !foundMaterialIds.has(materialId),

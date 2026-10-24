@@ -8,3 +8,5 @@ export {
   announceProductCommunityChange,
 } from "./model/product-community.client";
 export { ProductOnboarding } from "./ui/product-onboarding";
+
+export { productCommunityQueryKey } from "./model/product-community-key";

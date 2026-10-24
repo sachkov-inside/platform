@@ -1,4 +1,8 @@
-import { ProductReadingModule } from "../products/index.js";
+import {
+  ProductReadingModule,
+  ProductsModule,
+  ProductDiscovery,
+} from "../products/index.js";
 import {
   ACCOUNT_RIGHTS,
   AccountRightsModule,
@@ -35,6 +39,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
 @Module({
   imports: [
     ProductReadingModule,
+    ProductsModule,
     PrismaModule,
     AccountsModule,
     BillingModule,
@@ -53,14 +58,21 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     WaitlistConfirmationPump,
     {
       provide: ProductWaitlists,
-      inject: [PrismaClientProvider, TelegramAccountLinks, ACCOUNT_RIGHTS],
+      inject: [
+        PrismaClientProvider,
+        TelegramAccountLinks,
+        ACCOUNT_RIGHTS,
+        ProductDiscovery,
+      ],
       useFactory: (
         prisma: PrismaClientProvider,
         links: TelegramAccountLinks,
         rights: AccountRights,
+        products: ProductDiscovery,
       ) =>
         new ProductWaitlists({
           prisma,
+          products,
           links,
           rights,
           clock: () => new Date(),
@@ -77,6 +89,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
         BillingProductSales,
         BillingSurveyRespondentSales,
         ACCOUNT_RIGHTS,
+        ProductDiscovery,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -87,9 +100,11 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
         sales: BillingProductSales,
         surveyRespondents: BillingSurveyRespondentSales,
         rights: AccountRights,
+        products: ProductDiscovery,
       ) =>
         new SalesFunnel({
           prisma,
+          products,
           accounts,
           links,
           outlines,

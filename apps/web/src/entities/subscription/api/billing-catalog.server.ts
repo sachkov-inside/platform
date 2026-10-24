@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   requestBillingOffers,
-  requestProductCohorts,
+  requestProductSalesStates,
 } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
@@ -78,6 +78,11 @@ export async function loadProductOffers(
   | { readonly kind: "unavailable" }
 > {
   const result = await loadBillingOffers({ productId }, accessToken);
+  if (
+    result.kind === "ready" &&
+    result.offers.some((price) => price.product?.id !== productId)
+  )
+    return { kind: "unavailable" };
   return result;
 }
 
@@ -94,7 +99,7 @@ export async function loadProductCohorts(): Promise<
     const seen = new Set<string>();
     let cursor: string | undefined;
     for (;;) {
-      const result = await requestProductCohorts(undefined, cursor);
+      const result = await requestProductSalesStates(undefined, cursor);
       if (!result.ok) return { kind: "unavailable" };
       const parsed = productCohortsSchema.safeParse(result.body);
       if (!parsed.success) return { kind: "unavailable" };
@@ -118,7 +123,7 @@ export async function loadProductCohort(
   | { readonly kind: "unavailable" }
 > {
   try {
-    const result = await requestProductCohorts(productId);
+    const result = await requestProductSalesStates(productId);
     if (!result.ok) return { kind: "unavailable" };
     const parsed = productCohortsSchema.safeParse(result.body);
     return parsed.success

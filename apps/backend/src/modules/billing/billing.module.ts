@@ -1,3 +1,4 @@
+import { ListProductSalesStatesController } from "./features/list-product-sales-states/list-product-sales-states.controller.js";
 import { ReadOwnBillingController } from "./features/read-own-billing/read-own-billing.controller.js";
 import { Module } from "@nestjs/common";
 import {
@@ -53,6 +54,7 @@ const BILLING_BANK = Symbol("BillingBank");
     QuotePurchaseController,
     ListOffersController,
     ListProductCohortsController,
+    ListProductSalesStatesController,
     PaymentLinksController,
   ],
   providers: [

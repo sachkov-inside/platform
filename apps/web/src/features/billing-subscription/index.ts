@@ -1,4 +1,5 @@
 export {
+  currentBillingQueryKey,
   announceCurrentBillingChange,
   subscribeToCurrentBillingChanges,
 } from "./model/current-billing";

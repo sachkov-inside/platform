@@ -53,6 +53,7 @@ export const practiceImportReceiptSchema = z
 export type PracticeImportError =
   | { readonly code: "invalid_request_shape" }
   | { readonly code: "forbidden" }
+  | { readonly code: "practice_definition_retired" }
   | { readonly code: "source_mismatch" }
   | { readonly code: "practice_version_conflict" }
   | { readonly code: "idempotency_conflict" }
