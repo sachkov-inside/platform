@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 import production
+import check
 
 
 class Preparation(unittest.TestCase):
@@ -26,6 +27,15 @@ class Preparation(unittest.TestCase):
             self.assertEqual(stack['networks']['telemetry']['internal'], True)
             self.assertNotIn('storage', overlay['networks'])
             self.assertNotIn('/var/run/docker.sock', json.dumps(stack['services']['alloy']))
+
+    def test_runtime_fixture_keeps_grafana_secret_reader_identity(self):
+        with tempfile.TemporaryDirectory() as parent:
+            output = Path(parent).resolve() / 'configuration'
+            check.prepare(output)
+            stack = json.loads((output / 'compose.json').read_text())
+            secret = (output / 'grafana.password').stat()
+            self.assertEqual(stack['services']['grafana']['user'], f'{secret.st_uid}:{secret.st_gid}')
+            self.assertEqual(secret.st_mode & 0o777, 0o600)
 
     def test_refuses_replacing_existing_configuration_or_following_a_symlink(self):
         with tempfile.TemporaryDirectory() as parent:
