@@ -4,6 +4,11 @@ status: accepted
 
 # Состояние доставки community живёт в TelegramMembership
 
+The [2026-10-23 access model](../product/access-model.md#сообщество-и-telegram) retains this
+delivery ownership decision. The historical name MembershipEntitlements now refers to
+Account Rights; the membership-evidence bridge and subscription-derived rights are being removed.
+Provider delivery records remain distinct from Product Access and actual membership.
+
 Право участия в сообществе выводит MembershipEntitlements и остаётся его единственным владельцем.
 Исполняет это право Telegram. #415 добавляет между ними желаемое состояние, durable outbox, журнал
 авторизаций и курсор проекции. Они размещены в схеме `telegram_membership`, а не в

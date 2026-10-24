@@ -563,7 +563,7 @@
     padding: 0.125rem;
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--background) 65%, transparent);
+    background: var(--background);
     box-shadow: var(--shadow-floating-nav);
   }
   .dock > :is(a, button) {

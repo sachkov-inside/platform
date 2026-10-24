@@ -332,8 +332,8 @@ async function expectParticipantActions(canvasElement: HTMLElement) {
     canvasElement.querySelector<HTMLElement>(".aie-status") ??
     fail("Нижний блок");
   await expect(
-    within(status).getByText(/В программе восемь глав/u),
-  ).not.toBeVisible();
+    within(status).queryByText(/В программе восемь глав/u),
+  ).toBeNull();
   await expect(
     within(status).getByText("Бессрочный доступ к курсу"),
   ).toBeInTheDocument();

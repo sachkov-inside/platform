@@ -4,6 +4,8 @@
 - Shared Inside product scope: [the Inside brief](../product/README.md). Legal editions and their
   status: [the legal index](../legal/README.md).
 - Terms: [the glossary map](../../GLOSSARY-MAP.md) names each glossary and what it owns.
+- State ownership, Module extraction or cross-context interaction: read the
+  [target context map](../product/domain-context-map.md).
 - Decisions: `docs/adr/`; Telegram-local ADRs live in `apps/telegram/docs/adr/`. A missing glossary
   or ADR is not a setup failure: `domain-modeling` creates it when a durable term or a
   hard-to-reverse trade-off is resolved.

@@ -476,12 +476,18 @@ export function productChapters(manifest, product) {
 
 /**
  * The composition a Product shell release sends: the package's chapter list over the Materials the
- * target already holds, in their current order and chapters. A placed Material whose chapter the
- * package drops would lose its placement, so that shell is refused before any write.
+ * target already holds, each in its current chapter. Platform requires every chapter's Materials to
+ * form one uninterrupted run, so each chapter, in chapter order, lists its Materials by their first
+ * programme placement (a different order would rewrite the programme), then the unplaced ones in
+ * their current order; unchaptered Materials follow the chapters. A placed Material whose chapter
+ * the package drops would lose its placement, so that shell is refused before any write.
  *
  * @param {Manifest} manifest
  * @param {ManifestProduct} product
- * @param {{ items: { materialId: string; chapterId: string | null }[] }} order
+ * @param {{
+ *   items: { materialId: string; chapterId: string | null }[];
+ *   programmePlacements?: { materialId: string }[] | undefined;
+ * }} order
  */
 export function productShellComposition(manifest, product, order) {
   const chapters = productChapters(manifest, product);
@@ -493,9 +499,28 @@ export function productShellComposition(manifest, product, order) {
     throw new Error(
       `Product ${product.sourceId}: the Product shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
     );
+  /** @type {Map<string, number>} */
+  const firstPlacement = new Map();
+  for (const [index, entry] of (order.programmePlacements ?? []).entries())
+    if (!firstPlacement.has(entry.materialId))
+      firstPlacement.set(entry.materialId, index);
+  /** @param {string | null} chapterId */
+  const chapterRun = (chapterId) =>
+    order.items
+      .filter((item) => item.chapterId === chapterId)
+      .map((item) => item.materialId)
+      // A stable sort keeps unplaced Materials after the placed ones, in their current order.
+      .sort(
+        (left, right) =>
+          (firstPlacement.get(left) ?? Number.MAX_SAFE_INTEGER) -
+          (firstPlacement.get(right) ?? Number.MAX_SAFE_INTEGER),
+      );
   return {
     chapters,
-    orderedMaterialIds: order.items.map((item) => item.materialId),
+    orderedMaterialIds: [
+      ...chapters.flatMap((chapter) => chapterRun(chapter.id)),
+      ...chapterRun(null),
+    ],
   };
 }
 

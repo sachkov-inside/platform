@@ -1,5 +1,11 @@
 # Community entitlements: runtime провайдера
 
+[Модель от 23.10.2026](../../../../docs/product/access-model.md#сообщество-и-telegram) задаёт
+целевое бессрочное участие по Product Access. Описанные ниже транспорт, журнал операций и
+проверка актуальности сохраняются. Ветви finite, Tribute и подписочного срока относятся к
+прежнему исполнению и подлежат удалению по спецификации рефакторинга. Этот документ не
+включает отменённую подписочную возможность.
+
 Реализация Telegram-стороны `inside.community-entitlement.v1` по
 [protocol.md](../../../../docs/contracts/billing-v1/protocol.md) и
 [provider specification](../specifications/community-and-notifications-v1.md).
