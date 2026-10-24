@@ -21,6 +21,9 @@ import type {
 } from "../../domain/product-access.js";
 import {
   productAccessListQuerySchema,
+  productAccessListScope,
+  decodeProductAccessCursor,
+  encodeProductAccessCursor,
   productAccessTargetSchema,
   productAccessViewSchema,
 } from "../../domain/product-access.js";
@@ -383,18 +386,16 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", async () => {
         const query = productAccessListQuerySchema.safeParse(input);
         if (!query.success) return accessFailure("invalid_input");
+        const scope = productAccessListScope(query.data);
         const cursor =
           query.data.cursor === undefined
             ? undefined
-            : z.tuple([z.uuid(), z.uuid()]).parse(query.data.cursor.split(":"));
+            : decodeProductAccessCursor(query.data.cursor, scope);
+        if (cursor === null) return accessFailure("invalid_input");
         const rows = await prisma.productAccess.findMany({
           where: {
-            ...(query.data.accountId === undefined
-              ? {}
-              : { accountId: query.data.accountId }),
-            ...(query.data.productId === undefined
-              ? {}
-              : { productId: query.data.productId }),
+            ...(scope.accountId === null ? {} : { accountId: scope.accountId }),
+            ...(scope.productId === null ? {} : { productId: scope.productId }),
             ...(cursor === undefined
               ? {}
               : {
@@ -410,6 +411,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           orderBy: [{ accountId: "asc" }, { productId: "asc" }],
           take: query.data.limit + 1,
         });
+        const last = rows[query.data.limit - 1];
         return {
           ok: true as const,
           value: rows.slice(0, query.data.limit).map((row) =>
@@ -422,10 +424,11 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             }),
           ),
           nextCursor:
-            rows.length > query.data.limit
-              ? rows[query.data.limit - 1] === undefined
-                ? null
-                : `${rows[query.data.limit - 1]?.accountId}:${rows[query.data.limit - 1]?.productId}`
+            rows.length > query.data.limit && last !== undefined
+              ? encodeProductAccessCursor(scope, [
+                  last.accountId,
+                  last.productId,
+                ])
               : null,
         };
       }),

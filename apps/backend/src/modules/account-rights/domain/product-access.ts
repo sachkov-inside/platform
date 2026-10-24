@@ -42,12 +42,9 @@ export const productAccessListQuerySchema = z.strictObject({
   productId: z.uuid().optional(),
   cursor: z
     .string()
-    .refine((value) => {
-      const ids = value.split(":");
-      return (
-        ids.length === 2 && ids.every((id) => z.uuid().safeParse(id).success)
-      );
-    })
+    .min(1)
+    .max(1024)
+    .regex(/^[A-Za-z0-9_-]+$/)
     .optional(),
   limit: z.int().min(1).max(100).default(50),
 });
@@ -77,3 +74,61 @@ export const productAccessRecordsSchema = productAccessViewSchema.extend({
 export const issueManualProductAccessSchema = issueProductAccessSchema.omit({
   issuedAt: true,
 });
+
+const productAccessCursorSchema = z.strictObject({
+  version: z.literal(1),
+  sort: z.literal("account-product-asc"),
+  scope: z.strictObject({
+    accountId: z.uuid().nullable(),
+    productId: z.uuid().nullable(),
+  }),
+  after: z.tuple([z.uuid(), z.uuid()]),
+});
+
+type ProductAccessListScope = {
+  accountId: string | null;
+  productId: string | null;
+};
+
+export function productAccessListScope(query: {
+  accountId?: string | undefined;
+  productId?: string | undefined;
+}): ProductAccessListScope {
+  return {
+    accountId: query.accountId?.toLowerCase() ?? null,
+    productId: query.productId?.toLowerCase() ?? null,
+  };
+}
+
+export function decodeProductAccessCursor(
+  value: string,
+  scope: ProductAccessListScope,
+): readonly [string, string] | null {
+  try {
+    const cursor = productAccessCursorSchema.safeParse(
+      JSON.parse(Buffer.from(value, "base64url").toString("utf8")),
+    );
+    if (
+      !cursor.success ||
+      (cursor.data.scope.accountId?.toLowerCase() ?? null) !==
+        scope.accountId ||
+      (cursor.data.scope.productId?.toLowerCase() ?? null) !== scope.productId
+    )
+      return null;
+    return [
+      cursor.data.after[0].toLowerCase(),
+      cursor.data.after[1].toLowerCase(),
+    ];
+  } catch {
+    return null;
+  }
+}
+
+export function encodeProductAccessCursor(
+  scope: ProductAccessListScope,
+  after: readonly [string, string],
+): string {
+  return Buffer.from(
+    JSON.stringify({ version: 1, sort: "account-product-asc", scope, after }),
+  ).toString("base64url");
+}
