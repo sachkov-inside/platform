@@ -1,0 +1,192 @@
+# Подготовленный production-контур наблюдаемости
+
+Артефакты [#1566](https://github.com/sachkov-inside/platform/issues/1566) готовятся командой
+`scripts/observability-production/production.py`. Она не запускает Docker, не подключается к серверу,
+не изменяет действующие настройки и не включает сбор. Основной стек, приложение и аналитика имеют
+разные Compose projects. Применение требует отдельно разрешённого rollout по
+[release runbook](release.md). Локальный [пилот](observability-pilot.md) сохраняет собственный цикл.
+
+## Границы и размещение
+
+VictoriaMetrics хранит метрики 90 суток, VictoriaLogs и VictoriaTraces хранят журналы и traces
+14 суток. Закреплённые образы и Grafana logs plugin берутся из существующего
+[lock](../../infra/observability/pilot/inputs.lock.json), очистка OTLP генерируется из единого
+[каталога](../../infra/observability/pilot/privacy-policy.json). Версия image не заменяет проверку
+всего deployment на точном commit.
+
+Сети разделены:
+
+- `storage`: хранилища, vmauth, Grafana и collector. Приложения к ней не подключаются.
+- `<project>-telemetry`: private internal network. Приложения отправляют только OTLP на
+  `http://inside-telemetry:4318`. У HTTP-сервера Alloy только loopback listener внутри контейнера.
+- `hostsource`: отдельный Linux host-agent и приёмник метрик VictoriaMetrics.
+- Снаружи опубликованы только `127.0.0.1:18427` (query), `127.0.0.1:13000` (Grafana),
+  `127.0.0.1:1514` (TCP syslog для Docker daemon). OTLP и storage ports не публикуются.
+
+Query gateway ограничивает HTTP methods/body; vmauth проверяет отдельные отозвные reader keys
+и [закрытые маршруты чтения](../../infra/observability/pilot/vmauth.routes.json), включая read POST.
+Ingest/delete/admin не разрешены. Ключ Grafana отличается от ключа агента. Anonymous Grafana и
+signup выключены. Loopback сам по себе не защищает от root/пользователей сервера с Docker access.
+Доступ агента из другой среды дают только к query port, не ко всем портам или Docker socket.
+
+## Подготовка
+
+Исполнять в checkout проверяемого commit. Пути должны быть абсолютными, без symlinks;
+каталог конфигурации должен отсутствовать. Команда не выводит ключи.
+
+```bash
+python3 scripts/observability-production/production.py prepare \
+  --output /srv/inside/observability/releases/COMMIT \
+  --data /srv/inside/observability-data
+python3 scripts/observability-production/production.py install-plugin \
+  --output /srv/inside/observability/releases/COMMIT
+```
+
+`COMMIT` заменяется полным SHA принятого выпуска. `install-plugin` загружает только закреплённый
+официальный ZIP, проверяет digest, размер и пути. Private directory имеет mode 0700, keys,
+пароль Grafana и datasources имеют mode 0600. Сервисы запускаются от UID/GID подготовившего
+пользователя; data directories создаёт preflight от того же пользователя. Не передавать весь
+private directory в issue, журнал CI или артефакты.
+
+До включения нужен отдельный ограниченный filesystem для monitoring data. Он не должен совпадать
+с filesystem приложения. Подготовленный preflight требует mount point не более 32 GiB и ≥25%
+свободного места как на нём, так и у приложения. Это технический предохранитель, а не измеренный
+необходимый размер. Создание/изменение filesystem относится к отдельно согласованным серверным
+работам. Нельзя положить bind directories на общий диск и назвать retention hard quota.
+
+```bash
+python3 scripts/observability-production/production.py preflight \
+  --output /srv/inside/observability/releases/COMMIT \
+  --application-data /srv/inside/application-data
+```
+
+Logs/traces имеют аварийный порог 8 GiB каждый; хранилища прекращают ingestion при остатке
+менее 1 GiB. Порог partition retention может быть превышен свежими partitions, поэтому физическое
+разделение дисков обязательно. Сокращение истории считается отказом приёмки. Настройки memory/CPU
+в Compose ограничивают процессы; оценка требуемого тарифа производится по полному resource corpus,
+Umami и PostgreSQL добавляются к техническому контуру. Общий потолок не доказывает наличие запаса.
+
+## Разрешённое включение и выключение
+
+Эти команды являются рецептом будущего rollout. Сейчас они на production не выполнялись.
+Перед любым repository Compose command проверить `docker compose ps` и соблюдать
+[владение стендом](local-stand.md). Действующий singleton не принадлежит этому контуру.
+
+```bash
+docker compose -f /srv/inside/observability/releases/COMMIT/compose.json config --quiet
+docker compose -f /srv/inside/observability/releases/COMMIT/compose.json up -d
+```
+
+Сначала проверить readiness, query/auth negatives и stdout sentinel на изолированном стенде.
+Затем в существующую команду приложения добавить последним файлом
+`platform.compose.json`; Telegram использует `telegram.compose.json`, foundation PostgreSQL
+использует `database.compose.json`, Logto использует `logto.compose.json`. Существующие Compose
+project name, env files, networks, volumes и runtime images сохраняются. Нельзя запускать overlay
+самостоятельно как новое приложение. SDK остаётся OFF до явного `INSIDE_OTEL_ENABLED=true` в
+окружении вызова Compose. Изменение logging driver требует пересоздания затронутых контейнеров;
+время недоступности приложения объявляется до отдельно разрешённого rollout.
+
+Stdout использует Docker TCP syslog, `mode=non-blocking`, memory buffer 1 MiB и
+`cache-disabled=true`. Последнее выключает raw dual-logging cache Docker. Alloy принимает RFC5424,
+проверяет service tag и заменяет текст закрытой JSON-проекцией event/level/release/request/trace/span.
+Свободный текст, exception message, SQL, адреса, headers, hostname и payload не сохраняются.
+Неизвестный event становится `stdout_redacted`; это утрата детализации, не отсутствие ошибки.
+Неподходящий service tag отбрасывается. Есть counters парсинга/экспорта, но Docker не предоставляет
+этому контуру полный счётчик потерь non-blocking buffer. Полнота stdout при outage неизвестна.
+
+Порядок отключения: сначала выставить `INSIDE_OTEL_ENABLED=false` и пересоздать приложение
+с исходным logging driver, затем остановить monitoring project командой `down` без `--volumes`.
+Нельзя сначала остановить syslog receiver и оставить logging driver приложения направленным в него:
+уже работающий процесс продолжит работу с возможной потерей журналов, а новый container start
+может не подключиться к syslog. Отключение monitoring не удаляет доменные данные и сохранённые bind data.
+
+## Linux host и container metrics
+
+Профиль `host-metrics` включается отдельно после проверки на настоящем Linux хосте:
+
+```bash
+docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
+  --profile host-metrics up -d host-agent
+```
+
+Он использует тот же pinned Alloy, встроенные unix exporter и cAdvisor. Согласно
+[официальному deployment contract](https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.exporter.cadvisor/)
+cAdvisor требует privileged и host mounts, включая Docker socket через `/var/run`.
+Это доверенный операторский процесс, не read-only principal агента. Он не подключён к сетям
+приложения/query и не публикует ports. Основной collector не имеет Docker socket.
+Raw IDs, container environment, image names и произвольные Docker labels в metrics не сохраняются.
+Допускаются известные service names и ограниченный Compose project name; labels не заменяют
+контроль владельца процессов. Mac/OrbStack run не подтверждает наблюдение физического Mac или VPS.
+
+Host memory/CPU/disk/inodes/IO и container memory/CPU/throttling/network/OOM берутся из exporter.
+`container_start_time_seconds` показывает смену запуска, но не является точным счётчиком всех
+restart между scrape. Отсутствующие counters/series показываются как неизвестные.
+Состояние backup, domain payments/access и operational readiness остаются у действующих Watchdog
+и Platform MCP. Новая панель не превращает cached queue gauge в проверку работоспособности worker.
+Не добавлять к этому профилю общий публичный Docker API или unauthenticated metrics port.
+
+## Ключи, обновление и откат
+
+Для отзыва agent key удалить соответствующего пользователя из private `auth.json` и перезапустить
+только vmauth. Проверить, что старый ключ получает отказ, а Grafana продолжает читать своим ключом.
+Native MCP подключаются по [существующему runbook](observability-pilot.md), меняется только
+instance entrypoint на защищённый query tunnel и отдельный reader key. Не предоставлять write
+endpoint или admin credentials как обход недоступности.
+
+Обновление готовится в новом private release directory. Сохранить прежние secrets/reader principals
+по действующему механизму секретов, не генерировать незаметно новые действующие identities. Сначала
+повторить pinned config/auth/privacy/capacity checks и совместимость хранилищ на копии данных.
+Для отката collector/application overlays использовать ранее проверенный release directory.
+Откат image не восстанавливает прежний формат storage. Если новая версия изменила формат данных,
+допустим только заранее проверенный путь восстановления; `down --volumes` не является откатом.
+После применения проверить freshness, реальные traces/log links, negative read-only сценарии,
+ресурсы, отключение и восстановление, затем семь суток роста и нагрузки.
+
+## Отдельная аналитика
+
+Подготовка также создаёт `umami.compose.json`, private `umami.env` и
+`umami.database.password`. Это отдельный project с профилем `analytics`; основной technical
+Compose file не запускает Umami. Сначала настроить выделенные database/role в существующем
+PostgreSQL через `scripts/observability-umami/setup_database.py`, используя
+`--password-file /srv/inside/observability/releases/COMMIT/umami.database.password`.
+Не передавать пароль аргументом, не публиковать database port и не заменять production grants
+пилотным PostgreSQL. Порядок обслуживания и восстановления принадлежит
+[Umami runbook](observability-umami-pilot.md).
+
+При разрешённом запуске установить `FOUNDATION_DATABASE_NETWORK` равным действующей закрытой
+сети PostgreSQL. `umami` имеет отдельную базу/роль, connection limit 8, pool timeout 5 секунд,
+лимит памяти 1 GiB и CPU 1. Native Umami/administrative API не публикуется. В сеть приложения
+входит только `umami-ingest:3000`, разрешающий POST `/api/send` с телом до 16 KiB.
+Web server использует `INSIDE_UMAMI_ENDPOINT=http://umami-ingest:3000/api/send`.
+Legal gate, собственный analytics switch и пользовательский выбор проверяются независимо от
+технического SDK switch. Пока они не приняты, browser tracking остаётся выключенным.
+
+Query gateway использует текущий ограниченный Python handler, `127.0.0.1:13301`, и отдельный
+`umami.reader.key`. Файл изначально пуст, чтение закрыто. После private bootstrap Umami сменить
+исходный admin password, создать отдельного reader с чтением нужной team/site и записать его
+настоящий native API key в этот файл с mode 0600. Synthetic fixture seed не является production
+bootstrap, его запуск на действующей базе запрещён. Native `@umami/mcp` 0.2.0 из существующего
+package-lock использует `UMAMI_URL=http://127.0.0.1:13301` через отдельный tunnel и
+`UMAMI_API_TOKEN`, взятый из private reader file. Не подключать MCP к administrative API.
+При revoke удалить native key и очистить reader file, затем проверить отказ обоих путей.
+
+## Исполняемая проверка артефактов
+
+```bash
+bash scripts/heavy-check.sh node --test scripts/observability-production.test.mjs
+bash scripts/heavy-check.sh python3 scripts/observability-production/check.py run \
+  --output /absolute/task-owned/fresh-private-directory
+```
+
+Вторая команда требует committed source и использует существующий внешний pilot supervisor,
+storage guard и cleanup. Она создаёт только собственный disposable project и synthetic volumes,
+проверяет actual config, query/auth negatives, запрет anonymous Grafana, stdout sentinel и
+корреляцию, затем отзыв reader key. Host-agent на Mac не запускается. Такой smoke не проверяет
+физическое разделение дисков VPS, native Docker syslog driver или полный resource corpus.
+Публикуются только `production-proof.json`, `evidence.json`, `cleanup.json`, `worker-outcome.json`;
+весь private directory содержит ключи и не является отчётом для публикации.
+
+Обзор Grafana подготовлен в `owner-overview/dashboard.json`: сравнение HTTP API/MCP,
+host/container metrics, queue/dependency/export symptoms. Его production data и визуальная приёмка
+проверяются отдельно. NoData не заменяется нулём. Семь суток production-наблюдений и измерения
+Timeweb этим документом не объявляются выполненными.
