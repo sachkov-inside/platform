@@ -77,6 +77,9 @@
 .items > [aria-current] .label {
   display: block;
 }
+.items > [aria-current]:not(:has(> svg)) {
+  padding-inline: 12px;
+}
 .items > [aria-current] > svg {
   color: var(--accent-bright);
 }
