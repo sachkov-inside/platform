@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import {
   cohortStageSchema,
-  priceSnapshotSchema,
+  ownerPriceCatalogPageSchema,
   type BillingFailureCode,
   type CohortStage,
   type PriceSnapshot,
@@ -24,16 +24,8 @@ export const readOwnerProductPriceInputSchema = z.strictObject({
   operationId,
   productId: z.uuid(),
 });
-export const ownerProductPriceOutcomeSchema = z.object({
-  operationRef: z.uuid(),
-  result: z.object({
-    outcome: z.literal("catalogOffers"),
-    items: z.array(priceSnapshotSchema),
-    /** Продукты страницы с ценой в архиве; прежний backend поля не присылает. */
-    archivedProductIds: z.array(z.uuid()).default([]),
-    nextCursor: z.uuid().nullable(),
-  }),
-});
+/** Ответ `productPrices.list` с `productId`: та же страница, что у каталога цен владельца. */
+export const ownerProductPriceOutcomeSchema = ownerPriceCatalogPageSchema;
 
 /** Публичные состояния продажи всего каталога для колонки продажи в списке продуктов. */
 export const catalogSalesStatesQueryKey = [
@@ -130,11 +122,11 @@ export type SaleStatus =
 export function deriveSaleStatus(input: {
   readonly productArchived: boolean;
   readonly price: OwnerProductPrice | null;
-  readonly priceArchived?: boolean;
+  readonly priceArchived: boolean;
   readonly salesState: ProductSalesState | null;
 }): SaleStatus {
   if (input.productArchived) return "archived";
-  if (input.priceArchived === true) return "priceArchived";
+  if (input.priceArchived) return "priceArchived";
   if (input.price === null) return "unpriced";
   if (!input.price.published) return "closed";
   return input.salesState?.stage ?? "running";
@@ -147,7 +139,7 @@ export function deriveSaleStatus(input: {
 export function ownerPriceOf(
   items: readonly PriceSnapshot[],
   productId: string,
-  archivedProductIds: readonly string[] = [],
+  archivedProductIds: readonly string[],
 ):
   | {
       readonly ok: true;
@@ -189,7 +181,7 @@ export function ownerPricesByProduct(
 export function catalogPriceReads(catalog: {
   readonly items: readonly PriceSnapshot[];
   readonly archivedProductIds: readonly string[];
-}): Required<Pick<CatalogSaleReads, "prices" | "archivedPrices">> {
+}): Pick<CatalogSaleReads, "prices" | "archivedPrices"> {
   return {
     prices: ownerPricesByProduct(catalog.items),
     archivedPrices: new Set(catalog.archivedProductIds),
@@ -211,8 +203,8 @@ function ownerPrice(snapshot: PriceSnapshot): OwnerProductPrice | null {
  */
 export interface CatalogSaleReads {
   readonly prices: ReadonlyMap<string, OwnerProductPrice> | null;
-  /** Продукты с ценой в архиве из того же чтения цен; без поля таких продуктов нет. */
-  readonly archivedPrices?: ReadonlySet<string>;
+  /** Продукты с ценой в архиве из того же чтения цен; `null` вместе с `prices`. */
+  readonly archivedPrices: ReadonlySet<string> | null;
   readonly salesStates: ReadonlyMap<string, ProductSalesState> | null;
 }
 
@@ -230,7 +222,7 @@ export function catalogSaleStatus(
   const salesState = reads.salesStates?.get(productId) ?? null;
   if (reads.prices === null) return salesState?.stage ?? null;
   const price = reads.prices.get(productId) ?? null;
-  const priceArchived = reads.archivedPrices?.has(productId) === true;
+  const priceArchived = reads.archivedPrices?.has(productId) ?? false;
   if (reads.salesStates === null && price?.published === true) return null;
   return deriveSaleStatus({
     productArchived,

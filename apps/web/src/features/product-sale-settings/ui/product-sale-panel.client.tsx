@@ -5,6 +5,7 @@ import { CircleAlert } from "lucide-react";
 import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 
 import {
+  BillingReadError,
   cohortStageSchema,
   ownerPriceCatalogChanged,
   type BillingFailureCode,
@@ -38,10 +39,7 @@ import {
   type SalesStateErrors,
 } from "../model/product-sale";
 import { productSaleChanged } from "../model/product-sale-events";
-import {
-  ProductSaleReadError,
-  useProductSale,
-} from "../model/use-product-sale.client";
+import { useProductSale } from "../model/use-product-sale.client";
 import { SaleConfirmDialog } from "./sale-confirm-dialog.client";
 
 type Failure = BillingFailureCode | "lost";
@@ -153,9 +151,7 @@ export function ProductSalePanel({
   if (sale.data === undefined) {
     if (!sale.isError) return <ProductSaleLoading />;
     const code =
-      sale.error instanceof ProductSaleReadError
-        ? sale.error.code
-        : "unavailable";
+      sale.error instanceof BillingReadError ? sale.error.code : "unavailable";
     return (
       <section className="grid gap-3" role="alert">
         <h2 className="text-xl font-semibold tracking-tight">

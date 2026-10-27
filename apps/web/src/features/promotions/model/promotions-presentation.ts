@@ -39,6 +39,18 @@ export function promotionScope(
   };
 }
 
+/** Область скидки словами: «Все продукты», прежние предложения или названия продуктов. */
+export function scopeText(scope: PromotionScope): string {
+  switch (scope.kind) {
+    case "all":
+      return "Все продукты";
+    case "legacy":
+      return "Прежние предложения";
+    case "products":
+      return scope.names.join(", ");
+  }
+}
+
 /** «1 нояб. 2026 – 30 нояб. 2026»: последний день включительно, по Москве. */
 export function promotionPeriodLabel(
   promotion: Pick<PromotionListItem, "startsAt" | "endsAt">,

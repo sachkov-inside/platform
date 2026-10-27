@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import type { BillingFailureCode } from "@/entities/subscription";
+import { BillingReadError } from "@/entities/subscription";
 
 import { readOwnerProductPriceOperation } from "../api/read-owner-product-price.operation";
 import { readProductSalesStates } from "../api/product-sales-states.browser";
@@ -17,13 +17,6 @@ import {
   type ProductSaleSnapshot,
 } from "./product-sale";
 
-/** Чтение продажи не удалось: код отказа остаётся, чтобы отличить запрет от недоступности. */
-export class ProductSaleReadError extends Error {
-  constructor(readonly code: BillingFailureCode) {
-    super(`Product sale read failed: ${code}`);
-  }
-}
-
 /** Цена владельца и состояние продажи одного продукта: один факт под одним ключом. */
 export async function readProductSale(
   productId: string,
@@ -35,14 +28,14 @@ export async function readProductSale(
     }),
     readProductSalesStates(productId),
   ]);
-  if (!price.ok) throw new ProductSaleReadError(price.code);
+  if (!price.ok) throw new BillingReadError(price.code);
   const own = ownerPriceOf(
     price.value.result.items,
     productId,
     price.value.result.archivedProductIds,
   );
-  if (!own.ok) throw new ProductSaleReadError("unavailable");
-  if (!state.ok) throw new ProductSaleReadError(state.code);
+  if (!own.ok) throw new BillingReadError("unavailable");
+  if (!state.ok) throw new BillingReadError(state.code);
   return {
     price: own.price,
     priceArchived: own.archived,

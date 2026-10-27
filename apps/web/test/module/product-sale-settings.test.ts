@@ -136,21 +136,32 @@ beforeEach(() => {
 
 describe("состояние продажи продукта", () => {
   it.each([
-    [{ productArchived: true, price, salesState }, "archived"],
-    [{ productArchived: false, price: null, salesState }, "unpriced"],
+    [
+      { productArchived: true, price, priceArchived: false, salesState },
+      "archived",
+    ],
+    [
+      { productArchived: false, price: null, priceArchived: false, salesState },
+      "unpriced",
+    ],
     [
       {
         productArchived: false,
         price: { ...price, published: false },
+        priceArchived: false,
         salesState,
       },
       "closed",
     ],
-    [{ productArchived: false, price, salesState }, "preorder"],
+    [
+      { productArchived: false, price, priceArchived: false, salesState },
+      "preorder",
+    ],
     [
       {
         productArchived: false,
         price,
+        priceArchived: false,
         salesState: { ...salesState, stage: "announcement" as const },
       },
       "announcement",
@@ -159,11 +170,15 @@ describe("состояние продажи продукта", () => {
       {
         productArchived: false,
         price,
+        priceArchived: false,
         salesState: { ...salesState, stage: "between" as const },
       },
       "between",
     ],
-    [{ productArchived: false, price, salesState: null }, "running"],
+    [
+      { productArchived: false, price, priceArchived: false, salesState: null },
+      "running",
+    ],
     [
       { productArchived: false, price: null, priceArchived: true, salesState },
       "priceArchived",
@@ -177,22 +192,22 @@ describe("состояние продажи продукта", () => {
   });
 
   it("читает цену владельца своего продукта и отвергает чужой продукт", () => {
-    expect(ownerPriceOf([], productId)).toEqual({
+    expect(ownerPriceOf([], productId, [])).toEqual({
       ok: true,
       price: null,
       archived: false,
     });
-    expect(ownerPriceOf([snapshot(productId, true)], productId)).toEqual({
+    expect(ownerPriceOf([snapshot(productId, true)], productId, [])).toEqual({
       ok: true,
       price,
       archived: false,
     });
-    expect(ownerPriceOf([snapshot(productId)], productId)).toEqual({
+    expect(ownerPriceOf([snapshot(productId)], productId, [])).toEqual({
       ok: true,
       price: { ...price, published: false },
       archived: false,
     });
-    expect(ownerPriceOf([snapshot(otherProductId)], productId)).toEqual({
+    expect(ownerPriceOf([snapshot(otherProductId)], productId, [])).toEqual({
       ok: false,
     });
   });
@@ -561,7 +576,11 @@ describe("продажи каталога в списке продуктов", (
   const states = new Map([[productId, salesState]]);
 
   it("выводит этап по правилу страницы продукта", () => {
-    const reads = { prices, salesStates: states };
+    const reads = {
+      prices,
+      archivedPrices: new Set<string>(),
+      salesStates: states,
+    };
     expect(catalogSaleStatus(productId, false, reads)).toBe("preorder");
     expect(catalogSaleStatus(otherProductId, false, reads)).toBe("closed");
     expect(catalogSaleStatus(thirdProductId, false, reads)).toBe("unpriced");
@@ -576,19 +595,24 @@ describe("продажи каталога в списке продуктов", (
   });
 
   it("без цен владельца показывает публичный этап или неизвестность, но не «закрыто»", () => {
-    const reads = { prices: null, salesStates: states };
+    const reads = { prices: null, archivedPrices: null, salesStates: states };
     expect(catalogSaleStatus(productId, false, reads)).toBe("preorder");
     expect(catalogSaleStatus(otherProductId, false, reads)).toBeNull();
     expect(
       catalogSaleStatus(otherProductId, false, {
         prices: null,
+        archivedPrices: null,
         salesStates: null,
       }),
     ).toBeNull();
   });
 
   it("открытая продажа без прочитанных этапов неизвестна, закрытая остаётся закрытой", () => {
-    const reads = { prices, salesStates: null };
+    const reads = {
+      prices,
+      archivedPrices: new Set<string>(),
+      salesStates: null,
+    };
     expect(catalogSaleStatus(productId, false, reads)).toBeNull();
     expect(catalogSaleStatus(otherProductId, false, reads)).toBe("closed");
     expect(catalogSaleStatus(thirdProductId, false, reads)).toBe("unpriced");

@@ -4,7 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert } from "lucide-react";
 import { useEffect, useId, useState, type SubmitEvent } from "react";
 
-import type { BillingFailureCode } from "@/entities/subscription";
+import {
+  BillingReadError,
+  type BillingFailureCode,
+} from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import { StateBadge } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
@@ -24,12 +27,6 @@ import {
 } from "../model/course-activation-rules";
 
 const rulesQueryKey = ["owner-activation-rules"] as const;
-
-class ActivationRulesReadError extends Error {
-  constructor(readonly code: BillingFailureCode) {
-    super(activationRuleFailureMessage(code));
-  }
-}
 
 const emptyDraft: NewActivationRuleDraft = {
   name: "",
@@ -70,7 +67,7 @@ export function CourseActivationRulesPanel({
       const result = await listCourseActivationRulesOperation.send({
         operationId: crypto.randomUUID(),
       });
-      if (!result.ok) throw new ActivationRulesReadError(result.code);
+      if (!result.ok) throw new BillingReadError(result.code);
       return result.value.result.items;
     },
     // Отказ закрытым кодом не исправится повтором; повтор остаётся кнопкой.
@@ -227,9 +224,11 @@ export function CourseActivationRulesPanel({
       ) : rules.isError ? (
         <div className="grid gap-3" role="alert">
           <p className="text-sm">
-            {rules.error instanceof ActivationRulesReadError
-              ? rules.error.message
-              : activationRuleFailureMessage("unavailable")}
+            {activationRuleFailureMessage(
+              rules.error instanceof BillingReadError
+                ? rules.error.code
+                : "unavailable",
+            )}
           </p>
           <Button
             className="min-h-11 w-fit"

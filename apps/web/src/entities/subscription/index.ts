@@ -159,6 +159,7 @@ export {
 } from "./model/product-access-outcome";
 
 export {
+  ownerPriceCatalogPageSchema,
   productPriceChoices,
   type ProductPriceChoice,
 } from "./model/owner-price-catalog";

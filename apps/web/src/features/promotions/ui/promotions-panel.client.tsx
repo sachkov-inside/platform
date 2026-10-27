@@ -49,6 +49,7 @@ import {
   promotionPeriodLabel,
   promotionScope,
   promotionUsageLabel,
+  scopeText,
   type DiscountsView,
   type PromotionScope,
   type PromotionsFilter,
@@ -59,7 +60,6 @@ import {
 } from "./promotion-form-dialog.client";
 import {
   PromotionDetailsDialog,
-  scopeText,
   type PromotionDetails,
 } from "./promotion-details-dialog.client";
 import { QuestionnaireArchive } from "./questionnaire-archive.client";

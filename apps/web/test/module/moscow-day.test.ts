@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  DAY_MS,
-  HOUR_MS,
   addMoscowDays,
   moscowDayOf,
   moscowDayStart,
@@ -10,11 +8,6 @@ import {
 } from "@/shared/lib/moscow-day";
 
 describe("московские сутки", () => {
-  it("называет длительности словами, а не числами на месте вызова", () => {
-    expect(HOUR_MS).toBe(3_600_000);
-    expect(DAY_MS).toBe(86_400_000);
-  });
-
   it("относит момент к московскому дню, а не к дню UTC", () => {
     expect(moscowDayOf(new Date("2026-10-30T20:59:59.999Z"))).toBe(
       "2026-10-30",

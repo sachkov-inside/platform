@@ -46,7 +46,9 @@ export function useCatalogSale():
   return {
     kind: "ready",
     reads: {
-      ...(prices.isSuccess ? catalogPriceReads(prices.data) : { prices: null }),
+      ...(prices.isSuccess
+        ? catalogPriceReads(prices.data)
+        : { prices: null, archivedPrices: null }),
       salesStates: salesStates.data ?? null,
     },
   };

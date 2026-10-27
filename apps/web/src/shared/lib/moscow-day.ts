@@ -4,10 +4,10 @@
  * длятся 24 часа. Подписи дат для экрана живут в `moscow-format`.
  */
 
-export const HOUR_MS = 3_600_000;
-export const DAY_MS = 24 * HOUR_MS;
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
 /** Смещение Москвы от UTC в записи ISO. */
-export const MOSCOW_UTC_OFFSET = "+03:00";
+const MOSCOW_UTC_OFFSET = "+03:00";
 const MOSCOW_UTC_OFFSET_MS = 3 * HOUR_MS;
 
 /** Календарный день по Москве, в который приходится момент. */

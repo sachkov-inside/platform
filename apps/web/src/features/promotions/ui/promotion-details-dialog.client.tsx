@@ -9,6 +9,7 @@ import {
   promotionPeriodLabel,
   promotionReadOnlyReason,
   promotionUsageLabel,
+  scopeText,
   type PromotionScope,
 } from "../model/promotions-presentation";
 
@@ -87,16 +88,4 @@ function Fact({
       </dd>
     </div>
   );
-}
-
-/** Область скидки словами: «Все продукты», прежние предложения или названия продуктов. */
-export function scopeText(scope: PromotionScope): string {
-  switch (scope.kind) {
-    case "all":
-      return "Все продукты";
-    case "legacy":
-      return "Прежние предложения";
-    case "products":
-      return scope.names.join(", ");
-  }
 }
