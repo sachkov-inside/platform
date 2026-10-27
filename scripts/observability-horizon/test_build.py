@@ -14,8 +14,9 @@ import horizon_build
 
 
 class GuardAcquisition(unittest.TestCase):
+    # SOURCE fixtures must stay relative to ROOT; each private parent is owned for this lifetime.
     def test_static_artifact_has_exact_sources_architecture_and_private_executable_binding(self):
-        with tempfile.TemporaryDirectory(dir=horizon_build.ROOT/'.reports') as root:
+        with tempfile.TemporaryDirectory(prefix='inside-horizon-fixture-',dir=horizon_build.ROOT) as root:
             output=Path(root);horizon_build.prepare(output);calls=[]
             def run(args,**kwargs):
                 calls.append((args,kwargs))
@@ -36,7 +37,7 @@ class GuardAcquisition(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'horizon_binary_changed'):horizon_build.verify(output)
 
     def test_changed_source_or_binary_cannot_reuse_the_prepared_manifest(self):
-        with tempfile.TemporaryDirectory(dir=horizon_build.ROOT/'.reports') as root:
+        with tempfile.TemporaryDirectory(prefix='inside-horizon-fixture-',dir=horizon_build.ROOT) as root:
             output=Path(root);horizon_build.prepare(output)
             source=output/'horizon/source.json';value=json.loads(source.read_text());value['inputs']['foreign']='changed';source.write_text(json.dumps(value))
             with self.assertRaisesRegex(ValueError,'horizon_source_changed'):
@@ -51,7 +52,7 @@ class GuardAcquisition(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'horizon_sdk_path'):horizon_build.unpack_sdk(blob.getvalue(),Path(root))
 
     def test_sdk_failure_after_partial_extraction_cleans_private_files_and_preserves_primary_error(self):
-        with tempfile.TemporaryDirectory(dir=horizon_build.ROOT/'.reports') as root:
+        with tempfile.TemporaryDirectory(prefix='inside-horizon-fixture-',dir=horizon_build.ROOT) as root:
             output=Path(root);source=output/'source';source.mkdir()
             for name in ('go.mod','go.sum','metricsql-security.patch','metricsql-security.lock.json'):
                 (source/name).write_bytes((horizon_build.SOURCE/name).read_bytes())
@@ -72,7 +73,7 @@ class GuardAcquisition(unittest.TestCase):
 
     def test_module_command_failure_cleans_caches_and_emits_no_reusable_artifact(self):
         for stage in ('download','verify','build'):
-            with self.subTest(stage=stage),tempfile.TemporaryDirectory(dir=horizon_build.ROOT/'.reports') as root:
+            with self.subTest(stage=stage),tempfile.TemporaryDirectory(prefix='inside-horizon-fixture-',dir=horizon_build.ROOT) as root:
                 output=Path(root);horizon_build.prepare(output)
                 primary=RuntimeError('controlled_build_failure')
                 def run(args,**kwargs):
@@ -86,7 +87,7 @@ class GuardAcquisition(unittest.TestCase):
                 self.assertFalse(any((output/'horizon'/name).exists() for name in ('sdk','guard','binary.json','cache','mod','tmp','home')))
 
     def test_changed_official_parser_is_refused_before_module_copy_or_replacement(self):
-        with tempfile.TemporaryDirectory(dir=horizon_build.ROOT/'.reports') as root:
+        with tempfile.TemporaryDirectory(prefix='inside-horizon-fixture-',dir=horizon_build.ROOT) as root:
             directory=Path(root)
             upstream=directory/'mod/github.com/!victoria!metrics/metricsql@v0.87.5/parser.go'
             upstream.parent.mkdir(parents=True);upstream.write_text('package metricsql\n')
