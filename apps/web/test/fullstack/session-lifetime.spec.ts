@@ -50,7 +50,7 @@ test("browser owner mutation keeps the renewed Secure session on loopback", asyn
     "/api/authoring/collections",
     "POST",
     {
-      kind: "series",
+      kind: "product",
       name: "Synthetic refreshed owner",
       slug: `refresh-proof-${crypto.randomUUID()}`,
       summary: "Session refresh regression",
@@ -68,7 +68,7 @@ test("browser owner mutation keeps the renewed Secure session on loopback", asyn
     "/api/authoring/collections/archive",
     "PUT",
     {
-      kind: "series",
+      kind: "product",
       collectionId: value.collection.id,
       expectedVersion: value.collection.version,
       archived: true,

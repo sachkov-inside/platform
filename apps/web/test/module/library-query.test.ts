@@ -20,14 +20,14 @@ import {
 } from "../../src/features/library-catalog/model/library-search-query";
 
 const readyCatalog = {
-  facets: { formats: [], series: [], topics: [] },
+  facets: { formats: [], products: [], topics: [] },
   kind: "ready",
   items: [
     {
       access: "free",
       availability: "available",
       format: "Гайд",
-      seriesMemberships: [],
+      productMemberships: [],
       slug: "inside-platform-overview",
       summary: "Один реальный published Material.",
       tags: ["Architecture"],
@@ -104,7 +104,7 @@ describe("Library TanStack Query interface", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
-          facets: { formats: [], series: [], topics: [] },
+          facets: { formats: [], products: [], topics: [] },
           items: [],
           nextCursor: null,
           totalCount: 0,
@@ -134,7 +134,7 @@ describe("Library TanStack Query interface", () => {
       format: ["video", "INVALID", "video"],
       ignored: "value",
       q: "  карьерный   маршрут  ",
-      series: ["career-path", ""],
+      product: ["career-path", ""],
       sort: "unknown",
       topic: ["platform", "career", "platform"],
     });
@@ -277,7 +277,7 @@ describe("Library TanStack Query interface", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
-          facets: { formats: [], series: [], topics: [] },
+          facets: { formats: [], products: [], topics: [] },
           items: [],
           nextCursor: null,
           totalCount: 0,
@@ -350,7 +350,7 @@ describe("Library TanStack Query interface", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
-          facets: { formats: [], series: [], topics: [] },
+          facets: { formats: [], products: [], topics: [] },
           items: [],
           nextCursor: null,
           totalCount: 0,
@@ -370,7 +370,7 @@ describe("Library TanStack Query interface", () => {
     );
     await expect(response.json()).resolves.toEqual({
       kind: "ready",
-      facets: { formats: [], series: [], topics: [] },
+      facets: { formats: [], products: [], topics: [] },
       items: [],
       nextCursor: null,
       totalCount: 0,
@@ -386,13 +386,13 @@ describe("Library TanStack Query interface", () => {
     expect(backendRequest.cache).toBe("no-store");
   });
 
-  it("forwards the canonical material Topic filter without changing the Series contract", async () => {
+  it("forwards the canonical material Topic filter without changing the Product contract", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
-          facets: { formats: [], series: [], topics: [] },
+          facets: { formats: [], products: [], topics: [] },
           items: [],
           nextCursor: null,
           totalCount: 0,
@@ -471,7 +471,7 @@ describe("Library TanStack Query interface", () => {
       );
       return Promise.resolve(
         Response.json({
-          facets: { formats: [], series: [], topics: [] },
+          facets: { formats: [], products: [], topics: [] },
           items: [],
           nextCursor: null,
           totalCount: 0,

@@ -1,3 +1,9 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { createLearningStartedRead } from "../../src/modules/reading-activity/shared/learning-started.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
@@ -10,11 +16,11 @@ import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
 } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedProductComposition } from "../../src/modules/products/index.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
@@ -127,9 +133,15 @@ async function prepare() {
     videos,
     contentAccess,
   });
-  const selectionOwner = new PublishedMaterialSelection(observer.prisma);
+  const selectionOwner = new PublishedMaterialSelection({
+    prisma: observer.prisma,
+    products: new ProductDiscovery(observer.prisma),
+  });
   const selectionRead = vi.fn(selectionOwner.read.bind(selectionOwner));
-  const compositionOwner = new PublishedSeriesComposition(observer.prisma);
+  const compositionOwner = new PublishedProductComposition(
+    observer.prisma,
+    assembleProductMaterialReading(observer.prisma),
+  );
   const compositionRead = vi.fn(compositionOwner.read.bind(compositionOwner));
   const discoveryRead = vi.fn(
     materials.publishedMaterialReader.discoverProjections.bind(
@@ -200,7 +212,7 @@ async function prepare() {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [id(802, index)],
+      productIds: [id(802, index)],
     };
     const body = representativeDocument("Current learning route");
     const draft = await materials.authoring.createDraft({
@@ -228,6 +240,26 @@ async function prepare() {
       publicationState: "published",
     });
     if (!saved.ok) throw new Error(saved.error.code);
+    const order = await materials.authoring.loadProductOrder({
+      actor,
+      productId: id(802, index),
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await materials.authoring.reorderProduct({
+      actor,
+      productId: id(802, index),
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [saved.value.materialId],
+      programmePlacements: [
+        {
+          id: id(807, index),
+          materialId: saved.value.materialId,
+          chapterId: null,
+          stepGroup: null,
+        },
+      ],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     items.push({
       materialId: saved.value.materialId,
       contentVersion: saved.value.contentVersion,
@@ -239,25 +271,8 @@ async function prepare() {
   });
   for (const { caseIndex, configuration } of cases) {
     const account = id(800, caseIndex + 2);
-    await database.prisma.accessGrant.create({
-      data: {
-        id: id(806, caseIndex + 1),
-        accountId: account,
-        source: "manual",
-        sourceRef: `home-cost-${String(caseIndex)}`,
-        capabilities: ["materials"],
-        coverage: {
-          productIds: Array.from({ length: 12 }, (_, index) =>
-            id(802, index + 1),
-          ),
-          materialIds: [],
-        },
-        startsAt: new Date(now.getTime() - 60_000),
-        validUntil: null,
-        revision: 1,
-        reason: "Measured Home access",
-      },
-    });
+    for (let product = 1; product <= 12; product++)
+      await grantProductFixture(database.prisma, account, id(802, product));
     await database.prisma.readingMaterialVisit.createMany({
       data: items.slice(0, configuration.visits).map((item, index) => ({
         accountId: account,
@@ -350,7 +365,7 @@ for (const [caseIndex, configuration] of configurations.entries()) {
       configuration.next > 0 && configuration.next <= 10
         ? id(802, configuration.next)
         : undefined;
-    expect(measured.result.value.series?.collection.id).toBe(selected);
+    expect(measured.result.value.product?.collection.id).toBe(selected);
     expect(fixture.counters.discoveryRead).toHaveBeenCalledTimes(
       configuration.examined,
     );
@@ -375,13 +390,13 @@ for (const [caseIndex, configuration] of configurations.entries()) {
         },
         resume: { kind: "position", positionSeconds: 60 },
       });
-      expect(measured.result.value.series?.continuation?.resume).toEqual({
+      expect(measured.result.value.product?.continuation?.resume).toEqual({
         kind: "position",
         positionSeconds: 60,
       });
     }
     process.stdout.write(
-      `${JSON.stringify({ record: "BC-3", fixture: configuration.name, candidateVisits: configuration.visits, examinedSeries: configuration.examined, physicalSql: measured.statements.length, startedSql: measured.statements.filter((sql) => sql.includes("product_learning_started")).length, ownerCalls: Object.fromEntries(Object.entries(fixture.counters).map(([name, counter]) => [name, counter.mock.calls.length])), availabilityBatchSizes: fixture.counters.availabilityRead.mock.calls.map(([input]) => input.operations.length), resourceBatchSizes: fixture.counters.materialFactsRead.mock.calls.map(([ids]) => ids.length), progressBatchSizes: fixture.counters.progressRead.mock.calls.map(([input]) => input.videoIds.length), durationBatchSizes: fixture.counters.durationRead.mock.calls.map(([ids]) => ids.length), providerRequests: 0, wireHttpRequests: 0 })}\n`,
+      `${JSON.stringify({ record: "BC-3", fixture: configuration.name, candidateVisits: configuration.visits, examinedProduct: configuration.examined, physicalSql: measured.statements.length, startedSql: measured.statements.filter((sql) => sql.includes("product_learning_started")).length, ownerCalls: Object.fromEntries(Object.entries(fixture.counters).map(([name, counter]) => [name, counter.mock.calls.length])), availabilityBatchSizes: fixture.counters.availabilityRead.mock.calls.map(([input]) => input.operations.length), resourceBatchSizes: fixture.counters.materialFactsRead.mock.calls.map(([ids]) => ids.length), progressBatchSizes: fixture.counters.progressRead.mock.calls.map(([input]) => input.videoIds.length), durationBatchSizes: fixture.counters.durationRead.mock.calls.map(([ids]) => ids.length), providerRequests: 0, wireHttpRequests: 0 })}\n`,
     );
     expect(
       measured.statements.filter((sql) =>
@@ -395,9 +410,9 @@ test("standalone reads remain fresh, started status is Account scoped and is not
   const account = id(800, 102);
   expect(await fixture.home.getLearning(account)).toMatchObject({
     ok: true,
-    value: { series: { started: false } },
+    value: { product: { started: false } },
   });
-  const before = await fixture.home.getSeries(account, "home-cost-1");
+  const before = await fixture.home.getProduct(account, "home-cost-1");
   expect(before).toMatchObject({ ok: true, value: { started: false } });
   const item = fixture.items[0];
   if (item === undefined) throw new Error("Missing material");
@@ -408,49 +423,45 @@ test("standalone reads remain fresh, started status is Account scoped and is not
     commandId: id(807, 1),
   });
   expect(opened.ok).toBe(true);
-  expect(await fixture.home.getSeries(account, "home-cost-1")).toMatchObject({
+  expect(await fixture.home.getProduct(account, "home-cost-1")).toMatchObject({
     ok: true,
     value: { started: true },
   });
   expect(await fixture.home.getLearning(account)).toMatchObject({
     ok: true,
-    value: { series: { started: true } },
+    value: { product: { started: true } },
   });
   expect(await fixture.home.getLearning(id(800, 103))).toMatchObject({
     ok: true,
-    value: { series: { started: false } },
+    value: { product: { started: false } },
   });
   expect(await fixture.home.getLearning(id(800, 104))).toMatchObject({
     ok: true,
-    value: { series: { started: true } },
+    value: { product: { started: true } },
   });
 });
-test("later series retain fresh authorization after a locked grant revocation", async () => {
+test("later product retain fresh authorization after a locked grant revocation", async () => {
   const account = id(800, 105);
   fixture.reset();
   const original = fixture.reader.discoverProjections.bind(fixture.reader);
   fixture.counters.discoveryRead.mockImplementation(async (input) => {
     if (fixture.counters.discoveryRead.mock.calls.length === 2) {
-      expect(
-        await fixture.writers.changeGrant(actor, {
-          operationId: id(807, 2),
-          action: "revoke",
-          grantRef: id(806, 104),
-          expectedRevision: 1,
-          reason: "Controlled revoke between series",
-        }),
-      ).toMatchObject({ ok: true, revision: 2 });
+      for (let product = 1; product <= 12; product++)
+        await revokeProductFixture(
+          database.prisma,
+          `${account}:${id(802, product)}`,
+        );
     }
     return original(input);
   });
   try {
     const result = await fixture.home.getLearning(account);
-    expect(result).toMatchObject({ ok: true, value: { series: null } });
+    expect(result).toMatchObject({ ok: true, value: { product: null } });
     expect(fixture.counters.discoveryRead).toHaveBeenCalledTimes(10);
     expect(fixture.counters.rightsMany.mock.calls.length).toBeGreaterThan(2);
     expect(await fixture.home.getLearning(account)).toEqual({
       ok: true,
-      value: { video: null, series: null },
+      value: { video: null, product: null },
     });
   } finally {
     fixture.counters.discoveryRead.mockImplementation(original);
@@ -479,7 +490,7 @@ test("bounded started facts normalize UUID aliases and fall back for another Acc
       account,
       Array.from({ length: 11 }, (_, i) => id(802, i + 1)),
     ),
-  ).toThrow("series bound");
+  ).toThrow("product bound");
 });
 test("a failed started read remains unavailable and the next Home operation retries fresh", async () => {
   const injection = vi
@@ -492,7 +503,7 @@ test("a failed started read remains unavailable and the next Home operation retr
     });
     expect(await fixture.home.getLearning(id(800, 104))).toMatchObject({
       ok: true,
-      value: { series: { started: true } },
+      value: { product: { started: true } },
     });
   } finally {
     injection.mockRestore();

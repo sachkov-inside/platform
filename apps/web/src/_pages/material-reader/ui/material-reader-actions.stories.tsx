@@ -149,10 +149,10 @@ const meta = {
       difficulty: "basic",
       outcomes: [],
       publishedAt: at,
-      seriesMemberships: [
+      productMemberships: [
         {
           ordinal: 2,
-          series: {
+          product: {
             id: "72000000-0000-4000-8000-000000000005",
             slug: "ai-engineering",
             name: "AI Engineering",
@@ -177,10 +177,10 @@ const meta = {
     })),
     primaryVideo: null,
     returnTarget: parseMaterialReaderReturnTarget(programme),
-    seriesContext: {
+    productContext: {
       currentPosition: 2,
       totalMaterials: 3,
-      series: {
+      product: {
         name: "AI Engineering",
         href: programme,
         hasModeVariants: false,
@@ -298,7 +298,7 @@ export const SyncedActionsMobile: Story = {
 export const CourseStudyActions: Story = {
   ...SyncedActions,
   args: {
-    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+    productContext: { ...meta.args.productContext, programme: courseGuide },
     readingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
@@ -527,7 +527,7 @@ export const InitialReadFailureKeepsHeaderPlaceMobile: Story = {
 
 export const SharedFailureAndRetry: Story = {
   args: {
-    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+    productContext: { ...meta.args.productContext, programme: courseGuide },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -599,7 +599,7 @@ export const SharedFailureAndRetry: Story = {
 
 export const SharedConflictAndDenial: Story = {
   args: {
-    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+    productContext: { ...meta.args.productContext, programme: courseGuide },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -706,7 +706,7 @@ function ReaderWithRecheckedAccess(
 
 export const AccessRestoredAfterDenial: Story = {
   args: {
-    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+    productContext: { ...meta.args.productContext, programme: courseGuide },
   },
   render: (args) => <ReaderWithRecheckedAccess {...args} />,
   play: async ({ canvasElement }) => {
@@ -826,7 +826,7 @@ export const ToolbarKeepsHeaderPlaceMobile: Story = {
 };
 
 export const StandaloneActionsMobile: Story = {
-  args: { seriesContext: null },
+  args: { productContext: null },
   globals: { viewport: { value: "mobile320", isRotated: false } },
   play: async ({ canvasElement }) => {
     const toolbar = within(canvasElement).getByRole("navigation", {
@@ -882,7 +882,7 @@ export const DesktopActionPanels: Story = {
 export const GroupedReaderActions: Story = {
   parameters: { holdReadingSave: false },
   args: {
-    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+    productContext: { ...meta.args.productContext, programme: courseGuide },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

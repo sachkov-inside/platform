@@ -35,8 +35,23 @@ import {
 
 const materialTables = [
   "authoring_idempotency",
-  "content_cover_renditions",
-  "content_covers",
+  "material_related_pins",
+  "material_search_documents",
+  "material_tags",
+  "materials",
+  "notification_outbox",
+  "historical_practice_definitions",
+  "historical_source_records",
+  "practice_import_receipts",
+  "publication_announcement_revisions",
+  "publication_announcements",
+  "published_material_tags",
+  "published_materials",
+  "tags",
+  "topics",
+] as const;
+const productTables = [
+  "home_product_pin",
   "product_artifact_material_links",
   "product_artifact_placements",
   "product_artifact_versions",
@@ -45,23 +60,13 @@ const materialTables = [
   "product_chapter_supplementary_materials",
   "product_programme_placements",
   "product_material_removals",
-  "home_series_pin",
-  "material_related_pins",
-  "material_search_documents",
-  "material_tags",
-  "materials",
-  "notification_outbox",
-  "practice_definitions",
-  "practice_import_receipts",
-  "publication_announcement_revisions",
-  "publication_announcements",
-  "published_material_series_memberships",
-  "published_material_tags",
-  "published_materials",
-  "series",
-  "series_memberships",
-  "tags",
-  "topics",
+  "published_material_product_memberships",
+  "products",
+  "product_memberships",
+] as const;
+const contentCoverTables = [
+  "content_cover_renditions",
+  "content_covers",
 ] as const;
 
 const accountTables = [
@@ -84,9 +89,14 @@ const accountRightsTables = [
   "activation_rules",
   "coverage_baseline",
   "current_projections",
+  "course_rule_migration_inventory",
   "evidence_receipts",
   "invitations",
   "legacy_classifications",
+  "product_access",
+  "product_access_actions",
+  "product_access_migration_inventory",
+  "product_access_sources",
   "product_access_exclusions",
   "source_entitlements",
   "tariff_assignments",
@@ -95,7 +105,7 @@ const accountRightsTables = [
   "tribute_policies",
 ] as const;
 
-const memberProfileTables = [
+const accountProfileTables = [
   "audit_events",
   "avatar_renditions",
   "avatars",
@@ -110,7 +120,7 @@ const telegramMembershipTables = [
   "community_operations",
   "community_projection_cursor",
   "community_projection_retries",
-  "product_communities",
+  "historical_product_community_records",
   "link_transactions",
 ] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
@@ -150,7 +160,7 @@ const migratedTagRowsSchema = z.array(z.object({ tag_id: z.uuid() }).strict());
 const migratedSearchRowsSchema = z.array(
   z.object({ content_version: z.bigint(), plain_text: z.string() }).strict(),
 );
-const migratedSeriesRowsSchema = z.array(
+const migratedProductRowsSchema = z.array(
   z.object({ material_id: z.uuid(), ordinal: z.number().int() }).strict(),
 );
 
@@ -169,10 +179,12 @@ describe("Platform migrations", () => {
     await upgradeToLatest(testDatabase);
 
     await expectTables(testDatabase, "materials", materialTables);
+    await expectTables(testDatabase, "products", productTables);
+    await expectTables(testDatabase, "content_covers", contentCoverTables);
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
     await expectTables(testDatabase, "account_rights", accountRightsTables);
-    await expectTables(testDatabase, "member_profiles", memberProfileTables);
+    await expectTables(testDatabase, "account_profiles", accountProfileTables);
     await expectTables(
       testDatabase,
       "telegram_membership",
@@ -198,6 +210,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
+      "legacy_practice_migrations",
       "review_progress",
       "submissions",
       "task_versions",
@@ -233,6 +246,8 @@ describe("Platform migrations", () => {
           'product_tasks',
           'sales_funnel',
           'materials',
+          'products',
+          'content_covers',
           'account_rights',
           'telegram_membership',
           'workshop'
@@ -263,7 +278,7 @@ describe("Platform migrations", () => {
     >(Prisma.sql`
       select table_schema, table_name, column_name
       from information_schema.columns
-      where (table_schema = 'materials' and column_name = 'cover_id')
+      where (table_schema in ('materials', 'products', 'content_covers') and column_name = 'cover_id')
          or (table_schema = 'videos' and table_name = 'videos' and column_name = 'duration_seconds')
       order by table_schema, table_name
     `);
@@ -271,7 +286,7 @@ describe("Platform migrations", () => {
       {
         column_name: "cover_id",
         table_name: "content_cover_renditions",
-        table_schema: "materials",
+        table_schema: "content_covers",
       },
       {
         column_name: "cover_id",
@@ -285,13 +300,13 @@ describe("Platform migrations", () => {
       },
       {
         column_name: "cover_id",
-        table_name: "series",
+        table_name: "topics",
         table_schema: "materials",
       },
       {
         column_name: "cover_id",
-        table_name: "topics",
-        table_schema: "materials",
+        table_name: "products",
+        table_schema: "products",
       },
       {
         column_name: "duration_seconds",
@@ -818,14 +833,14 @@ describe("Platform migrations", () => {
       expect(tags).toEqual([
         { tag_id: "40000000-0000-4000-8000-000000000001" },
       ]);
-      const seriesMemberships = migratedSeriesRowsSchema.parse(
+      const productMemberships = migratedProductRowsSchema.parse(
         await database.prisma.$queryRaw(Prisma.sql`
           select material_id, ordinal
-          from materials.series_memberships
+          from products.product_programme_placements
           order by material_id
         `),
       );
-      expect(seriesMemberships).toEqual([
+      expect(productMemberships).toEqual([
         {
           material_id: "60000000-0000-4000-8000-000000000001",
           ordinal: 1,
@@ -833,6 +848,21 @@ describe("Platform migrations", () => {
         {
           material_id: "60000000-0000-4000-8000-000000000002",
           ordinal: 2,
+        },
+      ]);
+      await expect(
+        database.prisma.productMembership.findMany({
+          orderBy: { materialId: "asc" },
+          select: { materialId: true, productId: true },
+        }),
+      ).resolves.toEqual([
+        {
+          materialId: "60000000-0000-4000-8000-000000000001",
+          productId: "50000000-0000-4000-8000-000000000001",
+        },
+        {
+          materialId: "60000000-0000-4000-8000-000000000002",
+          productId: "50000000-0000-4000-8000-000000000001",
         },
       ]);
       const search = migratedSearchRowsSchema.parse(
@@ -932,7 +962,9 @@ async function expectTables(
     | "assets"
     | "identity_principals"
     | "materials"
-    | "member_profiles"
+    | "products"
+    | "content_covers"
+    | "account_profiles"
     | "account_rights"
     | "telegram_membership"
     | "videos"

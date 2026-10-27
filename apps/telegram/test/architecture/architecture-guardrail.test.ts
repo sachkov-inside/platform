@@ -41,7 +41,7 @@ describe("architecture guardrail", () => {
     ],
     [
       "pure-dialog-imports-io",
-      "modules/communications/author-funnels.ts: pure author dialog imports database/drafts.ts",
+      "modules/communications/author-sequences.ts: pure author dialog imports database/drafts.ts",
     ],
     [
       "pure-dialog-imports-io",
@@ -76,9 +76,9 @@ function runGuardrail(root?: string) {
 }
 
 const currentTableOwners = {
-  activation_announcement_deliveries: "subscription-activation",
-  activation_attempts: "subscription-activation",
-  activation_review_requests: "subscription-activation",
+  activation_announcement_deliveries: "course-activation",
+  activation_attempts: "course-activation",
+  activation_review_requests: "course-activation",
   bot_contact_events: "bot-contacts",
   bot_contacts: "bot-contacts",
   communication_author_compositions: "communications",
@@ -91,9 +91,9 @@ const currentTableOwners = {
   communication_broadcasts: "communications",
   communication_contacts: "communications",
   communication_deliveries: "communications",
-  communication_enrollments: "communications",
+  communication_participations: "communications",
   communication_entries: "communications",
-  communication_funnels: "communications",
+  communication_sequences: "communications",
   communication_intake_receipts: "communications",
   communication_intro: "communications",
   communication_operations: "communications",
@@ -115,7 +115,7 @@ const currentTableOwners = {
   community_restriction_decisions: "community",
   identity_link_events: "identity-linking",
   identity_link_recoveries: "identity-linking",
-  invitation_redemptions: "subscription-activation",
+  invitation_redemptions: "course-activation",
   link_transactions: "identity-linking",
   membership_check_results: "membership-evidence",
   membership_checks: "membership-evidence",
@@ -175,9 +175,9 @@ const formerLegacyAccess: readonly (readonly [
   // Read private-chat reachability when selecting communication recipients.
   ["modules/communications/communication-statistics.ts", ["bot_contacts"]],
   // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/funnel-preview.ts", ["bot_contacts"]],
+  ["modules/communications/sequence-preview.ts", ["bot_contacts"]],
   // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/funnel-scheduler.ts", ["bot_contacts"]],
+  ["modules/communications/sequence-scheduler.ts", ["bot_contacts"]],
   // Persist a confirmed transport block under the communication contact lock.
   ["modules/communications/delivery-contactability.ts", ["bot_contacts"]],
   // Read private-chat reachability before a community welcome delivery.
@@ -213,7 +213,7 @@ const formerLegacyAccess: readonly (readonly [
   ],
   // Legacy schema declaration; identity-linking owns identity reservation.
   [
-    "modules/subscription-activation/activation-storage.ts",
+    "modules/course-activation/activation-storage.ts",
     ["telegram_identity_reservations"],
   ],
   // Operator readiness counts; no product writes.
@@ -267,8 +267,8 @@ it.each([
   "modules/bot-sign-in/sign-in-account-link.ts",
   "modules/communications/broadcasts.ts",
   "modules/communications/communication-statistics.ts",
-  "modules/communications/funnel-preview.ts",
-  "modules/communications/funnel-scheduler.ts",
+  "modules/communications/sequence-preview.ts",
+  "modules/communications/sequence-scheduler.ts",
   "modules/communications/delivery-contactability.ts",
   "modules/community/community-provider.ts",
   "modules/identity-linking/identity-link-recovery.ts",
@@ -278,7 +278,7 @@ it.each([
   "modules/notifications/notification-storage.ts",
   "modules/outbound/start-response-delivery-queue.ts",
   "modules/sales-funnel/sales-funnel-events.ts",
-  "modules/subscription-activation/activation-storage.ts",
+  "modules/course-activation/activation-storage.ts",
   "operations/check-readiness.ts",
   "operations/credentialed-proof.ts",
   "operations/group-report-candidates.ts",
@@ -287,9 +287,9 @@ it.each([
     "test/architecture/fixtures/legacy-access-forbidden/src",
   );
   expect(result.stdout.split("\n")).toContain(
-    file.startsWith("modules/subscription-activation/")
+    file.startsWith("modules/course-activation/")
       ? `${file}: bot_contact_events is owned by modules/bot-contacts`
-      : `${file}: invitation_redemptions is owned by modules/subscription-activation`,
+      : `${file}: invitation_redemptions is owned by modules/course-activation`,
   );
   expect(result.status).toBe(1);
 });

@@ -1,23 +1,8 @@
-import { applyDecorators, UseFilters, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiResponse, ApiTags } from "@nestjs/swagger";
-
-import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
+import { applyDecorators } from "@nestjs/common";
+import { ApiResponse } from "@nestjs/swagger";
 import { problemDetailsContent } from "../../../../infrastructure/http/zod-openapi.js";
-import {
-  AccountGuard,
-  AccountProblemDetailsFilter,
-} from "../../../accounts/index.js";
 import { materialAuthoringProblemSchema } from "./material-authoring-http.js";
-
-export function MaterialAuthoringEndpoint(): ClassDecorator {
-  return applyDecorators(
-    ApiTags("Material authoring"),
-    ApiBearerAuth("logto"),
-    PrivateNoStore(),
-    UseGuards(AccountGuard),
-    UseFilters(AccountProblemDetailsFilter),
-  );
-}
+export { AuthoringEndpoint as MaterialAuthoringEndpoint } from "../../../accounts/index.js";
 
 export function ApiMaterialAuthoringErrors(...statuses: readonly number[]) {
   return applyDecorators(

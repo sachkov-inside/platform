@@ -20,8 +20,8 @@ import { getMaterialAuthoringReferences } from "@/features/material-authoring-re
 import { authoringVideoSchema } from "@/features/material-video/model/video";
 import { contentCoverSchema } from "@/entities/material.model";
 
-const seriesMembershipSchema = z
-  .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
+const productMembershipSchema = z
+  .object({ ordinal: z.number().int().positive(), productId: z.uuid() })
   .strict();
 const currentMaterialSchema = z
   .object({
@@ -30,7 +30,7 @@ const currentMaterialSchema = z
         id: z.string(),
         path: z.string(),
         revision: z.hash("sha256"),
-        showInFeed: z.boolean(),
+        version: z.literal(2),
       })
       .strict()
       .optional(),
@@ -51,7 +51,7 @@ const currentMaterialSchema = z
         difficulty: materialDifficultySchema.nullable(),
         formatId: materialFormatSchema.nullable(),
         outcomes: z.array(z.string()),
-        seriesMemberships: z.array(seriesMembershipSchema),
+        productMemberships: z.array(productMembershipSchema),
         slug: z.string().nullable(),
         summary: z.string().nullable(),
         tagIds: z.array(z.uuid()),
@@ -176,8 +176,8 @@ export async function getCurrentMaterial(
       primaryVideo: parsed.data.primaryVideo,
       primaryVideoId: parsed.data.primaryVideoId,
       readOnly: parsed.data.source !== undefined,
-      seriesIds: parsed.data.metadata.seriesMemberships.map(
-        ({ seriesId }) => seriesId,
+      productIds: parsed.data.metadata.productMemberships.map(
+        ({ productId }) => productId,
       ),
       status: parsed.data.publicationState,
       notifyTelegram: parsed.data.notifyTelegram ?? false,

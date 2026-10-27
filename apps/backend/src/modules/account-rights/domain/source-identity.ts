@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 export function sourceIdentityRef(
-  origin: "course" | "tribute",
+  origin: "course",
   policy: string,
   identity: string,
 ) {

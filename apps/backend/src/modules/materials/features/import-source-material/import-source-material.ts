@@ -81,7 +81,7 @@ export function assembleReserveSourceMaterial(
           topicId: null,
           formatId: null,
           tagIds: [],
-          seriesIds: [],
+          productIds: [],
         },
         body: {
           schemaVersion: 1,
@@ -110,25 +110,6 @@ export function assembleApplySourceMaterial(
     const parsed = parseCommand(applyCommand, input);
     if (!parsed.ok) return parsed;
     const { source, videoChapters, ...command } = parsed.value;
-    if (
-      command.publicationState === "published" &&
-      source.showInFeed &&
-      command.metadata.seriesIds.length === 0 &&
-      command.metadata.access !== "free"
-    ) {
-      return {
-        ok: false,
-        error: {
-          code: "invalid_reference",
-          issues: [
-            {
-              code: "standalone_feed_material_must_be_free",
-              path: "/metadata/access",
-            },
-          ],
-        },
-      };
-    }
     return assembleSaveMaterial(
       dependencies,
       source,
@@ -162,8 +143,8 @@ export function assembleValidateSourceContent(
     if (!body.ok) return body;
     if (command.publicationState === "published") {
       const metadata = selection.value.materialize(
-        command.metadata.seriesIds.map((seriesId, index) => ({
-          seriesId,
+        command.metadata.productIds.map((productId, index) => ({
+          productId,
           ordinal: index + 1,
         })),
         "import-preview",
@@ -195,7 +176,7 @@ export function assembleTransitionSourcePublication(
     });
     if (!current.ok) return current;
     const {
-      seriesMemberships,
+      productMemberships,
       slug: _slug,
       ...metadata
     } = current.value.metadata;
@@ -213,7 +194,7 @@ export function assembleTransitionSourcePublication(
       primaryVideoId: current.value.primaryVideoId,
       metadata: {
         ...metadata,
-        seriesIds: seriesMemberships.map(({ seriesId }) => seriesId),
+        productIds: productMemberships.map(({ productId }) => productId),
       },
       body: current.value.body,
     });

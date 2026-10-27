@@ -23,6 +23,7 @@ import {
 } from "@/features/product-waitlist";
 const Context = createContext<{
   state: WaitlistState;
+  productSlug: string;
   begin: () => void;
   withdraw: () => void;
   finishLink: () => Promise<void>;
@@ -34,9 +35,11 @@ type Retry = "join" | "withdraw" | null;
 /** Owns one mutation lifecycle for both course slots; the feature owns the Account-scoped fact. */
 export function WaitlistProvider({
   productId,
+  productSlug,
   children,
 }: {
   readonly productId: string;
+  readonly productSlug: string;
   readonly children: ReactNode;
 }) {
   const client = useQueryClient();
@@ -111,7 +114,7 @@ export function WaitlistProvider({
       const source =
         new URL(window.location.href).searchParams.get("utm_source") ??
         new URL(window.location.href).searchParams.get("source");
-      const result = await beginWaitlistIntent(productId, source);
+      const result = await beginWaitlistIntent(productId, source, productSlug);
       if (result.kind === "sign-in") {
         const form = document.createElement("form");
         form.method = "POST";
@@ -183,6 +186,7 @@ export function WaitlistProvider({
     <Context
       value={{
         state,
+        productSlug,
         begin: () => {
           if (retry === "withdraw") withdraw.mutate();
           else if (retry === "join") continuation.mutate();
@@ -228,6 +232,7 @@ export function ProductWaitlistSlot({
   return (
     <WaitlistAction
       lower={lower}
+      productSlug={context.productSlug}
       state={context.state}
       onBegin={context.begin}
       onWithdraw={context.withdraw}

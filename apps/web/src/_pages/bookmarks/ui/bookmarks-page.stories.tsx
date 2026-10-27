@@ -50,7 +50,7 @@ function material(
     ...(durationSeconds === undefined
       ? {}
       : { primaryVideoDurationSeconds: durationSeconds }),
-    seriesMemberships: [],
+    productMemberships: [],
     slug,
     summary:
       "Практический разбор: от понятных границ к работающему приложению.",

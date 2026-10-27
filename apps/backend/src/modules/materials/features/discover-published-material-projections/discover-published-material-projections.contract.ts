@@ -1,13 +1,13 @@
 import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
-import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type {
   ProductIntroductionDto,
   ProductLandingPageDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 import type { Result } from "../../result.js";
 
-export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";
+export type PublishedMaterialDiscoveryKind = "related" | "product" | "topic";
 
 export interface DiscoverPublishedMaterialProjectionsQuery {
   readonly subject?: Subject;
@@ -51,7 +51,7 @@ export interface PublishedMaterialDiscoveryPageDto {
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
   };
-  readonly relatedSeries: readonly {
+  readonly relatedProduct: readonly {
     readonly id: string;
     readonly matchingMaterialCount: number;
     readonly name: string;

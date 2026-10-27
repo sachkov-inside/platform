@@ -2,8 +2,8 @@ import { connection } from "next/server";
 
 import {
   handleAccountProfileRequest,
-  handleCreateMemberProfileRequest,
-  handleUpdateMemberProfileRequest,
+  handleCreateAccountProfileRequest,
+  handleUpdateAccountProfileRequest,
 } from "@/_pages/account.server";
 
 export async function GET(): Promise<Response> {
@@ -12,9 +12,9 @@ export async function GET(): Promise<Response> {
 }
 
 export function POST(request: Request): Promise<Response> {
-  return handleCreateMemberProfileRequest(request);
+  return handleCreateAccountProfileRequest(request);
 }
 
 export function PUT(request: Request): Promise<Response> {
-  return handleUpdateMemberProfileRequest(request);
+  return handleUpdateAccountProfileRequest(request);
 }

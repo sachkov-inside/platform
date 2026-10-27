@@ -28,7 +28,7 @@ describe("Published catalog item projection", () => {
             materialId: material.materialId,
             title,
           },
-          facets: { formats: [], series: [], topics: [] },
+          facets: { formats: [], products: [], topics: [] },
           hasNext: true,
           items: [material],
           totalCount: 2,
@@ -252,10 +252,10 @@ function projection(ordinal: number): PublishedMaterialProjectionDto {
     materialId: `72000000-0000-4000-8000-${suffix}`,
     primaryVideoId: null,
     publishedAt: "2026-09-02T00:00:00.000Z",
-    seriesMemberships: [
+    productMemberships: [
       {
         ordinal,
-        series: {
+        product: {
           id: "73000000-0000-4000-8000-000000000001",
           name: "Полный плейлист",
           slug: "complete-playlist",

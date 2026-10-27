@@ -3,7 +3,7 @@ import type { Route } from "next";
 import { internalRoute } from "./internal-route";
 import { homeTopicHref, readCanonicalLibraryRouteHref } from "./library-route";
 
-export type MaterialReaderReturnKind = "home" | "profile" | "series" | "topic";
+export type MaterialReaderReturnKind = "home" | "profile" | "product" | "topic";
 
 export interface MaterialReaderReturnTarget {
   readonly href: Route;
@@ -15,7 +15,7 @@ export interface MaterialReaderReturnTarget {
     | "Назад к продукту"
     | "Назад к программе"
     | "Назад к теме";
-  readonly seriesSlug?: string;
+  readonly productSlug?: string;
 }
 
 const applicationOrigin = "https://inside.local";
@@ -29,7 +29,7 @@ export const homeMaterialReaderReturnTarget: MaterialReaderReturnTarget =
   });
 
 export function materialReaderOriginHref(
-  kind: "series" | "topic",
+  kind: "product" | "topic",
   slug: string,
 ): Route {
   assertSlug(slug);
@@ -60,7 +60,7 @@ export function materialReaderHref(
 }
 
 export function collectionDiscoveryHref(
-  kind: "series" | "topic",
+  kind: "product" | "topic",
   slug: string,
   returnHref?: Route,
 ): Route {
@@ -146,7 +146,7 @@ function readReturnTarget(
         (from === undefined ||
           readReturnTarget(from, depth + 1) === undefined)) ||
       (url.searchParams.has("page") &&
-        (page === undefined || String(readSeriesPage(page)) !== page)) ||
+        (page === undefined || String(readProductPage(page)) !== page)) ||
       (url.searchParams.has("at") &&
         (at === undefined || !slugPattern.test(at))) ||
       (url.searchParams.has("atPlacement") &&
@@ -163,14 +163,14 @@ function readReturnTarget(
   if (toProduct) {
     return {
       href,
-      kind: "series",
+      kind: "product",
       label:
         match[3] === undefined
           ? "Назад к продукту"
           : url.searchParams.get("part") === "materials"
             ? "Назад к материалам"
             : "Назад к программе",
-      seriesSlug: slug,
+      productSlug: slug,
     };
   }
   return { ...homeMaterialReaderReturnTarget, href: homeTopicHref(slug) };
@@ -194,8 +194,8 @@ function assertSlug(slug: string): void {
   }
 }
 
-/** Canonical positive page; malformed values fall back to the start of a Series. */
-export function readSeriesPage(value: string | null): number {
+/** Canonical positive page; malformed values fall back to the start of a Product. */
+export function readProductPage(value: string | null): number {
   const page = Number(value);
   return Number.isSafeInteger(page) && page > 0 && page <= 10_000 ? page : 1;
 }
@@ -216,7 +216,7 @@ export function catalogReaderReturnHref(
   return internalRoute(`${url.pathname}${url.search}`);
 }
 
-export function seriesReaderReturnHref(
+export function productReaderReturnHref(
   href: Route,
   page: number,
   materialSlug?: string,

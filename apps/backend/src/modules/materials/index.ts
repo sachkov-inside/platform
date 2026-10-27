@@ -37,23 +37,11 @@ export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export {
-  assembleContentCovers,
-  type ContentCoverOwner,
-  type ContentCoverProjection,
-} from "./facets/content-covers/content-covers.js";
-export { assembleMaterials, type Materials } from "./assemble-materials.js";
-export {
   contentCoverProjectionHttpSchema,
   publishedMaterialProblemHttpSchema,
   publishedMaterialProjectionHttpSchema,
 } from "./adapters/nest/published-material-http.js";
-export { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
-export { type ProductArtifacts } from "./facets/product-artifacts/product-artifacts.js";
-export {
-  assembleProductArtifactDelivery,
-  type ProductArtifactDelivery,
-} from "./features/deliver-product-artifact/deliver-product-artifact.js";
-export { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
+
 export {
   MATERIAL_ASSET_MAINTENANCE,
   type MaterialAssetMaintenance,
@@ -61,19 +49,9 @@ export {
 
 export { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 
-export {
-  PublishedSeriesComposition,
-  type PublishedSeriesCompositionResult,
-} from "./features/read-published-series-composition/read-published-series-composition.js";
-
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-export { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
-export {
-  ProductDirectory,
-  type DirectoryProduct,
-} from "./features/read-product-directory/read-product-directory.js";
 
 export { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
@@ -85,3 +63,24 @@ export {
 export { hydrateMaterialAssets } from "./domain/material-body/hydrate-material-assets.js";
 
 export { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";
+
+export { PRODUCT_ACCESS_HOLDERS } from "./ports/product-access-holders.js";
+export { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js";
+
+export { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
+export { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
+
+export { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
+export { assembleProductMaterials } from "./adapters/products/product-materials.js";
+
+export { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
+export { assembleMaterialContent } from "./facets/material-content/material-content.js";
+export { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
+
+export type { AuthorPolicy } from "./ports/author-policy.js";
+export type { ProductAccessHolders } from "./ports/product-access-holders.js";
+
+export { assembleProductMaterialReading } from "./infrastructure/postgres/product-material-reading.js";
+export { MATERIAL_PUBLICATION } from "./facets/material-content/material-content.js";
+
+export { CoverageCatalog } from "./facets/coverage-catalog/coverage-catalog.js";

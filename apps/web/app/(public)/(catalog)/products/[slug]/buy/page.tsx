@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ProductPurchasePage } from "@/_pages/product-purchase.server";
 import { promoCodeFromQuery } from "@/features/billing-checkout";
 import { redirectUntilTermsAccepted } from "@/features/terms-acceptance.server";
-import { loadPublishedSeries } from "@/features/library-discovery.server";
+import { loadPublishedProduct } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import {
   subscriptionOfferParam,
@@ -26,7 +26,7 @@ export async function generateMetadata({
   params,
 }: ProductPurchaseRouteProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await loadPublishedSeries(
+  const result = await loadPublishedProduct(
     slug,
     await getOptionalPlatformAccessToken(),
   );

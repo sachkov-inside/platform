@@ -27,7 +27,7 @@ export function CatalogControls({
 }: {
   readonly facets: {
     readonly formats: readonly LibraryCatalogFacet[];
-    readonly series: readonly LibraryCatalogFacet[];
+    readonly products: readonly LibraryCatalogFacet[];
     readonly topics: readonly LibraryCatalogFacet[];
   };
   readonly isRefreshing: boolean;

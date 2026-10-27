@@ -49,7 +49,7 @@ export interface MaterialDraftPresentation {
   readonly primaryVideoId: string | null;
   readonly contentVersion: number | null;
   readonly readOnly: boolean;
-  readonly seriesIds: readonly string[];
+  readonly productIds: readonly string[];
   readonly status: "draft" | "new" | "published" | "unpublished";
   readonly summary: string;
   readonly tagIds: readonly string[];
@@ -162,7 +162,7 @@ export interface MaterialAuthoringPresentation {
    * Страница редактора задаёт её по адресу возврата; без неё возврат ведёт к списку материалов.
    */
   readonly backLabel?: string;
-  readonly availableSeries: readonly MaterialSelectOption[];
+  readonly availableProduct: readonly MaterialSelectOption[];
   readonly availableTags: readonly MaterialSelectOption[];
   readonly availableTopics: readonly MaterialSelectOption[];
   readonly authorization:
@@ -218,6 +218,6 @@ export interface MaterialAuthoringActions {
   readonly onSave: (
     publicationState: "draft" | "published" | "unpublished",
   ) => void;
-  readonly onSeriesToggle: (seriesId: string, checked: boolean) => void;
+  readonly onProductToggle: (productId: string, checked: boolean) => void;
   readonly onTagToggle: (tagId: string, checked: boolean) => void;
 }

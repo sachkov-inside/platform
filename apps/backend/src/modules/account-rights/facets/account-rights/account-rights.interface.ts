@@ -1,62 +1,10 @@
 import type { AccountId } from "../../../accounts/index.js";
-import type {
-  MembershipAccessPrisma,
-  MembershipPrincipalBindingPrisma,
-} from "../../infrastructure/prisma.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 
 export type MembershipAccessState =
   | Readonly<{ kind: "active"; validUntil: string | null }>
   | Readonly<{
       kind: "required" | "expired" | "stale" | "unavailable";
-    }>;
-
-export type MembershipEvidenceSource =
-  "link_time" | "member_status_event" | "reconciliation";
-
-export interface AcceptMembershipEvidenceCommand {
-  /** Trusted human Account selected before the provider adapter crosses this seam. */
-  readonly accountId: AccountId;
-  /** Stable provider delivery key; checked before durable receipt creation. */
-  readonly deliveryId: string;
-  readonly source: MembershipEvidenceSource;
-  readonly evidence: unknown;
-}
-
-export type MembershipEvidenceFailureCode =
-  | "unsupported_contract"
-  | "invalid_evidence"
-  | "principal_mismatch"
-  | "expired_evidence"
-  | "replayed_evidence"
-  | "unavailable";
-
-export type MembershipEvidenceAcceptance =
-  | Readonly<{
-      ok: true;
-      outcome: "applied";
-      state: "active" | "non_member";
-      evidenceVersion: number;
-    }>
-  | Readonly<{
-      ok: true;
-      outcome: "accepted_without_entitlement";
-      decision: "identity_not_linked" | "identity_conflict" | "unavailable";
-    }>
-  | Readonly<{
-      ok: true;
-      outcome: "duplicate";
-      evidenceVersion: number;
-    }>
-  | Readonly<{
-      ok: false;
-      error: { readonly code: MembershipEvidenceFailureCode };
-    }>;
-
-export type MembershipPrincipalBinding =
-  | Readonly<{ ok: true; outcome: "bound" | "idempotent" }>
-  | Readonly<{
-      ok: false;
-      error: { readonly code: "conflict" | "invalid_input" | "unavailable" };
     }>;
 
 export interface AccountRights {
@@ -65,7 +13,7 @@ export interface AccountRights {
     accountIds: readonly AccountId[],
     productIds?: readonly string[],
     materialId?: string,
-    transaction?: MembershipAccessPrisma,
+    transaction?: TransactionHandle,
   ): Promise<ReadonlyMap<string, MembershipAccessState>>;
   resolveManyForAccess?(
     accountId: AccountId,
@@ -82,26 +30,11 @@ export interface AccountRights {
   /**
    * Membership of the whole Account in the caller's transaction, which already holds
    * `lockAccountEntitlementChanges` for it, so the facts that open access cannot change under the
-   * reads. The caller's transaction type lists `MembershipAccessPrisma` to hand itself over, and no
+   * reads. The caller's transaction type lists `TransactionHandle` to hand itself over, and no
    * second pooled connection is taken.
    */
   resolveForAccessUnderEntitlementLock(
-    transaction: MembershipAccessPrisma,
+    transaction: TransactionHandle,
     accountId: AccountId,
   ): Promise<MembershipAccessState>;
-  /** The optional caller transaction keeps its receipt and the Membership binding atomic. */
-  bindPrincipal(
-    command: {
-      readonly accountId: AccountId;
-      readonly principalRef: string;
-    },
-    transaction?: MembershipPrincipalBindingPrisma,
-  ): Promise<MembershipPrincipalBinding>;
-  /**
-   * Applies normalized evidence monotonically. Only link-time observed evidence may establish a
-   * missing Account binding; events and reconciliation wait for it, and mismatches fail closed.
-   */
-  acceptEvidence(
-    command: AcceptMembershipEvidenceCommand,
-  ): Promise<MembershipEvidenceAcceptance>;
 }

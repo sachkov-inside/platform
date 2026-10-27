@@ -23,7 +23,7 @@ import type {
 import { AiFirstProcessArtwork } from "@/features/ai-first-product";
 import {
   formatMaterialCount,
-  type PublishedSeriesResult,
+  type PublishedProductResult,
 } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -44,7 +44,7 @@ export function AiFirstProductView({
   page,
   returnTarget,
 }: {
-  readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
+  readonly result: Extract<PublishedProductResult, { kind: "ready" | "empty" }>;
   readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
 }) {

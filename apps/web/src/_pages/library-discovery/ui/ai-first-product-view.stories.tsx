@@ -17,14 +17,14 @@ const meta = {
   component: ProductLandingView,
   title: "Pages/Product/AI-first",
   args: {
-    // Сроки предложения практикума: описание подставляет их вместо `{access_term}` и `{support_term}`.
+    // A historical offer still keeps its support term outside page copy.
     offerTerms: { materialsMonths: 24, chatMonths: 24, supportMonths: 6 },
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -70,9 +70,9 @@ export const DefaultTemplateShowsTheSameDescription: Story = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -87,7 +87,12 @@ export const DefaultTemplateShowsTheSameDescription: Story = {
     await expect(
       canvas.getByRole("heading", { level: 2, name: "Кому это нужно" }),
     ).toBeVisible();
-    await expect(canvas.getByText("Поддержка 6 месяцев")).toBeVisible();
+    await expect(
+      canvas.getByText("Поддержка по условиям оферты"),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText(/Поддержка 6 месяцев/u),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -96,9 +101,9 @@ export const DefaultTemplateShowsEveryField: Story = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -128,9 +133,9 @@ export const EveryBlockFieldIsShown: Story = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI-first разработка",
@@ -162,7 +167,7 @@ const freeLesson = {
   access: "free" as const,
   availability: "available" as const,
   format: "Гайд",
-  seriesMemberships: [
+  productMemberships: [
     { name: "AI-first разработка", ordinal: 1, slug: "working-with-agents" },
   ],
   slug: "first-lesson",
@@ -181,9 +186,9 @@ export const FreeEntryOpensWholeProgramme: Story = {
   args: {
     result: {
       kind: "ready",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: [],
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       items: [freeLesson],
       hasNext: false,

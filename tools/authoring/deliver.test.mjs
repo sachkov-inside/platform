@@ -107,7 +107,7 @@ async function fixture(t) {
       id: "synthetic:one",
       path: "one.md",
       revision: "b".repeat(64),
-      showInFeed: false,
+      version: 2,
       commit: /** @type {string | null} */ (null),
     },
   };
@@ -123,7 +123,7 @@ async function fixture(t) {
       return {
         mode: "production",
         contract: {
-          version: 1,
+          version: 2,
           packageFeatures: [...supportedPackageFeatures],
         },
       };
@@ -142,7 +142,7 @@ async function fixture(t) {
               path: model.source.path,
               revision: model.source.revision,
               commit: model.source.commit,
-              showInFeed: model.source.showInFeed,
+              version: 2,
             },
             memberships: [],
           },
@@ -157,7 +157,7 @@ async function fixture(t) {
               path: "two.md",
               revision: "c".repeat(64),
               commit: null,
-              showInFeed: true,
+              version: 2,
             },
             memberships: [],
           },
@@ -177,7 +177,7 @@ async function fixture(t) {
         metadata: {
           slug: "one-slug",
           access: model.access,
-          seriesMemberships: [],
+          productMemberships: [],
         },
         source: structuredClone(model.source),
       };
@@ -193,7 +193,7 @@ async function fixture(t) {
         id: command.source.id,
         path: command.source.path,
         revision: command.source.revision,
-        showInFeed: command.source.showInFeed,
+        version: 2,
         commit: z(command.source["commit"]),
       };
       const receipt = { materialId, contentVersion: model.contentVersion };
@@ -350,7 +350,7 @@ test("production content-only delivery: reconcile, preview, apply, verification 
   assert.equal(reviewed.exitCode, 0, JSON.stringify(reviewed.document));
   const document = reviewed.document;
   assert.equal(at(document, "receiver", "environment"), "production");
-  assert.equal(at(document, "receiver", "contract", "version"), 1);
+  assert.equal(at(document, "receiver", "contract", "version"), 2);
   assert.equal(at(document, "hasChanges"), true);
   assert.equal(at(document, "rows", "length"), 1);
   assert.deepEqual(
@@ -633,4 +633,59 @@ test("a lost apply answer is completed once by repeating apply, then a new previ
   const after = await f.run("preview", ...args);
   assert.equal(after.exitCode, 0, JSON.stringify(after.document));
   assert.equal(at(after.document, "hasChanges"), false);
+});
+
+test("the delivery command reconciles, previews and applies a v3 package through current Source v2", async (t) => {
+  const f = await fixture(t);
+  f.manifest.schemaVersion = 3;
+  f.manifest.requiredFeatures?.push("canonical-product-source-v2");
+  for (const row of f.manifest.materials) delete row.showInFeed;
+  const original = canonical(f.manifest);
+  await writeFile(f.packagePath, original);
+  const adopted = await f.run(
+    "reconcile",
+    "--target",
+    "production",
+    "--state",
+    f.state,
+    "--namespace",
+    "synthetic",
+    "--adopt",
+    "one",
+  );
+  assert.equal(adopted.exitCode, 0, JSON.stringify(adopted.document));
+  const preview = await f.run(
+    "preview",
+    "--target",
+    "production",
+    "--package",
+    f.packagePath,
+    "--commit",
+    f.commits.newer,
+    "--content-repository",
+    f.repository,
+    "--state",
+    f.state,
+    "--material",
+    "one",
+  );
+  assert.equal(preview.exitCode, 0, JSON.stringify(preview.document));
+  assert.equal(at(preview.document, "receiver", "contract", "version"), 2);
+  const applied = await f.run(
+    "apply",
+    "--receipt",
+    String(at(preview.document, "receipt")),
+    "--state",
+    f.state,
+  );
+  assert.equal(applied.exitCode, 0, JSON.stringify(applied.document));
+  assert.equal(at(applied.document, "verification", "unchanged"), true);
+  const writes = f.requests.filter(
+    (row) => row.path === "/authoring/import/materials/apply",
+  );
+  assert.equal(writes.length, 1);
+  assert.equal(at(writes[0]?.body, "source", "version"), 2);
+  assert.deepEqual(at(writes[0]?.body, "metadata", "productIds"), []);
+  assert.doesNotMatch(JSON.stringify(writes[0]?.body), /showInFeed|seriesIds/u);
+  assert.equal(await readFile(f.packagePath, "utf8"), original);
 });

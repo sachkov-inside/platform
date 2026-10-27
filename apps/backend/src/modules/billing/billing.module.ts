@@ -1,44 +1,43 @@
-import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
-import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
-import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
-import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
-import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
+import { ListProductSalesStatesController } from "./features/list-product-sales-states/list-product-sales-states.controller.js";
+import { ReadOwnBillingController } from "./features/read-own-billing/read-own-billing.controller.js";
+import { Module } from "@nestjs/common";
 import {
   configuredTelegramBotStartUrl,
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../../config/platform-config.js";
-import { BillingContact } from "../accounts/index.js";
-import {
-  ACCESS_GRANTS,
-  COVERAGE_CATALOG,
-  type CoverageCatalog,
-  TributeSources,
-  AccountRightsModule,
-  type AccessGrants,
-} from "../account-rights/index.js";
-import { BillingPayments } from "./facets/billing-payments/billing-payments.js";
-import { Tbank } from "./infrastructure/tbank/tbank.js";
-import { bankRequest } from "./infrastructure/tbank/bank-request.js";
-import { PurchaseSubscriptionController } from "./features/purchase-subscription/purchase-subscription.controller.js";
-import { BillingSubscriptions } from "./facets/billing-subscriptions/billing-subscriptions.js";
-import { ManageSubscriptionController } from "./features/manage-subscription/manage-subscription.controller.js";
-import { ChangePaymentMethodController } from "./features/change-payment-method/change-payment-method.controller.js";
-import { AcceptTbankNotificationController } from "./features/accept-notification/accept-notification.controller.js";
-import { Module } from "@nestjs/common";
 import {
   PrismaClientProvider,
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
-import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
-import { BillingNotices } from "./facets/billing-notices/billing-notices.js";
-import { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
-import { saleCapability } from "./domain/sale-capability.js";
+import {
+  ACCESS_GRANTS,
+  AccountRightsModule,
+  COVERAGE_CATALOG,
+  type AccessGrants,
+  type CoverageCatalog,
+} from "../account-rights/index.js";
+import {
+  ACCOUNTS,
+  AccountsModule,
+  BillingContact,
+  type Accounts,
+} from "../accounts/index.js";
 import { ManageBillingController } from "./adapters/nest/manage-billing.controller.js";
+import { saleCapability } from "./domain/sale-capability.js";
+import { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 import { BillingOperations } from "./facets/billing-operations/billing-operations.js";
-import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
+import { BillingPayments } from "./facets/billing-payments/billing-payments.js";
+import { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
+import { AcceptTbankNotificationController } from "./features/accept-notification/accept-notification.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
-import { ListProductCohortsController } from "./features/list-product-cohorts/list-product-cohorts.controller.js";
+import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
+import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
+import { PurchaseProductController } from "./features/purchase-product/purchase-product.controller.js";
+import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
+import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
+import { bankRequest } from "./infrastructure/tbank/bank-request.js";
+import { Tbank } from "./infrastructure/tbank/tbank.js";
 
 // Один банковский adapter на модуль: у привязки один владелец. Права выдаёт общий провайдер
 // модуля прав, поэтому у оплаты нет собственной копии facet.
@@ -47,15 +46,13 @@ const BILLING_BANK = Symbol("BillingBank");
 @Module({
   imports: [PrismaModule, AccountsModule, AccountRightsModule],
   controllers: [
-    ReceiveTributeController,
-    PurchaseSubscriptionController,
-    ManageSubscriptionController,
-    ChangePaymentMethodController,
+    ReadOwnBillingController,
+    PurchaseProductController,
     AcceptTbankNotificationController,
     ManageBillingController,
     QuotePurchaseController,
     ListOffersController,
-    ListProductCohortsController,
+    ListProductSalesStatesController,
     PaymentLinksController,
   ],
   providers: [
@@ -70,12 +67,6 @@ const BILLING_BANK = Symbol("BillingBank");
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider) =>
         new BillingSurveyRespondentSales(prisma),
-    },
-    {
-      provide: TributeConvergence,
-      inject: [PrismaClientProvider, TributeSources],
-      useFactory: (prisma: PrismaClientProvider, sources: TributeSources) =>
-        new TributeConvergence(prisma, sources),
     },
     {
       provide: BILLING_BANK,
@@ -105,36 +96,9 @@ const BILLING_BANK = Symbol("BillingBank");
     },
     {
       provide: BillingNotices,
-      inject: [PrismaClientProvider, ACCESS_GRANTS],
-      useFactory: (prisma: PrismaClientProvider, grants: AccessGrants) =>
-        new BillingNotices({ prisma, enrollments: grants }),
-    },
-    {
-      provide: BillingSubscriptions,
-      inject: [
-        PrismaClientProvider,
-        BillingContact,
-        ACCESS_GRANTS,
-        BILLING_BANK,
-        BillingPayments,
-        BillingNotices,
-      ],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        contact: BillingContact,
-        grants: AccessGrants,
-        bank: Tbank | undefined,
-        payments: BillingPayments,
-        notices: BillingNotices,
-      ) =>
-        new BillingSubscriptions({
-          prisma,
-          contact,
-          grants,
-          bank,
-          payments,
-          notices,
-        }),
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new BillingNotices({ prisma }),
     },
     {
       provide: BillingPricing,
@@ -142,24 +106,24 @@ const BILLING_BANK = Symbol("BillingBank");
         PrismaClientProvider,
         ACCOUNTS,
         PLATFORM_CONFIG,
-        ACCESS_GRANTS,
         COVERAGE_CATALOG,
+        BillingContact,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         config: PlatformConfig,
-        grants: AccessGrants,
         contentCatalog: CoverageCatalog,
+        contact: BillingContact,
       ) =>
         new BillingPricing({
           contentCatalog,
           prisma,
           accounts,
-          grants,
           sale: saleCapability(
             config.tbank,
-            config.billingContact !== undefined,
+            config.billingContact !== undefined &&
+              contact.hasApprovedProductTerms(),
           ),
         }),
     },
@@ -170,10 +134,8 @@ const BILLING_BANK = Symbol("BillingBank");
         ACCOUNTS,
         BillingPricing,
         BillingPayments,
-        BillingSubscriptions,
         ACCESS_GRANTS,
         BILLING_BANK,
-        TributeConvergence,
         PLATFORM_CONFIG,
       ],
       useFactory: (
@@ -181,10 +143,8 @@ const BILLING_BANK = Symbol("BillingBank");
         accounts: Accounts,
         pricing: BillingPricing,
         payments: BillingPayments,
-        subscriptions: BillingSubscriptions,
         grants: AccessGrants,
         bank: Tbank | undefined,
-        tribute: TributeConvergence,
         config: PlatformConfig,
       ) =>
         new BillingOperations({
@@ -192,10 +152,8 @@ const BILLING_BANK = Symbol("BillingBank");
           accounts,
           pricing,
           payments,
-          subscriptions,
           grants,
           bank,
-          tribute,
           botStartUrl: configuredTelegramBotStartUrl(config),
         }),
     },
@@ -203,9 +161,7 @@ const BILLING_BANK = Symbol("BillingBank");
   exports: [
     BillingProductSales,
     BillingSurveyRespondentSales,
-    TributeConvergence,
     BillingPayments,
-    BillingSubscriptions,
     BillingOperations,
     BillingNotices,
     BillingPricing,

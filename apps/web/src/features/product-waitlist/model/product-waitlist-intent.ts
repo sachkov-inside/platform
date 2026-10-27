@@ -8,6 +8,10 @@ const intentSchema = z.strictObject({
   phase: z.enum(["pending", "signing-in", "ready"]),
   operationId: z.uuid(),
   productId: z.uuid(),
+  productSlug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
+    .max(120),
   intakeId: z.uuid(),
   accountId: z.uuid().nullable(),
   source: z
@@ -29,7 +33,7 @@ function signature(payload: string, key: string): Buffer {
 export function signWaitlistIntent(
   input: Pick<
     WaitlistIntent,
-    "productId" | "intakeId" | "accountId" | "source"
+    "productId" | "productSlug" | "intakeId" | "accountId" | "source"
   >,
   key: string,
   now: Date,

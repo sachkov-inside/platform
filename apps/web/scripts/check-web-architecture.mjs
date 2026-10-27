@@ -60,7 +60,7 @@ const editorFreeRouteEntries = [
   "app/(public)/(catalog)/materials/[slug]/page.tsx",
   "app/authoring/materials/page.tsx",
   "app/authoring/playlists/page.tsx",
-  "app/authoring/playlists/[seriesId]/page.tsx",
+  "app/authoring/playlists/[productId]/page.tsx",
 ];
 const runtimeConfigurationNames = new Set([
   "BACKEND_BASE_URL",

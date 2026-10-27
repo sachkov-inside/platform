@@ -1,7 +1,7 @@
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 export function throwPersonalHomeError(
   code:
-    | "series_not_found"
+    | "product_not_found"
     | "invalid_request"
     | "command_conflict"
     | "access_changed"
@@ -9,7 +9,7 @@ export function throwPersonalHomeError(
     | "dependency_unavailable",
 ): never {
   const status =
-    code === "series_not_found"
+    code === "product_not_found"
       ? 404
       : code === "invalid_request"
         ? 400

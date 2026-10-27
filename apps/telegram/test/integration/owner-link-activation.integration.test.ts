@@ -19,23 +19,23 @@ import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { DATABASE, type Database } from "../../src/database/database.js";
 import { CLOCK } from "../../src/shared/clock.js";
-import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
+import { SourceGroupProof } from "../../src/modules/course-activation/source-group-proof.js";
 import {
   ACTIVATION_PLATFORM,
   type ActivationPlatform,
-} from "../../src/modules/subscription-activation/activation-ports.js";
+} from "../../src/modules/course-activation/activation-ports.js";
 import {
   ACTIVATION_VERSION,
   type ActivationBinding,
   type ActivationEvidence,
   type ActivationResponse,
   type ActivationResult,
-} from "../../src/modules/subscription-activation/activation-contract.js";
-import { ActivationReviews } from "../../src/modules/subscription-activation/activation-reviews.js";
-import { announceActivation } from "../../src/modules/subscription-activation/activation-announcement.js";
-import { OWNER_REVIEW } from "../../src/modules/subscription-activation/activation-view.js";
+} from "../../src/modules/course-activation/activation-contract.js";
+import { ActivationReviews } from "../../src/modules/course-activation/activation-reviews.js";
+import { announceActivation } from "../../src/modules/course-activation/activation-announcement.js";
+import { OWNER_REVIEW } from "../../src/modules/course-activation/activation-view.js";
 import { reserveTelegramIdentity } from "../../src/modules/identity-linking/stable-telegram-identity.js";
-import { SubscriptionActivation } from "../../src/modules/subscription-activation/subscription-activation.js";
+import { CourseActivation } from "../../src/modules/course-activation/course-activation.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { required } from "../support/required.js";
@@ -109,7 +109,6 @@ const memberLookups: string[] = [];
 const grants = new Map<string, number>();
 const attemptResults = new Map<string, ActivationResult<ActivationResponse>>();
 const platform: ActivationPlatform = {
-  redeem: () => Promise.resolve(undefined),
   binding(identityRef) {
     const binding = bindings.get(identityRef);
     return Promise.resolve({
@@ -208,7 +207,7 @@ const platform: ActivationPlatform = {
 };
 let app: NestFastifyApplication;
 let db: Database;
-let worker: SubscriptionActivation;
+let worker: CourseActivation;
 let reviews: ActivationReviews;
 let updateId = 820000;
 let nextUser = 820000;
@@ -249,7 +248,7 @@ beforeAll(async () => {
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   db = app.get(DATABASE);
-  worker = app.get(SubscriptionActivation);
+  worker = app.get(CourseActivation);
   reviews = new ActivationReviews(db, clock);
 });
 beforeEach(() => {

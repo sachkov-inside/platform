@@ -1,7 +1,7 @@
-/** Server-only public interface for Topic, Series and related Material discovery. */
-export { getPublishedSeries } from "./library-discovery/api/get-published-series";
+/** Server-only public interface for Topic, Product and related Material discovery. */
+export { getPublishedProduct } from "./library-discovery/api/get-published-product";
 export { getPublishedTopic } from "./library-discovery/api/get-published-topic";
 export { getRelatedMaterials } from "./library-discovery/api/get-related-materials";
-export { loadPublishedSeries } from "./library-discovery/api/load-published-series";
+export { loadPublishedProduct } from "./library-discovery/api/load-published-product";
 export { loadPublishedTopic } from "./library-discovery/api/load-published-topic";
-export { readPublicSeries } from "./library-discovery/api/public-discovery.public-cache.server";
+export { readPublicProduct } from "./library-discovery/api/public-discovery.public-cache.server";

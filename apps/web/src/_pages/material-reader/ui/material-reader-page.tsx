@@ -18,11 +18,6 @@ import {
   readInlineArtifactReference,
 } from "@/features/product-artifacts.reader";
 import {
-  LearningPracticeDisclosure,
-  LearningPracticePrompts,
-} from "./learning-practice-prompts";
-import { loadLearningPractices } from "../api/load-learning-practices.server";
-import {
   SavedReadingAction,
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
@@ -36,14 +31,14 @@ import {
   type PurchaseProductResult,
 } from "../api/resolve-purchase-product.server";
 import { resolveReaderReturnTarget } from "../model/reader-return-target";
-import { readReaderSeries } from "../api/read-reader-series.server";
-import { readPublicSeries } from "@/features/library-discovery.server";
+import { readReaderProduct } from "../api/read-reader-product.server";
+import { readPublicProduct } from "@/features/library-discovery.server";
 import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
   loadReaderProductMode,
   readerHasSeenProductModeHint,
 } from "@/features/product-modes.reader.server";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
 import {
@@ -63,9 +58,9 @@ import type {
   PublicMaterialResult,
 } from "../model/material-reader-view";
 import {
-  resolveSeriesReaderContext,
-  type SeriesReaderContext,
-} from "../model/series-reader-context";
+  resolveProductReaderContext,
+  type ProductReaderContext,
+} from "../model/product-reader-context";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -88,9 +83,9 @@ type ResolvedMaterial = Extract<
 /**
  * Общая часть урока (ADR 0027). Адрес читается здесь, под скелетом маршрута; метаданные и состав
  * продукта приходят из гостевого кеша, поэтому шапка, возврат и соседи по продукту появляются
- * сразу. Личная часть — тело закрытого урока, предложение о покупке, режим прохождения — стримится
- * на место тела. Бесплатное тело не ждёт личных заданий: их кнопка занимает место в строке
- * нижних действий, а полное содержимое появляется только по действию читателя.
+ * сразу. Личная часть с телом закрытого урока, предложением и режимом стримится на место тела.
+ * Разрешённое тело и навигация не ждут optional MaterialTaskWorkspace. Его явную связь и доступ
+ * определяет Task owner; исторические Practice descriptors здесь не запрашиваются.
  */
 export async function MaterialReaderPage({
   params,
@@ -111,11 +106,11 @@ export async function MaterialReaderPage({
   const inferCourseReturn = query.from === undefined;
   // Состав нужен только внутри руководства, поэтому вне его за ним никто не ходит.
   const productSlug = productSlugOf(returnTarget);
-  const [material, series] = await Promise.all([
+  const [material, product] = await Promise.all([
     readPublicMaterial(slug),
     productSlug === undefined
       ? Promise.resolve(null)
-      : readPublicSeries(productSlug),
+      : readPublicProduct(productSlug),
   ]);
   if (material.kind === "unavailable") {
     return <ReaderUnavailable returnTarget={returnTarget} />;
@@ -134,22 +129,22 @@ export async function MaterialReaderPage({
       </Suspense>
     );
   }
-  const seriesContext = seriesContextOf(
+  const productContext = productContextOf(
     material.material.slug,
     returnTarget,
-    series,
+    product,
     anchor,
     query,
   );
   const effectiveReturnTarget = resolveReaderReturnTarget({
     returnTarget,
     material: material.material,
-    hasSeriesContext: seriesContext !== null,
+    hasProductContext: productContext !== null,
     inferCourseReturn,
   });
   if (
     material.kind === "available" &&
-    seriesContext?.series.hasModeVariants !== true &&
+    productContext?.product.hasModeVariants !== true &&
     anchor === undefined
   ) {
     return (
@@ -159,11 +154,8 @@ export async function MaterialReaderPage({
         hintSeen
         deferredPracticeActions={
           <>
-            <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
-              <PublicMaterialPractice slug={slug} />
-            </Suspense>
             {productSlug === undefined ||
-            seriesContext?.programme == null ? null : (
+            productContext?.programme == null ? null : (
               <Suspense fallback={null}>
                 <PublicCourseTaskStatuses productSlug={productSlug} />
               </Suspense>
@@ -172,7 +164,7 @@ export async function MaterialReaderPage({
         }
         result={material}
         returnTarget={effectiveReturnTarget}
-        seriesContext={seriesContext}
+        productContext={productContext}
         slug={slug}
       />
     );
@@ -183,7 +175,7 @@ export async function MaterialReaderPage({
         <MaterialReaderPending
           material={material.material}
           returnTarget={effectiveReturnTarget}
-          seriesContext={seriesContext}
+          productContext={productContext}
         />
       }
     >
@@ -199,7 +191,7 @@ export async function MaterialReaderPage({
   );
 }
 
-/** Private rail status streams separately from both the cached body and optional Practice. */
+/** Private rail status streams separately from both the cached body and optional Task workspace. */
 async function PublicCourseTaskStatuses({
   productSlug,
 }: {
@@ -208,18 +200,18 @@ async function PublicCourseTaskStatuses({
   await connection();
   const token = await getOptionalPlatformAccessToken();
   if (token === undefined) return null;
-  let series: PublishedSeriesResult;
+  let product: PublishedProductResult;
   try {
-    series = await readReaderSeries(productSlug, token);
+    product = await readReaderProduct(productSlug, token);
   } catch (error) {
     if (error instanceof BackendConnectionError) return null;
     throw error;
   }
-  if (series.kind !== "ready" && series.kind !== "empty") return null;
+  if (product.kind !== "ready" && product.kind !== "empty") return null;
   return (
     <CourseTaskSubmissionStatuses
       courseHref={productProgrammeHref(productSlug)}
-      submittedTaskIds={series.chapters.flatMap((chapter) =>
+      submittedTaskIds={product.chapters.flatMap((chapter) =>
         (chapter.tasks ?? [])
           .filter(
             (task) =>
@@ -228,22 +220,6 @@ async function PublicCourseTaskStatuses({
           )
           .map((task) => `task:${task.code}`),
       )}
-    />
-  );
-}
-
-/** Private practice streams before completion controls without delaying the public lesson body. */
-async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
-  await connection();
-  const accessToken = await getOptionalPlatformAccessToken();
-  const result =
-    accessToken === undefined
-      ? { kind: "available" as const, practices: [] }
-      : await loadLearningPractices(slug, accessToken);
-  return (
-    <LearningPracticeDisclosure
-      connection={await readerLearnerMcp()}
-      result={result}
     />
   );
 }
@@ -290,13 +266,13 @@ async function PersonalMaterialReader({
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
   guestPurchaseProduct?.catch(() => undefined);
-  const [result, seriesResult, productMode, hintSeen] = await Promise.all([
+  const [result, productResult, productMode, hintSeen] = await Promise.all([
     sharedMaterial?.kind === "available"
       ? Promise.resolve(sharedMaterial)
       : loadMaterialReader(slug, accessToken),
     productSlug === undefined
       ? Promise.resolve(null)
-      : readReaderSeries(productSlug, accessToken),
+      : readReaderProduct(productSlug, accessToken),
     productSlug === undefined
       ? Promise.resolve(defaultProductMode)
       : loadReaderProductMode(accessToken),
@@ -311,10 +287,10 @@ async function PersonalMaterialReader({
   if (result.kind === "unavailable") {
     return <ReaderUnavailable returnTarget={returnTarget} />;
   }
-  const seriesContext = seriesContextOf(
+  const productContext = productContextOf(
     result.material.slug,
     returnTarget,
-    seriesResult,
+    productResult,
     anchor,
     workspaceQuery,
   );
@@ -326,40 +302,18 @@ async function PersonalMaterialReader({
         ? {}
         : { purchaseProduct: guestPurchaseProduct })}
       productMode={productMode}
-      practiceActions={
-        accessToken === undefined ? undefined : (
-          <Suspense fallback={null}>
-            <PrivateMaterialPractice slug={slug} accessToken={accessToken} />
-          </Suspense>
-        )
-      }
       hintSeen={hintSeen}
       result={result}
       returnTarget={resolveReaderReturnTarget({
         returnTarget,
         material: result.material,
-        hasSeriesContext: seriesContext !== null,
+        hasProductContext: productContext !== null,
         inferCourseReturn,
       })}
-      seriesContext={seriesContext}
+      productContext={productContext}
       slug={slug}
     />
   );
-}
-
-/** Optional Practice never delays the authorized body or its required mode/navigation context. */
-async function PrivateMaterialPractice({
-  slug,
-  accessToken,
-}: {
-  readonly slug: string;
-  readonly accessToken: string;
-}) {
-  const [result, connection] = await Promise.all([
-    loadLearningPractices(slug, accessToken),
-    readerLearnerMcp(),
-  ]);
-  return <LearningPracticePrompts connection={connection} result={result} />;
 }
 
 interface WorkspaceQuery {
@@ -375,25 +329,23 @@ async function ResolvedMaterialReader({
   accessToken,
   productMode,
   hintSeen,
-  practiceActions,
   deferredPracticeActions,
   purchaseProduct: startedPurchaseProduct,
   result,
   returnTarget,
-  seriesContext,
+  productContext,
   slug,
 }: {
   readonly workspaceQuery: WorkspaceQuery;
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
   readonly purchaseProduct?: Promise<PurchaseProductResult>;
-  readonly practiceActions?: ReactNode;
   readonly deferredPracticeActions?: ReactNode;
   readonly productMode: ProductMode;
   readonly hintSeen: boolean;
   readonly result: ResolvedMaterial;
   readonly returnTarget: MaterialReaderReturnTarget;
-  readonly seriesContext: SeriesReaderContext | null;
+  readonly productContext: ProductReaderContext | null;
   readonly slug: string;
 }) {
   if (result.kind === "access") {
@@ -426,13 +378,13 @@ async function ResolvedMaterialReader({
         invitation={invitation}
         material={result.material}
         returnTarget={returnTarget}
-        seriesContext={seriesContext}
+        productContext={productContext}
       />
     );
   }
   const showsModes =
-    seriesContext?.supplementary !== true &&
-    seriesContext?.series.hasModeVariants === true;
+    productContext?.supplementary !== true &&
+    productContext?.product.hasModeVariants === true;
   // Подсказка объясняет устройство руководства у шага, который читатель видит. Шаг, написанный
   // для другого способа, в его режиме не рисуется, и подсказка стояла бы рядом с пустотой.
   const hintAt = result.body.findIndex(
@@ -451,7 +403,7 @@ async function ResolvedMaterialReader({
           renderLink={(href, label) => {
             const reference = readInlineArtifactReference(href);
             if (reference === undefined) {
-              const programme = seriesContext?.programme;
+              const programme = productContext?.programme;
               if (programme == null) return undefined;
               const current = programme.current;
               const contextAnchor =
@@ -533,7 +485,6 @@ async function ResolvedMaterialReader({
               />
             </Suspense>
           }
-          practiceActions={practiceActions}
           deferredPracticeActions={deferredPracticeActions}
           body={result.body}
           material={result.material}
@@ -549,7 +500,7 @@ async function ResolvedMaterialReader({
             : {})}
           primaryVideo={result.primaryVideo}
           returnTarget={returnTarget}
-          seriesContext={seriesContext}
+          productContext={productContext}
         />
       </ProductModeProvider>
     </VisibleMaterialOpen>
@@ -560,7 +511,7 @@ async function ResolvedMaterialReader({
 function productSlugOf(
   returnTarget: MaterialReaderReturnTarget,
 ): string | undefined {
-  return returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
+  return returnTarget.kind === "product" ? returnTarget.productSlug : undefined;
 }
 
 /** Без урока нет и его места в продукте, поэтому возврат в продукт заменяется возвратом на Главную. */
@@ -576,21 +527,21 @@ function ReaderUnavailable({
   );
 }
 
-function seriesContextOf(
+function productContextOf(
   currentMaterialSlug: string,
   returnTarget: MaterialReaderReturnTarget,
-  series: PublishedSeriesResult | null,
+  product: PublishedProductResult | null,
   anchor?: ReaderCourseAnchor,
   query?: WorkspaceQuery,
-): SeriesReaderContext | null {
-  return series?.kind === "ready"
-    ? resolveSeriesReaderContext({
+): ProductReaderContext | null {
+  return product?.kind === "ready"
+    ? resolveProductReaderContext({
         currentMaterialSlug,
         placementId:
           typeof query?.placement === "string" ? query.placement : undefined,
         referenceView: query?.view === "reference",
         returnTarget,
-        series,
+        product,
         anchor,
       })
     : null;

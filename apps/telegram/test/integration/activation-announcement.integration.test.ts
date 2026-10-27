@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../../src/database/create-database.js";
-import { PostgresAnnouncementDeliveries } from "../../src/modules/subscription-activation/announcement-deliveries.js";
+import { PostgresAnnouncementDeliveries } from "../../src/modules/course-activation/announcement-deliveries.js";
 import { required } from "../support/required.js";
 const db = createDatabase(required(process.env["DATABASE_URL"]));
 afterAll(async () => {

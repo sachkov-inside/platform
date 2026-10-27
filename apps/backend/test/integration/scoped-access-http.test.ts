@@ -32,25 +32,25 @@ import {
 registerFixedClock();
 
 /** Защищённые чтения, которые матрица проверок доступа называет поверхностями Product. */
-const surfaces = ["body", "assets", "video", "practice-list"] as const;
+const surfaces = ["body", "assets", "video", "task-context"] as const;
 type Surface = (typeof surfaces)[number];
 type Exposure = Readonly<Record<Surface, "open" | "closed">>;
 const allOpen: Exposure = {
   body: "open",
   assets: "open",
   video: "open",
-  "practice-list": "open",
+  "task-context": "open",
 };
 const allClosed: Exposure = {
   body: "closed",
   assets: "closed",
   video: "closed",
-  "practice-list": "closed",
+  "task-context": "closed",
 };
 
 /**
  * Scoped Account через настоящий Nest HTTP (#903, пробел 7 из #902): API поднят целиком, Account
- * входит подписанным токеном, право — настоящий AccessGrant одного Product. Тело и список заданий
+ * входит подписанным токеном, доступ даёт lifetime Product Access одного Product. Тело и требования задания
  * открыты, когда ответ несёт секрет Product. Файл открыт, когда ответ — подписанная ссылка на его
  * объект; видео — когда выдан DRM-токен воспроизведения. Bytes файла и видео лежат у хранилища и
  * Kinescope, и тест их не читает. Закрытая клетка — статус отказа по контракту маршрута без секрета,
@@ -105,14 +105,14 @@ describe("scoped Account access over Nest HTTP", () => {
     expect(await exposure(world.productB, bearer)).toEqual(allClosed);
   });
 
-  test("learner of Product A reads its body, asset, video and practice list while Product B stays closed", async () => {
+  test("learner of Product A reads its body, asset, video and Task context while Product B stays closed", async () => {
     const { bearer, accountId } = await signedInAccount();
     await world.grantProduct(accountId, world.productA.productId);
     expect(await exposure(world.productA, bearer)).toEqual(allOpen);
     expect(await exposure(world.productB, bearer)).toEqual(allClosed);
   });
 
-  test("learner of Product B reads its body, asset, video and practice list while Product A stays closed", async () => {
+  test("learner of Product B reads its body, asset, video and Task context while Product A stays closed", async () => {
     const { bearer, accountId } = await signedInAccount();
     await world.grantProduct(accountId, world.productB.productId);
     expect(await exposure(world.productB, bearer)).toEqual(allOpen);
@@ -147,6 +147,35 @@ describe("scoped Account access over Nest HTTP", () => {
     expect(await exposure(world.productB, bearer)).toEqual(allOpen);
   });
 
+  test("free Task requirements remain open without Product Access for anonymous and signed-in readers", async () => {
+    const { bearer } = await signedInAccount();
+    for (const token of [null, bearer]) {
+      const task = await server.inject({
+        method: "GET",
+        url: `/library/materials/${world.freeProduct.materialId}/task`,
+        headers: headers(token),
+      });
+      expect(task.statusCode).toBe(200);
+      expect(task.json()).toMatchObject({ access: "open" });
+      expect(task.body).toContain(world.freeProduct.taskSecret);
+    }
+  });
+
+  test("retired Practice routes remain absent even for a Product holder", async () => {
+    const { bearer, accountId } = await signedInAccount();
+    await world.grantProduct(accountId, world.productA.productId);
+    for (const product of [world.productA, world.productB]) {
+      const retired = await server.inject({
+        method: "GET",
+        url: `/library/materials/${product.slug}/practices`,
+        headers: headers(bearer),
+      });
+      expect(retired.statusCode).toBe(404);
+      expect(retired.body).not.toContain(product.taskSecret);
+      expect(retired.body).not.toContain(product.bodySecret);
+    }
+  });
+
   test("Materials-only and Billing-only Accounts get a typed denial on each other's write next to their own", async () => {
     const materialsOnly = await signedInAccount("materials:manage");
     const billingOnly = await signedInAccount("billing:manage");
@@ -164,7 +193,7 @@ describe("scoped Account access over Nest HTTP", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: {
         schemaVersion: 1,
@@ -187,7 +216,7 @@ describe("scoped Account access over Nest HTTP", () => {
         headers: { ...headers(bearer), "idempotency-key": randomUUID() },
         payload: draft,
       });
-    const offerId = randomUUID();
+    const offerId = world.productA.productId;
     const saveOffer = (
       bearer: string,
       name: string,
@@ -198,17 +227,14 @@ describe("scoped Account access over Nest HTTP", () => {
         url: "/billing/admin",
         headers: headers(bearer),
         payload: {
-          operation: "offers.save",
+          operation: "productPrices.save",
           operationId: randomUUID(),
           ...(expectedRevision === undefined ? {} : { expectedRevision }),
           value: {
-            id: offerId,
+            productId: offerId,
             name,
-            benefits: ["materials"],
-            coverage: {
-              productIds: [world.productA.productId],
-              materialIds: [],
-            },
+            priceKopecks: 100000,
+            published: false,
           },
         },
       });
@@ -216,12 +242,13 @@ describe("scoped Account access over Nest HTTP", () => {
     // Каждый Account выполняет свою операцию записи: сессия и право рабочие.
     expect((await createDraft(materialsOnly.bearer)).statusCode).toBe(201);
     expect(
-      (await saveOffer(billingOnly.bearer, "Тариф Billing-only")).statusCode,
+      (await saveOffer(billingOnly.bearer, "Product Billing-only")).statusCode,
     ).toBe(200);
     const materialsBefore = await database.prisma.material.count();
-    const offerBefore = await database.prisma.billingOffer.findUniqueOrThrow({
-      where: { id: offerId },
-    });
+    const offerBefore =
+      await database.prisma.billingProductPrice.findUniqueOrThrow({
+        where: { productId: offerId },
+      });
 
     // Чужая операция — валидный запрос; к существующему Offer — с его текущей редакцией.
     const deniedDraft = await createDraft(billingOnly.bearer);
@@ -229,7 +256,7 @@ describe("scoped Account access over Nest HTTP", () => {
     expect(deniedDraft.json()).toMatchObject({ code: "forbidden" });
     const deniedOffer = await saveOffer(
       materialsOnly.bearer,
-      "Тариф Materials-only",
+      "Product Materials-only",
       offerBefore.revision,
     );
     expect(deniedOffer.statusCode).toBe(403);
@@ -238,8 +265,8 @@ describe("scoped Account access over Nest HTTP", () => {
     // Отказ не оставил durable следа.
     expect(await database.prisma.material.count()).toBe(materialsBefore);
     expect(
-      await database.prisma.billingOffer.findUniqueOrThrow({
-        where: { id: offerId },
+      await database.prisma.billingProductPrice.findUniqueOrThrow({
+        where: { productId: offerId },
       }),
     ).toEqual(offerBefore);
   });
@@ -313,7 +340,7 @@ describe("scoped Account access over Nest HTTP", () => {
   }
 
   /**
-   * Что Account получает от каждой защищённой поверхности Product. «open» — тело или список заданий
+   * Что Account получает от каждой защищённой поверхности Product. «open» — тело или требования задания
    * несут секрет Product, файл отвечает подписанной ссылкой на свой объект, видео — DRM-токеном.
    * «closed» — отказ по контракту маршрута без секрета, ссылки и токена. Любой третий исход роняет
    * тест с описанием ответа.
@@ -323,7 +350,7 @@ describe("scoped Account access over Nest HTTP", () => {
     bearer: string | null,
   ): Promise<Exposure> {
     const auth = headers(bearer);
-    const [body, asset, video, practices] = await Promise.all([
+    const [body, asset, video, task] = await Promise.all([
       server.inject({
         method: "GET",
         url: `/materials/${product.slug}`,
@@ -337,7 +364,7 @@ describe("scoped Account access over Nest HTTP", () => {
       playback(product, bearer),
       server.inject({
         method: "GET",
-        url: `/library/materials/${product.slug}/practices`,
+        url: `/library/materials/${product.materialId}/task`,
         headers: auth,
       }),
     ]);
@@ -370,15 +397,18 @@ describe("scoped Account access over Nest HTTP", () => {
           video.json<{ code: string }>().code === "access_denied" &&
           !video.body.includes(product.providerVideoId),
       }),
-      "practice-list": classify("practice-list", practices, {
+      "task-context": classify("task-context", task, {
         open:
-          practices.statusCode === 200 &&
-          practices.body.includes(product.practiceSecret),
+          task.statusCode === 200 &&
+          task.json<{ access: string }>().access === "open" &&
+          task.body.includes(product.taskSecret),
         closed:
-          practices.statusCode === 404 &&
-          practices.json<{ code: string }>().code ===
-            "practice_not_available" &&
-          !practices.body.includes(product.practiceSecret),
+          task.statusCode === 200 &&
+          task.json<{ access: string }>().access === "closed" &&
+          !(
+            "definition" in task.json<{ task: Record<string, unknown> }>().task
+          ) &&
+          !task.body.includes(product.taskSecret),
       }),
     };
   }

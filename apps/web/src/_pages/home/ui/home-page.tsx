@@ -22,9 +22,9 @@ export function HomePage({
 }) {
   return (
     <HomeFrame>
-      {result.kind === "ready" && result.value.pinnedSeries !== null ? (
+      {result.kind === "ready" && result.value.pinnedProduct !== null ? (
         <FeaturedProduct
-          series={result.value.pinnedSeries}
+          product={result.value.pinnedProduct}
           courseCall={courseCall}
         />
       ) : result.kind === "unavailable" ? (

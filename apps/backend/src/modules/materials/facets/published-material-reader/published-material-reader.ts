@@ -1,20 +1,14 @@
 import type { ListPublishedSiteMaterialsOperation } from "../../features/list-published-site-materials/list-published-site-materials.contract.js";
 import type { ReadHomeProjectionsOperation } from "../../features/read-home-projections/read-home-projections.contract.js";
-import type {
-  ReadPublishedPracticeOperation,
-  ListPublishedPracticesOperation,
-} from "../../features/read-published-practice/read-published-practice.contract.js";
-import type { ReadHomePinnedSeriesOperation } from "../../features/read-home-pinned-series/read-home-pinned-series.js";
+import type { ReadHomePinnedProductOperation } from "../../features/read-home-pinned-product/read-home-pinned-product.js";
 import type { ListPublishedMaterialProjectionsOperation } from "../../features/list-published-material-projections/list-published-material-projections.contract.js";
 import type { DiscoverPublishedMaterialProjectionsOperation } from "../../features/discover-published-material-projections/discover-published-material-projections.contract.js";
 import type { ReadPublishedMaterialOperation } from "../../features/read-published-material/read-published-material.contract.js";
 
 export interface PublishedMaterialReader {
   readonly listSiteMaterials: ListPublishedSiteMaterialsOperation;
-  readonly readPractice: ReadPublishedPracticeOperation;
-  readonly listPractices: ListPublishedPracticesOperation;
   readonly readHomeProjections: ReadHomeProjectionsOperation;
-  readonly readHomePinnedSeries: ReadHomePinnedSeriesOperation;
+  readonly readHomePinnedProduct: ReadHomePinnedProductOperation;
   readonly discoverProjections: DiscoverPublishedMaterialProjectionsOperation;
   readonly listProjections: ListPublishedMaterialProjectionsOperation;
   readonly read: ReadPublishedMaterialOperation;

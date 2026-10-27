@@ -1,4 +1,8 @@
 import {
+  transactionHandle,
+  type TransactionHandle,
+} from "../../../../infrastructure/prisma/transaction-handle.js";
+import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
@@ -34,7 +38,7 @@ export interface VideoDeletionMaintenance {
   process(input: {
     /** Reads in the claim's transaction, under the Material reference lock it holds. */
     readonly isReferenced: (
-      transaction: VideosPrisma,
+      transaction: TransactionHandle,
       input: {
         readonly materialId: string;
         readonly videoId: string;
@@ -197,7 +201,7 @@ export function assembleVideoDeletionMaintenance(dependencies: {
       )
         return null;
       if (
-        await isReferenced(transaction, {
+        await isReferenced(transactionHandle(transaction), {
           materialId: operation.materialId,
           videoId: operation.videoId,
         })

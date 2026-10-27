@@ -2,7 +2,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { PlatformConfig } from "../../../../config/platform-config.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
-import type { ContentCoverMaintenance } from "../cleanup-content-covers/cleanup-content-covers.js";
+import type { ContentCoverMaintenance } from "../../../content-covers/index.js";
 
 export const MATERIAL_ASSET_MAINTENANCE = Symbol("MATERIAL_ASSET_MAINTENANCE");
 

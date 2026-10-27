@@ -110,7 +110,7 @@ export class ManageCommunicationsController {
       return toHttpResult({ ok: false, error: { code: "invalid_input" } });
     return toHttpResult(
       await this.communications.execute(account.accountId, {
-        contractVersion: "inside-communications-v1",
+        contractVersion: "inside-communications-v2",
         operation: "templates.read",
         operationId: parsed.data.operationId,
         expectedRevision: 0,

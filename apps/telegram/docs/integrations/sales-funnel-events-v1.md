@@ -16,7 +16,7 @@ Every event carries `eventId`, `contactRef` and `occurredAt`. `contactRef` is th
 | `kind` | Written when | Extra field |
 |---|---|---|
 | `bot_entered` | A private `/start` enters the marketing flow (`TELEGRAM_MARKETING_ENABLED=true`, no link, sign-in or activation token), once per Telegram update | `sourceCode`: the `m_…` label of the link, or `null` for `/start` without a label or with a label outside `^[A-Za-z0-9_-]{1,64}$` |
-| `marketing_consent` | `/stop` (`granted: false`), `/resume` or the consent button (`granted: true`), once per Telegram update | `granted` |
+| `marketing_consent` | `/stop` (`granted: false`), `/resume` (`granted: true`), once per Telegram update | `granted` |
 | `account_linked` | A link to a Platform Account is confirmed, including an owner transfer to another Account | `telegramIdentityRef`, the ref of the linking protocol |
 
 Source labels use the existing `m_` namespace: links are `?start=m_survey`, `?start=m_site`,
@@ -28,18 +28,16 @@ Marketing being enabled by default is not consent and produces no event. A conta
 communication record (older data) gets one when its link is confirmed, as `/start` would create it,
 so every confirmed link is reported.
 
-## Consent step
+## Marketing Preference and historical consent
 
-`TELEGRAM_MARKETING_CONSENT_TEXT`, `TELEGRAM_MARKETING_CONSENT_BUTTON` and
-`TELEGRAM_MARKETING_CONSENT_CONFIRMATION` are set together or not at all. When set, every marketing
-entry into a published funnel sends the prompt with one button to a contact whose marketing is on
-and whose latest explicit choice is not consent. The button (`marketing:consent`) records the same
-preference as `/resume`, so it also turns marketing back on after `/stop`; it reports
-`granted: true` and answers with the confirmation text. The step is a mechanism only: a contact
-who has not pressed it still receives funnel messages, as before. Its wording, its placement in the
-funnel and whether funnel messages should wait for it are decided with the funnel content in
-[ai-engineering#189](https://github.com/sachkov-inside/ai-engineering/issues/189). Without the
-texts no prompt is sent; `/stop` and `/resume` are still reported.
+Starting the bot permits marketing without a separate consent step. `/start` records only
+`bot_entered`; it never synthesizes `marketing_consent`. `/stop` and `/resume` retain the v1 event
+name for explicit choices and stable event IDs. Previously stored consent facts and receipts remain
+readable. An old `marketing:consent` callback, including a committed old inbox command, cannot
+change the current preference or clear an explicit stop. Pending old consent prompts are retired
+without deleting receipts or attempts; uncertain old sends remain uncertain. The retired consent-text environment
+variables are ignored and no prompt is sent. Contactability and the independent application
+marketing gate remain separate conditions; this change enables no production sending.
 
 ## Delivery
 

@@ -41,11 +41,11 @@ export const publishedMaterialProjectionHttpSchema = z
       slug: materialFormatSchema,
     }),
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
-    seriesMemberships: z.array(
+    productMemberships: z.array(
       z
         .object({
           ordinal: z.number().int().positive(),
-          series: referenceSchema,
+          product: referenceSchema,
           stepGroup: z.string().nullable().optional(),
         })
         .strict(),

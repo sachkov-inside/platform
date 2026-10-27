@@ -123,7 +123,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       );
       await expect(
         viewer.getByRole("link", { name: "Открыть продукт", exact: true }),
-      ).toHaveAttribute("href", "/products/demo-series-release?from=%2F");
+      ).toHaveAttribute("href", "/products/demo-product-release?from=%2F");
       await expect(
         viewer.locator(".home-product-animation:visible"),
       ).toBeVisible();
@@ -163,7 +163,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
         await fetch("/api/authoring/home-pin", {
           method: "PUT",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ seriesId: null, expectedVersion: 1 }),
+          body: JSON.stringify({ productId: null, expectedVersion: 1 }),
         })
       ).json();
       return result;
@@ -190,7 +190,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       .getByRole("link", { name: "Открыть продукт", exact: true })
       .click();
     await expect(guestPage).toHaveURL(
-      /\/products\/demo-series-release-shared/u,
+      /\/products\/demo-product-release-shared/u,
     );
     await pin
       .getByRole("button", { name: `Снять закреп «${nextName}»` })
@@ -225,7 +225,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       await fetch("/api/authoring/home-pin", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ seriesId: null, expectedVersion: pin.version }),
+        body: JSON.stringify({ productId: null, expectedVersion: pin.version }),
       });
     });
     await guest.close();

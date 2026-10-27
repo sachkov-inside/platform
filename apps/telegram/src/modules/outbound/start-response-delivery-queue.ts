@@ -125,17 +125,20 @@ function eligibleReply(
 ) {
   if (signInEnabled && !eligibility)
     throw new Error("Missing sign-in reply eligibility");
-  return eb.or([
-    eb("sign_in_request_ref", "is", null),
-    ...(signInEnabled && eligibility
-      ? [
-          eligibility(database, now, {
-            requestRef: "start_response_deliveries.sign_in_request_ref",
-            editMessageId: "start_response_deliveries.edit_message_id",
-            sourceKey: "start_response_deliveries.source_key",
-          }),
-        ]
-      : []),
+  return eb.and([
+    eb("source_key", "not like", "marketing-consent:%"),
+    eb.or([
+      eb("sign_in_request_ref", "is", null),
+      ...(signInEnabled && eligibility
+        ? [
+            eligibility(database, now, {
+              requestRef: "start_response_deliveries.sign_in_request_ref",
+              editMessageId: "start_response_deliveries.edit_message_id",
+              sourceKey: "start_response_deliveries.source_key",
+            }),
+          ]
+        : []),
+    ]),
   ]);
 }
 
@@ -236,6 +239,25 @@ export class StartResponseDeliveryQueue {
           .onConflict((conflict) => conflict.doNothing())
           .execute();
       }
+
+      // Old consent prompts are no longer an active step. Preserve the receipt and every
+      // attempt; an uncertain old attempt stays uncertain instead of becoming a rejection.
+      let retired = transaction
+        .updateTable("start_response_deliveries")
+        .set({
+          state: sql`case when exists (
+          select 1 from start_response_delivery_attempts as attempt
+          where attempt.start_response_delivery_id = start_response_deliveries.id
+            and attempt.outcome = 'transport_unknown'
+        ) then 'unknown_exhausted' else 'rejected' end`,
+          diagnostic_code: "retired_marketing_consent",
+          updated_at: now,
+        })
+        .where("source_key", "like", "marketing-consent:%")
+        .where("state", "in", replies.ready);
+      if (this.config)
+        retired = retired.where("bot_identity", "=", this.config.botIdentity);
+      await retired.execute();
 
       const delivery = await claim(transaction, replies, now, {
         select: [

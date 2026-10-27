@@ -1,3 +1,5 @@
+import { revokeProductFixture } from "./setup/product-access.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -60,14 +62,39 @@ beforeEach(async () => {
     prisma: db.prisma,
     emailFingerprintKey: "historical-community-fixture-fingerprint-key",
   });
-  rights = assembleAccessGrants({
-    prisma: db.prisma,
-    accounts,
-    contentCatalog: new CoverageCatalog(db.prisma),
-    clock: () => now,
-  });
+  rights = withCatalogue(historicalProducts);
 });
 afterEach(async () => db.dispose());
+
+/** The pre-0104 metadata seam reads its historical schema, while rights use real persistence. */
+const historicalProducts: Pick<ProductDiscovery, "metadata"> = {
+  metadata(query) {
+    const where =
+      query === undefined
+        ? Prisma.empty
+        : Prisma.sql`where id = any(${[...(query.ids ?? [])]}::uuid[]) or (${query.includeActive === true} and archived_at is null)`;
+    return db.prisma.$queryRaw<
+      Awaited<ReturnType<ProductDiscovery["metadata"]>>
+    >(Prisma.sql`
+      select id, created_at as "createdAt", name, slug, summary, archived_at as "archivedAt", cover_id as "coverId"
+      from materials.series ${where}
+    `);
+  },
+};
+function withCatalogue(
+  products: Pick<ProductDiscovery, "metadata">,
+): AccessGrants {
+  return assembleAccessGrants({
+    prisma: db.prisma,
+    accounts,
+    contentCatalog: new CoverageCatalog(db.prisma, products),
+    clock: () => now,
+  });
+}
+async function upgradeAndUseCurrentCatalogue() {
+  await upgradeToLatest(db);
+  rights = withCatalogue(new ProductDiscovery(db.prisma));
+}
 
 async function historicalGrant(
   capabilities: string[],
@@ -117,19 +144,9 @@ async function expectCommunity(productId: string, validUntil: string | null) {
 }
 
 test("repairs a historical Product grant at the public own-Product and scoped capability seams", async () => {
-  const grantId = await historicalGrant([`product:${product}`, "support"]);
+  await historicalGrant([`product:${product}`, "support"]);
   await migrateHistoricalBaseline();
-  expect(await rights.readOwnProducts(account)).toMatchObject({
-    ok: true,
-    value: [
-      {
-        id: product,
-        materials: { state: "available" },
-        community: { state: "unavailable" },
-      },
-    ],
-  });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(await rights.readOwnProducts(account)).toMatchObject({
     ok: true,
     value: [
@@ -214,16 +231,7 @@ test("repairs a historical Product grant at the public own-Product and scoped ca
     ok: true,
     result: { decision: { status: "allowed" } },
   });
-  await db.prisma.productAccessExclusion.create({
-    data: {
-      accountId: account,
-      productId: product,
-      grantIds: [grantId],
-      actorId: account,
-      reason: "Product withdrawn",
-      revokedAt: now,
-    },
-  });
+  await revokeProductFixture(db.prisma, `${account}:${product}`);
   expect(await rights.readOwnProducts(account)).toMatchObject({
     ok: true,
     value: [
@@ -243,20 +251,13 @@ test("repairs a historical Product grant at the public own-Product and scoped ca
   ).toMatchObject({ ok: true, result: { decision: { status: "denied" } } });
 });
 
-test("preserves a historical unscoped support community term across Product exclusions and revocation", async () => {
+test("preserves an unscoped historical support term as passive facts without Product authority", async () => {
   const grantId = await historicalGrant(["support"], finish);
   await migrateHistoricalBaseline();
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  const before = await rights.resolveCapabilities(account, {
-    productIds: [product],
-  });
-  expect(
-    before.ok &&
-      before.capabilities.some(({ capability }) => capability === "community"),
-  ).toBe(false);
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -271,15 +272,14 @@ test("preserves a historical unscoped support community term across Product excl
     },
   });
   for (const productId of [product, foreignProduct]) {
-    await expectCommunity(productId, finish.toISOString());
+    expect(
+      await rights.resolveCapabilities(account, { productIds: [productId] }),
+    ).toMatchObject({ ok: true, capabilities: [] });
   }
   const batch = await rights.resolveCapabilitiesForAccounts([account], {
     productIds: [product],
   });
-  expect(batch.ok && batch.accounts.get(account)?.capabilities).toContainEqual({
-    capability: "community",
-    validUntil: finish.toISOString(),
-  });
+  expect(batch.ok && batch.accounts.get(account)?.capabilities).toEqual([]);
   await db.prisma.accessGrant.update({
     where: { id: grantId },
     data: { revokedAt: now },
@@ -302,7 +302,7 @@ test("does not extend a completed historical community term", async () => {
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -372,7 +372,7 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
     where: { id: { in: ids } },
     orderBy: { id: "asc" },
   });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findMany({
       where: { id: { in: ids } },
@@ -413,10 +413,10 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
-    where: { id: purchaseId },
-  });
-  await upgradeToLatest(db);
+  const purchase = await db.prisma.$queryRaw(
+    Prisma.sql`select to_jsonb(p) as value from billing.purchases p where id=${purchaseId}::uuid`,
+  );
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({
@@ -424,11 +424,13 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
     coverage: { productIds: [product], materialIds: [] },
   });
   expect(
-    await db.prisma.billingPurchase.findUniqueOrThrow({
-      where: { id: purchaseId },
-    }),
+    await db.prisma.$queryRaw(
+      Prisma.sql`select to_jsonb(p) - 'refund_review_required' as value from billing.purchases p where id=${purchaseId}::uuid`,
+    ),
   ).toEqual(purchase);
-  await expectCommunity(product, finish.toISOString());
+  expect(
+    await rights.resolveCapabilities(account, { productIds: [product] }),
+  ).toMatchObject({ ok: true, capabilities: [] });
   const foreign = await rights.resolveCapabilities(account, {
     productIds: [foreignProduct],
   });

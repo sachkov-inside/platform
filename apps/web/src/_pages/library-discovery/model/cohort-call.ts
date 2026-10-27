@@ -1,13 +1,9 @@
 import {
   formatCohortDate,
   formatKopecks,
-  type ProductCohort,
+  type ProductSalesState,
   type PriceSnapshot,
 } from "@/entities/subscription";
-import {
-  oneTimeOfferTerms,
-  oneTimeTermLabels,
-} from "@/features/billing-checkout.terms";
 import {
   courseLearningAction,
   type CohortCall,
@@ -36,7 +32,7 @@ export function cohortCall({
   slug,
   continuationMaterialSlug = null,
 }: {
-  readonly cohort: ProductCohort | null;
+  readonly cohort: ProductSalesState | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
   readonly offer: PriceSnapshot | null;
   /** Открыт ли продукт этому человеку по его основаниям; тому, у кого он есть, оплата не нужна. */
@@ -105,12 +101,7 @@ export function cohortCall({
           kind: "card",
           label,
           text: `Курс открыт. Следующий поток: ${cohort.nextEvent}`,
-          // Срок сопровождения называет предложение; без него в продаже срок назвать нечем.
-          detail:
-            offer !== null &&
-            oneTimeOfferTerms(offer).supportMonths !== undefined
-              ? `Проходи в своём темпе, автор сопровождает тебя ${oneTimeTermLabels(oneTimeOfferTerms(offer)).support} после покупки`
-              : "Проходи в своём темпе",
+          detail: "Проходи в своём темпе",
         },
         action: pay("Оплатить"),
       };

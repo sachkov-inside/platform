@@ -2,16 +2,14 @@ import "server-only";
 
 import {
   requestBillingOffers,
-  requestProductCohorts,
+  requestProductSalesStates,
 } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import {
-  productCapability,
-  productCohortsSchema,
+  productSalesStatesSchema,
   offersPageSchema,
-  type ProductCohort,
-  type PaymentMode,
+  type ProductSalesState,
   type PriceSnapshot,
 } from "../model/billing-contract";
 
@@ -25,8 +23,7 @@ const catalogPageBudget = 5;
 
 /** Чего именно спрашивает страница: витрина подписки и витрина руководства разные. */
 export interface CatalogQuery {
-  readonly mode?: PaymentMode;
-  readonly capability?: string;
+  readonly productId?: string;
 }
 
 /** Гостевой каталог по умолчанию; личное чтение явно передаёт токен и никогда не кешируется. */
@@ -49,6 +46,12 @@ export async function loadBillingOffers(
       if (!result.ok) return { kind: "unavailable" };
       const parsed = offersPageSchema.safeParse(result.body);
       if (!parsed.success) return { kind: "unavailable" };
+      if (
+        parsed.data.items.some(
+          (item) => item.product === undefined || item.supportMonths !== 3,
+        )
+      )
+        return { kind: "unavailable" };
       offers.push(...parsed.data.items);
       if (parsed.data.nextCursor === null) return { kind: "ready", offers };
       cursor = parsed.data.nextCursor;
@@ -74,10 +77,12 @@ export async function loadProductOffers(
   | { readonly kind: "ready"; readonly offers: readonly PriceSnapshot[] }
   | { readonly kind: "unavailable" }
 > {
-  const result = await loadBillingOffers(
-    { capability: productCapability(productId) },
-    accessToken,
-  );
+  const result = await loadBillingOffers({ productId }, accessToken);
+  if (
+    result.kind === "ready" &&
+    result.offers.some((price) => price.product?.id !== productId)
+  )
+    return { kind: "unavailable" };
   return result;
 }
 
@@ -85,18 +90,18 @@ export async function loadProductOffers(
  * Текущие потоки продуктов. Поток не кешируется, как и цены: владелец переключает этап в
  * каталоге, и страница показывает его со следующего запроса.
  */
-export async function loadProductCohorts(): Promise<
-  | { readonly kind: "ready"; readonly cohorts: readonly ProductCohort[] }
+export async function loadProductSalesStates(): Promise<
+  | { readonly kind: "ready"; readonly cohorts: readonly ProductSalesState[] }
   | { readonly kind: "unavailable" }
 > {
   try {
-    const cohorts: ProductCohort[] = [];
+    const cohorts: ProductSalesState[] = [];
     const seen = new Set<string>();
     let cursor: string | undefined;
     for (;;) {
-      const result = await requestProductCohorts(undefined, cursor);
+      const result = await requestProductSalesStates(undefined, cursor);
       if (!result.ok) return { kind: "unavailable" };
-      const parsed = productCohortsSchema.safeParse(result.body);
+      const parsed = productSalesStatesSchema.safeParse(result.body);
       if (!parsed.success) return { kind: "unavailable" };
       cohorts.push(...parsed.data.items);
       const nextCursor = parsed.data.nextCursor;
@@ -111,16 +116,16 @@ export async function loadProductCohorts(): Promise<
 }
 
 /** Поток одного продукта. Продукт без потока — обычное состояние: страница зовёт в программу. */
-export async function loadProductCohort(
+export async function loadProductSalesState(
   productId: string,
 ): Promise<
-  | { readonly kind: "ready"; readonly cohort: ProductCohort | null }
+  | { readonly kind: "ready"; readonly cohort: ProductSalesState | null }
   | { readonly kind: "unavailable" }
 > {
   try {
-    const result = await requestProductCohorts(productId);
+    const result = await requestProductSalesStates(productId);
     if (!result.ok) return { kind: "unavailable" };
-    const parsed = productCohortsSchema.safeParse(result.body);
+    const parsed = productSalesStatesSchema.safeParse(result.body);
     return parsed.success
       ? {
           kind: "ready",

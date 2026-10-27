@@ -41,7 +41,7 @@ import {
 } from "../../../product-tasks/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
-  publishedSeriesPageHttpSchema,
+  publishedProductPageHttpSchema,
   publishedTopicPageHttpSchema,
   relatedPublishedMaterialsHttpSchema,
 } from "../../shared/published-catalog-http.js";
@@ -104,33 +104,14 @@ export class DiscoverPublishedMaterialsController {
   @ApiParam({ name: "slug", required: true, schema: discoverySlugSchema })
   @ApiOkResponse({
     description: "Published Materials in author-defined Product order",
-    schema: toOpenApiSchema(publishedSeriesPageHttpSchema),
+    schema: toOpenApiSchema(publishedProductPageHttpSchema),
   })
   @DiscoveryErrorResponses()
   readProduct(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
   ) {
-    return this.read("series", slug, null, account);
-  }
-
-  @Get("series/:slug")
-  @ApiOperation({
-    operationId: "readPublishedSeries",
-    deprecated: true,
-    summary: "Read a generated ordered Series view",
-  })
-  @ApiParam({ name: "slug", required: true, schema: discoverySlugSchema })
-  @ApiOkResponse({
-    description: "Published Materials in author-defined Series order",
-    schema: toOpenApiSchema(publishedSeriesPageHttpSchema),
-  })
-  @DiscoveryErrorResponses()
-  readSeries(
-    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
-    @Param("slug") slug: string,
-  ) {
-    return this.read("series", slug, null, account);
+    return this.read("product", slug, null, account);
   }
 
   @Get("materials/:slug/related")
@@ -152,7 +133,7 @@ export class DiscoverPublishedMaterialsController {
   }
 
   private async read(
-    kind: "related" | "series" | "topic",
+    kind: "related" | "product" | "topic",
     slug: string,
     first: number | null,
     account: AuthenticatedAccount | undefined,
@@ -189,7 +170,7 @@ function DiscoveryErrorResponses(): MethodDecorator {
       content: problemDetailsContent(publishedMaterialProblemHttpSchema),
     })(target, propertyKey, descriptor);
     ApiNotFoundResponse({
-      description: "Topic, Series or source Material is not published",
+      description: "Topic, Product or source Material is not published",
       content: problemDetailsContent(publishedMaterialProblemHttpSchema),
     })(target, propertyKey, descriptor);
     ApiInternalServerErrorResponse({

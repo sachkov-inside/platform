@@ -1,3 +1,8 @@
+import type {
+  ProductMemberships,
+  ProductDiscovery,
+} from "../../../products/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
   contentWriter,
@@ -52,15 +57,10 @@ import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
-import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
-import {
-  heldProductRemovals,
-  recordProductRemovals,
-  unconfirmedProductRemovals,
-} from "../../shared/product-removal-confirmation.js";
+import { unconfirmedProductRemovals } from "../../shared/product-removal-confirmation.js";
 
 const saveMaterialCommand = z
   .object({
@@ -174,8 +174,14 @@ export function assembleSaveMaterial(
       SaveMaterialError
     >(
       dependencies.prisma,
-      (transaction, rollback) =>
-        executeIdempotentMaterialMutation<SaveMaterialEffect>(
+      async (transaction, rollback) => {
+        const currentPermission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!currentPermission.ok) return rollback(currentPermission.error);
+        return executeIdempotentMaterialMutation<SaveMaterialEffect>(
           transaction,
           {
             actor: command.actor,
@@ -191,11 +197,16 @@ export function assembleSaveMaterial(
                 ? await loadChangedProductMemberships(
                     transaction,
                     command.materialId,
-                    selection.value.toValues().seriesIds,
+                    selection.value.toValues().productIds,
+                    dependencies.memberships,
                   )
                 : [];
             if (publication !== undefined)
-              await lockMaterialSeries(transaction, command.materialId, []);
+              await dependencies.memberships.lockForMaterial(
+                command.materialId,
+                [],
+                transactionHandle(transaction),
+              );
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
             ]);
@@ -280,7 +291,7 @@ export function assembleSaveMaterial(
                   materialId: command.materialId,
                   videoId: command.primaryVideoId,
                 },
-                transaction,
+                transactionHandle(transaction),
               );
               if (!video.ok)
                 return rollback({
@@ -339,20 +350,22 @@ export function assembleSaveMaterial(
                 command.materialId,
                 selection.value,
                 slug,
+                dependencies.memberships,
               );
             } else {
-              // Composition has its own version. Reload it under the same series locks; never
+              // Composition has its own version. Reload it under the same product locks; never
               // recreate a membership from the earlier authoring snapshot during a status change.
               const current = await loadCurrentMaterial(
                 transaction,
                 dependencies.materialBodyOperations,
                 command.materialId,
+                dependencies.memberships,
               );
               if (current === undefined)
                 return rollback({ code: "material_not_found" });
               if (!current.ok) return rollback(current.error);
               materializedMetadata = selection.value.materialize(
-                current.value.metadata.seriesMemberships,
+                current.value.metadata.productMemberships,
                 slug,
               );
             }
@@ -367,11 +380,12 @@ export function assembleSaveMaterial(
               command.materialId,
               materializedMetadata,
               rollback,
+              dependencies.memberships,
             );
             if (dependencies.materialAssets !== undefined) {
               const assetIssues =
                 await dependencies.materialAssets.inspectReferences(
-                  transaction,
+                  transactionHandle(transaction),
                   command.materialId,
                   assetReferences,
                 );
@@ -394,11 +408,14 @@ export function assembleSaveMaterial(
                 });
               }
               const videoReference =
-                await dependencies.videos.inspectPrimaryReference(transaction, {
-                  access: materializedMetadata.access,
-                  materialId: command.materialId,
-                  videoId: command.primaryVideoId,
-                });
+                await dependencies.videos.inspectPrimaryReference(
+                  transactionHandle(transaction),
+                  {
+                    access: materializedMetadata.access,
+                    materialId: command.materialId,
+                    videoId: command.primaryVideoId,
+                  },
+                );
               if (!videoReference.ok) {
                 if (videoReference.error.code === "dependency_unavailable") {
                   return rollback(videoReference.error);
@@ -418,24 +435,21 @@ export function assembleSaveMaterial(
 
             // Опубликованный материал уходит из руководства, где у кого-то есть право, только
             // подтверждённым снятием: иначе купившие молча потеряли бы часть продукта.
-            const previousProductIds = (
-              await transaction.publishedMaterialProductMembership.findMany({
-                where: { materialId: command.materialId },
-                select: { seriesId: true },
-              })
-            ).map(({ seriesId }) => seriesId);
+            const previousProductIds =
+              await dependencies.memberships.publishedProductIds(
+                command.materialId,
+                transactionHandle(transaction),
+              );
             const nextProductIds =
               next.value.publicationState === "published"
-                ? materializedMetadata.seriesMemberships.map(
-                    ({ seriesId }) => seriesId,
+                ? materializedMetadata.productMemberships.map(
+                    ({ productId }) => productId,
                   )
                 : [];
-            const heldRemovals = await heldProductRemovals(
-              transaction,
+            const heldRemovals = await dependencies.memberships.heldRemovals(
+              previousProductIds.filter((id) => !nextProductIds.includes(id)),
               dependencies.productAccessHolders,
-              previousProductIds.filter(
-                (productId) => !nextProductIds.includes(productId),
-              ),
+              transactionHandle(transaction),
             );
             const unconfirmed = unconfirmedProductRemovals(
               heldRemovals,
@@ -447,15 +461,18 @@ export function assembleSaveMaterial(
                 products: unconfirmed,
               });
             }
-            await recordProductRemovals(transaction, {
-              actor: command.actor,
-              operation: "material_save",
-              removals: heldRemovals.map((product) => ({
-                product,
-                materialId: command.materialId,
-              })),
-              removedAt: savedAt,
-            });
+            await dependencies.memberships.recordRemovals(
+              {
+                actor: command.actor,
+                operation: "material_save",
+                removals: heldRemovals.map((product) => ({
+                  product,
+                  materialId: command.materialId,
+                })),
+                removedAt: savedAt,
+              },
+              transactionHandle(transaction),
+            );
 
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&
@@ -475,7 +492,6 @@ export function assembleSaveMaterial(
                             sourceRevision: source.revision,
                             // A source write without a commit no longer comes from a known commit.
                             sourceCommit: source.commit ?? null,
-                            showInFeed: source.showInFeed,
                           }),
                       notifyTelegram:
                         command.notifyTelegram ?? locked.notifyTelegram,
@@ -511,6 +527,7 @@ export function assembleSaveMaterial(
                 transaction,
                 command.materialId,
                 materializedMetadata,
+                dependencies.memberships,
               );
             if (next.value.publicationState === "published") {
               if (!publishable.ok || publishedBy === null) {
@@ -519,17 +536,25 @@ export function assembleSaveMaterial(
                   correlationId: randomUUID(),
                 });
               }
-              await replacePublishedProjections(transaction, {
-                materialId: command.materialId,
-                contentVersion: next.value.contentVersion,
-                metadata: publishable.value,
-                publishedAt: requireDate(next.value.publishedAt, "publishedAt"),
-                publishedBy,
-                hasModeVariants: extraction.value.hasModeVariants,
-                plainText: extraction.value.plainText,
-                primaryVideoId: command.primaryVideoId,
-                coverId: locked.coverId,
-              });
+              await replacePublishedProjections(
+                transaction,
+                dependencies.memberships,
+                dependencies.discovery,
+                {
+                  materialId: command.materialId,
+                  contentVersion: next.value.contentVersion,
+                  metadata: publishable.value,
+                  publishedAt: requireDate(
+                    next.value.publishedAt,
+                    "publishedAt",
+                  ),
+                  publishedBy,
+                  hasModeVariants: extraction.value.hasModeVariants,
+                  plainText: extraction.value.plainText,
+                  primaryVideoId: command.primaryVideoId,
+                  coverId: locked.coverId,
+                },
+              );
               // Первая публикация обещает уведомление в той же транзакции, что и сам факт.
               await recordMaterialAnnouncement(
                 transaction,
@@ -552,6 +577,11 @@ export function assembleSaveMaterial(
                 savedAt,
               );
             } else {
+              await dependencies.memberships.setPublication(
+                command.materialId,
+                null,
+                transactionHandle(transaction),
+              );
               await transaction.publishedMaterial.deleteMany({
                 where: { materialId: command.materialId },
               });
@@ -560,16 +590,19 @@ export function assembleSaveMaterial(
               });
             }
             if (publication === undefined)
-              await markUnreferencedMaterialAssets(transaction, {
-                materialId: command.materialId,
-                orphanedAt: savedAt,
-                referencedAssetIds: assetReferences.map(
-                  ({ assetId }) => assetId,
-                ),
-              });
+              await markUnreferencedMaterialAssets(
+                transactionHandle(transaction),
+                {
+                  materialId: command.materialId,
+                  orphanedAt: savedAt,
+                  referencedAssetIds: assetReferences.map(
+                    ({ assetId }) => assetId,
+                  ),
+                },
+              );
             if (command.deleteVideoId !== null) {
               const deletion = await requestVideoDeletion(
-                transaction,
+                transactionHandle(transaction),
                 {
                   actor: command.actor,
                   materialId: command.materialId,
@@ -585,7 +618,7 @@ export function assembleSaveMaterial(
               }
             }
             const detachment = await recordVideoDetachment(
-              transaction,
+              transactionHandle(transaction),
               {
                 materialId: command.materialId,
                 videoIds: command.detachVideoIds,
@@ -608,7 +641,8 @@ export function assembleSaveMaterial(
               },
             };
           },
-        ),
+        );
+      },
       (unexpected) => mapPostgresError(unexpected, materializedMetadata),
       "saveMaterial",
     );
@@ -618,6 +652,8 @@ export function assembleSaveMaterial(
 
 async function replacePublishedProjections(
   transaction: MaterialsPrismaTransaction,
+  products: ProductMemberships,
+  discovery: Pick<ProductDiscovery, "snapshot">,
   values: {
     readonly materialId: string;
     readonly contentVersion: number;
@@ -627,8 +663,8 @@ async function replacePublishedProjections(
       readonly difficulty: MaterialDifficulty | null;
       readonly formatId: string;
       readonly outcomes: readonly string[];
-      readonly seriesMemberships: readonly {
-        readonly seriesId: string;
+      readonly productMemberships: readonly {
+        readonly productId: string;
         readonly ordinal: number;
       }[];
       readonly slug: string;
@@ -693,22 +729,19 @@ async function replacePublishedProjections(
       })),
     });
   }
-  await transaction.publishedMaterialProductMembership.deleteMany({
-    where: { materialId: values.materialId },
-  });
-  if (values.metadata.seriesMemberships.length > 0) {
-    await transaction.publishedMaterialProductMembership.createMany({
-      data: values.metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
-        materialId: values.materialId,
-        seriesId,
-        ordinal,
-      })),
-    });
-  }
-  await refreshPublishedMaterialSearchProjections(transaction, {
-    kind: "materials",
-    materialIds: [values.materialId],
-  });
+  await products.setPublication(
+    values.materialId,
+    values.metadata.productMemberships,
+    transactionHandle(transaction),
+  );
+  await refreshPublishedMaterialSearchProjections(
+    transaction,
+    {
+      kind: "materials",
+      materialIds: [values.materialId],
+    },
+    discovery,
+  );
   await transaction.materialSearchDocument.upsert({
     where: { materialId: values.materialId },
     create: {

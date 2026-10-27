@@ -1,3 +1,4 @@
+import { grantProductFixture } from "./setup/product-access.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -92,20 +93,10 @@ describe("Product access HTTP", () => {
     const holderAccount = await database.prisma.account.findFirstOrThrow({
       where: { logtoSubject: "product-holder" },
     });
-    await database.prisma.accessGrant.create({
-      data: {
-        id: randomUUID(),
-        accountId: holderAccount.id,
-        source: "paid",
-        sourceRef: randomUUID(),
-        capabilities: [`product:${productId}`],
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        startsAt: new Date(Date.now() - 60_000),
-        validUntil: null,
-        revision: 1,
-        reason: "Synthetic #831 product right",
-      },
+    await database.prisma.product.create({
+      data: { id: productId, slug: productId, name: "HTTP Product" },
     });
+    await grantProductFixture(database.prisma, holderAccount.id, productId);
     const read = (bearer: string | null, id: string = productId) =>
       server.inject({
         method: "GET",

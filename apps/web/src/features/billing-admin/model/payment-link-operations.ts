@@ -5,8 +5,8 @@ import {
 } from "@/entities/subscription";
 export const createPaymentLinkInputSchema = z.strictObject({
   operationId: z.uuid(),
-  paymentOptionId: z.uuid(),
-  optionRevision: z.int().positive(),
+  productId: z.uuid(),
+  priceRevision: z.int().positive(),
   price: z.discriminatedUnion("kind", [
     z.strictObject({
       kind: z.literal("amount"),

@@ -91,7 +91,7 @@ const schema = z
     JSON.parse(
       await readFile(
         new URL(
-          "../../../docs/contracts/inside-communications-v1/schema.json",
+          "../../../docs/contracts/inside-communications-v2/schema.json",
           import.meta.url,
         ),
         "utf8",

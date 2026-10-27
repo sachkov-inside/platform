@@ -6,7 +6,7 @@ import { assertReceiverContract } from "./contract.mjs";
 
 test("the handshake refuses a missing, different or incomplete receiver contract", () => {
   const contract = {
-    version: 1,
+    version: 2,
     packageFeatures: ["quiz-v1", "bounded-content-v1"],
   };
   assert.deepEqual(
@@ -20,9 +20,9 @@ test("the handshake refuses a missing, different or incomplete receiver contract
   const refused = [
     [{ mode: "production" }, [], /predates the import contract/u],
     [
-      { mode: "production", contract: { ...contract, version: 2 } },
+      { mode: "production", contract: { ...contract, version: 1 } },
       [],
-      /contract 2; this client speaks 1/u,
+      /contract 1; this client speaks 2/u,
     ],
     [
       { mode: "production", contract },

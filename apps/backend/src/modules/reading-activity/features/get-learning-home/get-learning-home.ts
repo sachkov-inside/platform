@@ -5,14 +5,14 @@ import { readAvailableMaterials } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { ContinueMaterial } from "../get-continue-materials/get-continue-materials.js";
 import {
-  getSeriesContinuation,
-  type SeriesContinuation,
-  type SeriesContinuationDependencies,
-} from "../get-series-continuation/get-series-continuation.js";
+  getProductContinuation,
+  type ProductContinuation,
+  type ProductContinuationDependencies,
+} from "../get-product-continuation/get-product-continuation.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
 import {
   createLearningStartedRead,
-  MAX_RECENT_SERIES,
+  MAX_RECENT_PRODUCT,
 } from "../../shared/learning-started.js";
 
 const MAX_RECENT_VISITS = 500;
@@ -20,7 +20,7 @@ const MATERIAL_BATCH_SIZE = 100;
 
 export interface LearningHome {
   readonly video: ContinueMaterial | null;
-  readonly series: SeriesContinuation | null;
+  readonly product: ProductContinuation | null;
 }
 export type LearningHomeResult =
   | { readonly ok: true; readonly value: LearningHome }
@@ -32,7 +32,7 @@ export type LearningHomeResult =
     };
 
 export async function getLearningHome(
-  dependencies: SeriesContinuationDependencies & {
+  dependencies: ProductContinuationDependencies & {
     readonly selection: Pick<PublishedMaterialSelection, "read">;
   },
   account: string,
@@ -46,7 +46,7 @@ export async function getLearningHome(
       orderBy: [{ lastOpenedAt: "desc" }, { materialId: "asc" }],
       take: MAX_RECENT_VISITS,
     });
-    const seriesBySlug = new Map<string, string>();
+    const productBySlug = new Map<string, string>();
     let video: ContinueMaterial | null = null;
     for (
       let offset = 0;
@@ -65,9 +65,9 @@ export async function getLearningHome(
       );
       for (const visit of batch) {
         for (const membership of byId.get(visit.materialId)
-          ?.seriesMemberships ?? []) {
-          if (seriesBySlug.size < MAX_RECENT_SERIES)
-            seriesBySlug.set(membership.series.slug, membership.series.id);
+          ?.productMemberships ?? []) {
+          if (productBySlug.size < MAX_RECENT_PRODUCT)
+            productBySlug.set(membership.product.slug, membership.product.id);
         }
       }
       if (video !== null) continue;
@@ -104,23 +104,23 @@ export async function getLearningHome(
     const readStarted = createLearningStartedRead(
       dependencies.prisma,
       account,
-      [...seriesBySlug.values()],
+      [...productBySlug.values()],
     );
-    for (const slug of seriesBySlug.keys()) {
-      const series = await getSeriesContinuation(
+    for (const slug of productBySlug.keys()) {
+      const product = await getProductContinuation(
         dependencies,
         account,
         slug,
         readStarted,
       );
-      if (!series.ok) {
-        if (series.error.code === "series_not_found") continue;
+      if (!product.ok) {
+        if (product.error.code === "product_not_found") continue;
         return { ok: false, error: { code: "dependency_unavailable" } };
       }
-      if (series.value.continuation !== null)
-        return { ok: true, value: { video, series: series.value } };
+      if (product.value.continuation !== null)
+        return { ok: true, value: { video, product: product.value } };
     }
-    return { ok: true, value: { video, series: null } };
+    return { ok: true, value: { video, product: null } };
   } catch (error) {
     return dependencyFailure(
       { module: "reading-activity", operation: "getLearningHome" },

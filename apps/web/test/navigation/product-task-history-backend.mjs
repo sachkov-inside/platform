@@ -21,13 +21,18 @@ const { openProductTask, closedProductTask } = z
   .parse(fixtureModule);
 
 let unavailable = false;
+let revoked = false;
 let held = false;
 /** @type {Promise<void> | undefined} */
 let gate;
 /** @type {(() => void) | undefined} */
 let release;
 const controlSchema = z
-  .object({ unavailable: z.boolean(), hold: z.boolean().optional() })
+  .object({
+    unavailable: z.boolean(),
+    hold: z.boolean().optional(),
+    revoked: z.boolean().optional(),
+  })
   .strict();
 const code = "aie-ch1-onboarding";
 const slug = "ai-engineering";
@@ -43,6 +48,7 @@ export async function productTaskHistoryRoute(request, url, readBody) {
     if (request.method === "POST") {
       const input = controlSchema.parse(JSON.parse(await readBody(request)));
       unavailable = input.unavailable;
+      revoked = input.revoked ?? false;
       release?.();
       held = false;
       gate =
@@ -58,7 +64,7 @@ export async function productTaskHistoryRoute(request, url, readBody) {
     return {
       status: 200,
       value:
-        request.headers.authorization === undefined
+        request.headers.authorization === undefined || revoked
           ? { access: "closed", task: closedProductTask }
           : openProductTask,
     };

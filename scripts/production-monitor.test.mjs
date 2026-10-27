@@ -37,7 +37,7 @@ describe("production external monitor", () => {
     );
     assert.deepEqual(requests.sort(), [
       "https://auth.sachkov.dev/oidc/.well-known/openid-configuration",
-      "https://inside.sachkov.dev/billing/cohorts",
+      "https://inside.sachkov.dev/billing/product-sales-states",
       "https://sachkov.dev/",
     ]);
     assert.deepEqual(certificates.sort(), [

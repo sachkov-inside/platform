@@ -1,0 +1,7 @@
+{
+  "repository": "sachkov-inside/platform",
+  "specification": "https://github.com/sachkov-inside/platform/issues/1693",
+  "task": "https://github.com/sachkov-inside/platform/issues/1712",
+  "path": "docs/contracts/inside-communications-v2",
+  "status": "Canonical contract derived from preserved v1; runtime provider/codecs and exact-head conformance are the authority. No production rollout is claimed."
+}

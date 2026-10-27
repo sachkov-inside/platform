@@ -51,6 +51,8 @@ export default defineConfig({
           maxWorkers: 2,
           environment: "node",
           include: ["test/contracts/**/*.test.ts"],
+          // The real HTTP transport imports Logto's extensionless Next.js entrypoint through Vite.
+          server: { deps: { inline: ["@logto/next"] } },
           restoreMocks: true,
           unstubEnvs: true,
           unstubGlobals: true,

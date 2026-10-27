@@ -1,33 +1,15 @@
 import "server-only";
 import {
   readBillingPaymentOperation,
-  applyAccessGrantBatchOperation,
-  archiveBillingOfferOperation,
-  archiveBillingPaymentOptionOperation,
   archiveBillingPromotionOperation,
-  cancelOwnerSubscriptionOperation,
-  classifyAccountOperation,
-  extendAccessGrantOperation,
   listBillingPaymentsOperation,
-  previewAccessGrantBatchOperation,
-  publishBillingOfferOperation,
-  readAccessGrantsOperation,
-  readAccountClassificationOperation,
   readBillingRefundsOperation,
   reconcileBillingPaymentOperation,
-  revokeAccessGrantOperation,
   saveBillingCohortOperation,
-  saveBillingOfferOperation,
-  saveBillingPaymentOptionOperation,
   saveBillingPromotionOperation,
-  unpublishBillingOfferOperation,
-  decideBillingRefundOperation,
-  executeBillingRefundOperation,
 } from "./billing-admin.operation";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-
-import type { MutationOperation } from "@/shared/api/mutation-operation";
 
 import {
   billingFailureCode,
@@ -38,7 +20,6 @@ import {
 import type {
   BillingFailureCode,
   BillingOperation,
-  BillingOperationResult,
   PriceSnapshot,
 } from "@/entities/subscription";
 import {
@@ -69,81 +50,6 @@ export function ownerCommand<Input extends z.ZodType, Value extends z.ZodType>(
   });
 }
 
-export function handleSaveOffer(request: Request): Promise<Response> {
-  return ownerCommand(request, saveBillingOfferOperation, (input) => ({
-    operation: "offers.save",
-    operationId: input.operationId,
-    ...(input.expectedRevision === undefined
-      ? {}
-      : { expectedRevision: input.expectedRevision }),
-    value: {
-      id: input.value.id,
-      name: input.value.name,
-      benefits: [...input.value.benefits],
-      ...(input.value.availableForAssignment === undefined
-        ? {}
-        : { availableForAssignment: input.value.availableForAssignment }),
-      ...(input.value.coverage === undefined
-        ? {}
-        : { coverage: input.value.coverage }),
-      ...(input.value.eligibility === undefined
-        ? {}
-        : { eligibility: input.value.eligibility }),
-      ...(input.value.benefitPeriods === undefined
-        ? {}
-        : { benefitPeriods: [...input.value.benefitPeriods] }),
-    },
-  }));
-}
-
-export function handleArchiveOffer(request: Request): Promise<Response> {
-  return ownerCommand(request, archiveBillingOfferOperation, (input) => ({
-    ...input,
-    operation: "offers.archive",
-  }));
-}
-
-export function handlePublishOffer(request: Request): Promise<Response> {
-  return ownerCommand(request, publishBillingOfferOperation, (input) => ({
-    ...input,
-    operation: "offers.publish",
-  }));
-}
-
-export function handleUnpublishOffer(request: Request): Promise<Response> {
-  return ownerCommand(request, unpublishBillingOfferOperation, (input) => ({
-    ...input,
-    operation: "offers.unpublish",
-  }));
-}
-
-export function handleSavePaymentOption(request: Request): Promise<Response> {
-  return ownerCommand(request, saveBillingPaymentOptionOperation, (input) => ({
-    operation: "paymentOptions.save",
-    operationId: input.operationId,
-    ...(input.expectedRevision === undefined
-      ? {}
-      : { expectedRevision: input.expectedRevision }),
-    value: {
-      id: input.value.id,
-      offerId: input.value.offerId,
-      months: input.value.months,
-      priceKopecks: input.value.priceKopecks,
-      ...(input.value.mode === undefined ? {} : { mode: input.value.mode }),
-    },
-  }));
-}
-
-export function handleArchivePaymentOption(
-  request: Request,
-): Promise<Response> {
-  return ownerCommand(
-    request,
-    archiveBillingPaymentOptionOperation,
-    (input) => ({ ...input, operation: "paymentOptions.archive" }),
-  );
-}
-
 export function handleSavePromotion(request: Request): Promise<Response> {
   return ownerCommand(request, saveBillingPromotionOperation, (input) => ({
     operation: "promotions.save",
@@ -153,8 +59,7 @@ export function handleSavePromotion(request: Request): Promise<Response> {
       : { expectedRevision: input.expectedRevision }),
     value: {
       ...input.value,
-      offerIds: [...input.value.offerIds],
-      paymentOptionIds: [...input.value.paymentOptionIds],
+      productIds: [...input.value.productIds],
     },
   }));
 }
@@ -162,7 +67,7 @@ export function handleSavePromotion(request: Request): Promise<Response> {
 /** Поток продукта: запись каталога, которую страница курса читает без кеша. */
 export function handleSaveCohort(request: Request): Promise<Response> {
   return ownerCommand(request, saveBillingCohortOperation, (input) => ({
-    operation: "cohorts.save",
+    operation: "productSalesState.save",
     operationId: input.operationId,
     ...(input.expectedRevision === undefined
       ? {}
@@ -210,105 +115,10 @@ export function handleReconcilePayment(request: Request): Promise<Response> {
   );
 }
 
-export function handleCancelOwnerSubscription(
-  request: Request,
-): Promise<Response> {
-  return ownerCommand(request, cancelOwnerSubscriptionOperation, (input) => ({
-    ...input,
-    operation: "subscriptions.cancel",
-  }));
-}
-
-/** Исторические маршруты сохраняют проверку сессии и Origin, но больше не обращаются к backend. */
-function disabledRefund<Input extends z.ZodType>(
-  request: Request,
-  operation: MutationOperation<Input, BillingOperationResult>,
-): Promise<Response> {
-  return handleMutationOperation(request, operation, {
-    invalidInput: billingInvalidInput,
-    execute: () =>
-      Promise.resolve({ ok: false, code: "method_unavailable" } as const),
-  });
-}
-
-export function handleDecideRefund(request: Request): Promise<Response> {
-  return disabledRefund(request, decideBillingRefundOperation);
-}
-
-export function handleExecuteRefund(request: Request): Promise<Response> {
-  return disabledRefund(request, executeBillingRefundOperation);
-}
-
 export function handleReadRefunds(request: Request): Promise<Response> {
   return ownerCommand(request, readBillingRefundsOperation, (input) => ({
     ...input,
     operation: "refunds.read",
-  }));
-}
-
-export function handleReadGrants(request: Request): Promise<Response> {
-  return ownerCommand(request, readAccessGrantsOperation, (input) => ({
-    ...input,
-    operation: "grants.read",
-  }));
-}
-
-export function handleReadAccountClassification(
-  request: Request,
-): Promise<Response> {
-  return ownerCommand(request, readAccountClassificationOperation, (input) => ({
-    ...input,
-    operation: "grants.readClassification",
-  }));
-}
-
-export function handleClassifyAccount(request: Request): Promise<Response> {
-  return ownerCommand(request, classifyAccountOperation, (input) => ({
-    ...input,
-    operation: "grants.classify",
-  }));
-}
-
-export function handlePreviewGrantBatch(request: Request): Promise<Response> {
-  return ownerCommand(request, previewAccessGrantBatchOperation, (input) => ({
-    operation: "grants.previewBatch",
-    // Строка выдачи несёт условия права, строка классификации — решение о покупателе.
-    rows: input.rows.map((row) =>
-      "terms" in row
-        ? {
-            ...row,
-            terms: {
-              ...row.terms,
-              capabilities: [...row.terms.capabilities],
-            },
-          }
-        : { ...row },
-    ),
-    operationId: input.operationId,
-  }));
-}
-
-export function handleApplyGrantBatch(request: Request): Promise<Response> {
-  return ownerCommand(request, applyAccessGrantBatchOperation, (input) => ({
-    operation: "grants.applyBatch",
-    operationId: input.operationId,
-    previewRef: input.previewRef,
-    expectedRevision: input.expectedRevision,
-    confirmedRows: [...input.confirmedRows],
-  }));
-}
-
-export function handleExtendGrant(request: Request): Promise<Response> {
-  return ownerCommand(request, extendAccessGrantOperation, (input) => ({
-    ...input,
-    operation: "grants.extend",
-  }));
-}
-
-export function handleRevokeGrant(request: Request): Promise<Response> {
-  return ownerCommand(request, revokeAccessGrantOperation, (input) => ({
-    ...input,
-    operation: "grants.revoke",
   }));
 }
 
@@ -349,7 +159,7 @@ async function readOwnerCatalog(accessToken: string): Promise<
   for (;;) {
     const result = await requestManageBilling(
       {
-        operation: "offers.list",
+        operation: "productPrices.list",
         operationId: randomUUID(),
         limit: 100,
         ...(cursor === undefined ? {} : { cursor }),

@@ -1,3 +1,4 @@
+import { videosTransaction } from "../../infrastructure/transaction.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   providerVideoIdSchema,
@@ -28,9 +29,10 @@ import { videoAccessSchema, type Videos } from "./videos.interface.js";
 
 export async function inspectPrimaryVideoReference(
   context: VideoContext,
-  transaction: Parameters<Videos["inspectPrimaryReference"]>[0],
+  handle: Parameters<Videos["inspectPrimaryReference"]>[0],
   input: Parameters<Videos["inspectPrimaryReference"]>[1],
 ): ReturnType<Videos["inspectPrimaryReference"]> {
+  const transaction = videosTransaction(handle);
   const parsed = primaryReferenceInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   try {
@@ -97,10 +99,10 @@ export async function loadVideoPresentation(
 export async function loadVideoAuthoringPresentation(
   context: VideoContext,
   input: Parameters<Videos["loadAuthoringPresentation"]>[0],
-  transaction: Parameters<
-    Videos["loadAuthoringPresentation"]
-  >[1] = context.prisma,
+  handle?: Parameters<Videos["loadAuthoringPresentation"]>[1],
 ): ReturnType<Videos["loadAuthoringPresentation"]> {
+  const transaction =
+    handle === undefined ? context.prisma : videosTransaction(handle);
   const parsed = presentationInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   try {

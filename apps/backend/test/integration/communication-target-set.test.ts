@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { PublicContentTargets } from "../../src/modules/materials/index.js";
 import { validateTargets } from "../../src/modules/communications/features/validate-targets/validate-targets.js";
@@ -43,7 +44,10 @@ async function corpus(size: number) {
         body: { type: "doc", content: [] },
       })),
     });
-    const targets = new PublicContentTargets(observer.prisma);
+    const targets = new PublicContentTargets(
+      observer.prisma,
+      new ProductDiscovery(observer.prisma),
+    );
     const urls = Array.from({ length: size }, (_, index) => [
       `https://inside.example/materials/material-${String(index + 1)}`,
       `https://inside.example/products/product-${String(index + 1)}`,

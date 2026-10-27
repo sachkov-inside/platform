@@ -61,23 +61,21 @@ not dependency wiring.
 
 - A use case may call its injected capability-scoped Prisma client directly. Do not wrap Prisma in
   a generic repository, Unit of Work, or pass-through persistence service.
-- An operation that changes another Module's state passes its own transaction to that Module's
-  function, as Save does with `requestVideoDeletion` and `markUnreferencedMaterialAssets`. The
-  callee never opens a transaction of its own: a rollback must undo the whole operation, and a
-  second pooled connection held under locks can exhaust the pool. For that handoff alone the
-  caller's capability-scoped type lists the callee's delegates, as `MaterialsPrisma` lists the Videos
-  and Assets delegates; the caller's own code reaches them only through that function, which
-  `scripts/check-backend-architecture.mjs` enforces. Opening no transaction in the callee stays a
-  review rule: a nested `$transaction` is also the correct shape for a standalone operation.
-  Reading Activity carries `product`, `material` and `publishedMaterialProductMembership` only to
-  pass its transaction to Materials. The guardrail rejects a named Prisma operation on those
-  foreign delegates, including Product. It does not follow aliases or prove every indirect access;
-  review still checks ownership and transaction handoff.
+- A cross-owner operation passes an opaque `TransactionHandle`, created by `transactionHandle(tx)`.
+  Only the receiving owner's persistence implementation unwraps it into its own scoped Prisma type.
+  Caller types contain only their own delegates, and never expose foreign tables for handoff.
+  Standalone operations own a transaction; joined operations run permission, identity and state
+  checks on the supplied handle and never open a second connection. Unexpected joined failures
+  propagate so the caller rolls back all owners. Do not split authorization from writing into
+  prepare/apply closures. The handle carries no repository or Unit of Work behaviour (ADR 0039).
+  Architecture checks derive every delegate owner from the Prisma schema and reject foreign
+  operations and unwrapping outside owner persistence. Negative type fixtures reject foreign
+  delegates on both scoped clients and the handle. Review still checks indirect access and locks.
 - An operation never awaits another pooled connection while its transaction is open: as many such
   operations as the pool has connections hold all of it and wait for each other. A read of another
   Module that the caller's locks guard takes the caller's transaction, as Save does with
   `inspectReferences`; the
-  delegate handoff above applies. The transaction comes first when every caller holds one; a read
+  opaque handoff above applies. The transaction comes first when every caller holds one; a read
   that also serves callers without one takes it as a last optional parameter, and a caller holding
   a transaction always passes it. A read those locks do not guard moves before the transaction and
   is judged inside it, as `recordMaterialOpen` does with its access decision and `authorizeDispatch`

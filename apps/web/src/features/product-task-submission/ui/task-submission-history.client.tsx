@@ -34,6 +34,7 @@ export function TaskSubmissionHistory({
   live = false,
   after,
   accountId = null,
+  headingLevel = 5,
 }: {
   readonly initial: OwnSubmissionsView;
   readonly code: string;
@@ -43,8 +44,10 @@ export function TaskSubmissionHistory({
   readonly live?: boolean;
   readonly after?: string | undefined;
   readonly accountId?: string | null;
+  readonly headingLevel?: 3 | 5;
 }) {
   const router = useRouter();
+  const SubmissionHeading = headingLevel === 3 ? "h3" : "h5";
   const historyHref = (cursor?: string) => {
     const url = new URL(returnTo, "http://inside.invalid");
     if (cursor === undefined) url.searchParams.delete("attemptsAfter");
@@ -193,11 +196,11 @@ export function TaskSubmissionHistory({
                 className="grid gap-3 py-5 first:pt-0 last:pb-0"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h5 className="text-base font-semibold">
+                  <SubmissionHeading className="text-base font-semibold">
                     <time dateTime={submission.submittedAt}>
                       {formatSubmissionMoment(submission.submittedAt)}
                     </time>
-                  </h5>
+                  </SubmissionHeading>
                   <span className="text-xs font-medium">Сдача отправлена</span>
                 </div>
                 <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">

@@ -69,7 +69,7 @@ export const openProductTask: OpenProductTask = {
   task: {
     ...place,
     access: "closed",
-    version: 2,
+    version: 2 as const,
     definition: {
       situation:
         "Новый разработчик неделю выясняет, какие репозитории ему нужны, ждёт доступов и настраивает агента по чужим заметкам. CTO хочет, чтобы новичок выходил на работу за день.",
@@ -116,7 +116,7 @@ export const closedProductTask: ProductTaskPlace = place;
 
 const versions = [
   {
-    version: 2,
+    version: 2 as const,
     criteria: criteriaV2.map((criterion) => ({
       ...criterion,
       acceptableEvidence: [...criterion.acceptableEvidence],

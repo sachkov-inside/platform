@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { readBillingEndpoint } from "@/entities/subscription";
+import { productCommunityQueryKey } from "./product-community-key";
 import { communityEntrySchema } from "./community-entry";
 
 const productCommunityChanged = factAnnouncement(
@@ -26,7 +27,7 @@ export function useProductCommunityEntry(
     [client],
   );
   return useQuery({
-    queryKey: ["account", "product-community", accountId, productId],
+    queryKey: productCommunityQueryKey(accountId, productId),
     queryFn: () =>
       readBillingEndpoint(
         `/api/account/community-entry?productId=${encodeURIComponent(productId)}`,

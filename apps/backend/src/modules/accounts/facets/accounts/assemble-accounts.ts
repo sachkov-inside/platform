@@ -6,6 +6,8 @@ import { resolveAccount } from "../../features/resolve-account/resolve-account.j
 import { accountId as checkedAccountId } from "../../domain/account-identifiers.js";
 import type { Accounts } from "./accounts.interface.js";
 
+import { accountsTransaction } from "../../infrastructure/transaction.js";
+
 interface Dependencies {
   readonly prisma: AccountsPrismaClient;
   readonly emailFingerprintKey: string;
@@ -21,7 +23,9 @@ export function assembleAccounts({
     );
   }
   const accounts: Accounts = {
-    async readIdentityForLink(accountId, transaction = prisma) {
+    async readIdentityForLink(accountId, handle) {
+      const transaction =
+        handle === undefined ? prisma : accountsTransaction(handle);
       const row = await transaction.account.findUnique({
         where: { id: accountId },
       });
@@ -33,7 +37,9 @@ export function assembleAccounts({
             telegramSubjectRef: row.telegramSubjectRef,
           };
     },
-    async readIdentitiesForLink(accountIds, transaction = prisma) {
+    async readIdentitiesForLink(accountIds, handle) {
+      const transaction =
+        handle === undefined ? prisma : accountsTransaction(handle);
       const requested = [...new Set(accountIds)];
       const canonical = [
         ...new Set(requested.map((id) => checkedAccountId(id).toLowerCase())),
@@ -63,11 +69,15 @@ export function assembleAccounts({
         requested.map((id) => [id, identities.get(id.toLowerCase())]),
       );
     },
-    establishAccount: (command) =>
-      establishAccount(prisma, emailFingerprintKey, command),
+    establishAccount: (command, handle) =>
+      establishAccount(prisma, emailFingerprintKey, command, handle),
     resolveAccount: (query) => resolveAccount(prisma, query),
     checkPermissionsMany: (query) => checkPermissionsMany(prisma, query),
-    checkPermission: (query) => checkPermission(prisma, query),
+    checkPermission: (query, handle) =>
+      checkPermission(
+        handle === undefined ? prisma : accountsTransaction(handle),
+        query,
+      ),
   };
   return Object.freeze(accounts);
 }

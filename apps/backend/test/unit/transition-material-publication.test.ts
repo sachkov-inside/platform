@@ -17,8 +17,8 @@ describe("Transition Material publication", () => {
         difficulty: null,
         formatId: null,
         outcomes: [],
-        seriesMemberships: [
-          { ordinal: 1, seriesId: "97000000-0000-4000-8000-000000000002" },
+        productMemberships: [
+          { ordinal: 1, productId: "97000000-0000-4000-8000-000000000002" },
         ],
         slug: null,
         summary: "Summary",
@@ -67,7 +67,7 @@ describe("Transition Material publication", () => {
         formatId: null,
         difficulty: null,
         outcomes: [],
-        seriesIds: ["97000000-0000-4000-8000-000000000002"],
+        productIds: ["97000000-0000-4000-8000-000000000002"],
         summary: "Summary",
         tagIds: [],
         title: "Title",

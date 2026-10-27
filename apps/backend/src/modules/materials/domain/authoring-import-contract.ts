@@ -7,8 +7,9 @@
  * native type stripping.
  */
 export const authoringImportContract = {
-  version: 1,
+  version: 2,
   packageFeatures: [
+    "canonical-product-source-v2",
     "material-task-v1",
     "task-c-v2",
     "quiz-v1",

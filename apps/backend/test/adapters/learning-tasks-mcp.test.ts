@@ -6,7 +6,6 @@ import { z } from "zod";
 
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";
 import { taskReviewProtocol } from "../../src/modules/product-tasks/domain/review-protocol.js";
-import { practiceReviewProtocol } from "../../src/modules/content-library/features/read-learning-practice/review-protocol.js";
 import {
   committedLearnerToolSurfacePath,
   parseToolSurface,
@@ -103,7 +102,6 @@ describe("Product Task tools on the learner MCP", () => {
         expect(text).toContain(instruction);
       // Lesson practice keeps procedure v2; v3 is a different text, not its edit.
       expect(taskReviewProtocol.version).toBe("5");
-      expect(practiceReviewProtocol.version).toBe("2");
     } finally {
       await client.close();
     }

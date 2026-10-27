@@ -1,7 +1,8 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, checksum, materialRevision } from "./package.mjs";
@@ -162,7 +163,7 @@ async function fixture(t) {
  * @property {{ id: string }} source
  * @property {string} publicationState
  * @property {unknown} [videoChapters]
- * @property {string[]} [seriesIds]
+ * @property {string[]} [productIds]
  * @typedef {{
  *   videoId: string;
  *   materialId: string;
@@ -209,7 +210,7 @@ const productUpdateBodySchema = z
   })
   .passthrough();
 const homePinBodySchema = z
-  .object({ expectedVersion: z.number(), seriesId: z.string() })
+  .object({ expectedVersion: z.number(), productId: z.string() })
   .passthrough();
 const compositionBodySchema = z
   .object({ orderedMaterialIds: z.array(z.string()) })
@@ -258,7 +259,7 @@ function applicationApi() {
     videos,
     artifacts,
     product,
-    pin: { seriesId: uuid(901), version: 3 },
+    pin: { productId: uuid(901), version: 3 },
     /** @type {string | undefined} */
     rejectValidation: undefined,
     /** @param {RegExp} pattern */
@@ -277,7 +278,7 @@ function applicationApi() {
             : structuredClone(body),
       });
       if (path === "/authoring/import/materials/environment")
-        return { mode: "development" };
+        return currentEnvironment("development");
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate")
         return { valid: true };
@@ -302,7 +303,7 @@ function applicationApi() {
       if (path === "/authoring/home-pin") {
         const pin = homePinBodySchema.parse(body);
         assert.equal(pin.expectedVersion, api.pin.version);
-        api.pin = { seriesId: pin.seriesId, version: api.pin.version + 1 };
+        api.pin = { productId: pin.productId, version: api.pin.version + 1 };
         return structuredClone(api.pin);
       }
       if (path === "/authoring/import/products/update") {
@@ -383,7 +384,7 @@ function applicationApi() {
           primaryVideoId: command.primaryVideoId,
           videoChapters: command.videoChapters,
           publicationState: command.publicationState,
-          seriesIds: command.metadata.seriesIds,
+          productIds: command.metadata.productIds,
           metadata: { ...current.metadata, access: command.metadata.access },
         });
         return {
@@ -824,7 +825,7 @@ test("a missing original is proposed first and unpublished only on explicit requ
     valueAt(api.materials, "inside-content:old").publicationState,
     "unpublished",
   );
-  assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, []);
+  assert.deepEqual(valueAt(api.materials, "inside-content:old").productIds, []);
   const after = await run(setup, api);
   assert.deepEqual(after.archiveProposals, []);
 });
@@ -856,7 +857,7 @@ test("supplementary originals join the Product after the programme without a cha
     (id) => valueAt(api.materials, `inside-content:${id}`).materialId,
   );
   assert.deepEqual(api.product.members, ids);
-  assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, [
+  assert.deepEqual(valueAt(api.materials, "inside-content:old").productIds, [
     productId,
   ]);
   const composition = api.calls.find(
@@ -1246,7 +1247,7 @@ test("the local product view pins the transferred product on Home once", async (
   const api = applicationApi();
   const report = await run(setup, api, { pinHome: true });
   assert.equal(report.homePinned, productId);
-  assert.deepEqual(api.pin, { seriesId: productId, version: 4 });
+  assert.deepEqual(api.pin, { productId: productId, version: 4 });
   await run(setup, api, { pinHome: true });
   assert.equal(api.pin.version, 4);
 });
@@ -1349,13 +1350,26 @@ test("a private import stops before any Material write when the target is alread
   );
 });
 
-test("a private lesson imports its practice unpublished", async (t) => {
+test("a private lesson imports legacy requirements through Tasks without publishing or rewriting its original package", async (t) => {
   const setup = await fixture(t);
   const lesson = itemAt(setup.manifest.materials, 0);
   setup.manifest.practiceDefinitions = [
     {
       practiceId: "inside-content:lesson-brief",
-      definition: { schemaVersion: 1, title: "Brief" },
+      definition: {
+        schemaVersion: 1,
+        title: "Brief",
+        businessInputs: "Original situation",
+        expectedOutcome: "Я".repeat(16000),
+        allowedFreedom: "Original freedom",
+        criteria: [
+          {
+            id: "evidence",
+            requirement: "Original requirement",
+            acceptableEvidence: ["Original evidence"],
+          },
+        ],
+      },
       sourceReference: {
         materialSourceId: "inside-content:lesson",
         materialSourceRevision: materialRevision(setup.manifest, lesson),
@@ -1368,47 +1382,78 @@ test("a private lesson imports its practice unpublished", async (t) => {
       publicationState: "published",
     },
   ];
+  const product = itemAt(setup.manifest.products, 0);
+  product.chapters = [
+    {
+      sourceId: "chapter",
+      title: "Chapter",
+      summary: "",
+      materialIds: [...product.materialIds],
+    },
+  ];
   await setup.write();
+  const originalBytes = await readFile(setup.packagePath, "utf8");
   const api = applicationApi();
   /** @type {unknown[]} */
-  const practiceBodies = [];
+  const taskBodies = [];
+  /** @type {unknown[]} */
+  const writes = [];
   /** @type {LocalTransport} */
   /** @type {LocalTransport} */
   const request = async (path, body, key, options) => {
-    if (path === "/authoring/import/practices/validate") {
-      practiceBodies.push(body);
+    if (path === "/authoring/import/materials/state?namespace=inside-content")
+      return { namespace: "inside-content", materials: [] };
+    if (path === "/authoring/import/tasks/state?namespace=inside-content")
+      return { namespace: "inside-content", tasks: [] };
+    if (path === "/authoring/import/tasks/validate") {
+      taskBodies.push(body);
       return { valid: true, current: null };
     }
-    if (path === "/authoring/import/practices/apply") {
-      practiceBodies.push(body);
+    if (path === "/authoring/import/tasks/apply") {
+      taskBodies.push(body);
+      writes.push(body);
       const command = z
         .object({
-          materialId: z.string(),
-          expectedContentVersion: z.number(),
+          code: z.string(),
+          definition: z.record(z.string(), z.json()),
           publicationState: z.enum(["published", "unpublished"]),
         })
         .passthrough()
         .parse(body);
       return {
-        practiceId: "inside-content:lesson-brief",
-        practiceVersion: 1,
+        taskId: uuid(990),
+        code: command.code,
+        revision: 1,
+        currentVersion: 1,
         definitionDigest: "c".repeat(64),
-        materialId: command.materialId,
-        boundContentVersion: command.expectedContentVersion,
         publicationState: command.publicationState,
       };
     }
     return api.request(path, body, key, options);
   };
   await run(setup, { request }, { publish: [] });
-  // Preflight validation, the validation before the write and the write itself.
-  assert.equal(practiceBodies.length, 3);
-  for (const body of practiceBodies)
+  assert.ok(taskBodies.length >= 2);
+  assert.equal(await readFile(setup.packagePath, "utf8"), originalBytes);
+  assert.equal(
+    api.calls.some((call) =>
+      call.path.startsWith("/authoring/import/practices/"),
+    ),
+    false,
+  );
+  // Task validation reads authored intent; only the actual apply may publish.
+  assert.equal(writes.length, 1);
+  for (const body of writes)
     assert.equal(
       z.object({ publicationState: z.string() }).passthrough().parse(body)
         .publicationState,
       "unpublished",
     );
+  assert.deepEqual(
+    z
+      .object({ definition: z.object({ result: z.array(z.string()) }) })
+      .parse(writes[0]).definition.result,
+    ["Я".repeat(16000)],
+  );
 });
 
 test("preview shows each publication and apply follows only the reviewed approval", async (t) => {

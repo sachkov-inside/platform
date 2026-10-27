@@ -147,10 +147,8 @@ export class Tbank {
     amount: number;
     name: string;
     email: string;
-    initiator?: PaymentInitiator;
     returnPath?: string;
   }): Promise<BankPayment & { PaymentURL: string }> {
-    const initiator = input.initiator ?? "1";
     const base = new URL(this.config.returnUrl);
     const returnUrl =
       input.returnPath === undefined ? base : new URL(input.returnPath, base);
@@ -168,9 +166,7 @@ export class Tbank {
       Description: input.name.slice(0, 140),
       CustomerKey: input.accountId,
       PayType: "O",
-      // Only the parent card-on-file purchase asks the bank to save a binding.
-      ...(initiator === "1" ? { Recurrent: "Y" } : {}),
-      DATA: { OperationInitiatorType: initiator },
+      DATA: { OperationInitiatorType: "0" },
       SuccessURL: returnUrl.toString(),
       FailURL: returnUrl.toString(),
       NotificationURL: this.config.notificationUrl,
@@ -198,123 +194,6 @@ export class Tbank {
         this.config.endpoints.formOrigins,
       ),
     };
-  }
-  /** Списание по сохранённой привязке. RebillId нельзя заменить CustomerKey или CardId. */
-  async charge(input: {
-    paymentId: string;
-    rebillId: string;
-  }): Promise<BankPayment> {
-    return bankPaymentSchema.parse(
-      await this.call("Charge", {
-        PaymentId: input.paymentId,
-        RebillId: input.rebillId,
-      }),
-    );
-  }
-  /** Банковская форма привязки. Начальный ответ не является завершённой привязкой. */
-  async addCard(
-    accountId: string,
-  ): Promise<{ requestKey: string; formUrl: string }> {
-    const binding = this.config.cardBinding;
-    if (!binding)
-      throw new Error("Card binding is not a confirmed terminal capability");
-    const result = z
-      .object({
-        Success: success
-          .transform((value) => value === true || value === "true")
-          .pipe(z.literal(true)),
-        ErrorCode: z.union([z.literal("0"), z.literal(0)]),
-        TerminalKey: z.string(),
-        RequestKey: z.string().min(1).max(64),
-        PaymentURL: z.unknown(),
-      })
-      .parse(
-        await this.call("AddCard", {
-          CustomerKey: accountId,
-          CheckType: binding.checkType,
-        }),
-      );
-    if (result.TerminalKey !== this.config.terminalKey)
-      throw new Error("Bank binding terminal mismatch");
-    return {
-      requestKey: result.RequestKey,
-      formUrl: validatedPaymentUrl(
-        result.PaymentURL,
-        this.config.endpoints.formOrigins,
-      ),
-    };
-  }
-  /** Серверная сверка сессии привязки; token признаётся только вместе с успешным результатом. */
-  async addCardState(requestKey: string): Promise<{
-    status: string;
-    success: boolean;
-    errorCode: string;
-    rebillId?: string;
-  }> {
-    const result = z
-      .object({
-        TerminalKey: z.string(),
-        RequestKey: z.string().min(1).max(64),
-        Status: z.string().min(1).max(64),
-        Success: success,
-        ErrorCode: z.string(),
-        RebillId: reference.optional(),
-      })
-      .parse(await this.call("GetAddCardState", { RequestKey: requestKey }));
-    if (
-      result.TerminalKey !== this.config.terminalKey ||
-      result.RequestKey !== requestKey
-    )
-      throw new Error("Bank binding session mismatch");
-    return {
-      status: result.Status,
-      success: result.Success === true || result.Success === "true",
-      errorCode: result.ErrorCode,
-      ...(result.RebillId === undefined
-        ? {}
-        : { rebillId: String(result.RebillId) }),
-    };
-  }
-  /**
-   * Возврат по подтверждённому платежу. ExternalRequestId закрепляет одну попытку за одной
-   * refund записью; повтор с тем же идентификатором банк считает тем же запросом. Позиции чека
-   * повторяют исходную покупку на сумму возврата.
-   */
-  async cancel(input: {
-    paymentId: string;
-    amount: number;
-    externalRequestId: string;
-    name: string;
-    email: string;
-  }): Promise<BankRefund> {
-    const result = bankRefundSchema.parse(
-      await this.call("Cancel", {
-        PaymentId: input.paymentId,
-        Amount: input.amount,
-        ExternalRequestId: input.externalRequestId,
-        Receipt: {
-          Email: input.email,
-          Taxation: this.config.receipt.taxation,
-          Items: [
-            {
-              Name: input.name.slice(0, 128),
-              Price: input.amount,
-              Quantity: 1,
-              Amount: input.amount,
-              PaymentMethod: "full_payment",
-              PaymentObject: "service",
-              Tax: this.config.receipt.tax,
-            },
-          ],
-        },
-      }),
-    );
-    if (
-      result.TerminalKey !== this.config.terminalKey ||
-      result.PaymentId !== input.paymentId
-    )
-      throw new Error("Bank refund payment mismatch");
-    return result;
   }
   async state(paymentId: string): Promise<BankPayment> {
     return bankPaymentSchema.parse(

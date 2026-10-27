@@ -18,7 +18,7 @@ const product = {
   archived: false,
   id: "97000000-0000-4000-8000-000000000003",
   introduction: null,
-  kind: "series",
+  kind: "product",
   materialCount: 4,
   name: "Demo · От проекта до первого релиза",
   slug: "demo-first-release",
@@ -57,7 +57,7 @@ const environment = authoringPageEnvironment("/authoring/products");
 
 const meta = {
   ...environment,
-  args: { initialCollections: products, kind: "series" },
+  args: { initialCollections: products, kind: "product" },
   component: ContentCollectionsPageClient,
   beforeEach: [
     environment.beforeEach,
@@ -70,7 +70,7 @@ const meta = {
         return Promise.resolve(
           Response.json({
             kind: "ready",
-            pin: { seriesId: product.id, version: 1 },
+            pin: { productId: product.id, version: 1 },
           }),
         );
       }

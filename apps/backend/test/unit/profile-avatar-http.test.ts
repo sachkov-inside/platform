@@ -3,17 +3,17 @@ import { HttpException } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { describe, expect, test, vi } from "vitest";
 
-import { PrivateProfileAvatarController } from "../../src/modules/member-profiles/adapters/nest/profile-avatar.controller.js";
-import type { MemberProfiles } from "../../src/modules/member-profiles/index.js";
+import { PrivateProfileAvatarController } from "../../src/modules/account-profiles/adapters/nest/profile-avatar.controller.js";
+import type { AccountProfiles } from "../../src/modules/account-profiles/index.js";
 
 const account = { accountId: "30000000-0000-4000-8000-000000000001" };
 const avatarId = "50000000-0000-4000-8000-000000000001";
 
 describe("Profile Avatar HTTP controllers", () => {
   test("maps malformed and oversized multipart input before application dispatch", async () => {
-    const changeAvatar = vi.fn<MemberProfiles["changeAvatar"]>();
+    const changeAvatar = vi.fn<AccountProfiles["changeAvatar"]>();
     const controller = new PrivateProfileAvatarController(
-      memberProfiles({ changeAvatar }),
+      accountProfiles({ changeAvatar }),
     );
 
     await expectHttpProblem(
@@ -31,9 +31,9 @@ describe("Profile Avatar HTTP controllers", () => {
 
   test("maps rejected image metadata to 422 and image size mismatch to 413", async () => {
     const invalidController = new PrivateProfileAvatarController(
-      memberProfiles({
+      accountProfiles({
         changeAvatar: vi
-          .fn<MemberProfiles["changeAvatar"]>()
+          .fn<AccountProfiles["changeAvatar"]>()
           .mockResolvedValue({
             error: { code: "invalid_avatar", reason: "unsupported_image_type" },
             ok: false,
@@ -47,9 +47,9 @@ describe("Profile Avatar HTTP controllers", () => {
     );
 
     const oversizedController = new PrivateProfileAvatarController(
-      memberProfiles({
+      accountProfiles({
         changeAvatar: vi
-          .fn<MemberProfiles["changeAvatar"]>()
+          .fn<AccountProfiles["changeAvatar"]>()
           .mockResolvedValue({
             error: { code: "invalid_avatar", reason: "size_mismatch" },
             ok: false,
@@ -65,9 +65,9 @@ describe("Profile Avatar HTTP controllers", () => {
 
   test("maps optimistic conflicts and dependency failures for avatar removal", async () => {
     const conflictController = new PrivateProfileAvatarController(
-      memberProfiles({
+      accountProfiles({
         changeAvatar: vi
-          .fn<MemberProfiles["changeAvatar"]>()
+          .fn<AccountProfiles["changeAvatar"]>()
           .mockResolvedValue({
             error: { code: "conflict", currentVersion: 7 },
             ok: false,
@@ -81,9 +81,9 @@ describe("Profile Avatar HTTP controllers", () => {
     );
 
     const unavailableController = new PrivateProfileAvatarController(
-      memberProfiles({
+      accountProfiles({
         changeAvatar: vi
-          .fn<MemberProfiles["changeAvatar"]>()
+          .fn<AccountProfiles["changeAvatar"]>()
           .mockResolvedValue({
             error: { code: "dependency_unavailable" },
             ok: false,
@@ -99,7 +99,7 @@ describe("Profile Avatar HTTP controllers", () => {
 
   test("masks invalid and unavailable own-avatar delivery while returning redirects", async () => {
     const deliverAvatar = vi
-      .fn<MemberProfiles["deliverAvatar"]>()
+      .fn<AccountProfiles["deliverAvatar"]>()
       .mockResolvedValueOnce({ error: { code: "not_found" }, ok: false })
       .mockResolvedValueOnce({
         error: { code: "dependency_unavailable" },
@@ -110,7 +110,7 @@ describe("Profile Avatar HTTP controllers", () => {
         ok: true,
       });
     const controller = new PrivateProfileAvatarController(
-      memberProfiles({ deliverAvatar }),
+      accountProfiles({ deliverAvatar }),
     );
 
     await expectHttpProblem(
@@ -147,13 +147,13 @@ describe("Profile Avatar HTTP controllers", () => {
   });
 });
 
-function memberProfiles(overrides: Partial<MemberProfiles>): MemberProfiles {
+function accountProfiles(overrides: Partial<AccountProfiles>): AccountProfiles {
   return {
-    changeAvatar: vi.fn<MemberProfiles["changeAvatar"]>(),
-    createProfile: vi.fn<MemberProfiles["createProfile"]>(),
-    deliverAvatar: vi.fn<MemberProfiles["deliverAvatar"]>(),
-    readPrivateProfile: vi.fn<MemberProfiles["readPrivateProfile"]>(),
-    updateProfile: vi.fn<MemberProfiles["updateProfile"]>(),
+    changeAvatar: vi.fn<AccountProfiles["changeAvatar"]>(),
+    createProfile: vi.fn<AccountProfiles["createProfile"]>(),
+    deliverAvatar: vi.fn<AccountProfiles["deliverAvatar"]>(),
+    readPrivateProfile: vi.fn<AccountProfiles["readPrivateProfile"]>(),
+    updateProfile: vi.fn<AccountProfiles["updateProfile"]>(),
     ...overrides,
   };
 }

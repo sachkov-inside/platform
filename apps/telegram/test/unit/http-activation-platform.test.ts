@@ -4,7 +4,7 @@ import {
   ACTIVATION_VERSION,
   activationValidator,
   type ActivationEvidence,
-} from "../../src/modules/subscription-activation/activation-contract.js";
+} from "../../src/modules/course-activation/activation-contract.js";
 import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming, requestBody } from "../support/json.js";

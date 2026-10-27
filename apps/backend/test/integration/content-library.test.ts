@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -5,7 +7,7 @@ import { seedLocalDevelopment } from "../../src/development/seed-local-developme
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -106,7 +108,7 @@ describe("ListPublishedMaterials", () => {
         q: "career roadmap",
         topicSlugs: [],
         formatSlugs: [],
-        seriesSlugs: [],
+        productSlugs: [],
         sort: "relevance",
       },
     );
@@ -128,7 +130,7 @@ describe("ListPublishedMaterials", () => {
     if (!english.ok) {
       throw new Error("Expected the English search fixture");
     }
-    expect(english.value.facets.series).toEqual([]);
+    expect(english.value.facets.products).toEqual([]);
     expect(english.value.facets.topics.map(({ slug }) => slug)).toEqual(
       expect.arrayContaining(["career", "platform"]),
     );
@@ -152,12 +154,12 @@ describe("ListPublishedMaterials", () => {
       "career-roadmap",
     );
     expect(
-      locallyFiltered.value.facets.series.find(
+      locallyFiltered.value.facets.products.find(
         ({ slug }) => slug === "career-path",
       ),
     ).toMatchObject({ count: 3, slug: "career-path" });
     expect(
-      locallyFiltered.value.facets.series
+      locallyFiltered.value.facets.products
         .find(({ slug }) => slug === "career-path")
         ?.previewItems.map(({ slug }) => slug),
     ).toEqual([
@@ -176,7 +178,7 @@ describe("ListPublishedMaterials", () => {
         q: "карьерный маршрут",
         topicSlugs: [],
         formatSlugs: [],
-        seriesSlugs: [],
+        productSlugs: [],
         sort: "relevance",
       },
     );
@@ -191,7 +193,7 @@ describe("ListPublishedMaterials", () => {
           expect.objectContaining({ slug: "karernyi-marshrut-summary" }),
         ],
         facets: {
-          series: [],
+          products: [],
         },
         totalCount: 2,
       },
@@ -210,7 +212,7 @@ describe("ListPublishedMaterials", () => {
     );
   });
 
-  test("searches current Topic and Series descriptions after publication", async () => {
+  test("searches current Topic and Product descriptions after publication", async () => {
     const { authoring, contentAccess, publishedMaterialReader } =
       assembleMaterials({
         prisma: testDatabase.prisma,
@@ -229,9 +231,9 @@ describe("ListPublishedMaterials", () => {
     await expect(
       authoring.updateContentCollection({
         actor: actorId,
-        collectionId: careerSeriesId,
+        collectionId: careerProductId,
         expectedVersion: 1,
-        kind: "series",
+        kind: "product",
         name: "Карьерный путь",
         summary: "Current cohort sequence signal.",
       }),
@@ -247,7 +249,7 @@ describe("ListPublishedMaterials", () => {
         q: "orbital taxonomy signal",
         topicSlugs: [],
         formatSlugs: [],
-        seriesSlugs: [],
+        productSlugs: [],
         sort: "relevance",
       },
     );
@@ -259,7 +261,7 @@ describe("ListPublishedMaterials", () => {
     ]);
     expect(topic.value.totalCount).toBe(2);
 
-    const series = await listPublishedMaterials(
+    const product = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
       emptyCatalogVideos,
@@ -269,19 +271,21 @@ describe("ListPublishedMaterials", () => {
         q: "cohort sequence signal",
         topicSlugs: [],
         formatSlugs: [],
-        seriesSlugs: [],
+        productSlugs: [],
         sort: "relevance",
       },
     );
-    expect(series).toMatchObject({
+    expect(product).toMatchObject({
       ok: true,
       value: {
-        facets: { series: [expect.objectContaining({ slug: "career-path" })] },
+        facets: {
+          products: [expect.objectContaining({ slug: "career-path" })],
+        },
         totalCount: 3,
       },
     });
 
-    const seriesWithoutMaterialMatches = await listPublishedMaterials(
+    const productWithoutMaterialMatches = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
       emptyCatalogVideos,
@@ -293,19 +297,21 @@ describe("ListPublishedMaterials", () => {
         topicSlugs: ["platform"],
       },
     );
-    expect(seriesWithoutMaterialMatches).toMatchObject({
+    expect(productWithoutMaterialMatches).toMatchObject({
       ok: true,
       value: {
-        facets: { series: [expect.objectContaining({ slug: "career-path" })] },
+        facets: {
+          products: [expect.objectContaining({ slug: "career-path" })],
+        },
         items: [],
         totalCount: 0,
       },
     });
-    if (!seriesWithoutMaterialMatches.ok) {
-      throw new Error(seriesWithoutMaterialMatches.error.code);
+    if (!productWithoutMaterialMatches.ok) {
+      throw new Error(productWithoutMaterialMatches.error.code);
     }
     expect(
-      seriesWithoutMaterialMatches.value.facets.topics.find(
+      productWithoutMaterialMatches.value.facets.topics.find(
         ({ slug }) => slug === "platform",
       ),
     ).toMatchObject({ slug: "platform" });
@@ -374,7 +380,7 @@ describe("ListPublishedMaterials", () => {
     });
   });
 
-  test("continues a filtered Series in author-defined order", async () => {
+  test("continues a filtered Product in author-defined order", async () => {
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
@@ -390,12 +396,12 @@ describe("ListPublishedMaterials", () => {
         {
           subject: anonymousSubject,
           first: 1,
-          seriesSlugs: ["career-path"],
+          productSlugs: ["career-path"],
           ...(after === undefined ? {} : { after }),
         },
       );
       if (!page.ok) {
-        throw new Error(`Expected ordered Series page: ${page.error.code}`);
+        throw new Error(`Expected ordered Product page: ${page.error.code}`);
       }
       slugs.push(...page.value.items.map(({ slug }) => slug));
       after = page.value.nextCursor ?? undefined;
@@ -440,13 +446,16 @@ describe("ListPublishedMaterials", () => {
     for (let sample = 0; sample < 20; sample += 1) {
       const startedAt = performance.now();
       const result = await selectPublishedMaterialProjectionPage(
-        testDatabase.prisma,
+        {
+          prisma: testDatabase.prisma,
+          products: new ProductDiscovery(testDatabase.prisma),
+        },
         {
           formatSlugs: [],
           first: 12,
           q: "benchmark needle",
           feedOnly: false,
-          seriesSlugs: [],
+          productSlugs: [],
           sort: "relevance",
           topicSlugs: [],
         },
@@ -467,7 +476,7 @@ describe("ListPublishedMaterials", () => {
 const actorId = "74000000-0000-4000-8000-000000000001";
 const careerTopicId = "74000000-0000-4000-8000-000000000002";
 const videoFormatId = "video";
-const careerSeriesId = "74000000-0000-4000-8000-000000000004";
+const careerProductId = "74000000-0000-4000-8000-000000000004";
 const careerSearchTagId = "74000000-0000-4000-8000-000000000005";
 
 async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
@@ -476,7 +485,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
   });
   await testDatabase.prisma.product.create({
     data: {
-      id: careerSeriesId,
+      id: careerProductId,
       name: "Карьерный путь",
       slug: "career-path",
     },
@@ -505,7 +514,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [careerSeriesId],
+        productIds: [careerProductId],
       },
       bodyText: "Закрытый карьерный план",
     },
@@ -520,7 +529,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [careerSeriesId],
+        productIds: [careerProductId],
       },
       bodyText: "Summary-weight fixture",
     },
@@ -535,7 +544,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         tagIds: [careerSearchTagId],
         difficulty: null,
         outcomes: [],
-        seriesIds: [careerSeriesId],
+        productIds: [careerProductId],
       },
       bodyText: "Taxonomy-weight fixture",
     },
@@ -550,7 +559,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       bodyText: "Открытый карьерный план",
     },
@@ -565,12 +574,13 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       bodyText: "Русский summary-weight fixture",
     },
   ] as const;
 
+  const programmeMaterialIds: string[] = [];
   for (const [index, fixture] of fixtures.entries()) {
     const created = await authoring.createDraft({
       actor: actorId,
@@ -621,6 +631,9 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
     if (!published.ok) {
       throw new Error(`Search fixture publish failed: ${published.error.code}`);
     }
+    if (fixture.metadata.productIds.length > 0) {
+      programmeMaterialIds.push(created.value.materialId);
+    }
     const publishedAt = new Date(`2026-01-0${String(index + 1)}T00:00:00.000Z`);
     await testDatabase.prisma.$transaction([
       testDatabase.prisma.material.update({
@@ -633,6 +646,28 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       }),
     ]);
   }
+  const current = await authoring.loadProductOrder({
+    actor: actorId,
+    productId: careerProductId,
+  });
+  if (!current.ok)
+    throw new Error(
+      `Search fixture programme load failed: ${current.error.code}`,
+    );
+  const reordered = await authoring.reorderProduct({
+    actor: actorId,
+    productId: careerProductId,
+    expectedOrderVersion: current.value.orderVersion,
+    orderedMaterialIds: programmeMaterialIds,
+    programmePlacements: programmeMaterialIds.map((materialId) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId: null,
+      stepGroup: null,
+    })),
+  });
+  if (!reordered.ok)
+    throw new Error(`Search fixture programme failed: ${reordered.error.code}`);
 }
 
 async function seedSearchPerformanceCorpus(

@@ -1,3 +1,4 @@
+import { historicalInvitationRequestSchema } from "../src/modules/telegram-membership/domain/historical-invitation-codec.js";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -6,16 +7,15 @@ import {
   announcementQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
-  ownSubscriptionAccessQuerySchema,
-  redeemInvitationSchema,
+  ownCourseAccessQuerySchema,
 } from "../src/modules/account-rights/index.js";
 import {
   announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
-  ownSubscriptionAccessResponseSchema,
+  ownCourseAccessResponseSchema,
   invitationRedeemResponseSchema,
-} from "../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+} from "../src/modules/telegram-membership/domain/course-activation-wire.js";
 const directory = fileURLToPath(
   new URL(
     "../../../docs/contracts/subscription-activation-v1/",
@@ -29,11 +29,11 @@ const definitions = Object.fromEntries(
     begin: beginActivationSchema,
     evidence: activationEvidenceSchema,
     activationResponse: activationResponseSchema,
-    ownAccessQuery: ownSubscriptionAccessQuerySchema,
-    ownAccessResponse: ownSubscriptionAccessResponseSchema,
+    ownAccessQuery: ownCourseAccessQuerySchema,
+    ownAccessResponse: ownCourseAccessResponseSchema,
     bindingQuery: bindingLookupQuerySchema,
     bindingResponse: bindingLookupResponseSchema,
-    invitationRedeem: redeemInvitationSchema,
+    invitationRedeem: historicalInvitationRequestSchema,
     invitationRedeemResponse: invitationRedeemResponseSchema,
   }).map(([name, codec]) => [
     name,

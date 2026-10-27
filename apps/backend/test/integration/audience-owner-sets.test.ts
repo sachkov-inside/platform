@@ -1,3 +1,6 @@
+import { outsideTransaction } from "./setup/transaction-guard.js";
+import { composeMaterialAccessFacts } from "../../src/entrypoints/composition/material-access-facts.js";
+import { ProductCatalogue } from "../../src/modules/products/index.js";
 import {
   afterAll,
   beforeAll,
@@ -11,7 +14,10 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { z } from "zod";
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { createQueryEventClient } from "./setup/query-events.js";
 import {
@@ -49,6 +55,9 @@ const instant = new Date("2030-01-01T00:00:00Z");
 const material = "60000000-0000-4000-8000-000000000001";
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
+  await database.prisma.product.create({
+    data: { id: material, slug: "rights-owner-sets", name: "Owner sets" },
+  });
 });
 afterAll(async () => {
   await database.dispose();
@@ -69,18 +78,12 @@ describe.each([1, 25, 100])("resource-aware rights for %i Accounts", (size) => {
         createdAt: instant,
       })),
     });
-    await database.prisma.accessGrant.createMany({
-      data: accounts.map((id, index) => ({
-        id: `70000000-0000-4000-8000-${String(size * 1000 + index).padStart(12, "0")}`,
+    await database.prisma.productAccess.createMany({
+      data: accounts.map((id) => ({
         accountId: id,
-        source: "paid",
-        sourceRef: `${id}:paid`,
-        capabilities: ["materials"],
-        coverage: { productIds: [], materialIds: [material] },
-        startsAt: new Date("2029-01-01T00:00:00Z"),
-        validUntil: new Date("2031-01-01T00:00:00Z"),
+        productId: material,
+        firstIssuedAt: instant,
         revision: 1,
-        reason: "Synthetic paid period",
       })),
     });
   });
@@ -97,25 +100,25 @@ describe.each([1, 25, 100])("resource-aware rights for %i Accounts", (size) => {
       const baseline = await observer.measure(async () => {
         const results = [];
         for (const id of accounts)
-          results.push(await rights.resolveForAccess(id, [], material));
+          results.push(await rights.resolveForAccess(id, [material], material));
         return results;
       });
       const after = await observer.measure(() =>
-        readSet(accounts, [], material),
+        readSet(accounts, [material], material),
       );
       expect([...after.result.values()]).toEqual(
         accounts.map(() => ({
           kind: "active",
-          validUntil: "2031-01-01T00:00:00.000Z",
+          validUntil: null,
         })),
       );
       expect([...after.result.values()]).toEqual(baseline.result);
       expect(
         baseline.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(3 * size);
+      ).toBe(size);
       expect(
         after.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(3);
+      ).toBe(2);
       const unrelated = await readSet(
         accounts,
         [],
@@ -131,11 +134,11 @@ describe.each([1, 25, 100])("resource-aware rights for %i Accounts", (size) => {
         first,
         accountId(first.toUpperCase()),
       ];
-      const aliases = await readSet(requested, [], material);
+      const aliases = await readSet(requested, [material], material);
       expect([...aliases.keys()]).toEqual([first.toUpperCase(), first]);
       expect([...aliases.values()]).toEqual([
-        { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" },
-        { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" },
+        { kind: "active", validUntil: null },
+        { kind: "active", validUntil: null },
       ]);
     } finally {
       await observer.prisma.$disconnect();
@@ -280,21 +283,22 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
         createdAt: instant,
       },
     });
-    await database.prisma.accessGrant.createMany({
+    await database.prisma.product.create({
+      data: {
+        id: resource,
+        slug: "material-owner-sets",
+        name: "Scoped Product",
+      },
+    });
+    await database.prisma.productMembership.create({
+      data: { productId: resource, materialId: resource },
+    });
+    await database.prisma.productAccess.createMany({
       data: ids.slice(1).map((id, index) => ({
-        id: `95000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
         accountId: id,
-        source: "paid",
-        sourceRef: `${id}:paid`,
-        capabilities: ["materials"],
-        coverage: {
-          productIds: [],
-          materialIds: [index === 23 ? material : resource],
-        },
-        startsAt: new Date("2029-01-01T00:00:00Z"),
-        validUntil: new Date("2031-01-01T00:00:00Z"),
+        productId: index === 23 ? material : resource,
+        firstIssuedAt: instant,
         revision: 1,
-        reason: "Synthetic paid period",
       })),
     });
   });
@@ -307,10 +311,13 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
       });
       const access = assembleContentAccess({
         materialResourceFacts: assembleMaterialResourceFacts(
-          assembleMaterialContent({
-            prisma: observer.prisma,
-            materialBodyOperations,
-          }),
+          composeMaterialAccessFacts(
+            assembleMaterialContent({
+              prisma: observer.prisma,
+              materialBodyOperations,
+            }),
+            new ProductCatalogue(observer.prisma),
+          ),
         ),
         accountPermissions: assembleCurrentAccountPermissions(accounts),
         accountRights: assembleAccountRights({
@@ -357,10 +364,10 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
       );
       expect(
         after.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(9);
+      ).toBe(7);
       expect(
         baseline.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(200);
+      ).toBe(149);
       const first = ids[0];
       if (first === undefined) throw new Error("Missing seeded Account");
       const aliases = await authorizeSet({
@@ -450,18 +457,22 @@ describe("25-recipient Material expansion owner cost", () => {
         updatedAt: instant,
       },
     });
-    await prisma.accessGrant.createMany({
-      data: ids.slice(0, 24).map((id, index) => ({
-        id: `a5000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    await prisma.product.create({
+      data: {
+        id: resource,
+        slug: "notification-owner-sets",
+        name: "Notification Product",
+      },
+    });
+    await prisma.productMembership.create({
+      data: { productId: resource, materialId: resource },
+    });
+    await prisma.productAccess.createMany({
+      data: ids.slice(0, 24).map((id) => ({
         accountId: id,
-        source: "paid",
-        sourceRef: `${id}:paid`,
-        capabilities: ["materials"],
-        coverage: { productIds: [], materialIds: [resource] },
-        startsAt: new Date("2029-01-01T00:00:00Z"),
-        validUntil: new Date("2031-01-01T00:00:00Z"),
+        productId: resource,
+        firstIssuedAt: instant,
         revision: 1,
-        reason: "Synthetic period",
       })),
     });
     await prisma.billingContact.createMany({
@@ -530,10 +541,13 @@ describe("25-recipient Material expansion owner cost", () => {
     });
     const access = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
-        assembleMaterialContent({
-          prisma: observer.prisma,
-          materialBodyOperations,
-        }),
+        composeMaterialAccessFacts(
+          assembleMaterialContent({
+            prisma: observer.prisma,
+            materialBodyOperations,
+          }),
+          new ProductCatalogue(observer.prisma),
+        ),
       ),
       accountPermissions: assembleCurrentAccountPermissions(accounts),
       accountRights: assembleAccountRights({
@@ -727,7 +741,7 @@ describe("25-recipient Material expansion owner cost", () => {
           bindings++;
           if (bindings === 1) {
             if (fact === "rights")
-              await audienceDatabase.prisma.accessGrant.updateMany({
+              await audienceDatabase.prisma.productAccess.updateMany({
                 where: { accountId: recipient },
                 data: { revokedAt: instant },
               });
@@ -825,7 +839,7 @@ describe("25-recipient Material expansion owner cost", () => {
           telegram: false,
         });
       if (fact === "rights")
-        await audienceDatabase.prisma.accessGrant.updateMany({
+        await audienceDatabase.prisma.productAccess.updateMany({
           where: { accountId: recipient },
           data: { revokedAt: instant },
         });
@@ -887,109 +901,35 @@ describe("resource-aware Account set mixed grounds", () => {
         createdAt: instant,
       })),
     });
-    const grants = [0, 1, 6, 7, 8, 9, 10].map((index) => ({
-      id: `ba000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-      accountId: ids[index] ?? "",
-      source: "paid",
-      sourceRef: `${index}:mixed`,
-      capabilities: index === 7 ? [`product:${product}`] : ["materials"],
-      coverage:
-        index === 10
-          ? "malformed-coverage"
-          : {
-              productIds: [],
-              materialIds: [index === 6 ? material : resource],
-            },
-      startsAt: new Date(
-        index === 8 ? "2035-01-01T00:00:00Z" : "2028-01-01T00:00:00Z",
-      ),
-      validUntil: new Date(
-        index === 1
-          ? "2029-01-01T00:00:00Z"
-          : index === 8
-            ? "2036-01-01T00:00:00Z"
-            : "2031-01-01T00:00:00Z",
-      ),
-      revokedAt: index === 9 ? instant : null,
-      revision: 1,
-      reason: "Synthetic mixed ground",
-    }));
-    await prisma.accessGrant.createMany({ data: grants });
-    await prisma.accessGrant.create({
-      data: {
-        ...grants[0],
-        id: "ba000000-0000-4000-8000-000000000020",
-        accountId: ids[0] ?? "",
-        source: "paid",
-        sourceRef: "long-overlap",
-        capabilities: ["materials"],
-        coverage: { productIds: [], materialIds: [resource] },
-        startsAt: new Date("2028-01-01T00:00:00Z"),
-        validUntil: new Date("2032-01-01T00:00:00Z"),
+    await prisma.product.createMany({
+      data: [product, material].map((id) => ({ id, slug: id, name: id })),
+    });
+    await prisma.productAccess.createMany({
+      data: [0, 1, 2, 6, 7, 9].map((index) => ({
+        accountId: ids[index] ?? "",
+        productId: index === 6 ? material : product,
+        firstIssuedAt: instant,
+        revokedAt: [1, 9].includes(index) ? instant : null,
         revision: 1,
-        reason: "Longest overlap",
-      },
+      })),
     });
     await prisma.legacyClassification.createMany({
-      data: [2, 3, 4, 5, 11].map((index) => ({
+      data: [3, 4, 5, 11].map((index) => ({
         accountId: ids[index] ?? "",
         classification: "confirmed_legacy",
-        sourceRef: `bridge-${index}`,
-        reason: "Synthetic bridge",
+        sourceRef: `passive-${index}`,
+        reason: "Passive bridge",
         verifiedAt: instant,
         revision: 1,
         bridgeEnabled: true,
-        bridgeCoverage: { productIds: [], materialIds: [resource] },
-      })),
-    });
-    await prisma.membershipBinding.createMany({
-      data: [2, 3].map((index) => ({
-        accountId: ids[index] ?? "",
-        principalRef: `bridge-${index}`,
-        linkedAt: instant,
-      })),
-    });
-    await prisma.membershipProjection.createMany({
-      data: [2, 3].map((index) => ({
-        accountId: ids[index] ?? "",
-        principalRef: `bridge-${index}`,
-        decision: index === 2 ? "member" : "not_member",
-        evidenceRef: `evidence-${index}`,
-        evidenceVersion: 1n,
-        evidenceFingerprint: "a".repeat(64),
-        checkedAt: new Date("2029-12-31T00:00:00Z"),
-        validUntil: new Date("2031-01-01T00:00:00Z"),
-        updatedAt: instant,
-      })),
-    });
-    await prisma.membershipBinding.create({
-      data: {
-        accountId: ids[4] ?? "",
-        principalRef: "bridge-bound",
-        linkedAt: instant,
-      },
-    });
-    await prisma.membershipEvidenceReceipt.createMany({
-      data: [
-        { index: 5, delivery: "receipt-a", decision: "identity_not_linked" },
-        { index: 5, delivery: "receipt-b", decision: "unavailable" },
-        { index: 11, delivery: "receipt-c", decision: "identity_not_linked" },
-      ].map(({ index, delivery, decision }) => ({
-        accountId: ids[index] ?? "",
-        deliveryId: delivery,
-        source: "reconciliation",
-        requestFingerprint: "b".repeat(64),
-        decision,
-        outcome: "accepted_without_entitlement",
-        receivedAt: instant,
-        retainUntil: new Date("2031-01-01T00:00:00Z"),
+        bridgeCoverage: { productIds: [product], materialIds: [] },
       })),
     });
   });
   afterEach(async () => {
     await mixed.dispose();
   });
-  test("preserves scoped expiry, bridge receipts and per-Account unavailable outcomes", async () => {
+  test("preserves lifetime rights, revocation, Product isolation and passive bridge denial", async () => {
     const rights = assembleAccountRights({
       prisma: mixed.prisma,
       clock: () => instant,
@@ -1001,20 +941,13 @@ describe("resource-aware Account set mixed grounds", () => {
       [product],
       resource,
     );
-    expect([...result.values()]).toEqual([
-      { kind: "active", validUntil: "2032-01-01T00:00:00.000Z" },
-      { kind: "expired" },
-      { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" },
-      { kind: "expired" },
-      { kind: "unavailable" },
-      { kind: "unavailable" },
-      { kind: "required" },
-      { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" },
-      { kind: "required" },
-      { kind: "expired" },
-      { kind: "unavailable" },
-      { kind: "required" },
-    ]);
+    expect([...result.values()]).toEqual(
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((index) =>
+        [0, 2, 7].includes(index)
+          ? { kind: "active", validUntil: null }
+          : { kind: "required" },
+      ),
+    );
     const expected = [];
     for (const id of ids)
       expected.push(await rights.resolveForAccess(id, [product], resource));
@@ -1045,10 +978,13 @@ describe("Account-set empty, missing and unavailable contracts", () => {
     });
     const access = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
-        assembleMaterialContent({
-          prisma: observer.prisma,
-          materialBodyOperations,
-        }),
+        composeMaterialAccessFacts(
+          assembleMaterialContent({
+            prisma: observer.prisma,
+            materialBodyOperations,
+          }),
+          new ProductCatalogue(observer.prisma),
+        ),
       ),
       accountPermissions: assembleCurrentAccountPermissions(accounts),
       accountRights: rights,
@@ -1110,7 +1046,7 @@ describe("Account-set empty, missing and unavailable contracts", () => {
       Prisma.sql`alter table accounts.account_permissions rename to unavailable_permissions`,
     );
     await owned.prisma.$executeRaw(
-      Prisma.sql`alter table account_rights.access_grants rename to unavailable_grants`,
+      Prisma.sql`alter table account_rights.product_access rename to unavailable_access`,
     );
     await owned.prisma.$executeRaw(
       Prisma.sql`alter table materials.materials rename to unavailable_materials`,
@@ -1133,7 +1069,7 @@ describe("Account-set empty, missing and unavailable contracts", () => {
   });
 });
 
-describe("resource-aware set coherent snapshot", () => {
+describe("resource-aware set committed state", () => {
   let owned: TestDatabase;
   const recipient = accountId("dc000000-0000-4000-8000-000000000001");
   beforeEach(async () => {
@@ -1143,164 +1079,61 @@ describe("resource-aware set coherent snapshot", () => {
         id: recipient,
         logtoIssuer: "https://identity.example.test",
         logtoSubject: recipient,
-        createdAt: instant,
       },
     });
+    await owned.prisma.product.create({
+      data: { id: material, slug: "committed-state", name: "Committed state" },
+    });
   });
-  afterEach(async () => {
-    await owned.dispose();
-  });
-  test("a concurrent grant cannot appear only in the later negative-history read", async () => {
+  afterEach(async () => owned.dispose());
+  test("an uncommitted issuance is invisible and becomes visible after commit", async () => {
     const rights = assembleAccountRights({
       prisma: owned.prisma,
       clock: () => instant,
     });
-    const read = rights.resolveForAccessAccounts?.bind(rights);
-    if (read === undefined) throw new Error("Missing scoped Account set");
-    expect(await read([recipient], [], material)).toEqual(
-      new Map([[recipient, { kind: "required" }]]),
-    );
-    function signal() {
-      let resolve: () => void = () => undefined;
-      const promise = new Promise<void>((done) => {
-        resolve = done;
-      });
-      return { promise, resolve: () => resolve() };
-    }
-    const locked = signal();
-    const release = signal();
-    const blocker = owned.run(() =>
-      owned.prisma.$transaction(async (tx) => {
-        await tx.$executeRaw(
-          Prisma.sql`lock table account_rights.legacy_classifications in access exclusive mode`,
-        );
-        locked.resolve();
-        await release.promise;
-      }),
-    );
-    let reading: ReturnType<typeof read> | undefined;
-    try {
-      await locked.promise;
-      reading = owned.run(() => read([recipient], [], material));
-      await expect
-        .poll(
-          async () =>
-            z.array(z.object({ waiting: z.boolean() })).parse(
-              await owned.prisma.$queryRaw(Prisma.sql`
-        select exists(select 1 from pg_locks where relation='account_rights.legacy_classifications'::regclass
-          and database=(select oid from pg_database where datname=current_database()) and not granted) as waiting
-      `),
-            )[0]?.waiting,
-        )
-        .toBe(true);
-      await owned.prisma.accessGrant.create({
+    const readSet = rights.resolveForAccessAccounts?.bind(rights);
+    if (readSet === undefined) throw new Error("Missing scoped Account set");
+    const read = () =>
+      outsideTransaction(() => readSet([recipient], [material]));
+    await owned.prisma.$transaction(async (tx) => {
+      await tx.productAccess.create({
         data: {
-          id: "dd000000-0000-4000-8000-000000000001",
           accountId: recipient,
-          source: "paid",
-          sourceRef: "snapshot-grant",
-          capabilities: ["materials"],
-          coverage: { productIds: [], materialIds: [material] },
-          startsAt: new Date("2029-01-01T00:00:00Z"),
-          validUntil: new Date("2031-01-01T00:00:00Z"),
+          productId: material,
+          firstIssuedAt: instant,
           revision: 1,
-          reason: "Concurrent fixture grant",
         },
       });
-    } finally {
-      release.resolve();
-      await blocker;
-    }
-    expect(await reading).toEqual(new Map([[recipient, { kind: "required" }]]));
-    expect(await read([recipient], [], material)).toEqual(
-      new Map([
-        [recipient, { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" }],
-      ]),
+      expect(await read()).toEqual(
+        new Map([[recipient, { kind: "required" }]]),
+      );
+    });
+    expect(await read()).toEqual(
+      new Map([[recipient, { kind: "active", validUntil: null }]]),
     );
   });
-  test("a concurrent Product exclusion cannot tear the Account snapshot", async () => {
-    const product = "dd000000-0000-4000-8000-000000000002";
-    const grant = "dd000000-0000-4000-8000-000000000003";
-    await owned.prisma.accessGrant.create({
-      data: {
-        id: grant,
-        accountId: recipient,
-        source: "paid",
-        sourceRef: "exclusion-snapshot",
-        capabilities: ["materials"],
-        coverage: { productIds: [product], materialIds: [] },
-        startsAt: new Date("2029-01-01T00:00:00Z"),
-        validUntil: new Date("2031-01-01T00:00:00Z"),
-        revision: 1,
-        reason: "Initial scoped grant",
-      },
-    });
+  test("an uncommitted withdrawal cannot tear the current Account set", async () => {
+    await grantProductFixture(owned.prisma, recipient, material);
     const rights = assembleAccountRights({
       prisma: owned.prisma,
       clock: () => instant,
     });
-    const read = rights.resolveForAccessAccounts?.bind(rights);
-    if (read === undefined) throw new Error("Missing scoped Account set");
-    expect(await read([recipient], [product])).toEqual(
-      new Map([
-        [recipient, { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" }],
-      ]),
-    );
-    function signal() {
-      let resolve: () => void = () => undefined;
-      const promise = new Promise<void>((done) => {
-        resolve = done;
-      });
-      return { promise, resolve: () => resolve() };
-    }
-    const locked = signal();
-    const release = signal();
-    const blocker = owned.run(() =>
-      owned.prisma.$transaction(async (tx) => {
-        await tx.$executeRaw(
-          Prisma.sql`lock table account_rights.legacy_classifications in access exclusive mode`,
-        );
-        locked.resolve();
-        await release.promise;
-      }),
-    );
-    let reading: ReturnType<typeof read> | undefined;
-    try {
-      await locked.promise;
-      reading = owned.run(() => read([recipient], [product]));
-      await expect
-        .poll(
-          async () =>
-            z.array(z.object({ waiting: z.boolean() })).parse(
-              await owned.prisma.$queryRaw(Prisma.sql`
-        select exists(select 1 from pg_locks where relation='account_rights.legacy_classifications'::regclass
-          and database=(select oid from pg_database where datname=current_database()) and not granted) as waiting
-      `),
-            )[0]?.waiting,
-        )
-        .toBe(true);
-      await owned.prisma.productAccessExclusion.create({
-        data: {
-          accountId: recipient,
-          productId: product,
-          grantIds: [grant],
-          actorId: recipient,
-          reason: "Concurrent exclusion",
-          revokedAt: instant,
+    const readSet = rights.resolveForAccessAccounts?.bind(rights);
+    if (readSet === undefined) throw new Error("Missing scoped Account set");
+    const read = () =>
+      outsideTransaction(() => readSet([recipient], [material]));
+    await owned.prisma.$transaction(async (tx) => {
+      await tx.productAccess.update({
+        where: {
+          accountId_productId: { accountId: recipient, productId: material },
         },
+        data: { revokedAt: instant, revision: 2 },
       });
-    } finally {
-      release.resolve();
-      await blocker;
-    }
-    expect(await reading).toEqual(
-      new Map([
-        [recipient, { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" }],
-      ]),
-    );
-    expect(await read([recipient], [product])).toEqual(
-      new Map([[recipient, { kind: "expired" }]]),
-    );
+      expect(await read()).toEqual(
+        new Map([[recipient, { kind: "active", validUntil: null }]]),
+      );
+    });
+    expect(await read()).toEqual(new Map([[recipient, { kind: "required" }]]));
   });
 });
 
@@ -1311,96 +1144,23 @@ describe("many-Account Product exclusion parity", () => {
   );
   const product = "df000000-0000-4000-8000-000000000001";
   const other = "df000000-0000-4000-8000-000000000002";
-  const grantIds = ids.map(
-    (_, index) =>
-      `da000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-  );
   beforeEach(async () => {
     owned = await createMigratedTestDatabase();
-    await owned.prisma.account.createMany({
-      data: ids.map((id) => ({
-        id,
-        logtoIssuer: "https://identity.example.test",
-        logtoSubject: id,
-        createdAt: instant,
-      })),
+    await owned.prisma.product.createMany({
+      data: [product, other].map((id) => ({ id, slug: id, name: id })),
     });
-    await owned.prisma.accessGrant.createMany({
-      data: [0, 2, 3].map((index) => ({
-        id: grantIds[index] ?? "",
-        accountId: ids[index] ?? "",
-        source: "paid",
-        sourceRef: `exclusion-${index}`,
-        capabilities: ["materials", `product:${product}`, `product:${other}`],
-        coverage: { productIds: [product, other], materialIds: [] },
-        startsAt: new Date("2029-01-01T00:00:00Z"),
-        validUntil: new Date("2031-01-01T00:00:00Z"),
-        revision: 1,
-        reason: "Synthetic two-Product grant",
-      })),
-    });
-    await owned.prisma.accessGrant.create({
-      data: {
-        id: "da000000-0000-4000-8000-000000000005",
-        accountId: ids[2] ?? "",
-        source: "paid",
-        sourceRef: "later-independent",
-        capabilities: [`product:${product}`],
-        coverage: { productIds: [product], materialIds: [] },
-        startsAt: new Date("2029-01-01T00:00:00Z"),
-        validUntil: new Date("2032-01-01T00:00:00Z"),
-        revision: 1,
-        reason: "Later independent purchase",
-      },
-    });
-    await owned.prisma.legacyClassification.create({
-      data: {
-        accountId: ids[1] ?? "",
-        classification: "confirmed_legacy",
-        sourceRef: "exclusion-bridge",
-        reason: "Synthetic bridge",
-        verifiedAt: instant,
-        revision: 1,
-        bridgeEnabled: true,
-        bridgeCoverage: { productIds: [product, other], materialIds: [] },
-      },
-    });
-    await owned.prisma.membershipBinding.create({
-      data: {
-        accountId: ids[1] ?? "",
-        principalRef: "exclusion-bridge",
-        linkedAt: instant,
-      },
-    });
-    await owned.prisma.membershipProjection.create({
-      data: {
-        accountId: ids[1] ?? "",
-        principalRef: "exclusion-bridge",
-        decision: "member",
-        evidenceRef: "exclusion-evidence",
-        evidenceVersion: 1n,
-        evidenceFingerprint: "a".repeat(64),
-        checkedAt: instant,
-        validUntil: new Date("2031-01-01T00:00:00Z"),
-        updatedAt: instant,
-      },
-    });
-    await owned.prisma.productAccessExclusion.createMany({
-      data: [0, 1, 2].map((index) => ({
-        accountId: ids[index] ?? "",
-        productId: product,
-        grantIds: index === 1 ? [] : [grantIds[index] ?? ""],
-        bridge: index === 1,
-        actorId: ids[0] ?? "",
-        reason: "Synthetic Product revocation",
-        revokedAt: instant,
-      })),
-    });
+    for (const id of ids)
+      for (const productId of [product, other])
+        await grantProductFixture(owned.prisma, id, productId);
+    for (const id of ids.slice(0, 3))
+      await revokeProductFixture(owned.prisma, `${id}:${product}`);
+    // An independent later source must preserve the owner's withdrawal latch.
+    await grantProductFixture(owned.prisma, ids[2] ?? "", product);
   });
   afterEach(async () => {
     await owned.dispose();
   });
-  test("honours excluded grants and bridge scope without denying another Product, Account or later purchase", async () => {
+  test("honours revocation across later sources without denying another Product or Account", async () => {
     const rights = assembleAccountRights({
       prisma: owned.prisma,
       clock: () => instant,
@@ -1412,11 +1172,11 @@ describe("many-Account Product exclusion parity", () => {
       product,
     ]);
     expect([...excluded.values()]).toEqual([
-      { kind: "expired" },
-      { kind: "expired" },
-      { kind: "stale" },
-      { kind: "active", validUntil: "2032-01-01T00:00:00.000Z" },
-      { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" },
+      { kind: "required" },
+      { kind: "required" },
+      { kind: "required" },
+      { kind: "required" },
+      { kind: "active", validUntil: null },
     ]);
     const expected = [];
     for (const id of requested)
@@ -1426,7 +1186,7 @@ describe("many-Account Product exclusion parity", () => {
     expect([...allowed.values()]).toEqual(
       ids.map(() => ({
         kind: "active",
-        validUntil: "2031-01-01T00:00:00.000Z",
+        validUntil: null,
       })),
     );
   });

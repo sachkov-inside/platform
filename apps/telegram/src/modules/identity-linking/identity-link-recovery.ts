@@ -122,12 +122,7 @@ export class IdentityLinkRecovery {
         )
         .where("state", "=", "conflict")
         .executeTakeFirstOrThrow();
-      await this.effects.initialCheck(
-        transaction,
-        `owner-recovery:${command.recoveryRef}`,
-        ready.transfer.telegramIdentityRef,
-        targetLinkedAt,
-      );
+
       await transaction
         .insertInto("identity_link_recoveries")
         .values({

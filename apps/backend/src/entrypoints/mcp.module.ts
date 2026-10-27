@@ -1,3 +1,5 @@
+import { ProductAuthoringCompositionModule } from "./composition/product-authoring-composition.module.js";
+import { ContentAccessCompositionModule } from "./composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
 import { BillingModule } from "../modules/billing/index.js";
 import { CommunicationsModule } from "../modules/communications/index.js";
@@ -32,6 +34,8 @@ export class McpModule {
         WebTelemetryModule,
         CommunicationsModule,
         MaterialsModule,
+        ContentAccessCompositionModule,
+        ProductAuthoringCompositionModule,
         BillingModule,
         ProductTasksModule,
         CoverageCatalogModule,
