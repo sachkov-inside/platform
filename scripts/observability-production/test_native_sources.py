@@ -1,5 +1,11 @@
 """Host transport is finite and cannot bypass source owner/SQL/loopback admission."""
 import json
+import os
+import socket
+from pathlib import Path
+import sys
+import tempfile
+import time
 from unittest.mock import patch
 import unittest
 import native_sources
@@ -35,6 +41,41 @@ class NativeSources(unittest.TestCase):
                     native_sources.postgres_read('../private' if fault == 'project' else 'owned',
                         'SELECT private' if fault == 'sql' else source_cache.postgres_sql(), execute=execute)
                 self.assertFalse(any('exec' in args for args in seen))
+
+    def test_command_stream_limits_kill_owned_children_before_returning(self):
+        for stream in ('stdout', 'stderr', 'timeout'):
+            with self.subTest(stream=stream), tempfile.TemporaryDirectory() as directory:
+                pidfile = Path(directory) / 'pid'
+                code = ("import os,sys,time; from pathlib import Path; "
+                        "Path(sys.argv[1]).write_text(str(os.getpid())); "
+                        "os.write(2 if sys.argv[2]=='stderr' else 1,b'x'*65536) "
+                        "if sys.argv[2]!='timeout' else None; time.sleep(10)")
+                started = time.monotonic()
+                with self.assertRaises(TimeoutError if stream == 'timeout' else ValueError) as failure:
+                    native_sources._execute([sys.executable, '-c', code, str(pidfile), stream], timeout=.5)
+                self.assertNotIn('xxxx', str(failure.exception))
+                self.assertLess(time.monotonic() - started, 2)
+                identity = int(pidfile.read_text())
+                with self.assertRaises(ProcessLookupError): os.kill(identity, 0)
+
+    def test_command_deadline_cleans_descendant_and_success_preserves_bounded_response(self):
+        with tempfile.TemporaryDirectory() as directory:
+            endpoint = str(Path(directory) / 'owned.sock')
+            code = """import os,socket,sys,time
+if os.fork() == 0:
+    server=socket.socket(socket.AF_UNIX); server.bind(sys.argv[1]); server.listen()
+    os.write(1,b'ready'); time.sleep(10)
+else:
+    time.sleep(10)
+"""
+            with self.assertRaises(TimeoutError):
+                native_sources._execute([sys.executable, '-c', code, endpoint], timeout=.5)
+            self.assertTrue(Path(endpoint).exists())
+            with socket.socket(socket.AF_UNIX) as probe:
+                with self.assertRaises(ConnectionRefusedError): probe.connect(endpoint)
+        response = native_sources._execute([sys.executable, '-c',
+            "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())"], timeout=1, payload=b'fixed-response')
+        self.assertEqual(response, b'fixed-response')
 
     def test_caddy_only_has_two_read_paths_and_no_user_supplied_url_or_admin_write(self):
         for path in ('http://private.invalid', '/config', '/stop', '/load', '/metrics?person=private'):
