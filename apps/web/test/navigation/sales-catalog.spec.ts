@@ -10,6 +10,8 @@ import {
 } from "@playwright/test";
 import { z } from "zod";
 
+import { salesAdminEvidence } from "../support/sales-admin-evidence";
+
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT is required");
 const backend = `http://127.0.0.1:${backendPort}`;
@@ -181,6 +183,7 @@ test("создание ссылки на оплату на 390 px", async ({
   await expect(preview).toContainText(/29\s900\s₽/u);
   await expect(preview).toContainText("Действует по 31 дек. 2099 включительно");
   await expectTouchTargets(sheet);
+  await salesAdminEvidence(page, info, "payment-link-create");
   await sheet.getByRole("button", { name: "Создать ссылку" }).click();
 
   const createdSheet = page.getByRole("dialog", { name: "Ссылка создана" });
@@ -199,6 +202,7 @@ test("создание ссылки на оплату на 390 px", async ({
     await address.inputValue(),
   );
   await expectTouchTargets(createdSheet);
+  await salesAdminEvidence(page, info, "payment-link-created");
   expect(
     (await received(request)).filter(
       (body) => body["operation"] === "paymentLinks.create",
@@ -248,10 +252,12 @@ test("ссылка на оплату суммой в диалоге на 1440 px
   await expect(
     dialog.getByRole("region", { name: "Итог по ссылке" }),
   ).toContainText(/35\s000\s₽/u);
+  await salesAdminEvidence(page, info, "payment-link-create");
   await dialog.getByRole("button", { name: "Создать ссылку" }).click();
   await expect(
     page.getByRole("dialog", { name: "Ссылка создана" }),
   ).toBeVisible();
+  await salesAdminEvidence(page, info, "payment-link-created");
   expect(
     (await received(request)).filter(
       (body) => body["operation"] === "paymentLinks.create",
@@ -275,6 +281,7 @@ test("фильтры ссылок живут в адресе, а отзыв ид
   await signIn(context, baseURL);
   await page.goto("/authoring/sales/links");
   await expect(row(page, "Агентная разработка")).toBeVisible();
+  await salesAdminEvidence(page, info, "payment-links");
 
   // Строка открывает подробности ссылки: лист на телефоне, диалог на компьютере.
   // Щелчок по середине строки, а не по её названию: открывает вся строка.
@@ -355,6 +362,7 @@ test("скидки: создание, изменение и архив без в
   );
   await expect(row(page, "Скидка выпускникам")).toContainText("Все продукты");
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "discounts");
   if (isPhone(info)) await expectTouchTargets(page.getByRole("main"));
 
   await page
@@ -372,6 +380,7 @@ test("скидки: создание, изменение и архив без в
   ).toContainText("Архитектура систем");
   await form.getByLabel("Первый день").fill("2026-11-27");
   await form.getByLabel("Последний день").fill("2026-11-30");
+  await salesAdminEvidence(page, info, "discount-form");
   if (isPhone(info)) await expectTouchTargets(form);
   await form.getByRole("button", { name: "Создать скидку" }).click();
   await expect(form).toBeHidden();
@@ -446,7 +455,7 @@ test("архив скидок и анкетные скидки открываю�
   baseURL,
   context,
   page,
-}) => {
+}, info) => {
   await signIn(context, baseURL);
   await page.goto("/authoring/sales/discounts");
   await expect(row(page, "Скидка выпускникам")).toBeVisible();
@@ -456,6 +465,7 @@ test("архив скидок и анкетные скидки открываю�
   const legacy = row(page, "Скидка подписчикам Tribute");
   await expect(legacy).toContainText("Прежние предложения");
   await expect(legacy).not.toContainText("Все продукты");
+  await salesAdminEvidence(page, info, "discounts-archive");
   await page
     .getByRole("main")
     .getByRole("button", {
@@ -486,6 +496,7 @@ test("архив скидок и анкетные скидки открываю�
     page.getByRole("main").getByRole("button", { name: "Создать скидку" }),
   ).toHaveCount(0);
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "discounts-questionnaire");
 
   await page.goBack();
   await expect(page).toHaveURL("/authoring/sales/discounts?archived=1");
@@ -513,6 +524,7 @@ test("воронка продаж держит продукт, главу и п�
   ).toHaveText("Последние 30 дней");
   await expectAccessibleWithoutOverflow(page);
   if (isPhone(info)) await expectTouchTargets(page.getByRole("main"));
+  await salesAdminEvidence(page, info, "funnel");
 
   await choose(page, "Период", "Последние 7 дней");
   await expect(page).toHaveURL(/[?&]period=7(?:&|$)/u);

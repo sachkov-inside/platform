@@ -9,6 +9,8 @@ import {
 } from "@playwright/test";
 import { z } from "zod";
 
+import { salesAdminEvidence } from "../support/sales-admin-evidence";
+
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT is required");
 const backend = `http://127.0.0.1:${backendPort}`;
@@ -155,6 +157,7 @@ test("payments are the current sales item and their filters live in the address 
     ).toHaveAttribute("aria-current", "page");
   await expect(paymentRows(page)).toHaveCount(50);
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "payments");
 
   await chooseState(page, "Неизвестно, нужна сверка");
   await expect(page).toHaveURL(/\?state=unknown$/u);
@@ -182,6 +185,7 @@ test("payments are the current sales item and their filters live in the address 
     from: "2026-10-23T21:00:00.000Z",
   });
   await expect(paymentRows(page)).toHaveCount(1);
+  await salesAdminEvidence(page, info, "payments-filtered");
 
   await page.goBack();
   await expect(page).toHaveURL(
@@ -205,7 +209,7 @@ test("the payment page shows the order email on request and reconciles after con
   baseURL,
   context,
   page,
-}) => {
+}, info) => {
   await signIn(context, baseURL);
   await page.goto("/authoring/sales/payments?state=unknown");
   const row = paymentRows(page).first();
@@ -226,6 +230,7 @@ test("the payment page shows the order email on request and reconciles after con
 
   await main.getByRole("button", { name: "Показать email" }).click();
   await expect(main.getByText(salesPaymentsFixture.orderEmail)).toBeVisible();
+  await salesAdminEvidence(page, info, "payment");
   await main.getByRole("button", { name: "Скрыть email" }).click();
   await expect(main.getByText(salesPaymentsFixture.orderEmail)).toHaveCount(0);
 

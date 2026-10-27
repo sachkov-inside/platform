@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { z } from "zod";
 
+import { salesAdminEvidence } from "../support/sales-admin-evidence";
+
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT is required");
 const backend = `http://127.0.0.1:${backendPort}`;
@@ -116,6 +118,7 @@ test("learners tab lists holders by name and grants several people with one retr
   ).toHaveAttribute("href", `/authoring/people/${contactlessId}`);
   await expect(page.getByText(contactlessId)).toHaveCount(0);
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "product-learners");
 
   // Тот же адрес открывает вкладку сразу.
   await page.reload();
@@ -137,6 +140,7 @@ test("learners tab lists holders by name and grants several people with one retr
   const chosen = dialog.getByRole("list", { name: "Выбранные люди" });
   await expect(chosen.getByText("Уже есть доступ")).toBeVisible();
   await dialog.getByRole("radio", { name: "Подарок" }).check();
+  await salesAdminEvidence(page, info, "grant-product");
   await dialog.getByRole("button", { name: "Выдать 2 людям" }).click();
 
   const status = dialog.getByRole("status").first();
@@ -152,6 +156,7 @@ test("learners tab lists holders by name and grants several people with one retr
         document.documentElement.clientWidth,
     ),
   ).resolves.toBe(true);
+  await salesAdminEvidence(page, info, "grant-product-outcome");
 
   // Повтор отправляет только строку с ошибкой и с той же ссылкой выдачи.
   await dialog

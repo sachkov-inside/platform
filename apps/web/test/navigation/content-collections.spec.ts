@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
+import { salesAdminEvidence } from "../support/sales-admin-evidence";
+
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT is required");
 const backend = `http://127.0.0.1:${backendPort}`;
@@ -96,6 +98,7 @@ test("products list opens a product whose tabs live in the address and keep the 
     products.filter({ hasText: "Прежнее руководство" }),
   ).toContainText("Архив");
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "products");
 
   // Поиск сужает полный список и живёт в адресе.
   await page
@@ -215,7 +218,7 @@ test("hidden sale and community tabs read nothing until they are opened (#1718)"
 
 test("the sale tab saves the price and opens and closes sales with a confirmation (#1718)", async ({
   page,
-}) => {
+}, info) => {
   await page.goto(`/authoring/products/${architectureId}`);
   const tab = (name: string) => page.getByRole("tab", { name, exact: true });
   await tab("Продажа").click();
@@ -248,6 +251,7 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
     links.getByRole("heading", { name: "Ссылки на оплату" }),
   ).toBeVisible();
   await expect(links.getByText("Ссылок на оплату пока нет")).toBeVisible();
+  await salesAdminEvidence(page, info, "product-sale");
   await links.getByRole("button", { name: "Создать ссылку" }).first().click();
   const creating = page.getByRole("dialog", { name: "Новая ссылка на оплату" });
   await expect(creating).toContainText(/Архитектура приложения · 34\s900/u);
@@ -283,6 +287,7 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
     page.getByText("У продукта пока нет правил активации."),
   ).toBeVisible();
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "product-community");
   await page.goBack();
   await expect(page).toHaveURL(
     `/authoring/products/${architectureId}?tab=sale`,
@@ -322,6 +327,7 @@ test("an archived price leaves the sale tab and the list saying so, with nothing
   ).toBeDisabled();
   await expect(panel).toContainText("Цена в архиве: открыть продажи нельзя.");
   await expectAccessibleWithoutOverflow(page);
+  await salesAdminEvidence(page, info, "product-sale-archived-price");
 
   await page.goto("/authoring/products");
   await expect(
