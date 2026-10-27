@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 
 import {
   announceEnrollmentChange,
+  issueOutcomeMessage,
   issueProductAccessOperation,
   previewProductRevocation,
   restoreProductAccessOperation,
@@ -18,7 +19,6 @@ import { Button } from "@/shared/ui/button";
 
 import {
   accessFailureMessage,
-  grantOutcomeMessage,
   isStaleAccess,
   restoredMessage,
   revokedMessage,
@@ -232,9 +232,7 @@ export function useProductAccessActions({
                   return;
                 }
                 setGrant(null);
-                written(
-                  grantOutcomeMessage(result.value.outcome, product.name),
-                );
+                written(issueOutcomeMessage(result.value.outcome));
               },
             },
           );

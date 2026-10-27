@@ -260,9 +260,7 @@ test("the owner grants, revokes with a reason and its consequence, and restores 
   await grant.getByRole("radio", { name: "Подарок" }).check();
   await expectAccessibleWithoutOverflow(page);
   await grant.getByRole("button", { name: "Выдать продукт" }).click();
-  await expect(
-    page.getByText(`Продукт «${products.practice.name}» выдан.`),
-  ).toBeVisible();
+  await expect(page.getByText("Доступ выдан.")).toBeVisible();
   await expect(grant).toBeHidden();
   await expect(
     productPanel(page, products.practice.name).getByText("Доступ открыт"),

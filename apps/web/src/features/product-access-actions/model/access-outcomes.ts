@@ -1,27 +1,10 @@
-import type {
-  BillingFailureCode,
-  ProductAccessIssueOutcome,
-} from "@/entities/subscription";
+import type { BillingFailureCode } from "@/entities/subscription";
 
 /**
  * Что владелец видит после действия с доступом (#1721). Правила решает Product Access; здесь
- * только подписи его ответов для карточки человека.
+ * только подписи его ответов для карточки человека. Итог выдачи называет общий
+ * `issueOutcomeMessage` из `@/entities/subscription`, тот же, что у выдачи на странице продукта.
  */
-
-/** Итог выдачи: сервер решает, выдать, оставить как есть или отказать отозванному. */
-export function grantOutcomeMessage(
-  outcome: ProductAccessIssueOutcome,
-  productName: string,
-): string {
-  switch (outcome) {
-    case "issued":
-      return `Продукт «${productName}» выдан.`;
-    case "already_active":
-      return `Доступ к «${productName}» уже был, ничего не изменилось.`;
-    case "revoked":
-      return `Доступ к «${productName}» отозван, и выдача его не вернула. Чтобы вернуть доступ, нажмите «Восстановить» у этого продукта.`;
-  }
-}
 
 export function revokedMessage(productName: string): string {
   return `Доступ к «${productName}» отозван.`;
