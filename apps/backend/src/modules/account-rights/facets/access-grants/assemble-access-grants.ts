@@ -37,6 +37,9 @@ import {
   readActivationIntent,
 } from "../../features/activate-course/read-activation-continuation.js";
 import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
+import { listAccessAccounts } from "../../features/list-access-accounts/list-access-accounts.js";
+import { readAccessSummaries } from "../../features/read-access-summaries/read-access-summaries.js";
+import { readAccountProductAccess } from "../../features/read-account-product-access/read-account-product-access.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
@@ -482,6 +485,33 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           };
         });
       }),
+    /**
+     * The complete Account set behind the people list filters (`productId`, first acquisition
+     * `origin`, `state`), at most `ACCESS_ACCOUNTS_LIMIT` IDs; a larger set is `unavailable`.
+     */
+    listAccessAccounts: (actorId: string, filter: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => listAccessAccounts(prisma, filter),
+        "listAccessAccounts",
+      ),
+    /** Product, state and first acquisition origin per Account for one page of at most 50. */
+    readAccessSummaries: (actorId: string, accountIds: readonly string[]) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => readAccessSummaries(prisma, accountIds),
+        "readAccessSummaries",
+      ),
+    /** Every Product Access of one Account with its sources, actions and their actors. */
+    readAccountProductAccess: (actorId: string, targetAccountId: string) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => readAccountProductAccess(prisma, targetAccountId),
+        "readAccountProductAccess",
+      ),
     previewProductRevocation: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
         previewProductRevocation(prisma, accounts, input, clock()),
