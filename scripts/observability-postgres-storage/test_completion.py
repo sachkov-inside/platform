@@ -211,12 +211,12 @@ class ActualTransport(unittest.TestCase):
     def test_real_held_current_ingest_and_flush_ack_block_later_steps(self):
         for hold in ('ingest','flush'):
             with self.subTest(held=hold):
-                events,owners,reads=self.exercise(hold=hold)
+                events,owners,reads=self.exercise(hold=hold,ingest=b'{"partialSuccess":{}}')
                 self.assertEqual(events,['ingest','flush','read','read','read'])
                 self.assertEqual(len(reads),3);self.assertEqual(len(set(owners)),1)
 
     def test_actual_partial_invalid_and_oversized_ingest_never_reach_flush_or_queries(self):
-        for body in (b'{"partialSuccess":{}}',b'{"a":1,"a":2}',b'\xef\xbb\xbf{}',b'{} trailing',b'null',b'',b' '*1025):
+        for body in (b'{"partialSuccess":{"rejectedDataPoints":1}}',b'{"partialSuccess":{"errorMessage":"private-failure"}}',b'{"partialSuccess":{"extra":1}}',b'{"a":1,"a":2}',b'\xef\xbb\xbf{}',b'{} trailing',b'null',b'',b' '*1025):
             with self.subTest(body_length=len(body)),self.assertRaises(ValueError):self.exercise(ingest=body)
         with self.assertRaises(ValueError):self.exercise(status=302)
         with self.assertRaises(ValueError):self.exercise(headers=(('Content-Encoding','gzip'),))
