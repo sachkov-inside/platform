@@ -69,7 +69,7 @@ class AcquisitionBudget(unittest.TestCase):
                 fixtures=[acquired(100,99,down=name=='initial_state')]
                 if not initial and name!='compare_acquire':
                     fixtures.append(acquired(102,102 if name=='compare_journal' else 101,down=name=='compare_state'))
-                def query(_,previous,deadline_seconds,diagnose=False):
+                def query(_,previous,deadline_seconds,diagnose=False,evaluated_at=None):
                     current=fixtures.pop(0)
                     report=scenario.status.evaluate(**current,previous=previous,diagnose=diagnose)
                     self.assertNotEqual(report['state'],'malformed')
@@ -98,8 +98,8 @@ class AcquisitionBudget(unittest.TestCase):
                     else:self.fail('partition cap unexpectedly passed')
                 expected_reads=0 if name=='initial_acquire' else 1 if initial or name=='compare_acquire' else 2
                 self.assertEqual(reads.call_count,expected_reads)
-                self.assertEqual(clock.call_count,2*expected_reads+1+(0 if initial or name=='compare_acquire' else 1))
-                self.assertEqual(stamp.call_count,0 if name in ('initial_acquire','initial_state') else 3 if name in ('initial_boundary','compare_after_cut') else 2)
+                self.assertEqual(clock.call_count,2*expected_reads+1+(0 if initial else 2 if name=='compare_acquire' else 4))
+                self.assertEqual(stamp.call_count,0 if name in ('initial_acquire','initial_state') else 3 if name=='initial_boundary' else 2 if initial else 6 if name=='compare_after_cut' else 4)
                 self.assertEqual(boundary.call_count,0 if name in ('initial_acquire','initial_state','initial_after_cut') else 1)
                 self.assertEqual(verify.call_count,1 if name in ('compare_journal','compare_after_cut') else 0)
                 self.assertEqual((run.snapshot()['phase'],run.snapshot()['reason']),('partition_'+name,'budget'))

@@ -129,8 +129,14 @@ class Scenario:
                 raise
         return self._until(read,lambda value:value is not None and value['code']==200)
 
-    def seed(self):
+    def seed(self,*,_partition_baseline=None):
         self.phase('seed')
+        if _partition_baseline is not None:
+            # Native vmauth deliberately spends2-3s rejecting an invalid token.
+            # Schedule the unchanged corpus after the next projected scrape;
+            # only later whole journal verification can admit the actual frames.
+            point=math.floor(self.stamp(_partition_baseline)+5)+1
+            time.sleep(min(max(0,point-time.time()),self.remaining()))
         for case in ('http_get','http_post','unauthorized','fallback','body_limit','privacy'):
             self._one(case)
             if case!='privacy':self.passed(case)
@@ -239,7 +245,7 @@ class Scenario:
             self.phase('partition')
             _,baseline=self.fresh_after(max(cut,time.time()),_partition=True)
             # Warmup precedes both sides of the accounting interval, not only the final query.
-            batch_cut=self.seed()
+            batch_cut=self.seed(_partition_baseline=baseline)
             self.phase('partition')
             self._partition_checkpoint('partition_compare_acquire')
             def check(value):
@@ -249,8 +255,16 @@ class Scenario:
                 if self.journal.verify(baseline,acquired) is not True:
                     self._partition_checkpoint('partition_compare_journal');return False
                 return True
+            deadline=time.monotonic()+min(60,self.remaining())
             while True:
-                _,current=self._until(lambda:self.snapshot(baseline),check,poll_seconds=5)
+                # Read the next historical cohort after its following scrape.
+                # Its actual timestamp, completion age and journal must still pass.
+                evaluated=math.floor(self.stamp(baseline)+10)
+                def compare_read():
+                    time.sleep(min(max(0,evaluated+1-time.time()),self.remaining(),max(0,deadline-time.monotonic())))
+                    if time.monotonic()>=deadline:raise TimeoutError()
+                    return self.snapshot(baseline,evaluated_at=evaluated)
+                _,current=self._until(compare_read,check,deadline=deadline,poll_seconds=5)
                 if self.stamp(current)>status.clock(batch_cut):break
                 self._partition_checkpoint('partition_compare_after_cut')
                 baseline=current
