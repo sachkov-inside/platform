@@ -68,7 +68,10 @@ test("individual payment link shows its fixed price and terms, revokes across op
     name: "Ссылки на оплату",
     exact: true,
   });
-  await expect(ownerRegion.getByText(/26\s100/u).first()).toBeVisible();
+  // The list renders a table and a phone list; CSS shows one of them.
+  await expect(
+    ownerRegion.getByText(/26\s100/u).filter({ visible: true }),
+  ).toBeVisible();
   expect(
     await ownerRegion.evaluate(
       (element) => element.scrollWidth <= element.clientWidth,

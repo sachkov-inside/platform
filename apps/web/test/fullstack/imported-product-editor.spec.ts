@@ -21,7 +21,10 @@ test("imported product opens read-only in the editor and lets the author leave",
   });
 
   await page.goto("/authoring/products");
-  const product = page.locator(`a[href="/authoring/products/${productId}"]`);
+  // The list renders a table and a phone list; CSS shows one of them.
+  const product = page
+    .locator(`a[href="/authoring/products/${productId}"]`)
+    .filter({ visible: true });
   await expect(product).toHaveCount(1);
   await product.click();
   await expect(page).toHaveURL(`/authoring/products/${productId}`);

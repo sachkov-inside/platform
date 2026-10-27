@@ -2041,13 +2041,7 @@ test("trusted author walks a product chapter through Previews that stay closed t
     await page.goto(
       `/authoring/materials?${new URLSearchParams({ search: inChapter.title }).toString()}`,
     );
-    await page
-      .getByRole("listitem")
-      .filter({
-        has: page.getByRole("link", { name: inChapter.title, exact: true }),
-      })
-      .getByRole("link", { name: "Предпросмотр" })
-      .click();
+    await chooseRowAction(page, inChapter.title, "Предпросмотр");
 
     await expect(page).toHaveURL(
       (url) =>

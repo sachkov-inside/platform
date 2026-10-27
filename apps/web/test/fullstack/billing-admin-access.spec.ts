@@ -20,20 +20,22 @@ test("owner edits one Product price and reloads the actual catalogue without tar
   );
   const schema = z.object({
     ok: z.literal(true),
-    value: z.array(
-      z.object({
-        product: z
-          .object({
-            id: z.uuid(),
-            name: z.string(),
-            priceRevision: z.int().positive(),
-          })
-          .optional(),
-        paymentOption: z.object({ priceKopecks: z.int() }),
-      }),
-    ),
+    value: z.object({
+      items: z.array(
+        z.object({
+          product: z
+            .object({
+              id: z.uuid(),
+              name: z.string(),
+              priceRevision: z.int().positive(),
+            })
+            .optional(),
+          paymentOption: z.object({ priceKopecks: z.int() }),
+        }),
+      ),
+    }),
   });
-  const catalogue = schema.parse(await initial.json()).value;
+  const catalogue = schema.parse(await initial.json()).value.items;
   const snapshot = catalogue.find((item) => item.product !== undefined);
   if (!snapshot?.product)
     throw new Error("Disposable full-stack Product price is missing");
@@ -69,7 +71,7 @@ test("owner edits one Product price and reloads the actual catalogue without tar
         await fullStackBrowserRequest(page, "/api/authoring/billing/catalog")
       ).json(),
     )
-    .value.find((item) => item.product?.id === product.id);
+    .value.items.find((item) => item.product?.id === product.id);
   expect(after).toMatchObject({
     product: { id: product.id, priceRevision: product.priceRevision + 1 },
     paymentOption: { priceKopecks: input.value.priceKopecks },

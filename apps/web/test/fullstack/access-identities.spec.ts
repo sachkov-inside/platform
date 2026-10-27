@@ -137,8 +137,11 @@ async function seededOffer(observer: Page) {
     "/api/authoring/billing/catalog",
   );
   const prices = z
-    .object({ ok: z.literal(true), value: z.array(priceSchema) })
-    .parse(await response.json()).value;
+    .object({
+      ok: z.literal(true),
+      value: z.object({ items: z.array(priceSchema) }),
+    })
+    .parse(await response.json()).value.items;
   const price = prices.find((item) => item.product.id === productA.id);
   if (price === undefined) throw new Error("Seeded Product price is missing");
   return price;
