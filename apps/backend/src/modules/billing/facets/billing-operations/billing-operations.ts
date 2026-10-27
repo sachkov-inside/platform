@@ -17,6 +17,7 @@ import {
   type OwnerOutcome,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
+import { listPromotions } from "../../features/list-promotions/list-promotions.js";
 import {
   listPayments,
   paymentView,
@@ -235,10 +236,15 @@ export class BillingOperations {
             );
       }
       case "paymentLinks.list": {
-        const result = await this.dependencies.pricing.paymentLinks(actorId, {
-          ...(command.cursor === undefined ? {} : { cursor: command.cursor }),
-          limit: command.limit,
-        });
+        const {
+          operation: _operation,
+          operationId: _operationId,
+          ...input
+        } = command;
+        const result = await this.dependencies.pricing.paymentLinks(
+          actorId,
+          input,
+        );
         return result.ok
           ? {
               ok: true,
@@ -308,6 +314,7 @@ export class BillingOperations {
       }
       case "productPrices.list": {
         const result = await this.dependencies.pricing.ownerCatalog({
+          productId: command.productId,
           cursor: command.cursor,
           limit: command.limit,
         });
@@ -319,6 +326,8 @@ export class BillingOperations {
             }
           : ownerFailure(result.error.code);
       }
+      case "promotions.list":
+        return await listPromotions(prisma, command);
       case "payments.list":
         return await listPayments(prisma, command);
       case "payments.read": {
@@ -441,7 +450,8 @@ function storedResult(operationRef: string, stored: unknown): OwnerResult {
 /** Аудит собирается по объекту операции: решение и исполнение возврата ведут к своему платежу. */
 function targetOf(command: OwnerOperation, _outcome: OwnerOutcome): string {
   if ("purchaseRef" in command) return command.purchaseRef;
-  if ("productId" in command) return command.productId;
+  if ("productId" in command && command.productId !== undefined)
+    return command.productId;
   if ("id" in command) return command.id;
   return command.operationId;
 }

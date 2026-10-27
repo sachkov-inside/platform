@@ -9,6 +9,7 @@ export {
 export { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 export { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 export { BillingPayments } from "./facets/billing-payments/billing-payments.js";
+export { BillingPaymentSearch } from "./features/search-payments/search-payments.js";
 
 // Подпись протокола банка нужна и вне модуля: двойник банка на стенде подписывает нотификации
 // тем же алгоритмом, иначе приложение не приняло бы их своим обычным путём.
