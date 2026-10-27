@@ -1,0 +1,146 @@
+[
+  {
+    "file": "live-products-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-sale-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=sale",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-community-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=community",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-sale-archived-price-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=sale",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-learners-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-grant-product-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-grant-product-outcome-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payment-link-create-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/links",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payment-link-created-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/links",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payment-links-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/links",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-discounts-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/discounts",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-discount-form-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/discounts",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-discounts-archive-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/discounts?archived=1",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-discounts-questionnaire-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/discounts?view=questionnaire",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-funnel-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/funnel",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payments-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/payments",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payments-filtered-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/payments?state=unknown&product=78000000-0000-4000-8000-0000000000f1&from=2026-10-24",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payment-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/payments/78000000-0000-4000-8000-000000000101",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  }
+]
