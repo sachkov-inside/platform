@@ -1,4 +1,5 @@
 """Owning snapshot cap classification only, never native cap-cause evidence."""
+from contextlib import nullcontext
 import json
 import subprocess
 import tempfile
@@ -78,7 +79,8 @@ class AcquisitionBudget(unittest.TestCase):
                 def perform(case,_):
                     method,code=scenario.traffic.CASES[case]
                     return {'started':wall,'completed':wall,'method':method,'code':200 if type(code) is tuple else code}
-                with patch.object(scenario.caddy_query,'read_snapshot',side_effect=query) as reads, \
+                with patch.object(scenario.mcp_snapshot,'session',side_effect=lambda *args,**kwargs:nullcontext(None)), \
+                     patch.object(scenario.caddy_query,'read_snapshot',side_effect=query) as reads, \
                      patch.object(scenario.traffic,'perform',side_effect=perform), \
                      patch.object(scenario.time,'time',return_value=wall) as clock, \
                      patch.object(scenario.time,'monotonic',return_value=0), \
@@ -283,6 +285,7 @@ class AcquisitionBudget(unittest.TestCase):
                             patch.object(caddy_storage.native_asset,'executable',side_effect=executable),
                             patch.object(artifact,'write_run',side_effect=write),
                             patch.object(artifact,'write',side_effect=observation),
+                            patch.object(scenario.mcp_snapshot,'session',side_effect=lambda *args,**kwargs:nullcontext(None)),
                             patch.object(scenario.Scenario,'__init__',initialize),
                             patch.object(scenario.Scenario,'failed',failed),
                             patch.object(scenario.caddy_query,'read_snapshot',return_value=(report,acquired)),

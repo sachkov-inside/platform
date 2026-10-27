@@ -12,10 +12,10 @@ import * as contracts from "./observability-caddy-storage/contract-runner.mjs";
 test("Caddy source groups partition all original methods once and keep independent ordered progress", () => {
   const groups = contracts.sourceGroups;
   assert.deepEqual(Object.keys(groups), ["contracts", "process-owner"]);
-  assert.equal(groups.contracts.length, 77);
+  assert.equal(groups.contracts.length, 81);
   assert.equal(groups["process-owner"].length, 3);
   const combined = [...groups.contracts, ...groups["process-owner"]];
-  assert.equal(new Set(combined).size, 80);
+  assert.equal(new Set(combined).size, 84);
   assert.deepEqual(combined.toSorted(), contracts.sourceIds);
   for (const group of /** @type {const} */ (["contracts", "process-owner"])) {
     const ids = groups[group];
@@ -57,7 +57,7 @@ test("Caddy source groups partition all original methods once and keep independe
 });
 
 // deterministic-test-allow unit-io: pure bounded Caddy contracts and owned protocol fixtures, no Docker or external provider; outer owner reaps children on every outcome.
-test("Caddy refuses invalid whole observations through 77 pure and protocol contracts", async () => {
+test("Caddy refuses invalid whole observations through 81 pure and protocol contracts", async () => {
   const result = await contracts.runCaddyContracts([
     "--source-group",
     "contracts",
