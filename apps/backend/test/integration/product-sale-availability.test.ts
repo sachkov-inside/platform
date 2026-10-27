@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { beforeAll, afterAll, describe, expect, test } from "vitest";
+import {
+  beforeAll,
+  afterAll,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+} from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import type { BillingPricing } from "../../src/modules/billing/index.js";
@@ -83,9 +90,10 @@ describe.each([1, 10, 100])(
     test("reads promotion usage once for a usage-limited promotion at any size", async () => {
       if (measured === undefined || db === undefined)
         throw new Error("Missing measured fixture client");
+      const promotionId = randomUUID();
       await db.prisma.billingPromotion.create({
         data: {
-          id: randomUUID(),
+          id: promotionId,
           revision: 1,
           name: "Limited promotion",
           percent: 10,
@@ -94,6 +102,12 @@ describe.each([1, 10, 100])(
           productIds,
           usageLimit: 5,
         },
+      });
+      // The promotion would otherwise change the read count of the other tests of this size.
+      onTestFinished(async () => {
+        await db?.prisma.billingPromotion.delete({
+          where: { id: promotionId },
+        });
       });
       const read = await measured.measure(() =>
         pricing.saleAvailability({ productIds }),

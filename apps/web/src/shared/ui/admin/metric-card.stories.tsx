@@ -115,8 +115,8 @@ export const OverviewRowDesktop: Story = {
     await expect(sales).toHaveAttribute("aria-pressed", "false");
     // Высота карточки считает строки подписи. Первая история в холодном кадре мерила `before`
     // запасным шрифтом, а Manrope успевал загрузиться к `after` и переносил длинную подпись
-    // (Application CI, три прогона подряд). Раскладка запрашивает шрифты, оба замера идут после
-    // их загрузки.
+    // (Application CI #1717, три прогона подряд 27.10). Раскладка запрашивает шрифты, оба замера
+    // идут после их загрузки.
     sales.getBoundingClientRect();
     await canvasElement.ownerDocument.fonts.ready;
     const before = sales.getBoundingClientRect();
