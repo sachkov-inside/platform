@@ -360,7 +360,9 @@ def loadgen_cpu_pressure(samples):
 
 def phase(compose,project,definition,active,enabled,pair,output):
     states=technical.owned(compose,project,active)
-    samples=[];stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
+    # A delayed native source read must not let the load outrun its CPU baseline.
+    samples=[{'counters':technical.capture(states),'host':host()}]
+    stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
     def sampling():
         next_source=time.monotonic()
         try:
