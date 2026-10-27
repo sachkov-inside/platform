@@ -161,7 +161,7 @@ def worker(output):
                 observed=observed,result=result,diagnostic=diagnostic)
             result.update({'state':'passed','stage':'complete','native_api_request':True,'provider_requests':1,
                 'persisted_carrier':'passed','native_timer':'passed','api_owned_sdk_shutdown':'passed',
-                'metrics':metrics,'traces':traces,'attempts':attempts,'containers':8,'volumes':5,'networks':2})
+                'metrics':metrics,'traces':traces,'attempts':attempts,'containers':9,'volumes':5,'networks':2})
             evidence=json.loads((output/'evidence.json').read_text());evidence['status']='passed: one genuine API waitlist receipt success composition only'
             pilot.write_json(output/'evidence.json',evidence)
     finally:

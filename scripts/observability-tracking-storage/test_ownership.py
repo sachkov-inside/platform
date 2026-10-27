@@ -1,4 +1,4 @@
-"""New PG ownership and typed absence extend rather than weaken the Core7 proof."""
+"""New PG ownership and typed absence extend rather than weaken the Core8 proof."""
 import fnmatch
 import json
 from pathlib import Path
@@ -26,6 +26,7 @@ class TrackingOwnership(unittest.TestCase):
             self.assertTrue(ownership.postgres_ready(targets))
 
     def test_exact_plan_is_eight_services_five_volumes_two_networks_without_ryuk(self):
+        # Retain the original method inventory; Core now has8 roles plus PostgreSQL.
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'private'
             ownership.prepare(output)
@@ -64,7 +65,11 @@ class TrackingOwnership(unittest.TestCase):
                        'Error response from daemon: get '+identity+': no such volume')
                 raise subprocess.CalledProcessError(1,argv,output='[]',stderr=error)
             with patch.object(ownership.pilot,'assert_docker_identity'),patch.object(ownership.pilot,'command',side_effect=absent):
-                self.assertEqual(ownership.verify_pg_absence(output,project),{'outcome':'passed','containers':8,'volumes':5,'networks':2})
+                proof=ownership.verify_pg_absence(output,project)
+                self.assertEqual(proof,{'outcome':'passed','containers':9,'volumes':5,'networks':2})
+                # The combined result includes the separately owned PostgreSQL process.
+                ownership.prepare(output/'plan')
+                self.assertEqual(proof['containers'],len(ownership.plan(output/'plan')['services']))
             self.assertEqual(calls,[['docker','container','inspect',value['container']],['docker','volume','inspect',value['volume']]])
 
     def test_daemon_failure_still_present_bad_identity_and_failed_core_remain_unproved(self):

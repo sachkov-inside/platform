@@ -102,7 +102,7 @@ def cleanup_proof(output):
     owner=json.loads((output/'owner.json').read_text());pilot.restore_daemon(owner)
     proof=ownership.verify_pg_absence(output,owner['project'])
     pilot.write_json(output/'postgres-source-cleanup.json',proof)
-    if proof!={'outcome':'passed','containers':8,'volumes':5,'networks':2}:raise ValueError('cleanup')
+    if proof!={'outcome':'passed','containers':9,'volumes':5,'networks':2}:raise ValueError('cleanup')
 
 
 def collect(output,metadata,destination):

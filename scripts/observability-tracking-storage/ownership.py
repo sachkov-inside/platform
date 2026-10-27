@@ -1,4 +1,4 @@
-"""Tracking adds exactly one owned PostgreSQL container/volume to unchanged Core7."""
+"""Tracking adds exactly one owned PostgreSQL container/volume to Core8."""
 import json
 import re
 import subprocess
@@ -28,7 +28,7 @@ def plan(output):
     auth = (output/'auth.json').stat()
     images = json.loads((pilot.CONFIG/'inputs.lock.json').read_text())['images']
     result = pilot.compose_plan(pilot.CONFIG, output, images, credential_owner=(auth.st_uid,auth.st_gid))
-    # Declared container limits sum to4GiB/2CPU after adding512MiB/.1CPU PG.
+    # Declared container limits sum to4224MiB/2.1CPU after adding512MiB/.1CPU PG.
     # This is no measurement of the host producer, application headroom or production capacity.
     # PostgreSQL's standard entrypoint owns initial volume permissions and drops to its packaged database user.
     result['services']['postgres'] = {'image':PG_IMAGE,'mem_limit':'512m','cpus':.1,'pids_limit':128,
@@ -52,7 +52,7 @@ class TrackingTargets(source_status_scenario.OwnedTargets):
         if expected != plan(output): raise RuntimeError('tracking storage plan mismatch')
         core = {**expected,'services':{key:value for key,value in expected['services'].items() if key != 'postgres'},
                 'volumes':{key:value for key,value in expected['volumes'].items() if key != 'postgres'}}
-        # The original strict Core7 verifier and its7/4/2 absence witness remain unchanged.
+        # The strict Core8 verifier and its8/4/2 absence witness remain intact.
         super().__init__(output,compose,core,read)
         self.plan = expected
         cid = read(compose+['ps','-q','postgres']).strip()
@@ -106,5 +106,5 @@ def verify_pg_absence(output, project):
             else: return failed
         core = json.loads((output/'cleanup.json').read_text()).get('source_freshness')
         if core != {'outcome':'passed','containers':8,'volumes':4,'networks':2}: return failed
-        return {'outcome':'passed','containers':8,'volumes':5,'networks':2}
+        return {'outcome':'passed','containers':9,'volumes':5,'networks':2}
     except (OSError,ValueError,KeyError,TypeError,RuntimeError,subprocess.SubprocessError): return failed

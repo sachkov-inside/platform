@@ -41,6 +41,19 @@ class PrivatePlan(unittest.TestCase):
             self.assertIn('sending_queue {\n    enabled = false\n  }',text)
             for name in ('postgres-completion-auth.json','postgres-completion.alloy','compose.json'):
                 self.assertEqual(stat.S_IMODE((output/name).stat().st_mode),0o600)
+            # The shared physical cleanup owns Core8 plus PostgreSQL, and the PG public
+            # boundary must accept that exact9-container result, never the obsolete8.
+            (output/'owner.json').write_text(json.dumps({'project':'inside-observability-pilot-'+'a'*12}))
+            complete={'outcome':'passed','containers':9,'volumes':5,'networks':2}
+            with patch.object(postgres_source.pilot,'restore_daemon'), \
+                    patch.object(postgres_source.ownership,'verify_pg_absence',return_value=complete):
+                postgres_source.cleanup_proof(output)
+                self.assertEqual(json.loads((output/'postgres-source-cleanup.json').read_text()),complete)
+                self.assertEqual(complete['containers'],len(actual['services']))
+            with patch.object(postgres_source.pilot,'restore_daemon'), \
+                    patch.object(postgres_source.ownership,'verify_pg_absence',return_value={**complete,'containers':8}):
+                with self.assertRaisesRegex(ValueError,'cleanup'):postgres_source.cleanup_proof(output)
+
 
     def test_auth_and_overlay_invalid_present_files_refuse_without_adoption(self):
         for fault in ('mode','link','duplicate','unknown','empty','config','collision'):
