@@ -61,7 +61,8 @@
     "kysely": "0.29.6",
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -74,7 +75,6 @@
     "prettier": "3.9.9",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "4.1.11",
-    "zod": "4.6.5"
+    "vitest": "4.1.11"
   }
 }
