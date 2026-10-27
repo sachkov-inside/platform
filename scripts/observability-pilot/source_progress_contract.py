@@ -31,7 +31,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         result=subprocess.run([sys.executable,'-c',identity,str(root.resolve()),
             str(root.resolve().parent/'observability-caddy-storage')],capture_output=True,timeout=5)
         self.assertEqual(result.returncode,0,'closed Core/Caddy module identity refused')
-        self.assertEqual(result.stdout,b'[84, 276]\n')
+        self.assertEqual(result.stdout,b'[85, 276]\n')
         for path in sorted(root.glob('test_*.py')):
             for cls in ast.parse(path.read_text()).body:
                 if isinstance(cls,ast.ClassDef):

@@ -22,7 +22,11 @@ import {
   type EmailOperation,
 } from "./email-telemetry-contract.js";
 import { notificationTraceparent } from "./notification-trace.js";
-import { ExportResultCode, parseTraceParent } from "@opentelemetry/core";
+import {
+  ExportResultCode,
+  hrTime,
+  parseTraceParent,
+} from "@opentelemetry/core";
 import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
@@ -46,6 +50,27 @@ const MAX_OBSERVED_POSTGRES_POOLS = 16;
 
 const EXPORT_INTERVAL_MS = 5_000;
 const technicalScopeKey = createContextKey("inside.technical.scope");
+
+/** Keep this provider's starts and ends on one performance.timeOrigin + now clock.
+ * SDK2.12 otherwise anchors each span to an independently quantized Date.now(),
+ * so a child ended first can be exported later than its parent. Explicit HrTime
+ * bypasses that per-span offset through the public API. Each start/end observes its
+ * current instant; explicit caller timestamps remain unchanged.
+ */
+function monotonicTracer(tracer: Tracer): Tracer {
+  const start = tracer.startSpan.bind(tracer);
+  tracer.startSpan = (name, options, parent) => {
+    const span = start(
+      name,
+      { ...options, startTime: options?.startTime ?? hrTime() },
+      parent,
+    );
+    const end = span.end.bind(span);
+    span.end = (time) => end(time ?? hrTime());
+    return span;
+  };
+  return tracer;
+}
 class TechnicalScope {
   constructor(
     readonly correlation: Readonly<Record<string, string | boolean>>,
@@ -1061,8 +1086,10 @@ export function createTechnicalTelemetry(
     meter
       .createObservableGauge("telemetry.trace.sampling.ratio")
       .addCallback((result) => result.observe(configuration.sampleRatio));
-    const tracer = traces.getTracer("inside-http");
-    const dependencyTracer = traces.getTracer("inside-dependency");
+    const tracer = monotonicTracer(traces.getTracer("inside-http"));
+    const dependencyTracer = monotonicTracer(
+      traces.getTracer("inside-dependency"),
+    );
     const dependencyCount = meter.createCounter("inside.dependency.operations");
     const dependencyDuration = meter.createHistogram(
       "inside.dependency.duration",
@@ -1092,7 +1119,7 @@ export function createTechnicalTelemetry(
       dependencyCount.add(1, attributes);
       dependencyDuration.record(seconds, attributes);
     };
-    const emailTracer = traces.getTracer("inside-email");
+    const emailTracer = monotonicTracer(traces.getTracer("inside-email"));
     const emailCount = meter.createCounter("inside.email.operations");
     const emailDuration = meter.createHistogram("inside.email.duration", {
       unit: "s",
@@ -1143,7 +1170,10 @@ export function createTechnicalTelemetry(
           );
         });
     }
-    const notificationTracer = traces.getTracer("inside-notification");
+    const pgBossTracer = monotonicTracer(traces.getTracer("pg-boss"));
+    const notificationTracer = monotonicTracer(
+      traces.getTracer("inside-notification"),
+    );
     const notificationCount = meter.createCounter(
       "inside.notification.operations",
     );
@@ -1163,12 +1193,12 @@ export function createTechnicalTelemetry(
       notificationCount.add(1, attributes);
       notificationDuration.record(seconds, attributes);
     };
-    const trackingTracer = traces.getTracer("inside-tracking");
+    const trackingTracer = monotonicTracer(traces.getTracer("inside-tracking"));
     const trackingCount = meter.createCounter("inside.tracking.operations");
     const trackingDuration = meter.createHistogram("inside.tracking.duration", {
       unit: "s",
     });
-    const waitlistTracer = traces.getTracer("inside-waitlist");
+    const waitlistTracer = monotonicTracer(traces.getTracer("inside-waitlist"));
     const waitlistCount = meter.createCounter("inside.waitlist.operations");
     const waitlistDuration = meter.createHistogram("inside.waitlist.duration", {
       unit: "s",
@@ -1192,7 +1222,7 @@ export function createTechnicalTelemetry(
           enabled: true,
           propagateContext: true,
           propagator: pgBossTracePropagator(),
-          tracerProvider: { getTracer: () => traces.getTracer("pg-boss") },
+          tracerProvider: { getTracer: () => pgBossTracer },
           meterProvider: { getMeter: () => meters.getMeter("pg-boss") },
         };
       },
