@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   operationOk,
+  mcpInitializeResponse,
   readiness,
   readinessObservation,
   telegramSeedRange,
@@ -257,4 +258,51 @@ test("native Telegram and Logto checks require their actual semantic responses",
     ),
     false,
   );
+});
+
+test("MCP initialize decodes only one complete bounded JSON or SSE message", () => {
+  const body = {
+    jsonrpc: "2.0",
+    id: 5,
+    result: {
+      protocolVersion: "2025-03-26",
+      serverInfo: {
+        name: "inside-platform-material-authoring",
+        version: "1.0.0",
+      },
+    },
+  };
+  const data = JSON.stringify(body);
+  const frame = `event: message\ndata: ${data}\n\n`;
+  for (const [text, type] of /** @type {[string, string][]} */ ([
+    [data, "application/json"],
+    [frame, "text/event-stream"],
+    [frame.replaceAll("\n", "\r\n"), "text/event-stream; charset=utf-8"],
+  ])) {
+    const value = mcpInitializeResponse(text, type);
+    assert.deepEqual(value, body);
+    assert.equal(
+      operationOk({ status: 200, value }, "mcp_discovery", "5"),
+      true,
+    );
+    assert.equal(
+      operationOk({ status: 200, value }, "mcp_discovery", "6"),
+      false,
+    );
+  }
+  for (const text of [
+    "",
+    frame + frame,
+    frame + "trailing",
+    frame.trimEnd(),
+    frame.replace("message", "other"),
+    frame.replace("data: ", "id: 1\ndata: "),
+    "data: " + data + "\n\n",
+    frame.replace(data, "not-json"),
+    frame.replace(data, data + "\ndata: {}"),
+    "x".repeat(1_048_577),
+  ])
+    assert.equal(mcpInitializeResponse(text, "text/event-stream"), null);
+  assert.equal(mcpInitializeResponse(frame, "application/json"), null);
+  assert.equal(mcpInitializeResponse(data, "text/plain"), null);
 });

@@ -309,10 +309,15 @@ def sample_sources(compose,output):
     return source_cache.sample(output/'watchdog-fixture',postgres_read=postgres_read,caddy_read=caddy_read,caddy_server=partition['server'],clock=time.time)
 
 
-def await_sources(compose,output):
+def await_sources(compose,output,*,enabled=True):
     if sample_sources(compose,output)!={'postgresql':'observed','caddy':'observed'}:raise ValueError('source_cache_native_unavailable')
+    if not enabled:return
+    deadline=time.monotonic()+10
     def available():
-        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','cache-ready'],timeout=4))
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise TimeoutError('source_cache_stored_deadline')
+        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','cache-ready'],timeout=min(4,remaining)))
+        if time.monotonic()>=deadline:raise TimeoutError('source_cache_stored_deadline')
         return value=={'ok':True}
     pilot.await_fact(available,bool,budget=10,probe='source_cache_stored_ready')
 
@@ -409,8 +414,8 @@ def worker(output):
                             except (RuntimeError,subprocess.SubprocessError):return False
                         pilot.await_fact(healthy,bool,probe='fullstack_'+name+'_ready')
                     extra.warmup(compose,invoke)
+                    await_sources(compose,output,enabled=enabled)
                     if enabled:
-                        await_sources(compose,output)
                         report.setdefault('web_http',[]).append(prove_web_http(compose))
                     active=(*APPS,*CORE) if enabled else APPS
                     for definition in profile['phases']:
