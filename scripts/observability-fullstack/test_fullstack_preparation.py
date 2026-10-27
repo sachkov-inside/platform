@@ -91,3 +91,33 @@ class Preparation(unittest.TestCase):
             reopened=fullstack.preparation.open_stage(images,docker=docker,identify=lambda:module.DAEMON)
             self.assertEqual(reopened.release('consumer',cleanup_ok=True)['state'],'retired')
             self.assertEqual(set(docker.removed),{'sha256:'+'1'*64,'sha256:'+'2'*64})
+
+    def test_source_read_callbacks_keep_sql_role_scope_loopback_target_and_body_caps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            (output/'caddy-source.json').write_text('{"server":"srv0"}')
+            def source(path,**callbacks):
+                self.assertEqual(path,output/'watchdog-fixture')
+                self.assertEqual(callbacks['postgres_read']('fixed source SQL'),b'owned PG')
+                self.assertEqual(callbacks['caddy_read'](),b'owned Caddy')
+                return {'postgresql':'observed','caddy':'observed'}
+            with patch.object(fullstack,'sql',return_value='owned PG') as sql,patch.object(fullstack,'invoke',return_value='owned Caddy') as invoke,patch.object(fullstack.source_cache,'sample',side_effect=source):
+                self.assertEqual(fullstack.sample_sources(['owned'],output),{'postgresql':'observed','caddy':'observed'})
+                self.assertEqual(sql.call_args.kwargs,{'role':'postgres_source_reader','database':'inside','timeout':3})
+                self.assertEqual(invoke.call_args.args[1],['exec','-T','caddy','wget','-Y','off','-q','-T','2','-O','-','http://127.0.0.1:9091/metrics'])
+            def oversize(path,**callbacks):
+                with self.assertRaises(ValueError):callbacks['postgres_read']('fixed source SQL')
+                with self.assertRaises(ValueError):callbacks['caddy_read']()
+                return {'postgresql':'unavailable','caddy':'unavailable'}
+            with patch.object(fullstack,'sql',return_value='x'*4097),patch.object(fullstack,'invoke',return_value='x'*65537),patch.object(fullstack.source_cache,'sample',side_effect=oversize):
+                self.assertEqual(set(fullstack.sample_sources(['owned'],output).values()),{'unavailable'})
+
+    def test_failure_record_cannot_replace_primary_owned_runtime_error(self):
+        primary=RuntimeError('private original SQL failure')
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            (output/'owner.json').write_text(json.dumps({'supervisor_pid':fullstack.os.getppid(),'project':'owned-project'}))
+            with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.pilot,'write_json',side_effect=[None,OSError('ENOSPC')]),patch.object(fullstack.pilot,'worker_storage_guard',side_effect=primary):
+                try:fullstack.worker(output)
+                except RuntimeError as caught:self.assertIs(caught,primary)
+                else:self.fail('original failure was lost')

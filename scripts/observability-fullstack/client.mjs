@@ -198,6 +198,24 @@ async function call(
   );
 }
 const key = () => readFileSync("/query/key", "utf8").trim();
+async function sourceCacheReady() {
+  const expression =
+    'count(count by(source) ((inside_production_source_available{job="platform-owner-cache",instance="production-host",source=~"postgresql|caddy"} == 1) and on(source,job,instance) ((time() - inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host"}) <= 10)))';
+  const result = await call(
+    "gateway",
+    8080,
+    "/metrics/api/v1/query?query=" +
+      encodeURIComponent(expression) +
+      "&nocache=1",
+    "GET",
+    undefined,
+    { authorization: "Bearer " + key() },
+  );
+  return {
+    ok: result.status === 200 && vector(result.value) === 2,
+    seconds: result.seconds,
+  };
+}
 async function readMonitoring() {
   const authorization = { authorization: "Bearer " + key() };
   const paths = [
@@ -248,7 +266,8 @@ async function readMonitoring() {
     stats.value["current"]["pageviews"] < 1
   )
     return null;
-  return Math.max(maximum, stats.seconds);
+  const sources = await sourceCacheReady();
+  return sources.ok ? Math.max(maximum, stats.seconds, sources.seconds) : null;
 }
 async function lag() {
   const result = await call(
@@ -616,7 +635,9 @@ function argument(index) {
   if (value === undefined) throw new Error("fixed action arguments required");
   return value;
 }
-if (action === "ready") {
+if (action === "cache-ready") {
+  console.log(JSON.stringify({ ok: (await sourceCacheReady()).ok }));
+} else if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
   console.log(
     JSON.stringify({ ok: readiness(response, argument(0), argument(3)) }),

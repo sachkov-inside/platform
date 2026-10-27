@@ -24,10 +24,12 @@ import measurements
 sys.path.insert(0,str(HERE.parent/'observability-production'))
 import production
 import measure as technical
+import source_cache
 import acceptance
 import extra
 import telegram
 import storage
+import source_guard
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -63,7 +65,7 @@ def inputs(output, images):
     core=json.loads((monitor/'compose.json').read_text())
     # Every fixture service is acquired explicitly; unprofiled down must include this owner.
     core['services']['host-agent'].pop('profiles',None)
-    watchdog=output/'watchdog-fixture';watchdog.mkdir(mode=0o755)
+    watchdog=output/'watchdog-fixture';watchdog.mkdir(mode=0o755);watchdog.chmod(0o755)
     expected_mount={'type':'bind','source':'/var/lib/inside/watchdog/metrics','target':'/watchdog-metrics','read_only':True,'bind':{'create_host_path':False}}
     for mount in core['services']['host-agent'].get('volumes',[]):
         if type(mount) is dict and mount.get('target')=='/watchdog-metrics':
@@ -147,6 +149,9 @@ def seed(compose,output):
     invoke(compose,['exec','-T','api','env','NODE_ENV=development','LOCAL_SEED_DEMO=published','node','dist/development/seed-local.js'],timeout=30)
     sql(compose,(ROOT/'infra/observability/fullstack/corpus.sql').read_text(),role='platform',database='inside')
     extra.initialize(output,compose,invoke)
+    adapted=invoke(compose,['exec','-T','caddy','caddy','adapt','--config','/etc/caddy/Caddyfile','--adapter','caddyfile'],timeout=3).encode()
+    public_server=source_cache.select_caddy_server(adapted)
+    pilot.write_json(output/'caddy-source.json',{'server':public_server});(output/'caddy-source.json').chmod(0o600)
     telegram.initialize(output,compose,invoke,sql)
     ready(compose,'/ready','telegram',3002)
     ready(compose,'/oidc/.well-known/openid-configuration','logto',3001)
@@ -157,8 +162,15 @@ def seed(compose,output):
     if contacts!=128:raise ValueError('all_telegram_contacts_required')
     from importlib.util import spec_from_file_location,module_from_spec
     spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
+    # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
+    sql(compose,'SELECT pg_stat_reset();',database='inside')
     password=(output/'monitoring/umami.database.password').read_text().strip()
     sql(compose,owner.sql(password))
+    # Umami first preserves existing PUBLIC CONNECT rights before it revokes PUBLIC.
+    # Establish the dedicated source reader afterward with only its own inside CONNECT.
+    bootstrap=source_cache.postgres_setup_sql()
+    sql(compose,bootstrap)
+    guard_proof=source_guard.prove(compose,sql,bootstrap)
     invoke(compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
     ready(compose,'/api/heartbeat','umami',3000)
     seeded=json.loads(invoke(compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
@@ -169,6 +181,7 @@ def seed(compose,output):
     (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
     corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
     if corpus!={'accounts':128,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
+    return guard_proof
 
 
 def host():
@@ -188,14 +201,42 @@ def host():
         'device_io_read_bytes':io[2]*512 if io else None,'device_io_written_bytes':io[6]*512 if io else None}
 
 
-def phase(compose,project,definition,active,enabled,pair):
+def sample_sources(compose,output):
+    path=output/'caddy-source.json'
+    if path.is_symlink() or not path.is_file() or path.stat().st_size>64:raise ValueError('source_caddy_partition')
+    partition=json.loads(path.read_text())
+    if type(partition) is not dict or set(partition)!={'server'} or type(partition['server']) is not str or re.fullmatch(r'srv(?:[0-9]|[1-5][0-9]|6[0-3])',partition['server']) is None:raise ValueError('source_caddy_partition')
+    def postgres_read(query):
+        raw=sql(compose,query,role='postgres_source_reader',database='inside',timeout=3).encode()
+        if len(raw)>4096:raise ValueError('source_postgres_body')
+        return raw
+    def caddy_read():
+        raw=invoke(compose,['exec','-T','caddy','wget','-Y','off','-q','-T','2','-O','-','http://127.0.0.1:9091/metrics'],timeout=3).encode()
+        if len(raw)>65536:raise ValueError('source_caddy_body')
+        return raw
+    return source_cache.sample(output/'watchdog-fixture',postgres_read=postgres_read,caddy_read=caddy_read,caddy_server=partition['server'],clock=time.time)
+
+
+def await_sources(compose,output):
+    if sample_sources(compose,output)!={'postgresql':'observed','caddy':'observed'}:raise ValueError('source_cache_native_unavailable')
+    def available():
+        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','cache-ready'],timeout=4))
+        return value=={'ok':True}
+    pilot.await_fact(available,bool,budget=10,probe='source_cache_stored_ready')
+
+
+def phase(compose,project,definition,active,enabled,pair,output):
     states=technical.owned(compose,project,active)
-    samples=[];stop=threading.Event();errors=[];storage_samples=[]
+    samples=[];stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
     def sampling():
+        next_source=time.monotonic()
         try:
             while not stop.is_set():
+                if enabled and time.monotonic()>=next_source:
+                    if len(source_samples)>=64:raise ValueError('source_sample_budget')
+                    source_samples.append(sample_sources(compose,output));next_source+=5
                 samples.append({'counters':technical.capture(states),'host':host()})
-                stop.wait(2)
+                stop.wait(min(2,max(0,next_source-time.monotonic())) if enabled else 2)
         except BaseException:errors.append('sampler_failed')
     worker=threading.Thread(target=sampling)
     worker.start()
@@ -213,7 +254,7 @@ def phase(compose,project,definition,active,enabled,pair):
     samples.append({'counters':technical.capture(states),'host':host()})
     current=technical.owned(compose,project,active)
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
-    return {'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'errors':errors}
+    return {'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'errors':errors}
 
 
 def await_collector(output):
@@ -233,7 +274,8 @@ def worker(output):
             mode(output,False)
             invoke(compose,['up','-d','postgres','provider','loadgen'],timeout=30)
             invoke(compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
-            seed(compose,output)
+            report['source_role_authority']=seed(compose,output)
+            pilot.write_json(output/'fullstack-proof.json',report)
             grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
             if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
             invoke(compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
@@ -258,9 +300,10 @@ def worker(output):
                             try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
                             except (RuntimeError,subprocess.SubprocessError):return False
                         pilot.await_fact(healthy,bool,probe='fullstack_'+name+'_ready')
+                    if enabled:await_sources(compose,output)
                     active=(*APPS,*CORE) if enabled else APPS
                     for definition in profile['phases']:
-                        measured=phase(compose,owner['project'],definition,active,enabled,pair)
+                        measured=phase(compose,owner['project'],definition,active,enabled,pair,output)
                         pilot.write_json(output/('fullstack-phase-'+str(len(report['phases']))+'.json'),measured)
                         measured['host_samples']=[sample['host'] for sample in measured['samples']]
                         measured['counter_summary']=technical.summarize([sample['counters'] for sample in measured['samples']])
@@ -276,12 +319,17 @@ def worker(output):
             await_collector(output)
             reconciled=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','recover-probe'],timeout=65))
             report['controlled_outage']={**lost,**reconciled}
+            report['source_cache_workload']=all(row['mode']=='off' or row['load']['completed'] and bool(row['load']['query_seconds']) and len(row['source_cache_samples'])>=({'idle':2,'steady':8,'spike':2}[row['name']]) and all(state=={'postgresql':'observed','caddy':'observed'} for state in row['source_cache_samples']) for row in report['phases'])
+            if report['source_cache_workload']:report['missing'].remove('PG/Caddy source-cache sampler workload')
             report['state']='measured'
             report['measured_linux_acceptance']=evaluate(report)
             if report['measured_linux_acceptance']['state']!='passed':raise ValueError('fullstack_resource_acceptance_failed')
     except BaseException:
-        report['state']='failed';raise
-    finally:pilot.write_json(output/'fullstack-proof.json',report)
+        report['state']='failed'
+        try:pilot.write_json(output/'fullstack-proof.json',report)
+        except BaseException:pass
+        raise
+    else:pilot.write_json(output/'fullstack-proof.json',report)
 
 
 def evaluate(report):
