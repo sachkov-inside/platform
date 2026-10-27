@@ -72,7 +72,28 @@ export function botProvider(tls) {
           return;
         }
         if (method === "getChatMember") {
-          const id = "user_id" in raw ? Number(raw.user_id) : NaN;
+          const user = "user_id" in raw ? raw.user_id : undefined;
+          const id =
+            typeof user === "number" || typeof user === "string"
+              ? Number(user)
+              : NaN;
+          if (
+            !("chat_id" in raw) ||
+            (raw.chat_id !== -1000000000000 && raw.chat_id !== "-1000000000000")
+          ) {
+            finish(400, { ok: false, error_code: 400 });
+            return;
+          }
+          if (id === 1566) {
+            finish(200, {
+              ok: true,
+              result: {
+                status: "administrator",
+                user: { id, is_bot: true, first_name: "synthetic" },
+              },
+            });
+            return;
+          }
           if (!Number.isSafeInteger(id) || id < 1000001 || id > 1000128) {
             finish(400, { ok: false, error_code: 400 });
             return;
