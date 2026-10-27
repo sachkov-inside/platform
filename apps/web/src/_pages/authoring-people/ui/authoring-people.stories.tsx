@@ -317,7 +317,7 @@ export const NameSearchTruncated: Story = {
     await expect(
       page.getByText("Показаны не все совпадения поиска. Уточните запрос."),
     ).toBeVisible();
-    // Совпало больше людей, чем вмещает ответ, а фильтры оставили троих: число не преувеличено.
+    // Совпало больше людей, чем вмещает ответ, а людьми среди них оказались трое: число не преувеличено.
     await expect(page.getByText("3 человека", { exact: true })).toBeVisible();
     await expect(page.queryByText(/Больше 50/u)).toBeNull();
   },
