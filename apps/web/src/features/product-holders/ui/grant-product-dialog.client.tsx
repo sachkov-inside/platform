@@ -13,7 +13,7 @@ import {
 } from "react";
 
 import { formatCountRu, pluralRu } from "@/shared/lib/moscow-format";
-import { hasText } from "@/shared/lib/text";
+import { hasText, presentText } from "@/shared/lib/text";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 import { StateBadge, type ReasonOption } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
@@ -33,24 +33,30 @@ import {
 import type { HolderAccess } from "../model/product-holders";
 import { productHoldersQueryOptions } from "../model/product-holders-query-options";
 
-/** Человек из поиска: имя для выбора и подстрока, по которой его узнают. */
-export interface GrantCandidate {
+/**
+ * Человек из поиска в форме `PersonIdentity` (#1721, `@/entities/authoring-person`): имя Telegram,
+ * @username и email приходят, только если у читающего есть право; любое из них может отсутствовать.
+ */
+export interface GrantPerson {
   readonly accountId: string;
-  readonly name: string;
-  readonly detail?: string;
+  readonly displayName: string | null;
+  readonly username: string | null;
+  readonly email: string | null;
 }
 
-/** Состояние поиска людей для выбора; поиск принадлежит #1721, диалог его только показывает. */
+/**
+ * Состояние поиска людей для выбора; поиск принадлежит #1721, диалог его только показывает.
+ * `nameSearch: "unavailable"`: по имени сейчас искать нельзя, по email и ID можно.
+ */
 export type GrantPeopleSearchState =
   | { readonly kind: "idle" }
   | { readonly kind: "loading" }
   | {
       readonly kind: "ready";
-      readonly people: readonly GrantCandidate[];
-      /** Часть поиска недоступна, например по имени: остальное работает. */
-      readonly notice?: string;
+      readonly items: readonly GrantPerson[];
+      readonly nameSearch: "available" | "unavailable";
     }
-  | { readonly kind: "unavailable"; readonly message: string };
+  | { readonly kind: "unavailable" };
 
 /** Хук поиска людей. Получает уже устоявшийся запрос (после паузы ввода), пустой до ввода. */
 export type UseGrantPeopleSearch = (query: string) => GrantPeopleSearchState;
@@ -147,7 +153,7 @@ function GrantForm({
   readonly onBusy: (busy: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<readonly GrantCandidate[]>([]);
+  const [selected, setSelected] = useState<readonly GrantPerson[]>([]);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -233,7 +239,9 @@ function GrantForm({
     });
     setRun({
       batch,
-      names: new Map(selected.map((person) => [person.accountId, person.name])),
+      names: new Map(
+        selected.map((person) => [person.accountId, personName(person)]),
+      ),
       known: selected.flatMap((person) => {
         const access = flags.get(person.accountId);
         return access === undefined
@@ -405,6 +413,24 @@ function GrantForm({
   );
 }
 
+/** Чем назвать человека: имя, затем @username, email и в конце короткий ID аккаунта. */
+function personName(person: GrantPerson): string {
+  return (
+    presentText(person.displayName) ??
+    (hasText(person.username) ? `@${person.username}` : undefined) ??
+    presentText(person.email) ??
+    `Аккаунт ${person.accountId.slice(0, 8)}`
+  );
+}
+
+/** Подстрока, по которой человека узнают: то, что не стало его именем. */
+function personDetail(person: GrantPerson): string {
+  const name = personName(person);
+  return [hasText(person.username) ? `@${person.username}` : null, person.email]
+    .filter((part): part is string => hasText(part) && part !== name)
+    .join(" · ");
+}
+
 function submitLabel(
   selected: number,
   toSend: number,
@@ -429,7 +455,7 @@ function PeopleSearch({
   readonly search: GrantPeopleSearchState;
   readonly selectedIds: readonly string[];
   readonly disabled: boolean;
-  readonly onAdd: (person: GrantCandidate) => void;
+  readonly onAdd: (person: GrantPerson) => void;
 }) {
   const id = useId();
   const chosen = new Set(selectedIds);
@@ -458,17 +484,17 @@ function PeopleSearch({
       <div aria-live="polite" className="grid gap-2" role="status">
         <SearchOutcome search={search} />
       </div>
-      {search.kind === "ready" && search.people.length > 0 ? (
+      {search.kind === "ready" && search.items.length > 0 ? (
         <ul aria-label="Найденные люди" className="grid gap-1">
-          {search.people.map((person) => {
+          {search.items.map((person) => {
             const isChosen = chosen.has(person.accountId);
             return (
               <li key={person.accountId}>
                 <button
                   aria-label={
                     isChosen
-                      ? `${person.name}: уже выбран`
-                      : `Добавить ${person.name}`
+                      ? `${personName(person)}: уже выбран`
+                      : `Добавить ${personName(person)}`
                   }
                   className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent"
                   disabled={isChosen || disabled}
@@ -478,10 +504,12 @@ function PeopleSearch({
                   type="button"
                 >
                   <span className="grid min-w-0">
-                    <span className="truncate font-medium">{person.name}</span>
-                    {hasText(person.detail) ? (
+                    <span className="truncate font-medium">
+                      {personName(person)}
+                    </span>
+                    {hasText(personDetail(person)) ? (
                       <span className="truncate text-xs text-muted-foreground">
-                        {person.detail}
+                        {personDetail(person)}
                       </span>
                     ) : null}
                   </span>
@@ -510,14 +538,21 @@ function SearchOutcome({
     case "loading":
       return <p className={hint}>Ищем людей</p>;
     case "unavailable":
-      return <p className={hint}>{search.message}</p>;
+      return (
+        <p className={hint}>
+          Поиск людей сейчас недоступен. Повторите через минуту.
+        </p>
+      );
     case "ready":
       return (
         <>
-          {hasText(search.notice) ? (
-            <p className={hint}>{search.notice}</p>
+          {search.nameSearch === "unavailable" ? (
+            <p className={hint}>
+              Поиск по имени временно недоступен. Найдите человека по email или
+              ID.
+            </p>
           ) : null}
-          {search.people.length === 0 ? (
+          {search.items.length === 0 ? (
             <p className={hint}>
               Никого не нашли. Проверьте написание или найдите человека по email
               или ID.
@@ -534,7 +569,7 @@ function SelectedPeople({
   full,
   onRemove,
 }: {
-  readonly selected: readonly GrantCandidate[];
+  readonly selected: readonly GrantPerson[];
   readonly flags: ReadonlyMap<string, HolderAccess>;
   readonly full: boolean;
   readonly onRemove: (accountId: string) => void;
@@ -558,7 +593,7 @@ function SelectedPeople({
               key={person.accountId}
             >
               <span className="grid min-w-0 gap-1">
-                <span className="truncate">{person.name}</span>
+                <span className="truncate">{personName(person)}</span>
                 {access === undefined ? null : (
                   <span className="text-xs font-normal text-muted-foreground">
                     {access === "active"
@@ -568,7 +603,7 @@ function SelectedPeople({
                 )}
               </span>
               <button
-                aria-label={`Убрать ${person.name}`}
+                aria-label={`Убрать ${personName(person)}`}
                 onClick={() => {
                   onRemove(person.accountId);
                 }}

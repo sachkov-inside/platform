@@ -133,7 +133,9 @@ describe("bulk grant run", () => {
     const failed = failedAccountIds(results);
     expect(failed).toEqual([accountId(2), accountId(4)]);
 
-    const retry = vi.fn(() => Promise.resolve(issued));
+    const retry = vi.fn((_input: BulkGrantIssueInput) =>
+      Promise.resolve(issued),
+    );
     const repeated = await runBulkGrant(batch, failed, retry);
     expect(repeated.map((result) => result.outcome)).toEqual([
       "issued",

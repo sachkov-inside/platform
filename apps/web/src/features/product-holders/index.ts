@@ -3,7 +3,7 @@ export {
   type ProductLearnersTabProps,
 } from "./ui/product-learners-tab.client";
 export type {
-  GrantCandidate,
+  GrantPerson,
   GrantPeopleSearchState,
   UseGrantPeopleSearch,
 } from "./ui/grant-product-dialog.client";
