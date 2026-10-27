@@ -47,12 +47,13 @@ if (
     );
     assert.ok(
       Array.isArray(raw) &&
-        raw.length === 276 &&
+        raw.length === 277 &&
         raw.every((value) => typeof value === "string"),
     );
     const additions = [
       "test_pilot.PilotPreparationTest.test_cleanup_captures_native_host_failure_before_down_without_reading_logs",
       "test_pilot.PilotPreparationTest.test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner",
+      "test_privacy.CollectorPrivacyContract.test_shared_native_writer_keeps_one_second_batch_without_other_queue_overrides",
     ];
     assert.ok(additions.every((id) => raw.includes(id)));
     const baseline = raw.filter((id) => !additions.includes(id));
@@ -82,8 +83,8 @@ if (
         (id) => `CORE_SOURCE_V1 start ${id}\nCORE_SOURCE_V1 completed ${id}\n`,
       )
       .join("");
-    assert.equal(Buffer.byteLength(full), 73454);
-    assert.equal(sourceProgress(full)?.completedCount, 276);
+    assert.equal(Buffer.byteLength(full), 73734);
+    assert.equal(sourceProgress(full)?.completedCount, 277);
     for (const invalid of [
       "",
       "legacy private-canary",
@@ -120,7 +121,7 @@ if (
       sourceProgress(start + "x".repeat(1_048_576 - Buffer.byteLength(start))),
       { lastStarted: first, lastCompleted: null, completedCount: 0 },
     );
-    // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the original276 fixtures.
+    // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the 277 discovered fixtures.
     assertCoreProtocolContracts(
       spawnSync(
         "python3",
@@ -493,7 +494,7 @@ if (
         throw new Error("never inspect getter");
       },
     });
-    assert.equal(sourceProgress(full)?.completedCount, 276);
+    assert.equal(sourceProgress(full)?.completedCount, 277);
   });
 
   test("Core passive dispatch retains exact legacy platform and flag branches", async () => {

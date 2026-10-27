@@ -2273,8 +2273,8 @@ The opt-in uses `source_runner.py` with the same original synchronous `spawnSync
 combined or per-pipe capture allowance, process owner, signal handling, rescue or process-tree
 cleanup guarantee is introduced.
 
-Normal unittest discovery owns 276 methods, including all original274 and the two native host
-failure witness additions. The original order, warnings, result and exit
+Normal unittest discovery owns 277 methods, including all original274, the two native host
+failure witness additions and the exact shared native-writer batch contract. The original order, warnings, result and exit
 semantics remain. The progress owner validates the entire fixed inventory before running the original
 suite. Fixed start/completed lines share captured stderr with normal unittest output. `completed`
 means the original `stopTest` callback was reached; it does not establish success. Marker write
@@ -2290,7 +2290,7 @@ cannot turn a failed native outcome into a pass, while missing markers do not re
 native outcome. Raw captured unittest text is not the opt-in Linux assertion message.
 
 Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
-replace any of the 276 discovered methods. Synthetic dispatch/parity checks do not establish an
+replace any of the 277 discovered methods. Synthetic dispatch/parity checks do not establish an
 actual admitted Linux run or explain an earlier source timeout. Their separate assertion can
 identify a failed protocol method and the fixed category `failure` or `error` from one optional
 failure-only footer. An already failed third method may also identify one fixed parity field: `exit`,
@@ -2303,7 +2303,7 @@ tail, count/exit checks and unsupported-entry checks. The existing field takes p
 contains at most one suffix. Stage values are source literals, never traceback/error text or values.
 They identify a coarse block, not the failing line or cause. Success clears the stage, and later
 failures cannot inherit a successful comparison's stage. The original assertions and their order,
-three controls, 276-method inventory, 64-byte footer and process/capture budgets remain unchanged.
+three controls, 64-byte footer and process/capture budgets remain unchanged.
 It reads no traceback text. The three fixed positions do not report start,
 completion or success. Missing, foreign, truncated or oversized metadata stays `unknown`; native
 status, spawn error and signal remain authoritative. This feedback does not fix or explain a
