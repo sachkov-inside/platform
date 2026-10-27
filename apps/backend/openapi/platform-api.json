@@ -58962,9 +58962,11 @@
                       "type": "array"
                     },
                     "nameSearch": {
+                      "description": "unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more than 50 people matched the text; the items, the total and the cursor cover only the first 50 matches",
                       "enum": [
                         "available",
-                        "unavailable"
+                        "unavailable",
+                        "truncated"
                       ],
                       "type": "string"
                     },
@@ -60742,9 +60744,11 @@
                       "type": "array"
                     },
                     "nameSearch": {
+                      "description": "unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more people matched the text than `limit`; the items are only the first matches",
                       "enum": [
                         "available",
-                        "unavailable"
+                        "unavailable",
+                        "truncated"
                       ],
                       "type": "string"
                     }
@@ -70892,6 +70896,7 @@
                                     "type": "string"
                                   },
                                   "partial": {
+                                    "description": "Name and @username search was unavailable",
                                     "type": "boolean"
                                   },
                                   "state": {
@@ -70899,13 +70904,18 @@
                                       "ready"
                                     ],
                                     "type": "string"
+                                  },
+                                  "truncated": {
+                                    "description": "More people matched than the group shows; a more precise text finds the rest",
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
                                   "kind",
                                   "state",
                                   "items",
-                                  "partial"
+                                  "partial",
+                                  "truncated"
                                 ],
                                 "type": "object"
                               },

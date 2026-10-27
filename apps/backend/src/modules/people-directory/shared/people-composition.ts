@@ -38,9 +38,12 @@ export interface PersonIdentity {
 
 /**
  * `unavailable` means the text was a name or @username and Telegram could not search it: the empty
- * list is then no answer, and the web says so instead of «никого не нашли».
+ * list is then no answer, and the web says so instead of «никого не нашли». `truncated` means more
+ * people matched the text than one answer holds (Telegram reported more name matches than asked
+ * for, or more Accounts share the address): the answer, and a list's total, cover only the first
+ * matches, and the web asks for a more precise text.
  */
-export type NameSearchState = "available" | "unavailable";
+export type NameSearchState = "available" | "unavailable" | "truncated";
 
 export type PeopleDirectoryError =
   | { readonly code: "invalid_request" }
@@ -211,8 +214,9 @@ export async function readPeople(
 
 /**
  * The Accounts one search term names, before the person predicate: an Account ID, the exact
- * email matches, or Telegram's name and @username matches over current links. A name text that
- * Telegram cannot search now reports `nameSearch: "unavailable"`, never an empty answer.
+ * email matches, or Telegram's name and @username matches over current links, at most `limit`.
+ * A name text that Telegram cannot search now reports `nameSearch: "unavailable"`, never an empty
+ * answer; more matches than `limit` report `truncated`, never a silent cut.
  */
 export async function findCandidates(
   dependencies: Pick<PeopleDirectoryDependencies, "directory" | "telegram">,
@@ -238,7 +242,11 @@ export async function findCandidates(
       if (!found.ok) return failure("dependency_unavailable");
       return {
         ok: true,
-        value: { accountIds: found.accountIds, nameSearch: "available" },
+        value: {
+          accountIds: found.accountIds.slice(0, limit),
+          nameSearch:
+            found.accountIds.length > limit ? "truncated" : "available",
+        },
       };
     }
     case "name": {
@@ -250,8 +258,11 @@ export async function findCandidates(
         return {
           ok: true,
           value: {
-            accountIds: found.hits.map((hit) => hit.accountId),
-            nameSearch: "available",
+            accountIds: found.hits.slice(0, limit).map((hit) => hit.accountId),
+            nameSearch:
+              found.truncated || found.hits.length > limit
+                ? "truncated"
+                : "available",
           },
         };
       // Text Telegram's search contract does not take (a lone «@», more than 64 characters)

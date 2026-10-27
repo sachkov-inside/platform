@@ -21,6 +21,8 @@ export type AuthoringSearchReadyGroup =
       readonly items: readonly AuthoringSearchPerson[];
       /** Name and @username search was unavailable: a name may have found nobody for that reason. */
       readonly partial: boolean;
+      /** More people matched than the group shows; a more precise text finds the rest. */
+      readonly truncated: boolean;
     }
   | {
       readonly kind: "products";

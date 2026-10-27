@@ -60,7 +60,10 @@ export class PeopleService {
       telegram: 'linked' | 'not_linked';
       username: string | null;
     }>;
-    nameSearch: 'available' | 'unavailable';
+    /**
+     * unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more than 50 people matched the text; the items, the total and the cursor cover only the first 50 matches
+     */
+    nameSearch: 'available' | 'unavailable' | 'truncated';
     nextCursor: string | null;
     total: number;
   }> {
@@ -267,7 +270,10 @@ export class PeopleService {
       email: string | null;
       username: string | null;
     }>;
-    nameSearch: 'available' | 'unavailable';
+    /**
+     * unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more people matched the text than `limit`; the items are only the first matches
+     */
+    nameSearch: 'available' | 'unavailable' | 'truncated';
   }> {
     return this.httpRequest.request({
       method: 'GET',

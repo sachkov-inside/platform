@@ -394,6 +394,59 @@ describe("People list", () => {
     }
   });
 
+  test("more matches than one answer holds are reported as truncated, never cut silently", async () => {
+    // 50 more stored profiles match «Анна», none of them a current link here: Telegram answers
+    // its first 50 of 51 matches and reports the rest.
+    const doubles = Array.from({ length: 50 }, (_, index) => ({
+      accountRef: `principal:elsewhere-${String(index)}`,
+      telegramIdentityRef: `identity:elsewhere-${String(index)}`,
+      displayName: `Анна Двойник ${String(index)}`,
+      username: null,
+      marketing: "unknown" as const,
+    }));
+    for (const profile of doubles)
+      api.telegram.profiles.set(profile.telegramIdentityRef, profile);
+    try {
+      expect(await list({ query: "Анна" })).toMatchObject({
+        items: [{ accountId: people.telegram }],
+        total: 1,
+        nextCursor: null,
+        nameSearch: "truncated",
+      });
+      const search = await api.server.inject({
+        method: "GET",
+        url: `/authoring/search?query=${encodeURIComponent("Анна")}`,
+        headers: owner,
+      });
+      expect(search.statusCode).toBe(200);
+      expect(search.json()).toEqual({
+        groups: [
+          {
+            kind: "people",
+            state: "ready",
+            items: [expect.objectContaining({ accountId: people.telegram })],
+            partial: false,
+            truncated: true,
+          },
+        ],
+      });
+    } finally {
+      for (const profile of doubles)
+        api.telegram.profiles.delete(profile.telegramIdentityRef);
+    }
+    // Two Accounts share one address; a search of one person reports the other as cut.
+    const one = await api.server.inject({
+      method: "GET",
+      url: `/authoring/people/search?query=${encodeURIComponent("shared.person@example.test")}&limit=1`,
+      headers: owner,
+    });
+    expect(one.statusCode).toBe(200);
+    expect(one.json()).toMatchObject({
+      items: [{ accountId: people.billing }],
+      nameSearch: "truncated",
+    });
+  });
+
   test("names stay unknown, not absent, when Telegram cannot read them", async () => {
     api.telegram.mode = "down";
     try {

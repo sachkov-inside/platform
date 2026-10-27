@@ -70,8 +70,14 @@ const readyGroupHttpSchema = z.discriminatedUnion("kind", [
             .strict(),
         )
         .max(AUTHORING_SEARCH_GROUP_LIMIT),
-      /** Name and @username search was unavailable. */
-      partial: z.boolean(),
+      partial: z
+        .boolean()
+        .describe("Name and @username search was unavailable"),
+      truncated: z
+        .boolean()
+        .describe(
+          "More people matched than the group shows; a more precise text finds the rest",
+        ),
     })
     .strict(),
   z
@@ -216,6 +222,7 @@ export class SearchAuthoringController {
                 contactsState: person.contactsState,
               })),
               partial: group.partial,
+              truncated: group.truncated,
             };
           case "products":
             return {

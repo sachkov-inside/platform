@@ -69,7 +69,7 @@ export class PeopleDirectory {
     if (!candidates.ok) return candidates;
     const people = await readPeople(
       this.dependencies,
-      candidates.value.accountIds.slice(0, limit),
+      candidates.value.accountIds,
     );
     if (!people.ok) return people;
     return {

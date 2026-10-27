@@ -341,7 +341,15 @@ describe("Authoring search", () => {
     });
     expect(people.statusCode).toBe(200);
     expect(people.json()).toEqual({
-      groups: [{ kind: "people", state: "ready", items: [], partial: true }],
+      groups: [
+        {
+          kind: "people",
+          state: "ready",
+          items: [],
+          partial: true,
+          truncated: false,
+        },
+      ],
     });
     const denied = await server.inject({
       method: "GET",
@@ -406,6 +414,7 @@ describe("Authoring search", () => {
             state: "ready",
             items: [expectedPerson],
             partial: false,
+            truncated: false,
           },
           { kind: "products", state: "ready", items: [] },
           { kind: "materials", state: "ready", items: [] },

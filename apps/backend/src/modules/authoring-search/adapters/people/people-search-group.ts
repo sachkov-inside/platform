@@ -28,6 +28,7 @@ export function assemblePeopleSearchGroup(
               contactsState: person.contactsState,
             })),
             partial: result.value.nameSearch === "unavailable",
+            truncated: result.value.nameSearch === "truncated",
           },
         };
       switch (result.error.code) {

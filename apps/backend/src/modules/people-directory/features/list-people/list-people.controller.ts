@@ -67,7 +67,11 @@ const peopleListHttpSchema = z
       .max(PEOPLE_PAGE_LIMIT),
     total: z.int().min(0),
     nextCursor: z.string().max(PEOPLE_CURSOR_MAX_CHARACTERS).nullable(),
-    nameSearch: z.enum(["available", "unavailable"]),
+    nameSearch: z
+      .enum(["available", "unavailable", "truncated"])
+      .describe(
+        "unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more than 50 people matched the text; the items, the total and the cursor cover only the first 50 matches",
+      ),
   })
   .strict();
 
