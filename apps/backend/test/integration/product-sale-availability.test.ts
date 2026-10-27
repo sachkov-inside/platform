@@ -80,5 +80,34 @@ describe.each([1, 10, 100])(
         read.statements.filter((sql) => sql.startsWith("SELECT")).length,
       ).toBe(3);
     });
+    test("reads promotion usage once for a usage-limited promotion at any size", async () => {
+      if (measured === undefined || db === undefined)
+        throw new Error("Missing measured fixture client");
+      await db.prisma.billingPromotion.create({
+        data: {
+          id: randomUUID(),
+          revision: 1,
+          name: "Limited promotion",
+          percent: 10,
+          startsAt: new Date("2029-12-01T00:00:00Z"),
+          endsAt: new Date("2030-02-01T00:00:00Z"),
+          productIds,
+          usageLimit: 5,
+        },
+      });
+      const read = await measured.measure(() =>
+        pricing.saleAvailability({ productIds }),
+      );
+      expect(read.result).toEqual({
+        ok: true,
+        value: {
+          items: productIds.map((productId) => ({ productId, sold: true })),
+        },
+      });
+      // The shared promotion usage read joins the three reads above, once per batch.
+      expect(
+        read.statements.filter((sql) => sql.startsWith("SELECT")).length,
+      ).toBe(4);
+    });
   },
 );

@@ -113,9 +113,10 @@ export const OverviewRowDesktop: Story = {
     const sales = canvas.getByRole("button", { name: /^Продажи/u });
     await expect(revenue).toHaveAttribute("aria-pressed", "true");
     await expect(sales).toHaveAttribute("aria-pressed", "false");
-    // Card height counts wrapped lines. The first story in a cold frame reads `before` in the
-    // fallback face; Manrope arriving before `after` can rewrap a long label (CI). Force
-    // layout so the web fonts are requested, then compare both reads in the loaded face.
+    // Высота карточки считает строки подписи. Первая история в холодном кадре мерила `before`
+    // запасным шрифтом, а Manrope успевал загрузиться к `after` и переносил длинную подпись
+    // (Application CI, три прогона подряд). Раскладка запрашивает шрифты, оба замера идут после
+    // их загрузки.
     sales.getBoundingClientRect();
     await canvasElement.ownerDocument.fonts.ready;
     const before = sales.getBoundingClientRect();

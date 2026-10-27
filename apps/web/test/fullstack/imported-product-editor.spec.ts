@@ -21,7 +21,7 @@ test("imported product opens read-only in the editor and lets the author leave",
   });
 
   await page.goto("/authoring/products");
-  // The list renders a table and a phone list; CSS shows one of them.
+  // Список рисует таблицу и список для телефона; CSS показывает одно из них.
   const product = page
     .locator(`a[href="/authoring/products/${productId}"]`)
     .filter({ visible: true });

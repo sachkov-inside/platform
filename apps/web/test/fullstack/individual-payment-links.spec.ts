@@ -68,7 +68,7 @@ test("individual payment link shows its fixed price and terms, revokes across op
     name: "Ссылки на оплату",
     exact: true,
   });
-  // The list renders a table and a phone list; CSS shows one of them.
+  // Список рисует таблицу и список для телефона; CSS показывает одно из них.
   await expect(
     ownerRegion.getByText(/26\s100/u).filter({ visible: true }),
   ).toBeVisible();
