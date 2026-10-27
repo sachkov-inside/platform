@@ -1108,6 +1108,25 @@ def container_states(raw, *, services=SERVICES):
     return result
 
 
+def native_host_state(raw, container, project):
+    """Docker native failure fields, with no raw State.Error, environment or command."""
+    if len(raw.encode()) > 4096:
+        raise ValueError('native_host_state_size')
+    row = json.loads(raw)
+    fields = {'actual_exit_code', 'oom_killed', 'restart_count', 'runtime_error_present', 'has_process'}
+    if type(row) is not dict or set(row) != fields | {'id', 'project', 'service'}:
+        raise ValueError('native_host_state_shape')
+    if row.pop('id') != container or row.pop('project') != project or row.pop('service') != 'host-agent':
+        raise ValueError('native_host_state_owner')
+    if type(row['actual_exit_code']) is not int or not 0 <= row['actual_exit_code'] <= 255:
+        raise ValueError('native_host_state_exit')
+    if type(row['restart_count']) is not int or not 0 <= row['restart_count'] <= 1_000_000:
+        raise ValueError('native_host_state_restarts')
+    if any(type(row[key]) is not bool for key in ('oom_killed', 'runtime_error_present', 'has_process')):
+        raise ValueError('native_host_state_flags')
+    return row
+
+
 def cleanup_project(compose, output, project, *, docker=("docker",), services=SERVICES):
     """Diagnostics may fail; down and both residue checks are independent obligations."""
     result = {}
@@ -1123,6 +1142,24 @@ def cleanup_project(compose, output, project, *, docker=("docker",), services=SE
         snapshot = checked_command(compose + ["ps", "--all", "--format", "json"])
         states = container_states(snapshot, services=services)
         if not (output / "container-states.json").exists():
+            for row in states:
+                if row['service'] != 'host-agent':
+                    continue
+                # Compose reports ExitCode=0 for restarting containers. Inspect the native
+                # failure fields while this exact registered owner still exists, before down.
+                try:
+                    deadline = time.monotonic() + 3
+                    identity = checked_command(list(docker) + ['ps', '-aq', '--no-trunc',
+                        '--filter', 'label=com.docker.compose.project=' + project,
+                        '--filter', 'label=com.docker.compose.service=host-agent'], deadline=deadline).strip()
+                    if re.fullmatch(r'[a-f0-9]{64}', identity) is None:
+                        raise ValueError('native_host_state_owner')
+                    projection = '{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"actual_exit_code":{{json .State.ExitCode}},"oom_killed":{{json .State.OOMKilled}},"restart_count":{{json .RestartCount}},"runtime_error_present":{{ne .State.Error ""}},"has_process":{{gt .State.Pid 0}}}'
+                    native = checked_command(list(docker) + ['inspect', identity, '--format', projection], deadline=deadline)
+                    row.update(native_host_state(native, identity, project))
+                    row['native_failure_state'] = 'observed'
+                except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                    row['native_failure_state'] = 'unavailable'
             write_json(output / "container-states.json", states)
         result["diagnostics"] = "passed"
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
