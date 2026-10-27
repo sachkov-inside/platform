@@ -186,7 +186,7 @@ export function ProductTaskForm({
           {result?.kind === "submitted" ? (
             <span className="inline-flex items-center gap-1.5 text-[color:var(--callout-good)]">
               <CircleCheck aria-hidden="true" className="size-4" />
-              Сдача отправлена. Результат появится в «Моих сдачах».
+              Сдача отправлена. Откройте её в «Моих сдачах».
             </span>
           ) : null}
         </p>
