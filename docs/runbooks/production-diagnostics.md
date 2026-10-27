@@ -238,7 +238,8 @@ Account ID и username респондентов в этот отчёт не вх
 `operational_queue_diagnostics` в Platform MCP требует актуального `platform:admin` делегированного
 Account. Вход принимает строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
 бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
-Отчёт читает только инфраструктурные `pgboss.version`, `pgboss.queue`, `pgboss.job` через
+Отчёт читает native metadata `pgboss.version`, `pgboss.queue`, `pgboss.job` и собственные
+факты `queue_observation.last_successful_handler` через
 [owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
 Десять известных имён имеют один
 [contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
