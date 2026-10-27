@@ -4,7 +4,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
-import { accountId, operationOk, readiness } from "./responses.mjs";
+import { accountId, operationOk, readinessObservation } from "./responses.mjs";
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function record(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -640,7 +640,7 @@ if (action === "cache-ready") {
 } else if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
   console.log(
-    JSON.stringify({ ok: readiness(response, argument(0), argument(3)) }),
+    JSON.stringify(readinessObservation(response, argument(0), argument(3))),
   );
 } else if (action === "telegram-establish") {
   let accepted = 0;

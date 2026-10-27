@@ -139,10 +139,24 @@ def mode(output,enabled):
 
 def ready(compose,path,host='api',port=3001):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
+    if host not in (*BACKENDS,'telegram','web','logto','umami'):raise ValueError('fixed_readiness_target_required')
+    last={'ok':False,'status':None,'cause':'observation_unavailable'}
     def check():
-        try:return json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','ready',host,str(port),path,source],timeout=4))['ok'] is True
+        nonlocal last
+        try:
+            value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','ready',host,str(port),path,source],timeout=4))
+            if (type(value) is not dict or set(value)!={'ok','status','cause'} or type(value['ok']) is not bool
+                    or value['status'] is not None and (type(value['status']) is not int or not 0<=value['status']<=599)
+                    or value['cause'] not in ('ready','transport_unavailable','http_unavailable','unexpected_response','database_unavailable','membership_unavailable')):
+                raise ValueError('readiness_projection')
+            last=value
+            return value['ok']
         except (ValueError,RuntimeError,subprocess.SubprocessError):return False
-    pilot.await_fact(check,bool,probe='fullstack_ready')
+    try:pilot.await_fact(check,bool,probe='fullstack_ready')
+    except BaseException:
+        try:print(json.dumps({'fullstack_readiness':{'target':host,**last}},sort_keys=True),flush=True)
+        except BaseException:pass
+        raise
 
 
 def seed(compose,output):

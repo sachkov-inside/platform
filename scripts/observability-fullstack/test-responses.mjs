@@ -1,10 +1,36 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { operationOk, readiness } from "./responses.mjs";
+import { operationOk, readiness, readinessObservation } from "./responses.mjs";
 
 test("readiness requires the current source, dependencies and body, including Umami heartbeat", () => {
   const source = "a".repeat(40);
+  assert.deepEqual(
+    readinessObservation(
+      {
+        status: 503,
+        value: { message: "Telegram Membership provider is unavailable" },
+      },
+      "telegram",
+      source,
+    ),
+    { ok: false, status: 503, cause: "membership_unavailable" },
+  );
+  assert.deepEqual(
+    readinessObservation(
+      { status: 503, value: { message: "Database is unavailable" } },
+      "telegram",
+      source,
+    ),
+    { ok: false, status: 503, cause: "database_unavailable" },
+  );
+  const unknown = readinessObservation(
+    { status: 503, value: { message: "private-sentinel" } },
+    "telegram",
+    source,
+  );
+  assert.equal(unknown.cause, "http_unavailable");
+  assert.equal(JSON.stringify(unknown).includes("private-sentinel"), false);
   const body = {
     status: "ready",
     process: "api",
