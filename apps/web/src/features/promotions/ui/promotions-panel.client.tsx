@@ -95,6 +95,8 @@ export function PromotionsPanel({
 
   const catalog = useQuery({
     queryKey: ownerPriceCatalogQueryKey,
+    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
+    retry: false,
     queryFn: async () => {
       const result = await readOwnerPriceCatalog();
       if (!result.ok) throw new Error(result.code);
@@ -108,6 +110,8 @@ export function PromotionsPanel({
 
   const list = useInfiniteQuery({
     queryKey: [...promotionsQueryKey, filter.productId, filter.archived],
+    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
+    retry: false,
     enabled: filter.view === "promotions",
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
@@ -186,7 +190,7 @@ export function PromotionsPanel({
   const columns: readonly AdminTableColumn<PromotionRow>[] = [
     {
       id: "name",
-      header: "Скидка",
+      header: "Название",
       cell: (row) =>
         row.item.code === null ? "Без промокода" : `Промокод ${row.item.code}`,
     },

@@ -995,6 +995,11 @@ button.admin-metric:focus-visible {
   padding: 0;
   list-style: none;
 }
+/* Выбранный вариант убирается целью нажатия в 44 px, как и остальные элементы формы. */
+.admin-checklist-selected .admin-filter-chip button {
+  width: 2.75rem;
+  height: 2.75rem;
+}
 .admin-checklist-item {
   display: flex;
   align-items: center;

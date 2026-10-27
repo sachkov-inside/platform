@@ -91,7 +91,11 @@ async function expectAccessibleWithoutOverflow(page: Page) {
   expect(a11y.violations).toEqual([]);
 }
 
-/** Every visible control of `scope` is at least 44 px in both directions on a phone. */
+/**
+ * Every visible control of `scope` has a touch target of at least 44 px in both directions on a
+ * phone. A compact phone button keeps its visible 36 px footprint and widens the target with an
+ * invisible `::after` layer (`button.module.css`), so the target is the larger of the two.
+ */
 async function expectTouchTargets(scope: Locator) {
   const sizes = await scope
     .locator(
@@ -100,9 +104,20 @@ async function expectTouchTargets(scope: Locator) {
     .evaluateAll((elements) =>
       elements.map((element) => {
         const box = element.getBoundingClientRect();
+        const layer = getComputedStyle(element, "::after");
+        const extended =
+          layer.content !== "none" && layer.position === "absolute";
+        const height = Math.max(
+          box.height,
+          extended ? Number.parseFloat(layer.height) : 0,
+        );
+        const width = Math.max(
+          box.width,
+          extended ? Number.parseFloat(layer.width) : 0,
+        );
         return {
           name: element.getAttribute("aria-label") ?? element.textContent,
-          small: box.height < 44 || box.width < 44,
+          small: height < 44 || width < 44,
         };
       }),
     );

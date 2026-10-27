@@ -279,7 +279,10 @@ export function AdminSearchChecklist({
           <p className="admin-field-hint">{emptySelection}</p>
         ) : null
       ) : (
-        <ul aria-label={`Выбрано: ${label}`} className="admin-filter-chips">
+        <ul
+          aria-label={`Выбрано: ${label}`}
+          className="admin-filter-chips admin-checklist-selected"
+        >
           {selected.map((choice) => (
             <li
               className="admin-filter-chip"

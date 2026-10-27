@@ -107,6 +107,8 @@ export function PaymentLinksPanel({
 
   const catalog = useQuery({
     queryKey: ownerPriceCatalogQueryKey,
+    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
+    retry: false,
     queryFn: async () => {
       const result = await readOwnerPriceCatalog();
       if (!result.ok) throw new Error(result.code);
@@ -128,6 +130,8 @@ export function PaymentLinksPanel({
 
   const list = useInfiniteQuery({
     queryKey: [...paymentLinksQueryKey, filter.productId, filter.state],
+    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
+    retry: false,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       const result = await listPaymentLinks({

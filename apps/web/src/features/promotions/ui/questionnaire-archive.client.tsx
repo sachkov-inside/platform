@@ -52,6 +52,8 @@ export function QuestionnaireArchive() {
   const [page, setPage] = useState(1);
   const status = useQuery({
     queryKey: questionnaireRespondentsQueryKey,
+    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
+    retry: false,
     queryFn: async () => {
       const result = await readQuestionnaireRespondents({
         operationId: crypto.randomUUID(),
