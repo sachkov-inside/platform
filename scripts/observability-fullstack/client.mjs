@@ -239,6 +239,9 @@ async function sourceCacheReady() {
   );
   return {
     ok: result.status === 200 && vector(result.value) === 2,
+    failure:
+      result.status !== 200 ? "source_cache_http" : "source_cache_response",
+    status: result.status,
     seconds: result.seconds,
   };
 }
@@ -359,13 +362,15 @@ async function readMonitoring() {
       undefined,
       authorization,
     );
+    const target = ["metrics", "logs", "traces"][index];
+    if (result.status !== 200)
+      return { failure: target + "_http", status: result.status };
     if (
-      result.status !== 200 ||
       (index === 0 && !queryOne(result.value)) ||
       (index === 2 &&
         (!record(result.value) || !Array.isArray(result.value["data"])))
     )
-      return null;
+      return { failure: target + "_response", status: result.status };
     maximum = Math.max(maximum, result.seconds);
   }
   const state = analytics();
@@ -382,9 +387,14 @@ async function readMonitoring() {
     undefined,
     { authorization: "Bearer " + state.key },
   );
-  if (stats.status !== 200 || !nativeStats(stats.value)) return null;
+  if (stats.status !== 200)
+    return { failure: "umami_http", status: stats.status };
+  if (!nativeStats(stats.value))
+    return { failure: "umami_response", status: stats.status };
   const sources = await sourceCacheReady();
-  return sources.ok ? Math.max(maximum, stats.seconds, sources.seconds) : null;
+  return sources.ok
+    ? { seconds: Math.max(maximum, stats.seconds, sources.seconds) }
+    : { failure: sources.failure, status: sources.status };
 }
 async function lag() {
   const result = await call(
@@ -615,6 +625,10 @@ async function load(definition, enabled, pair) {
       ["idle", "steady", "spike"].indexOf(definition.name);
   /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
   /** @type {number[]} */ const querySeconds = [];
+  /** Closed finite corpus keys only; no response, URL or credential is retained.
+   * @type {Record<string, number>} */ const queryFailureCounts = {};
+  /** @type {Record<string, Record<string, number>>} */ const queryFailureStatuses =
+    {};
   /** @type {Set<Promise<void>>} */ const active = new Set();
   let querying = true,
     queryFailure = false;
@@ -622,8 +636,20 @@ async function load(definition, enabled, pair) {
     ? (async () => {
         while (querying) {
           const value = await readMonitoring();
-          if (value === null) queryFailure = true;
-          else querySeconds.push(value);
+          if ("failure" in value) {
+            queryFailure = true;
+            queryFailureCounts[value.failure] =
+              (queryFailureCounts[value.failure] ?? 0) + 1;
+            const statuses = (queryFailureStatuses[value.failure] ??= {});
+            const status =
+              typeof value.status === "number" &&
+              Number.isSafeInteger(value.status) &&
+              (value.status === 0 ||
+                (value.status >= 100 && value.status <= 599))
+                ? String(value.status)
+                : "unknown";
+            statuses[status] = (statuses[status] ?? 0) + 1;
+          } else querySeconds.push(value.seconds);
           await delay(500);
         }
       })()
@@ -731,6 +757,8 @@ async function load(definition, enabled, pair) {
     unexpected_failures: unexpected,
     latency,
     query_seconds: querySeconds,
+    query_failure_counts: queryFailureCounts,
+    query_failure_status_counts: queryFailureStatuses,
     ingestion_lag_seconds: age,
   };
 }

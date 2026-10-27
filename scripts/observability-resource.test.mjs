@@ -719,27 +719,35 @@ test("fullstack ON load reads native stats and reconciles the admitted privacy c
     join(tmpdir(), "inside-fullstack-load-contract-"),
   );
   try {
-    const result = await runOwnedProcess(
-      process.execPath,
-      [
-        fileURLToPath(
-          new URL(
-            "./observability-fullstack/load-contract.mjs",
-            import.meta.url,
+    for (const scenario of ["positive", "query-failures"]) {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
           ),
-        ),
-        directory,
-        "on",
-      ],
-      { timeoutMs: 15000 },
-    );
-    assert.equal(result.reason, "exit", result.stderr);
-    assert.equal(result.code, 0, result.stdout + result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout), {
-      ok: true,
-      scheduled: 400,
-      mcp_sse: 50,
-    });
+          directory,
+          "on",
+          scenario,
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.deepEqual(
+        JSON.parse(result.stdout),
+        scenario === "positive"
+          ? {
+              ok: true,
+              scheduled: 400,
+              mcp_sse: 50,
+            }
+          : { ok: true, closed_query_failures: 11, scheduled: 0 },
+      );
+    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

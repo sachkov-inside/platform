@@ -14,6 +14,8 @@ const profile = fileURLToPath(
   new URL("../../infra/observability/fullstack/profile.json", import.meta.url),
 );
 const enabled = process.argv[3] === "on";
+const queryFailures = process.argv[4] === "query-failures";
+let queryCycle = 0;
 const account = "00000000-0000-4000-8000-000000001566";
 /** @type {Record<string, number>} */ const counts = {};
 /** @param {unknown} value @param {string} key @returns {unknown} */
@@ -65,6 +67,7 @@ const server = createServer(async (request, response) => {
     stored.set(identity, (stored.get(identity) ?? 0) + 1);
     value = {};
   } else if (host === "gateway") {
+    if (request.url?.includes("query=1&")) queryCycle++;
     const query =
       new URL(request.url ?? "/", "http://fixture.invalid").searchParams.get(
         "query",
@@ -136,6 +139,30 @@ const server = createServer(async (request, response) => {
       token_endpoint: "http://logto:3001/oidc/token",
     };
   }
+  if (queryFailures) {
+    if (host === "gateway") {
+      if (request.url?.includes("query=1&")) {
+        if (queryCycle === 1) status = 503;
+        if (queryCycle === 2) value = {};
+        if (queryCycle === 10) status = 799;
+        if (queryCycle === 11) {
+          response.destroy();
+          return;
+        }
+      } else if (request.url?.startsWith("/logs/") && queryCycle === 3)
+        status = 503;
+      else if (request.url?.startsWith("/traces/")) {
+        if (queryCycle === 4) status = 503;
+        if (queryCycle === 5) value = { data: null };
+      } else if (request.url?.includes("inside_production_source_available")) {
+        if (queryCycle === 8) status = 503;
+        if (queryCycle === 9) value = {};
+      }
+    } else if (host === "umami-query") {
+      if (queryCycle === 6) status = 503;
+      if (queryCycle === 7) value = { pageviews: 0 };
+    }
+  }
   response
     .writeHead(status)
     .end(typeof value === "string" ? value : JSON.stringify(value));
@@ -162,7 +189,11 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       loader,
       client,
       "load",
-      JSON.stringify({ name: "spike", seconds: 10, requests_per_second: 40 }),
+      JSON.stringify(
+        queryFailures
+          ? { name: "idle", seconds: 10, requests_per_second: 0 }
+          : { name: "spike", seconds: 10, requests_per_second: 40 },
+      ),
       enabled ? "on" : "off",
       "0",
     ],
@@ -196,48 +227,87 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       "unexpected_failures" in result &&
       "completed" in result,
   );
-  assert.deepEqual(
-    {
-      scheduled: result.scheduled,
-      missed: result.missed,
-      success: result.success,
-      unexpected: result.unexpected_failures,
-      completed: result.completed,
-    },
-    { scheduled: 400, missed: 0, success: 400, unexpected: 0, completed: true },
-  );
-  const applicationCounts = Object.fromEntries(
-    Object.entries(counts).filter(([name]) =>
-      [
-        "site.resource.test",
-        "api.resource.test",
-        "mcp",
-        "telegram",
-        "logto",
-      ].includes(name),
-    ),
-  );
-  assert.deepEqual(applicationCounts, {
-    "site.resource.test": 100,
-    "api.resource.test": 100,
-    mcp: 50,
-    telegram: 50,
-    logto: 50,
-  });
-  if (enabled) {
-    assert.ok(
-      "stored_probe_points" in result &&
-        "unexplained_probe_loss" in result &&
-        "query_seconds" in result,
+  if (queryFailures) {
+    assert.equal(result.completed, false);
+    assert.deepEqual(field(result, "query_failure_counts"), {
+      metrics_http: 3,
+      metrics_response: 1,
+      logs_http: 1,
+      traces_http: 1,
+      traces_response: 1,
+      umami_http: 1,
+      umami_response: 1,
+      source_cache_http: 1,
+      source_cache_response: 1,
+    });
+    assert.deepEqual(field(result, "query_failure_status_counts"), {
+      metrics_http: { 0: 1, 503: 1, unknown: 1 },
+      metrics_response: { 200: 1 },
+      logs_http: { 503: 1 },
+      traces_http: { 503: 1 },
+      traces_response: { 200: 1 },
+      umami_http: { 503: 1 },
+      umami_response: { 200: 1 },
+      source_cache_http: { 503: 1 },
+      source_cache_response: { 200: 1 },
+    });
+    const timings = field(result, "query_seconds");
+    assert.ok(Array.isArray(timings) && timings.length > 0);
+    assert.equal(result.scheduled, 0);
+    assert.equal(result.success, 0);
+    console.log(
+      JSON.stringify({ ok: true, closed_query_failures: 11, scheduled: 0 }),
     );
-    assert.equal(result.stored_probe_points, 400);
-    assert.equal(result.unexplained_probe_loss, 0);
-    assert.ok(
-      Array.isArray(result.query_seconds) && result.query_seconds.length > 0,
+  } else {
+    assert.deepEqual(
+      {
+        scheduled: result.scheduled,
+        missed: result.missed,
+        success: result.success,
+        unexpected: result.unexpected_failures,
+        completed: result.completed,
+      },
+      {
+        scheduled: 400,
+        missed: 0,
+        success: 400,
+        unexpected: 0,
+        completed: true,
+      },
     );
-    assert.ok(monitoringQueries > 0);
+    const applicationCounts = Object.fromEntries(
+      Object.entries(counts).filter(([name]) =>
+        [
+          "site.resource.test",
+          "api.resource.test",
+          "mcp",
+          "telegram",
+          "logto",
+        ].includes(name),
+      ),
+    );
+    assert.deepEqual(applicationCounts, {
+      "site.resource.test": 100,
+      "api.resource.test": 100,
+      mcp: 50,
+      telegram: 50,
+      logto: 50,
+    });
+    if (enabled) {
+      assert.ok(
+        "stored_probe_points" in result &&
+          "unexplained_probe_loss" in result &&
+          "query_seconds" in result,
+      );
+      assert.equal(result.stored_probe_points, 400);
+      assert.equal(result.unexplained_probe_loss, 0);
+      assert.ok(
+        Array.isArray(result.query_seconds) && result.query_seconds.length > 0,
+      );
+      assert.ok(monitoringQueries > 0);
+    }
+    console.log(JSON.stringify({ ok: true, scheduled: 400, mcp_sse: 50 }));
   }
-  console.log(JSON.stringify({ ok: true, scheduled: 400, mcp_sse: 50 }));
 } finally {
   if (child && child.exitCode === null && child.signalCode === null)
     child.kill("SIGKILL");
