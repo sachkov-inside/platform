@@ -3,6 +3,8 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 import json
 import os
+import socket
+import struct
 from pathlib import Path
 import sys
 import threading
@@ -34,6 +36,40 @@ def peer(*,status=200,body=None):
     thread=threading.Thread(target=lambda:server.serve_forever(poll_interval=.02));thread.start()
     try:yield server.server_address[1],prefixed,completed
     finally:server.shutdown();server.server_close();thread.join(timeout=2)
+
+
+@contextmanager
+def transport_peer(fault):
+    server=socket.socket();server.bind(('127.0.0.1',0));server.listen();server.settimeout(.05)
+    stop=threading.Event();requests=[];errors=[]
+    body=b'{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[100,"1"]}]}}'
+    def serve():
+        try:
+            while not stop.is_set():
+                try:client,_=server.accept()
+                except socket.timeout:continue
+                except OSError:
+                    if stop.is_set():break
+                    raise
+                with client:
+                    client.settimeout(2);raw=b''
+                    while b'\r\n\r\n' not in raw:
+                        value=client.recv(4096)
+                        if not value:break
+                        raw+=value
+                    requests.append(len(raw))
+                    if len(requests)==1 and fault:
+                        if fault=='prefix':client.sendall(b'HTTP/1.1 200 OK\r\n')
+                        if fault=='interim':client.sendall(b'HTTP/1.1 100 Continue\r\n\r\n')
+                        if fault=='protocol':client.sendall(b'NOT HTTP\r\n')
+                        if fault=='stall':stop.wait(2)
+                        if fault=='body':client.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: '+str(len(body)).encode()+b'\r\n\r\n'+body[:8])
+                        if fault!='eof':client.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('ii',1,0))
+                    else:client.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: '+str(len(body)).encode()+b'\r\nConnection: close\r\n\r\n'+body)
+        except BaseException as error:errors.append(type(error).__name__)
+    worker=threading.Thread(target=serve);worker.start()
+    try:yield server.getsockname()[1],requests
+    finally:stop.set();server.close();worker.join(timeout=3);assert not worker.is_alive() and not errors,errors
 
 
 class HeldBody(unittest.TestCase):

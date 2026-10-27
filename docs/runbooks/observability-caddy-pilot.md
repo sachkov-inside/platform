@@ -388,15 +388,25 @@ fixed `inflight_*` stages. Checkpoints update memory and are persisted on termin
 not add disk writes or publish native response bodies. A `contract` failure identifies its owning stage
 without implying that a controlled HTTP/MCP fixture established native Caddy acceptance.
 
-Gateway readiness uses its existing bounded loop when a published Docker socket closes before
-an HTTP response exists. Only the exact `RemoteDisconnected` type joins the already handled
-connection-refused case. The total readiness wait and each HTTP request keep their existing
-deadlines. HTTP502 responses remain journalled; readiness succeeds only after a whole validated
-HTTP200 response. Other resets, incomplete responses, invalid status/body and unknown subclasses
-still fail. A response-free attempt adds no invented counter admission to the journal. Startup
-and gateway-recovery readiness precede their seed/cut/baseline. Seed-internal readiness keeps
-the original accounting interval; any unexplained native admission there still fails the
-unchanged exact partition comparison.
+Gateway readiness uses its existing bounded loop for an exact refused connection, an empty
+HTTP EOF or an exact TCP reset on the first buffered read before any HTTP response prefix was
+observed. The recovery-only response class peeks without consuming bytes, then delegates to
+the unchanged standard status/header parser. Once any prefix, including HTTP100, was seen,
+reset/EOF remains fatal. Request-side resets, broken pipes, aborted connections, timeouts,
+protocol/header/body failures and unknown subclasses are not promoted to readiness retries.
+Default non-recovery responses retain their original parser.
+
+Only the exact owned `ReadinessUnavailable` marker admits another attempt. The existing HTTP
+and total readiness deadlines, size checks and whole query-one validation are unchanged.
+HTTP502 responses remain journalled; readiness succeeds only after a whole validated HTTP200.
+An attempt without an observed whole response adds no invented journal response. Its server-side
+request/counter admission is unknown, not zero. Startup and gateway-recovery readiness precede
+their seed/cut/baseline. Seed-internal readiness keeps the original accounting interval; any
+unexplained native admission there still fails the unchanged exact partition comparison.
+Real TCP reset, empty EOF, partial status/header/body, HTTP100, malformed protocol and deadline
+controls exercise this boundary on the host and Linux Python3.12. These controls reproduce the
+transport pattern; a prior hosted `gateway_recovery_reset` stage identifies an exact reset type
+but does not establish why the peer reset or whether that historical response had a prefix.
 
 Nine fixed `gateway_recovery_*` phases distinguish restart, readiness, refused connection,
 response-free EOF, reset, timeout, contract, other failure and the fresh acquisition after seed.

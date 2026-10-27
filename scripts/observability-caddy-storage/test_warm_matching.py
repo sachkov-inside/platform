@@ -171,20 +171,41 @@ class WarmMatching(unittest.TestCase):
             experiment.partition(90)
         self.assertEqual(events,['native_ready','baseline','canonical','mcp_same_E','native_closed'])
 
+        # A real TCP reset before the first HTTP byte may precede a whole200.
+        # Any received protocol/header/body prefix must keep its original refusal.
+        import http.client
+        from test_request_hold import transport_peer
+        original=scenario.traffic.perform
+        for fault in ('reset','eof',None,'prefix','interim','body','protocol','stall'):
+            with self.subTest(readiness_transport=fault),transport_peer(fault) as (port,requests):
+                startup=scenario.Scenario(None,'owned_token',Path('/unused'),lambda *_:None)
+                def response(case,token):
+                    return original(case,token,_connection=http.client.HTTPConnection('127.0.0.1',port,timeout=.1 if fault=='stall' else 2))
+                with patch.object(scenario.traffic,'perform',side_effect=response):
+                    if fault in ('reset','eof',None):
+                        self.assertEqual(startup.ready(_recovery=True)['code'],200)
+                        self.assertEqual(len(startup.journal._windows),1)
+                        self.assertEqual(len(requests),2 if fault else 1)
+                    else:
+                        with self.assertRaises((ConnectionResetError,http.client.HTTPException,ValueError,TimeoutError)):
+                            startup.ready(_recovery=True)
+                        self.assertEqual(len(requests),1)
+                        self.assertEqual(startup.journal._windows,[])
+
         # A published Docker port can close before Caddy has an HTTP listener.
         # No response is admitted into the journal; only the later whole200 is.
-        import http.client
         success={'started':100,'completed':100.1,'method':'GET','code':200}
         progress=[]
         startup=scenario.Scenario(None,'owned_token',Path('/unused'),lambda kind,value:progress.append((kind,value)))
-        with patch.object(scenario.traffic,'perform',side_effect=[http.client.RemoteDisconnected('private-canary'),success]):
+        with patch.object(scenario.traffic,'perform',side_effect=[scenario.traffic.ReadinessUnavailable('eof'),success]):
             self.assertEqual(startup.ready(_recovery=True),success)
         self.assertEqual(len(startup.journal._windows),1)
         self.assertIn(('recovery_checkpoint','gateway_recovery_eof'),progress)
         self.assertNotIn('private-canary',str(progress))
         class ForeignEOF(http.client.RemoteDisconnected):pass
+        class ForeignUnavailable(scenario.traffic.ReadinessUnavailable):pass
         for failure in (ValueError('private-contract'),http.client.IncompleteRead(b'private'),
-                        http.client.BadStatusLine('private'),ConnectionResetError('private'),ForeignEOF('private')):
+                        http.client.BadStatusLine('private'),ConnectionResetError('private'),http.client.RemoteDisconnected('private'),ForeignEOF('private'),ForeignUnavailable('eof')):
             with self.subTest(failure=type(failure).__name__):
                 def broken_marker(*_):raise RuntimeError('private-marker')
                 startup=scenario.Scenario(None,'owned_token',Path('/unused'),broken_marker)
