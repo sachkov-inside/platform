@@ -53,7 +53,9 @@ test("owner issues, withdraws and explicitly restores one Product right through 
       .getByRole("button", { name: "Выдать продукт", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Выдать продукт" });
-    await dialog.locator(`input[type="radio"][value="${productId}"]`).check();
+    await dialog
+      .locator(`input[type="radio"][value="${pair.productId}"]`)
+      .check();
     if (await dialog.getByRole("radio", { name: reason }).isVisible())
       await dialog.getByRole("radio", { name: reason }).check();
     return dialog;
