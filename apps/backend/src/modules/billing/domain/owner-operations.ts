@@ -10,7 +10,12 @@ import {
   manageCatalogSchema,
 } from "../features/manage-catalog/manage-catalog.contract.js";
 import {
+  promotionListItemSchema,
+  promotionsListShape,
+} from "../features/list-promotions/list-promotions.contract.js";
+import {
   paymentLinkCommandSchema,
+  paymentLinksListSchema,
   paymentLinkViewSchema,
   paymentLinksPageSchema,
 } from "../features/payment-links/payment-links.contract.js";
@@ -58,7 +63,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
   z.strictObject({
     ...command,
     operation: z.literal("paymentLinks.list"),
-    ...listBounds,
+    ...paymentLinksListSchema.shape,
   }),
   z.strictObject({
     ...command,
@@ -69,7 +74,13 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
   z.strictObject({
     ...command,
     operation: z.literal("productPrices.list"),
+    productId: idSchema.optional(),
     ...listBounds,
+  }),
+  z.strictObject({
+    ...command,
+    operation: z.literal("promotions.list"),
+    ...promotionsListShape,
   }),
   z.strictObject({ ...command, operation: z.literal("content.list") }),
   z.strictObject({
@@ -81,8 +92,15 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     ...command,
     operation: z.literal("payments.list"),
     accountId: idSchema.optional(),
+    /** Продукт из оплаченного снимка; историческая покупка без продукта в снимке не выбирается. */
+    productId: idSchema.optional(),
     state: attemptStateSchema.optional(),
+    /** Несколько состояний сразу, без повторов; вместе с `state` не принимается. */
+    states: z.array(attemptStateSchema).min(1).max(7).optional(),
     kind: attemptKindSchema.optional(),
+    /** Период создания `[from, to)`; `from` раньше `to`. */
+    from: z.iso.datetime({ offset: true }).optional(),
+    to: z.iso.datetime({ offset: true }).optional(),
     ...listBounds,
   }),
   z.strictObject({
@@ -116,6 +134,7 @@ export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
 export const ownerReadOperations = [
   "productPrices.list",
+  "promotions.list",
   "paymentLinks.list",
   "recipients.lookup",
   "content.list",
@@ -240,6 +259,11 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("catalogOffers"),
     items: z.array(priceSnapshotSchema),
+    nextCursor: idSchema.nullable(),
+  }),
+  z.strictObject({
+    outcome: z.literal("promotions"),
+    items: z.array(promotionListItemSchema),
     nextCursor: idSchema.nullable(),
   }),
   z.strictObject({

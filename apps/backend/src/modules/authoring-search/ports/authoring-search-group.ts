@@ -3,7 +3,7 @@
  * one actor. The owner decides the actor's right to the group: a refusal omits the group, a failed
  * dependency answers it as unavailable, and the other groups still answer.
  *
- * Adding a group, for example «Люди» or «Платежи»:
+ * Adding a group, for example «Люди»:
  *
  * 1. The owning Module implements the search behind its own right and exports it from its
  *    `index.ts`; its answer needs no type from this Module, only the matching shape.
@@ -23,6 +23,11 @@ export type AuthoringSearchReadyGroup =
       readonly kind: "materials";
       readonly state: "ready";
       readonly items: readonly AuthoringSearchMaterial[];
+    }
+  | {
+      readonly kind: "payments";
+      readonly state: "ready";
+      readonly items: readonly AuthoringSearchPayment[];
     };
 
 export type AuthoringSearchKind = AuthoringSearchReadyGroup["kind"];
@@ -40,6 +45,25 @@ export interface AuthoringSearchMaterial {
   readonly title: string | null;
   readonly publicationState: "draft" | "published" | "unpublished";
   readonly topic: string | null;
+}
+
+/**
+ * A payment by order number, bank payment number or exact amount; it names no person and no
+ * contact. `state` is the bank attempt state.
+ */
+export interface AuthoringSearchPayment {
+  readonly purchaseRef: string;
+  readonly productName: string;
+  readonly amountKopecks: number;
+  readonly state:
+    | "prepared"
+    | "sent"
+    | "unknown"
+    | "pending"
+    | "authorized"
+    | "confirmed"
+    | "failed";
+  readonly createdAt: string;
 }
 
 /** What one group search receives: the normalized text and the most hits to return. */

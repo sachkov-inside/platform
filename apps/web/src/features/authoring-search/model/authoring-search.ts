@@ -1,17 +1,19 @@
 import type { Route } from "next";
 import { z } from "zod";
 
+import { formatMoscowDate, formatRubles } from "@/shared/lib/moscow-format";
 import {
   authoringProductEditorHref,
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
+import { internalRoute } from "@/shared/routing/internal-route";
 
 /**
  * Общий поиск админки (#1717): одна строка запроса, ответ сервера по группам. Каждая группа
  * приходит только к аккаунту с правом на неё; аккаунт без права ни на одну группу получает отказ.
  *
- * Как добавить группу (#1721 «Люди», #1718 «Платежи»): вариант в `searchGroupSchema` с тем же
+ * Как добавить группу (#1721 «Люди»): вариант в `searchGroupSchema` с тем же
  * `kind`, что у группы сервера, и запись в `searchGroupPresentation`. Порядок групп задаёт сервер.
  */
 export const authoringSearchQuerySchema = z
@@ -35,9 +37,28 @@ const materialHitSchema = z
   })
   .strict();
 
+/** Платёж без человека и адреса: номер заказа, продукт, сумма, состояние банка и время. */
+const paymentHitSchema = z
+  .object({
+    amountKopecks: z.int().positive(),
+    createdAt: z.iso.datetime(),
+    productName: z.string(),
+    purchaseRef: z.uuid(),
+    state: z.enum([
+      "prepared",
+      "sent",
+      "unknown",
+      "pending",
+      "authorized",
+      "confirmed",
+      "failed",
+    ]),
+  })
+  .strict();
+
 const unavailableGroupSchema = z
   .object({
-    kind: z.enum(["products", "materials"]),
+    kind: z.enum(["products", "materials", "payments"]),
     state: z.literal("unavailable"),
   })
   .strict();
@@ -54,6 +75,13 @@ export const searchGroupSchema = z.union([
     .object({
       items: z.array(materialHitSchema),
       kind: z.literal("materials"),
+      state: z.literal("ready"),
+    })
+    .strict(),
+  z
+    .object({
+      items: z.array(paymentHitSchema),
+      kind: z.literal("payments"),
       state: z.literal("ready"),
     })
     .strict(),
@@ -90,7 +118,7 @@ export interface AuthoringSearchEntry {
   readonly id: string;
   readonly href: Route;
   readonly title: string;
-  /** Подстрока контекста: тема материала, архив продукта. */
+  /** Подстрока контекста: тема материала, архив продукта, сумма и дата платежа. */
   readonly caption: string | null;
 }
 
@@ -134,6 +162,16 @@ export const searchGroupPresentation: {
           .join(" · "),
       })),
   },
+  payments: {
+    heading: "Платежи",
+    entries: (group) =>
+      group.items.map((item) => ({
+        id: `payments-${item.purchaseRef}`,
+        href: internalRoute(`/authoring/sales/payments/${item.purchaseRef}`),
+        title: item.productName,
+        caption: `${formatRubles(item.amountKopecks)} · ${formatMoscowDate(item.createdAt)}`,
+      })),
+  },
 };
 
 /** Строки группы, готовой к показу, в порядке сервера. */
@@ -146,6 +184,8 @@ export function searchGroupEntries(
       return searchGroupPresentation.products.entries(group);
     case "materials":
       return searchGroupPresentation.materials.entries(group);
+    case "payments":
+      return searchGroupPresentation.payments.entries(group);
   }
 }
 
