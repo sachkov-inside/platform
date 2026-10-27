@@ -12,8 +12,17 @@ class HeldWitness(unittest.TestCase):
                                          b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 0')
         values,stamps=acquisition()
         acquired={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),'evaluated_at':100,'completed_at':101}
-        arguments={'baseline':baseline,'raw_held':held,'canonical':acquired,'mcp':acquired,'r_received':98,'f_sent':102}
+        arguments={'baseline':baseline,'raw_held':held,'canonical':acquired,'mcp':acquired,'r_received':98,'f_sent':100.5}
         self.assertTrue(inflight.validate(**arguments))
         with self.assertRaises(ValueError):inflight.validate(**{**arguments,'raw_held':baseline})
         with self.assertRaises(ValueError):inflight.validate(**{**arguments,'r_received':99})
-        with self.assertRaises(ValueError):inflight.validate(**{**arguments,'f_sent':100.5})
+        with self.assertRaises(ValueError):inflight.validate(**{**arguments,'f_sent':99})
+
+        # Native source times stay strictly inside R/F even when queries finish later.
+        for stamp in (98,100.5):
+            values,stamps=acquisition(stamp=stamp)
+            outside={**acquired,'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode()}
+            with self.assertRaises(ValueError):inflight.validate(**{**arguments,'canonical':outside,'mcp':outside})
+        with self.assertRaises(ValueError):inflight.validate(**{**arguments,'f_sent':103})
+        with self.assertRaises(ValueError):
+            inflight.validate(**{**arguments,'canonical':{**acquired,'completed_at':110}})

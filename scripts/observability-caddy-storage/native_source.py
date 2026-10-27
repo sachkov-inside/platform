@@ -22,7 +22,19 @@ def _labels(raw):
 
 
 def parse(raw):
-    return _parse(raw, roles=ROLES, selected=('srv0', 'subroute'))
+    return _parse(raw, roles=ROLES, selected=('srv0', 'subroute'))[0]
+
+
+def scrape_registry(raw):
+    """Private excluded registry facts, after validating every native identity."""
+    _,rows=_parse(raw,roles=ROLES,selected=('srv1','metrics'))
+    result={}
+    for field,name in (('requests_total',status.TOTAL),('in_flight',status.FLIGHT)):
+        key=tuple(sorted({'__name__':name,'job':'platform-caddy','instance':'pilot',
+            'server':'srv1','handler':'metrics'}.items()))
+        if key not in rows:refuse()
+        result[field]=int(rows[key])
+    return result
 
 
 def parse_production(raw, *, server):
@@ -34,7 +46,7 @@ def parse_production(raw, *, server):
              ('subroute', 'request_body', 'static_response', 'metrics', 'reverse_proxy', 'headers')}
     roles |= {('remaining_auto_https_redirects', handler) for handler in
               ('subroute', 'static_response')}
-    return _parse(raw, roles=roles, selected=(server, 'subroute'))
+    return _parse(raw, roles=roles, selected=(server, 'subroute'))[0]
 
 
 def _parse(raw, *, roles, selected):
@@ -86,5 +98,5 @@ def _parse(raw, *, roles, selected):
             by_role.setdefault(role,{})[key]=value
         # The same whole histogram/count rules apply to actual native values, not fabricated runtime metrics.
         observations={role:status._observation(rows) for role,rows in by_role.items()}
-        return observations.get(selected)
+        return observations.get(selected),by_role.get(selected,{})
     except (ValueError,TypeError,KeyError,UnicodeError,RecursionError,OverflowError):refuse()
