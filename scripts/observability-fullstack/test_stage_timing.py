@@ -145,6 +145,25 @@ except KeyboardInterrupt:sys.exit(42)
             self.assertEqual(retained['reason'],'contract_refused')
             self.assertLessEqual((output/stage_timing.NAME).stat().st_size,stage_timing.MAX_BYTES)
 
+    def test_refusal_reasons_are_exact_strings_on_read_and_canonical_write(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);timer=stage_timing.Timing(output,SOURCE)
+            timer.call('private SQL payload',lambda:None)
+            with self.assertRaises(ValueError):timer.finish()
+            good=stage_timing.read(output,SOURCE)
+            self.assertEqual((good['state'],good['reason']),('refused','contract_refused'))
+            path=output/stage_timing.NAME
+            for reason in (None,False,[],{},['private SQL'],{'private':'payload'},'private exception'):
+                with self.subTest(reason=type(reason).__name__):
+                    bad={**good,'reason':reason}
+                    path.write_text(json.dumps(bad))
+                    with self.assertRaises(ValueError):stage_timing.read(output,SOURCE)
+                    stage_timing.write(output,good,SOURCE)
+                    before=path.read_bytes()
+                    with self.assertRaises(ValueError):stage_timing.write(output,bad,SOURCE)
+                    self.assertEqual(path.read_bytes(),before)
+            self.assertNotIn('private',path.read_text())
+
     def test_symlink_target_is_never_written_and_elapsed_over600_is_explicitly_saturated(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory);foreign=output/'foreign';foreign.write_text('foreign')

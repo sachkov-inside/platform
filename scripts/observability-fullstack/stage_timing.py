@@ -70,7 +70,8 @@ def validate(value,source,output):
             'elapsed_ms','saturated','active','stages'} or type(value['schema']) is not int or value['schema']!=1
             or not source_ok(source) or value['source']!=source or value['output_sha256']!=output_binding(output)
             or type(value['state']) is not str or value['state'] not in (*STATES,'refused')
-            or value['reason']!=(STATES.get(value['state'])) and not (value['state']=='refused' and value['reason'] in REFUSALS)
+            or type(value['reason']) is not str
+            or (value['reason'] not in REFUSALS if value['state']=='refused' else value['reason']!=STATES[value['state']])
             or type(value['elapsed_ms']) is not int or not 0<=value['elapsed_ms']<=MAX_MS
             or type(value['saturated']) is not bool or value['saturated'] and value['elapsed_ms']!=MAX_MS
             or type(value['stages']) is not list or len(value['stages'])>MAX_ROWS):refuse()
