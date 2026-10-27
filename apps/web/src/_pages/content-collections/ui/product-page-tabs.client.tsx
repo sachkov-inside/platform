@@ -6,15 +6,17 @@ import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 
 import {
   parseProductPageTab,
+  productPageTabIds,
   type ProductPageTabId,
 } from "../model/product-page-tabs";
 import { useProductPageTab } from "../model/use-product-page-tab.client";
 
 export const productPageTabLabels: Record<ProductPageTabId, string> = {
   program: "Программа",
-  description: "Описание и обложка",
-  artifacts: "Материалы продукта",
-  settings: "Настройки",
+  description: "Описание и витрина",
+  sale: "Продажа",
+  learners: "Ученики",
+  community: "Сообщество и активация",
 };
 
 /**
@@ -34,19 +36,11 @@ export function ProductPageTabs({
         select(parseProductPageTab(id));
       }}
       selectedId={tab}
-      tabs={[
-        tabOf("program", panels),
-        tabOf("description", panels),
-        tabOf("artifacts", panels),
-        tabOf("settings", panels),
-      ]}
+      tabs={productPageTabIds.map((id) => ({
+        id,
+        label: productPageTabLabels[id],
+        panel: panels[id],
+      }))}
     />
   );
-}
-
-function tabOf(
-  id: ProductPageTabId,
-  panels: Readonly<Record<ProductPageTabId, ReactNode>>,
-) {
-  return { id, label: productPageTabLabels[id], panel: panels[id] };
 }

@@ -11,6 +11,7 @@ import {
 } from "@/shared/ui/admin";
 
 import type { ContentCollectionKind } from "../model/content-collections";
+import { productPageTabIds } from "../model/product-page-tabs";
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { productPageTabLabels } from "./product-page-tabs.client";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";
@@ -93,28 +94,11 @@ export function ProductPageLoading() {
       <div aria-hidden="true" inert>
         <WorkspaceTabs
           label="Разделы продукта"
-          tabs={[
-            {
-              id: "program",
-              label: productPageTabLabels.program,
-              panel: panelSkeleton,
-            },
-            {
-              id: "description",
-              label: productPageTabLabels.description,
-              panel: panelSkeleton,
-            },
-            {
-              id: "artifacts",
-              label: productPageTabLabels.artifacts,
-              panel: panelSkeleton,
-            },
-            {
-              id: "settings",
-              label: productPageTabLabels.settings,
-              panel: panelSkeleton,
-            },
-          ]}
+          tabs={productPageTabIds.map((id) => ({
+            id,
+            label: productPageTabLabels[id],
+            panel: panelSkeleton,
+          }))}
         />
       </div>
     </ProductEditorPageFrame>
