@@ -2,24 +2,19 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
 import {
-  mkdirSync,
-  readFileSync,
+  cpSync,
+  mkdtempSync,
   writeFileSync,
   rmSync,
   existsSync,
+  readdirSync,
+  realpathSync,
 } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { resolve, join } from "node:path";
+import { tmpdir } from "node:os";
 import { spawnOwned, stopOwned } from "../../../scripts/owned-process.mjs";
+import { copyProductionWebPreload } from "./copy-production-web-preload.mjs";
 
-const image = resolve(".next/standalone/apps/web");
-const identity = resolve(image, "release-identity.json");
-assert.equal(
-  existsSync(identity),
-  false,
-  "standalone proof must not replace an identity",
-);
-/** @type {Map<string,Buffer|undefined>} */
-const previous = new Map();
 const reserve = createServer();
 await new Promise((resolve, reject) => {
   reserve.once("error", reject);
@@ -34,28 +29,44 @@ await new Promise((resolve, reject) =>
     else reject(error);
   }),
 );
+const directory = mkdtempSync(join(tmpdir(), "inside-web-standalone-"));
+const image = resolve(directory, "apps/web");
+const identity = resolve(image, "release-identity.json");
 /** @type {ReturnType<typeof spawnOwned>|undefined} */
 let child;
-let identityOwned = false;
 try {
-  // Replay exactly the Docker COPY closure, restoring any previous local build bytes.
-  for (const file of [
-    "web-http-preload.mjs",
-    "runtime/package.json",
-    "runtime/http-metrics-config.ts",
-    "runtime/web-http-metrics.ts",
-  ]) {
-    const target = resolve(image, file);
-    previous.set(target, existsSync(target) ? readFileSync(target) : undefined);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, readFileSync(file));
+  // An OS temporary directory has no checkout node_modules ancestor to mask a missing image dependency.
+  cpSync(resolve(".next/standalone"), directory, {
+    recursive: true,
+    verbatimSymlinks: true,
+  });
+  // Docker preserves the relative pnpm graph. Dereferencing each package would
+  // change Node's package ancestry and falsely lose that package's dependencies.
+  const canonicalDirectory = realpathSync(directory);
+  for (const entry of readdirSync(directory, {
+    recursive: true,
+    withFileTypes: true,
+  })) {
+    if (entry.isSymbolicLink()) {
+      assert.ok(
+        realpathSync(join(entry.parentPath, entry.name)).startsWith(
+          canonicalDirectory + "/",
+        ),
+        "standalone dependency must stay inside the copied image",
+      );
+    }
   }
+  assert.equal(
+    existsSync(identity),
+    false,
+    "standalone proof must not replace an identity",
+  );
+  await copyProductionWebPreload(directory);
   writeFileSync(
     identity,
     JSON.stringify({ release: "v1566", sourceSha: "7".repeat(40) }),
     { flag: "wx" },
   );
-  identityOwned = true;
   child = spawnOwned(
     process.execPath,
     [
@@ -88,7 +99,10 @@ try {
     },
   );
   let output = "";
-  child.stderr?.on("data", () => {});
+  let diagnostic = "";
+  child.stderr?.on("data", (chunk) => {
+    if (diagnostic.length < 65536) diagnostic += String(chunk);
+  });
   const owned = child;
   await new Promise((resolve, reject) => {
     const timer = setTimeout(
@@ -104,7 +118,7 @@ try {
     });
     owned.once("exit", () => {
       clearTimeout(timer);
-      reject(new Error("standalone startup refused"));
+      reject(new Error("standalone startup refused\n" + diagnostic));
     });
     owned.once("error", (error) => {
       clearTimeout(timer);
@@ -165,11 +179,10 @@ try {
   assert.ok(wire.includes('source_sha="' + "7".repeat(40) + '"'));
   assert.ok(wire.includes("inside_web_http_process_start_time_seconds"));
 } finally {
-  if (child !== undefined) await stopOwned(child);
-  if (identityOwned) rmSync(identity, { force: true });
-  for (const [target, value] of previous) {
-    if (value === undefined) rmSync(target, { force: true });
-    else writeFileSync(target, value);
+  try {
+    if (child !== undefined) await stopOwned(child);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 }
 await assert.rejects(
