@@ -1,7 +1,9 @@
 import type { Route } from "next";
 import { z } from "zod";
 
+import { personIdentitySchema, personLabel } from "@/entities/authoring-person";
 import {
+  authoringPersonHref,
   authoringProductEditorHref,
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
@@ -11,8 +13,9 @@ import {
  * Общий поиск админки (#1717): одна строка запроса, ответ сервера по группам. Каждая группа
  * приходит только к аккаунту с правом на неё; аккаунт без права ни на одну группу получает отказ.
  *
- * Как добавить группу (#1721 «Люди», #1718 «Платежи»): вариант в `searchGroupSchema` с тем же
- * `kind`, что у группы сервера, и запись в `searchGroupPresentation`. Порядок групп задаёт сервер.
+ * Как добавить группу (#1718 «Платежи»): вариант в `searchGroupSchema` с тем же `kind`, что у
+ * группы сервера, и запись в `searchGroupPresentation`. Порядок групп задаёт сервер: люди,
+ * продукты, материалы. Группа «Люди» (#1721) приходит только аккаунту с `billing:manage`.
  */
 export const authoringSearchQuerySchema = z
   .string()
@@ -37,12 +40,21 @@ const materialHitSchema = z
 
 const unavailableGroupSchema = z
   .object({
-    kind: z.enum(["products", "materials"]),
+    kind: z.enum(["people", "products", "materials"]),
     state: z.literal("unavailable"),
   })
   .strict();
 
 export const searchGroupSchema = z.union([
+  z
+    .object({
+      items: z.array(personIdentitySchema),
+      kind: z.literal("people"),
+      /** Поиск по имени и @username не ответил: найдены только совпадения по email и ID. */
+      partial: z.boolean(),
+      state: z.literal("ready"),
+    })
+    .strict(),
   z
     .object({
       items: z.array(productHitSchema),
@@ -109,6 +121,20 @@ export const searchGroupPresentation: {
     ) => readonly AuthoringSearchEntry[];
   };
 } = {
+  people: {
+    heading: "Люди",
+    entries: (group) =>
+      group.items.map((item) => {
+        const label = personLabel(item);
+        return {
+          id: `people-${item.accountId}`,
+          href: authoringPersonHref(item.accountId),
+          title: label.title ?? label.missing,
+          caption:
+            label.context.length === 0 ? null : label.context.join(" · "),
+        };
+      }),
+  },
   products: {
     heading: "Продукты",
     entries: (group) =>
@@ -142,11 +168,20 @@ export function searchGroupEntries(
 ): readonly AuthoringSearchEntry[] {
   if (group.state !== "ready") return [];
   switch (group.kind) {
+    case "people":
+      return searchGroupPresentation.people.entries(group);
     case "products":
       return searchGroupPresentation.products.entries(group);
     case "materials":
       return searchGroupPresentation.materials.entries(group);
   }
+}
+
+/** Пояснение под группой: у «Людей» без поиска по имени найдены только email и ID. */
+export function searchGroupNote(group: AuthoringSearchGroup): string | null {
+  return group.kind === "people" && group.state === "ready" && group.partial
+    ? "Поиск по имени и @username временно недоступен, найдены совпадения по email и ID."
+    : null;
 }
 
 export function authoringSearchQueryKey(query: string) {

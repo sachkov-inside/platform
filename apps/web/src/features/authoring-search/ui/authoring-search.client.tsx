@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -22,6 +23,7 @@ import {
   authoringSearchQueryKey,
   authoringSearchQuerySchema,
   searchGroupEntries,
+  searchGroupNote,
   searchGroupPresentation,
   type AuthoringSearchEntry,
   type AuthoringSearchState,
@@ -218,7 +220,7 @@ function SearchPanel({
   }
 
   const status = !query.success
-    ? "Найдите продукт или материал по названию."
+    ? "Найдите человека, продукт или материал."
     : search.isPending || stale
       ? "Ищем…"
       : state === undefined
@@ -226,11 +228,15 @@ function SearchPanel({
         : state.kind === "signed_out"
           ? "Сессия завершилась. Войдите снова, чтобы искать."
           : state.kind === "forbidden"
-            ? "Поиск открыт аккаунту с правом управлять материалами."
+            ? "Поиск открыт аккаунту с правом управлять материалами или доступом."
             : state.kind === "unavailable"
               ? `Поиск временно недоступен. Код: ${state.reference}`
               : entries.length === 0 &&
-                  groups.every(({ group }) => group.state === "ready")
+                  groups.every(
+                    ({ group }) =>
+                      group.state === "ready" &&
+                      searchGroupNote(group) === null,
+                  )
                 ? `По запросу «${query.data}» ничего не найдено.`
                 : null;
 
@@ -270,7 +276,7 @@ function SearchPanel({
               openEntry(active);
             }
           }}
-          placeholder="Название продукта или материала"
+          placeholder="Имя, email, продукт или материал"
           role="combobox"
           type="search"
           value={text}
@@ -312,42 +318,54 @@ function SearchPanel({
                   {heading}: поиск временно недоступен.
                 </p>
               );
-            if (groupEntries.length === 0) return null;
-            return (
-              <div
-                aria-labelledby={headingId}
-                className="authoring-search-group"
-                key={group.kind}
-                role="group"
-              >
-                <p className="authoring-search-group-heading" id={headingId}>
-                  {heading}
+            const note = searchGroupNote(group);
+            if (groupEntries.length === 0)
+              return note === null ? null : (
+                <p className="authoring-search-group-note" key={group.kind}>
+                  {heading}: {note}
                 </p>
-                {groupEntries.map((entry) => (
-                  <div
-                    aria-selected={entry.id === active?.id}
-                    className="authoring-search-option"
-                    id={`${id}-${entry.id}`}
-                    key={entry.id}
-                    onClick={() => {
-                      openEntry(entry);
-                    }}
-                    onMouseMove={() => {
-                      if (entry.id !== active?.id) setActiveId(entry.id);
-                    }}
-                    role="option"
-                  >
-                    <span className="authoring-search-option-title">
-                      {entry.title}
-                    </span>
-                    {entry.caption === null || entry.caption === "" ? null : (
-                      <span className="authoring-search-option-caption">
-                        {entry.caption}
+              );
+            return (
+              <Fragment key={group.kind}>
+                {note === null ? null : (
+                  <p className="authoring-search-group-note">
+                    {heading}: {note}
+                  </p>
+                )}
+                <div
+                  aria-labelledby={headingId}
+                  className="authoring-search-group"
+                  role="group"
+                >
+                  <p className="authoring-search-group-heading" id={headingId}>
+                    {heading}
+                  </p>
+                  {groupEntries.map((entry) => (
+                    <div
+                      aria-selected={entry.id === active?.id}
+                      className="authoring-search-option"
+                      id={`${id}-${entry.id}`}
+                      key={entry.id}
+                      onClick={() => {
+                        openEntry(entry);
+                      }}
+                      onMouseMove={() => {
+                        if (entry.id !== active?.id) setActiveId(entry.id);
+                      }}
+                      role="option"
+                    >
+                      <span className="authoring-search-option-title">
+                        {entry.title}
                       </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {entry.caption === null || entry.caption === "" ? null : (
+                        <span className="authoring-search-option-caption">
+                          {entry.caption}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Fragment>
             );
           })}
         </div>
