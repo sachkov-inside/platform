@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
+import signal
 import subprocess
 import sys
 import time
@@ -21,11 +23,66 @@ MAX_HTTP_BYTES = 1_048_576
 
 
 def _execute(args, *, timeout, payload=None):
-    result = subprocess.run(args, input=payload, capture_output=True, check=True, timeout=timeout,
+    """Bound both pipes while reading; always reap this command and kill its own group."""
+    if timeout <= 0 or payload is not None and (type(payload) is not bytes or len(payload) > 65536):
+        raise ValueError('native_source_command_input')
+    deadline = time.monotonic() + timeout
+    process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, start_new_session=True,
         env={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'})
-    if len(result.stdout) > 4096:
-        raise ValueError('native_source_command_size')
-    return result.stdout
+    output = bytearray()
+    counts = {'stdout': 0, 'stderr': 0}
+    pending = memoryview(payload or b'')
+    try:
+        with selectors.DefaultSelector() as selector:
+            for stream, name in ((process.stdout, 'stdout'), (process.stderr, 'stderr')):
+                os.set_blocking(stream.fileno(), False)
+                selector.register(stream, selectors.EVENT_READ, name)
+            if pending:
+                os.set_blocking(process.stdin.fileno(), False)
+                selector.register(process.stdin, selectors.EVENT_WRITE, 'stdin')
+            else:
+                process.stdin.close()
+            while selector.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError('native_source_command_deadline')
+                for key, _ in selector.select(remaining):
+                    if key.data == 'stdin':
+                        try:
+                            pending = pending[os.write(key.fd, pending):]
+                        except BrokenPipeError:
+                            pending = pending[:0]
+                        if not pending:
+                            selector.unregister(key.fileobj)
+                            key.fileobj.close()
+                        continue
+                    chunk = os.read(key.fd, 4097 - counts[key.data])
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        continue
+                    counts[key.data] += len(chunk)
+                    if counts[key.data] > 4096:
+                        raise ValueError('native_source_command_size')
+                    if key.data == 'stdout': output.extend(chunk)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('native_source_command_deadline')
+            try:
+                status = process.wait(timeout=remaining)
+            except subprocess.TimeoutExpired:
+                raise TimeoutError('native_source_command_deadline') from None
+            if status:
+                raise RuntimeError('native_source_command_exit')
+            return bytes(output)
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait(timeout=1)
+        for stream in (process.stdin, process.stdout, process.stderr):
+            stream.close()
 
 
 def postgres_read(project, sql, *, setup=False, execute=_execute):
