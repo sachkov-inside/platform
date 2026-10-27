@@ -182,6 +182,37 @@ test("old product tab links open the programme and the description (#1718)", asy
   ).toBeVisible();
 });
 
+test("hidden sale and community tabs read nothing until they are opened (#1718)", async ({
+  page,
+}) => {
+  const salesReads: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith("/api/authoring/billing/")) salesReads.push(path);
+  });
+  await page.goto(`/authoring/products/${architectureId}`);
+  const tab = (name: string) => page.getByRole("tab", { name, exact: true });
+  await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("list", { name: "Материалы продукта" }),
+  ).toBeVisible();
+  expect(salesReads).toEqual([]);
+
+  await tab("Продажа").click();
+  const panel = page.getByRole("tabpanel", { name: "Продажа" });
+  await expect(panel.locator(".admin-badge")).toHaveText("Продажи закрыты");
+  expect(salesReads).toContain("/api/authoring/billing/product-sales-states");
+  expect(salesReads).not.toContain(
+    "/api/authoring/billing/activation-rules/list",
+  );
+
+  await tab("Сообщество и активация").click();
+  await expect(
+    page.getByText("У продукта пока нет правил активации."),
+  ).toBeVisible();
+  expect(salesReads).toContain("/api/authoring/billing/activation-rules/list");
+});
+
 test("the sale tab saves the price and opens and closes sales with a confirmation (#1718)", async ({
   page,
 }) => {
