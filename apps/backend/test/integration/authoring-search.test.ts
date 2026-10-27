@@ -463,6 +463,28 @@ describe("Authoring search", () => {
         query,
       ).toEqual({ ok: true, value: [] });
 
+    for (const permission of ["materials:manage", null] as const) {
+      const actor = randomUUID();
+      await database.prisma.account.create({
+        data: {
+          id: actor,
+          logtoIssuer: "https://identity.invalid",
+          logtoSubject: actor,
+        },
+      });
+      if (permission !== null)
+        await database.prisma.accountPermission.create({
+          data: { accountId: actor, permission },
+        });
+      expect(
+        await payments.search({
+          actor,
+          query: purchase.purchaseRef,
+          limit: 5,
+        }),
+      ).toEqual({ ok: false, error: { code: "forbidden" } });
+    }
+
     const materialsOnly = assembleAccounts({
       prisma: database.prisma,
       emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",

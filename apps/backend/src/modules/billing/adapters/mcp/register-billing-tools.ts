@@ -68,12 +68,15 @@ function description(operation: string): string {
     case "paymentLinks.revoke":
       return "Revoke an individual payment link before payment starts, with expectedRevision. A reserved or uncertain payment blocks revocation; successful purchases remain intact.";
     case "paymentLinks.list":
-      return "List issued individual payment links and current status with cursor and limit. Contains bearer URLs: show only to the authorized owner. Sends nothing.";
+      return "List issued individual payment links newest first with their current status, optionally for one productId and one visible state, with cursor and limit. Contains bearer URLs: show only to the authorized owner. Sends nothing.";
+    case "promotions.list":
+      return "List Promotions newest first by start with their usage count. archived and questionnaire each select one side (both default false); productId selects Promotions that apply to that Product, including those for every Product. legacy marks an archived Promotion whose old offer scope did not move to Products: its empty productIds does not mean every Product. Sends nothing.";
     case "refunds.read":
       return "Read refund decisions, their bank attempts and the remaining refundable amount for one payment. Sends nothing.";
     case "payments.reconcile":
       return "Re-read one payment from the bank and apply its verified result. Never starts a new payment or charge.";
     case "payments.list":
+      return "List stored payments newest first, optionally by accountId, productId, kind, one state or several states, and a creation period [from, to). Card bindings and receipt contacts are not exposed. Sends nothing.";
     case "payments.read":
       return "Read stored payments, their bank state, paid conditions, access readiness and owner audit. Sends nothing; card bindings and receipt contacts are not exposed.";
     case "respondents.import":
