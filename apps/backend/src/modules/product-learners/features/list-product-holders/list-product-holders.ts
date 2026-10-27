@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Accounts } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../account-rights/index.js";
 import type { ReadingActivity } from "../../../reading-activity/index.js";
 
@@ -71,18 +72,28 @@ export type ListProductHoldersResult =
 
 /**
  * Holders of one Product, newest first, with their learning. `billing:manage` reads it, as the
- * other access reads; Product Access checks the right before any row, so another role gets a
- * refusal and never an empty page. Names and emails are not here: the web joins identity
+ * other access reads. The right is checked before the request is read, so another role gets a
+ * refusal for any input and never an empty page or a validation answer; Product Access checks
+ * it again before any row. Names and emails are not here: the web joins identity
  * through the people read, which checks its own right.
  */
 export async function listProductHolders(
   dependencies: {
+    readonly accounts: Pick<Accounts, "checkPermission">;
     readonly grants: Pick<AccessGrants, "listProductAccess">;
     readonly reading: Pick<ReadingActivity, "readProductLearning">;
   },
   actorId: string,
-  input: ProductHoldersQuery,
+  /** `null`: the transport could not read the request; it is refused or rejected after the right. */
+  input: ProductHoldersQuery | null,
 ): Promise<ListProductHoldersResult> {
+  const decision = await dependencies.accounts.checkPermission({
+    accountId: actorId,
+    permission: "billing:manage",
+  });
+  if (!decision.ok) return failure("dependency_unavailable");
+  if (!decision.allowed) return failure("forbidden");
+  if (input === null) return failure("invalid_request");
   const query = productHoldersQuerySchema.safeParse(input);
   if (!query.success) return failure("invalid_request");
   const { productId, cursor, limit, access, accountIds } = query.data;

@@ -276,6 +276,14 @@ describe("Product holders for the admin (#1718)", () => {
       expect(refused.json()).toMatchObject({ code: "forbidden" });
       // The refusal does not reveal whether a Product exists.
       expect((await holders(subject, randomUUID())).statusCode).toBe(403);
+      // Nor whether the request was well formed: the right comes before the input.
+      expect((await holders(subject, "not-a-product")).statusCode).toBe(403);
+      expect(
+        (await holders(subject, productId, { limit: "51" })).statusCode,
+      ).toBe(403);
+      expect(
+        (await holders(subject, productId, { unknown: "1" })).statusCode,
+      ).toBe(403);
     }
     expect(
       (
@@ -410,14 +418,13 @@ describe("Product holders for the admin (#1718)", () => {
       const owner = await database.prisma.account.findFirstOrThrow({
         where: { logtoSubject: "billing-owner" },
       });
+      const accounts = assembleAccounts({
+        prisma: observer.prisma,
+        emailFingerprintKey: "product-holders-cost-fingerprint-key",
+      });
       const dependencies = {
-        grants: assembleAccessGrants({
-          prisma: observer.prisma,
-          accounts: assembleAccounts({
-            prisma: observer.prisma,
-            emailFingerprintKey: "product-holders-cost-fingerprint-key",
-          }),
-        }),
+        accounts,
+        grants: assembleAccessGrants({ prisma: observer.prisma, accounts }),
         reading: new ReadingActivity({
           prisma: observer.prisma,
           materialContent: materials.materialContent,

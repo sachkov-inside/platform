@@ -26,11 +26,13 @@ import {
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
+  ACCOUNTS,
   AccountGuard,
   AccountProblemDetailsFilter,
   ApiAccountErrors,
   CurrentAccount,
   accountProblemSchema,
+  type Accounts,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import {
@@ -68,6 +70,7 @@ const transportQuerySchema = z.strictObject({
 @Controller("admin/products/:productId/holders")
 export class ListProductHoldersController {
   constructor(
+    @Inject(ACCOUNTS) private readonly accounts: Accounts,
     @Inject(ACCESS_GRANTS) private readonly grants: AccessGrants,
     @Inject(ReadingActivity) private readonly reading: ReadingActivity,
   ) {}
@@ -136,19 +139,10 @@ export class ListProductHoldersController {
     @Query() input: unknown,
   ) {
     const transport = transportQuerySchema.safeParse(input);
-    if (!transport.success)
-      throw problemException(400, "invalid_request", "Invalid holders request");
-    const { cursor, limit, access, accountIds } = transport.data;
     const result = await listProductHolders(
-      { grants: this.grants, reading: this.reading },
+      { accounts: this.accounts, grants: this.grants, reading: this.reading },
       current.accountId,
-      {
-        productId,
-        ...(cursor === undefined ? {} : { cursor }),
-        ...(limit === undefined ? {} : { limit }),
-        ...(access === undefined ? {} : { access }),
-        ...(accountIds === undefined ? {} : { accountIds }),
-      },
+      transport.success ? holdersQuery(productId, transport.data) : null,
     );
     if (result.ok) return result.value;
     switch (result.error.code) {
@@ -174,4 +168,18 @@ export class ListProductHoldersController {
         );
     }
   }
+}
+
+function holdersQuery(
+  productId: string,
+  transport: z.output<typeof transportQuerySchema>,
+) {
+  const { cursor, limit, access, accountIds } = transport;
+  return {
+    productId,
+    ...(cursor === undefined ? {} : { cursor }),
+    ...(limit === undefined ? {} : { limit }),
+    ...(access === undefined ? {} : { access }),
+    ...(accountIds === undefined ? {} : { accountIds }),
+  };
 }
