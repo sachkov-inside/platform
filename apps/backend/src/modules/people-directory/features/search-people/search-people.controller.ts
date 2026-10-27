@@ -118,6 +118,7 @@ export class SearchPeopleController {
         displayName: person.displayName,
         username: person.username,
         email: person.email,
+        contactsState: person.contactsState,
       })),
       nameSearch: result.value.nameSearch,
     };

@@ -9,7 +9,10 @@ import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
+import { AccountDirectory } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
+import { PeopleDirectory } from "../../src/modules/people-directory/facets/people-directory/people-directory.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   declaredServer,
   type DeclaredServer,
@@ -195,12 +198,14 @@ describe("People directory", () => {
           displayName: "Анна Телеграмова",
           username: "anna_tg",
           email: null,
+          contactsState: "complete",
         },
         {
           accountId: people.billing,
           displayName: null,
           username: null,
           email: "billing.person@example.test",
+          contactsState: "complete",
         },
         // The sign-in address itself is never shown: the server cannot read the sign-in provider.
         {
@@ -208,12 +213,13 @@ describe("People directory", () => {
           displayName: null,
           username: null,
           email: null,
+          contactsState: "complete",
         },
       ],
     });
   });
 
-  test("names stay absent, not invented, when Telegram cannot answer", async () => {
+  test("names stay unknown, not invented or absent, when Telegram cannot answer", async () => {
     const headers = await signedIn("billing:manage");
     telegramAvailable = false;
     try {
@@ -230,6 +236,7 @@ describe("People directory", () => {
             displayName: null,
             username: null,
             email: null,
+            contactsState: "partial",
           },
         ],
       });
@@ -247,6 +254,7 @@ describe("People directory", () => {
           displayName: null,
           username: null,
           email: "billing.person@example.test",
+          contactsState: "complete",
         },
       ],
       nameSearch: "available",
@@ -267,6 +275,7 @@ describe("People directory", () => {
           displayName: null,
           username: null,
           email: null,
+          contactsState: "complete",
         },
       ],
       nameSearch: "available",
@@ -296,6 +305,9 @@ describe("People directory", () => {
       `/authoring/people/identities?accountIds=${people.billing},${people.telegram}`,
       `/authoring/people/search?query=${encodeURIComponent("billing.person@example.test")}`,
       `/authoring/people/search?query=${people.billing}`,
+      // The right is checked before the input: a malformed request is refused too.
+      "/authoring/people/search?query=%20",
+      "/authoring/people/identities?accountIds=not-an-id",
     ];
     // `platform:admin` holds every permission (`checkPermission`), so it is no other role here.
     for (const permission of [
@@ -334,6 +346,41 @@ describe("People directory", () => {
     }
   });
 
+  test("platform:admin holds every permission and reads people", async () => {
+    const headers = await signedIn("platform:admin");
+    expect(await search(headers, people.billing)).toMatchObject({
+      items: [{ accountId: people.billing }],
+    });
+  });
+
+  test("a verified Billing Contact that cannot be opened keeps the person, with the address unknown", async () => {
+    const directory = new PeopleDirectory({
+      accounts: {
+        checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+      },
+      directory: new AccountDirectory({
+        prisma: database.prisma,
+        protection: undefined,
+        emailFingerprintKey: "people-directory-email-fingerprint",
+      }),
+      telegram: new TelegramAccountLinks(database.prisma),
+    });
+    expect(
+      await directory.readIdentities(randomUUID(), [people.billing]),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          accountId: people.billing,
+          displayName: null,
+          username: null,
+          email: null,
+          contactsState: "partial",
+        },
+      ],
+    });
+  });
+
   async function search(
     headers: Record<string, string>,
     query: string,
@@ -370,7 +417,11 @@ describe("People directory", () => {
 
   async function signedIn(
     permission:
-      "materials:manage" | "communications:manage" | "billing:manage" | null,
+      | "materials:manage"
+      | "communications:manage"
+      | "billing:manage"
+      | "platform:admin"
+      | null,
   ): Promise<Record<string, string>> {
     const subject = `people-actor-${randomUUID()}`;
     const bearer = await identity.sign(subject, {

@@ -16,24 +16,35 @@ const people = [
     displayName: "Анна Петрова",
     username: "anna_petrova",
     email: "anna.petrova@example.test",
+    contactsState: "complete",
   },
   {
     accountId: "d1210000-0000-4000-8000-000000000002",
     displayName: "Константин Константинопольский-Задунайский",
     username: null,
     email: "konstantin.zadunaisky.long.address@example.test",
+    contactsState: "complete",
   },
   {
     accountId: "d1210000-0000-4000-8000-000000000003",
     displayName: null,
     username: "only_username",
     email: null,
+    contactsState: "complete",
   },
   {
     accountId: "d1210000-0000-4000-8000-000000000004",
     displayName: null,
     username: null,
     email: "buyer.only@example.test",
+    contactsState: "complete",
+  },
+  {
+    accountId: "d1210000-0000-4000-8000-000000000006",
+    displayName: null,
+    username: null,
+    email: null,
+    contactsState: "partial",
   },
 ] as const;
 
@@ -78,7 +89,10 @@ export const VariantsDesktop: Story = {
       canvas.getByText("@anna_petrova · anna.petrova@example.test"),
     ).toBeVisible();
     await expect(canvas.getByText("@only_username")).toBeVisible();
-    await expect(canvas.getByText("Без имени и email")).toBeVisible();
+    await expect(
+      canvas.getByText("Контакты временно недоступны"),
+    ).toBeVisible();
+    await expect(canvas.getByText("Нет данных о человеке")).toBeVisible();
     await expect(
       canvas.getByRole("button", {
         name: "Скопировать ID d1210000-0000-4000-8000-000000000005",

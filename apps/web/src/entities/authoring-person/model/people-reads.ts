@@ -94,6 +94,3 @@ export function peopleIdentitiesQueryKey(accountIds: readonly string[]) {
     [...new Set(accountIds.map((id) => id.toLowerCase()))].sort(),
   ] as const;
 }
-
-/** Все чтения людей: запись доступа или контакта сбрасывает их разом. */
-export const peopleQueryKey = ["authoring", "people"] as const;

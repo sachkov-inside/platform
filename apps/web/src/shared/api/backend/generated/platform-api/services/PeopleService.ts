@@ -21,6 +21,7 @@ export class PeopleService {
   }): CancelablePromise<{
     items: Array<{
       accountId: string;
+      contactsState: 'complete' | 'partial';
       displayName: string | null;
       email: string | null;
       username: string | null;
@@ -51,6 +52,7 @@ export class PeopleService {
   }): CancelablePromise<{
     items: Array<{
       accountId: string;
+      contactsState: 'complete' | 'partial';
       displayName: string | null;
       email: string | null;
       username: string | null;

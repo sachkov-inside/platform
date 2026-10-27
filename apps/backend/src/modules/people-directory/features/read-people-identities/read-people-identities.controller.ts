@@ -107,6 +107,7 @@ export class ReadPeopleIdentitiesController {
         displayName: person.displayName,
         username: person.username,
         email: person.email,
+        contactsState: person.contactsState,
       })),
     };
   }

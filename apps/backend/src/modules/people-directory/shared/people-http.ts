@@ -10,6 +10,7 @@ export const personIdentityHttpSchema = z
     displayName: z.string().nullable(),
     username: z.string().nullable(),
     email: z.string().nullable(),
+    contactsState: z.enum(["complete", "partial"]),
   })
   .strict();
 

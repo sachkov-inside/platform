@@ -9,7 +9,7 @@ import { CopyAccountId } from "./copy-account-id.client";
 
 export interface PersonIdentityProps {
   readonly accountId: string;
-  /** `null`: подписи нет (не человек или чтение не удалось); видно только ID. */
+  /** `null`: подписи нет (не человек или чтение не удалось): «Нет данных о человеке» и ID. */
   readonly identity: Identity | null;
   /** Ссылка на карточку человека; заголовок становится ссылкой. */
   readonly href?: Route;
@@ -19,7 +19,8 @@ export interface PersonIdentityProps {
 
 /**
  * Человек в строке списка или в шапке: имя Telegram, затем @username, затем email (решение 5).
- * Заголовок не бывает UUID: без контактов виден текст «Без имени и email», а ID стоит мелко ниже.
+ * Заголовок не бывает UUID: без контактов виден текст «Без имени и email», при непрочитанных
+ * фактах «Контакты временно недоступны», а ID стоит мелко ниже.
  */
 export function PersonIdentity({
   accountId,
@@ -28,8 +29,10 @@ export function PersonIdentity({
   showAccountId = true,
 }: PersonIdentityProps) {
   const label =
-    identity === null ? { title: null, context: [] } : personLabel(identity);
-  const title = label.title ?? "Без имени и email";
+    identity === null
+      ? { title: null, context: [], missing: "Нет данных о человеке" }
+      : personLabel(identity);
+  const title = label.title ?? label.missing;
   return (
     <span className="flex min-w-0 flex-col gap-0.5" data-person={accountId}>
       {href === undefined ? (

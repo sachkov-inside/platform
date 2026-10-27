@@ -21,7 +21,8 @@ const anna = {
   displayName: "Анна Петрова",
   username: "anna_petrova",
   email: "anna.petrova@example.test",
-};
+  contactsState: "complete",
+} as const;
 
 function dependencies(
   answer: Awaited<ReturnType<PeopleReadsDependencies["search"]>>,
@@ -166,9 +167,14 @@ describe("person label", () => {
     expect(personLabel(anna)).toEqual({
       title: "Анна Петрова",
       context: ["@anna_petrova", "anna.petrova@example.test"],
+      missing: "Без имени и email",
     });
     expect(personLabel({ ...anna, displayName: null, username: null })).toEqual(
-      { title: "anna.petrova@example.test", context: [] },
+      {
+        title: "anna.petrova@example.test",
+        context: [],
+        missing: "Без имени и email",
+      },
     );
     expect(
       personLabel({
@@ -176,7 +182,12 @@ describe("person label", () => {
         displayName: null,
         username: null,
         email: null,
+        contactsState: "partial",
       }),
-    ).toEqual({ title: null, context: [] });
+    ).toEqual({
+      title: null,
+      context: [],
+      missing: "Контакты временно недоступны",
+    });
   });
 });

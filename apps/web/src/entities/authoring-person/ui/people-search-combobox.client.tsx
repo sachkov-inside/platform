@@ -42,7 +42,11 @@ export function PeopleSearchCombobox({
       clearTimeout(timer);
     };
   }, [text]);
-  const search = usePeopleSearch(query, { limit });
+  const searched = usePeopleSearch(query, { limit });
+  // Until the paused input reaches the query, the previous answer is not offered: Enter could
+  // otherwise choose a person from the text before the last edit.
+  const pending = text.trim() !== query.trim() && text.trim() !== "";
+  const search: typeof searched = pending ? { kind: "loading" } : searched;
   const items = search.kind === "ready" ? search.items : [];
   const activeIndex = Math.min(active, Math.max(items.length - 1, 0));
 
@@ -60,7 +64,7 @@ export function PeopleSearchCombobox({
         >
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate font-medium">
-              {chosen.title ?? "Без имени и email"}
+              {chosen.title ?? chosen.missing}
             </span>
             {chosen.context.length > 0 ? (
               <span className="truncate text-sm text-muted-foreground">
@@ -180,7 +184,7 @@ export function PeopleSearchCombobox({
                   }}
                 >
                   <span className="truncate text-sm font-medium">
-                    {option.title ?? "Без имени и email"}
+                    {option.title ?? option.missing}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
                     {[

@@ -24,6 +24,12 @@ export interface PersonIdentity {
   readonly displayName: string | null;
   readonly username: string | null;
   readonly email: string | null;
+  /**
+   * `partial`: a fact exists but could not be read now (Telegram did not answer for a linked
+   * account, or a verified Billing Contact could not be opened). A null field is then unknown, not
+   * absent, and the web must not present it as «no contacts».
+   */
+  readonly contactsState: "complete" | "partial";
 }
 
 /**
@@ -100,14 +106,15 @@ export class PeopleDirectory {
     actorId: string,
     input: { readonly query: unknown; readonly limit?: unknown },
   ): Promise<SearchPeopleResult> {
+    // The right comes first: another role is refused whatever it sends.
+    const allowed = await this.authorize(actorId);
+    if (allowed !== undefined) return allowed;
     const parsed = searchInputSchema.safeParse(input);
     const term = parsed.success
       ? parsePersonSearchTerm(parsed.data.query)
       : undefined;
     if (!parsed.success || term === undefined)
       return failure("invalid_request");
-    const allowed = await this.authorize(actorId);
-    if (allowed !== undefined) return allowed;
     const limit = parsed.data.limit ?? PEOPLE_SEARCH_LIMIT;
     let candidates: readonly string[];
     let nameSearch: NameSearchState = "available";
@@ -144,10 +151,10 @@ export class PeopleDirectory {
     actorId: string,
     accountIds: unknown,
   ): Promise<PeopleDirectoryResult<readonly PersonIdentity[]>> {
-    const parsed = identitiesInputSchema.safeParse(accountIds);
-    if (!parsed.success) return failure("invalid_request");
     const allowed = await this.authorize(actorId);
     if (allowed !== undefined) return allowed;
+    const parsed = identitiesInputSchema.safeParse(accountIds);
+    if (!parsed.success) return failure("invalid_request");
     return this.readPeople(parsed.data);
   }
 
@@ -198,11 +205,18 @@ export class PeopleDirectory {
       value: people.map((id) => {
         const contact =
           contacts?.ok === true ? contacts.contacts.get(id) : undefined;
+        const fact = facts.facts.get(id);
+        const namesUnknown =
+          linked.includes(id) && contact?.telegramContactState !== "available";
         return {
           accountId: id,
           displayName: contact?.displayName ?? null,
           username: contact?.telegramUsername ?? null,
-          email: facts.facts.get(id)?.billingEmail ?? null,
+          email: fact?.billingEmail ?? null,
+          contactsState:
+            namesUnknown || fact?.billingEmailState === "unavailable"
+              ? "partial"
+              : "complete",
         };
       }),
     };

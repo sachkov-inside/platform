@@ -15,18 +15,21 @@ export const people = [
     displayName: "Анна Петрова",
     username: "anna_petrova",
     email: "anna.petrova@example.test",
+    contactsState: "complete",
   },
   {
     accountId: "d1210000-0000-4000-8000-000000000002",
     displayName: "Константин Константинопольский-Задунайский",
     username: null,
     email: "konstantin.zadunaisky.long.address@example.test",
+    contactsState: "complete",
   },
   {
     accountId: "d1210000-0000-4000-8000-000000000003",
     displayName: null,
     username: null,
     email: "buyer.only@example.test",
+    contactsState: "partial",
   },
 ];
 

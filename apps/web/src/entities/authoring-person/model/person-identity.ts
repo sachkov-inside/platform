@@ -13,6 +13,8 @@ export const personIdentitySchema = z
     displayName: z.string().nullable(),
     username: z.string().nullable(),
     email: z.string().nullable(),
+    /** `partial`: часть фактов сейчас не прочиталась, пустое поле тогда неизвестно, а не пусто. */
+    contactsState: z.enum(["complete", "partial"]),
   })
   .strict();
 
@@ -20,8 +22,10 @@ export type PersonIdentity = z.infer<typeof personIdentitySchema>;
 
 /** Подписи человека: заголовок и строка контекста из оставшихся фактов. */
 export interface PersonLabel {
-  /** Имя Telegram, иначе @username, иначе email; `null`, если у человека нет ни одного из них. */
+  /** Имя Telegram, иначе @username, иначе email; `null`, если ни одного из них не известно. */
   readonly title: string | null;
+  /** Чего нет в заголовке: «Без имени и email» или «Контакты временно недоступны». */
+  readonly missing: string;
   readonly context: readonly string[];
 }
 
@@ -32,7 +36,14 @@ export function personLabel(identity: PersonIdentity): PersonLabel {
     hasText(identity.username) ? `@${identity.username}` : null,
     identity.email,
   ].filter((fact): fact is string => hasText(fact));
-  return { title: facts[0] ?? null, context: facts.slice(1) };
+  return {
+    title: facts[0] ?? null,
+    context: facts.slice(1),
+    missing:
+      identity.contactsState === "partial"
+        ? "Контакты временно недоступны"
+        : "Без имени и email",
+  };
 }
 
 /** Сокращённый ID для подписи: первые восемь знаков, полный ID копируется кнопкой. */

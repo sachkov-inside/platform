@@ -131,12 +131,12 @@ export class AccountDirectory {
     );
     if (fingerprint === undefined) return { ok: true, accountIds: [] };
     try {
-      const rows = await this.dependencies.prisma.account.findMany({
+      // A sign-in fingerprint is unique: one Account at most.
+      const account = await this.dependencies.prisma.account.findUnique({
         where: { emailFingerprint: fingerprint },
         select: { id: true },
-        take: 2,
       });
-      return { ok: true, accountIds: rows.map((row) => row.id) };
+      return { ok: true, accountIds: account === null ? [] : [account.id] };
     } catch (error) {
       return dependencyFailure(
         { module: "accounts", operation: "findByEmail" },
