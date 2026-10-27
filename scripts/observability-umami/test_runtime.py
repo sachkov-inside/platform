@@ -18,16 +18,18 @@ class NativeInputBoundary(unittest.TestCase):
     def test_browser_progress_projects_only_closed_completed_milestones(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'progress.json'
-            self.assertEqual(runtime.browser_progress(path),'not_started')
+            self.assertEqual(runtime.browser_progress(path),('not_started',None))
             path.write_text('{"phase":"choice_visible"}')
-            self.assertEqual(runtime.browser_progress(path),'choice_visible')
-            for value in ({'phase':'private-sentinel'}, {'phase':'started','body':'private-sentinel'}, [], 'private-sentinel'):
+            self.assertEqual(runtime.browser_progress(path),('choice_visible',None))
+            path.write_text('{"phase":"native_export_accepted","native_export_milliseconds":2137}')
+            self.assertEqual(runtime.browser_progress(path),('native_export_accepted',2137))
+            for value in ({'phase':'private-sentinel'}, {'phase':'started','body':'private-sentinel'}, {'phase':'native_export_failed','native_export_milliseconds':True}, {'phase':'native_export_started','native_export_milliseconds':60001}, [], 'private-sentinel'):
                 path.write_text(json.dumps(value))
-                self.assertEqual(runtime.browser_progress(path),'unavailable')
+                self.assertEqual(runtime.browser_progress(path),('unavailable',None))
             path.write_text('x'*129)
-            self.assertEqual(runtime.browser_progress(path),'unavailable')
+            self.assertEqual(runtime.browser_progress(path),('unavailable',None))
             path.unlink();path.symlink_to(Path(directory)/'private.json')
-            self.assertEqual(runtime.browser_progress(path),'not_started')
+            self.assertEqual(runtime.browser_progress(path),('not_started',None))
 
     def test_readiness_retries_only_probe_with_remaining_deadline(self):
         with patch.object(runtime.time, 'monotonic', side_effect=[100, 101, 102, 103]), \

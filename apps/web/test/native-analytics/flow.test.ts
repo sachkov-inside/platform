@@ -85,18 +85,29 @@ test("two Product and Material observations retain native source codes and remai
     JSON.parse(readFileSync(privateFile, "utf8")),
   );
   const progressFile = process.env["INSIDE_UMAMI_BROWSER_PROOF_PROGRESS"];
+  let nativeExportMilliseconds: number | null = null;
   const mark = (
     phase:
       | "started"
       | "listener_ready"
       | "choice_visible"
+      | "native_export_started"
+      | "native_export_accepted"
+      | "native_export_failed"
       | "observations_exported"
       | "native_events_verified"
       | "identity_reset_verified"
       | "revocation_verified",
   ) => {
     if (progressFile !== undefined)
-      writeFileSync(progressFile, JSON.stringify({ phase }), { mode: 0o600 });
+      writeFileSync(
+        progressFile,
+        JSON.stringify({
+          phase,
+          native_export_milliseconds: nativeExportMilliseconds,
+        }),
+        { mode: 0o600 },
+      );
   };
   mark("started");
   const originalFetch = globalThis.fetch;
@@ -110,31 +121,42 @@ test("two Product and Material observations retain native source codes and remai
     if (typeof options?.body !== "string")
       throw new Error("Native JSON payload required");
     // No acquisition: this exec uses only the source-bound query service owned by the outer pilot.
-    const output = execFileSync(
-      "docker",
-      [
-        "--host",
-        input.endpoint,
-        "compose",
-        "-p",
-        input.project,
-        "-f",
-        input.compose,
-        "exec",
-        "-T",
-        "query",
-        "python",
-        "/pilot/browser_ingest.py",
-      ],
-      {
-        input: options.body,
-        encoding: "utf8",
-        timeout: 5_000,
-        maxBuffer: 1024,
-        env: { PATH: process.env["PATH"], NODE_ENV: process.env.NODE_ENV },
-      },
-    );
-    z.strictObject({ accepted: z.literal(true) }).parse(JSON.parse(output));
+    mark("native_export_started");
+    const started = performance.now();
+    let output: string;
+    try {
+      output = execFileSync(
+        "docker",
+        [
+          "--host",
+          input.endpoint,
+          "compose",
+          "-p",
+          input.project,
+          "-f",
+          input.compose,
+          "exec",
+          "-T",
+          "query",
+          "python",
+          "/pilot/browser_ingest.py",
+        ],
+        {
+          input: options.body,
+          encoding: "utf8",
+          timeout: 5_000,
+          maxBuffer: 1024,
+          env: { PATH: process.env["PATH"], NODE_ENV: process.env.NODE_ENV },
+        },
+      );
+      z.strictObject({ accepted: z.literal(true) }).parse(JSON.parse(output));
+    } catch (error) {
+      nativeExportMilliseconds = Math.ceil(performance.now() - started);
+      mark("native_export_failed");
+      throw error;
+    }
+    nativeExportMilliseconds = Math.ceil(performance.now() - started);
+    mark("native_export_accepted");
     nativeCalls++;
     return Promise.resolve(Response.json({}));
   }) satisfies typeof fetch);

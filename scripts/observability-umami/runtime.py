@@ -168,15 +168,18 @@ def fixture_proof(value):
 
 def browser_progress(path):
     """Closed completed milestones only; never publish an assertion, stack or private body."""
-    phases=('started','listener_ready','choice_visible','observations_exported',
+    phases=('started','listener_ready','choice_visible','native_export_started','native_export_accepted','native_export_failed','observations_exported',
             'native_events_verified','identity_reset_verified','revocation_verified')
-    if path.is_symlink() or not path.is_file():return 'not_started'
+    if path.is_symlink() or not path.is_file():return 'not_started',None
     try:
         with path.open('rb') as stream:raw=stream.read(129)
-        if len(raw)>128:return 'unavailable'
+        if len(raw)>128:return 'unavailable',None
         value=json.loads(raw)
-    except (OSError,ValueError):return 'unavailable'
-    return value['phase'] if type(value) is dict and set(value)=={'phase'} and value['phase'] in phases else 'unavailable'
+    except (OSError,ValueError):return 'unavailable',None
+    if type(value) is not dict or not {'phase'}<=set(value)<={'phase','native_export_milliseconds'} or value['phase'] not in phases:return 'unavailable',None
+    duration=value.get('native_export_milliseconds')
+    if duration is not None and (type(duration) is not int or not 0<=duration<=60_000):return 'unavailable',None
+    return value['phase'],duration
 
 
 def browser_proof(output, compose, state):
@@ -204,10 +207,11 @@ def browser_proof(output, compose, state):
             capture_output=True,text=True,timeout=120)
         log=output/'browser-proof.private.log'
         log.write_text((result.stdout+result.stderr)[:65536]);log.chmod(0o600)
-        last_completed=browser_progress(progress)
+        last_completed,native_export_milliseconds=browser_progress(progress)
         passed=result.returncode==0 and last_completed=='revocation_verified'
         pilot.write_json(output/'browser-analytics-proof.json',{'schema':1,'state':'passed' if passed else 'failed',
             'returncode':result.returncode,'last_completed':last_completed,
+            'native_export_milliseconds':native_export_milliseconds,
             'scope':'synthetic Chromium to production Web operation to pinned native Umami and bounded reader',
             'production':'not_executed'})
         if not passed:raise RuntimeError('browser_native_proof_failed')
