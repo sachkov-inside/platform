@@ -905,6 +905,104 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     );
   });
 
+  test("the author narrows submissions to those awaiting feedback or given it, pages under the filter and counts those awaiting (#1720)", async () => {
+    const before = await review().countAwaitingFeedback(owner);
+    if (!before.ok) throw new Error(before.error.code);
+    const task = await imported({
+      productId,
+      chapterId: firstChapter,
+      title: "Фильтр отзыва",
+    });
+    const subject = await learner();
+    const [first, second, third, fourth] = [
+      await submitted(subject, task.code, "Первая."),
+      await submitted(subject, task.code, "Вторая."),
+      await submitted(subject, task.code, "Третья."),
+      await submitted(subject, task.code, "Четвёртая."),
+    ];
+    const save = (
+      submissionId: string,
+      comment: string | null,
+      reviewed = false,
+    ) => review().saveFeedback(owner, { submissionId, comment, reviewed });
+    // A comment and the «посмотрел автор» mark alone both store Author Feedback.
+    expect(await save(second, "Комментарий автора.")).toMatchObject({
+      ok: true,
+    });
+    expect(await save(fourth, null, true)).toMatchObject({ ok: true });
+    // A cleared comment without the mark stores nothing: the submission awaits feedback again.
+    expect(await save(third, "Временный комментарий.")).toMatchObject({
+      ok: true,
+    });
+    expect(await save(third, "  ")).toEqual({ ok: true, value: null });
+
+    const listed = async (input: Record<string, unknown>) => {
+      const result = await review().list(owner, {
+        taskCode: task.code,
+        ...input,
+      });
+      if (!result.ok) throw new Error(result.error.code);
+      return {
+        ids: result.value.submissions.map((item) => item.submissionId),
+        nextCursor: result.value.nextCursor,
+      };
+    };
+    expect((await listed({})).ids).toEqual([fourth, third, second, first]);
+    expect((await listed({ feedback: "awaiting" })).ids).toEqual([
+      third,
+      first,
+    ]);
+    expect((await listed({ feedback: "given" })).ids).toEqual([fourth, second]);
+
+    // The client resends the filter with the cursor; the next page continues the filtered order.
+    for (const [feedback, expected] of [
+      ["awaiting", [third, first]],
+      ["given", [fourth, second]],
+    ] as const) {
+      const page = await listed({ feedback, limit: 1 });
+      expect(page.ids).toEqual([expected[0]]);
+      expect(page.nextCursor).not.toBeNull();
+      const next = await listed({
+        feedback,
+        limit: 1,
+        cursor: page.nextCursor,
+      });
+      expect(next).toEqual({ ids: [expected[1]], nextCursor: null });
+    }
+
+    // The detail read ignores the filter, so a submission stays readable once its comment is saved.
+    expect(
+      (await listed({ submissionId: second, feedback: "awaiting" })).ids,
+    ).toEqual([second]);
+    expect(await review().list(owner, { feedback: "reviewed" })).toEqual({
+      ok: false,
+      error: { code: "invalid_request_shape" },
+    });
+
+    const awaiting = await review().countAwaitingFeedback(owner);
+    expect(awaiting).toEqual({
+      ok: true,
+      value: { count: before.value.count + 2 },
+    });
+    expect(await save(first, "Теперь с комментарием.")).toMatchObject({
+      ok: true,
+    });
+    expect(await review().countAwaitingFeedback(owner)).toEqual({
+      ok: true,
+      value: { count: before.value.count + 1 },
+    });
+
+    // Without materials:manage both the filtered list and the counter are refused, not empty.
+    expect(await review().list(outsider, { feedback: "awaiting" })).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(await review().countAwaitingFeedback(outsider)).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+  });
+
   test("a submission of a task whose chapter the author removed stays listed (#948)", async () => {
     const chapter = randomUUID();
     await db.prisma.productChapter.create({

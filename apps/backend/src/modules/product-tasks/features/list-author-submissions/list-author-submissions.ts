@@ -26,6 +26,8 @@ import {
 } from "../../shared/result.js";
 import {
   authorFeedbackOf,
+  feedbackStateSchema,
+  feedbackStateWhere,
   type AuthorFeedback,
 } from "../../shared/author-feedback.js";
 import type { SubmissionReviewDependencies } from "../../shared/submission-review-dependencies.js";
@@ -50,6 +52,7 @@ export const authorSubmissionsQuerySchema = z
     productId: z.uuid().optional(),
     chapterId: z.uuid().optional(),
     taskCode: taskCodeSchema.optional(),
+    feedback: feedbackStateSchema.optional(),
     cursor: submissionsCursorSchema.nullable().optional(),
     limit: z.coerce.number().pipe(submissionsLimitSchema).optional(),
   })
@@ -157,6 +160,10 @@ function decodeCursor(cursor: string): z.infer<typeof cursorSchema> | null {
 /**
  * Submissions for the author, newest first, narrowed by Product, chapter and task (#948). Published
  * and unpublished tasks alike: a task taken off publication keeps its submissions for reviews.
+ * `feedback` narrows them to those awaiting Author Feedback or given it (#1720; see
+ * `feedbackStateSchema`). The cursor carries only the position: the client resends every filter
+ * with it, and the next page continues the same filtered order. A detail read by `submissionId`
+ * ignores `feedback`, so a submission stays readable after its comment is saved.
  */
 export async function listAuthorSubmissions(
   dependencies: SubmissionReviewDependencies,
@@ -192,6 +199,9 @@ export async function listAuthorSubmissions(
       where: {
         version: { task: taskScope },
         ...(query.submissionId === undefined ? {} : { id: query.submissionId }),
+        ...(query.feedback === undefined || query.submissionId !== undefined
+          ? {}
+          : feedbackStateWhere(query.feedback)),
         ...(cursor === undefined || query.submissionId !== undefined
           ? {}
           : {

@@ -22,6 +22,11 @@ export interface ContentCollectionDto {
   readonly introduction: ProductIntroductionDto | null;
   readonly kind: ContentCollectionKind;
   readonly materialCount: number;
+  /**
+   * Materials published now: for a Product, programme memberships whose Material is published;
+   * for a Topic, its published Materials.
+   */
+  readonly publishedMaterialCount: number;
   readonly name: string;
   /** Описание страницы Product из авторского оригинала; `null` — описания нет или оно нечитаемо. */
   readonly page: ProductPage | null;

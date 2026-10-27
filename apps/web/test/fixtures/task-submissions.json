@@ -182,6 +182,40 @@
         "attempt": 1,
         "firstPassedAttempt": null
       }
+    },
+    {
+      "submissionId": "30000000-0000-4000-8000-000000000004",
+      "submittedAt": "2026-10-02T07:30:00.000Z",
+      "source": "form",
+      "task": {
+        "code": "aie-ch2-requests",
+        "title": "Заявки клиентов",
+        "productId": "00000000-0000-4000-8000-000000000948",
+        "productName": "AI Engineering",
+        "chapterId": "00000000-0000-4000-8000-000000000950",
+        "chapterName": "Глава 2. Заявки",
+        "currentVersion": 1
+      },
+      "taskVersion": 1,
+      "person": {
+        "accountId": "10000000-0000-4000-8000-000000000003",
+        "telegramIdentityRef": "telegram:synthetic-03",
+        "displayName": null,
+        "telegramUsername": "olga_example",
+        "telegramUrl": "https://t.me/olga_example",
+        "telegramContactState": "available"
+      },
+      "note": "Сдаю через форму, агента подключу позже.",
+      "reviewReport": null,
+      "reportText": "Заявка создаётся, статус виден в списке.",
+      "serviceMark": {
+        "repositoryUrl": null,
+        "branch": null,
+        "commit": null,
+        "uncommittedChanges": null
+      },
+      "authorFeedback": null,
+      "selfCheck": null
     }
   ],
   "versions": [

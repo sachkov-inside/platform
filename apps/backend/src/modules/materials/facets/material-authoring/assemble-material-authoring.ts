@@ -33,6 +33,10 @@ import type { MaterialAuthoringDependencies } from "./material-authoring.depende
 import type { MaterialAuthoring } from "./material-authoring.js";
 import { assembleCreateContentCollection } from "../../features/create-content-collection/create-content-collection.js";
 import { assembleListContentCollections } from "../../features/list-content-collections/list-content-collections.js";
+import {
+  assembleSearchAuthoringMaterials,
+  assembleSearchAuthoringProducts,
+} from "../../features/search-authoring-content/search-authoring-content.js";
 import { assembleSetContentCollectionArchive } from "../../features/set-content-collection-archive/set-content-collection-archive.js";
 import { assembleUpdateContentCollection } from "../../features/update-content-collection/update-content-collection.js";
 
@@ -64,6 +68,8 @@ export function assembleMaterialAuthoring(
     listReferences: assembleListAuthoringReferences(dependencies),
     listMaterials: assembleListMaterials(dependencies),
     listContentCollections: assembleListContentCollections(dependencies),
+    searchProducts: assembleSearchAuthoringProducts(dependencies),
+    searchMaterials: assembleSearchAuthoringMaterials(dependencies),
     previewMaterial: assemblePreviewMaterial(dependencies),
     reorderSeries: assembleReorderSeries(dependencies),
     updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),

@@ -223,3 +223,64 @@ export const reviewedSubmissions: TaskSubmissions = {
 
 export const submissionsProductId = productId;
 export const submissionsSecondChapter = secondChapter;
+
+/** The default view of the same fixture: only submissions without Author Feedback (#1717). */
+export const awaitingSubmissions: TaskSubmissions = {
+  ...reviewedSubmissions,
+  submissions: reviewedSubmissions.submissions.filter(
+    (row) => row.authorFeedback === null,
+  ),
+};
+
+const learners = [
+  ["Анна Смирнова", "anna_example"],
+  [null, "konstantin_vasilevsky_dev"],
+  ["Марк Белов", null],
+  ["Екатерина Александровна Иванова-Петрова", "katya_example"],
+  ["Ольга Кравец", "olga_example"],
+] as const;
+
+/**
+ * A long page: `count` deterministic submissions of the fixture tasks by five learners, every
+ * third one commented, one hour apart and newest first. No randomness and no clock.
+ */
+export function manySubmissions(count: number): TaskSubmissions {
+  const templates = reviewedSubmissions.submissions;
+  return {
+    ...reviewedSubmissions,
+    submissions: Array.from({ length: count }, (_, index) => {
+      const template = templates[index % templates.length];
+      const learner = learners[index % learners.length];
+      if (template === undefined || learner === undefined)
+        throw new Error("fixture incomplete");
+      const [displayName, username] = learner;
+      return {
+        ...template,
+        submissionId: `31000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        submittedAt: new Date(
+          Date.UTC(2026, 9, 24, 15, 40) - index * 3_600_000,
+        ).toISOString(),
+        person: {
+          accountId: `11000000-0000-4000-8000-${String((index % learners.length) + 1).padStart(12, "0")}`,
+          telegramIdentityRef:
+            username === null ? null : `telegram:synthetic-${username}`,
+          displayName,
+          telegramUsername: username,
+          telegramUrl: username === null ? null : `https://t.me/${username}`,
+          telegramContactState: username === null ? "not_linked" : "available",
+        },
+        authorFeedback:
+          index % 3 === 2
+            ? {
+                comment: "Хорошо: повтор проверен. Добавь владельца заявки.",
+                reviewedAt: null,
+                updatedAt: new Date(
+                  Date.UTC(2026, 9, 24, 16, 0) - index * 3_600_000,
+                ).toISOString(),
+              }
+            : null,
+      };
+    }),
+    nextCursor: "page-2",
+  };
+}

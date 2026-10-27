@@ -220,6 +220,7 @@ export class ProductTaskAuthoringService {
     limit,
     cursor,
     productCursor,
+    feedback,
     taskCode,
     chapterId,
     productId,
@@ -228,6 +229,10 @@ export class ProductTaskAuthoringService {
     limit?: number,
     cursor?: string,
     productCursor?: string,
+    /**
+     * awaiting: submissions without stored Author Feedback (no comment and no «посмотрел автор» mark); given: submissions with it; absent: all. Resend it with the cursor to continue the filtered order. Ignored when submissionId is given, so a submission stays readable after its comment is saved.
+     */
+    feedback?: 'awaiting' | 'given',
     taskCode?: string,
     chapterId?: string,
     productId?: string,
@@ -333,6 +338,7 @@ export class ProductTaskAuthoringService {
         'limit': limit,
         'cursor': cursor,
         'productCursor': productCursor,
+        'feedback': feedback,
         'taskCode': taskCode,
         'chapterId': chapterId,
         'productId': productId,
@@ -369,6 +375,19 @@ export class ProductTaskAuthoringService {
       },
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Count Product Task submissions awaiting Author Feedback: those without a stored comment or «посмотрел автор» mark, as the feedback=awaiting filter of the submissions list reads them
+   * @returns any
+   * @throws ApiError
+   */
+  public countSubmissionsAwaitingFeedback(): CancelablePromise<{
+    count: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/product-tasks/submissions/awaiting-feedback-count',
     });
   }
 }

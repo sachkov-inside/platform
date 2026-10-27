@@ -22,13 +22,20 @@ records the #1617 task-tab composition that supersedes its continuous editor lay
 
 ## Composition and responsive behavior
 
-At `64rem` and above, a light sidebar (232px) separates text navigation from the task canvas.
-«Контент» contains products, Materials and topics. «Управление» contains submissions, people and
-access, sales and payments, and the sales funnel. Public-site links stay separate at the bottom.
-No communications route is introduced. Current route is marked by `aria-current`, a light card
-surface and a fine border. Icons serve identifiable actions, not every navigation label.
+Since #1720 the shell follows specification #1717 (decisions 2, 8 and 13); the menu is defined
+once in `src/widgets/authoring-shell/model/navigation.ts`. At `64rem` and above, a light sidebar
+(232px) holds «Обзор», then «Контент» (products, Materials, topics), «Ученики» (people,
+submissions) and «Продажи» (payments, payment links, discounts, sales funnel); every item has a
+lucide icon and label, and «Сдачи» carries the counter of submissions without author feedback.
+Items whose screens later tickets build link to today's pages. Public-site links stay separate at
+the bottom. No communications route is introduced. A global search row sits above the page and
+`⌘K`/`Ctrl+K` opens the same search dialog. Current route is marked by `aria-current`, a light
+card surface, a fine border and an orange icon.
 
-Below `64rem`, «Меню» exposes those same routes; navigation closes on route change or Escape.
+Below `64rem`, a top row names the section and opens search; sibling sections of the current group
+appear as tabs under it on section roots. A fixed bottom panel (safe-area aware, 44px+ targets)
+holds «Обзор», «Люди», «Продажи», «Сдачи» and «Ещё»; «Ещё» opens a modal sheet with the remaining
+sections and site links, which closes on route change, Escape or the backdrop.
 At narrow mobile widths the document scrolls naturally. From `48rem` the task content owns its
 scroll region. Shared page bodies are bounded at 1280px, with 36px/40px/64px vertical/horizontal/
 bottom padding on desktop and 24px/16px/48px below `48rem`. These are local composition values,

@@ -10,6 +10,24 @@ import {
   updateContentCollectionOperation,
 } from "@/_pages/content-collections/api/content-collections.operation";
 import {
+  COLLECTION_PAGE_SIZE,
+  collectionListHref,
+  filterCollections,
+  hasCollectionFilters,
+  pageOfCollections,
+  parseCollectionListQuery,
+  presentProductRow,
+  presentTopicRow,
+  productListColumnIds,
+  serializeCollectionListQuery,
+  withoutCollectionFilters,
+  withoutOpenTopic,
+} from "@/_pages/content-collections/model/collection-list";
+import {
+  parseProductPageTab,
+  productPageTabSearch,
+} from "@/_pages/content-collections/model/product-page-tabs";
+import {
   createContentCollectionResultSchema,
   setContentCollectionArchiveResultSchema,
   updateContentCollectionResultSchema,
@@ -22,6 +40,7 @@ const collection = {
   introduction: null,
   kind: "topic",
   materialCount: 3,
+  publishedMaterialCount: 1,
   name: "Platform",
   slug: "platform",
   summary: "Architecture and delivery.",
@@ -221,6 +240,192 @@ describe("Content collection web adapters", () => {
       },
       "token",
     );
+  });
+});
+
+describe("Topics and Products list presentation", () => {
+  const topicId = "96500000-0000-4000-8000-000000000009";
+
+  it("reads search, archive filter, page and the open topic from the address", () => {
+    expect(
+      parseCollectionListQuery(
+        new URLSearchParams(
+          `search=${encodeURIComponent("Платформа ")}&state=archived&page=3&topic=${topicId}`,
+        ),
+        "topic",
+      ),
+    ).toEqual({
+      search: "Платформа ",
+      state: "archived",
+      page: 3,
+      topicId,
+    });
+    // Продукты открываются своей страницей: `?topic=` у них ничего не значит.
+    expect(
+      parseCollectionListQuery(
+        new URLSearchParams(`topic=${topicId}`),
+        "series",
+      ),
+    ).toEqual({ search: "", state: "all", page: 1 });
+    // Незнакомые значения дают вид по умолчанию, а не ошибку.
+    expect(
+      parseCollectionListQuery(
+        new URLSearchParams(
+          "state=deleted&page=0&topic=not-a-uuid&search=%20%20",
+        ),
+        "topic",
+      ),
+    ).toEqual({ search: "", state: "all", page: 1 });
+    expect(
+      parseCollectionListQuery(
+        new URLSearchParams({ search: "x".repeat(400) }),
+        "series",
+      ).search,
+    ).toHaveLength(160);
+  });
+
+  it("writes only non-default values back and keeps typed search text", () => {
+    expect(
+      serializeCollectionListQuery({ search: "", state: "all", page: 1 }),
+    ).toBe("");
+    const query = {
+      search: "Платформа ",
+      state: "active",
+      page: 2,
+      topicId,
+    } as const;
+    const serialized = serializeCollectionListQuery(query);
+    expect(
+      parseCollectionListQuery(new URLSearchParams(serialized), "topic"),
+    ).toEqual(query);
+    expect(
+      collectionListHref("/authoring/topics", withoutOpenTopic(query)),
+    ).toBe(
+      `/authoring/topics?search=${encodeURIComponent("Платформа ").replaceAll("%20", "+")}&state=active&page=2`,
+    );
+    expect(withoutCollectionFilters(query)).toEqual({
+      search: "",
+      state: "all",
+      page: 1,
+      topicId,
+    });
+    expect(hasCollectionFilters(withoutCollectionFilters(query))).toBe(false);
+    expect(hasCollectionFilters({ search: " ", state: "all", page: 1 })).toBe(
+      false,
+    );
+  });
+
+  it("filters the complete list by name and archive state", () => {
+    const collections = [
+      {
+        ...collection,
+        id: "96500000-0000-4000-8000-000000000011",
+        name: "Платформа",
+      },
+      {
+        ...collection,
+        archived: true,
+        id: "96500000-0000-4000-8000-000000000012",
+        name: "Старая платформа",
+      },
+      {
+        ...collection,
+        id: "96500000-0000-4000-8000-000000000013",
+        name: "Агенты",
+      },
+    ];
+    const names = (state: "all" | "active" | "archived", search: string) =>
+      filterCollections(collections, { search, state, page: 1 }).map(
+        ({ name }) => name,
+      );
+    expect(names("all", " ПЛАТФОРМА ")).toEqual([
+      "Платформа",
+      "Старая платформа",
+    ]);
+    expect(names("active", "платформа")).toEqual(["Платформа"]);
+    expect(names("archived", "")).toEqual(["Старая платформа"]);
+  });
+
+  it("pages the filtered list and clamps a page beyond the last", () => {
+    const rows = Array.from({ length: COLLECTION_PAGE_SIZE + 12 }, (_, i) => i);
+    expect(pageOfCollections(rows, 1)).toMatchObject({
+      page: 1,
+      totalPages: 2,
+      summary: "1–50 из 62",
+    });
+    const last = pageOfCollections(rows, 9);
+    expect(last).toMatchObject({ page: 2, summary: "51–62 из 62" });
+    expect(last.rows).toHaveLength(12);
+    expect(pageOfCollections(rows.slice(0, 3), 1)).toEqual({
+      rows: [0, 1, 2],
+      page: 1,
+      totalPages: 1,
+      summary: undefined,
+    });
+    expect(pageOfCollections([], 4)).toMatchObject({ page: 1, totalPages: 1 });
+  });
+
+  it("maps a Product row with its real cover, state and published count", () => {
+    expect(productListColumnIds).toEqual([
+      "name",
+      "state",
+      "published",
+      "home",
+    ]);
+    const cover = {
+      coverId: "96500000-0000-4000-8000-000000000021",
+      renditions: [{ height: 540, width: 960 }],
+    };
+    expect(
+      presentProductRow({
+        ...collection,
+        cover,
+        kind: "series",
+        materialCount: 9,
+        publishedMaterialCount: 7,
+      }),
+    ).toEqual({
+      id: collectionId,
+      name: "Platform",
+      caption: "/products/platform",
+      cover,
+      archived: false,
+      state: "product.active",
+      publishedMaterialCount: 7,
+      href: `/authoring/products/${collectionId}`,
+    });
+    expect(
+      presentProductRow({ ...collection, archived: true, kind: "series" }),
+    ).toMatchObject({ cover: null, state: "product.archived" });
+  });
+
+  it("maps a Topic row with published out of all materials", () => {
+    expect(presentTopicRow(collection)).toEqual({
+      id: collectionId,
+      name: "Platform",
+      caption: "/platform",
+      archived: false,
+      state: "topic.active",
+      publishedMaterialCount: 1,
+      materialCount: 3,
+      materials: "1 из 3",
+    });
+    expect(presentTopicRow({ ...collection, archived: true }).state).toBe(
+      "topic.archived",
+    );
+  });
+
+  it("reads the Product page tab from the address and falls back to the programme", () => {
+    expect(parseProductPageTab("description")).toBe("description");
+    expect(parseProductPageTab("artifacts")).toBe("artifacts");
+    expect(parseProductPageTab("settings")).toBe("settings");
+    expect(parseProductPageTab("sales")).toBe("program");
+    expect(parseProductPageTab(null)).toBe("program");
+    expect(productPageTabSearch("", "description")).toBe("?tab=description");
+    expect(productPageTabSearch("?tab=description&x=1", "program")).toBe(
+      "?x=1",
+    );
+    expect(productPageTabSearch("?tab=settings", "program")).toBe("");
   });
 });
 

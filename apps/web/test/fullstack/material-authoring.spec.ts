@@ -381,8 +381,8 @@ for (const access of ["public", "closed"] as const) {
       await page.goto(
         `/authoring/materials?search=${encodeURIComponent(title)}`,
       );
-      const row = page.getByRole("listitem").filter({ hasText: title });
-      await row.getByRole("button", { name: "Снять с публикации" }).click();
+      const row = authoringListRow(page, title);
+      await chooseRowAction(page, title, "Снять с публикации");
       await expect(
         row.getByText("Снят с публикации", { exact: true }),
       ).toBeVisible({ timeout: 15_000 });
@@ -914,8 +914,8 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       await page.goto(
         `/authoring/materials?search=${encodeURIComponent(title)}`,
       );
-      const row = page.getByRole("listitem").filter({ hasText: title });
-      await row.getByRole("button", { name: "Снять с публикации" }).click();
+      const row = authoringListRow(page, title);
+      await chooseRowAction(page, title, "Снять с публикации");
       await expect(
         row.getByText("Снят с публикации", { exact: true }),
       ).toBeVisible({ timeout: 15_000 });
@@ -1187,10 +1187,8 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   expect(fileResponse.headers()["x-content-type-options"]).toBe("nosniff");
 
   await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-  const publishedRow = page.getByRole("listitem").filter({ hasText: title });
-  await publishedRow
-    .getByRole("button", { name: "Снять с публикации" })
-    .click();
+  const publishedRow = authoringListRow(page, title);
+  await chooseRowAction(page, title, "Снять с публикации");
   await expect(
     publishedRow.getByText("Снят с публикации", { exact: true }),
   ).toBeVisible({
@@ -1366,7 +1364,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
 test("trusted author finds every Material and returns from Editor to the same list query", async ({
   context,
   page,
-}) => {
+}, testInfo) => {
   await signInFullStack(context, "OWNER");
 
   const listUrl =
@@ -1388,16 +1386,11 @@ test("trusted author finds every Material and returns from Editor to the same li
   await expect(page.getByText("Версия", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Topic", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Format", { exact: true })).toHaveCount(0);
-  const targetItem = page.getByRole("listitem").filter({
-    has: page.getByRole("link", {
-      name: "Как устроен Inside Platform",
-      exact: true,
-    }),
-  });
-  await expect(
-    targetItem.getByText("Платформа", { exact: true }),
-  ).toBeVisible();
-  await expect(targetItem.getByText("Гайд", { exact: true })).toBeVisible();
+  const targetTitle = "Как устроен Inside Platform";
+  const targetItem = authoringListRow(page, targetTitle);
+  // The table shows the Topic and format under the title; the phone list keeps title, state and date.
+  if (testInfo.project.name !== "mobile-chromium")
+    await expect(targetItem).toContainText("Платформа · Гайд");
   await expect(page.getByText(/Все текущие Materials/u)).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "Состояние публикации" }),
@@ -1407,6 +1400,10 @@ test("trusted author finds every Material and returns from Editor to the same li
   });
   await searchbox.focus();
   await expect(searchbox).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Очистить поиск" }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("combobox", { name: "Состояние публикации" }),
@@ -1436,7 +1433,7 @@ test("trusted author finds every Material and returns from Editor to the same li
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  await targetItem.getByRole("link", { name: "Предпросмотр" }).click();
+  await chooseRowAction(page, targetTitle, "Предпросмотр");
   await expect(
     page.getByRole("heading", { name: "Предпросмотр материала" }),
   ).toBeVisible();
@@ -1444,7 +1441,10 @@ test("trusted author finds every Material and returns from Editor to the same li
   await page.getByRole("link", { name: "К материалам" }).click();
   await expect(page).toHaveURL(listUrl);
 
-  await targetItem.getByRole("link", { name: "Редактировать" }).click();
+  // A row opens its Material in the editor.
+  await targetItem
+    .getByRole("link", { name: targetTitle, exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Как устроен Inside Platform" }),
   ).toBeVisible();
@@ -1645,13 +1645,16 @@ test("trusted author publishes and unpublishes the same full state from the Mate
   await expect(page).toHaveURL(currentMaterialEditorUrl);
 
   await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-  const row = page.getByRole("listitem").filter({ hasText: title });
+  const row = authoringListRow(page, title);
   await expect(row).toBeVisible();
   await expect(row.getByText("Черновик", { exact: true })).toBeVisible();
-  const deleteButton = row.getByRole("button", { name: "Удалить черновик" });
-  await expect(deleteButton).toBeVisible();
   await captureLifecycleEvidence(page, testInfo, "live-lifecycle");
-  await deleteButton.click();
+  expect(await rowActionNames(page, title)).toEqual([
+    "Предпросмотр",
+    "Опубликовать",
+    "Удалить черновик",
+  ]);
+  await chooseRowAction(page, title, "Удалить черновик");
   const deleteDialog = page.getByRole("dialog", {
     name: `Удалить «${title}»?`,
   });
@@ -1660,27 +1663,26 @@ test("trusted author publishes and unpublishes the same full state from the Mate
   await deleteDialog.getByRole("button", { name: "Оставить черновик" }).click();
   await expect(deleteDialog).toBeHidden();
 
-  await row.getByRole("button", { name: "Опубликовать" }).click();
+  await chooseRowAction(page, title, "Опубликовать");
   await expect(row.getByText("Опубликован", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(
-    row.getByRole("button", { name: "Снять с публикации" }),
-  ).toBeVisible();
-  await expect(
-    row.getByRole("button", { name: "Удалить черновик" }),
-  ).toHaveCount(0);
+  // A published Material is no longer a never-published draft: the menu offers no deletion.
+  expect(await rowActionNames(page, title)).toEqual([
+    "Предпросмотр",
+    "Снять с публикации",
+  ]);
 
-  await row.getByRole("button", { name: "Снять с публикации" }).click();
+  await chooseRowAction(page, title, "Снять с публикации");
   await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible(
     {
       timeout: 15_000,
     },
   );
-  await expect(row.getByRole("button", { name: "Опубликовать" })).toBeVisible();
-  await expect(
-    row.getByRole("button", { name: "Удалить черновик" }),
-  ).toHaveCount(0);
+  expect(await rowActionNames(page, title)).toEqual([
+    "Предпросмотр",
+    "Опубликовать",
+  ]);
 });
 
 test("trusted author cancels and confirms deletion of a never-published draft", async ({
@@ -2402,12 +2404,46 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
 }
 
 /** Материал купленного продукта снимается только в редакторе с подтверждением (#648). */
+/**
+ * The visible row of a Material in the authoring list: a table row from 48rem, a list item below.
+ * Both layouts are in the document; CSS shows one of them.
+ */
+function authoringListRow(page: Page, title: string) {
+  return page
+    .getByRole("main")
+    .locator("tr:visible, li.admin-list-item:visible")
+    .filter({ has: page.getByRole("link", { name: title, exact: true }) });
+}
+
+/** Runs one action of a list row from its «⋯» menu. */
+async function chooseRowAction(page: Page, title: string, action: string) {
+  await authoringListRow(page, title)
+    .getByRole("button", { name: `Действия с «${title}»` })
+    .click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: action, exact: true })
+    .click();
+}
+
+/** The actions a row's «⋯» menu offers now; the menu is closed again afterwards. */
+async function rowActionNames(page: Page, title: string): Promise<string[]> {
+  await authoringListRow(page, title)
+    .getByRole("button", { name: `Действия с «${title}»` })
+    .click();
+  const menu = page.getByRole("menu");
+  // The menu renders its items together: once the first is visible, the list is complete.
+  await expect(menu.getByRole("menuitem").first()).toBeVisible();
+  const names = await menu.getByRole("menuitem").allTextContents();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  return names;
+}
+
 async function unpublishFromPurchasedProduct(page: Page, title: string) {
   await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: title })
-    .getByRole("link", { name: "Редактировать" })
+  await authoringListRow(page, title)
+    .getByRole("link", { name: title, exact: true })
     .click();
   // The list stays in the document, hidden (#674), and its row buttons share this name: wait for the
   // editor and use its own header.

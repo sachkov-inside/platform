@@ -24,7 +24,9 @@ export async function ContentCollectionsPage({
   const state = await getContentCollections(kind, accessToken);
   if (state.kind === "unauthorized") return unauthorized(returnHref);
   if (state.kind === "error") {
-    return <ContentCollectionsUnavailable reference={state.reference} />;
+    return (
+      <ContentCollectionsUnavailable kind={kind} reference={state.reference} />
+    );
   }
   return (
     <ContentCollectionsPageClient

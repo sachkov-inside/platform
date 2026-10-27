@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { QueryProvider } from "@/_app";
-import { AuthoringShell } from "@/widgets/authoring-shell";
+import { AuthoringApplicationShell, QueryProvider } from "@/_app";
 
 /** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0027). */
 export const instant = false;
@@ -17,7 +16,7 @@ export default function AuthoringLayout({
 }) {
   return (
     <QueryProvider>
-      <AuthoringShell>{children}</AuthoringShell>
+      <AuthoringApplicationShell>{children}</AuthoringApplicationShell>
     </QueryProvider>
   );
 }

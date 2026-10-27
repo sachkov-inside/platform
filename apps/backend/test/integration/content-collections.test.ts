@@ -177,6 +177,7 @@ describe("Topic and Playlist authoring", () => {
       expect.objectContaining({
         archived: true,
         materialCount: 1,
+        publishedMaterialCount: 0,
         slug: "architecture",
       }),
     );
@@ -184,9 +185,136 @@ describe("Topic and Playlist authoring", () => {
       expect.objectContaining({
         archived: true,
         materialCount: 1,
+        publishedMaterialCount: 0,
         slug: "platform-path",
       }),
     );
+  });
+
+  test("counts published Materials of a Topic and published programme memberships of a Product next to all of them (#1720)", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const topic = await authoring.createContentCollection({
+      actor,
+      kind: "topic",
+      name: "Published counts",
+      slug: "published-counts",
+      summary: "",
+    });
+    const product = await authoring.createContentCollection({
+      actor,
+      kind: "series",
+      name: "Published counts product",
+      slug: "published-counts-product",
+      summary: "",
+    });
+    const emptyProduct = await authoring.createContentCollection({
+      actor,
+      kind: "series",
+      name: "Published counts empty",
+      slug: "published-counts-empty",
+      summary: "",
+    });
+    if (!topic.ok || !product.ok || !emptyProduct.ok)
+      throw new Error("Expected collections");
+    expect(topic.value).toMatchObject({
+      materialCount: 0,
+      publishedMaterialCount: 0,
+    });
+
+    const materialIds: string[] = [];
+    for (const title of ["Published one", "Published two", "Still draft"]) {
+      const created = await authoring.createDraft({
+        actor,
+        idempotencyKey: `published-counts-${title}`,
+        metadata: metadata(topic.value.id, product.value.id, title),
+        body: representativeDocument(`${title} body.`),
+      });
+      if (!created.ok) throw new Error(created.error.code);
+      materialIds.push(created.value.materialId);
+    }
+    const receipts = [];
+    for (const materialId of materialIds.slice(0, 2)) {
+      const published = await authoring.transitionPublication({
+        actor,
+        expectedContentVersion: 1,
+        idempotencyKey: `published-counts-publish-${materialId}`,
+        materialId,
+        publicationState: "published",
+      });
+      if (!published.ok) throw new Error(published.error.code);
+      receipts.push(published.value);
+    }
+    // A Material taken off publication counts among all Materials, not among published ones.
+    const retired = receipts[1];
+    if (retired === undefined) throw new Error("Expected a published Material");
+    const unpublished = await authoring.transitionPublication({
+      actor,
+      expectedContentVersion: retired.contentVersion,
+      idempotencyKey: `published-counts-unpublish-${retired.materialId}`,
+      materialId: retired.materialId,
+      publicationState: "unpublished",
+    });
+    if (!unpublished.ok) throw new Error(unpublished.error.code);
+
+    const topics = await authoring.listContentCollections({
+      actor,
+      kind: "topic",
+    });
+    const products = await authoring.listContentCollections({
+      actor,
+      kind: "series",
+    });
+    if (!topics.ok || !products.ok) throw new Error("Expected lists");
+    expect(topics.value).toContainEqual(
+      expect.objectContaining({
+        id: topic.value.id,
+        materialCount: 3,
+        publishedMaterialCount: 1,
+      }),
+    );
+    expect(products.value).toContainEqual(
+      expect.objectContaining({
+        id: product.value.id,
+        materialCount: 3,
+        publishedMaterialCount: 1,
+      }),
+    );
+    expect(products.value).toContainEqual(
+      expect.objectContaining({
+        id: emptyProduct.value.id,
+        materialCount: 0,
+        publishedMaterialCount: 0,
+      }),
+    );
+
+    // One collection read back after a write carries the same counts.
+    const renamedTopic = await authoring.updateContentCollection({
+      actor,
+      collectionId: topic.value.id,
+      expectedVersion: topic.value.version,
+      kind: "topic",
+      name: "Published counts renamed",
+      summary: "",
+    });
+    const renamedProduct = await authoring.updateContentCollection({
+      actor,
+      collectionId: product.value.id,
+      expectedVersion: product.value.version,
+      kind: "series",
+      name: "Published counts product renamed",
+      summary: "",
+    });
+    expect(renamedTopic).toMatchObject({
+      ok: true,
+      value: { materialCount: 3, publishedMaterialCount: 1 },
+    });
+    expect(renamedProduct).toMatchObject({
+      ok: true,
+      value: { materialCount: 3, publishedMaterialCount: 1 },
+    });
   });
 
   test("writes the Product introduction, preserves it on an ordinary edit and refuses it on a Topic", async () => {

@@ -37,6 +37,17 @@ describe("OpenAPI contract", () => {
       ["/materials/{slug}", "get", "readPublishedMaterial"],
       ["/authoring/materials", "post", "createMaterialDraft"],
       ["/authoring/materials", "get", "listAuthoringMaterials"],
+      ["/authoring/search", "get", "searchAuthoring"],
+      [
+        "/authoring/product-tasks/submissions",
+        "get",
+        "listAuthorTaskSubmissions",
+      ],
+      [
+        "/authoring/product-tasks/submissions/awaiting-feedback-count",
+        "get",
+        "countSubmissionsAwaitingFeedback",
+      ],
       ["/authoring/materials/{materialId}", "get", "loadCurrentMaterial"],
       ["/authoring/materials/{materialId}", "put", "saveCurrentMaterial"],
       [

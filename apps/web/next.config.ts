@@ -129,6 +129,12 @@ const nextConfig: NextConfig = {
         destination: "/account/purchases",
         permanent: true,
       },
+      // Обзор админки строит #1719; до него вход в админку и бренд каркаса ведут в «Продукты».
+      {
+        source: "/authoring",
+        destination: "/authoring/products",
+        permanent: false,
+      },
       // Темы живут в фильтре главной; прежние публичные страницы больше не обслуживаются.
       {
         source: "/topics/:slug",

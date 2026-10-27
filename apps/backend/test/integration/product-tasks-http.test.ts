@@ -483,6 +483,60 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
       nextCursor: null,
     });
 
+    const countUrl =
+      "/authoring/product-tasks/submissions/awaiting-feedback-count";
+    expect(
+      (await server.inject({ method: "GET", url: countUrl })).statusCode,
+    ).toBe(401);
+    const deniedCount = await server.inject({
+      method: "GET",
+      url: countUrl,
+      headers: learner,
+    });
+    expect(deniedCount.statusCode).toBe(403);
+    expect(deniedCount.json()).toMatchObject({ code: "forbidden" });
+    const deniedFilter = await server.inject({
+      method: "GET",
+      url: `${listUrl}&feedback=awaiting`,
+      headers: learner,
+    });
+    expect(deniedFilter.statusCode).toBe(403);
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: `${listUrl}&feedback=reviewed`,
+          headers: author,
+        })
+      ).statusCode,
+    ).toBe(400);
+    const awaitingCount = await server.inject({
+      method: "GET",
+      url: countUrl,
+      headers: author,
+    });
+    expect(awaitingCount.statusCode).toBe(200);
+    expect(awaitingCount.headers["cache-control"]).toContain("no-store");
+    expect(awaitingCount.json()).toEqual({ count: 1 });
+    const filtered = async (feedback: "awaiting" | "given") =>
+      z
+        .object({
+          submissions: z.array(z.object({ submissionId: z.uuid() }).loose()),
+        })
+        .loose()
+        .parse(
+          (
+            await server.inject({
+              method: "GET",
+              url: `${listUrl}&feedback=${feedback}`,
+              headers: author,
+            })
+          ).json(),
+        )
+        .submissions.map((submission) => submission.submissionId);
+    expect(await filtered("awaiting")).toEqual([submissionId]);
+    expect(await filtered("given")).toEqual([]);
+
     const feedbackUrl = `/authoring/product-tasks/submissions/${String(submissionId)}/feedback`;
     const payload = { comment: "Выдача доступа понятна.", reviewed: true };
     expect(
@@ -528,6 +582,13 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         reviewedAt: anyTimestamp,
       },
     });
+    expect(
+      (
+        await server.inject({ method: "GET", url: countUrl, headers: author })
+      ).json(),
+    ).toEqual({ count: 0 });
+    expect(await filtered("awaiting")).toEqual([]);
+    expect(await filtered("given")).toEqual([submissionId]);
     expect(
       (
         await server.inject({

@@ -91,6 +91,10 @@ export class MaterialAuthoringService {
     } | null;
     pageRejected: boolean;
     presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
     slug: string;
     sourceId: string | null;
     summary: string;
@@ -193,6 +197,10 @@ export class MaterialAuthoringService {
     } | null;
     pageRejected: boolean;
     presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
     slug: string;
     sourceId: string | null;
     summary: string;
@@ -302,6 +310,10 @@ export class MaterialAuthoringService {
     } | null;
     pageRejected: boolean;
     presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
     slug: string;
     sourceId: string | null;
     summary: string;
@@ -407,6 +419,10 @@ export class MaterialAuthoringService {
     } | null;
     pageRejected: boolean;
     presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
     slug: string;
     sourceId: string | null;
     summary: string;
@@ -1119,6 +1135,10 @@ export class MaterialAuthoringService {
     } | null;
     pageRejected: boolean;
     presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
     slug: string;
     sourceId: string | null;
     summary: string;
@@ -1285,6 +1305,10 @@ export class MaterialAuthoringService {
     } | null;
     pageRejected: boolean;
     presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
     slug: string;
     sourceId: string | null;
     summary: string;
@@ -1388,10 +1412,20 @@ export class MaterialAuthoringService {
    * @throws ApiError
    */
   public listAuthoringMaterials({
+    format,
+    topicId,
     search,
     publicationState,
     page,
   }: {
+    /**
+     * Only Materials of this format; combines with the other filters, and the totals count only matching Materials
+     */
+    format?: 'video' | 'guide' | 'note',
+    /**
+     * Only Materials of this Topic; combines with the other filters, and the totals count only matching Materials
+     */
+    topicId?: string,
     search?: string,
     publicationState?: 'draft' | 'published' | 'unpublished',
     page?: number,
@@ -1421,6 +1455,8 @@ export class MaterialAuthoringService {
       method: 'GET',
       url: '/authoring/materials',
       query: {
+        'format': format,
+        'topicId': topicId,
         'search': search,
         'publicationState': publicationState,
         'page': page,

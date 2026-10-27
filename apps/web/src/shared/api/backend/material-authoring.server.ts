@@ -3,23 +3,52 @@ import "server-only";
 import { type MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 import { type MaterialFormat } from "@/shared/api/material-format";
 
-import { MaterialAuthoringService } from "./generated/platform-api";
+import {
+  AuthoringSearchService,
+  MaterialAuthoringService,
+} from "./generated/platform-api";
 import {
   executeGeneratedRequest,
   type BackendTransportResult,
 } from "./transport-core.server";
 
+/** One page of the authoring corpus; every given filter narrows the same set and its totals. */
 export function requestAuthoringMaterials(
   query: {
     readonly page: number;
     readonly publicationState?: "draft" | "published" | "unpublished";
     readonly search?: string;
+    readonly topicId?: string;
+    readonly format?: MaterialFormat;
   },
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new MaterialAuthoringService(request).listAuthoringMaterials(query),
+      new MaterialAuthoringService(request).listAuthoringMaterials({
+        page: query.page,
+        ...(query.publicationState === undefined
+          ? {}
+          : { publicationState: query.publicationState }),
+        ...(query.search === undefined ? {} : { search: query.search }),
+        ...(query.topicId === undefined ? {} : { topicId: query.topicId }),
+        ...(query.format === undefined ? {} : { format: query.format }),
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+/**
+ * The authoring search: the groups the account may read, at most five hits each, a failed group
+ * as unavailable. An account that may read no group gets 403, never empty groups.
+ */
+export function requestAuthoringSearch(
+  query: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new AuthoringSearchService(request).searchAuthoring({ query }),
     200,
     { accessToken },
   );

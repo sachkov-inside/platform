@@ -1,7 +1,7 @@
 "use client";
 
 import { RotateCcw, Trash2 } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -16,10 +16,17 @@ interface DeletableVideo {
   readonly videoId: string;
 }
 
+/**
+ * Confirmation of a draft hard-delete. By default its own «Удалить черновик» button opens it. With
+ * `open` the caller opens it from elsewhere (a row menu of the Materials list) and learns about every
+ * close (Escape, «Оставить черновик») through `onOpenChange`; the dialog then renders no button.
+ */
 export function MaterialDeleteDialog({
   contentVersion,
   materialId,
   onDelete,
+  onOpenChange,
+  open,
   pending,
   primaryVideo = null,
   result,
@@ -29,6 +36,8 @@ export function MaterialDeleteDialog({
   readonly contentVersion: number;
   readonly materialId: string;
   readonly onDelete: (input: DeleteMaterialDraftInput) => void;
+  readonly onOpenChange?: (open: boolean) => void;
+  readonly open?: boolean;
   readonly pending: boolean;
   readonly primaryVideo?: DeletableVideo | null;
   readonly result: DeleteMaterialDraftResult | null;
@@ -36,6 +45,14 @@ export function MaterialDeleteDialog({
   readonly title: string | null;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  // A modal `<dialog>` opens only through `showModal()`: the effect keeps the element in step with
+  // the caller's `open`.
+  useEffect(() => {
+    const element = dialog.current;
+    if (open === undefined || element === null) return;
+    if (open && !element.open) element.showModal();
+    if (!open && element.open) element.close();
+  }, [open]);
   const [deleteOwnedVideo, setDeleteOwnedVideo] = useState(false);
   const dialogId = useId();
   const trimmedTitle = title?.trim();
@@ -48,24 +65,29 @@ export function MaterialDeleteDialog({
 
   return (
     <>
-      <Button
-        className="min-h-11"
-        onClick={() => {
-          setDeleteOwnedVideo(false);
-          dialog.current?.showModal();
-        }}
-        type="button"
-        variant="destructive"
-      >
-        <Trash2 aria-hidden="true" data-icon="inline-start" />
-        Удалить черновик
-      </Button>
+      {open === undefined ? (
+        <Button
+          className="min-h-11"
+          onClick={() => {
+            setDeleteOwnedVideo(false);
+            dialog.current?.showModal();
+          }}
+          type="button"
+          variant="destructive"
+        >
+          <Trash2 aria-hidden="true" data-icon="inline-start" />
+          Удалить черновик
+        </Button>
+      ) : null}
       <dialog
         aria-describedby={descriptionId}
         aria-labelledby={headingId}
         className="m-auto w-[min(34rem,calc(100%-2rem))] rounded-2xl border border-border bg-card p-0 text-foreground shadow-card backdrop:bg-foreground/45"
         onCancel={() => {
           dialog.current?.close();
+        }}
+        onClose={() => {
+          onOpenChange?.(false);
         }}
         ref={dialog}
       >

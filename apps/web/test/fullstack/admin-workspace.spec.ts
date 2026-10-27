@@ -15,25 +15,33 @@ test("admin workspace exposes every active task on desktop and phone through rea
   context,
 }, info) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/products");
+  await page.goto("/authoring");
+  await expect(page).toHaveURL(/\/authoring\/products$/u);
   const phone = (page.viewportSize()?.width ?? 1440) < 1024;
+  // На телефоне «Люди», «Продажи» и «Сдачи» стоят в нижней панели, остальное открывает «Ещё».
   const destinations = [
-    ["Материалы", "/authoring/materials"],
-    ["Темы", "/authoring/topics"],
-    ["Сдачи", "/authoring/submissions"],
-    ["Люди и доступ", "/authoring/access"],
-    ["Продажи и платежи", "/authoring/billing"],
-    ["Воронка продаж", "/authoring/sales-funnel"],
-    ["Продукты", "/authoring/products"],
+    ["Материалы", "/authoring/materials", "more"],
+    ["Темы", "/authoring/topics", "more"],
+    ["Сдачи", "/authoring/submissions", "dock"],
+    ["Люди", "/authoring/access", "dock"],
+    [phone ? "Продажи" : "Платежи", "/authoring/billing", "dock"],
+    ["Воронка продаж", "/authoring/sales-funnel", "more"],
+    ["Продукты", "/authoring/products", "more"],
   ] as const;
-  for (const [label, pathname] of destinations) {
-    if (phone)
-      await page.getByRole("button", { name: "Меню", exact: true }).click();
+  for (const [label, pathname, place] of destinations) {
+    const more = page.getByRole("button", { name: "Ещё", exact: true });
+    if (phone && place === "more") await more.click();
     const navigation = page.getByRole("navigation", {
-      name: phone ? "Редактор на мобильном" : "Редактор",
+      name: phone
+        ? place === "more"
+          ? "Другие разделы"
+          : "Основные разделы"
+        : "Разделы админки",
       exact: true,
     });
-    const link = navigation.getByRole("link", { name: label, exact: true });
+    const link = navigation.getByRole("link", {
+      name: new RegExp(`^${label}(?:, без комментария: \\d+)?$`, "u"),
+    });
     await expect(link).toBeVisible();
     await link.click();
     await expect(page).toHaveURL(new RegExp(`${pathname}(?:\\?.*)?$`, "u"));
@@ -42,10 +50,10 @@ test("admin workspace exposes every active task on desktop and phone through rea
     await expect(
       page.getByRole("main").getByRole("heading", { level: 1 }),
     ).toBeVisible();
-    if (phone)
-      await expect(
-        page.getByRole("button", { name: "Меню", exact: true }),
-      ).toHaveAttribute("aria-expanded", "false");
+    if (phone) {
+      await expect(more).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByRole("dialog", { name: "Ещё" })).toHaveCount(0);
+    }
     expect(
       await page.evaluate(
         () =>

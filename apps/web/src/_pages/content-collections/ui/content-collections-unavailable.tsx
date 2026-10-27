@@ -1,22 +1,33 @@
-/** Список тем или продуктов не прочитан: страница называет код обращения и просит обновить. */
+import { AdminErrorState, AdminListHeader } from "@/shared/ui/admin";
+import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
+
+import type { ContentCollectionKind } from "../model/content-collections";
+
+/**
+ * Список тем или продуктов не прочитан: заголовок списка остаётся, ниже причина, код обращения и
+ * повтор, который перечитывает страницу с сервера.
+ */
 export function ContentCollectionsUnavailable({
+  kind,
   reference,
 }: {
+  readonly kind: ContentCollectionKind;
   readonly reference: string;
 }) {
   return (
-    <main
-      className="grid min-h-svh place-items-center px-5"
-      id="authoring-content"
-      tabIndex={-1}
-    >
-      <div className="max-w-lg rounded-2xl bg-card p-7 text-center shadow-card">
-        <h1 className="text-2xl font-semibold">
-          Структура временно недоступна
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Обновите страницу. Код: {reference}
-        </p>
+    <main className="authoring-page" id="authoring-content" tabIndex={-1}>
+      <div className="authoring-page-body">
+        <AdminListHeader title={kind === "topic" ? "Темы" : "Продукты"} />
+        <AdminErrorState
+          description={
+            kind === "topic"
+              ? "Не удалось прочитать темы. Повторите через минуту; если не поможет, сообщите код обращения."
+              : "Не удалось прочитать продукты. Повторите через минуту; если не поможет, сообщите код обращения."
+          }
+          reference={reference}
+          retry={<RetryPageButton />}
+          title="Список временно недоступен"
+        />
       </div>
     </main>
   );

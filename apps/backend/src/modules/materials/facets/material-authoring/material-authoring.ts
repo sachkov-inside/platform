@@ -23,6 +23,10 @@ import type { DeleteDraftOperation } from "../../features/delete-draft/delete-dr
 import type { LoadMaterialOperation } from "../../features/load-material/load-material.contract.js";
 import type { ListAuthoringReferencesOperation } from "../../features/list-authoring-references/list-authoring-references.contract.js";
 import type { ListMaterialsOperation } from "../../features/list-materials/list-materials.contract.js";
+import type {
+  SearchAuthoringMaterialsOperation,
+  SearchAuthoringProductsOperation,
+} from "../../features/search-authoring-content/search-authoring-content.contract.js";
 import type { PreviewMaterialOperation } from "../../features/preview-material/preview-material.contract.js";
 import type { LoadSeriesOrderOperation } from "../../features/load-series-order/load-series-order.contract.js";
 import type { ReorderSeriesOperation } from "../../features/reorder-series/reorder-series.contract.js";
@@ -57,6 +61,10 @@ export interface MaterialAuthoring {
   readonly listReferences: ListAuthoringReferencesOperation;
   readonly listMaterials: ListMaterialsOperation;
   readonly listContentCollections: ListContentCollectionsOperation;
+  /** The Products group of the authoring search (#1720). */
+  readonly searchProducts: SearchAuthoringProductsOperation;
+  /** The Materials group of the authoring search (#1720). */
+  readonly searchMaterials: SearchAuthoringMaterialsOperation;
   readonly previewMaterial: PreviewMaterialOperation;
   readonly reorderSeries: ReorderSeriesOperation;
   readonly saveMaterial: SaveMaterialOperation;

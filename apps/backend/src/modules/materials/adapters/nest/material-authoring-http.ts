@@ -196,6 +196,13 @@ export const contentCollectionSchema = z
     introduction: productIntroductionSchema.nullable(),
     kind: contentCollectionKindSchema,
     materialCount: z.number().int().nonnegative(),
+    publishedMaterialCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe(
+        "Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials",
+      ),
     name: z.string().min(1).max(120),
     page: productPageSchema.nullable(),
     pageRejected: z.boolean(),
