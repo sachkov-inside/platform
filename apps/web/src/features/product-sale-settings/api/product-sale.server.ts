@@ -1,23 +1,25 @@
 import "server-only";
 
+import { z } from "zod";
+
 import {
+  billingFailureResponse,
   billingInvalidInput,
   executeBillingOperation,
+  loadProductSalesState,
+  loadProductSalesStates,
   ownerBillingCommand,
 } from "@/entities/subscription.server";
-import { productSalesStatesSchema } from "@/entities/subscription";
+import { requestManageBilling } from "@/shared/api/backend/index.server";
 import {
-  requestManageBilling,
-  requestProductSalesStates,
-} from "@/shared/api/backend/index.server";
-import { handleMutationOperation } from "@/shared/auth/index.server";
+  handleAuthenticatedRead,
+  handleMutationOperation,
+} from "@/shared/auth/index.server";
 
 import { CATALOG_PRICES_PAGE_SIZE, ownerPriceOf } from "../model/product-sale";
 import { archiveProductPriceOperation } from "./archive-product-price.operation";
 import { listOwnerProductPricesOperation } from "./list-owner-product-prices.operation";
-import { listProductSalesStatesOperation } from "./list-product-sales-states.operation";
 import { readOwnerProductPriceOperation } from "./read-owner-product-price.operation";
-import { readProductSalesStateOperation } from "./read-product-sales-state.operation";
 import { saveProductPriceOperation } from "./save-product-price.operation";
 import { saveProductSalesStateOperation } from "./save-product-sales-state.operation";
 
@@ -55,33 +57,6 @@ export function handleReadOwnerProductPrice(
   });
 }
 
-/** Состояние продажи одного продукта: публичное чтение backend без кеша, только для владельца. */
-export function handleReadProductSalesState(
-  request: Request,
-): Promise<Response> {
-  return handleMutationOperation(request, readProductSalesStateOperation, {
-    invalidInput: billingInvalidInput,
-    execute: async ({ productId }) => {
-      try {
-        const result = await requestProductSalesStates(productId);
-        if (!result.ok) return { ok: false, code: "unavailable" };
-        const parsed = productSalesStatesSchema.safeParse(result.body);
-        if (!parsed.success) return { ok: false, code: "unavailable" };
-        return {
-          ok: true,
-          value: {
-            salesState:
-              parsed.data.items.find((item) => item.productId === productId) ??
-              null,
-          },
-        };
-      } catch {
-        return { ok: false, code: "unavailable" };
-      }
-    },
-  });
-}
-
 /** Страница цен всех продуктов владельца: одно чтение `productPrices.list` без продукта. */
 export function handleListOwnerProductPrices(
   request: Request,
@@ -98,24 +73,36 @@ export function handleListOwnerProductPrices(
   );
 }
 
-/** Страница публичных состояний продажи всех продуктов: чтение backend без кеша, для владельца. */
-export function handleListProductSalesStates(
+const productSalesStatesQuerySchema = z.strictObject({
+  productId: z.uuid().optional(),
+});
+
+/**
+ * Публичные состояния продажи для владельца без общего кеша: все страницы каталога или, с
+ * `?productId=`, запись одного продукта. Чтение требует сессии, ответ личный и не хранится.
+ */
+export function handleReadProductSalesStates(
   request: Request,
 ): Promise<Response> {
-  return handleMutationOperation(request, listProductSalesStatesOperation, {
-    invalidInput: billingInvalidInput,
-    execute: async ({ cursor }) => {
-      try {
-        const result = await requestProductSalesStates(undefined, cursor);
-        if (!result.ok) return { ok: false, code: "unavailable" };
-        const parsed = productSalesStatesSchema.safeParse(result.body);
-        return parsed.success
-          ? { ok: true, value: parsed.data }
-          : { ok: false, code: "unavailable" };
-      } catch {
-        return { ok: false, code: "unavailable" };
-      }
-    },
+  return handleAuthenticatedRead(async () => {
+    const query = productSalesStatesQuerySchema.safeParse(
+      Object.fromEntries(new URL(request.url).searchParams),
+    );
+    if (!query.success) return billingFailureResponse("invalid_request", 400);
+    const productId = query.data.productId;
+    if (productId === undefined) {
+      const result = await loadProductSalesStates();
+      return result.kind === "ready"
+        ? Response.json({ ok: true, value: result.cohorts })
+        : billingFailureResponse("unavailable", 502);
+    }
+    const result = await loadProductSalesState(productId);
+    return result.kind === "ready"
+      ? Response.json({
+          ok: true,
+          value: result.cohort === null ? [] : [result.cohort],
+        })
+      : billingFailureResponse("unavailable", 502);
   });
 }
 

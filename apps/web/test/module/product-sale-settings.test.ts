@@ -4,7 +4,9 @@ const fakes = vi.hoisted(() => ({
   token: vi.fn<() => Promise<string>>(),
   manage: vi.fn(),
   salesStates: vi.fn(),
+  LogtoSessionUnavailableError: class extends Error {},
 }));
+const { LogtoSessionUnavailableError } = fakes;
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestManageBilling: fakes.manage,
   requestProductSalesStates: fakes.salesStates,
@@ -14,15 +16,14 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
     accessToken: () => fakes.token(),
     baseUrl: () => "https://inside.example.test",
   },
-  LogtoSessionUnavailableError: class extends Error {},
+  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
 }));
 
 import * as readPriceRoute from "../../app/api/authoring/billing/product-prices/read/route";
 import * as savePriceRoute from "../../app/api/authoring/billing/product-prices/save/route";
 import * as archivePriceRoute from "../../app/api/authoring/billing/product-prices/archive/route";
-import * as readStateRoute from "../../app/api/authoring/billing/product-sales-states/read/route";
 import * as listPricesRoute from "../../app/api/authoring/billing/product-prices/list/route";
-import * as listStatesRoute from "../../app/api/authoring/billing/product-sales-states/list/route";
+import * as salesStatesRoute from "../../app/api/authoring/billing/product-sales-states/route";
 import * as saveStateRoute from "../../app/api/authoring/billing/product-sales-states/save/route";
 import { archiveProductPriceOperation } from "@/features/product-sale-settings/api/archive-product-price.operation";
 import { saveProductPriceOperation } from "@/features/product-sale-settings/api/save-product-price.operation";
@@ -118,10 +119,9 @@ const routes = {
   "/api/authoring/billing/product-prices/read": readPriceRoute,
   "/api/authoring/billing/product-prices/save": savePriceRoute,
   "/api/authoring/billing/product-prices/archive": archivePriceRoute,
-  "/api/authoring/billing/product-sales-states/read": readStateRoute,
+  "/api/authoring/billing/product-sales-states": salesStatesRoute,
   "/api/authoring/billing/product-sales-states/save": saveStateRoute,
   "/api/authoring/billing/product-prices/list": listPricesRoute,
-  "/api/authoring/billing/product-sales-states/list": listStatesRoute,
 };
 
 beforeEach(() => {
@@ -357,6 +357,43 @@ describe("маршруты продажи", () => {
       "owner-token",
     );
     expect(fakes.salesStates).toHaveBeenCalledWith(productId);
+  });
+
+  it("состояния продажи читаются GET без кеша, а без сессии и с неверным продуктом не читаются", async () => {
+    fakes.salesStates.mockResolvedValue(
+      ok({ items: [salesState], nextCursor: null }),
+    );
+    const read = await salesStatesRoute.GET(
+      new Request(
+        `https://inside.example.test/api/authoring/billing/product-sales-states?productId=${productId}`,
+      ),
+    );
+    expect(read.status).toBe(200);
+    expect(read.headers.get("cache-control")).toBe("no-store, private");
+    expect(await read.json()).toEqual({ ok: true, value: [salesState] });
+    expect(fakes.salesStates).toHaveBeenCalledWith(productId);
+
+    fakes.salesStates.mockClear();
+    const invalid = await salesStatesRoute.GET(
+      new Request(
+        "https://inside.example.test/api/authoring/billing/product-sales-states?productId=1718",
+      ),
+    );
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toEqual({
+      ok: false,
+      code: "invalid_request",
+    });
+    expect(fakes.salesStates).not.toHaveBeenCalled();
+
+    fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+    const signedOut = await salesStatesRoute.GET(
+      new Request(
+        "https://inside.example.test/api/authoring/billing/product-sales-states",
+      ),
+    );
+    expect(signedOut.status).toBe(401);
+    expect(fakes.salesStates).not.toHaveBeenCalled();
   });
 
   it("продукт без цены и без состояния продажи читается как пустой, а не как сбой", async () => {

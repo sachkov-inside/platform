@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { PriceSnapshot, ProductSalesState } from "@/entities/subscription";
 
 import { listOwnerProductPricesOperation } from "../api/list-owner-product-prices.operation";
-import { listProductSalesStatesOperation } from "../api/list-product-sales-states.operation";
+import { readProductSalesStates } from "../api/product-sales-states.browser";
 import {
   CATALOG_SALE_PAGES_LIMIT,
   catalogSaleQueryKey,
@@ -56,15 +56,10 @@ export async function readCatalogSalesStates(): Promise<ReadonlyMap<
   string,
   ProductSalesState
 > | null> {
-  const items = await readAllPages<ProductSalesState>(async (cursor) => {
-    const result = await listProductSalesStatesOperation.send(
-      cursor === undefined ? {} : { cursor },
-    );
-    return result.ok ? result.value : null;
-  });
-  return items === null
-    ? null
-    : new Map(items.map((state) => [state.productId, state]));
+  const result = await readProductSalesStates();
+  return result.ok
+    ? new Map(result.value.map((state) => [state.productId, state]))
+    : null;
 }
 
 /**

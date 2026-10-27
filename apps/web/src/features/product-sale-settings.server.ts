@@ -1,9 +1,8 @@
 export {
   handleArchiveProductPrice,
   handleListOwnerProductPrices,
-  handleListProductSalesStates,
   handleReadOwnerProductPrice,
-  handleReadProductSalesState,
+  handleReadProductSalesStates,
   handleSaveProductPrice,
   handleSaveProductSalesState,
 } from "./product-sale-settings/api/product-sale.server";

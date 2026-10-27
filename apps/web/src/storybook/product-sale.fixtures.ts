@@ -219,7 +219,9 @@ export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
     const command = commandSchema.parse(
       typeof init?.body === "string" ? JSON.parse(init.body) : {},
     );
-    if (options.pending === true && path.endsWith("/read"))
+    const salesStatesRead =
+      path === "/api/authoring/billing/product-sales-states";
+    if (options.pending === true && (path.endsWith("/read") || salesStatesRead))
       return new Promise<Response>(() => undefined);
     if (path === "/api/authoring/billing/product-prices/read")
       return options.readFailure === undefined
@@ -232,8 +234,7 @@ export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
             },
           })
         : refused(options.readFailure);
-    if (path === "/api/authoring/billing/product-sales-states/read")
-      return ok({ salesState });
+    if (salesStatesRead) return ok(salesState === null ? [] : [salesState]);
     if (path === "/api/authoring/billing/product-prices/save") {
       if (conflict || command.expectedRevision !== price?.revision) {
         conflict = false;
@@ -291,7 +292,7 @@ export interface CatalogSaleFake {
 }
 
 /**
- * Ответ BFF продаж каталога для списка продуктов (`product-prices/list`, `product-sales-states/list`);
+ * Ответ BFF продаж каталога для списка продуктов (`product-prices/list`, `product-sales-states`);
  * `null`, когда запрос не к ним. Каталог помещается в одну страницу.
  */
 export function catalogSaleResponse(
@@ -304,12 +305,12 @@ export function catalogSaleResponse(
   ).pathname;
   if (
     path !== "/api/authoring/billing/product-prices/list" &&
-    path !== "/api/authoring/billing/product-sales-states/list"
+    path !== "/api/authoring/billing/product-sales-states"
   )
     return null;
   if (fake.pending === true) return new Promise<Response>(() => undefined);
-  if (path === "/api/authoring/billing/product-sales-states/list")
-    return Promise.resolve(ok({ items: fake.salesStates, nextCursor: null }));
+  if (path === "/api/authoring/billing/product-sales-states")
+    return Promise.resolve(ok(fake.salesStates));
   if (fake.pricesFailure !== undefined)
     return Promise.resolve(refused(fake.pricesFailure));
   return Promise.resolve(

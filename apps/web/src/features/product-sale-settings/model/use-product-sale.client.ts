@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { BillingFailureCode } from "@/entities/subscription";
 
 import { readOwnerProductPriceOperation } from "../api/read-owner-product-price.operation";
-import { readProductSalesStateOperation } from "../api/read-product-sales-state.operation";
+import { readProductSalesStates } from "../api/product-sales-states.browser";
 import {
   ownerPriceOf,
   productSaleQueryKey,
@@ -28,13 +28,17 @@ export async function readProductSale(
       operationId: crypto.randomUUID(),
       productId,
     }),
-    readProductSalesStateOperation.send({ productId }),
+    readProductSalesStates(productId),
   ]);
   if (!price.ok) throw new ProductSaleReadError(price.code);
   const own = ownerPriceOf(price.value.result.items, productId);
   if (!own.ok) throw new ProductSaleReadError("unavailable");
   if (!state.ok) throw new ProductSaleReadError(state.code);
-  return { price: own.price, salesState: state.value.salesState };
+  return {
+    price: own.price,
+    salesState:
+      state.value.find((item) => item.productId === productId) ?? null,
+  };
 }
 
 export function useProductSale(productId: string) {

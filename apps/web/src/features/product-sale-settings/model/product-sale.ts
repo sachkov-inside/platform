@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   cohortStageSchema,
   priceSnapshotSchema,
-  productSalesStatesSchema,
   type BillingFailureCode,
   type CohortStage,
   type PriceSnapshot,
@@ -34,14 +33,6 @@ export const ownerProductPriceOutcomeSchema = z.object({
   }),
 });
 
-export const readProductSalesStateInputSchema = z.strictObject({
-  productId: z.uuid(),
-});
-/** Публичное чтение backend отдаёт страницу; маршрут оставляет только запись этого продукта. */
-export const productSalesStateOutcomeSchema = z.object({
-  salesState: productSalesStatesSchema.shape.items.element.nullable(),
-});
-
 /**
  * Продажи всего каталога для списка продуктов: страница цен владельца (`productPrices.list` без
  * продукта) и страница публичных состояний продажи. Обе идут по продуктам и продолжаются курсором.
@@ -59,9 +50,6 @@ export const CATALOG_SALE_PAGES_LIMIT = 20;
 
 export const listOwnerProductPricesInputSchema = z.strictObject({
   operationId,
-  cursor: z.uuid().optional(),
-});
-export const listProductSalesStatesInputSchema = z.strictObject({
   cursor: z.uuid().optional(),
 });
 
