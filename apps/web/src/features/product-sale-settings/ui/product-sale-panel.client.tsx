@@ -433,7 +433,7 @@ function PriceBlock({
     price?.priceKopecks ?? null,
   );
   const [error, setError] = useState<string>();
-  const unchanged = price !== null && kopecks === price.priceKopecks;
+  const unchanged = kopecks === price?.priceKopecks;
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending || conflict) return;
@@ -638,15 +638,15 @@ function PriceAfterStartField({
         error={error ?? ""}
         hint="Страница продукта покажет её зачёркнутой рядом с ценой предзаказа. Списание идёт по цене продукта: в день старта поменяйте её в блоке «Цена». Пустое поле: не показывать."
         label="Цена после старта"
-        onChange={ignoreAmount}
+        onChange={(kopecks) => {
+          // Пустой и нечитаемый текст различает обёртка выше; верная сумма приходит и отсюда.
+          if (kopecks !== null) onChange(kopecks, false);
+        }}
         valueKopecks={valueKopecks}
       />
     </div>
   );
 }
-
-/** Значение поля читает обёртка: так пустой и нечитаемый текст различаются. */
-function ignoreAmount(): void {}
 
 function SaleSwitchBlock({
   price,

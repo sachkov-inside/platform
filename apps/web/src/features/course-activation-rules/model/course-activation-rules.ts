@@ -101,22 +101,23 @@ export function newActivationRuleErrors(
 /** Причина, с которой записывается смена публикации существующего правила. */
 export const publicationToggleReason = "Изменение публикации владельцем";
 
+const activationRuleFailureMessages: Partial<
+  Record<BillingFailureCode, string>
+> = {
+  revision_conflict:
+    "Правило изменилось в другом месте. Обновите данные и проверьте его.",
+  operation_conflict:
+    "Правило с таким кодом или идентификатором уже есть. Обновите данные.",
+  invalid_request: "Проверьте название, код, источник и причину.",
+  not_found: "Продукт не найден. Обновите страницу.",
+  forbidden: "У вас нет права менять правила активации.",
+  unauthorized: "Сессия завершилась. Войдите снова.",
+};
+
 /** Отказ команды правил словами владельца; конфликт ревизии ведёт к перечитыванию, а не к повтору. */
 export function activationRuleFailureMessage(code: BillingFailureCode): string {
-  switch (code) {
-    case "revision_conflict":
-      return "Правило изменилось в другом месте. Обновите данные и проверьте его.";
-    case "operation_conflict":
-      return "Правило с таким кодом или идентификатором уже есть. Обновите данные.";
-    case "invalid_request":
-      return "Проверьте название, код, источник и причину.";
-    case "not_found":
-      return "Продукт не найден. Обновите страницу.";
-    case "forbidden":
-      return "У вас нет права менять правила активации.";
-    case "unauthorized":
-      return "Сессия завершилась. Войдите снова.";
-    default:
-      return "Правила активации сейчас недоступны. Повторите позже.";
-  }
+  return (
+    activationRuleFailureMessages[code] ??
+    "Правила активации сейчас недоступны. Повторите позже."
+  );
 }
