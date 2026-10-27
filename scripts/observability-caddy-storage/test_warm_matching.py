@@ -170,3 +170,36 @@ class WarmMatching(unittest.TestCase):
         with patch.object(scenario.mcp_snapshot,'session',ready),patch.object(experiment,'fresh_after',side_effect=baseline_read),patch.object(experiment,'seed',return_value=98),patch.object(experiment,'snapshot',side_effect=snapshot):
             experiment.partition(90)
         self.assertEqual(events,['native_ready','baseline','canonical','mcp_same_E','native_closed'])
+
+        # A published Docker port can close before Caddy has an HTTP listener.
+        # No response is admitted into the journal; only the later whole200 is.
+        import http.client
+        success={'started':100,'completed':100.1,'method':'GET','code':200}
+        progress=[]
+        startup=scenario.Scenario(None,'owned_token',Path('/unused'),lambda kind,value:progress.append((kind,value)))
+        with patch.object(scenario.traffic,'perform',side_effect=[http.client.RemoteDisconnected('private-canary'),success]):
+            self.assertEqual(startup.ready(_recovery=True),success)
+        self.assertEqual(len(startup.journal._windows),1)
+        self.assertIn(('recovery_checkpoint','gateway_recovery_eof'),progress)
+        self.assertNotIn('private-canary',str(progress))
+        class ForeignEOF(http.client.RemoteDisconnected):pass
+        for failure in (ValueError('private-contract'),http.client.IncompleteRead(b'private'),
+                        http.client.BadStatusLine('private'),ConnectionResetError('private'),ForeignEOF('private')):
+            with self.subTest(failure=type(failure).__name__):
+                def broken_marker(*_):raise RuntimeError('private-marker')
+                startup=scenario.Scenario(None,'owned_token',Path('/unused'),broken_marker)
+                with patch.object(scenario.traffic,'perform',side_effect=failure):
+                    with self.assertRaises(type(failure)) as caught:startup.ready(_recovery=True)
+                self.assertIs(caught.exception,failure)
+                self.assertEqual(startup.journal._windows,[])
+        from test_request_hold import peer
+        original=scenario.traffic.perform
+        for code,body in ((500,None),(200,b'not-json')):
+            with peer(status=code,body=body) as (port,_,_):
+                startup=scenario.Scenario(None,'owned_token',Path('/unused'),lambda *_:None)
+                def response(case,token):
+                    return original(case,token,_connection=http.client.HTTPConnection('127.0.0.1',port,timeout=3))
+                with patch.object(scenario.traffic,'perform',side_effect=response) as call:
+                    with self.assertRaises(ValueError):startup.ready(_recovery=True)
+                self.assertEqual(call.call_count,1)
+                self.assertEqual(startup.journal._windows,[])

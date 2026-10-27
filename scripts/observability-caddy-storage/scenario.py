@@ -1,5 +1,6 @@
 """Linux-only genuine Caddy scenario. Protocol fixtures cannot establish native acceptance."""
 import math
+import http.client
 import time
 import accounting
 import artifact
@@ -47,6 +48,10 @@ class Scenario:
 
     def _inflight_checkpoint(self,name):self.progress('inflight_checkpoint',name)
 
+    def _recovery_checkpoint(self,name):
+        try:self.progress('recovery_checkpoint',name)
+        except Exception:pass  # Optional diagnostics cannot block service restoration or replace its failure.
+
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
@@ -66,10 +71,25 @@ class Scenario:
         self.journal.record(value['started'],value['completed'],value['method'],value['code'])
         return value
 
-    def ready(self):
+    def ready(self,*,_recovery=False):
         def read():
+            if _recovery:self._recovery_checkpoint('gateway_recovery_ready')
             try:return self._one('recovery')
-            except ConnectionRefusedError:return None  # No accepted HTTP request; no counter admission inferred.
+            except ConnectionRefusedError:
+                if _recovery:self._recovery_checkpoint('gateway_recovery_refused')
+                return None  # No accepted HTTP request; no counter admission inferred.
+            except http.client.RemoteDisconnected as error:
+                if type(error) is not http.client.RemoteDisconnected:raise
+                if _recovery:self._recovery_checkpoint('gateway_recovery_eof')
+                # Docker may accept the published socket before Caddy can answer HTTP.
+                # No response/counter admission is invented; native comparisons stay strict.
+                return None
+            except BaseException as error:
+                if _recovery:
+                    phase={ConnectionResetError:'gateway_recovery_reset',TimeoutError:'gateway_recovery_timeout',
+                           ValueError:'gateway_recovery_contract'}.get(type(error),'gateway_recovery_other')
+                    self._recovery_checkpoint(phase)
+                raise
         return self._until(read,lambda value:value is not None and value['code']==200)
 
     def seed(self):
@@ -244,9 +264,12 @@ class Scenario:
             self.passed('gateway_unavailable')
         except BaseException as error:
             self.failed(error);raise
-        finally:self.targets.change('gateway','start')
-        self.ready()
+        finally:
+            try:self._recovery_checkpoint('gateway_recovery_start')
+            finally:self.targets.change('gateway','start')
+        self.ready(_recovery=True)
         recovered=self.seed()  # Restarted native counters/groups are lazy and must all be reseeded.
+        self._recovery_checkpoint('gateway_recovery_fresh')
         self.fresh_after(recovered)
         self.phase('alloy_stale')
         self.targets.change('alloy','stop')
