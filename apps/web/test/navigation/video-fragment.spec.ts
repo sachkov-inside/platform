@@ -167,6 +167,7 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
               },
               getDuration: () => Promise.resolve(600),
               on: () => undefined,
+              off: () => undefined,
               seekTo: (seconds: number) => {
                 ledger.push({ seek: seconds, live: location.href });
                 iframe.dataset["seekSeconds"] = String(seconds);
@@ -280,7 +281,7 @@ for (const failed of [false, true]) {
           body: "<title>Test video</title>",
         }),
       );
-      await page.addInitScript(() => {
+      await page.addInitScript((holdDuration: boolean) => {
         Object.defineProperty(window, "Kinescope", {
           value: {
             IframePlayer: {
@@ -291,6 +292,7 @@ for (const failed of [false, true]) {
                 mount.append(iframe);
                 let duration = 0;
                 let durationReads = 0;
+                let releaseDuration: ((value: number) => void) | undefined;
                 const listeners = new Map<string, () => void>();
                 const player = {
                   Events: {
@@ -308,6 +310,10 @@ for (const failed of [false, true]) {
                   getDuration: () => {
                     iframe.dataset["durationRequested"] = "true";
                     iframe.dataset["durationReads"] = String(++durationReads);
+                    if (holdDuration)
+                      return new Promise<number>((resolve) => {
+                        releaseDuration = resolve;
+                      });
                     return Promise.resolve(duration);
                   },
                   on: (event: string, listener: () => void) => {
@@ -327,6 +333,7 @@ for (const failed of [false, true]) {
                   value: (phase: "loaded" | "duration" | "error") => {
                     if (phase === "duration") duration = 600;
                     listeners.get(phase)?.();
+                    if (phase === "error") releaseDuration?.(0);
                   },
                 });
                 return Promise.resolve(player);
@@ -334,7 +341,7 @@ for (const failed of [false, true]) {
             },
           },
         });
-      });
+      }, failed);
       await page.goto("/materials/navigation-video-fragment#t=3");
       const frame = page.locator("[data-video-player-mount] iframe");
       await expect(frame).toHaveAttribute("data-duration-requested", "true");
@@ -343,7 +350,7 @@ for (const failed of [false, true]) {
         await page.evaluate(() => {
           window.__releaseVideoMetadata("loaded");
         });
-        await expect(frame).toHaveAttribute("data-duration-reads", "3");
+        await expect(frame).toHaveAttribute("data-duration-reads", "2");
       }
       await page.evaluate((failed) => {
         window.__releaseVideoMetadata(failed ? "error" : "duration");

@@ -189,47 +189,45 @@ export function MaterialPrimaryVideo({
         );
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
-        let metadataDuration = await player.getDuration();
-        if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
-          await new Promise<void>((resolve, reject) => {
-            let settled = false;
-            const finish = (error?: Error) => {
-              if (settled) return;
-              settled = true;
-              player.off(player.Events.Loaded, readDuration);
-              player.off(player.Events.DurationChange, readDuration);
-              player.off(player.Events.Error, onError);
-              cancelMetadataWait = undefined;
-              if (error === undefined) resolve();
-              else reject(error);
-            };
-            const onError = () => {
-              finish(new Error("Video metadata failed"));
-            };
-            const readDuration = () => {
-              void player.getDuration().then((value) => {
-                if (Number.isFinite(value) && value > 0) {
-                  metadataDuration = value;
-                  finish();
-                }
-              }, onError);
-            };
-            player.on(player.Events.Loaded, readDuration);
-            player.on(player.Events.DurationChange, readDuration);
-            player.on(player.Events.Error, onError);
-            cancelMetadataWait = () => {
-              finish();
-            };
-            // Recheck after subscribing: Loaded can precede a positive duration.
-            readDuration();
-          });
-        }
+        let metadataDuration = 0;
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            player.off(player.Events.Loaded, readDuration);
+            player.off(player.Events.DurationChange, readDuration);
+            player.off(player.Events.Error, onError);
+            cancelMetadataWait = undefined;
+            if (error === undefined) resolve();
+            else reject(error);
+          };
+          const onError = () => {
+            finish(new Error("Video metadata failed"));
+          };
+          const readDuration = () => {
+            if (settled) return;
+            void player.getDuration().then((value) => {
+              if (!settled && Number.isFinite(value) && value > 0) {
+                metadataDuration = value;
+                finish();
+              }
+            }, onError);
+          };
+          player.on(player.Events.Loaded, readDuration);
+          player.on(player.Events.DurationChange, readDuration);
+          player.on(player.Events.Error, onError);
+          cancelMetadataWait = () => {
+            finish();
+          };
+          // Subscribe before reading: Loaded can precede a positive duration.
+          readDuration();
+        });
         if (!isActive()) return;
         if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
           throw new Error("Video duration is unavailable");
         }
         const duration = Math.max(1, Math.round(metadataDuration));
-        if (!isActive()) return;
         const playbackProgress = resolveVideoPlaybackProgress(
           savedPositionSeconds,
           duration,

@@ -2382,6 +2382,7 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
               // Match the authoritative duration returned by the local test Video provider.
               getDuration: () => Promise.resolve(600),
               on: () => undefined,
+              off: () => undefined,
               seekTo: (seconds: number) => {
                 if (sessionStorage.getItem("test-player-defer-seek") === "1") {
                   sessionStorage.removeItem("test-player-defer-seek");
