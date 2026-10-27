@@ -1,53 +1,5 @@
 [
   {
-    "file": "live-people-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/people",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-person-card-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/people/d1210000-0000-4000-8000-000000000001",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-payments-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/sales/payments",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-payments-fulfillment-incomplete-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/sales/payments?state=confirmed&fulfillment=incomplete",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-materials-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/materials",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-submissions-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/submissions",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
     "file": "live-overview-mobile-chromium.png",
     "project": "mobile-chromium",
     "url": "/authoring",
@@ -80,6 +32,22 @@
     "axeViolations": 0
   },
   {
+    "file": "live-people-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/people",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-person-card-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/people/d1210000-0000-4000-8000-000000000001",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
     "file": "live-product-overview-mobile-chromium.png",
     "project": "mobile-chromium",
     "url": "/authoring/products/c0110000-0000-4000-8000-000000000001",
@@ -107,6 +75,38 @@
     "file": "live-product-learners-mobile-chromium.png",
     "project": "mobile-chromium",
     "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payments-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/payments",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-payments-fulfillment-incomplete-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/sales/payments?state=confirmed&fulfillment=incomplete",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-materials-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/materials",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-submissions-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/submissions",
     "scrollWidth": 390,
     "clientWidth": 390,
     "axeViolations": 0
