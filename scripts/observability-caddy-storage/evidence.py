@@ -44,10 +44,12 @@ RECOVERY_PHASES = ('gateway_recovery_start','gateway_recovery_ready','gateway_re
                    'gateway_recovery_contract','gateway_recovery_other','gateway_recovery_fresh')
 RESET_PHASES = ('reset_load','reset_old_fresh','reset_stop','reset_start','reset_ready',
                 'reset_mcp_open','reset_new_fresh','reset_compare')
+MCP_STARTUP_PHASES = tuple('mcp_'+phase+'_'+step for phase in ('initialize','discovery')
+                          for step in ('write','wait','decode','eof','deadline')) + ('mcp_initialized_write',)
 
 PHASES = ('acquisition', 'ownership', 'identity', 'seed', 'partition',
           'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps', 'mcp_evaluate', 'mcp_compare',
-          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES + MCP_COMPARE_PHASES + INFLIGHT_PHASES + RECOVERY_PHASES + RESET_PHASES
+          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES + MCP_COMPARE_PHASES + INFLIGHT_PHASES + RECOVERY_PHASES + RESET_PHASES + MCP_STARTUP_PHASES
 FAILURES = ('contract', 'timeout', 'transport', 'budget', 'unknown', 'command_exit', 'command_timeout',
             'authority_refusal', 'http_eof', 'http_reset', 'http_body', 'http_status', 'host_io', 'runtime')
 

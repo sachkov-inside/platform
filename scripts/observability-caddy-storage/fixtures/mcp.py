@@ -17,6 +17,7 @@ if os.environ.get('CADDY_TEST_CASE') in ('timeout','interruption','early_exit'):
 for line in sys.stdin:
     request=json.loads(line);identifier=request.get('id')
     if identifier is None: continue
+    if os.environ.get('CADDY_TEST_STARTUP')==('initialize_eof' if identifier==1 else 'discovery_eof' if identifier==2 else ''):sys.exit(3)
     # Public v1.20.2 producer/SDK contract shape, not captured native metadata.
     if identifier==1: result={'protocolVersion':'2024-11-05','capabilities':{},'serverInfo':{'name':'fixture','version':'1'},'instructions':'Controlled public protocol fixture metadata.'}
     elif identifier==2:
@@ -572,6 +573,7 @@ for line in sys.stdin:
     else:
         body_key='CADDY_TEST_TIMESTAMP_FILE' if identifier==4 and 'CADDY_TEST_TIMESTAMP_FILE' in os.environ else 'CADDY_TEST_BODY_FILE'
         result={'content':[{'type':'text','text':Path(os.environ[body_key]).read_text() if body_key in os.environ else 'caddy_http_requests_total'}]}
+    if identifier in (1,2) and os.environ.get('CADDY_TEST_STARTUP')==('initialize_contract' if identifier==1 else 'discovery_contract'):result['private']='private-caddy-sentinel'
     raw=json.dumps({'jsonrpc':'2.0','id':identifier,'result':result})
     if os.environ.get('CADDY_TEST_BAD')=='duplicate' and identifier==3:
         raw=raw.replace('"id": 3','"id":3,"i\\u0064":3')
