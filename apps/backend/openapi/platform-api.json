@@ -20334,9 +20334,11 @@
                     "type": "array"
                   },
                   "cursor": {
+                    "contentEncoding": "base64url",
+                    "format": "base64url",
                     "maxLength": 1024,
                     "minLength": 1,
-                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$",
                     "type": "string"
                   },
                   "limit": {
@@ -22497,9 +22499,11 @@
             "name": "cursor",
             "required": false,
             "schema": {
+              "contentEncoding": "base64url",
+              "format": "base64url",
               "maxLength": 1024,
               "minLength": 1,
-              "pattern": "^[A-Za-z0-9_-]+$",
+              "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$",
               "type": "string"
             }
           },
