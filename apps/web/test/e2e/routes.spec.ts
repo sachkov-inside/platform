@@ -545,7 +545,7 @@ test("sales funnel report asks a signed-out visitor to sign in inside the author
   );
   await expect(
     signIn.locator("xpath=ancestor::form").locator("input[name=returnTo]"),
-  ).toHaveValue("/authoring/sales-funnel");
+  ).toHaveValue("/authoring/sales/funnel");
   if (navigationMode(testInfo.project.name) === "desktop")
     await expect(
       page
