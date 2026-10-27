@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { BillingPricing } from "../../../billing/index.js";
-import type { ProductDirectory } from "../../../materials/index.js";
+import type { ProductDirectory } from "../../../products/index.js";
 import type { ProductWaitlists } from "../../../sales-funnel/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";

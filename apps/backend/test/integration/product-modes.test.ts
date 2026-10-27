@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
@@ -333,7 +333,7 @@ describe("Product modes and lesson facts", () => {
       difficulty: "basic" as const,
       formatId: "guide" as const,
       outcomes: ["Единственный пункт"],
-      seriesIds: [],
+      productIds: [],
       summary: "Обещание из одного пункта — это не список.",
       tagIds: [],
       title: "Один пункт",
@@ -408,7 +408,7 @@ describe("Product modes and lesson facts", () => {
         difficulty,
         formatId: "guide",
         outcomes,
-        seriesIds: [productId],
+        productIds: [productId],
         summary: `${title} для проверки режимов.`,
         tagIds: [],
         title,

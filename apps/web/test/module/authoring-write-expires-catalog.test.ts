@@ -116,7 +116,7 @@ describe("an authoring write expires the public catalog cache", () => {
     ["a reader's own write", "/api/reading-progress/state"],
     [
       "a billing command outside offers: prices never enter the shared cache",
-      "/api/authoring/billing/cohorts/save",
+      "/api/authoring/billing/product-sales-states/save",
     ],
   ])("keeps the catalog after %s", async (_name, path) => {
     await serve(mutation(path), () => Promise.resolve({ ok: true }));

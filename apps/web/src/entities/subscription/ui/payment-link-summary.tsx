@@ -53,7 +53,7 @@ export function PaymentLinkSummary({
           <p>
             {terms.supportMonths === undefined
               ? "Сопровождение не входит."
-              : `Сопровождение автора — ${term(terms.supportMonths)}.`}{" "}
+              : "Сопровождение автора по условиям оферты."}{" "}
             {terms.chatMonths === undefined
               ? "Чат продукта не входит."
               : "Окончание сопровождения не сокращает срок материалов и чата."}

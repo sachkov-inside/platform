@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -18,7 +19,7 @@ import {
 } from "../../src/infrastructure/object-storage/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { objectStorageConformance } from "../support/object-storage-conformance.js";
 import {
   createMigratedTestDatabase,
@@ -115,7 +116,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     await expect(assets.upload(input)).resolves.toEqual(uploaded);
     await expect(
-      assets.inspectReferences(database.prisma, materialId, [
+      assets.inspectReferences(transactionHandle(database.prisma), materialId, [
         { assetId: uploaded.value.assetId, kind: "file" },
       ]),
     ).resolves.toEqual({ ok: true, value: [] });
@@ -349,7 +350,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: null,

@@ -38,12 +38,12 @@ import {
   COMMUNICATIONS_VERSION,
   type CommunicationsRequest,
 } from "../../src/modules/communications/communications-contract.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import type {
-  FunnelDraft,
+  CommunicationSequenceDraft,
   MessagePart,
-} from "../../src/modules/communications/funnel-types.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
+} from "../../src/modules/communications/sequence-types.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { communicationLock } from "../../src/modules/communications/communication-state.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
@@ -53,7 +53,7 @@ import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
 import { required } from "../support/required.js";
 
-// A due funnel backlog for the whole audience must not delay a new /start: its processing and
+// A due sequence backlog for the whole audience must not delay a new /start: its processing and
 // its first reply stay within these bounds while the marketing worker drains the backlog.
 const AUDIENCE = 5000;
 const START_PROCESSING_LIMIT_MS = 1000;
@@ -98,7 +98,7 @@ const it = test.extend<{ load: Awaited<ReturnType<typeof createFixture>> }>({
     { auto: true },
   ],
 });
-const performanceTest = it.extend<{ audience: FunnelDraft }>({
+const performanceTest = it.extend<{ audience: CommunicationSequenceDraft }>({
   audience: async ({ load }, use) => {
     await use(await seedDueAudience(load.app));
   },
@@ -166,7 +166,7 @@ beforeAll(async () => {
   await migrateToLatest(database);
 });
 beforeEach(async () => {
-  await sql`truncate communication_funnels, communication_intro, communication_operations, telegram_transport_slots, telegram_transport_fairness, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
+  await sql`truncate communication_sequences, communication_intro, communication_operations, telegram_transport_slots, telegram_transport_fairness, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
     database,
   );
 });
@@ -217,11 +217,11 @@ function sentParts(parts: readonly MessagePart[], at: Date) {
 async function seedDueAudience(
   app: NestFastifyApplication,
   size = AUDIENCE,
-): Promise<FunnelDraft> {
-  const funnels = app.get(Funnels);
+): Promise<CommunicationSequenceDraft> {
+  const sequences = app.get(CommunicationSequences);
   const intro = [part("intro")];
-  const value: FunnelDraft = {
-    funnelId: randomUUID(),
+  const value: CommunicationSequenceDraft = {
+    sequenceId: randomUUID(),
     name: "general",
     isDefault: true,
     sources: [{ sourceId: randomUUID(), code: "m_general", name: "general" }],
@@ -231,19 +231,19 @@ async function seedDueAudience(
       { stepId: randomUUID(), delaySeconds: 60, parts: [part("step2")] },
     ],
   };
-  await funnels.execute(
+  await sequences.execute(
     command("intro.save", { introId: randomUUID(), parts: intro }),
   );
-  await funnels.execute(command("funnels.save", value));
-  await funnels.execute(
-    command("funnels.publish", { funnelId: value.funnelId }, 1),
+  await sequences.execute(command("sequences.save", value));
+  await sequences.execute(
+    command("sequences.publish", { sequenceId: value.sequenceId }, 1),
   );
   const enrolledAt = new Date(runtimeClock.now().getTime() - 3600_000);
   const due = new Date(runtimeClock.now().getTime() - 1000);
   const rows = Array.from({ length: size }, (_, i) => ({
     user: String(1_000_000 + i),
     contactId: randomUUID(),
-    enrollmentId: randomUUID(),
+    participationId: randomUUID(),
   }));
   for (let i = 0; i < rows.length; i += 1000) {
     const chunk = rows.slice(i, i + 1000);
@@ -273,13 +273,13 @@ async function seedDueAudience(
       )
       .execute();
     await database
-      .insertInto("communication_enrollments")
+      .insertInto("communication_participations")
       .values(
         chunk.map((r) => ({
-          enrollment_id: r.enrollmentId,
+          participation_id: r.participationId,
           contact_id: r.contactId,
-          funnel_id: value.funnelId,
-          enrolled_at: enrolledAt,
+          sequence_id: value.sequenceId,
+          participated_at: enrolledAt,
           initial_entry_key: `entry:inside:${r.user}`,
         })),
       )
@@ -301,7 +301,7 @@ async function seedDueAudience(
             delivery_id: randomUUID(),
             dedup_key: `intro:${r.contactId}`,
             contact_id: r.contactId,
-            funnel_id: null,
+            sequence_id: null,
             step_id: null,
             kind: "intro" as const,
             published_revision: 1,
@@ -315,7 +315,7 @@ async function seedDueAudience(
             delivery_id: randomUUID(),
             dedup_key: `entry:inside:${r.user}`,
             contact_id: r.contactId,
-            funnel_id: value.funnelId,
+            sequence_id: value.sequenceId,
             step_id: value.entryResponse.stepId,
             kind: "entry" as const,
             published_revision: 2,
@@ -327,9 +327,9 @@ async function seedDueAudience(
           {
             ...common,
             delivery_id: randomUUID(),
-            dedup_key: `step:${r.enrollmentId}:${required(value.steps[0]).stepId}`,
+            dedup_key: `step:${r.participationId}:${required(value.steps[0]).stepId}`,
             contact_id: r.contactId,
-            funnel_id: value.funnelId,
+            sequence_id: value.sequenceId,
             step_id: required(value.steps[0]).stepId,
             kind: "step" as const,
             published_revision: 2,
@@ -372,16 +372,16 @@ async function elapsed(
   }
 }
 
-describe("funnel dispatch performance", () => {
+describe("sequence dispatch performance", () => {
   // Preparing the corpus has its own setup budget, outside the measurement test.
-  beforeEach<{ audience: FunnelDraft }>(({ audience }) => {
+  beforeEach<{ audience: CommunicationSequenceDraft }>(({ audience }) => {
     expect(audience.steps).toHaveLength(2);
   }, 300_000);
   performanceTest(
-    `answers /start within bounds while a funnel dispatches to ${AUDIENCE} contacts`,
+    `answers /start within bounds while a sequence dispatches to ${AUDIENCE} contacts`,
     async ({ load }) => {
       const { app, sent, dispatchStarted, replyReceived } = load;
-      const scheduler = app.get(FunnelScheduler);
+      const scheduler = app.get(SequenceScheduler);
       const worker = new WorkerLoop(
         "dispatch-load",
         async (signal) => (await scheduler.processAvailable(25, signal)) > 0,
@@ -431,7 +431,7 @@ describe("funnel dispatch performance", () => {
         const reply = sent.find((s) => s.message.chatId === "777");
         const replyMs = reply ? reply.at - started : Number.POSITIVE_INFINITY;
         measurements = `audience=${AUDIENCE} enrolled /start=${Math.round(enrolledMs)}ms new /start=${Math.round(processingMs)}ms first reply=${Math.round(replyMs)}ms backlog sent=${sent.length}`;
-        console.info(`funnel dispatch load: ${measurements}`);
+        console.info(`sequence dispatch load: ${measurements}`);
 
         expect(enrolledMs).toBeLessThan(START_PROCESSING_LIMIT_MS);
         expect(processingMs).toBeLessThan(START_PROCESSING_LIMIT_MS);
@@ -462,7 +462,7 @@ it("settles the claimed dispatch and stops scheduling before shutdown returns", 
   });
   let sends = 0;
   let cycleSignal: AbortSignal | undefined;
-  const scheduler = new FunnelScheduler(
+  const scheduler = new SequenceScheduler(
     database,
     config,
     load.app.get<Clock>(CLOCK),
@@ -638,7 +638,7 @@ async function seedBlockedReplies(
           dedup_key: `intro:${r.contactId}`,
           bot_identity: "inside",
           contact_id: r.contactId,
-          funnel_id: null,
+          sequence_id: null,
           step_id: null,
           kind: "intro" as const,
           published_revision: 1,
@@ -657,7 +657,7 @@ async function seedBlockedReplies(
           dedup_key: `entry:inside:${r.user}`,
           bot_identity: "inside",
           contact_id: r.contactId,
-          funnel_id: value.funnelId,
+          sequence_id: value.sequenceId,
           step_id: value.entryResponse.stepId,
           kind: "entry" as const,
           published_revision: 2,
@@ -704,7 +704,7 @@ describe("blocked replies", () => {
       await app
         .get(TelegramUpdateProcessor)
         .processAvailable(1, runtimeClock.now());
-      const scheduler = app.get(FunnelScheduler);
+      const scheduler = app.get(SequenceScheduler);
       for (let cycle = 0; cycle < 5; cycle++) {
         await scheduler.processAvailable();
         if (sent.some((s) => s.message.chatId === "778")) break;
@@ -766,7 +766,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
       return args.result;
     },
   });
-  const dispatch = new FunnelScheduler(
+  const dispatch = new SequenceScheduler(
     pausing,
     config,
     { now: () => runtimeClock.now() },

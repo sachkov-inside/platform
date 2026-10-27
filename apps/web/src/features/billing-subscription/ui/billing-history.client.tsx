@@ -73,7 +73,11 @@ export function BillingHistory({
                   ? " · чек отправлен"
                   : ""}
               </span>
-              {payment.refundedKopecks > 0 ? (
+              {payment.refundedKopecks === null ? (
+                <span className="text-muted-foreground">
+                  Сумма частичного возврата уточняется в банке.
+                </span>
+              ) : payment.refundedKopecks > 0 ? (
                 <span className="text-muted-foreground">
                   {`Возвращено ${formatKopecks(payment.refundedKopecks)}`}
                   {payment.refundedAt === null

@@ -1,576 +1,409 @@
 "use client";
-import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
-import { TributeOperationsPanel } from "./tribute-operations-panel.client";
-import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
-import { PaymentLinksPanel } from "./payment-links-panel.client";
-import { SurveyRespondentsPanel } from "./survey-respondents-panel.client";
-import {
-  listAllSubscriptionTiers,
-  readContentCatalog,
-} from "../api/enrollments.browser";
-import { ActivationRulesPanel } from "./activation-rules-panel.client";
-import { EnrollmentAdminPanel } from "./enrollment-admin-panel.client";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   billingErrorMessage,
+  formatKopecks,
   type BillingCommandResult,
-  type BillingFailureCode,
-  type ProductCohort,
   type PriceSnapshot,
+  type ProductSalesState,
 } from "@/entities/subscription";
+import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
-
+import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import {
-  applyAccessGrantBatch,
-  archiveBillingOffer,
-  archiveBillingPaymentOption,
-  archiveBillingPromotion,
-  cancelOwnerSubscription,
-  classifyAccount,
-  extendAccessGrant,
-  listBillingPayments,
-  previewAccessGrantBatch,
-  publishBillingOffer,
-  readAccessGrants,
+  saveProductPriceOperation,
+  archiveProductPriceOperation,
+} from "../api/product-prices.operation";
+import {
   readOwnerBillingCatalog,
-  readAccountClassification,
+  listBillingPayments,
   readBillingPayment,
-  readBillingRefunds,
   reconcileBillingPayment,
-  revokeAccessGrant,
-  saveBillingOffer,
-  saveBillingPaymentOption,
-  saveBillingPromotion,
+  readBillingRefunds,
   saveBillingCohort,
-  unpublishBillingOffer,
 } from "../api/billing-admin.browser";
+import { readContentCatalog } from "../api/enrollments.browser";
 import type {
-  ClassificationOutcome,
-  GrantBatchOutcome,
-  GrantPreviewOutcome,
-  GrantsOutcome,
   ListPaymentsInput,
-  PaymentOutcome,
   PaymentView,
+  PaymentOutcome,
   RefundsOutcome,
 } from "../model/admin-operations";
-import type { AdminCommand } from "./admin-command";
-import { BillingAdminView } from "./billing-admin-view.client";
-
-type TaskOutcome =
-  | { readonly ok: true; readonly apply: () => void }
-  | { readonly ok: false; readonly code: BillingFailureCode };
-
-interface Task {
-  readonly run: () => Promise<TaskOutcome>;
-  readonly notice: string;
-}
+import { BillingAdminFrame } from "./billing-admin-frame";
+import { AdminField, AdminSection, formText } from "./admin-form.client";
+import { PaymentsSection } from "./payments-section.client";
+import { PaymentLinksPanel } from "./payment-links-panel.client";
+import { ProductPromotionsPanel } from "./product-promotions-panel.client";
+import { ActivationRulesPanel } from "./activation-rules-panel.client";
+import { SurveyRespondentsPanel } from "./survey-respondents-panel.client";
+import { CohortSection } from "./cohort-section.client";
 
 export interface BillingAdminPanelProps {
   readonly offers: readonly PriceSnapshot[];
-  /** `null` — потоки прочитать не удалось: раздел говорит об этом, а не показывает пустой список. */
-  readonly cohorts: readonly ProductCohort[] | null;
+  readonly cohorts: readonly ProductSalesState[] | null;
 }
-
-/**
- * Владельческие команды повторяются безопасно: тот же `operationId` сохраняется, пока не
- * изменилась нагрузка, поэтому повтор читает исходный результат, а не создаёт второй.
- */
 export function BillingAdminPanel({
   offers,
   cohorts: initialCohorts,
 }: BillingAdminPanelProps) {
-  const queryClient = useQueryClient();
+  const [catalog, setCatalog] = useState(offers);
+  const [cohorts, setCohorts] = useState(initialCohorts);
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const [payments, setPayments] = useState<readonly PaymentView[]>([]);
+  const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
+  const [refunds, setRefunds] = useState<RefundsOutcome["result"] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Omit<
+    ListPaymentsInput,
+    "operationId"
+  > | null>(null);
+  const repeat = useRepeatableOperations();
   const content = useQuery({
-    queryKey: ["owner-coverage"],
+    queryKey: ["owner-content"],
     queryFn: async () => {
       const result = await readContentCatalog();
       if (!result.ok) throw new Error(billingErrorMessage(result.code));
       return result.value.result.items;
     },
   });
-  const tiers = useQuery({
-    queryKey: ["owner-subscription-tiers"],
-    queryFn: async () => {
-      const result = await listAllSubscriptionTiers();
-      if (!result.ok) throw new Error(billingErrorMessage(result.code));
-      return result.value.result.items;
-    },
-  });
-  const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
-  const [cohorts, setCohorts] = useState<readonly ProductCohort[] | null>(
-    initialCohorts,
-  );
-  const [payments, setPayments] = useState<readonly PaymentView[]>([]);
-  const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
-  const [paymentsFilters, setPaymentsFilters] =
-    useState<AdminCommand<ListPaymentsInput> | null>(null);
-  const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
-  const [refunds, setRefunds] = useState<RefundsOutcome["result"] | null>(null);
-  const [grants, setGrants] = useState<GrantsOutcome["result"]["value"] | null>(
-    null,
-  );
-  const [preview, setPreview] = useState<GrantPreviewOutcome["result"] | null>(
-    null,
-  );
-  const [batch, setBatch] = useState<GrantBatchOutcome["result"] | null>(null);
-  const [classification, setClassification] = useState<
-    ClassificationOutcome["result"]["value"] | null
-  >(null);
-  const [error, setError] = useState<string>();
-  const [notice, setNotice] = useState<string>();
-  const { operationId } = useRepeatableOperations();
-
-  const [catalogNeedsRefresh, setCatalogNeedsRefresh] = useState(false);
-  const catalogRefresh = useMutation({
-    mutationFn: readOwnerBillingCatalog,
-    retry: false,
-    onSuccess: (result) => {
-      if (!result.ok) {
-        setError(billingErrorMessage(result.code));
-        return;
-      }
-      setCatalog(result.value);
-      setCatalogNeedsRefresh(false);
-      setError(undefined);
-    },
-    onError: () => {
-      setError("Не удалось обновить каталог. Повторите обновление.");
-    },
-  });
-
-  function refreshCatalog() {
-    setCatalogNeedsRefresh(true);
-    catalogRefresh.mutate();
-  }
-
   const command = useMutation({
+    mutationFn: async (run: () => Promise<void>) => run(),
     retry: false,
-    mutationFn: async (task: Task) => ({ task, result: await task.run() }),
-    onSuccess: ({ task, result }) => {
-      if (!result.ok) {
-        setNotice(undefined);
-        setError(billingErrorMessage(result.code));
-        return;
-      }
-      setError(undefined);
-      setNotice(task.notice);
-      result.apply();
-      void queryClient.invalidateQueries({
-        queryKey: ["owner-subscription-tiers"],
-      });
+    onError: () => {
+      setError("Ответ потерян. Повторите то же действие.");
     },
   });
-
-  /**
-   * Каждая операция вызывает собственный адаптер со своим точным типом; сюда попадает уже
-   * готовый вызов, поэтому общий исход не размывает контракт отдельной команды.
-   */
-  function dispatch<Value>(
-    call: () => Promise<BillingCommandResult<Value>>,
-    apply: (value: Value) => void,
-    notice: string,
-  ): void {
+  function dispatch<T>(
+    run: () => Promise<BillingCommandResult<T>>,
+    apply: (value: T) => void,
+  ) {
     setError(undefined);
     setNotice(undefined);
-    command.mutate({
-      notice,
-      run: async (): Promise<TaskOutcome> => {
-        const result = await call();
-        return result.ok
-          ? {
-              ok: true,
-              apply: () => {
-                apply(result.value);
-              },
-            }
-          : { ok: false, code: result.code };
-      },
+    command.mutate(async () => {
+      const result = await run();
+      if (!result.ok) {
+        setError(billingErrorMessage(result.code));
+        return;
+      }
+      apply(result.value);
+      setNotice("Изменения сохранены.");
     });
   }
-
-  /**
-   * Тумблер продажи обратим и не переписывает каталог: локально обновляем только редакцию и
-   * признак, чтобы следующая команда отправляла актуальную revision без перезагрузки.
-   */
-  function applyOfferSale(
-    offerId: string,
-    revision: number,
-    published: boolean,
-  ): void {
-    setCatalog((current) =>
-      current.map((snapshot) =>
-        snapshot.offer.id === offerId
-          ? { ...snapshot, offer: { ...snapshot.offer, revision, published } }
-          : snapshot,
-      ),
-    );
+  async function refresh() {
+    const result = await readOwnerBillingCatalog();
+    if (!result.ok) {
+      setError(billingErrorMessage(result.code));
+      return;
+    }
+    setCatalog(result.value);
   }
-
-  return (
-    <BillingAdminView
-      content={content.data ?? []}
-      tiers={tiers.data ?? []}
-      catalogLoading={content.isPending || tiers.isPending}
-      catalogError={content.error?.message ?? tiers.error?.message}
-      cohorts={cohorts}
-      catalogRefresh={
-        catalogNeedsRefresh
-          ? { pending: catalogRefresh.isPending, onRetry: refreshCatalog }
-          : undefined
-      }
-      enrollmentControls={
-        <WorkspaceTabs
-          label="Назначения и перенос доступа"
-          tabs={[
-            {
-              id: "enrollments",
-              label: "Назначения",
-              panel: <EnrollmentAdminPanel />,
-            },
-            {
-              id: "activation",
-              label: "Активация курса",
-              panel: <ActivationRulesPanel />,
-            },
-            {
-              id: "sources",
-              label: "Подтверждения курса",
-              panel: <SubscriptionSourcePanel />,
-            },
-            {
-              id: "tribute",
-              label: "Перенос Tribute",
-              panel: <TributeOperationsPanel />,
-            },
-          ]}
-        />
-      }
-      paymentLinkControls={
-        <PaymentLinksPanel offers={catalog} content={content.data ?? []} />
-      }
-      respondentControls={<SurveyRespondentsPanel />}
-      batch={batch}
-      classification={classification}
-      error={error}
-      grants={grants}
-      notice={notice}
-      offers={catalog}
-      onApplyBatch={(input) => {
-        dispatch(
-          () =>
-            applyAccessGrantBatch({
-              ...input,
-              operationId: operationId("grants.applyBatch", input),
-            }),
-          (value) => {
-            setBatch(value.result);
-            setPreview(null);
-          },
-          "Партия применена.",
-        );
-      }}
-      onPublishOffer={(input) => {
-        dispatch(
-          () =>
-            publishBillingOffer({
-              ...input,
-              operationId: operationId("offers.publish", input),
-            }),
-          (value) => {
-            applyOfferSale(
-              value.result.value.id,
-              value.result.value.revision,
-              true,
-            );
-          },
-          "Предложение включено в продажу.",
-        );
-      }}
-      onUnpublishOffer={(input) => {
-        dispatch(
-          () =>
-            unpublishBillingOffer({
-              ...input,
-              operationId: operationId("offers.unpublish", input),
-            }),
-          (value) => {
-            applyOfferSale(
-              value.result.value.id,
-              value.result.value.revision,
-              false,
-            );
-          },
-          "Предложение снято с продажи.",
-        );
-      }}
-      onArchiveOffer={(input) => {
-        dispatch(
-          () =>
-            archiveBillingOffer({
-              ...input,
-              operationId: operationId("offers.archive", input),
-            }),
-          () => undefined,
-          "Предложение архивировано.",
-        );
-      }}
-      onArchivePaymentOption={(input) => {
-        dispatch(
-          () =>
-            archiveBillingPaymentOption({
-              ...input,
-              operationId: operationId("paymentOptions.archive", input),
-            }),
-          () => undefined,
-          "Вариант оплаты архивирован.",
-        );
-      }}
-      onArchivePromotion={(input) => {
-        dispatch(
-          () =>
-            archiveBillingPromotion({
-              ...input,
-              operationId: operationId("promotions.archive", input),
-            }),
-          () => undefined,
-          "Скидка архивирована.",
-        );
-      }}
-      onCancelSubscription={(input) => {
-        dispatch(
-          () =>
-            cancelOwnerSubscription({
-              ...input,
-              operationId: operationId("subscriptions.cancel", input),
-            }),
-          () => undefined,
-          "Продление отменено; оплаченный срок сохранён.",
-        );
-      }}
-      onExtendGrant={(input) => {
-        dispatch(
-          () =>
-            extendAccessGrant({
-              ...input,
-              operationId: operationId("grants.extend", input),
-            }),
-          () => undefined,
-          "Основание продлено.",
-        );
-      }}
-      onListPayments={(input) => {
-        dispatch(
-          () =>
-            listBillingPayments({
-              ...input,
-              operationId: operationId("payments.list", input),
-            }),
-          (value) => {
-            setPaymentsFilters(input);
-            setPayments(value.result.items);
-            setPaymentsCursor(value.result.nextCursor);
-          },
-          "Список платежей обновлён.",
-        );
-      }}
-      onPreviewBatch={(input) => {
-        dispatch(
-          () =>
-            previewAccessGrantBatch({
-              ...input,
-              operationId: operationId("grants.previewBatch", input),
-            }),
-          (value) => {
-            setPreview(value.result);
-            setBatch(null);
-          },
-          "Предпросмотр собран; права ещё не выданы.",
-        );
-      }}
-      onReadClassification={(input) => {
-        dispatch(
-          () =>
-            readAccountClassification({
-              ...input,
-              operationId: operationId("grants.readClassification", input),
-            }),
-          (value) => {
-            setClassification(value.result.value);
-          },
-          "Состояние покупателя прочитано.",
-        );
-      }}
-      onClassifyAccount={(input) => {
-        dispatch(
-          () =>
-            classifyAccount({
-              ...input,
-              operationId: operationId("grants.classify", input),
-            }),
-          (value) => {
-            setClassification(value.result.value);
-          },
-          "Решение о покупателе записано.",
-        );
-      }}
-      onReadGrants={(input) => {
-        dispatch(
-          () =>
-            readAccessGrants({
-              ...input,
-              operationId: operationId("grants.read", input),
-            }),
-          (value) => {
-            setGrants(value.result.value);
-          },
-          "Права прочитаны.",
-        );
-      }}
-      onReadPayment={(input) => {
-        dispatch(
-          () =>
-            readBillingPayment({
-              ...input,
-              operationId: operationId("payments.read", input),
-            }),
-          (value) => {
-            setPayment(value.result);
-          },
-          "Платёж прочитан.",
-        );
-      }}
-      onReadRefunds={(input) => {
-        dispatch(
-          () =>
-            readBillingRefunds({
-              ...input,
-              operationId: operationId("refunds.read", input),
-            }),
-          (value) => {
-            setRefunds(value.result);
-          },
-          "Возвраты прочитаны.",
-        );
-      }}
-      onReconcilePayment={(input) => {
-        dispatch(
-          () =>
-            reconcileBillingPayment({
-              ...input,
-              operationId: operationId("payments.reconcile", input),
-            }),
-          (value) => {
-            setPayment((current) =>
-              current === null
-                ? current
-                : { ...current, value: value.result.value },
-            );
-          },
-          "Платёж сверен с банком.",
-        );
-      }}
-      onRevokeGrant={(input) => {
-        dispatch(
-          () =>
-            revokeAccessGrant({
-              ...input,
-              operationId: operationId("grants.revoke", input),
-            }),
-          () => undefined,
-          "Основание отозвано.",
-        );
-      }}
-      onSaveOffer={(input) => {
-        dispatch(
-          () =>
-            saveBillingOffer({
-              ...input,
-              operationId: operationId("offers.save", input),
-            }),
-          (value) => {
-            applyOfferSale(
-              value.result.value.id,
-              value.result.value.revision,
-              value.result.value.published ?? false,
-            );
-            setNotice(
-              `Предложение сохранено, редакция ${String(value.result.value.revision)}.`,
-            );
-          },
-          "Предложение сохранено.",
-        );
-      }}
-      onSavePaymentOption={(input) => {
-        dispatch(
-          () =>
-            saveBillingPaymentOption({
-              ...input,
-              operationId: operationId("paymentOptions.save", input),
-            }),
-          (value) => {
-            refreshCatalog();
-            setNotice(
-              `Вариант сохранён, редакция ${String(value.result.value.revision)}.`,
-            );
-          },
-          "Вариант оплаты сохранён.",
-        );
-      }}
-      onSaveCohort={(input) => {
-        dispatch(
-          () =>
-            saveBillingCohort({
-              ...input,
-              operationId: operationId("cohorts.save", input),
-            }),
-          (value) => {
-            // Список обновляется сразу: следующая правка идёт с новой редакцией без перезагрузки.
-            const saved: ProductCohort = {
-              ...input.value,
-              revision: value.result.value.revision,
+  const pricing = (
+    <>
+      <AdminSection
+        title="Цены продуктов"
+        description="Одна разовая цена продукта. Закрытие продаж и архив не отзывают купленный доступ."
+      >
+        <Button
+          className="min-h-11"
+          variant="outline"
+          disabled={command.isPending}
+          onClick={() => {
+            command.mutate(refresh);
+          }}
+        >
+          Обновить каталог
+        </Button>
+        {catalog.map((snapshot) => {
+          const product = snapshot.product;
+          if (!product) return null;
+          return (
+            <form
+              className="grid gap-3 border-b border-border pb-5"
+              key={product.id}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const input = {
+                  expectedRevision: product.priceRevision,
+                  value: {
+                    productId: product.id,
+                    name: formText(form.get("name")),
+                    priceKopecks: Number(form.get("price")),
+                    published: form.get("published") === "on",
+                  },
+                };
+                dispatch(
+                  () =>
+                    saveProductPriceOperation.send({
+                      ...input,
+                      operationId: repeat.operationId(
+                        `price:${product.id}`,
+                        input,
+                      ),
+                    }),
+                  () => {
+                    repeat.completeOperation(`price:${product.id}`);
+                    void refresh();
+                  },
+                );
+              }}
+            >
+              <h3 className="font-semibold">
+                {product.name} ·{" "}
+                {formatKopecks(snapshot.paymentOption.priceKopecks)}
+              </h3>
+              <AdminField
+                label="Название продукта"
+                name="name"
+                defaultValue={product.name}
+                required
+                maxLength={200}
+              />
+              <AdminField
+                label="Цена в копейках"
+                name="price"
+                type="number"
+                min={100}
+                step={1}
+                defaultValue={snapshot.paymentOption.priceKopecks}
+                required
+              />
+              <label className="flex min-h-11 items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="published"
+                  defaultChecked={snapshot.offer.published ?? false}
+                />
+                Продажа открыта
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  className="min-h-11"
+                  disabled={command.isPending || snapshot.offer.archived}
+                  type="submit"
+                >
+                  Сохранить цену
+                </Button>
+                <Button
+                  className="min-h-11"
+                  variant="outline"
+                  disabled={command.isPending || snapshot.offer.archived}
+                  onClick={() => {
+                    const input = {
+                      id: product.id,
+                      expectedRevision: product.priceRevision,
+                    };
+                    dispatch(
+                      () =>
+                        archiveProductPriceOperation.send({
+                          ...input,
+                          operationId: repeat.operationId(
+                            `archive:${product.id}`,
+                            input,
+                          ),
+                        }),
+                      () => {
+                        void refresh();
+                      },
+                    );
+                  }}
+                >
+                  Архивировать цену
+                </Button>
+              </div>
+            </form>
+          );
+        })}
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = new FormData(e.currentTarget);
+            const input = {
+              value: {
+                productId: formText(form.get("productId")),
+                name: formText(form.get("name")),
+                priceKopecks: Number(form.get("price")),
+                published: false,
+              },
             };
-            setCohorts((current) =>
-              current === null
-                ? null
-                : [
-                    ...current.filter(
-                      (cohort) => cohort.productId !== saved.productId,
-                    ),
-                    saved,
-                  ],
+            dispatch(
+              () =>
+                saveProductPriceOperation.send({
+                  ...input,
+                  operationId: repeat.operationId("new-price", input),
+                }),
+              () => {
+                repeat.completeOperation("new-price");
+                void refresh();
+              },
             );
-            setNotice(
-              `Поток сохранён, редакция ${String(value.result.value.revision)}.`,
-            );
+          }}
+        >
+          <h3 className="font-semibold">Добавить цену продукта</h3>
+          <AdminField
+            label="Идентификатор продукта"
+            name="productId"
+            required
+          />
+          <AdminField label="Название" name="name" required />
+          <AdminField
+            label="Цена в копейках"
+            name="price"
+            type="number"
+            min={100}
+            step={1}
+            required
+          />
+          <Button
+            className="min-h-11"
+            type="submit"
+            disabled={command.isPending}
+          >
+            Сохранить без открытия продаж
+          </Button>
+        </form>
+      </AdminSection>
+      <CohortSection
+        cohorts={cohorts}
+        content={content.data}
+        pending={command.isPending}
+        onSaveCohort={(input) => {
+          dispatch(
+            () =>
+              saveBillingCohort({
+                ...input,
+                operationId: repeat.operationId("cohort", input),
+              }),
+            (value) => {
+              repeat.completeOperation("cohort");
+              const saved = {
+                ...input.value,
+                revision: value.result.value.revision,
+              };
+              setCohorts((current) => [
+                ...(current ?? []).filter(
+                  (item) => item.productId !== saved.productId,
+                ),
+                saved,
+              ]);
+            },
+          );
+        }}
+      />
+    </>
+  );
+  return (
+    <BillingAdminFrame>
+      <header className="authoring-page-heading">
+        <h1>Оплата</h1>
+        <p>Цены продуктов, разовые покупки и банковская история.</p>
+      </header>
+      {error !== undefined || content.isError ? (
+        <p role="alert">{error ?? content.error?.message}</p>
+      ) : null}
+      {notice !== undefined ? <p role="status">{notice}</p> : null}
+      <WorkspaceTabs
+        label="Разделы оплаты"
+        tabs={[
+          { id: "prices", label: "Цены продуктов", panel: pricing },
+          {
+            id: "promotions",
+            label: "Скидки",
+            panel: <ProductPromotionsPanel offers={catalog} />,
           },
-          "Поток сохранён.",
-        );
-      }}
-      onSavePromotion={(input) => {
-        dispatch(
-          () =>
-            saveBillingPromotion({
-              ...input,
-              operationId: operationId("promotions.save", input),
-            }),
-          (value) => {
-            setNotice(
-              `Скидка сохранена, редакция ${String(value.result.value.revision)}.`,
-            );
+          {
+            id: "payments",
+            label: "Платежи",
+            panel: (
+              <PaymentsSection
+                payments={payments}
+                paymentsCursor={cursor}
+                paymentsFilters={filters}
+                payment={payment}
+                refunds={refunds}
+                pending={command.isPending}
+                onListPayments={(input) => {
+                  dispatch(
+                    () =>
+                      listBillingPayments({
+                        ...input,
+                        operationId: repeat.operationId("payments", input),
+                      }),
+                    (value) => {
+                      setPayments(value.result.items);
+                      setCursor(value.result.nextCursor);
+                      setFilters(input);
+                    },
+                  );
+                }}
+                onReadPayment={(input) => {
+                  dispatch(
+                    () =>
+                      readBillingPayment({
+                        ...input,
+                        operationId: repeat.operationId("read-payment", input),
+                      }),
+                    (value) => {
+                      setPayment(value.result);
+                    },
+                  );
+                }}
+                onReadRefunds={(input) => {
+                  dispatch(
+                    () =>
+                      readBillingRefunds({
+                        ...input,
+                        operationId: repeat.operationId("refunds", input),
+                      }),
+                    (value) => {
+                      setRefunds(value.result);
+                    },
+                  );
+                }}
+                onReconcilePayment={(input) => {
+                  dispatch(
+                    () =>
+                      reconcileBillingPayment({
+                        ...input,
+                        operationId: repeat.operationId("reconcile", input),
+                      }),
+                    (value) => {
+                      setPayment((current) =>
+                        current
+                          ? { ...current, value: value.result.value }
+                          : null,
+                      );
+                    },
+                  );
+                }}
+              />
+            ),
           },
-          "Скидка сохранена.",
-        );
-      }}
-      payment={payment}
-      payments={payments}
-      paymentsCursor={paymentsCursor}
-      paymentsFilters={paymentsFilters}
-      pending={command.isPending || catalogNeedsRefresh}
-      preview={preview}
-      refunds={refunds}
-    />
+          {
+            id: "links",
+            label: "Личные ссылки",
+            panel: (
+              <PaymentLinksPanel
+                offers={catalog}
+                content={content.data ?? []}
+              />
+            ),
+          },
+          {
+            id: "activation",
+            label: "Активация курса",
+            panel: <ActivationRulesPanel offers={catalog} />,
+          },
+          {
+            id: "respondents",
+            label: "Ответы на опрос",
+            panel: <SurveyRespondentsPanel />,
+          },
+        ]}
+      />
+    </BillingAdminFrame>
   );
 }

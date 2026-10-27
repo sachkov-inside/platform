@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 import { z } from "zod";
 import {
   fullStackBaseUrl,
+  fullStackPageRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 
@@ -14,6 +15,8 @@ test("local accounts: fresh owner, private draft and real denials survive restar
   const { startLocalAccountsGateway } =
     await import("../../../../scripts/local-accounts-gateway.mjs");
   const ownerContext = await browser.newContext();
+  let ownerRequest:
+    Awaited<ReturnType<typeof fullStackPageRequest>> | undefined;
   let gateway:
     Awaited<ReturnType<typeof startLocalAccountsGateway>> | undefined;
   const context = await browser.newContext();
@@ -24,8 +27,10 @@ test("local accounts: fresh owner, private draft and real denials survive restar
   let entryTarget = "";
   try {
     await new Promise<void>((done) => entry.listen(0, "127.0.0.1", done));
-    await signInFullStack(ownerContext, "OWNER");
-    const created = await ownerContext.request.post(
+    // A late viewport must keep working after real refresh produces a Secure loopback cookie.
+    await signInFullStack(ownerContext, "PAST_EXPIRY");
+    ownerRequest = await fullStackPageRequest(await ownerContext.newPage());
+    const created = await ownerRequest.post(
       `${fullStackBaseUrl()}/api/authoring/materials`,
       {
         headers: { origin: fullStackBaseUrl() },
@@ -36,7 +41,7 @@ test("local accounts: fresh owner, private draft and real denials survive restar
           difficulty: "unassigned",
           formatId: "unassigned",
           topicId: "unassigned",
-          seriesIds: [],
+          productIds: [],
           submissionId: randomUUID(),
           document: {
             type: "doc",
@@ -224,6 +229,7 @@ test("local accounts: fresh owner, private draft and real denials survive restar
       page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
     ).toBeVisible();
   } finally {
+    await ownerRequest?.dispose();
     await context.close();
     await ownerContext.close();
     await gateway?.close();

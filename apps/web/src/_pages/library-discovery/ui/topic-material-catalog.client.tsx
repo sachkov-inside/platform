@@ -37,7 +37,7 @@ export function TopicMaterialCatalog({
   const facets =
     firstPage?.kind === "ready"
       ? firstPage.facets
-      : { formats: [], series: [], topics: [] };
+      : { formats: [], products: [], topics: [] };
 
   return (
     <div className="@container/library mt-10">

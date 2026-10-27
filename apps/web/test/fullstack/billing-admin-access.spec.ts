@@ -1,188 +1,100 @@
 import AxeBuilder from "@axe-core/playwright";
-
 import { randomUUID } from "node:crypto";
-
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { z } from "zod";
-
-import { catalogOutcomeSchema } from "@/features/billing-admin/model/admin-operations";
-
 import {
   fullStackBrowserJsonRequest,
+  fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 
-/** Only synthetic catalogue records in the disposable full-stack database; sale commands are intercepted. */
-async function createTariff(page: Page) {
-  const id = randomUUID();
-  const name = `Допуск synthetic ${id}`;
-  const saved = await fullStackBrowserJsonRequest(
-    page,
-    "/api/authoring/billing/offers/save",
-    "POST",
-    {
-      operationId: randomUUID(),
-      value: {
-        id,
-        name,
-        benefits: [`product:${randomUUID()}`],
-      },
-    },
-  );
-  expect(await saved.json()).toMatchObject({ ok: true });
-  const priced = await fullStackBrowserJsonRequest(
-    page,
-    "/api/authoring/billing/payment-options/save",
-    "POST",
-    {
-      operationId: randomUUID(),
-      value: {
-        id: randomUUID(),
-        offerId: id,
-        mode: "one_time",
-        months: 1,
-        priceKopecks: 10_000,
-      },
-    },
-  );
-  expect(await priced.json()).toMatchObject({ ok: true });
-  await page.reload();
-  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
-  return { id, name, row: page.getByRole("listitem", { name, exact: true }) };
-}
-const saleCommandSchema = z.object({
-  operationId: z.uuid(),
-  id: z.uuid(),
-  expectedRevision: z.int().positive(),
-});
-
-async function interceptSale(page: Page) {
-  const commands: {
-    id: string;
-    expectedRevision: number;
-    published: boolean;
-  }[] = [];
-  for (const published of [true, false]) {
-    const operation = published ? "publish" : "unpublish";
-    await page.route(
-      `**/api/authoring/billing/offers/${operation}`,
-      async (route) => {
-        const request = route.request();
-        const input = saleCommandSchema.parse(request.postDataJSON());
-        commands.push({
-          id: input.id,
-          expectedRevision: input.expectedRevision,
-          published,
-        });
-        await route.fulfill({
-          json: {
-            ok: true,
-            value: {
-              operationRef: input.operationId,
-              result: {
-                outcome: "catalog",
-                value: {
-                  id: input.id,
-                  revision: input.expectedRevision + 1,
-                  archived: false,
-                  published,
-                },
-              },
-            },
-          },
-        });
-      },
-    );
-  }
-  return commands;
-}
-
-test("one-time product sale keeps saved eligibility and revision across reload", async ({
+test("owner edits one Product price and reloads the actual catalogue without tariff controls", async ({
   context,
   page,
-}, testInfo) => {
+}) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/access");
-  const commands = await interceptSale(page);
-  const tariff = await createTariff(page);
-  const select = tariff.row.getByLabel("Кому продаётся");
-  await expect(select).toHaveValue("everyone");
-  await select.selectOption("invitation_only");
-  const saveResponse = page.waitForResponse((response) =>
-    response.url().endsWith("/api/authoring/billing/offers/save"),
+  await page.goto("/authoring/billing");
+  const initial = await fullStackBrowserRequest(
+    page,
+    "/api/authoring/billing/catalog",
   );
-  await tariff.row.getByRole("button", { name: "Сохранить допуск" }).click();
-  const saved = z
-    .object({ ok: z.literal(true), value: catalogOutcomeSchema })
-    .parse(await (await saveResponse).json());
-  const revision = saved.value.result.value.revision;
-  await page.reload();
-  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
-  await expect(select).toHaveValue("invitation_only");
-  // Unsaved eligibility does not replace the persisted setting or revision.
-  await select.selectOption("everyone");
-  await tariff.row
-    .getByRole("button", { name: "Включить продажу", exact: true })
-    .click();
-  await expect(
-    tariff.row.getByText("Продаётся", { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(commands).toEqual([
-    { id: tariff.id, expectedRevision: revision, published: true },
-  ]);
-  await tariff.row.getByRole("button", { name: "Снять с продажи" }).click();
-  await expect(
-    tariff.row.getByText("Не продаётся", { exact: true }),
-  ).toBeVisible();
-  expect(commands.at(-1)).toEqual({
-    id: tariff.id,
-    expectedRevision: revision + 1,
-    published: false,
+  const schema = z.object({
+    ok: z.literal(true),
+    value: z.array(
+      z.object({
+        product: z
+          .object({
+            id: z.uuid(),
+            name: z.string(),
+            priceRevision: z.int().positive(),
+          })
+          .optional(),
+        paymentOption: z.object({ priceKopecks: z.int() }),
+      }),
+    ),
   });
+  const catalogue = schema.parse(await initial.json()).value;
+  const snapshot = catalogue.find((item) => item.product !== undefined);
+  if (!snapshot?.product)
+    throw new Error("Disposable full-stack Product price is missing");
+  const product = snapshot.product;
+  const input = {
+    operationId: randomUUID(),
+    expectedRevision: product.priceRevision,
+    value: {
+      productId: product.id,
+      name: product.name,
+      priceKopecks: snapshot.paymentOption.priceKopecks + 100,
+      published: false,
+    },
+  };
+  const result = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/billing/product-prices/save",
+    "POST",
+    input,
+  );
+  expect(await result.json()).toMatchObject({ ok: true });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Оплата", exact: true }),
+  ).toBeVisible();
+  const after = schema
+    .parse(
+      await (
+        await fullStackBrowserRequest(page, "/api/authoring/billing/catalog")
+      ).json(),
+    )
+    .value.find((item) => item.product?.id === product.id);
+  expect(after).toMatchObject({
+    product: { id: product.id, priceRevision: product.priceRevision + 1 },
+    paymentOption: { priceKopecks: input.value.priceKopecks },
+  });
+  for (const name of ["Тарифы", "Приглашения", "Перенос Tribute"])
+    await expect(page.getByRole("tab", { name, exact: true })).toHaveCount(0);
   const scan = await new AxeBuilder({ page }).include("main").analyze();
   expect(
     scan.violations.filter(
-      ({ impact }) => impact === "serious" || impact === "critical",
+      (item) => item.impact === "serious" || item.impact === "critical",
     ),
   ).toEqual([]);
-  await testInfo.attach("one-time-product-sale", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
 });
-
-test("current runtime refuses a subscription option through the real API", async ({
+test("retired commerce routes remain absent for a signed-in owner", async ({
   context,
   page,
 }) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/access");
-  const tariff = await createTariff(page);
-  const response = await fullStackBrowserJsonRequest(
-    page,
+  for (const path of [
+    "/api/authoring/billing/offers/save",
     "/api/authoring/billing/payment-options/save",
-    "POST",
-    {
+    "/api/authoring/billing/invitations/issue",
+    "/api/authoring/billing/tribute/apply",
+    "/api/authoring/billing/grants/extend",
+  ]) {
+    const result = await fullStackBrowserJsonRequest(page, path, "POST", {
       operationId: randomUUID(),
-      value: {
-        id: randomUUID(),
-        offerId: tariff.id,
-        mode: "subscription",
-        months: 1,
-        priceKopecks: 10_000,
-      },
-    },
-  );
-  expect(await response.json()).toMatchObject({
-    ok: false,
-    code: "method_unavailable",
-  });
-  await page.getByRole("tab", { name: "Приглашения", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Выданные приглашения", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Новое приглашение", exact: true }),
-  ).toHaveCount(0);
+    });
+    expect(result.status(), path).toBe(404);
+  }
 });

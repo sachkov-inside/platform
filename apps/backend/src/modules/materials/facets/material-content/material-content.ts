@@ -1,11 +1,9 @@
-import { loadMaterialProductAccessFacts } from "../../shared/product-composition.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { materialsTransaction } from "../../infrastructure/transaction.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type {
-  MaterialsPrisma,
-  MaterialsPrismaClient,
-} from "../../../../infrastructure/prisma/index.js";
+import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type {
   MaterialBodyOperations,
   MaterialBodySnapshot,
@@ -39,10 +37,7 @@ export interface MaterialContent {
   /** Reads in the caller's transaction when it holds one, as a reading command does under its lock. */
   findAccessFacts(
     materialId: MaterialId,
-    transaction?: Pick<
-      MaterialsPrisma,
-      "material" | "publishedMaterialProductMembership" | "product"
-    >,
+    transaction?: TransactionHandle,
   ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>>;
   findAccessFactsMany(
     materialIds: readonly MaterialId[],
@@ -58,11 +53,11 @@ export interface MaterialContent {
       readonly checkedContentVersion?: number;
       readonly materialId: string;
     },
-    transaction?: Pick<MaterialsPrisma, "material">,
+    transaction?: TransactionHandle,
   ): Promise<Result<boolean, MaterialContentError>>;
   /** Reads in the Video deletion claim's transaction, under the Material reference lock it holds. */
   containsVideoReference(
-    transaction: Pick<MaterialsPrisma, "material" | "publishedMaterial">,
+    handle: TransactionHandle,
     input: {
       readonly materialId: string;
       readonly videoId: string;
@@ -71,6 +66,7 @@ export interface MaterialContent {
 }
 
 export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
+export const MATERIAL_PUBLICATION = Symbol("MATERIAL_PUBLICATION");
 
 const accessFactsRowSchema = z.object({
   id: z.uuid(),
@@ -107,11 +103,12 @@ export function assembleMaterialContent(dependencies: {
   return Object.freeze({
     async findAccessFacts(
       materialIdValue: MaterialId,
-      transaction: Pick<
-        MaterialsPrisma,
-        "material" | "publishedMaterialProductMembership" | "product"
-      > = dependencies.prisma,
+      handle?: TransactionHandle,
     ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>> {
+      const transaction =
+        handle === undefined
+          ? dependencies.prisma
+          : materialsTransaction(handle);
       const parsed = normalizedUuidSchema.safeParse(materialIdValue);
       if (!parsed.success) {
         return { ok: false, error: { code: "invalid_request_shape" } };
@@ -140,12 +137,9 @@ export function assembleMaterialContent(dependencies: {
             ),
           };
         }
-        const productFacts = await loadMaterialProductAccessFacts(transaction, [
-          parsed.data,
-        ]);
         return {
           ok: true,
-          value: { ...facts, ...productFacts.get(parsed.data) },
+          value: facts,
         };
       } catch (error) {
         return {
@@ -178,13 +172,9 @@ export function assembleMaterialContent(dependencies: {
             primaryVideoId: true,
           },
         });
-        const productFacts = await loadMaterialProductAccessFacts(
-          dependencies.prisma,
-          checkedMaterialIds,
-        );
         const facts: (MaterialAccessFacts | undefined)[] = rows.map((row) => {
           const fact = toAccessFacts(row);
-          return fact && { ...fact, ...productFacts.get(row.id) };
+          return fact;
         });
         if (facts.some((item) => item === undefined)) {
           return {
@@ -247,8 +237,12 @@ export function assembleMaterialContent(dependencies: {
         readonly checkedContentVersion?: number;
         readonly materialId: string;
       },
-      transaction: Pick<MaterialsPrisma, "material"> = dependencies.prisma,
+      handle?: TransactionHandle,
     ): Promise<Result<boolean, MaterialContentError>> {
+      const transaction =
+        handle === undefined
+          ? dependencies.prisma
+          : materialsTransaction(handle);
       const parsed = assetReferenceQuerySchema.safeParse(input);
       if (!parsed.success) {
         return { error: { code: "invalid_request_shape" }, ok: false };
@@ -309,9 +303,10 @@ export function assembleMaterialContent(dependencies: {
     },
 
     async containsVideoReference(
-      transaction: Pick<MaterialsPrisma, "material" | "publishedMaterial">,
+      handle: TransactionHandle,
       input: { readonly materialId: string; readonly videoId: string },
     ): Promise<Result<boolean, MaterialContentError>> {
+      const transaction = materialsTransaction(handle);
       const parsed = videoReferenceQuerySchema.safeParse(input);
       if (!parsed.success) {
         return { error: { code: "invalid_request_shape" }, ok: false };

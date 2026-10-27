@@ -10,8 +10,14 @@ place.
 Platform exposes one deep `Materials` capability with caller-oriented `MaterialAuthoring` and
 `PublishedMaterialReader` facets. Transport callers do not coordinate validation, rendering,
 persistence or publication rules. Framework-agnostic `assembleMaterials` composition remains
-available for tests, seeds and non-Nest entrypoints; Nest binds only facets with real production
-consumers and imports the real Accounts, MembershipEntitlements and ContentAccess capabilities.
+available above the owners in `entrypoints/composition` for tests, seeds and non-Nest entrypoints.
+Nest binds only facets with real production consumers. Products owns catalogue membership, explicit
+programme placements, chapters, attachments, artifacts and archive facts in its own schema. Materials
+emits its content/publication facts; process composition combines them with Products facts for access.
+ContentAccess and sale availability are composed above the owners, so Materials does not assemble
+Billing or concrete Account Rights. Content Covers owns the shared upload/reference/delete lifecycle;
+each content owner selects its own cover through an interface. The retained Material-authoring surface
+delegates Product commands to that owner and creates no second writable authority.
 
 `MaterialBody` remains an internal validated representation. Public callers exchange the
 serializable `MaterialBodySnapshot`; persisted data retains an explicit schema discriminator, and

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   registerSourceSchema,
   sourceEntitlementViewSchema,
-} from "../../domain/subscription-activation.js";
+} from "../../domain/course-activation.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import {
@@ -36,7 +36,6 @@ export async function registerSourceEntitlement(
             value: sourceEntitlementViewSchema.parse(receipt.result),
           }
         : accessFailure("operation_conflict");
-    if (command.origin === "tribute") return accessFailure("invalid_input");
     await lockAccountAccess(tx, `enrollment:${command.origin}:${sourceRef}`);
     const existing = await tx.sourceEntitlement.findUnique({
       where: { origin_sourceRef: { origin: command.origin, sourceRef } },

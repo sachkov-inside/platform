@@ -12,7 +12,7 @@ import {
 } from "@/features/accepted-documents";
 
 import { AccountEmailPanel } from "@/features/account-email";
-import { MemberProfileEditor } from "@/features/member-profile-editor";
+import { AccountProfileEditor } from "@/features/account-profile-editor";
 import {
   accountPresentationQueryKey,
   type AccountPresentationResult,
@@ -50,7 +50,7 @@ export function AccountAccessPage({
       telegramContact={presentation?.telegramMembership.contact}
       profileSlot={
         presentation === null ? null : (
-          <MemberProfileEditor
+          <AccountProfileEditor
             initialProfile={
               presentation.profile.kind === "profile"
                 ? presentation.profile.profile

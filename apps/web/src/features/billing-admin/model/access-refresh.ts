@@ -1,16 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type {
-  accessSummaryQueryKey,
-  invitationsQueryKey,
-  peopleQueryKey,
-  paymentLinksQueryKey,
-} from "./access-query-keys";
+import type { paymentLinksQueryKey } from "./access-query-keys";
 
-type AccessQueryKey =
-  | typeof accessSummaryQueryKey
-  | typeof invitationsQueryKey
-  | typeof peopleQueryKey
-  | typeof paymentLinksQueryKey;
+type AccessQueryKey = typeof paymentLinksQueryKey;
 interface AccessRefresh {
   readonly announcementId: string;
   readonly pending: Promise<void>;

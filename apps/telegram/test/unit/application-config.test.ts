@@ -16,6 +16,17 @@ const validEnvironment = {
 };
 
 describe("application configuration", () => {
+  it("rejects attempts to enable retired membership evidence and entitlement bridge delivery", () => {
+    for (const key of [
+      "TELEGRAM_MEMBERSHIP_MODE",
+      "PLATFORM_EVIDENCE_DELIVERY_MODE",
+    ]) {
+      expect(() =>
+        loadApplicationConfig({ ...validEnvironment, [key]: "live" }),
+      ).toThrow("retired");
+    }
+  });
+
   it("keeps content validation disabled until a secure authenticated endpoint is configured", () => {
     expect(
       loadApplicationConfig(validEnvironment)
@@ -28,7 +39,7 @@ describe("application configuration", () => {
         "synthetic-authorization-secret-for-tests",
     };
     const url =
-      "https://platform.test/integrations/telegram/v1/communications/validate-content";
+      "https://platform.test/integrations/telegram/v2/communications/validate-content";
     expect(
       loadApplicationConfig({
         ...authorization,
@@ -202,23 +213,16 @@ describe("application configuration", () => {
 
   it("refuses an integration secret shorter than 32 characters", () => {
     const short = "s".repeat(31);
-    const evidence = {
-      PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      PLATFORM_EVIDENCE_DELIVERY_URL: "https://platform.test/evidence",
-      PLATFORM_EVIDENCE_DELIVERY_SECRET:
-        "synthetic_evidence_secret_for_tests_only",
-    };
     const author = {
       PLATFORM_AUTHOR_AUTHORIZATION_URL: "https://platform.test/authorize",
       PLATFORM_AUTHOR_AUTHORIZATION_SECRET:
         "synthetic_author_secret_for_tests_only",
     };
     expect(
-      loadApplicationConfig({ ...validEnvironment, ...evidence, ...author }),
+      loadApplicationConfig({ ...validEnvironment, ...author }),
     ).toBeDefined();
     for (const [name, base] of [
       ["PLATFORM_INTEGRATION_SECRET", {}],
-      ["PLATFORM_EVIDENCE_DELIVERY_SECRET", evidence],
       ["PLATFORM_AUTHOR_AUTHORIZATION_SECRET", author],
     ] as const)
       expect(() =>
@@ -256,8 +260,6 @@ describe("application configuration", () => {
       PLATFORM_COMMUNITY_INTEGRATION_SECRET:
         "synthetic_community_inbound_secret",
       PLATFORM_COMMUNITY_DISPATCH_SECRET: "synthetic_community_dispatch_secret",
-      PLATFORM_EVIDENCE_DELIVERY_SECRET:
-        "synthetic_evidence_secret_for_tests_only",
       PLATFORM_AUTHOR_AUTHORIZATION_SECRET:
         "synthetic_author_secret_for_tests_only",
       NOTIFICATION_AUTHORIZE_SECRET: "synthetic_notification_secret_for_tests",
@@ -270,8 +272,6 @@ describe("application configuration", () => {
       TELEGRAM_COMMUNITY_CONTRACT_VERSION: "inside.community-entitlement.v2",
       PLATFORM_COMMUNITY_DISPATCH_URL:
         "https://platform.test/internal/billing-dispatch/authorize",
-      PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      PLATFORM_EVIDENCE_DELIVERY_URL: "https://platform.test/evidence",
       PLATFORM_AUTHOR_AUTHORIZATION_URL: "https://platform.test/authorize",
       TELEGRAM_NOTIFICATIONS_ENABLED: "true",
       NOTIFICATION_AMQP_URL: "amqps://telegram:synthetic@broker.test/inside",
@@ -313,53 +313,6 @@ describe("application configuration", () => {
         TELEGRAM_CANONICAL_CHAT_ID: "9007199254740992",
       }),
     ).toThrow("TELEGRAM_CANONICAL_CHAT_ID");
-  });
-
-  it("requires Telegram and Platform credentials for live Membership Evidence", () => {
-    expect(() =>
-      loadApplicationConfig({
-        ...validEnvironment,
-        TELEGRAM_MEMBERSHIP_MODE: "live",
-      }),
-    ).toThrow("TELEGRAM_BOT_TOKEN is required");
-
-    expect(() =>
-      loadApplicationConfig({
-        ...validEnvironment,
-        PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      }),
-    ).toThrow("PLATFORM_EVIDENCE_DELIVERY_URL is required");
-  });
-
-  it("delivers Membership Evidence only to a plain HTTPS endpoint outside loopback", () => {
-    const evidence = {
-      ...validEnvironment,
-      PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      PLATFORM_EVIDENCE_DELIVERY_SECRET:
-        "synthetic_evidence_secret_for_tests_only",
-    };
-    for (const url of [
-      "https://platform.test/integrations/telegram/v1/membership-evidence",
-      "http://127.0.0.1:3001/integrations/telegram/v1/membership-evidence",
-    ])
-      expect(
-        loadApplicationConfig({
-          ...evidence,
-          PLATFORM_EVIDENCE_DELIVERY_URL: url,
-        }).platformEvidenceDeliveryUrl,
-      ).toBe(url);
-    for (const bad of [
-      "http://platform.test/evidence",
-      "https://user:password@platform.test/evidence",
-      "https://platform.test/evidence?token=synthetic",
-      "https://platform.test/evidence#fragment",
-    ])
-      expect(() =>
-        loadApplicationConfig({
-          ...evidence,
-          PLATFORM_EVIDENCE_DELIVERY_URL: bad,
-        }),
-      ).toThrow("PLATFORM_EVIDENCE_DELIVERY_URL requires HTTPS");
   });
 
   it("keeps reconciliation cadence inside the evidence validity bound", () => {
@@ -445,7 +398,7 @@ describe("application configuration", () => {
     }
   });
 
-  it("reads the welcome stream date only with both the cohorts endpoint and the course UUID", () => {
+  it("reads the welcome stream date only with both the Product Sales State endpoint and Product UUID", () => {
     const productId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
     expect(
       loadApplicationConfig(validEnvironment).communityWelcomeCohort,
@@ -453,39 +406,60 @@ describe("application configuration", () => {
     expect(
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_PRODUCT_ID: productId,
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
+        PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId,
       }).communityWelcomeCohort,
-    ).toEqual({ url: "https://platform.test/billing/cohorts", productId });
-    // Existing deployment configuration stays valid when Platform ships first.
-    expect(
-      loadApplicationConfig({
-        ...validEnvironment,
-        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_GUIDE_ID: productId,
-      }).communityWelcomeCohort,
-    ).toEqual({ url: "https://platform.test/billing/cohorts", productId });
+    ).toEqual({
+      url: "https://platform.test/billing/product-sales-states",
+      productId,
+    });
+    for (const key of [
+      "PLATFORM_COHORTS_URL",
+      "PLATFORM_COHORT_PRODUCT_ID",
+      "PLATFORM_COHORT_GUIDE_ID",
+    ]) {
+      expect(() =>
+        loadApplicationConfig({
+          ...validEnvironment,
+          PLATFORM_PRODUCT_SALES_STATES_URL:
+            "https://platform.test/billing/product-sales-states",
+          PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId,
+          [key]:
+            key === "PLATFORM_COHORTS_URL"
+              ? "https://platform.test/billing/cohorts"
+              : productId,
+        }),
+      ).toThrow("Retired cohort configuration");
+    }
     for (const partial of [
-      { PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts" },
-      { PLATFORM_COHORT_PRODUCT_ID: productId },
+      {
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
+      },
+      { PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId },
     ])
       expect(() =>
         loadApplicationConfig({ ...validEnvironment, ...partial }),
-      ).toThrow("PLATFORM_COHORTS_URL and PLATFORM_COHORT_PRODUCT_ID");
+      ).toThrow(
+        "PLATFORM_PRODUCT_SALES_STATES_URL and PLATFORM_PRODUCT_SALES_PRODUCT_ID",
+      );
     expect(() =>
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_PRODUCT_ID: "ai-engineering",
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
+        PLATFORM_PRODUCT_SALES_PRODUCT_ID: "ai-engineering",
       }),
-    ).toThrow("PLATFORM_COHORT_PRODUCT_ID must be a UUID");
+    ).toThrow("PLATFORM_PRODUCT_SALES_PRODUCT_ID must be a UUID");
     expect(() =>
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "http://platform.test/billing/cohorts",
-        PLATFORM_COHORT_PRODUCT_ID: productId,
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "http://platform.test/billing/product-sales-states",
+        PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId,
       }),
-    ).toThrow("PLATFORM_COHORTS_URL");
+    ).toThrow("PLATFORM_PRODUCT_SALES_STATES_URL");
   });
 
   it("keeps membership check history for the owner's 90 days unless configured within bounds", () => {
@@ -586,31 +560,16 @@ describe("application configuration", () => {
     ).toThrow("TELEGRAM_COMMUNITY_REMOVALS_ENABLED must be true or false");
   });
 
-  it("accepts an explicit Tribute bot identity only as a Telegram user id distinct from this bot", () => {
-    expect(
-      loadApplicationConfig(validEnvironment).communityTributeBotTelegramUserId,
-    ).toBeUndefined();
-    expect(
-      loadApplicationConfig({
-        ...validEnvironment,
-        TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: "7000001",
-      }).communityTributeBotTelegramUserId,
-    ).toBe("7000001");
-    for (const bad of ["-7000001", "0", "tribute", "7000001.5"]) {
+  it("rejects a retired live Tribute identity instead of enabling recognition", () => {
+    for (const value of ["7000001", "tribute", "disabled"]) {
       expect(() =>
         loadApplicationConfig({
           ...validEnvironment,
-          TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: bad,
+          TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: value,
         }),
-      ).toThrow("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID");
+      ).toThrow("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID is retired");
     }
-    expect(() =>
-      loadApplicationConfig({
-        ...validEnvironment,
-        TELEGRAM_BOT_TOKEN: "7000001:synthetic",
-        TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: "7000001",
-      }),
-    ).toThrow("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID");
+    expect(() => loadApplicationConfig(validEnvironment)).not.toThrow();
   });
 
   it("refuses a Notifications secret shared with the community dispatch direction", () => {

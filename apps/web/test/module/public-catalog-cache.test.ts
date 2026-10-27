@@ -21,7 +21,7 @@ const projection = {
   },
   format: { id: "guide", name: "Гайд", slug: "guide" },
   tags: [],
-  seriesMemberships: [],
+  productMemberships: [],
 } as const;
 const body = {
   schemaVersion: 1,

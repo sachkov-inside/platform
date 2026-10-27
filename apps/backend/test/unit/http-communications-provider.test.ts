@@ -6,13 +6,13 @@ import { HttpCommunicationsProvider } from "../../src/modules/communications/inf
 const config = parsePlatformConfig({
   NODE_ENV: "test",
   TELEGRAM_COMMUNICATIONS_ENDPOINT:
-    "http://127.0.0.1:9876/integrations/platform/v1/communications",
+    "http://127.0.0.1:9876/integrations/platform/v2/communications",
   TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-communications-secret",
   TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic-authorization-secret",
   TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot",
 }).communications;
 const request = requestSchema.parse({
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   operation: "templates.read",
   operationId: "11111111-1111-4111-8111-111111111111",
   expectedRevision: 0,
@@ -20,7 +20,7 @@ const request = requestSchema.parse({
   payload: { templateId: "22222222-2222-4222-8222-222222222222" },
 });
 const success = {
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   status: "ok",
   template: {
     templateId: "22222222-2222-4222-8222-222222222222",
@@ -51,7 +51,7 @@ test.each([
   [
     409,
     {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       status: "revision_conflict",
     },
     "revision_conflict",
@@ -59,20 +59,20 @@ test.each([
   [
     409,
     {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       status: "operation_conflict",
     },
     "operation_conflict",
   ],
   [
     501,
-    { contractVersion: "inside-communications-v1", status: "not_implemented" },
+    { contractVersion: "inside-communications-v2", status: "not_implemented" },
     "not_implemented",
   ],
   [
     503,
     {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       status: "authorization_unavailable",
     },
     "authorization_unavailable",
@@ -115,7 +115,7 @@ test.each([
   [
     200,
     {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       status: "ok",
       testDeliveryId: "33333333-3333-4333-8333-333333333333",
     },
@@ -204,7 +204,7 @@ test("saved post lists enforce bot identity for every returned snapshot", async 
   });
   for (const botIdentity of ["synthetic-bot", "foreign-bot"]) {
     const value = {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       status: "ok",
       templates: [{ ...success.template, botIdentity }],
       nextCursor: null,

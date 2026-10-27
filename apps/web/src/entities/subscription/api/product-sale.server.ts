@@ -1,12 +1,18 @@
 import "server-only";
 import { z } from "zod";
 import { requestProductAccess } from "@/shared/api/backend/index.server";
-import { loadProductCohort, loadProductOffers } from "./billing-catalog.server";
+import {
+  loadProductSalesState,
+  loadProductOffers,
+} from "./billing-catalog.server";
 import {
   oneTimeOfferTerms,
   type OneTimeOfferTerms,
 } from "../model/offer-terms";
-import type { ProductCohort, PriceSnapshot } from "../model/billing-contract";
+import type {
+  ProductSalesState,
+  PriceSnapshot,
+} from "../model/billing-contract";
 
 export type ProductSale =
   | { readonly kind: "unavailable" }
@@ -14,7 +20,7 @@ export type ProductSale =
       readonly kind: "ready";
       readonly sold: boolean;
       readonly offers: readonly PriceSnapshot[];
-      readonly cohort: ProductCohort | null;
+      readonly cohort: ProductSalesState | null;
       readonly cohortKnown: boolean;
       readonly access: "open" | "closed" | "unknown";
       readonly signedIn: boolean;
@@ -39,12 +45,36 @@ async function readProductSale(
   productId: string,
   accessToken?: string,
 ): Promise<ProductSale> {
-  const [catalog, cohort, access] = await Promise.all([
-    loadProductOffers(productId, accessToken),
-    loadProductCohort(productId),
+  return (await readProductSaleFacts(productId, accessToken)).sale;
+}
+
+/** One read of access and sale facts, retaining entitlement even when prices are unavailable. */
+export async function readProductSaleFacts(
+  productId: string,
+  accessToken?: string,
+): Promise<{
+  readonly access: "open" | "closed" | "unknown";
+  readonly sale: ProductSale;
+}> {
+  const access =
     accessToken === undefined
-      ? ("closed" as const)
-      : readProductAccess(productId, accessToken),
+      ? "closed"
+      : await readProductAccess(productId, accessToken);
+  return {
+    access,
+    sale: await readProductSalePresentation(productId, access, accessToken),
+  };
+}
+
+/** Optional sale presentation never determines an existing holder's learning availability. */
+export async function readProductSalePresentation(
+  productId: string,
+  access: "open" | "closed" | "unknown",
+  accessToken?: string,
+): Promise<ProductSale> {
+  const [catalog, cohort] = await Promise.all([
+    loadProductOffers(productId, accessToken),
+    loadProductSalesState(productId),
   ]);
   if (catalog.kind === "unavailable") return catalog;
   // Backend решает, что продаётся. Web задаёт лишь стабильный порядок показа цены.

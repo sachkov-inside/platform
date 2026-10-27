@@ -21,21 +21,10 @@ const tbankTerminalSchema = z.strictObject({
   bindingEncryptionKey: z
     .string()
     .refine((value) => Buffer.from(value, "base64").length === 32),
-  // Оба подтверждения относятся только к подписке: разовая покупка не сохраняет привязку и продаётся
-  // любым способом формы. Значение обязательно, чтобы «не подтверждено» было заявлено явно.
-  recurringCardConfirmed: z.boolean(),
-  cardOnlyHostedConfirmed: z.boolean(),
   minimumKopecks: z.int().positive(),
   maximumKopecks: z.int().positive(),
   returnUrl: httpsUrl,
   notificationUrl: httpsUrl,
-  // Смена карты требует отдельно подтверждённой проверки: CheckType=NO не возвращает RebillId.
-  cardBinding: z
-    .strictObject({
-      confirmed: z.literal(true),
-      checkType: z.enum(["3DS", "3DSHOLD", "HOLD"]),
-    })
-    .optional(),
   receipt: z.strictObject({
     taxation: z.enum([
       "osn",
@@ -164,15 +153,8 @@ const DEFAULT_LOCAL_BANK_API_BASE_URL = "http://127.0.0.1:8090/v2";
 const DEFAULT_LOCAL_BANK_FORM_ORIGIN = "http://127.0.0.1:8090";
 const DEFAULT_LOCAL_BANK_NOTIFICATION_URL =
   "http://127.0.0.1:3001/billing/tbank/notification";
-const DEFAULT_LOCAL_BANK_RETURN_URL =
-  "http://127.0.0.1:3000/subscription/return";
-/**
- * Терминал двойника банка. Существует только при `TBANK_PROVIDER_MODE=test`, описывает стенд
- * целиком и потому не читает ни `TBANK_CONFIG_JSON`, ни сертификат. Ключ шифрования привязок
- * постоянный: на стенде он закрывает выдуманный `RebillId`, а не карту. Границы суммы широкие,
- * чтобы проходила любая цена локального каталога. Подтверждение привязки включено: без него
- * продление и смену карты на стенде проверить нечем.
- */
+const DEFAULT_LOCAL_BANK_RETURN_URL = "http://127.0.0.1:3000/payment/return";
+/** Development-only one-time bank terminal. Order Email encryption remains independent of card bindings. */
 export function localTbankConfig(environment: NodeJS.ProcessEnv): TbankConfig {
   try {
     return tbankRuntimeSchema.parse({
@@ -180,9 +162,6 @@ export function localTbankConfig(environment: NodeJS.ProcessEnv): TbankConfig {
       terminalKey: "INSIDELOCALDOUBLE",
       password: "inside-local-bank-double-password",
       bindingEncryptionKey: Buffer.alloc(32, 7).toString("base64"),
-      recurringCardConfirmed: true,
-      cardOnlyHostedConfirmed: true,
-      cardBinding: { confirmed: true, checkType: "3DS" },
       minimumKopecks: 100,
       maximumKopecks: 100_000_000,
       returnUrl:

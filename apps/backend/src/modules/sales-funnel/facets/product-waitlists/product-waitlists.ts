@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -12,6 +13,7 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { accountId as checkedAccountId } from "../../../accounts/index.js";
+import type { ProductDiscovery } from "../../../products/index.js";
 import type { AccountRights } from "../../../account-rights/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 
@@ -47,6 +49,7 @@ export class ProductWaitlists {
   constructor(
     private readonly dependencies: {
       readonly prisma: SalesFunnelPrismaClient;
+      readonly products: Pick<ProductDiscovery, "metadata">;
       readonly rights: Pick<
         AccountRights,
         "resolveForAccess" | "resolveForAccessAccounts"
@@ -55,6 +58,16 @@ export class ProductWaitlists {
       readonly clock: () => Date;
     },
   ) {}
+  private async discoverable(
+    productId: string,
+    transaction?: SalesFunnelPrisma,
+  ) {
+    const products = await this.dependencies.products.metadata(
+      { ids: [productId] },
+      transaction === undefined ? undefined : transactionHandle(transaction),
+    );
+    return products.length === 1 && products[0]?.archivedAt === null;
+  }
   private async eligible(
     accountId: string,
     productId: string,
@@ -83,7 +96,7 @@ export class ProductWaitlists {
       accountIds.map(checkedAccountId),
       [productId],
       undefined,
-      transaction,
+      transaction === undefined ? undefined : transactionHandle(transaction),
     );
     const eligible = new Set<string>();
     for (const id of accountIds) {
@@ -110,6 +123,11 @@ export class ProductWaitlists {
           where: { id: intakeId },
         });
         if (intake === null) return fail("intake_not_found");
+        if (!(await this.discoverable(intake.productId, tx)))
+          return {
+            ok: true,
+            value: { productId: intake.productId, accountIds: [] },
+          } as const;
         const rows = await tx.productWaitlistMembership.findMany({
           where: { intakeId, active: true },
           select: { accountId: true },
@@ -163,6 +181,7 @@ export class ProductWaitlists {
             productId: intake.productId,
             active:
               membership?.active === true &&
+              (await this.discoverable(intake.productId, tx)) &&
               (await this.eligible(accountId, intake.productId, tx)),
           },
         } as const;
@@ -178,6 +197,8 @@ export class ProductWaitlists {
   async readIntake(productId: string) {
     if (!z.uuid().safeParse(productId).success) return fail("invalid_request");
     try {
+      if (!(await this.discoverable(productId)))
+        return fail("intake_not_found");
       const intake =
         await this.dependencies.prisma.productWaitlistIntake.findFirst({
           where: { productId, accepting: true },
@@ -219,6 +240,7 @@ export class ProductWaitlists {
           name: intake.name,
           active:
             membership?.active === true &&
+            (await this.discoverable(productId)) &&
             (await this.eligible(accountId, productId)),
         },
       } as const;
@@ -236,13 +258,26 @@ export class ProductWaitlists {
       return fail("invalid_request");
     try {
       return await this.dependencies.prisma.$transaction(async (tx) => {
-        // Access writers acquire the binding lock before the entitlement lock too.
+        const candidate = await tx.productWaitlistIntake.findUnique({
+          where: { id: parsed.data.intakeId },
+        });
+        if (
+          candidate === null ||
+          !candidate.accepting ||
+          !(await this.discoverable(candidate.productId, tx))
+        )
+          return fail("intake_not_found");
+        // Products precede binding and entitlement locks, as in access issuance.
         await lockTelegramAccountBinding(tx, accountId);
         await lockAccountEntitlementChanges(tx, accountId);
         const intakeForAccess = await tx.productWaitlistIntake.findUnique({
           where: { id: parsed.data.intakeId },
         });
-        if (intakeForAccess === null || !intakeForAccess.accepting)
+        if (
+          intakeForAccess === null ||
+          !intakeForAccess.accepting ||
+          intakeForAccess.productId !== candidate.productId
+        )
           return fail("intake_not_found");
         if (!(await this.eligible(accountId, intakeForAccess.productId, tx))) {
           await tx.productWaitlistMembership.updateMany({
@@ -260,7 +295,7 @@ export class ProductWaitlists {
         }
         const binding = await this.dependencies.links.readBinding(
           { accountId },
-          tx,
+          transactionHandle(tx),
         );
         if (!binding.ok) return fail("dependency_unavailable");
         if (
@@ -277,7 +312,11 @@ export class ProductWaitlists {
         const intake = await tx.productWaitlistIntake.findUnique({
           where: { id: parsed.data.intakeId },
         });
-        if (intake === null || !intake.accepting)
+        if (
+          intake === null ||
+          !intake.accepting ||
+          intake.productId !== candidate.productId
+        )
           return fail("intake_not_found");
         const key = { intakeId: intake.id, accountId };
         const previous = await tx.productWaitlistMembership.findUnique({
@@ -420,6 +459,15 @@ export class ProductWaitlists {
           row.linkRevision !== command.linkRevision
         )
           return "suppressed";
+        const candidate = await tx.productWaitlistIntake.findUnique({
+          where: { id: row.intakeId },
+        });
+        if (
+          candidate === null ||
+          !(await this.discoverable(candidate.productId, tx))
+        )
+          return "suppressed";
+        // Keep this order paired with join: a Product waiter must not hold binding.
         await lockTelegramAccountBinding(tx, row.accountId);
         await lockProductWaitlistMembership(tx, row.intakeId, row.accountId);
         const membership = await tx.productWaitlistMembership.findUnique({
@@ -435,12 +483,13 @@ export class ProductWaitlists {
         });
         if (
           intake === null ||
+          intake.productId !== candidate.productId ||
           !(await this.eligible(row.accountId, intake.productId, tx))
         )
           return "suppressed";
         const binding = await this.dependencies.links.readBinding(
           { accountId: row.accountId },
-          tx,
+          transactionHandle(tx),
         );
         if (!binding.ok) return "unavailable";
         return membership?.active === true &&

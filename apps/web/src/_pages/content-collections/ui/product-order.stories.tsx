@@ -1,0 +1,771 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { z } from "zod";
+
+import {
+  ProductOrderManager,
+  type CreateProductOrderMaterialSearchQueryOptions,
+  type ProductOrderMaterialSearchResult,
+} from "@/features/product-order";
+import { withMutationFetch } from "@/storybook/mutation-mock";
+import { ProductEditorPageFrame } from "@/_pages/content-collections";
+
+import { authoringPageEnvironment } from "@/storybook/story-environment";
+
+const loadMaterialsSpy = fn(
+  (_input: {
+    readonly page: number;
+    readonly search: string;
+    readonly signal: AbortSignal;
+  }): Promise<ProductOrderMaterialSearchResult> =>
+    Promise.resolve({
+      items: [
+        {
+          materialId: "95000000-0000-4000-8000-000000000004",
+          publicationState: "draft" as const,
+          title: "Материал вне руководства",
+        },
+      ],
+      kind: "ready" as const,
+      page: 1,
+      totalItems: 1,
+      totalPages: 1,
+    }),
+);
+const createMaterialSearchQueryOptions: CreateProductOrderMaterialSearchQueryOptions =
+  ({ page, search }) =>
+    queryOptions({
+      placeholderData: keepPreviousData,
+      queryFn: ({ signal }) => loadMaterialsSpy({ page, search, signal }),
+      queryKey: ["product-order", "material-search", search, page] as const,
+    });
+const saveOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+  Promise.resolve(
+    Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+  ),
+);
+const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+  Promise.resolve(
+    Response.json({ kind: "error", reference: "product-order-save" }),
+  ),
+);
+
+const environment = authoringPageEnvironment(
+  "/authoring/products/95000000-0000-4000-8000-000000000010",
+  { frame: ProductEditorPageFrame },
+);
+
+const meta = {
+  ...environment,
+  args: {
+    // На маршруте состав руководства встроен в страницу редактора: свой `main` он не рисует.
+    embedded: true,
+    createMaterialSearchQueryOptions,
+    onBack: fn(),
+    onRefresh: fn(),
+    onSelectPlaylist: fn(),
+    presentation: {
+      archived: false,
+      programmePlacements: [1, 2, 3].map((index) => ({
+        id: `95000000-0000-4000-8000-00000000003${String(index)}`,
+        materialId: `95000000-0000-4000-8000-00000000000${String(index)}`,
+        chapterId: null,
+        stepGroup: null,
+      })),
+      chapters: [],
+      items: [
+        {
+          materialId: "95000000-0000-4000-8000-000000000001",
+          publicationState: "published",
+          title: "С чего начинается Platform Inside",
+        },
+        {
+          materialId: "95000000-0000-4000-8000-000000000002",
+          publicationState: "draft",
+          title: "Границы продукта и первая версия",
+        },
+        {
+          materialId: "95000000-0000-4000-8000-000000000003",
+          publicationState: "unpublished",
+          title: "Как устроена база знаний",
+        },
+      ],
+      name: "Создание Platform Inside",
+      options: [
+        {
+          label: "Создание Platform Inside",
+          value: "95000000-0000-4000-8000-000000000010",
+        },
+      ],
+      orderVersion: "a".repeat(64),
+      productId: "95000000-0000-4000-8000-000000000010",
+    },
+  },
+  component: ProductOrderManager,
+  title: "Pages/Authoring/Состав продукта",
+} satisfies Meta<typeof ProductOrderManager>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Reordering: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      canvas.getByText("Есть несохранённые изменения."),
+    ).toBeInTheDocument();
+    await expect(
+      await canvas.findByText("Порядок сохранён."),
+    ).toBeInTheDocument();
+    await expect(saveOrderSpy).toHaveBeenCalledOnce();
+    await moveFirstItem(canvasElement);
+    await waitFor(() => expect(saveOrderSpy).toHaveBeenCalledTimes(2));
+    const secondBody = saveOrderSpy.mock.calls[1]?.[1]?.body;
+    await expect(sentField(secondBody, "expectedOrderVersion")).toBe(
+      "b".repeat(64),
+    );
+  },
+};
+
+export const StepAssignments: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    const disclosure = canvas.getAllByText("Последовательность шагов")[0];
+    if (disclosure === undefined) throw new Error("Missing step disclosure");
+    await userEvent.click(disclosure);
+    const input = canvas.getAllByRole("textbox", {
+      name: "Название последовательности",
+    })[0];
+    if (input === undefined)
+      throw new Error("Step assignment field is missing");
+    await userEvent.type(input, "От проекта до релиза");
+    await expect(
+      await canvas.findByText("Порядок сохранён."),
+    ).toBeInTheDocument();
+    const body = saveOrderSpy.mock.calls[0]?.[1]?.body;
+    await expect(sentField(body, "stepGroups")).toEqual({
+      "95000000-0000-4000-8000-000000000001": "От проекта до релиза",
+    });
+    await userEvent.clear(input);
+    await waitFor(() => expect(saveOrderSpy).toHaveBeenCalledTimes(2));
+    const cleared = saveOrderSpy.mock.calls[1]?.[1]?.body;
+    await expect(sentField(cleared, "stepGroups")).toEqual({});
+  },
+};
+
+export const Empty: Story = {
+  args: {
+    presentation: {
+      ...meta.args.presentation,
+      items: [],
+      programmePlacements: [],
+    },
+  },
+};
+
+const chapters = [
+  {
+    id: "95000000-0000-4000-8000-000000000021",
+    name: "Проект и CI",
+    summary:
+      "Разберём проверки до слияния в основную ветку.\n\nТы настроишь запуск сборки и тестов.",
+  },
+  { id: "95000000-0000-4000-8000-000000000022", name: "Релизы", summary: "" },
+];
+const chaptered = {
+  ...meta.args.presentation,
+  chapters,
+  programmePlacements: meta.args.presentation.programmePlacements.map(
+    (entry, index) => ({
+      ...entry,
+      chapterId:
+        index === 2 ? (chapters[1]?.id ?? null) : (chapters[0]?.id ?? null),
+    }),
+  ),
+  items: meta.args.presentation.items.map((item, index) => ({
+    ...item,
+    chapterId:
+      index === 2 ? (chapters[1]?.id ?? null) : (chapters[0]?.id ?? null),
+  })),
+};
+
+export const Chapters: Story = {
+  args: { presentation: chaptered },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Релизы»" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("textbox", { name: "Название главы 1" }),
+    ).toHaveValue("Проект и CI");
+    await expect(
+      canvas.getByRole("button", { name: "Поднять главу «Проект и CI»" }),
+    ).toBeDisabled();
+    // Глава и материал открывают предпросмотр по маршруту продукта и возвращают в его редактор.
+    const productId = chaptered.productId;
+    const firstMaterialId = chaptered.items[0]?.materialId ?? "";
+    const chapterPreview = new URL(
+      canvas
+        .getByRole("link", { name: "Предпросмотр главы «Проект и CI»" })
+        .getAttribute("href") ?? "",
+      "https://inside.local",
+    );
+    await expect(chapterPreview.pathname).toBe(
+      `/authoring/materials/${firstMaterialId}/preview`,
+    );
+    await expect(chapterPreview.searchParams.get("product")).toBe(productId);
+    await expect(chapterPreview.searchParams.get("from")).toBe(
+      `/authoring/products/${productId}`,
+    );
+    await expect(
+      canvas.getAllByRole("link", { name: /^Предпросмотр «/u }),
+    ).toHaveLength(chaptered.items.length);
+  },
+};
+
+export const DragBetweenChapters: Story = {
+  args: { presentation: chaptered },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    // Vitest's Playwright provider performs native pointer drag-and-drop. In the catalog,
+    // this story leaves the same production handles available for manual interaction.
+    if (import.meta.env.MODE !== "test") return;
+    const { userEvent: browserUserEvent } =
+      await import("@vitest/browser/context");
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    const source = canvas.getByRole("button", {
+      name: "Переместить «Как устроена база знаний»",
+    });
+    const target = canvas.getByRole("button", {
+      name: "Переместить «С чего начинается Platform Inside»",
+    });
+    await browserUserEvent.dragAndDrop(source, target);
+    await expect(
+      canvas.getByText(/Как устроена база знаний: позиция/u),
+    ).toHaveTextContent("Как устроена база знаний: позиция 1 из 3");
+    await expect(
+      within(
+        canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" }),
+      )
+        .getAllByRole("button", { name: /^Переместить «/u })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Переместить «Как устроена база знаний»",
+      "Переместить «С чего начинается Platform Inside»",
+      "Переместить «Границы продукта и первая версия»",
+    ]);
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
+    await expect(sentField(body, "orderedMaterialIds")).toEqual([
+      "95000000-0000-4000-8000-000000000003",
+      "95000000-0000-4000-8000-000000000001",
+      "95000000-0000-4000-8000-000000000002",
+    ]);
+    await expect(sentField(body, "chapterAssignments")).toEqual({
+      "95000000-0000-4000-8000-000000000001": chapters[0]?.id,
+      "95000000-0000-4000-8000-000000000002": chapters[0]?.id,
+      "95000000-0000-4000-8000-000000000003": chapters[0]?.id,
+    });
+  },
+};
+
+export const DragIntoLaterChapter: Story = {
+  args: { presentation: chaptered },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    if (import.meta.env.MODE !== "test") return;
+    const { userEvent: browserUserEvent } =
+      await import("@vitest/browser/context");
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    await browserUserEvent.dragAndDrop(
+      canvas.getByRole("button", {
+        name: "Переместить «С чего начинается Platform Inside»",
+      }),
+      canvas.getByRole("button", {
+        name: "Переместить «Как устроена база знаний»",
+      }),
+    );
+    const notice = () =>
+      canvas.getByText(/С чего начинается Platform Inside: позиция/u);
+    await expect(notice()).toHaveAttribute("role", "status");
+    await expect(notice()).toHaveTextContent(
+      "С чего начинается Platform Inside: позиция 2 из 3",
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
+    await expect(sentField(body, "orderedMaterialIds")).toEqual([
+      "95000000-0000-4000-8000-000000000002",
+      "95000000-0000-4000-8000-000000000001",
+      "95000000-0000-4000-8000-000000000003",
+    ]);
+    await expect(sentField(body, "chapterAssignments")).toEqual({
+      "95000000-0000-4000-8000-000000000001": chapters[1]?.id,
+      "95000000-0000-4000-8000-000000000002": chapters[0]?.id,
+      "95000000-0000-4000-8000-000000000003": chapters[1]?.id,
+    });
+    const laterChapter = canvas.getByRole("list", {
+      name: "Материалы главы «Релизы»",
+    });
+    const handle = within(laterChapter).getByRole("button", {
+      name: "Переместить «С чего начинается Platform Inside»",
+    });
+    await browserUserEvent.click(handle);
+    await browserUserEvent.keyboard("{ArrowDown}");
+    await expect(notice()).toHaveTextContent(
+      "С чего начинается Platform Inside: позиция 3 из 3",
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    await expect(saveOrderSpy).toHaveBeenCalledTimes(2);
+    const keyboardBody = saveOrderSpy.mock.calls[1]?.[1]?.body;
+    await expect(sentField(keyboardBody, "orderedMaterialIds")).toEqual([
+      "95000000-0000-4000-8000-000000000002",
+      "95000000-0000-4000-8000-000000000003",
+      "95000000-0000-4000-8000-000000000001",
+    ]);
+    await expect(sentField(keyboardBody, "chapterAssignments")).toEqual(
+      sentField(body, "chapterAssignments"),
+    );
+  },
+};
+
+export const ChaptersMobile: Story = {
+  args: { presentation: chaptered },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Ссылка на предпросмотр главы стоит рядом с тремя кнопками и не сжимает название в ничто.
+    await expect(
+      canvas
+        .getByRole("textbox", { name: "Название главы 1" })
+        .getBoundingClientRect().width,
+    ).toBeGreaterThanOrEqual(140);
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
+  },
+};
+
+export const CreateChapter: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить главу" }),
+    );
+    const name = canvas.getByRole("textbox", { name: "Название главы 1" });
+    await userEvent.clear(name);
+    await userEvent.type(name, "Проект и CI");
+    await expect(
+      await canvas.findByText("Порядок сохранён."),
+    ).toBeInTheDocument();
+    const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
+    const saved = z
+      .array(z.object({ name: z.string() }))
+      .parse(sentField(body, "chapters"));
+    await expect(saved.map(({ name: value }) => value)).toEqual([
+      "Проект и CI",
+    ]);
+    await expect(sentField(body, "chapterAssignments")).toEqual({});
+    await expect(
+      canvas.getByText(
+        "Глава пока пустая. Перенесите в неё материал из списка ниже.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Вне глав" }),
+    ).toBeVisible();
+  },
+};
+
+export const PartiallyGrouped: Story = {
+  args: {
+    presentation: {
+      ...meta.args.presentation,
+      chapters,
+      items: meta.args.presentation.items.map((item, index) => ({
+        ...item,
+        chapterId: index === 0 ? null : (chapters[0]?.id ?? null),
+      })),
+    },
+  },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    const lists = canvas.getAllByRole("list", { name: /Материалы/u });
+    await expect(lists[0]).toHaveAccessibleName("Материалы вне глав");
+    await expect(lists[1]).toHaveAccessibleName(
+      "Материалы главы «Проект и CI»",
+    );
+    await expect(
+      canvasElement.querySelectorAll("ol[aria-label^='Материалы'] > li"),
+    ).toHaveLength(3);
+    await expect(saveOrderSpy).not.toHaveBeenCalled();
+  },
+};
+
+export const MoveMaterialIntoChapter: Story = {
+  args: { presentation: { ...meta.args.presentation, chapters } },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    const disclosure = canvas.getAllByText("Последовательность шагов")[0];
+    if (disclosure === undefined) throw new Error("Missing step disclosure");
+    await userEvent.click(disclosure);
+    const select = canvas.getAllByRole("combobox", { name: "Глава" })[0];
+    if (select === undefined) throw new Error("Missing chapter select");
+    await userEvent.selectOptions(select, chapters[0]?.id ?? "");
+    await expect(
+      await canvas.findByText("Порядок сохранён."),
+    ).toBeInTheDocument();
+    const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
+    await expect(sentField(body, "chapterAssignments")).toEqual({
+      "95000000-0000-4000-8000-000000000001": chapters[0]?.id,
+    });
+    await expect(sentField(body, "orderedMaterialIds")).toEqual([
+      "95000000-0000-4000-8000-000000000001",
+      "95000000-0000-4000-8000-000000000002",
+      "95000000-0000-4000-8000-000000000003",
+    ]);
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы вне глав" }),
+    ).toBeVisible();
+  },
+};
+
+export const AddMaterial: Story = {
+  play: async ({ canvasElement }) => {
+    loadMaterialsSpy.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить материал" }),
+    );
+    const dialog = canvas.getByRole("dialog", { name: "Добавить материал" });
+    await expect(dialog).toBeVisible();
+    await expect(
+      await within(dialog).findByRole("button", {
+        name: "Добавить «Материал вне руководства»",
+      }),
+    ).toBeVisible();
+    await expect(loadMaterialsSpy).toHaveBeenCalledOnce();
+  },
+};
+
+export const Archived: Story = {
+  args: {
+    presentation: { ...meta.args.presentation, archived: true },
+  },
+};
+
+export const Conflict: Story = {
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "conflict" })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText("Состав или порядок изменился в другой вкладке."),
+    ).toBeInTheDocument();
+    await expect(
+      await canvas.findByRole("button", { name: "Обновить список" }),
+    ).toBeVisible();
+  },
+};
+
+export const RemovalConfirmation: Story = {
+  name: "Подтверждение снятия из купленного продукта",
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(
+        Response.json({
+          products: [
+            {
+              productId: "95000000-0000-4000-8000-000000000010",
+              holders: 3,
+              name: "Создание Platform Inside",
+            },
+          ],
+          kind: "removal_confirmation_required",
+        }),
+      ),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await moveFirstItem(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const dialog = await page.findByRole("dialog", {
+      name: "Снять материал из купленного продукта?",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(within(dialog).getByText("доступ у 3 человека")).toBeVisible();
+    await expect(
+      within(dialog).getByRole("button", { name: "Оставить в продукте" }),
+    ).toBeEnabled();
+  },
+};
+
+const sourceMismatchSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+  Promise.resolve(
+    Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+  ),
+);
+
+export const SourceMismatch: Story = {
+  name: "Материал из другого источника",
+  decorators: [withMutationFetch(sourceMismatchSpy)],
+  play: async ({ canvasElement }) => {
+    sourceMismatchSpy.mockClear();
+    sourceMismatchSpy.mockImplementationOnce(() =>
+      Promise.resolve(
+        Response.json({
+          kind: "source_mismatch",
+          materialIds: ["95000000-0000-4000-8000-000000000002"],
+        }),
+      ),
+    );
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(
+        /«Границы продукта и первая версия» нельзя добавить в этот продукт/u,
+      ),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Войти через Telegram" }),
+    ).toBeNull();
+  },
+};
+
+export const SourceMismatchRecovered: Story = {
+  name: "Материал из другого источника убран",
+  decorators: SourceMismatch.decorators ?? [],
+  play: async (context) => {
+    await SourceMismatch.play?.(context);
+    const canvas = within(context.canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Убрать «Границы продукта и первая версия»",
+      }),
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    await expect(sourceMismatchSpy).toHaveBeenCalledTimes(2);
+    const body = sourceMismatchSpy.mock.calls[1]?.[1]?.body;
+    await expect(sentField(body, "orderedMaterialIds")).not.toContain(
+      "95000000-0000-4000-8000-000000000002",
+    );
+  },
+};
+
+export const SourceMismatchUndone: Story = {
+  name: "Материал из другого источника: правка отменена",
+  decorators: SourceMismatch.decorators ?? [],
+  play: async (context) => {
+    await SourceMismatch.play?.(context);
+    const canvas = within(context.canvasElement);
+    // Обратный ход возвращает исходный состав: сохранять нечего и повторять нечего.
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Поднять «С чего начинается Platform Inside»",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", { name: "Повторить сохранение" }),
+      ).toBeNull(),
+    );
+    await expect(sourceMismatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const Forbidden: Story = {
+  name: "Продукт нельзя менять в редакторе",
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "forbidden" })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(/этот продукт нельзя менять в редакторе/u),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Войти через Telegram" }),
+    ).toBeNull();
+  },
+};
+
+export const SaveError: Story = {
+  decorators: [withMutationFetch(failedOrderSpy)],
+  play: async ({ canvasElement }) => {
+    failedOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(/Не удалось сохранить/u),
+    ).toBeInTheDocument();
+    const retry = await canvas.findByRole("button", {
+      name: "Повторить сохранение",
+    });
+    await expect(retry).toBeEnabled();
+    await userEvent.click(retry);
+    await expect(failedOrderSpy).toHaveBeenCalledTimes(2);
+  },
+};
+
+export const SessionExpired: Story = {
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "unauthorized" })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(/Сессия завершилась/u),
+    ).toBeInTheDocument();
+    await expect(
+      await canvas.findByRole("button", { name: "Войти через Telegram" }),
+    ).toBeVisible();
+  },
+};
+
+export const Mobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile320" } },
+};
+
+async function moveFirstItem(canvasElement: HTMLElement): Promise<void> {
+  const canvas = within(canvasElement);
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Опустить «С чего начинается Platform Inside»",
+    }),
+  );
+}
+
+/** One field of the JSON composition command the story sent. */
+function sentField(body: BodyInit | null | undefined, name: string): unknown {
+  if (typeof body !== "string") throw new Error("Expected composition command");
+  const parsed: unknown = JSON.parse(body);
+  const fields: Record<string, unknown> =
+    typeof parsed === "object" && parsed !== null
+      ? Object.fromEntries(Object.entries(parsed))
+      : {};
+  if (!(name in fields)) throw new Error(`Missing ${name} field`);
+  return fields[name];
+}
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <ProductOrderManager {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await moveFirstItem(canvasElement);
+      },
+      "Порядок сохранён.",
+      () => Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+    );
+  },
+};
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await moveFirstItem(canvasElement);
+      },
+      "Повторить сохранение",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(
+      canvas.queryByText("Порядок сохранён."),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const BoundedSupplementaryChoices: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
+  args: {
+    presentation: {
+      ...chaptered,
+      programmePlacements: [],
+      chapters: [
+        {
+          id: "95000000-0000-4000-8000-000000000021",
+          name: "Проект и CI",
+          summary: "",
+        },
+      ],
+      items: Array.from({ length: 45 }, (_, index) => ({
+        materialId: `95000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
+        publicationState: "published" as const,
+        title: `Материал каталога ${String(index + 1).padStart(2, "0")}`,
+        chapterId: "95000000-0000-4000-8000-000000000021",
+      })),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const summary = canvas.getByText("Дополнительные материалы", {
+      exact: true,
+    });
+    const details = summary.closest("details");
+    if (details === null) throw new Error("Missing supplementary choices");
+    const choices = within(details);
+    await expect(
+      choices.queryAllByRole("checkbox", { hidden: true }).length,
+    ).toBeLessThanOrEqual(20);
+    await userEvent.click(summary);
+    await expect(choices.getAllByRole("checkbox")).toHaveLength(20);
+    const search = choices.getByRole("textbox", {
+      name: "Поиск дополнительных материалов",
+    });
+    await userEvent.type(search, "Материал каталога 31");
+    const selected = choices.getByRole("checkbox", {
+      name: "Материал каталога 31",
+    });
+    await userEvent.click(selected);
+    await expect(selected).toBeChecked();
+    await userEvent.clear(search);
+    await userEvent.click(
+      choices.getByRole("button", { name: "Дальше по списку" }),
+    );
+    await expect(
+      choices.getByRole("checkbox", { name: "Материал каталога 31" }),
+    ).toBeChecked();
+    await expect(choices.getAllByRole("checkbox")).toHaveLength(20);
+  },
+};

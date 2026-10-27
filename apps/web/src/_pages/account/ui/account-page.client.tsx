@@ -7,21 +7,21 @@ import { LegalDocumentLinks } from "@/entities/legal-document";
 import {
   bioLengthIsValid,
   displayNameLengthIsValid,
-  memberProfileTextLength,
-  type PrivateMemberProfile,
-} from "@/entities/member-profile";
+  accountProfileTextLength,
+  type PrivateAccountProfile,
+} from "@/entities/account-profile";
 import { Button } from "@/shared/ui/button";
 import { AccountSectionHeader } from "@/widgets/account-cabinet";
 
-import { createMemberProfile } from "../api/create-member-profile.browser";
-import { updateMemberProfile } from "../api/update-member-profile.browser";
-import type { CreateMemberProfileResult } from "../model/create-member-profile";
-import type { UpdateMemberProfileResult } from "../model/update-member-profile";
+import { createAccountProfile } from "../api/create-account-profile.browser";
+import { updateAccountProfile } from "../api/update-account-profile.browser";
+import type { CreateAccountProfileResult } from "../model/create-account-profile";
+import type { UpdateAccountProfileResult } from "../model/update-account-profile";
 import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
-  readonly initialProfile: PrivateMemberProfile | null;
-  readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
+  readonly initialProfile: PrivateAccountProfile | null;
+  readonly onProfileChange?: (profile: PrivateAccountProfile) => void;
 }
 
 export function AccountPageClient({
@@ -40,7 +40,7 @@ export function AccountPageClient({
   const bioHelpId = useId();
   const bioErrorId = useId();
   const createMutation = useMutation({
-    mutationFn: createMemberProfile,
+    mutationFn: createAccountProfile,
     onSuccess: (result) => {
       if (result.kind === "saved") {
         setDisplayName(result.profile.displayName);
@@ -53,7 +53,7 @@ export function AccountPageClient({
     },
   });
   const updateMutation = useMutation({
-    mutationFn: updateMemberProfile,
+    mutationFn: updateAccountProfile,
     onSuccess: (result) => {
       if (result.kind === "saved") {
         setDisplayName(result.profile.displayName);
@@ -67,8 +67,8 @@ export function AccountPageClient({
   });
   const saveResult = updateMutation.data ?? createMutation.data ?? null;
   const savePending = createMutation.isPending || updateMutation.isPending;
-  const nameLength = memberProfileTextLength(displayName.trim());
-  const bioLength = memberProfileTextLength(bio);
+  const nameLength = accountProfileTextLength(displayName.trim());
+  const bioLength = accountProfileTextLength(bio);
   const serverNameError =
     saveResult?.kind === "invalid_input"
       ? saveResult.fieldErrors.displayName
@@ -291,7 +291,8 @@ function ProfileAvatarPlaceholder({
 function MutationNotice({
   result,
 }: {
-  readonly result: CreateMemberProfileResult | UpdateMemberProfileResult | null;
+  readonly result:
+    CreateAccountProfileResult | UpdateAccountProfileResult | null;
 }) {
   if (result === null) return null;
   if (result.kind === "saved") {

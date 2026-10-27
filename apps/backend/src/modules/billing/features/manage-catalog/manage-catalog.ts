@@ -1,25 +1,20 @@
-import type { SaleCapability } from "../../domain/sale-capability.js";
-import type { Accounts } from "../../../accounts/index.js";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
-  Prisma,
+  lockBillingPricing,
   type BillingPrisma,
   type BillingPrismaClient,
-  lockBillingPricing,
 } from "../../../../infrastructure/prisma/index.js";
+import type { Accounts } from "../../../accounts/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
-import {
-  offerGrantsWithheld,
-  productOfferUnsellable,
-  productSupportTermMissing,
-  tierLacksComposition,
-} from "../../shared/tier-composition.js";
+import type { SaleCapability } from "../../domain/sale-capability.js";
+import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import {
   catalogOutcomeSchema,
   manageCatalogSchema,
   type ManageCatalogCommand,
 } from "./manage-catalog.contract.js";
-import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 
 type Outcome = {
   id: string;
@@ -43,6 +38,7 @@ export async function manageCatalog(
     prisma: BillingPrismaClient;
     accounts: Pick<Accounts, "checkPermission">;
     sale: SaleCapability;
+    contentCatalog?: CoverageCatalog | undefined;
   },
   actor: string,
   input: unknown,
@@ -51,16 +47,15 @@ export async function manageCatalog(
   const identity = idSchema.safeParse(actor);
   if (!parsed.success || !identity.success) return failure("invalid_request");
   try {
-    // Каталог — часть billing:manage; platform:admin владельца включает это право.
-    const permission = await dependencies.accounts.checkPermission({
-      accountId: identity.data,
-      permission: "billing:manage",
-    });
-    if (!permission.ok) return failure("dependency_unavailable");
-    if (!permission.allowed) return failure("forbidden");
     return await dependencies.prisma.$transaction(
       async (tx): Promise<ManageCatalogResult> => {
         await lockBillingPricing(tx);
+        const permission = await dependencies.accounts.checkPermission(
+          { accountId: identity.data, permission: "billing:manage" },
+          transactionHandle(tx),
+        );
+        if (!permission.ok) return failure("dependency_unavailable");
+        if (!permission.allowed) return failure("forbidden");
         const command =
           parsed.data.operation === "promotions.save"
             ? {
@@ -81,7 +76,12 @@ export async function manageCatalog(
           return fingerprint.recognizes(receipt.fingerprint)
             ? { ok: true, value: catalogOutcomeSchema.parse(receipt.outcome) }
             : failure("operation_conflict");
-        const result = await changeCatalog(tx, command, dependencies.sale);
+        const result = await changeCatalog(
+          tx,
+          command,
+          dependencies.sale,
+          dependencies.contentCatalog,
+        );
         if (result.ok)
           await tx.billingPricingCommand.create({
             data: {
@@ -106,161 +106,68 @@ async function changeCatalog(
   tx: BillingPrisma,
   command: ManageCatalogCommand,
   sale: SaleCapability,
+  contentCatalog?: CoverageCatalog,
 ): Promise<ManageCatalogResult> {
-  if (command.operation === "cohorts.save") return saveCohort(tx, command);
-  const id = "value" in command ? command.value.id : command.id;
-  const current = command.operation.startsWith("offers.")
-    ? await tx.billingOffer.findUnique({ where: { id } })
-    : command.operation.startsWith("paymentOptions.")
-      ? await tx.billingPaymentOption.findUnique({ where: { id } })
-      : await tx.billingPromotion.findUnique({ where: { id } });
+  if (
+    command.operation === "cohorts.save" ||
+    command.operation === "productSalesState.save"
+  )
+    return saveProductSalesState(tx, command);
+  const id =
+    "value" in command
+      ? "productId" in command.value
+        ? command.value.productId
+        : command.value.id
+      : command.id;
+  const priceCommand = command.operation.startsWith("productPrices.");
+  const current = priceCommand
+    ? await tx.billingProductPrice.findUnique({ where: { productId: id } })
+    : await tx.billingPromotion.findUnique({ where: { id } });
   if (!current && !("value" in command)) return failure("not_found");
   if (current?.revision !== command.expectedRevision)
     return failure("revision_conflict");
-  const currentPublished =
-    current !== null && "published" in current ? current.published : false;
   const revision = (current?.revision ?? 0) + 1;
   const archived = !("value" in command);
   switch (command.operation) {
-    case "offers.save": {
-      // Архив окончателен: сохранение не возвращает тариф ни в каталог, ни в продажу.
+    case "productPrices.save": {
+      if (contentCatalog?.hasProduct === undefined)
+        return failure("dependency_unavailable");
+      if (
+        !(await contentCatalog.hasProduct(
+          command.value.productId,
+          transactionHandle(tx),
+        ))
+      )
+        return failure("not_found");
       if (current?.archived === true) return failure("not_found");
-      const periods = command.value.benefitPeriods ?? [];
-      const assignable =
-        command.value.availableForAssignment ??
-        (current !== null &&
-          "availableForAssignment" in current &&
-          current.availableForAssignment);
-      const scope =
-        command.value.coverage === undefined &&
-        current !== null &&
-        "coverage" in current
-          ? current.coverage
-          : command.value.coverage;
-      if (
-        assignable &&
-        tierLacksComposition({
-          benefits: command.value.benefits,
-          coverage: scope,
-        })
-      )
-        return failure("invalid_request");
-      if (
-        new Set(periods.map((value) => value.capability)).size !==
-          periods.length ||
-        periods.some(
-          (value) => !command.value.benefits.includes(value.capability),
-        )
-      )
-        return failure("invalid_request");
-      if (
-        productSupportTermMissing({
-          benefits: command.value.benefits,
-          benefitPeriods: periods,
-        })
-      )
-        return failure("invalid_request");
-      // Проверяется состав, который останется у предложения, в том числе унаследованный от прежней редакции.
-      if (
-        offerGrantsWithheld({
-          benefits: command.value.benefits,
-          coverage: scope,
-        })
-      )
-        return failure("invalid_request");
-      // Допуск, как и признак назначения, наследуется от прежней редакции, если команда его не
-      // называет: сохранение формой без этого поля не открывает Offer всем.
-      const { coverage, availableForAssignment, eligibility, ...value } =
-        command.value;
-      const data = {
-        ...value,
-        ...(availableForAssignment === undefined
-          ? {}
-          : { availableForAssignment }),
-        ...(eligibility === undefined ? {} : { eligibility }),
-        ...(coverage === undefined
-          ? {}
-          : {
-              coverage: coverage === null ? Prisma.JsonNull : coverage,
-            }),
-        benefitPeriods: periods,
-        revision,
-        archived: false,
-      };
-      await tx.billingOffer.upsert({
-        where: { id },
+      if (command.value.published && !sale.payments)
+        return failure("method_unavailable");
+      const data = { ...command.value, revision, updatedAt: new Date() };
+      await tx.billingProductPrice.upsert({
+        where: { productId: id },
         create: data,
         update: data,
       });
       return {
         ok: true,
-        value: { id, revision, archived: false, published: currentPublished },
+        value: { id, revision, archived: false, published: data.published },
       };
     }
-    case "offers.archive": {
-      // Архив — окончательное снятие, поэтому он снимает и продажу: вернуть тариф нельзя ничем.
-      await tx.billingOffer.update({
-        where: { id },
-        data: { revision, archived, published: false },
+    case "productPrices.archive": {
+      await tx.billingProductPrice.update({
+        where: { productId: id },
+        data: {
+          revision,
+          archived: true,
+          published: false,
+          updatedAt: new Date(),
+        },
       });
-      return { ok: true, value: { id, revision, archived, published: false } };
+      return {
+        ok: true,
+        value: { id, revision, archived: true, published: false },
+      };
     }
-    case "offers.publish":
-    case "offers.unpublish": {
-      if (current === null || current.archived) return failure("not_found");
-      const published = command.operation === "offers.publish";
-      if (
-        published &&
-        "benefits" in current &&
-        (tierLacksComposition(current) ||
-          productOfferUnsellable(current) ||
-          offerGrantsWithheld(current))
-      )
-        return failure("invalid_request");
-      // Без терминала и адреса для чека продавать нечем: отказ сейчас, а не при следующем запуске.
-      if (published && !sale.payments) return failure("method_unavailable");
-      // Включение продажи предложения с вариантом подписки — это включение продажи подписки.
-      if (
-        published &&
-        !sale.subscriptions &&
-        (await tx.billingPaymentOption.count({
-          where: { offerId: id, archived: false, mode: "subscription" },
-        })) > 0
-      )
-        return failure("method_unavailable");
-      await tx.billingOffer.update({
-        where: { id },
-        data: { revision, published },
-      });
-      return { ok: true, value: { id, revision, archived: false, published } };
-    }
-    case "paymentOptions.save": {
-      const offer = await tx.billingOffer.findUnique({
-        where: { id: command.value.offerId },
-      });
-      if (!offer || offer.archived) return failure("not_found");
-      const mode = command.value.mode ?? "subscription";
-      // Способ оплаты входит в принятые условия покупки, поэтому у существующего варианта он
-      // не переписывается: подписку не превращают в разовую продажу задним числом.
-      if (current && "mode" in current && current.mode !== mode)
-        return failure("invalid_request");
-      // Вариант подписки у продаваемого предложения сразу поступает в продажу.
-      if (mode === "subscription" && !sale.subscriptions)
-        return failure("method_unavailable");
-      const data = { ...command.value, mode, revision, archived: false };
-      await tx.billingPaymentOption.upsert({
-        where: { id },
-        create: data,
-        update: data,
-      });
-      break;
-    }
-    case "paymentOptions.archive":
-      await tx.billingPaymentOption.update({
-        where: { id },
-        data: { revision, archived },
-      });
-      break;
     case "promotions.save": {
       const value = command.value;
       if (Date.parse(value.startsAt) >= Date.parse(value.endsAt))
@@ -273,12 +180,9 @@ async function changeCatalog(
       )
         return failure("operation_conflict");
       if (
-        (await tx.billingOffer.count({
-          where: { id: { in: value.offerIds } },
-        })) !== new Set(value.offerIds).size ||
-        (await tx.billingPaymentOption.count({
-          where: { id: { in: value.paymentOptionIds } },
-        })) !== new Set(value.paymentOptionIds).size
+        (await tx.billingProductPrice.count({
+          where: { productId: { in: value.productIds } },
+        })) !== new Set(value.productIds).size
       )
         return failure("not_found");
       const committed = await tx.billingPromoReservation.count({
@@ -314,14 +218,17 @@ async function changeCatalog(
  * Поток продукта меняется на месте: страница и бот читают текущую запись, а купленные права от неё
  * не зависят. Цена после старта у потока только показывается зачёркнутой рядом с ценой
  * предзаказа; списание берёт цену варианта оплаты. При неизменном составе прав владелец меняет
- * цену через paymentOptions.save (ADR 0033), а снимки прежних покупок сохраняются.
+ * цену через productPrices.save, а снимки прежних покупок сохраняются.
  */
-async function saveCohort(
+async function saveProductSalesState(
   tx: BillingPrisma,
-  command: Extract<ManageCatalogCommand, { operation: "cohorts.save" }>,
+  command: Extract<
+    ManageCatalogCommand,
+    { operation: "cohorts.save" | "productSalesState.save" }
+  >,
 ): Promise<ManageCatalogResult> {
   const { productId, startsOn, ...value } = command.value;
-  const current = await tx.billingProductCohort.findUnique({
+  const current = await tx.billingProductSalesState.findUnique({
     where: { productId },
     select: { revision: true },
   });
@@ -334,7 +241,7 @@ async function saveCohort(
     revision,
     updatedAt: new Date(),
   };
-  await tx.billingProductCohort.upsert({
+  await tx.billingProductSalesState.upsert({
     where: { productId },
     create: { productId, ...data },
     update: data,

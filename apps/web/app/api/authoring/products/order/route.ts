@@ -1,5 +1,5 @@
-import { handleSeriesOrderRequest } from "@/features/series-order.server";
+import { handleProductOrderRequest } from "@/features/product-order.server";
 
 export function PUT(request: Request): Promise<Response> {
-  return handleSeriesOrderRequest(request);
+  return handleProductOrderRequest(request);
 }

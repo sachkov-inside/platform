@@ -185,7 +185,7 @@ function metadata(access: "free" | "closed") {
     topicId,
     formatId,
     tagIds: [],
-    seriesIds: access === "closed" ? [seededProductId] : [],
+    productIds: access === "closed" ? [seededProductId] : [],
   };
 }
 

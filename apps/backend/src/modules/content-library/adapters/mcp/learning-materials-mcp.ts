@@ -1,8 +1,4 @@
 import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
-import {
-  learningPracticeQuerySchema,
-  readLearningPractice,
-} from "../../features/read-learning-practice/read-learning-practice.js";
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
@@ -46,9 +42,7 @@ export function assembleLearnerMcpServer(
         "A complete response contains every structured body block, including code and tables; do not replace it with a summary. " +
         "Images, files and video references are not their contents: report unavailable or uninspected media explicitly. " +
         "Only current versions exist; a version mismatch requires a fresh read and must not silently replace requested content. " +
-        learningTaskInstructions +
-        // Lesson practice carries procedure v2 inside its own context; Product Tasks follow v3.
-        " Lesson practice (learning_practice_read) returns its own review procedure inside its context; follow that procedure only for lesson practice.",
+        learningTaskInstructions,
     },
   );
   const annotations = {
@@ -87,7 +81,7 @@ export function assembleLearnerMcpServer(
             ...(after === undefined ? {} : { after }),
             ...(productSlug === undefined
               ? {}
-              : { seriesSlugs: [productSlug], sort: "series" }),
+              : { productSlugs: [productSlug], sort: "product" }),
           },
         ),
       ),
@@ -114,19 +108,6 @@ export function assembleLearnerMcpServer(
             ? {}
             : { expectedContentVersion }),
         }),
-      ),
-  );
-  server.registerTool(
-    "learning_practice_read",
-    {
-      description:
-        "Read the complete version-pinned practice context and full reference lesson in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext, tracking all indices. Only all parts form the context; complete is true only for a single-part context. Never grade with missing parts. No project access, writes or server grading.",
-      inputSchema: learningPracticeQuerySchema,
-      annotations,
-    },
-    async (query) =>
-      toolResult(
-        await readLearningPractice(dependencies, { subject, ...query }),
       ),
   );
   registerLearningTaskTools(server, dependencies.tasks, subject);

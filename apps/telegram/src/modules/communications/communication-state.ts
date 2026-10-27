@@ -2,7 +2,7 @@ import { isTruthy } from "../../shared/truthiness.js";
 import { randomUUID } from "node:crypto";
 import { sql, type Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
-import type { MessagePart } from "./funnel-types.js";
+import type { MessagePart } from "./sequence-types.js";
 import { aggregateRow } from "./communication-queries.js";
 export async function communicationLock(
   tx: Transaction<DatabaseSchema>,
@@ -91,7 +91,7 @@ export async function lockContactRows(
 type PlannedDelivery = {
   bot: string;
   contactId: string;
-  funnelId?: string;
+  sequenceId?: string;
   stepId?: string;
   kind: "intro" | "entry" | "step" | "fallback" | "broadcast";
   broadcastId?: string;
@@ -121,7 +121,7 @@ export async function planDeliveries(
           dedup_key: input.key,
           bot_identity: input.bot,
           contact_id: input.contactId,
-          funnel_id: input.funnelId ?? null,
+          sequence_id: input.sequenceId ?? null,
           step_id: input.stepId ?? null,
           kind: input.kind,
           broadcast_id: input.broadcastId ?? null,

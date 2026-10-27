@@ -10,7 +10,7 @@ import {
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
-import { SeriesEditorPageFrame } from "./series-editor-page-frame";
+import { ProductEditorPageFrame } from "./product-editor-page-frame";
 
 const productId = "97000000-0000-4000-8000-000000000003";
 const otherProductId = "97000000-0000-4000-8000-000000000004";
@@ -32,7 +32,7 @@ const fileArtifact: ProductArtifact = {
   sourceId: null,
   title: "Чек-лист выпуска",
   updatedAt: "2026-09-09T10:00:00.000Z",
-  version: 2,
+  version: 2 as const,
 };
 
 const linkArtifact: ProductArtifact = {
@@ -97,7 +97,7 @@ function Fixture({
 const environment = authoringPageEnvironment(
   `/authoring/products/${productId}`,
   {
-    frame: SeriesEditorPageFrame,
+    frame: ProductEditorPageFrame,
   },
 );
 
@@ -113,7 +113,7 @@ const meta = {
     ),
     ...environment.decorators,
   ],
-  title: "Features/Series/Product artifacts",
+  title: "Features/Product/Product artifacts",
 } satisfies Meta<typeof ProductArtifactsPanel>;
 
 export default meta;

@@ -36,7 +36,7 @@ const event = z.object({
 const page = z.object({
   ok: z.literal(true),
   value: z.object({
-    practiceId: z.string(),
+    code: z.string(),
     contextVersion: z.hash("sha256"),
     contentSha256: z.hash("sha256"),
     contentBytes: z.number().int(),
@@ -49,7 +49,7 @@ const page = z.object({
   }),
 });
 const argsSchema = z.object({
-  practiceId: z.string(),
+  code: z.string(),
   part: z.number().int().default(0),
   expectedContextVersion: z.string().optional(),
   expectedContentSha256: z.string().optional(),
@@ -58,7 +58,7 @@ const context = z.object({
   contextVersion: z.string(),
   terminalMarker: z.string(),
   payload: z.object({
-    practice: z.object({
+    task: z.object({
       definition: z.object({ criteria: z.array(z.object({ id: z.string() })) }),
     }),
     reviewProtocol: z.object({ version: z.string() }),
@@ -162,7 +162,7 @@ export function inspectNativeEvidence(client: NativeClient, stdout: string) {
     result: unknown,
     success: boolean,
   ) {
-    if (name.endsWith("learning_practice_read")) {
+    if (name.endsWith("learning_task_read")) {
       const parsedArgs = argsSchema.safeParse(input);
       let parsedPage;
       try {
@@ -263,7 +263,7 @@ export function validateReviewEvidence(input: {
   client: NativeClient;
   process: NativeProcessResult;
   report: unknown;
-  practiceId: string;
+  code: string;
   files: readonly ReadInput[];
   expectedContextVersion?: string;
   requireDiscovery?: boolean;
@@ -280,8 +280,8 @@ export function validateReviewEvidence(input: {
   const unique = new Map<number, string>();
   for (const { query, response } of observed.pages) {
     if (
-      query.practiceId !== input.practiceId ||
-      response.practiceId !== input.practiceId ||
+      query.code !== input.code ||
+      response.code !== input.code ||
       query.part !== response.part ||
       response.contextVersion !== first.contextVersion ||
       response.contentSha256 !== first.contentSha256 ||
@@ -355,7 +355,7 @@ export function validateReviewEvidence(input: {
     )
       failures.push("report_context_unsubstantiated");
     const expected =
-      definition?.payload.practice.definition.criteria
+      definition?.payload.task.definition.criteria
         .map((row) => row.id)
         .sort() ?? [];
     if (
@@ -429,7 +429,7 @@ export function classifyWriteProbe(
     observed.inventory.every(
       (name) =>
         ["Read", "Glob", "Grep"].includes(name) ||
-        /^mcp__[^_]+(?:_[^_]+)*__learning_(?:material_read|materials_list|practice_read)$/.test(
+        /^mcp__[^_]+(?:_[^_]+)*__learning_(?:material_read|materials_list|task_read)$/.test(
           name,
         ),
     )

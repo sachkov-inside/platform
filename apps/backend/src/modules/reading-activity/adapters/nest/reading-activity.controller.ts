@@ -54,9 +54,9 @@ import {
   type SetReaderProductModeResult,
 } from "../../features/set-reader-product-mode/set-reader-product-mode.js";
 import {
-  seriesProgressSchema,
-  type GetSeriesProgressResult,
-} from "../../features/get-series-progress/get-series-progress.js";
+  productProgressSchema,
+  type GetProductProgressResult,
+} from "../../features/get-product-progress/get-product-progress.js";
 import {
   setReadingStateSchema,
   type SetReadingStateError,
@@ -174,11 +174,11 @@ export class ReadingActivityController {
     summary: "Read progress over the current published Product composition",
   })
   @ApiParam({ name: "productId", schema: toOpenApiSchema(z.uuid()) })
-  @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(productProgressSchema) })
   @ApiResponse({
     status: 404,
     content: problemDetailsContent(
-      problemDetailsSchema(404, ["series_not_found"]),
+      problemDetailsSchema(404, ["product_not_found"]),
     ),
   })
   @ApiResponse({
@@ -188,15 +188,15 @@ export class ReadingActivityController {
   @ApiResponse({
     status: 422,
     content: problemDetailsContent(
-      problemDetailsSchema(422, ["series_too_large"]),
+      problemDetailsSchema(422, ["product_too_large"]),
     ),
   })
   async product(
     @CurrentAccount() current: AuthenticatedAccount,
-    @Param("productId") seriesId: string,
+    @Param("productId") productId: string,
   ) {
-    const result = await this.reading.getSeriesProgress({
-      seriesId,
+    const result = await this.reading.getProductProgress({
+      productId,
       accountId: current.accountId,
     });
     if (!result.ok) throwReadingError(result.error);
@@ -239,49 +239,13 @@ export class ReadingActivityController {
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
-
-  @Get("series/:seriesId")
-  @ApiOperation({
-    operationId: "getSeriesReadingProgress",
-    deprecated: true,
-    summary: "Read progress over the current published Series composition",
-  })
-  @ApiParam({ name: "seriesId", schema: toOpenApiSchema(z.uuid()) })
-  @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
-  @ApiResponse({
-    status: 404,
-    content: problemDetailsContent(
-      problemDetailsSchema(404, ["series_not_found"]),
-    ),
-  })
-  @ApiResponse({
-    status: 409,
-    content: problemDetailsContent(accountProblemSchema),
-  })
-  @ApiResponse({
-    status: 422,
-    content: problemDetailsContent(
-      problemDetailsSchema(422, ["series_too_large"]),
-    ),
-  })
-  async series(
-    @CurrentAccount() current: AuthenticatedAccount,
-    @Param("seriesId") seriesId: string,
-  ) {
-    const result = await this.reading.getSeriesProgress({
-      seriesId,
-      accountId: current.accountId,
-    });
-    if (!result.ok) throwReadingError(result.error);
-    return result.value;
-  }
 }
 
 type ReadingError =
   | SetReadingStateError
   | Extract<
       | GetReadingStatesResult
-      | GetSeriesProgressResult
+      | GetProductProgressResult
       | GetReaderProductModeResult
       | SetReaderProductModeResult,
       { readonly ok: false }
@@ -293,14 +257,14 @@ function throwReadingError(error: ReadingError): never {
       throw readingException(400, error);
     case "access_denied":
       throw readingException(403, error);
-    case "series_not_found":
+    case "product_not_found":
       throw readingException(404, error);
     case "stale_version":
       throw readingException(409, error, { current: error.current });
     case "command_conflict":
     case "access_changed":
       throw readingException(409, error);
-    case "series_too_large":
+    case "product_too_large":
       throw readingException(422, error);
     case "dependency_unavailable":
       throw readingException(503, error);

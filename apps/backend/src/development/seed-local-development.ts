@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
+import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   type MaterialBodySnapshot,
   type MaterialMetadataSelectionInput,
 } from "../modules/materials/index.js";
@@ -15,12 +16,12 @@ const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "guide";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
-const progressSeriesId = "72000000-0000-4000-8000-000000000332";
-const seriesId = "72000000-0000-4000-8000-000000000007";
-const demoHarnessSeriesId = "72000000-0000-4000-8000-000000000295";
-const demoStepsSeriesId = "72000000-0000-4000-8000-000000000298";
-const demoStepsSharedSeriesId = "72000000-0000-4000-8000-000000000299";
-const demoReviewSeriesId = "72000000-0000-4000-8000-000000000296";
+const progressProductId = "72000000-0000-4000-8000-000000000332";
+const productId = "72000000-0000-4000-8000-000000000007";
+const demoHarnessProductId = "72000000-0000-4000-8000-000000000295";
+const demoStepsProductId = "72000000-0000-4000-8000-000000000298";
+const demoStepsSharedProductId = "72000000-0000-4000-8000-000000000299";
+const demoReviewProductId = "72000000-0000-4000-8000-000000000296";
 const slug = "kak-ustroen-inside-platform";
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
@@ -59,15 +60,15 @@ const localVideoFixtures: ReadonlyMap<
     },
   ],
   [
-    "local-series-release-overview",
+    "local-product-release-overview",
     { durationSeconds: 630, title: "Demo · Как устроен релиз" },
   ],
   [
-    "local-series-release-docker",
+    "local-product-release-docker",
     { durationSeconds: 810, title: "Demo · Docker на примере" },
   ],
   [
-    "local-series-review-video",
+    "local-product-review-video",
     {
       durationSeconds: 542,
       title: "Demo #295 · Видео-разбор",
@@ -116,7 +117,7 @@ export async function seedLocalDevelopment(
   };
   await ensureCatalogContinuationMaterials(seed);
   await ensureHomeMaterials(seed);
-  await ensureSeriesReaderScenario(seed);
+  await ensureProductReaderScenario(seed);
   const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -128,7 +129,7 @@ export async function seedLocalDevelopment(
       topicId,
       formatId,
       tagIds: [tagId],
-      seriesIds: [seriesId],
+      productIds: [productId],
     },
     body: {
       schemaVersion: 1,
@@ -324,13 +325,17 @@ export async function seedLocalDevelopment(
     slug,
   });
 
-  await ensureMembershipCatalogMaterial(seed);
+  const membershipMaterialId = await ensureMembershipCatalogMaterial(seed);
+  await ensureDevelopmentProductOrder(authoring, productId, [
+    overview.materialId,
+    membershipMaterialId,
+  ]);
   // Related pins join readable pages; hidden demo drafts have no public address to pin.
   if (demo === "published") await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
   await seedLocalOfferCatalog(prisma, {
     actor,
-    productId: seriesId,
+    productId: productId,
     onSale: demo === "published",
   });
   if (demo === "hidden") await hideSeededMaterials(seed);
@@ -387,36 +392,36 @@ function modeVariantBlock(step: string, title: string) {
   } as const;
 }
 
-async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
+async function ensureProductReaderScenario(seed: SeedContext): Promise<void> {
   const { authoring } = seed;
   const definitions = [
     {
       bodyText:
         "Development-образец общей точки для проверки разных контекстов Серий.",
       formatId,
-      seriesIds: [demoHarnessSeriesId, demoReviewSeriesId],
+      productIds: [demoHarnessProductId, demoReviewProductId],
       orderKey: "demo-295-obshchiy-gayd",
       title: "Demo #295 · Общий гайд",
     },
     {
       bodyText: "Development-образец завершения основной Серии.",
       formatId,
-      seriesIds: [demoHarnessSeriesId],
+      productIds: [demoHarnessProductId],
       orderKey: "demo-295-finalnyy-gayd",
       title: "Demo #295 · Финальный гайд",
     },
     {
       bodyText: "Development-образец видео внутри смешанной Серии.",
       formatId: videoFormatId,
-      providerVideoId: "local-series-review-video",
-      seriesIds: [demoReviewSeriesId],
+      providerVideoId: "local-product-review-video",
+      productIds: [demoReviewProductId],
       orderKey: "demo-295-video-razbor",
       title: "Demo #295 · Видео-разбор",
     },
     {
       bodyText: "Development-образец заметки внутри смешанной Серии.",
       formatId: noteFormatId,
-      seriesIds: [demoReviewSeriesId],
+      productIds: [demoReviewProductId],
       orderKey: "demo-295-itogovaya-zametka",
       title: "Demo #295 · Итоговая заметка",
     },
@@ -424,7 +429,7 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
       bodyText:
         "Development standalone #295: материал открывается без случайного контекста Серии.",
       formatId: noteFormatId,
-      seriesIds: [],
+      productIds: [],
       orderKey: "demo-295-samostoyatelnaya-zametka",
       title: "Demo #295 · Самостоятельная заметка",
     },
@@ -433,7 +438,7 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
         orderKey: "demo-298-release-overview",
         title: "Как устроен релиз моего проекта",
         formatId: videoFormatId,
-        providerVideoId: "local-series-release-overview",
+        providerVideoId: "local-product-release-overview",
         summary:
           "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза.",
         difficulty: "basic" as const,
@@ -458,7 +463,7 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
         orderKey: "demo-298-docker",
         title: "Разбираем Docker на реальном примере",
         formatId: videoFormatId,
-        providerVideoId: "local-series-release-docker",
+        providerVideoId: "local-product-release-docker",
         summary:
           "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения.",
         difficulty: "intermediate" as const,
@@ -497,10 +502,10 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
       title: `Demo · ${definition.title}`,
       bodyText:
         "Тестовый материал серии о релизе. Демонстрирует общий порядок видео, заметок и связанных шагов инструкции.",
-      seriesIds:
+      productIds:
         definition.orderKey === "demo-298-prepare"
-          ? [demoStepsSeriesId, demoStepsSharedSeriesId]
-          : [demoStepsSeriesId],
+          ? [demoStepsProductId, demoStepsSharedProductId]
+          : [demoStepsProductId],
     })),
   ] as const;
 
@@ -511,7 +516,7 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
       difficulty: "difficulty" in definition ? definition.difficulty : null,
       formatId: definition.formatId,
       outcomes: "outcomes" in definition ? definition.outcomes : [],
-      seriesIds: definition.seriesIds,
+      productIds: definition.productIds,
       summary:
         "summary" in definition
           ? definition.summary
@@ -545,9 +550,9 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
     // на месте, потому что их поиск держится за slug.
     const seeded = await ensureSeededMaterial(seed, {
       body,
-      createIdempotencyKey: `local-series-demo-create-${String(index + 1)}`,
+      createIdempotencyKey: `local-product-demo-create-${String(index + 1)}`,
       metadata,
-      saveIdempotencyKeyPrefix: `local-series-demo-save-${String(index + 1)}`,
+      saveIdempotencyKeyPrefix: `local-product-demo-save-${String(index + 1)}`,
       ...("providerVideoId" in definition
         ? { providerVideoId: definition.providerVideoId }
         : {}),
@@ -563,9 +568,9 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
     "demo-298-environment",
     "demo-298-deploy",
   ];
-  await ensureDevelopmentSeriesOrder(
+  await ensureDevelopmentProductOrder(
     authoring,
-    demoStepsSeriesId,
+    demoStepsProductId,
     releaseKeys.map((value) => requiredMaterialId(materialIds, value)),
     Object.fromEntries(
       ["demo-298-prepare", "demo-298-environment", "demo-298-deploy"].map(
@@ -576,17 +581,17 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
       ),
     ),
   );
-  await ensureDevelopmentSeriesOrder(
+  await ensureDevelopmentProductOrder(
     authoring,
-    demoStepsSharedSeriesId,
+    demoStepsSharedProductId,
     [requiredMaterialId(materialIds, "demo-298-prepare")],
     {},
   );
-  await ensureDevelopmentSeriesOrder(authoring, demoHarnessSeriesId, [
+  await ensureDevelopmentProductOrder(authoring, demoHarnessProductId, [
     requiredMaterialId(materialIds, "demo-295-obshchiy-gayd"),
     requiredMaterialId(materialIds, "demo-295-finalnyy-gayd"),
   ]);
-  await ensureDevelopmentSeriesOrder(authoring, demoReviewSeriesId, [
+  await ensureDevelopmentProductOrder(authoring, demoReviewProductId, [
     requiredMaterialId(materialIds, "demo-295-obshchiy-gayd"),
     requiredMaterialId(materialIds, "demo-295-video-razbor"),
     requiredMaterialId(materialIds, "demo-295-itogovaya-zametka"),
@@ -713,13 +718,13 @@ async function ensureSeededMaterial(
       : undefined;
   const keepHidden = hiddenState !== undefined;
   const {
-    seriesMemberships,
+    productMemberships,
     slug: _slug,
     ...currentMetadata
   } = loaded.value.metadata;
   const current: MaterialMetadataSelectionInput = {
     ...currentMetadata,
-    seriesIds: seriesMemberships.map(({ seriesId: value }) => value),
+    productIds: productMemberships.map(({ productId: value }) => value),
   };
   const matchesDefinition =
     (loaded.value.publicationState === "published" || keepHidden) &&
@@ -764,7 +769,7 @@ function comparableMetadata(
     difficulty: metadata.difficulty,
     formatId: metadata.formatId,
     outcomes: [...metadata.outcomes],
-    seriesIds: [...metadata.seriesIds].sort(),
+    productIds: [...metadata.productIds].sort(),
     summary: metadata.summary,
     tagIds: [...metadata.tagIds].sort(),
     title: metadata.title,
@@ -772,19 +777,19 @@ function comparableMetadata(
   };
 }
 
-async function ensureDevelopmentSeriesOrder(
+async function ensureDevelopmentProductOrder(
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
-  seriesIdValue: string,
+  productIdValue: string,
   orderedMaterialIds: readonly string[],
   stepGroups?: Readonly<Record<string, string>>,
 ): Promise<void> {
-  const current = await authoring.loadSeriesOrder({
+  const current = await authoring.loadProductOrder({
     actor,
-    seriesId: seriesIdValue,
+    productId: productIdValue,
   });
   if (!current.ok) {
     throw new Error(
-      `Local Series demo order load failed: ${current.error.code}`,
+      `Local Product demo order load failed: ${current.error.code}`,
     );
   }
   // Совпавший состав не отправляет команду переупорядочивания. Ступени сравниваются вместе с
@@ -798,7 +803,7 @@ async function ensureDevelopmentSeriesOrder(
   );
   if (
     isDeepStrictEqual(
-      current.value.items.map(({ materialId }) => materialId),
+      current.value.programmePlacements.map(({ materialId }) => materialId),
       [...orderedMaterialIds],
     ) &&
     (stepGroups === undefined ||
@@ -806,16 +811,30 @@ async function ensureDevelopmentSeriesOrder(
   ) {
     return;
   }
-  const reordered = await authoring.reorderSeries({
+  const reordered = await authoring.reorderProduct({
     actor,
     expectedOrderVersion: current.value.orderVersion,
     orderedMaterialIds,
+    programmePlacements: orderedMaterialIds.map((materialId) => {
+      const previous = current.value.programmePlacements.find(
+        (entry) => entry.materialId === materialId,
+      );
+      return {
+        id: previous?.id ?? randomUUID(),
+        materialId,
+        chapterId: null,
+        stepGroup:
+          stepGroups === undefined
+            ? (previous?.stepGroup ?? null)
+            : (stepGroups[materialId] ?? null),
+      };
+    }),
     stepGroups,
-    seriesId: seriesIdValue,
+    productId: productIdValue,
   });
   if (!reordered.ok) {
     throw new Error(
-      `Local Series demo reorder failed: ${reordered.error.code}`,
+      `Local Product demo reorder failed: ${reordered.error.code}`,
     );
   }
 }
@@ -846,7 +865,7 @@ async function ensureCatalogContinuationMaterials(
       topicId,
       formatId,
       tagIds: [],
-      seriesIds: [],
+      productIds: [],
     };
     const body = {
       schemaVersion: 1,
@@ -935,8 +954,8 @@ async function ensureHomeMaterials(seed: SeedContext): Promise<void> {
       difficulty: null,
       formatId: materialDefinition.formatId,
       outcomes: [],
-      seriesIds: progressSlugs.includes(materialDefinition.slug)
-        ? [progressSeriesId]
+      productIds: progressSlugs.includes(materialDefinition.slug)
+        ? [progressProductId]
         : [],
       summary: materialDefinition.summary,
       tagIds: [tagId],
@@ -970,9 +989,9 @@ async function ensureHomeMaterials(seed: SeedContext): Promise<void> {
     });
     progressIds.set(materialDefinition.slug, seeded.materialId);
   }
-  await ensureDevelopmentSeriesOrder(
+  await ensureDevelopmentProductOrder(
     authoring,
-    progressSeriesId,
+    progressProductId,
     progressSlugs.map((slug) => requiredMaterialId(progressIds, slug)),
   );
 }
@@ -1003,7 +1022,7 @@ const localDevelopmentVideoProvider: VideoProvider = {
 
 async function ensureMembershipCatalogMaterial(
   seed: SeedContext,
-): Promise<void> {
+): Promise<string> {
   const metadata = {
     title: "Developer Pipeline без потери контекста",
     summary: "Закрытый Material с публичным безопасным описанием для каталога.",
@@ -1013,7 +1032,7 @@ async function ensureMembershipCatalogMaterial(
     topicId,
     formatId,
     tagIds: [tagId],
-    seriesIds: [seriesId],
+    productIds: [productId],
   };
   const body = {
     schemaVersion: 1,
@@ -1030,13 +1049,14 @@ async function ensureMembershipCatalogMaterial(
       ],
     },
   } as const;
-  await ensureSeededMaterial(seed, {
+  const material = await ensureSeededMaterial(seed, {
     body,
     createIdempotencyKey: membershipCreateIdempotencyKey,
     metadata,
     saveIdempotencyKeyPrefix: "local-membership-publish",
     slug: membershipSlug,
   });
+  return material.materialId;
 }
 
 async function ensureRelatedPin(
@@ -1089,9 +1109,9 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     update: {},
   });
   await prisma.product.upsert({
-    where: { id: seriesId },
+    where: { id: productId },
     create: {
-      id: seriesId,
+      id: productId,
       slug: "platform-inside",
       name: "Создание Platform Inside",
       summary: "Путь от продуктовой идеи до работающей Platform.",
@@ -1100,21 +1120,21 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
   });
   for (const data of [
     {
-      id: progressSeriesId,
-      slug: "demo-progress-series",
+      id: progressProductId,
+      slug: "demo-progress-product",
       name: "Demo · Прогресс обучения",
       summary: "Текст, видео и гайд для проверки сохранённого прогресса.",
     },
     {
-      id: demoStepsSeriesId,
-      slug: "demo-series-release",
+      id: demoStepsProductId,
+      slug: "demo-product-release",
       name: "Demo · Релиз своего проекта",
       summary:
         "Одна серия: видео, заметки и три связанных шага инструкции. Тестовые материалы для проверки интерфейса.",
     },
     {
-      id: demoStepsSharedSeriesId,
-      slug: "demo-series-release-shared",
+      id: demoStepsSharedProductId,
+      slug: "demo-product-release-shared",
       name: "Учебный пример · Подготовка проекта",
       summary:
         "Тот же гайд в другой серии без отметки последовательности шагов.",
@@ -1127,10 +1147,10 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     });
   }
   await prisma.product.upsert({
-    where: { id: demoHarnessSeriesId },
+    where: { id: demoHarnessProductId },
     create: {
-      id: demoHarnessSeriesId,
-      slug: "demo-series-harness",
+      id: demoHarnessProductId,
+      slug: "demo-product-harness",
       name: "Demo #295 · основная серия",
       summary:
         "Development-образец A → B для проверки выбранного контекста. Не является контентом Кирилла.",
@@ -1138,10 +1158,10 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     update: {},
   });
   await prisma.product.upsert({
-    where: { id: demoReviewSeriesId },
+    where: { id: demoReviewProductId },
     create: {
-      id: demoReviewSeriesId,
-      slug: "demo-series-review",
+      id: demoReviewProductId,
+      slug: "demo-product-review",
       name: "Demo #295 · смешанная серия",
       summary:
         "Development-образец гайд → видео → заметка. Не является контентом Кирилла.",

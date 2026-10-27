@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -11,10 +12,8 @@ import { z } from "zod";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { assembleApplySourceTask } from "../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
-import {
-  assembleMaterials,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { declaredServer } from "../support/declared-api.js";
 import {
@@ -133,7 +132,7 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
       },
       body: representativeDocument("Глава 1"),
     });
@@ -156,24 +155,27 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         sourceRevision: "a".repeat(64),
       },
     });
-    await database.prisma.productMembership.update({
-      where: {
-        seriesId_materialId: { seriesId: productId, materialId: anchorId },
-      },
-      data: { chapterId },
+    const order = await materials.authoring.loadProductOrder({
+      actor: owner,
+      productId: productId,
     });
-    await database.prisma.productProgrammePlacement.create({
-      data: {
-        id: randomUUID(),
-        productId,
-        materialId: anchorId,
-        chapterId,
-        ordinal: 1,
-      },
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await materials.authoring.reorderProduct({
+      actor: owner,
+      productId: productId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [anchorId],
+      programmePlacements: [
+        { id: randomUUID(), materialId: anchorId, chapterId, stepGroup: null },
+      ],
     });
+    if (!programme.ok) throw new Error(programme.error.code);
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: () => Promise.resolve(true) },
     });
     for (const [code, access, position, after] of [
@@ -553,7 +555,10 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
     const code = `format-c-${randomUUID()}`;
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: () => Promise.resolve(true) },
     });
     const sourceTask = {

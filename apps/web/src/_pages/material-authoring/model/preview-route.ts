@@ -1,6 +1,6 @@
 import type { Route } from "next";
 
-import type { SeriesOrderPresentation } from "@/features/series-order";
+import type { ProductOrderPresentation } from "@/features/product-order";
 import type {
   MaterialPreviewRouteItem,
   MaterialPreviewRoutePresentation,
@@ -10,7 +10,7 @@ import type {
 const outsideChaptersName = "Вне глав";
 
 type ProductOrder = Pick<
-  SeriesOrderPresentation,
+  ProductOrderPresentation,
   "chapters" | "items" | "name"
 >;
 

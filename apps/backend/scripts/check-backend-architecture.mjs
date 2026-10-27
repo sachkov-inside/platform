@@ -151,6 +151,12 @@ function referencesFromSql(sqlText) {
   return [...sqlText.matchAll(sqlTableReference)].flatMap((match) => {
     if (match[1] === undefined) return [];
     const reference = normalizeSqlIdentifier(match[1]);
+    // PostgreSQL recordset expansion consumes query-local JSON values, not a table.
+    if (
+      reference === "jsonb_to_recordset" &&
+      /^\s*\(/u.test(sqlText.slice(match.index + match[0].length))
+    )
+      return [];
     const visibleCte = ctes.some(
       (cte) =>
         cte.name === reference &&
@@ -264,6 +270,15 @@ function isNestAdapter(file) {
 function violationsFor(source, specifier) {
   const sourcePath = scannedPath(source);
   const importedPath = importedRepositoryPath(sourcePath, specifier);
+  if (
+    importedPath === "src/infrastructure/prisma/transaction-handle.js" &&
+    readFileSync(source, "utf8").includes("unwrapTransaction") &&
+    !/^src\/modules\/[^/]+\/infrastructure\//u.test(sourcePath)
+  ) {
+    return [
+      "opaque transaction unwrapping belongs to the owning Module persistence implementation",
+    ];
+  }
   /** @type {string[]} */
   const violations = [];
   const sourceModule = owningModule(sourcePath);
@@ -445,42 +460,24 @@ function advisoryLockViolations(sourceFile, program) {
     : [];
 }
 
-// Delegates a Module's capability type lists only to hand its transaction to their owner. Keep in
-// step with the foreign delegates of that type in src/infrastructure/prisma/prisma-client.ts or the
-// Module's own infrastructure/prisma.ts.
-const handoffDelegates = new Map([
-  ["assets", ["material"]],
-  ["sales-funnel", ["telegramAccountLinkState", "telegramAccountLinkHistory"]],
+// Persistence ownership follows the Prisma mapping, including additive models.
+const delegateOwners = new Map(
   [
-    "billing",
-    [
-      "activationRule",
-      "activationAttempt",
-      "accessReceipt",
-      "accessBatchPreview",
-      "tariffAssignment",
-      "sourceEntitlement",
-      "accessGrant",
-      "accessChange",
-      "telegramAccountLinkState",
-      "telegramAccountLinkHistory",
-      "tributePolicy",
-      "tributeImportReview",
-      "legacyClassification",
-    ],
-  ],
-  ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
-  [
-    "reading-activity",
-    ["material", "publishedMaterialProductMembership", "product"],
-  ],
-  [
-    "account-rights",
-    ["account", "telegramAccountLinkState", "telegramAccountLinkHistory"],
-  ],
-  ["telegram-membership", ["membershipBinding"]],
-  ["videos", ["material", "publishedMaterial"]],
-]);
+    ...readFileSync(
+      path.join(backendRoot, "prisma/schema.prisma"),
+      "utf8",
+    ).matchAll(/model\s+(\w+)\s*\{([\s\S]*?)\n\}/gu),
+  ].flatMap((model) => {
+    const name = model[1];
+    const schema = /@@schema\("([^"]+)"\)/u.exec(model[2] ?? "")?.[1];
+    if (name === undefined || schema === undefined) return [];
+    const owner =
+      schema === "member_profiles"
+        ? "account-profiles"
+        : schema.replaceAll("_", "-");
+    return [[name.charAt(0).toLowerCase() + name.slice(1), owner]];
+  }),
+);
 
 // A delegate is used when one of its model operations is named; `candidate.material.materialId`
 // is a field of an ordinary value, not the Materials delegate.
@@ -508,17 +505,22 @@ const prismaModelOperations = new Set([
  * @param {string} sourceFile
  * @param {Program} program
  */
-function handoffDelegateViolations(sourceFile, program) {
+function foreignDelegateViolations(sourceFile, program) {
   const sourcePath = scannedPath(sourceFile);
-  const delegates = handoffDelegates.get(owningModule(sourcePath) ?? "");
-  if (delegates === undefined) return [];
+  const owner = owningModule(sourcePath);
+  if (
+    owner === undefined ||
+    sourcePath.includes("/infrastructure/postgres/migrations/")
+  )
+    return [];
   /** @type {Set<string>} */
   const used = new Set();
   new Visitor({
     MemberExpression(node) {
       const delegate = memberPropertyName(node.object);
       if (
-        delegates.includes(delegate) &&
+        delegateOwners.has(delegate) &&
+        delegateOwners.get(delegate) !== owner &&
         prismaModelOperations.has(memberPropertyName(node))
       ) {
         used.add(delegate);
@@ -1009,7 +1011,7 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
     ),
     ...databaseReferenceViolations(source, program),
     ...advisoryLockViolations(source, program),
-    ...handoffDelegateViolations(source, program),
+    ...foreignDelegateViolations(source, program),
     ...swallowedFailureViolations(source, sourceText, program, comments),
     ...indexFindings,
   ];

@@ -1,13 +1,12 @@
+import { telegramTransaction } from "../../infrastructure/transaction.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   telegramContactsResponseSchema,
   type TelegramContact,
 } from "@inside/contracts/telegram-contact";
 import type { TelegramContactsProvider } from "../../ports/telegram-contacts-provider.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type {
-  TelegramMembershipPrisma,
-  TelegramMembershipPrismaClient,
-} from "../../../../infrastructure/prisma/index.js";
+import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
 
@@ -131,13 +130,15 @@ export class TelegramAccountLinks {
   /** Exact current verified identity only; historical links and usernames are never recipients. */
   async findCurrentByIdentity(
     identityRef: string,
-    transaction?: Pick<TelegramMembershipPrisma, "telegramAccountLinkState">,
+    transaction?: TransactionHandle,
   ) {
     if (!z.string().trim().min(1).max(256).safeParse(identityRef).success)
       return { ok: false as const };
     try {
       const rows = await (
-        transaction ?? this.prisma
+        transaction === undefined
+          ? this.prisma
+          : telegramTransaction(transaction)
       ).telegramAccountLinkState.findMany({
         where: { identityRef, principalRef: { not: null } },
         take: 2,
@@ -215,7 +216,7 @@ export class TelegramAccountLinks {
   /** Current binding set only: historical revisions retain the single-binding contract. */
   async readBindings(
     accountIds: readonly string[],
-    transaction?: Pick<TelegramMembershipPrisma, "telegramAccountLinkState">,
+    transaction?: TransactionHandle,
   ) {
     const parsed = z.array(z.uuid()).safeParse(accountIds);
     if (!parsed.success) return { ok: false as const };
@@ -233,7 +234,9 @@ export class TelegramAccountLinks {
       for (const id of ids) bindings.set(id, null);
       for (let offset = 0; offset < ids.length; offset += 500) {
         const rows = await (
-          transaction ?? this.prisma
+          transaction === undefined
+            ? this.prisma
+            : telegramTransaction(transaction)
         ).telegramAccountLinkState.findMany({
           where: { accountId: { in: ids.slice(offset, offset + 500) } },
         });
@@ -267,10 +270,7 @@ export class TelegramAccountLinks {
       readonly accountId: string;
       readonly revision?: number;
     },
-    transaction?: Pick<
-      TelegramMembershipPrisma,
-      "telegramAccountLinkState" | "telegramAccountLinkHistory"
-    >,
+    transaction?: TransactionHandle,
   ) {
     if (
       !z
@@ -283,7 +283,10 @@ export class TelegramAccountLinks {
     )
       return { ok: false as const };
     try {
-      const prisma = transaction ?? this.prisma;
+      const prisma =
+        transaction === undefined
+          ? this.prisma
+          : telegramTransaction(transaction);
       const row =
         query.revision === undefined
           ? await prisma.telegramAccountLinkState.findUnique({

@@ -113,7 +113,11 @@ test("mobile material actions and breadcrumbs fit one row", async ({
         element.append(probe);
         const expected = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return getComputedStyle(element).backgroundColor === expected;
+        const surface = getComputedStyle(element, "::before");
+        return (
+          surface.backgroundColor === expected &&
+          parseFloat(surface.height) === 36
+        );
       }),
     ).toBe(true);
     const breadcrumbs = page

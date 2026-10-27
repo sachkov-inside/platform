@@ -1,21 +1,16 @@
 import "server-only";
 
-import { readProductAccess } from "@/entities/subscription.sale.server";
+import { readProductReaderState } from "@/widgets/product-reader-state/index.server";
 import { courseLearningAction } from "@/features/ai-engineering-course";
-import { getSeriesContinuation } from "@/features/reading-progress.server";
-import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
-/** Личная кнопка закрепа читается вне общего кеша, после остановки предзагрузки сессии. */
+/** Home displays the same request-scoped Product state as the Product page. */
 export async function readHomeCourseAction(productId: string, slug: string) {
-  const session = await readAuthenticatedSession("rsc");
-  if (session.kind !== "ready") return null;
-  if ((await readProductAccess(productId, session.value)) !== "open")
-    return null;
-  const progress = await getSeriesContinuation(slug, session.value);
+  const state = await readProductReaderState(productId, slug);
+  if (state.kind !== "learning") return null;
   return courseLearningAction(
     slug,
-    progress.kind === "ready"
-      ? (progress.continuation?.materialSlug ?? null)
+    state.continuation.kind === "ready"
+      ? (state.continuation.continuation?.materialSlug ?? null)
       : null,
   );
 }

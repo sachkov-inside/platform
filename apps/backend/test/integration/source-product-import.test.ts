@@ -1,14 +1,19 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
+import {
+  assembleContentCovers,
+  routeContentCoverSelection,
+} from "../../src/modules/content-covers/index.js";
+import { MaterialCoverSelection } from "../../src/modules/materials/index.js";
+import { ProductCoverSelection } from "../../src/modules/products/index.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
-import {
-  assembleContentCovers,
-  assembleProductArtifacts,
-  assembleMaterials,
-} from "../../src/modules/materials/index.js";
+import { assembleProductArtifacts } from "../../src/modules/products/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -50,7 +55,7 @@ const materialSource = {
   id: "inside-content:product-import-lesson",
   path: "lesson.md",
   revision: "c".repeat(64),
-  showInFeed: false,
+  version: 2 as const,
 };
 
 describe("authoring source Product completion", () => {
@@ -220,7 +225,7 @@ describe("authoring source Product completion", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
       },
     });
     if (!lesson.ok) throw new Error(lesson.error.code);
@@ -248,7 +253,7 @@ describe("authoring source Product completion", () => {
     expect(
       await authoring.setHomePin({
         actor,
-        seriesId: product.id,
+        productId: product.id,
         expectedVersion: pin.value.version,
       }),
     ).toMatchObject({ ok: true });
@@ -352,14 +357,14 @@ describe("authoring source Product completion", () => {
     });
     expect(
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "page-product",
         first: 10,
       }),
     ).toMatchObject({ ok: false });
     const discovered =
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "page-product-renamed",
         first: 10,
       });
@@ -384,7 +389,7 @@ describe("authoring source Product completion", () => {
     expect(home).toMatchObject({
       ok: true,
       value: {
-        pinnedSeries: {
+        pinnedProduct: {
           id: product.id,
           slug: "page-product-renamed",
           presentation: "ai-first-process",
@@ -464,6 +469,11 @@ describe("authoring source Product completion", () => {
 
   test("changes covers only for records owned by the same source", async () => {
     const covers = assembleContentCovers({
+      selection: routeContentCoverSelection({
+        material: new MaterialCoverSelection(),
+        topic: new MaterialCoverSelection(),
+        product: new ProductCoverSelection(),
+      }),
       prisma: database.prisma,
       objectStorage,
       authorPolicy,
@@ -520,7 +530,7 @@ describe("authoring source Product completion", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
     });
     if (!plain.ok) throw new Error(plain.error.code);
@@ -546,7 +556,7 @@ describe("authoring source Product completion", () => {
         actor,
         expectedCoverId: null,
         kind: "remove",
-        owner: { id: product.id, kind: "series" },
+        owner: { id: product.id, kind: "product" },
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(
@@ -555,7 +565,7 @@ describe("authoring source Product completion", () => {
           actor,
           expectedCoverId: null,
           kind: "remove",
-          owner: { id: product.id, kind: "series" },
+          owner: { id: product.id, kind: "product" },
         },
         "inside-content:other",
       ),
@@ -566,7 +576,7 @@ describe("authoring source Product completion", () => {
           actor,
           expectedCoverId: null,
           kind: "upload",
-          owner: { id: product.id, kind: "series" },
+          owner: { id: product.id, kind: "product" },
           ...(await coverUpload("#abcdef")),
         },
         "inside-content:cover-product",
@@ -576,6 +586,10 @@ describe("authoring source Product completion", () => {
 
   test("imports artifacts only into the Product owned by the declared source", async () => {
     const artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -702,6 +716,10 @@ describe("authoring source Product completion", () => {
   });
   test("artifact import rolls back the entire batch and uses the same locks as editor refusals", async () => {
     const artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -723,7 +741,7 @@ describe("authoring source Product completion", () => {
       title: "Rejected batch artifact",
     };
     await database.prisma
-      .$executeRaw`alter table materials.product_artifacts add constraint reject_test_artifact_second check (title <> 'Rejected batch artifact') not valid`;
+      .$executeRaw`alter table products.product_artifacts add constraint reject_test_artifact_second check (title <> 'Rejected batch artifact') not valid`;
     try {
       expect(
         await artifacts.applyAuthoringImport({
@@ -743,7 +761,7 @@ describe("authoring source Product completion", () => {
       ).toBe(false);
     } finally {
       await database.prisma
-        .$executeRaw`alter table materials.product_artifacts drop constraint reject_test_artifact_second`;
+        .$executeRaw`alter table products.product_artifacts drop constraint reject_test_artifact_second`;
     }
     const created = await artifacts.applyAuthoringImport({
       actor,
@@ -782,6 +800,10 @@ describe("authoring source Product completion", () => {
       "staged-race",
     );
     const artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -835,6 +857,10 @@ describe("authoring source Product completion", () => {
       },
     };
     const racingArtifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage: racingStorage,
       prisma: database.prisma,

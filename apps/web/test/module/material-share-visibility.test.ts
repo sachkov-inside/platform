@@ -22,7 +22,7 @@ const material: MaterialReaderMetadata = {
   format: { name: "Гайд", slug: "guide" },
   materialId: "02000000-0000-4000-8000-000000000010",
   publishedAt: "2026-10-15T00:00:00.000Z",
-  seriesMemberships: [],
+  productMemberships: [],
   slug: "share-example",
   summary: "",
   tags: [],
@@ -33,7 +33,7 @@ const shareLabel = "Поделиться материалом";
 
 describe("Material share visibility", () => {
   for (const access of ["free", "closed"] as const) {
-    for (const variant of ["feed", "row", "series"] as const) {
+    for (const variant of ["feed", "row", "product"] as const) {
       it(`omits sharing from ${access} ${variant} cards`, () => {
         const html = renderToStaticMarkup(
           createElement(MaterialCard, {
@@ -43,7 +43,7 @@ describe("Material share visibility", () => {
               ...material,
               access,
               availability: "available",
-              seriesMemberships: [],
+              productMemberships: [],
               tags: [],
               format: material.format.name,
               topic: material.topic.name,

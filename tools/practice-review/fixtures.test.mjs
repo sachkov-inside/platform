@@ -29,7 +29,8 @@ test("full synthetic package, real behavior, stale binding and external repair a
   t.after(() => rm(root, { recursive: true, force: true }));
   const f = await buildFixtures(root);
   const pkg = await loadPackage(f.packagePath);
-  assert.equal(pkg.manifest.practiceDefinitions?.length, 3);
+  assert.equal(pkg.manifest.tasks?.length, 3);
+  assert.equal(pkg.manifest.practiceDefinitions, undefined);
   for (const lesson of pkg.manifest.materials) {
     assert.ok(lesson.markdown.length > 2000);
     const document = convertMarkdown(lesson.markdown, {

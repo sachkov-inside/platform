@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 
 import type {
   LibraryDiscoveryKind,
-  PublishedSeriesResult,
+  PublishedProductResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
 import { ContentCoverImage } from "@/entities/material";
@@ -38,7 +38,7 @@ import { ProductLandingView } from "./product-landing-view";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
-  PublishedSeriesResult | PublishedTopicResult,
+  PublishedProductResult | PublishedTopicResult,
   { readonly kind: "not-found" | "unavailable" }
 >;
 type PublishedTopicResultResolved = Exclude<
@@ -73,7 +73,7 @@ export function LibraryDiscoveryView({
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
-  if (result.discoveryKind === "series") {
+  if (result.discoveryKind === "product") {
     const entry = freeEntryHref(result);
     return (
       <ProductLandingView
@@ -210,13 +210,13 @@ function TopicMaterials({
     <>
       <section aria-labelledby="topic-playlists">
         <DiscoverySectionHeading
-          count={result.relatedSeries.length}
+          count={result.relatedProduct.length}
           id="topic-playlists"
           title="Продукты"
         />
-        {result.relatedSeries.length > 0 ? (
+        {result.relatedProduct.length > 0 ? (
           <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
-            {result.relatedSeries.map((playlist) => (
+            {result.relatedProduct.map((playlist) => (
               <PlaylistCard
                 key={playlist.slug}
                 returnHref={currentHref}
@@ -250,7 +250,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series"
+        {kind === "product"
           ? "В продукте пока нет материалов"
           : "В теме пока нет материалов"}
       </h2>

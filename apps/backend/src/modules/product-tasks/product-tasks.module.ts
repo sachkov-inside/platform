@@ -1,4 +1,8 @@
-import { MemberNames, MemberProfilesModule } from "../member-profiles/index.js";
+import { ProductReadingModule } from "../products/index.js";
+import {
+  AccountNames,
+  AccountProfilesModule,
+} from "../account-profiles/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -35,8 +39,8 @@ import {
   CONTENT_ACCESS,
   type ContentAccess,
 } from "../content-access/index.js";
+import { ProductDirectory } from "../products/index.js";
 import {
-  ProductDirectory,
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
   MaterialContentModule,
@@ -64,6 +68,7 @@ import {
 
 @Module({
   imports: [
+    ProductReadingModule,
     PrismaModule,
     AssetsModule,
     ObjectStorageModule,
@@ -71,7 +76,7 @@ import {
     MaterialContentModule,
     MaterialsModule,
     TelegramAccountLinksModule,
-    MemberProfilesModule,
+    AccountProfilesModule,
   ],
   providers: [
     {
@@ -166,14 +171,14 @@ import {
         ProductDirectory,
         ACCOUNTS,
         TelegramAccountLinks,
-        MemberNames,
+        AccountNames,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         directory: ProductDirectory,
         accounts: Accounts,
         identities: TelegramAccountLinks,
-        names: MemberNames,
+        names: AccountNames,
       ): SubmissionReview => {
         const permissions = assembleCurrentAccountPermissions(accounts);
         return assembleSubmissionReview({

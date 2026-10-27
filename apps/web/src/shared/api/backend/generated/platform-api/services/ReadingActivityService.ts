@@ -112,8 +112,8 @@ export class ReadingActivityService {
     productId: string,
   }): CancelablePromise<{
     allRead: boolean;
+    productId: string;
     read: number;
-    seriesId: string;
     total: number;
   }> {
     return this.httpRequest.request({
@@ -121,30 +121,6 @@ export class ReadingActivityService {
       url: '/reading-activity/products/{productId}',
       path: {
         'productId': productId,
-      },
-    });
-  }
-  /**
-   * @deprecated
-   * Read progress over the current published Series composition
-   * @returns any
-   * @throws ApiError
-   */
-  public getSeriesReadingProgress({
-    seriesId,
-  }: {
-    seriesId: string,
-  }): CancelablePromise<{
-    allRead: boolean;
-    read: number;
-    seriesId: string;
-    total: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/series/{seriesId}',
-      path: {
-        'seriesId': seriesId,
       },
     });
   }

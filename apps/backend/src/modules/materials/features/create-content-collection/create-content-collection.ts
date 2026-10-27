@@ -20,7 +20,7 @@ import type { CreateContentCollectionOperation } from "./create-content-collecti
 export const contentCollectionInputSchema = z
   .object({
     actor: accountId,
-    kind: z.enum(["product", "series", "topic"]),
+    kind: z.enum(["product", "topic"]),
     name: z.string().trim().min(1).max(120),
     slug: collectionSlug,
     summary: z.string().trim().max(500),
@@ -31,6 +31,8 @@ export function assembleCreateContentCollection(
   dependencies: MaterialAuthoringDependencies,
 ): CreateContentCollectionOperation {
   return async (input) => {
+    if (input.kind !== "topic")
+      return dependencies.products.createContentCollection(input);
     const parsed = parseCommand(contentCollectionInputSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;

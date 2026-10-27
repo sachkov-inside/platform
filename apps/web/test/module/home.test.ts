@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getHome } from "../../src/_pages/home/api/get-home";
 
 const home = {
-  pinnedSeries: null,
+  pinnedProduct: null,
   guides: [],
   notes: [],
   playlists: [],

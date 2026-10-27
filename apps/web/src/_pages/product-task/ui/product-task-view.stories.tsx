@@ -935,3 +935,26 @@ export const AuthoredWithoutGeneralMaterials: Story = {
     );
   },
 };
+
+export const RevokedWithSavedHistory: Story = {
+  render: () => (
+    <ProductTaskClosed
+      task={closedProductTask}
+      programme={courseTask}
+      history={submittedTwice}
+      accountId="viewer-account"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("heading", { name: "Мои сдачи" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("heading", { name: "Ситуация" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Отправить сдачу" }),
+    ).not.toBeInTheDocument();
+  },
+};

@@ -1,7 +1,12 @@
 import { linkEffects } from "../../src/application/link-effects.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
+  createMigrationDatabase,
+  type MigrationDatabaseFixture,
+} from "../support/migration-database.js";
 
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -55,19 +60,49 @@ afterAll(async () => {
 });
 
 describe("IdentityLinkRecovery", () => {
-  it("rebuilds the owner recovery migration down and forward", async () => {
-    try {
-      await migrateTo(database, "006-platform-evidence-conformance");
-      await expect(tableExists("identity_link_recoveries")).resolves.toBe(
-        false,
+  describe("historical owner recovery migration", () => {
+    const abort = new AbortController();
+    let fixture: MigrationDatabaseFixture | undefined;
+    let acquisition: Promise<MigrationDatabaseFixture> | undefined;
+    let historical: Database;
+    // Register cleanup before startup; cancellation also owns an unfinished acquisition.
+    afterAll(async () => {
+      abort.abort(new Error("Historical fixture cleanup"));
+      const acquired = fixture ?? (await acquisition?.catch(() => undefined));
+      await acquired?.close();
+    }, migrationDatabaseLifecycleBudgetMilliseconds);
+    beforeAll(async () => {
+      acquisition = createMigrationDatabase(
+        databaseUrl,
+        `recovery_history_${randomUUID().replaceAll("-", "")}`,
+        { signal: abort.signal },
       );
-    } finally {
-      await migrateToLatest(database);
-    }
-    await expect(tableExists("identity_link_recoveries")).resolves.toBe(true);
+      fixture = await acquisition;
+      historical = fixture.database;
+    }, migrationDatabaseLifecycleBudgetMilliseconds);
+    let recoveryTableBefore: boolean;
+    beforeAll(async () => {
+      await migrateTo(historical, "007-owner-identity-recovery");
+    });
+    beforeAll(async () => {
+      await migrateTo(historical, "006-platform-evidence-conformance");
+      recoveryTableBefore = await tableExists(
+        "identity_link_recoveries",
+        historical,
+      );
+    });
+    beforeAll(async () => {
+      await migrateToLatest(historical);
+    });
+    it("rebuilds the owner recovery migration down and forward", async () => {
+      expect(recoveryTableBefore).toBe(false);
+      await expect(
+        tableExists("identity_link_recoveries", historical),
+      ).resolves.toBe(true);
+    });
   });
 
-  it("rolls back ownership transfer and its audit when the initial check cannot commit", async () => {
+  it("rolls back ownership transfer when its immutable recovery audit cannot commit", async () => {
     const fixture = await conflictingLinkFixture();
     const command = {
       confirmedSourceAccountRef: "principal-ref-source",
@@ -82,7 +117,7 @@ describe("IdentityLinkRecovery", () => {
     };
     await sql`create function synthetic_recovery_check_fault() returns trigger language plpgsql as $$
       begin raise exception 'synthetic recovery check failure'; end $$;
-      create trigger synthetic_recovery_check_fault before insert on membership_checks
+      create trigger synthetic_recovery_check_fault before insert on identity_link_recoveries
       for each row execute function synthetic_recovery_check_fault()`.execute(
       database,
     );
@@ -111,7 +146,7 @@ describe("IdentityLinkRecovery", () => {
           .executeTakeFirst(),
       ).toEqual({ state: "conflict" });
     } finally {
-      await sql`drop trigger synthetic_recovery_check_fault on membership_checks;
+      await sql`drop trigger synthetic_recovery_check_fault on identity_link_recoveries;
         drop function synthetic_recovery_check_fault()`.execute(database);
     }
     await expect(recovery.execute(command)).resolves.toMatchObject({
@@ -415,7 +450,10 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
 
-async function tableExists(tableName: string): Promise<boolean> {
+async function tableExists(
+  tableName: string,
+  database: Database,
+): Promise<boolean> {
   const result = await sql<{ exists: boolean }>`
     select exists (
       select 1

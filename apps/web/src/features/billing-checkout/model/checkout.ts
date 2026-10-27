@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import {
-  paymentMode,
   purchaseConsentPolicy,
   type AcceptedDocument,
   type BillingQuote,
@@ -11,14 +10,11 @@ import {
 /** Нажатие кнопки оплаты принимает обязательные документы своей покупки: отдельных отметок нет. */
 export function acceptedPurchaseDocuments(
   documents: readonly LegalDocument[],
-  quote: BillingQuote,
+  _quote: BillingQuote,
 ): AcceptedDocument[] {
   // Режим приходит из расчёта, а не из снимка витрины: по расчёту решают и панель, и приложение,
   // поэтому передать сюда устаревший снимок больше нечем.
-  const { required, applicable } = purchaseConsentPolicy(
-    documents,
-    paymentMode(quote.snapshot),
-  );
+  const { required, applicable } = purchaseConsentPolicy(documents, "one_time");
   return applicable
     .filter((document) => required.includes(document.kind))
     .map((document) => ({
@@ -46,8 +42,8 @@ export function promoCodeFromQuery(
 
 export const quoteInputSchema = z.strictObject({
   operationId: z.uuid(),
-  paymentOptionId: z.uuid(),
-  optionRevision: z.number().int().positive(),
+  productId: z.uuid(),
+  priceRevision: z.number().int().positive(),
   promoCode: promoCodeSchema.optional(),
   paymentLinkId: z.uuid().optional(),
 });

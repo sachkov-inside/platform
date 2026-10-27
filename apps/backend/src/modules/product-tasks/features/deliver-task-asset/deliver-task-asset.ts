@@ -56,11 +56,7 @@ export async function deliverTaskAsset(
     const [product] = await dependencies.directory.products({
       ids: [task.productId],
     });
-    if (
-      product === undefined ||
-      product.archived ||
-      product.slug !== input.productSlug
-    )
+    if (product === undefined || product.slug !== input.productSlug)
       return notFound();
     const access = await dependencies.contentAccess.authorize({
       subject: input.subject,

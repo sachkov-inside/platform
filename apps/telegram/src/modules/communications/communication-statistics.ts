@@ -17,7 +17,7 @@ type Tx = Transaction<DatabaseSchema>;
 type Entry = {
   sourceId: string | null;
   sourceCode: string | null;
-  funnelId: string | null;
+  sequenceId: string | null;
   enteredAt: string;
   outcome: string;
 };
@@ -60,11 +60,11 @@ async function assertScope(
   bot: string,
   actor: string,
 ) {
-  if (hasText(request.payload.funnelId)) {
+  if (hasText(request.payload.sequenceId)) {
     const row = await tx
-      .selectFrom("communication_funnels")
-      .select("funnel_id")
-      .where("funnel_id", "=", request.payload.funnelId)
+      .selectFrom("communication_sequences")
+      .select("sequence_id")
+      .where("sequence_id", "=", request.payload.sequenceId)
       .where("bot_identity", "=", bot)
       .where("owner_account_ref", "=", actor)
       .executeTakeFirst();
@@ -89,28 +89,28 @@ function entryQuery(
 ) {
   return tx
     .selectFrom("communication_entries as e")
-    .leftJoin("communication_funnels as f", "f.funnel_id", "e.funnel_id")
+    .leftJoin("communication_sequences as f", "f.sequence_id", "e.sequence_id")
     .selectAll("e")
     .where("e.bot_identity", "=", bot)
     .where("e.contact_id", Array.isArray(contactId) ? "in" : "=", contactId)
     .where((eb) =>
       eb.or([
         eb("f.owner_account_ref", "=", actor),
-        eb("e.funnel_id", "is", null),
+        eb("e.sequence_id", "is", null),
       ]),
     );
 }
 function entryView(row: {
   source_id: string | null;
   source_code: string | null;
-  funnel_id: string | null;
+  sequence_id: string | null;
   entered_at: Date;
   outcome: string;
 }): Entry {
   return {
     sourceId: row.source_id,
     sourceCode: row.source_code,
-    funnelId: row.funnel_id,
+    sequenceId: row.sequence_id,
     enteredAt: row.entered_at.toISOString(),
     outcome: row.outcome,
   };
@@ -170,7 +170,7 @@ function entriesView(
   rows: readonly {
     source_id: string | null;
     source_code: string | null;
-    funnel_id: string | null;
+    sequence_id: string | null;
     entered_at: Date;
     update_id: string;
     outcome: string;
@@ -195,7 +195,7 @@ export async function readStatistics(
   actor: string,
 ): Promise<StatisticsResult> {
   await assertScope(tx, request, bot, actor);
-  const funnel = request.payload.funnelId ?? null;
+  const sequence = request.payload.sequenceId ?? null;
   const broadcast = request.payload.broadcastId ?? null;
   const totals = await sql<{
     total: number;
@@ -211,15 +211,17 @@ export async function readStatistics(
   );
   const participants = await sql<{
     count: number;
-  }>`select count(distinct e.contact_id)::int count from communication_enrollments e
-    join communication_funnels f using(funnel_id) where f.bot_identity=${bot} and f.owner_account_ref=${actor}
-    and (${funnel}::uuid is null or e.funnel_id=${funnel}::uuid)`.execute(tx);
+  }>`select count(distinct e.contact_id)::int count from communication_participations e
+    join communication_sequences f using(sequence_id) where f.bot_identity=${bot} and f.owner_account_ref=${actor}
+    and (${sequence}::uuid is null or e.sequence_id=${sequence}::uuid)`.execute(
+    tx,
+  );
   const deliveryScope = sql`d.bot_identity=${bot}
     and ${deliveryOwnerPredicate(actor)}
-    and (${funnel}::uuid is null or d.funnel_id=${funnel}::uuid)
+    and (${sequence}::uuid is null or d.sequence_id=${sequence}::uuid)
     and (${broadcast}::uuid is null or d.broadcast_id=${broadcast}::uuid)`;
   const counts = await sql<Counts>`with deliveries as (
-    select d.* from communication_deliveries d left join communication_funnels f using(funnel_id)
+    select d.* from communication_deliveries d left join communication_sequences f using(sequence_id)
     left join communication_broadcasts b using(broadcast_id) left join communication_intro i on i.bot_identity=d.bot_identity where ${deliveryScope}
   ), parts as (select jsonb_array_elements(parts)->>'state' state from deliveries)
   select count(*) filter(where state='sent')::int sent, count(*) filter(where state='suppressed')::int suppressed,
@@ -240,7 +242,7 @@ export async function readStatistics(
       coalesce(ceil(max(greatest(0,extract(epoch from h.received_at-h.occurred_at)))),0)::int lag
     from communication_tracking_hits h join communication_tracking_tokens t using(token)
     join communication_deliveries d on d.delivery_id=t.delivery_id
-    left join communication_funnels f using(funnel_id) left join communication_broadcasts b using(broadcast_id)
+    left join communication_sequences f using(sequence_id) left join communication_broadcasts b using(broadcast_id)
     left join communication_intro i on i.bot_identity=d.bot_identity where ${deliveryScope}`.execute(
     tx,
   );
@@ -253,14 +255,14 @@ export async function readStatistics(
     )
     .select(["c.contact_id", "c.marketing_enabled", "b.contactability"])
     .where("c.bot_identity", "=", bot);
-  if (hasText(funnel))
+  if (hasText(sequence))
     contacts = contacts.where((eb) =>
       eb.exists(
         eb
-          .selectFrom("communication_enrollments as e")
+          .selectFrom("communication_participations as e")
           .select("e.contact_id")
           .whereRef("e.contact_id", "=", "c.contact_id")
-          .where("e.funnel_id", "=", funnel),
+          .where("e.sequence_id", "=", sequence),
       ),
     );
   if (hasText(broadcast))

@@ -188,7 +188,7 @@ export const WithLearning: Story = {
     continuationSlot: (
       <LearningContinuationView
         continuation={{
-          series: {
+          product: {
             collection: { name: "AI Engineering", slug: "ai-engineering" },
             read: 3,
             total: 17,
@@ -238,7 +238,7 @@ export const CourseAndVideo: Story = {
     continuationSlot: (
       <LearningContinuationView
         continuation={{
-          series: {
+          product: {
             collection: {
               name: "Подготовь проект к разработке: harness, skills и AI-first процесс",
               slug: "ai-engineering",

@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -119,7 +120,7 @@ function applicationApi({ loseFirstResponse = false } = {}) {
         key,
       });
       if (path === "/authoring/import/materials/environment")
-        return { mode: "development" };
+        return currentEnvironment("development");
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate")
         return { valid: true };

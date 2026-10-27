@@ -198,7 +198,7 @@ export const reviewedSubmissions: TaskSubmissions = {
     },
   ],
   versions: [
-    { code: "aie-ch1-onboarding", version: 2, criteria },
+    { code: "aie-ch1-onboarding", version: 2 as const, criteria },
     {
       code: "aie-ch1-onboarding",
       version: 1,

@@ -12,12 +12,10 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
   return {
     reader: {
       read: refuse,
-      readPractice: refuse,
-      listPractices: refuse,
       listProjections: refuse,
       listSiteMaterials: refuse,
       discoverProjections: refuse,
-      readHomePinnedSeries: refuse,
+      readHomePinnedProduct: refuse,
       readHomeProjections: refuse,
     },
     videos: { loadReadyDurations: refuse },

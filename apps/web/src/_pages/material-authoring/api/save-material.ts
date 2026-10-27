@@ -134,7 +134,7 @@ function backendSaveInput(input: ParsedSaveMaterialInput):
         ? {}
         : { notifyTelegram: input.notifyTelegram }),
       primaryVideoId: input.primaryVideoId,
-      seriesIds: documentFields.seriesIds,
+      productIds: documentFields.productIds,
       summary: emptyToNull(input.summary),
       tagIds: input.tagIds,
       title: emptyToNull(input.title),
@@ -250,8 +250,8 @@ function formIssueMessage(field: string): string {
 
 function messageForConflict(code: string): string | null {
   switch (code) {
-    case "series_ordinal_conflict":
-      return "Эта позиция в Series уже занята.";
+    case "product_ordinal_conflict":
+      return "Эта позиция в Product уже занята.";
     case "invalid_publication_transition":
       return "Выбранный переход publication state недоступен.";
     case "idempotency_key_reused":

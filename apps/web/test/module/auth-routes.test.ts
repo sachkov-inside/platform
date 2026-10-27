@@ -421,6 +421,7 @@ describe("Logto BFF route orchestration", () => {
   it("only the matching successful SDK callback enables the explicit guest waitlist continuation", async () => {
     const token = signWaitlistIntent(
       {
+        productSlug: "ai-engineering",
         productId: "10000000-0000-4000-8000-000000000001",
         intakeId: "10000000-0000-4000-8000-000000000002",
         source: "youtube",
@@ -484,6 +485,7 @@ describe("Logto BFF route orchestration", () => {
       WAITLIST_INTENT_COOKIE,
       signWaitlistIntent(
         {
+          productSlug: "ai-engineering",
           productId: "10000000-0000-4000-8000-000000000001",
           intakeId: "10000000-0000-4000-8000-000000000002",
           source: "youtube",

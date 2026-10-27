@@ -49,8 +49,8 @@ export async function MaterialAuthoringPage({
   const initialPresentation: MaterialAuthoringPresentation = {
     availableFormats:
       references?.kind === "ready" ? references.references.formats : [],
-    availableSeries:
-      references?.kind === "ready" ? references.references.series : [],
+    availableProduct:
+      references?.kind === "ready" ? references.references.products : [],
     availableTags:
       references?.kind === "ready" ? references.references.tags : [],
     availableTopics:
@@ -78,7 +78,7 @@ export async function MaterialAuthoringPage({
       primaryVideo: null,
       primaryVideoId: null,
       readOnly: false,
-      seriesIds: [],
+      productIds: [],
       status: "new",
       summary: "",
       tagIds: [],

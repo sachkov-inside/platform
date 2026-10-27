@@ -21,23 +21,23 @@ describe("published consent catalogue", () => {
       expect(() => legalDocumentSchema.parse(document)).not.toThrow();
   });
 
-  it("keeps one document per kind inside a payment mode", () => {
+  it("keeps one purchase consent and no active subscription consent", () => {
     for (const mode of paymentModes) {
       const kinds = consentDocuments(origin)
         .filter((document) => document.appliesTo.includes(mode))
         .map((document) => document.kind);
-      expect(kinds.length).toBeGreaterThan(0);
+      expect(kinds).toEqual(mode === "one_time" ? ["terms"] : []);
       expect(new Set(kinds).size).toBe(kinds.length);
     }
   });
 
-  it("asks for an offer and recurring consent, never for the privacy policy", () => {
+  it("asks only for purchase terms, without recurring or privacy-policy checkboxes", () => {
     const kinds = new Set(
       consentDocuments(origin).map(
         (document): LegalDocument["kind"] => document.kind,
       ),
     );
-    expect([...kinds].toSorted()).toEqual(["recurring", "terms"]);
+    expect([...kinds].toSorted()).toEqual(["terms"]);
   });
 
   it("addresses documents on the configured public origin", () => {

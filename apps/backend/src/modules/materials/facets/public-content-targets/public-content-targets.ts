@@ -1,8 +1,9 @@
+import type { ProductDiscovery } from "../../../products/index.js";
 import { z } from "zod";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
 const targetSchema = z.object({
-  kind: z.enum(["material", "series", "product"]),
+  kind: z.enum(["material", "product"]),
   slug: z.string().min(1).max(120),
 });
 export type PublicContentTarget = z.infer<typeof targetSchema>;
@@ -13,7 +14,13 @@ export type PublicContentTargetResult = {
 };
 /** Materials owns public destinations; a Product page does not promise free Material bodies. */
 export class PublicContentTargets {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    private readonly prisma: MaterialsPrismaClient,
+    private readonly discovery: Pick<
+      ProductDiscovery,
+      "catalogueMemberships" | "metadata"
+    >,
+  ) {}
   static parseUrl(url: URL): PublicContentTarget | "invalid" | null {
     const route = url.pathname.split("/")[1];
     if (
@@ -72,45 +79,10 @@ export class PublicContentTargets {
         if (row.slug !== null) materials.set(row.slug, row);
     }
     for (let start = 0; start < productSlugs.length; start += batchSize) {
-      const rows = await this.prisma.product.findMany({
-        where: { slug: { in: productSlugs.slice(start, start + batchSize) } },
-        select: { id: true, slug: true, archivedAt: true },
+      const rows = await this.discovery.metadata({
+        slugs: productSlugs.slice(start, start + batchSize),
       });
       for (const row of rows) products.set(row.slug, row);
-    }
-    const seriesIds = [
-      ...new Set(
-        targets.flatMap((target) => {
-          const product = products.get(target.slug);
-          return target.kind === "series" && product?.archivedAt === null
-            ? [product.id]
-            : [];
-        }),
-      ),
-    ];
-    const memberIds = new Map<string, string[]>();
-    for (let start = 0; start < seriesIds.length; start += batchSize) {
-      const rows = await this.prisma.productMembership.findMany({
-        where: { seriesId: { in: seriesIds.slice(start, start + batchSize) } },
-        select: { seriesId: true, materialId: true },
-      });
-      for (const row of rows) {
-        const ids = memberIds.get(row.seriesId) ?? [];
-        ids.push(row.materialId);
-        memberIds.set(row.seriesId, ids);
-      }
-    }
-    const ids = [...new Set([...memberIds.values()].flat())];
-    const memberFacts = new Map<
-      string,
-      { publicationState: string; access: string }
-    >();
-    for (let start = 0; start < ids.length; start += batchSize) {
-      const rows = await this.prisma.material.findMany({
-        where: { id: { in: ids.slice(start, start + batchSize) } },
-        select: { id: true, publicationState: true, access: true },
-      });
-      for (const row of rows) memberFacts.set(row.id, row);
     }
     return targets.map((target): PublicContentTargetResult => {
       if (target.kind === "material") {
@@ -131,22 +103,7 @@ export class PublicContentTargets {
       if (product === undefined) return { targetId: null, reason: "not_found" };
       if (product.archivedAt !== null)
         return { targetId: product.id, reason: "not_published" };
-      if (target.kind === "product")
-        return { targetId: product.id, reason: "eligible" };
-      const members = memberIds.get(product.id) ?? [];
-      const incomplete =
-        members.length === 0 ||
-        members.some(
-          (id) => memberFacts.get(id)?.publicationState !== "published",
-        );
-      return {
-        targetId: product.id,
-        reason: incomplete
-          ? "incomplete"
-          : members.some((id) => memberFacts.get(id)?.access !== "free")
-            ? "not_free"
-            : "eligible",
-      };
+      return { targetId: product.id, reason: "eligible" };
     });
   }
 

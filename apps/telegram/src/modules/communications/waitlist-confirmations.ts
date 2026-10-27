@@ -8,6 +8,8 @@ import {
   retryDelay,
   settle,
   type DurableQueue,
+  type Claim,
+  held,
 } from "../../database/durable-queue.js";
 import {
   externalRead,
@@ -16,11 +18,18 @@ import {
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import { findBotContact } from "../bot-contacts/contact-access.js";
 import {
-  reserveTelegramSlot,
+  admitTelegramSlot,
   deferTelegramSlot,
 } from "../outbound/telegram-transport-slots.js";
 import type { Clock } from "../../shared/clock.js";
-import { reportFailure } from "../../shared/failure-diagnostics.js";
+import {
+  reportFailure,
+  failureCode,
+} from "../../shared/failure-diagnostics.js";
+import {
+  systemMonotonicClock,
+  type MonotonicClock,
+} from "../../shared/clock.js";
 import type { CommunicationTransport } from "./communication-delivery.js";
 
 export const WAITLIST_CONFIRMATION_AUTHORIZATION = Symbol(
@@ -58,6 +67,7 @@ export class WaitlistConfirmations {
     private readonly clock: Clock,
     private readonly authorization: WaitlistConfirmationAuthorization,
     private readonly transport: CommunicationTransport,
+    private readonly monotonic: MonotonicClock = systemMonotonicClock,
   ) {}
   async receive(
     command: WaitlistConfirmation,
@@ -112,6 +122,75 @@ export class WaitlistConfirmations {
     return Object.fromEntries(
       rows.map((row) => [row.state, Number(row.count)]),
     );
+  }
+  private async admitCheckedTransport(
+    item: Claim<
+      "waitlist_confirmations",
+      "bot_identity" | "event_id" | "command"
+    >,
+    chatId: string,
+    deadline: number,
+  ): Promise<boolean> {
+    return this.database.transaction().execute(async (tx) => {
+      if (this.monotonic.now() >= deadline) return false;
+      await sql`set local lock_timeout = '25ms'`.execute(tx);
+      await sql`set local statement_timeout = '100ms'`.execute(tx);
+      const receipt = await tx
+        .selectFrom("waitlist_confirmations")
+        .select("event_id")
+        .where(held(queue, item))
+        .forUpdate()
+        .noWait()
+        .executeTakeFirst();
+      if (!receipt) return false;
+      const now = this.clock.now();
+      if (now.getTime() >= item.leasedAt.getTime() + queue.leaseMs) {
+        await settle(tx, queue, item, {
+          state: "unknown",
+          diagnostic_code: "worker_lease_expired",
+        });
+        return false;
+      }
+      const command = item.row.command;
+      const link = await findPlatformLink(
+        tx,
+        {
+          botIdentity: item.row.bot_identity,
+          accountRef: command.accountRef,
+          telegramIdentityRef: command.telegramIdentityRef,
+        },
+        "share",
+        "nowait",
+      );
+      const contact = link
+        ? await findBotContact(
+            tx,
+            item.row.bot_identity,
+            link.telegramUserId,
+            true,
+          )
+        : undefined;
+      if (
+        !link ||
+        contact?.contactability !== "reachable" ||
+        contact.private_chat_id !== chatId
+      ) {
+        await settle(tx, queue, item, {
+          state: "suppressed",
+          diagnostic_code: "no_current_recipient",
+        });
+        return false;
+      }
+      const admitted = await admitTelegramSlot(
+        tx,
+        item.row.bot_identity,
+        chatId,
+        now,
+        "general",
+        "nowait",
+      );
+      return admitted === "reserved" && this.monotonic.now() < deadline;
+    });
   }
   async processAvailable(): Promise<number> {
     if (this.config.deliveryMode !== "live") return 0;
@@ -171,15 +250,6 @@ export class WaitlistConfirmations {
               suppressed = true;
               return undefined;
             }
-            if (
-              !(await reserveTelegramSlot(
-                tx,
-                row.bot_identity,
-                contact.private_chat_id,
-                now,
-              ))
-            )
-              return undefined;
             chatId = contact.private_chat_id;
             return {};
           },
@@ -188,6 +258,61 @@ export class WaitlistConfirmations {
       },
     );
     if (!item || chatId === undefined) return suppressed ? 1 : 0;
+    // Re-read after the claim commits: an earlier join generation must not authorize a
+    // send after local lock/pool waits. No connection is held during the Platform request.
+    let current: "accepted" | "suppressed" | "unavailable";
+    try {
+      current = await this.authorization.current(item.row.command);
+    } catch (error) {
+      reportFailure(
+        "communications.waitlist-confirmation-authorization",
+        error,
+      );
+      current = "unavailable";
+    }
+    if (current !== "accepted") {
+      await this.database.transaction().execute(async (tx) => {
+        await settle(
+          tx,
+          queue,
+          item,
+          current === "suppressed"
+            ? {
+                state: "suppressed",
+                diagnostic_code: "no_current_recipient",
+              }
+            : {
+                state: "pending",
+                attempt_count: item.attempt - 1,
+                available_at: new Date(
+                  this.clock.now().getTime() + CONFIRMATION_RETRY_INITIAL_MS,
+                ),
+                diagnostic_code: "authorization_unavailable",
+              },
+        );
+      });
+      return current === "suppressed" ? 1 : 0;
+    }
+    const deadline = this.monotonic.now() + 250;
+    let admitted = false;
+    try {
+      admitted = await this.admitCheckedTransport(item, chatId, deadline);
+    } catch (error) {
+      if (!["pg_55P03", "pg_57014"].includes(failureCode(error))) throw error;
+      reportFailure("communications.waitlist-confirmation-admission", error);
+    }
+    if (!admitted || this.monotonic.now() >= deadline) {
+      // Proven unsent work can wait for fresh eligibility; never reset a recovered unknown lease.
+      await settle(this.database, queue, item, {
+        state: "pending",
+        attempt_count: item.attempt - 1,
+        available_at: new Date(
+          this.clock.now().getTime() + CONFIRMATION_RETRY_INITIAL_MS,
+        ),
+        diagnostic_code: "admission_deferred",
+      });
+      return 0;
+    }
     let result;
     try {
       result = await this.transport.send({

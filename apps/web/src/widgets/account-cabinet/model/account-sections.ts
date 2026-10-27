@@ -1,7 +1,7 @@
 import type { Route } from "next";
 
 export type AccountSectionId =
-  "profile" | "access" | "purchases" | "subscription" | "notifications";
+  "profile" | "access" | "purchases" | "notifications";
 
 export interface AccountSection {
   readonly id: AccountSectionId;
@@ -31,13 +31,7 @@ export const accountSectionById: {
     id: "purchases",
     href: "/account/purchases",
     label: "Покупки",
-    summary: "Что доступно, списания, чеки и способ оплаты",
-  },
-  subscription: {
-    id: "subscription",
-    href: "/account/subscription",
-    label: "Подписка",
-    summary: "Тариф, срок, следующее списание и управление",
+    summary: "Доступ к продуктам, оплаты и чеки",
   },
   notifications: {
     id: "notifications",
@@ -58,5 +52,5 @@ export function visibleAccountSections(_input: {
   readonly subscriptionOffered: boolean;
   readonly subscriptionOwned: boolean;
 }): readonly AccountSection[] {
-  return accountSections.filter((section) => section.id !== "subscription");
+  return accountSections;
 }

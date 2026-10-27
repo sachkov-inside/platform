@@ -15,16 +15,16 @@ export interface NativeReviewInput {
   readonly timeoutMs?: number;
   readonly outputMode?: "json" | "text";
   /**
-   * The tested profile. `practice-v2` reads only and exposes one practice tool. `task-v3` (#946)
+   * The tested profile. `task-readonly` reads only and exposes one Task tool. `task-v3` (#946)
    * exposes the four Product Task tools and a shell, because procedure v3 lets the learner consent to
    * one named command; writes to the project stay outside the profile.
    */
-  readonly profile?: "practice-v2" | "task-v3";
+  readonly profile?: "task-readonly" | "task-v3";
 }
 
 /** The learner MCP tools each profile exposes. */
 export const profileTools = {
-  "practice-v2": ["learning_practice_read"],
+  "task-readonly": ["learning_task_read"],
   "task-v3": [
     "learning_tasks_list",
     "learning_task_read",
@@ -55,7 +55,7 @@ export async function runNativeReview({
   outputPath,
   timeoutMs = 240000,
   outputMode = "json",
-  profile = "practice-v2",
+  profile = "task-readonly",
 }: NativeReviewInput): Promise<NativeProcessResult> {
   const tools = profileTools[profile];
   const shell = profile === "task-v3";

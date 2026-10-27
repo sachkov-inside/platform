@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 
 import { productSocialCard } from "@/_pages/library-discovery";
-import { loadPublishedSeries } from "@/features/library-discovery.server";
+import { loadPublishedProduct } from "@/features/library-discovery.server";
 import { socialCardResponse } from "@/shared/link-preview/index.server";
 
 /** Карточка ссылки на руководство без обложки. */
@@ -13,7 +13,7 @@ export async function GET(
 ): Promise<Response> {
   await connection();
   const { slug } = await context.params;
-  const result = await loadPublishedSeries(slug);
+  const result = await loadPublishedProduct(slug);
   if (result.kind === "not-found" || result.kind === "unavailable") {
     notFound();
   }

@@ -7,8 +7,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseEnv } from "node:util";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -31,10 +32,47 @@ const standConfigSchema = z.object({
       image: z.string(),
       build: z.object({ args: environmentSchema.default({}) }),
       environment: environmentSchema.default({}),
+      env_file: z
+        .array(z.union([z.string(), z.object({ path: z.string() })]))
+        .default([]),
     }),
     mcp: z.object({ environment: environmentSchema.default({}) }),
   }),
 });
+
+type ApiStandInput = z.infer<typeof standConfigSchema>["services"]["api"];
+const publicApiEnvFile = resolve(
+  repositoryRoot,
+  "config/compose/local/api.env",
+);
+
+/** Config projection deliberately leaves private env files unresolved. */
+function effectiveCheckedInApiNodeEnv(
+  service: Pick<ApiStandInput, "environment" | "env_file">,
+  readPublicEnv: (file: string) => string = (file) =>
+    readFileSync(file, "utf8"),
+): string | null | undefined {
+  if (Object.hasOwn(service.environment, "NODE_ENV"))
+    return service.environment["NODE_ENV"];
+  const includesPublicDefault = service.env_file.some(
+    (entry) =>
+      resolve(
+        repositoryRoot,
+        typeof entry === "string" ? entry : entry.path,
+      ) === publicApiEnvFile,
+  );
+  if (!includesPublicDefault)
+    throw new Error("API must declare its checked-in environment defaults");
+  return parseEnv(readPublicEnv(publicApiEnvFile))["NODE_ENV"];
+}
+
+function assertDevelopmentApi(
+  service: Pick<ApiStandInput, "environment" | "env_file">,
+  readPublicEnv?: (file: string) => string,
+) {
+  if (effectiveCheckedInApiNodeEnv(service, readPublicEnv) !== "development")
+    throw new Error("The local API must use development providers");
+}
 
 async function standInput(
   storagePort?: string,
@@ -282,10 +320,52 @@ describe("local stand production build input", () => {
     expect(services.api.environment["PLATFORM_LOCAL_RELEASE_IDENTITY"]).toBe(
       "image",
     );
-    expect(services.api.environment["NODE_ENV"]).toBe("development");
+    assertDevelopmentApi(services.api);
     expect(services.web.environment["NODE_ENV"]).toBe("production");
     expect(services.web.image).not.toBe(services.api.image);
     expect(services.web.command).toEqual(["node", "apps/web/server.js"]);
+  });
+
+  it("rejects a wrong checked-in API mode and an explicit production override (#1539)", () => {
+    const service = { environment: {}, env_file: [{ path: publicApiEnvFile }] };
+    expect(() => {
+      assertDevelopmentApi(service, () => "NODE_ENV=production\n");
+    }).toThrow("development providers");
+    expect(() => {
+      assertDevelopmentApi(
+        { ...service, environment: { NODE_ENV: "production" } },
+        () => "NODE_ENV=development\n",
+      );
+    }).toThrow("development providers");
+    expect(() => {
+      assertDevelopmentApi({ ...service, environment: { NODE_ENV: null } });
+    }).toThrow("development providers");
+  });
+
+  it("reads only checked-in API defaults when Compose leaves private stand env unresolved (#1539)", () => {
+    const readPublicEnv = vi.fn((file: string) => {
+      expect(file).toBe(publicApiEnvFile);
+      return 'NODE_ENV="development"\n';
+    });
+    const privateEnv = resolve(repositoryRoot, ".identity-proof/stand.env");
+    assertDevelopmentApi(
+      {
+        environment: {},
+        env_file: [{ path: publicApiEnvFile }, { path: privateEnv }],
+      },
+      readPublicEnv,
+    );
+    expect(readPublicEnv).toHaveBeenCalledExactlyOnceWith(publicApiEnvFile);
+    expect(() => {
+      assertDevelopmentApi(
+        { environment: {}, env_file: [{ path: privateEnv }] },
+        readPublicEnv,
+      );
+    }).toThrow("checked-in environment defaults");
+    assertDevelopmentApi({
+      environment: { NODE_ENV: "development" },
+      env_file: [],
+    });
   });
 
   it("keeps development signed image URLs on the same configured published port", async () => {

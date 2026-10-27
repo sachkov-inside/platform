@@ -305,7 +305,7 @@ export const NumberedAssignments: Story = {
   render: () => {
     const firstTask = courseSource.chapters[0].tasks[0];
     const context = courseReadingContext({
-      series: {
+      product: {
         ...courseSource,
         chapters: [
           {

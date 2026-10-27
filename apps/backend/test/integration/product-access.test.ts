@@ -1,3 +1,8 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
@@ -13,22 +18,23 @@ import type {
 } from "../../src/infrastructure/object-storage/index.js";
 import { createHash, randomUUID } from "node:crypto";
 import { SignJWT } from "jose";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
-  assembleAccounts,
-  accountId,
-} from "../../src/modules/accounts/index.js";
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
+import { accountId } from "../../src/modules/accounts/index.js";
 import {
-  assembleAccessGrants,
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-  PublishedSeriesComposition,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedProductComposition } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import {
   ReadingActivity,
   PersonalHome,
@@ -49,32 +55,24 @@ registerFixedClock();
 describe("independent product, library, support and shared chat rights", () => {
   let db: TestDatabase;
   const owner = randomUUID(),
-    buyer = randomUUID(),
     productA = randomUUID(),
     productB = randomUUID(),
     topicId = randomUUID();
+  let buyer = randomUUID();
   let now = new Date("2030-01-01T00:00:00Z");
-  let grants: ReturnType<typeof assembleAccessGrants>;
+
   let membership: ReturnType<typeof assembleAccountRights>;
   let materials: ReturnType<typeof assembleMaterials>;
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
-    for (const id of [owner, buyer])
+    for (const id of [owner])
       await db.prisma.account.create({
         data: { id, logtoIssuer: "https://identity.test", logtoSubject: id },
       });
     await db.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
     });
-    const accounts = assembleAccounts({
-      prisma: db.prisma,
-      emailFingerprintKey: "synthetic-scoped-access-fingerprint-key",
-    });
-    grants = assembleAccessGrants({
-      prisma: db.prisma,
-      accounts,
-      clock: () => now,
-    });
+
     membership = assembleAccountRights({
       prisma: db.prisma,
       clock: () => now,
@@ -91,44 +89,32 @@ describe("independent product, library, support and shared chat rights", () => {
       authorPolicy: { canManage: (id) => id === owner },
     });
   });
+  beforeEach(async () => {
+    buyer = randomUUID();
+    now = new Date("2030-01-01T00:00:00Z");
+    await db.prisma.account.create({
+      data: {
+        id: buyer,
+        logtoIssuer: "https://identity.test",
+        logtoSubject: buyer,
+      },
+    });
+  });
   afterAll(async () => db.dispose());
   async function grant(
     capabilities: AccessCapability[],
-    validUntil: string | null,
-    source: "manual" | "legacy" = "manual",
+    _validUntil: string | null,
+    _source: "manual" | "legacy" = "manual",
   ) {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "fixture",
-          accountId: buyer,
-          source,
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities,
-            coverage: { productIds: [productA, productB], materialIds: [] },
-            startsAt: "2030-01-01T00:00:00Z",
-            validUntil,
-            reason: "Controlled #407 fixture",
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const result = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["fixture"],
-    });
-    const row = result.ok ? result.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok || !("grantRef" in row))
-      throw new Error("Grant fixture failed");
-    return row;
+    const productId = capabilities[0]?.replace("product:", "");
+    if (productId === undefined) throw new Error("Expected Product target");
+    return {
+      grantRef: await grantProductFixture(db.prisma, buyer, productId),
+      revision: 1,
+    };
   }
   async function material(
-    seriesIds: string[],
+    productIds: string[],
     publicationState: "draft" | "published" = "published",
     access: "free" | "closed" = "closed",
   ) {
@@ -142,7 +128,7 @@ describe("independent product, library, support and shared chat rights", () => {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds,
+      productIds,
     };
     const created = await materials.authoring.createDraft({
       actor: owner,
@@ -165,211 +151,6 @@ describe("independent product, library, support and shared chat rights", () => {
     }
     return materialId(created.value.materialId);
   }
-  test("scoped Account sets preserve bridge Product exclusions and an independent active ground", async () => {
-    const target = randomUUID();
-    const principalRef = randomUUID();
-    const boundary = new Date("2030-04-01T00:00:00.000Z");
-    await db.prisma.account.create({
-      data: {
-        id: target,
-        logtoIssuer: "https://identity.test",
-        logtoSubject: target,
-      },
-    });
-    await db.prisma.legacyClassification.create({
-      data: {
-        accountId: target,
-        classification: "confirmed_legacy",
-        sourceRef: randomUUID(),
-        reason: "Bridge reconciliation fixture",
-        verifiedAt: now,
-        revision: 1,
-        bridgeEnabled: true,
-        bridgeBenefits: ["materials", "community"],
-        bridgeCoverage: { productIds: [productA, productB], materialIds: [] },
-      },
-    });
-    await db.prisma.membershipBinding.create({
-      data: { accountId: target, principalRef, linkedAt: now },
-    });
-    await db.prisma.membershipProjection.create({
-      data: {
-        accountId: target,
-        principalRef,
-        decision: "member",
-        evidenceRef: randomUUID(),
-        evidenceVersion: 1n,
-        evidenceFingerprint: "a".repeat(64),
-        checkedAt: now,
-        validUntil: boundary,
-        updatedAt: now,
-      },
-    });
-    await db.prisma.accessGrant.create({
-      data: {
-        id: randomUUID(),
-        accountId: target,
-        source: "paid",
-        sourceRef: randomUUID(),
-        capabilities: ["materials", "community"],
-        coverage: { productIds: [productB], materialIds: [] },
-        startsAt: now,
-        validUntil: null,
-        revision: 1,
-        reason: "Independent Product B fixture",
-      },
-    });
-    const preview = await grants.previewProductRevocation(owner, {
-      accountId: target,
-      productId: productA,
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    expect(
-      await grants.revokeProductAccess(owner, {
-        operationId: randomUUID(),
-        accountId: target,
-        productId: productA,
-        expectedRevision: preview.value.revision,
-        reason: "Exclude Product A bridge",
-      }),
-    ).toMatchObject({ ok: true });
-    for (const [productId, expected] of [
-      [productA, []],
-      [
-        productB,
-        [
-          { capability: "community", validUntil: null },
-          { capability: "materials", validUntil: null },
-        ],
-      ],
-    ] as const) {
-      const resource = { productIds: [productId] };
-      const single = await grants.resolveCapabilities(target, resource);
-      const set = await grants.resolveCapabilitiesForAccounts(
-        [target.toUpperCase()],
-        resource,
-      );
-      const many = await grants.resolveCapabilitiesMany(target, [resource]);
-      expect(single.ok && single.capabilities).toEqual(expected);
-      expect(set.ok && set.accounts.get(target.toUpperCase())?.revision).toBe(
-        single.ok ? single.revision : null,
-      );
-      expect(
-        set.ok && set.accounts.get(target.toUpperCase())?.capabilities,
-      ).toEqual(expected);
-      expect(many.ok && many.values[0]?.capabilities).toEqual(expected);
-    }
-  });
-  test.each([false, true])(
-    "an operator revokes a whole Product across grants and preserves another Product (wholePlatform=%s)",
-    async (wholePlatform) => {
-      const target = randomUUID();
-      await db.prisma.account.create({
-        data: {
-          id: target,
-          logtoIssuer: "https://identity.test",
-          logtoSubject: target,
-        },
-      });
-      const preview = await grants.previewBatch(owner, {
-        operationId: randomUUID(),
-        rows: [
-          {
-            rowKey: "product",
-            accountId: target,
-            source: "manual",
-            sourceRef: randomUUID(),
-            terms: {
-              capabilities: [`product:${productA}`],
-              coverage: { productIds: [productA], materialIds: [] },
-              startsAt: now.toISOString(),
-              validUntil: null,
-              reason: "Product fixture",
-            },
-          },
-        ],
-      });
-      if (!preview.ok) throw new Error(preview.error.code);
-      expect(
-        await grants.applyBatch(owner, {
-          operationId: randomUUID(),
-          previewRef: preview.previewRef,
-          expectedRevision: preview.revision,
-          confirmedRows: ["product"],
-        }),
-      ).toMatchObject({ ok: true });
-      expect(
-        await grants.applyPaidPeriod({
-          eventRef: randomUUID(),
-          periodRef: randomUUID(),
-          accountId: target,
-          revision: 1,
-          revoked: false,
-          terms: {
-            capabilities: ["materials"],
-            coverage: wholePlatform
-              ? { productIds: [], materialIds: [], wholePlatform: true }
-              : { productIds: [productA, productB], materialIds: [] },
-            startsAt: now.toISOString(),
-            validUntil: null,
-            reason: "Broad paid fixture",
-          },
-        }),
-      ).toMatchObject({ ok: true });
-      const revoke = await grants.previewProductRevocation(owner, {
-        accountId: target,
-        productId: productA,
-      });
-      if (!revoke.ok) throw new Error(revoke.error.code);
-      expect(revoke.value.affectedCount).toBe(2);
-      const command = {
-        operationId: randomUUID(),
-        accountId: target,
-        productId: productA,
-        expectedRevision: revoke.value.revision,
-        reason: "Owner withdraws Product access",
-      };
-      expect(await grants.revokeProductAccess(owner, command)).toMatchObject({
-        ok: true,
-      });
-      const batch = await grants.resolveCapabilitiesMany(target, [
-        { productIds: [productA] },
-        { productIds: [productB] },
-      ]);
-      if (!batch.ok) throw new Error(batch.error.code);
-      expect(
-        batch.values.map((value) =>
-          value.capabilities.some((entry) => entry.capability === "materials"),
-        ),
-      ).toEqual([false, true]);
-      for (const productId of [productA, productB]) {
-        const resource = { productIds: [productId] };
-        const scalar = await grants.resolveCapabilities(target, resource);
-        const set = await grants.resolveCapabilitiesForAccounts(
-          [target.toUpperCase()],
-          resource,
-        );
-        expect(
-          set.ok && set.accounts.get(target.toUpperCase())?.capabilities,
-        ).toEqual(scalar.ok ? scalar.capabilities : null);
-      }
-      expect(
-        await membership.resolveForAccess(accountId(target), [productA]),
-      ).toMatchObject({ kind: "expired" });
-      expect(
-        await membership.resolveForAccess(accountId(target), [productB]),
-      ).toMatchObject({ kind: "active" });
-      expect(await grants.revokeProductAccess(owner, command)).toMatchObject({
-        ok: true,
-      });
-      expect(
-        await grants.revokeProductAccess(target, {
-          ...command,
-          operationId: randomUUID(),
-        }),
-      ).toMatchObject({ ok: false, error: { code: "forbidden" } });
-    },
-  );
 
   test("archived Product programme, progress and continuation stay open only to its holder", async () => {
     const productId = randomUUID();
@@ -395,7 +176,28 @@ describe("independent product, library, support and shared chat rights", () => {
       authorPolicy: { canManage: () => false },
       contentAccess,
     }).publishedMaterialReader;
-    const composition = new PublishedSeriesComposition(db.prisma);
+    const order = await materials.authoring.loadProductOrder({
+      actor: owner,
+      productId: productId,
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programmeFixture = await materials.authoring.reorderProduct({
+      actor: owner,
+      productId: productId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: order.value.items.map(({ materialId }) => materialId),
+      programmePlacements: order.value.items.map(({ materialId }) => ({
+        id: randomUUID(),
+        materialId,
+        chapterId: null,
+        stepGroup: null,
+      })),
+    });
+    if (!programmeFixture.ok) throw new Error(programmeFixture.error.code);
+    const composition = new PublishedProductComposition(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    );
     const reading = new ReadingActivity({
       prisma: db.prisma,
       materialContent: materials.materialContent,
@@ -419,7 +221,7 @@ describe("independent product, library, support and shared chat rights", () => {
     ]) {
       expect(
         await discoverPublishedMaterials(reader, contentAccess, videos, {
-          kind: "series",
+          kind: "product",
           slug,
           first: null,
           subject: denied,
@@ -454,7 +256,7 @@ describe("independent product, library, support and shared chat rights", () => {
         unavailableAccess,
         videos,
         {
-          kind: "series",
+          kind: "product",
           slug,
           first: null,
           subject,
@@ -483,16 +285,16 @@ describe("independent product, library, support and shared chat rights", () => {
       reader,
       contentAccess,
       videos,
-      { kind: "series", slug, first: null, subject },
+      { kind: "product", slug, first: null, subject },
     );
     expect(programme).toMatchObject({
       ok: true,
       value: { items: [{ availability: "available" }] },
     });
     expect(
-      await reading.getSeriesProgress({
+      await reading.getProductProgress({
         accountId: buyer,
-        seriesId: productId,
+        productId: productId,
       }),
     ).toMatchObject({ ok: true, value: { total: 1, read: 0 } });
     const home = new PersonalHome({
@@ -506,16 +308,16 @@ describe("independent product, library, support and shared chat rights", () => {
         read: () => Promise.resolve({ ok: true as const, value: [] }),
       },
     });
-    expect(await home.getSeries(buyer, slug)).toMatchObject({
+    expect(await home.getProduct(buyer, slug)).toMatchObject({
       ok: true,
       value: { total: 1, read: 0 },
     });
     expect(
-      await reading.getSeriesProgress({
+      await reading.getProductProgress({
         accountId: randomUUID(),
-        seriesId: productId,
+        productId: productId,
       }),
-    ).toMatchObject({ ok: false, error: { code: "series_not_found" } });
+    ).toMatchObject({ ok: false, error: { code: "product_not_found" } });
   });
 
   test("product A allows its shared Material and direct resource only; B, draft and forged product context stay denied", async () => {
@@ -588,25 +390,10 @@ describe("independent product, library, support and shared chat rights", () => {
       items: [{ availability: "available" }, { availability: "locked" }],
     });
     expect(await membership.resolveForAccess(accountId(buyer))).toEqual({
-      kind: "required",
+      kind: "active",
+      validUntil: null,
     });
-    // A library subscription expires independently of a lifetime product grant. Materials come from a paid
-    // period or a tier, never from a direct grant.
-    const library = await grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: buyer,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: ["materials"],
-        coverage: { productIds: [productA, productB], materialIds: [] },
-        startsAt: "2030-01-01T00:00:00Z",
-        validUntil: "2030-02-01T00:00:00Z",
-        reason: "Controlled library subscription",
-      },
-    });
-    if (!library.ok) throw new Error("Library period fixture failed");
+    const another = await grantProductFixture(db.prisma, buyer, productB);
     expect(
       await access.authorize({
         ...context,
@@ -615,7 +402,7 @@ describe("independent product, library, support and shared chat rights", () => {
         resource: { kind: "material", materialId: b },
       }),
     ).toMatchObject({ effect: "allow" });
-    now = new Date("2030-02-02T00:00:00Z");
+    await revokeProductFixture(db.prisma, another);
     expect(
       await access.authorize({
         ...context,
@@ -624,26 +411,7 @@ describe("independent product, library, support and shared chat rights", () => {
         resource: { kind: "material", materialId: b },
       }),
     ).toMatchObject({ effect: "deny" });
-    expect(
-      await access.authorize({
-        ...context,
-        subject,
-        action: "read",
-        resource: { kind: "material", materialId: shared },
-      }),
-    ).toMatchObject({ effect: "allow" });
-    const revoke = {
-      action: "revoke" as const,
-      operationId: randomUUID(),
-      grantRef: product.grantRef,
-      expectedRevision: 1,
-      reason: "Controlled revocation",
-    };
-    const results = await Promise.all([
-      grants.changeGrant(owner, revoke),
-      grants.changeGrant(owner, revoke),
-    ]);
-    expect(results[0]).toEqual(results[1]);
+    await revokeProductFixture(db.prisma, product.grantRef);
     expect(
       await access.authorize({
         ...context,
@@ -842,13 +610,7 @@ describe("independent product, library, support and shared chat rights", () => {
         correlationId: randomUUID(),
       }),
     ).toMatchObject({ error: { code: "video_mismatch" } });
-    await grants.changeGrant(owner, {
-      action: "revoke",
-      operationId: randomUUID(),
-      grantRef: grantA.grantRef,
-      expectedRevision: 1,
-      reason: "Revoke controlled product access",
-    });
+    await revokeProductFixture(db.prisma, grantA.grantRef);
     expect(
       await playback.authorizeProvider({
         providerVideoId: a.providerVideoId,
@@ -1061,31 +823,5 @@ describe("independent product, library, support and shared chat rights", () => {
         ).toEqual({ ok: false, error: { code: "access_denied" } });
       }
     }
-  });
-
-  test("two sources of the single chat survive one revocation; support expires separately and legacy lifetime remains", async () => {
-    now = new Date("2030-01-01T00:00:00Z");
-    const first = await grant(["community"], null);
-    await grant(["community"], null, "legacy");
-    await grant(["support"], "2030-01-02T00:00:00Z");
-    expect(
-      await grants.changeGrant(owner, {
-        action: "revoke",
-        operationId: randomUUID(),
-        grantRef: first.grantRef,
-        expectedRevision: 1,
-        reason: "Controlled one-source revocation",
-      }),
-    ).toMatchObject({ ok: true });
-    now = new Date("2030-01-03T00:00:00Z");
-    const resolved = await grants.resolveCapabilities(buyer);
-    if (!resolved.ok) throw new Error(resolved.error.code);
-    expect(resolved.capabilities).toContainEqual({
-      capability: "community",
-      validUntil: null,
-    });
-    expect(
-      resolved.capabilities.some((value) => value.capability === "support"),
-    ).toBe(false);
   });
 });

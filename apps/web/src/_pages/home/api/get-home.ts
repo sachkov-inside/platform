@@ -35,7 +35,7 @@ const homeSchema = z
   .object({
     // Подпись карточки разбирается отдельно: её несовпадение с выпуском сайта не должно
     // отнимать у читателя всю Главную (ADR 0026).
-    pinnedSeries: homeCollectionSchema
+    pinnedProduct: homeCollectionSchema
       .extend({
         presentation: z.string(),
         card: z.unknown(),
@@ -92,22 +92,22 @@ export async function getHome(accessToken?: string): Promise<HomeResult> {
     kind: "ready",
     value: {
       membership: { kind: parsed.data.membership.kind },
-      pinnedSeries:
-        parsed.data.pinnedSeries === null
+      pinnedProduct:
+        parsed.data.pinnedProduct === null
           ? null
           : {
-              ...mapCollection(parsed.data.pinnedSeries),
+              ...mapCollection(parsed.data.pinnedProduct),
               card: readProductPageCard(
-                parsed.data.pinnedSeries.card,
-                `Home pinned Product ${parsed.data.pinnedSeries.slug}`,
+                parsed.data.pinnedProduct.card,
+                `Home pinned Product ${parsed.data.pinnedProduct.slug}`,
               ),
               hero: readProductPageHero(
-                parsed.data.pinnedSeries.hero,
-                `Home pinned Product ${parsed.data.pinnedSeries.slug}`,
+                parsed.data.pinnedProduct.hero,
+                `Home pinned Product ${parsed.data.pinnedProduct.slug}`,
               ),
               presentation: resolveProductPresentation(
-                parsed.data.pinnedSeries.presentation,
-                `Home pinned Product ${parsed.data.pinnedSeries.slug}`,
+                parsed.data.pinnedProduct.presentation,
+                `Home pinned Product ${parsed.data.pinnedProduct.slug}`,
               ),
             },
       guides: parsed.data.guides.map(toMaterialPreview),

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import {
   handleHomePinReadRequest,
   handleHomePinWriteRequest,
-} from "@/features/series-order.server";
+} from "@/features/product-order.server";
 export async function GET(): Promise<Response> {
   await connection();
   return handleHomePinReadRequest();

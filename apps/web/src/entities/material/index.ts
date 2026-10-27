@@ -40,9 +40,9 @@ export {
 } from "./ui/material-blocks";
 export { ContentCoverImage } from "./ui/content-cover-image.client";
 export {
-  SeriesContinuationProvider,
-  type SeriesContinuation,
-} from "./ui/series-continuation.client";
+  ProductContinuationProvider,
+  type ProductContinuation,
+} from "./ui/product-continuation.client";
 
 export {
   MaterialReadingStatus,
