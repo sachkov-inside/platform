@@ -330,6 +330,7 @@ prometheus.relabel "collector_health" {
 prometheus.remote_write "collector_health" {
   endpoint {
     url = "http://metrics:8428/api/v1/write"
+    queue_config { batch_send_deadline = "1s" }
   }
 }
 '''

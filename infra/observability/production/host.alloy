@@ -83,7 +83,7 @@ prometheus.relabel "containers" {
     regex = "__name__|instance|job|service|project|interface|device"
   }
 }
-// Dedicated five-second cache scrape. Native observations are never duplicated by the
+// Dedicated one-second cache scrape. Native observations are never duplicated by the
 // fifteen-second host scrape, and scraper up never substitutes for source availability.
 prometheus.exporter.unix "owner_cache" {
   set_collectors = ["textfile"]
@@ -91,8 +91,8 @@ prometheus.exporter.unix "owner_cache" {
 }
 prometheus.scrape "owner_cache" {
   targets = prometheus.exporter.unix.owner_cache.targets
-  scrape_interval = "5s"
-  scrape_timeout = "2s"
+  scrape_interval = "1s"
+  scrape_timeout = "1s"
   body_size_limit = "1MiB"
   sample_limit = 2000
   forward_to = [prometheus.relabel.owner_cache.receiver]
@@ -145,6 +145,7 @@ prometheus.remote_write "host" {
       capacity = 1000
       max_shards = 1
       max_samples_per_send = 200
+      batch_send_deadline = "1s"
     }
   }
   wal {

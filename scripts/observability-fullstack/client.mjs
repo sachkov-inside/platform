@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   accountId,
   operationOk,
+  mcpInitializeResponse,
   readinessObservation,
   telegramSeedRange,
 } from "./responses.mjs";
@@ -191,7 +192,16 @@ async function call(
             const text = Buffer.concat(chunks).toString("utf8");
             let value;
             try {
-              value = parse(text);
+              value =
+                host === "mcp" &&
+                port === 3002 &&
+                path === "/mcp" &&
+                method === "POST"
+                  ? mcpInitializeResponse(
+                      text,
+                      response.headers["content-type"],
+                    )
+                  : parse(text);
             } catch {
               value = text;
             }
@@ -577,7 +587,10 @@ async function load(definition, enabled, pair) {
       })()
     : Promise.resolve();
   try {
-    while (performance.now() < end) {
+    while (
+      performance.now() < end &&
+      scheduled < definition.seconds * definition.requests_per_second
+    ) {
       if (definition.requests_per_second === 0) {
         await delay(Math.max(0, end - performance.now()));
         break;
@@ -636,6 +649,8 @@ async function load(definition, enabled, pair) {
         .finally(() => active.delete(work));
       active.add(work);
     }
+    while (performance.now() < end)
+      await delay(Math.max(0, end - performance.now()));
     await Promise.all(active);
   } finally {
     querying = false;

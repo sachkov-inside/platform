@@ -326,8 +326,14 @@ docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
 снимает profile только в своём временном плане, чтобы общий supervisor/recover видел эту службу
 без повторного указания флага. Production default OFF при этом сохраняется.
 
-Native PostgreSQL/Caddy projection использует отдельный пятисекундный textfile scrape:
-`job="platform-owner-cache", instance="production-host"`. Старый host scrape раз в 15 s не
+Native PostgreSQL/Caddy projection использует отдельный textfile scrape:
+`job="platform-owner-cache", instance="production-host"`. Единственный dedicated scrape этого кэша
+выполняется раз в 1 s с timeout 1 s; существующая очередь `prometheus.remote_write.host`
+имеет `batch_send_deadline = "1s"`. Producer PG/Caddy по-прежнему обновляет native наблюдения
+раз в 5 s. Более частое чтение уже подготовленных файлов и короткий batch уменьшают суммарную
+задержку до хранилища; timestamps наблюдений и требование свежести 0..10 s не меняются.
+Это подготовленная конфигурация, её применение на production требует отдельного запуска.
+Старый host scrape раз в 15 s не
 читает эти файлы повторно. `inside_production_source_available{source="postgresql|caddy"}`
 и `inside_production_source_observed_at_seconds` различают наблюдаемый отказ и устаревший cache.
 Приёмка требует оба отдельных источника, значение `1` и возраст от 0 до 10 s; два ряда одного
@@ -471,7 +477,13 @@ Shutdown снимает subscription, response listeners и закрывает s
 не допускает готовность включённого источника. Заполненный registry (1024 combinations) или
 body больше 2 MiB возвращает 503: частичные counts не выглядят успешным scrape.
 
-Alloy читает источник каждые 5 секунд. В обзоре есть отдельная строка Web: missing/down/stale
+Alloy читает источник каждые 5 секунд. Общая очередь `prometheus.remote_write.collector_health`
+для Web, Caddy и закрытых collector counters имеет `batch_send_deadline = "1s"`;
+прочие параметры очереди остаются штатными. Native проверка настоящего Web observer и CLI
+при прежнем scrape 5 s показала отказ stored barrier за 10 s с прежним batch 5 s.
+Batch 1 s дал готовность за 9,540 s и 8,343 s при двух разных совпадениях фаз, затем
+36 и 37 последовательных успешных чтений. Stored barrier 10 s, возраст 0..10 s и
+проверки недостающих counters сохраняются. В обзоре есть отдельная строка Web: missing/down/stale
 не означает ноль. Каждая серия содержит SHA/environment; process epoch и уменьшение counters
 обозначают reset. p50/p95/p99 доступны только для завершённых ответов при >=100 observations,
 >=58 source samples за 5 минут, без failed scrape/counter reset/process epoch change и с текущим
