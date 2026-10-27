@@ -5,6 +5,8 @@ import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import {
+  probeVersion,
+  nativeStats,
   accountId,
   operationOk,
   mcpInitializeResponse,
@@ -380,14 +382,7 @@ async function readMonitoring() {
     undefined,
     { authorization: "Bearer " + state.key },
   );
-  if (
-    stats.status !== 200 ||
-    !record(stats.value) ||
-    !record(stats.value["current"]) ||
-    typeof stats.value["current"]["pageviews"] !== "number" ||
-    stats.value["current"]["pageviews"] < 1
-  )
-    return null;
+  if (stats.status !== 200 || !nativeStats(stats.value)) return null;
   const sources = await sourceCacheReady();
   return sources.ok ? Math.max(maximum, stats.seconds, sources.seconds) : null;
 }
@@ -542,7 +537,10 @@ async function probe(phase, index, at) {
               key: "deployment.environment.name",
               value: { stringValue: "isolated-pilot" },
             },
-            { key: "service.version", value: { stringValue: "a".repeat(40) } },
+            {
+              key: "service.version",
+              value: { stringValue: probeVersion(phase) },
+            },
           ],
         },
         scopeMetrics: [
@@ -561,7 +559,7 @@ async function probe(phase, index, at) {
                         {
                           key: "http.route",
                           value: {
-                            stringValue: "/resource/phase/" + String(phase),
+                            stringValue: "/pilot",
                           },
                         },
                       ],
@@ -579,9 +577,9 @@ async function probe(phase, index, at) {
 /** @param {number} phase */
 async function retained(phase) {
   const expression =
-    'sum(count_over_time(pilot_requests{"http.route"="/resource/phase/' +
-    String(phase) +
-    '"}[10m])) or vector(0)';
+    'sum(count_over_time(pilot_requests{"service.name"="platform-pilot","service.version"="' +
+    probeVersion(phase) +
+    '","http.route"="/pilot"}[10m])) or vector(0)';
   const value = await call(
     "gateway",
     8080,

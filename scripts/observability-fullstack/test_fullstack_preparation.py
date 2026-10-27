@@ -163,9 +163,18 @@ class Preparation(unittest.TestCase):
     def test_collector_recovery_uses_real_query_body_predicate_before_acceptance(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory);(output/'monitoring').mkdir();(output/'monitoring/reader.key').write_text('a'*32)
-            with patch.object(fullstack.technical.check,'read_ready',side_effect=[(200,'{}'),(200,'{"status":"success","data":{"resultType":"scalar","result":[1,"1"]}}')]) as read,patch.object(fullstack.pilot.time,'sleep'):
+            with patch.object(fullstack.technical.check,'read_ready',side_effect=[(200,'{}'),(200,'{"status":"success","data":{"resultType":"scalar","result":[1,"1"]}}')]) as read,patch.object(fullstack.pilot,'request',side_effect=[(503,''),(200,'{}'),(200,'{}')]) as receiver,patch.object(fullstack.pilot.time,'sleep'):
                 fullstack.await_collector(output)
                 self.assertEqual(read.call_count,2)
+                self.assertEqual(receiver.call_count,3)
+                receiver.assert_called_with('/v1/traces',body={'resourceSpans':[]},method='POST',port=14318)
+            with patch.object(fullstack.technical.check,'read_ready',return_value=(200,'{"status":"success","data":{"resultType":"scalar","result":[1,"1"]}}')) as read,patch.object(fullstack.pilot,'request',side_effect=[(503,''),(200,'{}')]) as receiver,patch.object(fullstack.pilot.time,'sleep'):
+                fullstack.await_collector(output)
+                self.assertEqual(receiver.call_count,2)
+                self.assertEqual(read.call_count,1)
+            with patch.object(fullstack.pilot.time,'monotonic',side_effect=[0,0,0,60,60]),patch.object(fullstack.pilot.time,'sleep'),patch.object(fullstack.pilot,'request',return_value=(200,'{}')),patch.object(fullstack.technical.check,'read_ready') as read:
+                with self.assertRaises(RuntimeError):fullstack.await_collector(output)
+                read.assert_not_called()
 
     def test_telegram_and_logto_image_ownership_is_registered_before_build_and_recovers(self):
         spec=importlib.util.spec_from_file_location('resource_lifetime_extensions',fullstack.HERE.parent/'observability-resource/test_preparation.py')

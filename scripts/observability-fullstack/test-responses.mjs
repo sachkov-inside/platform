@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  probeVersion,
+  nativeStats,
   operationOk,
   mcpInitializeResponse,
   readiness,
@@ -356,4 +358,30 @@ test("Web witness admits only current bounded raw GET counters and a complete pr
     { ok: true },
   ])
     assert.equal(webHttpExpected(invalid), false);
+});
+
+test("synthetic metric cohorts stay disjoint inside the existing privacy contract", () => {
+  const versions = Array.from({ length: 14 }, (_, phase) =>
+    probeVersion(phase),
+  );
+  assert.equal(new Set(versions).size, 14);
+  assert.ok(versions.every((version) => /^[a-f0-9]{40}$/u.test(version)));
+  for (const phase of [-1, 14, 1.5, NaN, Infinity])
+    assert.throws(() => probeVersion(phase));
+});
+test("native stats require a stored positive integral count and reject the MCP wrapper", () => {
+  assert.equal(nativeStats({ pageviews: 1 }), true);
+  for (const value of [
+    null,
+    {},
+    { current: { pageviews: 1 } },
+    { pageviews: 0 },
+    { pageviews: -1 },
+    { pageviews: 1.5 },
+    { pageviews: "1" },
+    { pageviews: true },
+    { pageviews: NaN },
+    { pageviews: Infinity },
+  ])
+    assert.equal(nativeStats(value), false);
 });

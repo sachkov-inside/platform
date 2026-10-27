@@ -376,7 +376,18 @@ def phase(compose,project,definition,active,enabled,pair,output):
 
 
 def await_collector(output):
-    pilot.await_fact(lambda:technical.check.read_ready((output/'monitoring/reader.key').read_text().strip()),technical.check.query_one,probe='collector_recovery_query')
+    # Same empty native OTLP readiness read as pilot.await_otlp_ready. The query
+    # store remains alive during an Alloy outage, so query1 alone cannot guard the
+    # one counted recovery probe. Both observations share the former 60s budget.
+    deadline=time.monotonic()+pilot.FACT_TIMEOUT_SECONDS
+    def recovered():
+        receiver=pilot.request('/v1/traces',body={'resourceSpans':[]},method='POST',port=14318)
+        if time.monotonic()>=deadline:raise TimeoutError('collector_recovery_deadline')
+        if receiver[0]!=200:return False
+        value=technical.check.read_ready((output/'monitoring/reader.key').read_text().strip())
+        if time.monotonic()>=deadline:raise TimeoutError('collector_recovery_deadline')
+        return technical.check.query_one(value)
+    pilot.await_fact(recovered,bool,budget=pilot.FACT_TIMEOUT_SECONDS,probe='collector_recovery_query')
 
 
 def worker(output):
