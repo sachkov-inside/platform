@@ -144,20 +144,24 @@ export function ProductOverviewPanel({
             state.waitlist.state === "unavailable"
               ? unavailableValue
               : state.waitlist.intake === null
-                ? "Набор не открыт"
+                ? "Нет набора"
                 : formatCount(state.waitlist.intake.active)
           }
           detail={
             state.waitlist.state === "unavailable"
               ? unavailableDetail
               : state.waitlist.intake === null
-                ? "Записи появятся, когда откроется набор"
+                ? "Набор не открыт: записи появятся, когда он откроется"
                 : `Набор «${state.waitlist.intake.name}»`
           }
         />
       </div>
       <div className="admin-overview-grid">
-        <section aria-label="Обучение" className="admin-overview-block">
+        <section
+          aria-label="Обучение"
+          className="admin-overview-block"
+          data-span="all"
+        >
           <div className="admin-overview-block-header">
             <h3 className="m-0 text-[15px] font-semibold">Обучение</h3>
           </div>

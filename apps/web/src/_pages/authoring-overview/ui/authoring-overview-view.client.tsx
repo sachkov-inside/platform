@@ -78,6 +78,12 @@ export function AuthoringOverviewView({
   if (state.kind !== "ready")
     return <OverviewFailure onRetry={onRetry} state={state} />;
   const period = state.period;
+  // Без права на продажи и доступ период ни на что не влияет: переключатель и подпись периода
+  // не показываются, а закрытые блоки сводятся в один отказ.
+  const salesHidden =
+    state.metrics.state === "forbidden" &&
+    state.funnel.state === "forbidden" &&
+    state.learning.state === "forbidden";
   return (
     <AuthoringOverviewFrame labelledBy={headingId}>
       <div
@@ -88,17 +94,25 @@ export function AuthoringOverviewView({
       >
         <AdminListHeader
           action={
-            <PeriodSwitch
-              onChange={(days) => {
-                onQueryChange({ ...query, period: days });
-              }}
-              value={query.period}
-            />
+            salesHidden ? undefined : (
+              <PeriodSwitch
+                onChange={(days) => {
+                  onQueryChange({ ...query, period: days });
+                }}
+                value={query.period}
+              />
+            )
           }
           headingId={headingId}
           title="Обзор"
         />
-        {state.metrics.state === "forbidden" ? (
+        {salesHidden ? (
+          <ForbiddenBlock title="Продажи и доступы">
+            Выручку, продажи, новые доступы и аккаунты, записи в ожидание,
+            воронку и обучение по продуктам видит аккаунт, у которого есть{" "}
+            {billingRight}.
+          </ForbiddenBlock>
+        ) : state.metrics.state === "forbidden" ? (
           <ForbiddenBlock title="Продажи и доступы">
             Выручку, продажи, новые доступы, аккаунты и записи в ожидание видит
             аккаунт, у которого есть {billingRight}.
@@ -113,7 +127,9 @@ export function AuthoringOverviewView({
             selected={query.metric}
           />
         )}
-        <p className="admin-overview-quiet">{periodRangeText(period)}</p>
+        {salesHidden ? null : (
+          <p className="admin-overview-quiet">{periodRangeText(period)}</p>
+        )}
         <div className="admin-overview-grid">
           {state.metrics.state === "ready" ? (
             <ChartBlock
@@ -124,8 +140,12 @@ export function AuthoringOverviewView({
           ) : null}
           <AttentionBlock attention={state.attention} />
           <EventsBlock events={state.events} />
-          <FunnelBlock funnel={state.funnel} period={period} />
-          <LearningBlock learning={state.learning} />
+          {salesHidden ? null : (
+            <>
+              <FunnelBlock funnel={state.funnel} period={period} />
+              <LearningBlock learning={state.learning} />
+            </>
+          )}
         </div>
       </div>
     </AuthoringOverviewFrame>

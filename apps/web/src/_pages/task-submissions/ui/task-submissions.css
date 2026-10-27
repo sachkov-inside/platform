@@ -1,7 +1,8 @@
+/* Поля и ширина те же, что у общего тела страниц админки (`.authoring-page-body`). */
 .task-submissions {
-  max-width: 76rem;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 2.75rem 3.25rem 4rem;
+  padding: 36px 40px 64px;
   color: var(--foreground);
   width: 100%;
 }
@@ -267,14 +268,9 @@
   font-size: 1rem;
   resize: vertical;
 }
-@media (max-width: 1150px) {
-  .task-submissions {
-    padding: 2.5rem 2rem 4rem;
-  }
-}
 @media (max-width: 767px) {
   .task-submissions {
-    padding: 1.75rem 1.25rem 4rem;
+    padding: 24px 16px 48px;
   }
   .submission-detail-heading h1 {
     font-size: 1.65rem;

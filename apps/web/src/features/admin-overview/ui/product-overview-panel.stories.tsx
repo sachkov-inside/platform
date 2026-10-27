@@ -101,7 +101,7 @@ export const Empty: Story = {
   name: "Новый продукт",
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(page.getByText("Набор не открыт")).toBeVisible();
+    await expect(page.getByText(/^Набор не открыт/u)).toBeVisible();
     await expect(page.getByText("Доступа пока ни у кого нет")).toBeVisible();
     await expect(page.getByText("Событий пока нет")).toBeVisible();
   },

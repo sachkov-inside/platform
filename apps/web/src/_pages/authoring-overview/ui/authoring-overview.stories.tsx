@@ -238,6 +238,8 @@ export const MaterialsOnly: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(page.queryByRole("region", { name: "Показатели" })).toBeNull();
+    await expect(page.queryByRole("group", { name: "Период" })).toBeNull();
+    await expect(page.queryByRole("region", { name: "Обучение" })).toBeNull();
     await expect(
       page.getByRole("region", { name: "Продажи и доступы" }),
     ).toHaveTextContent("право управлять доступом и оплатами");
