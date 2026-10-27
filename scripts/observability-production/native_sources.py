@@ -13,6 +13,8 @@ import time
 import urllib.request
 
 import source_cache
+sys.path.insert(0, str(source_cache.ROOT / "scripts/heavy-check"))
+from lock import signal_groups
 sys.path.insert(0, str(source_cache.ROOT / 'scripts/observability-pilot'))
 import source_status_query
 
@@ -65,21 +67,21 @@ def _execute(args, *, timeout, payload=None):
                     if counts[key.data] > 4096:
                         raise ValueError('native_source_command_size')
                     if key.data == 'stdout': output.extend(chunk)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError('native_source_command_deadline')
-            try:
-                status = process.wait(timeout=remaining)
-            except subprocess.TimeoutExpired:
-                raise TimeoutError('native_source_command_deadline') from None
-            if status:
+            # Observe exit without reaping. The zombie leader retains this PGID until
+            # finally kills the owned group, so PID reuse cannot target a foreign group.
+            while True:
+                status = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                if status is not None:
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError('native_source_command_deadline')
+                time.sleep(min(.01, remaining))
+            if status.si_code != os.CLD_EXITED or status.si_status != 0:
                 raise RuntimeError('native_source_command_exit')
             return bytes(output)
     finally:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        signal_groups({process.pid}, signal.SIGKILL)
         process.wait(timeout=1)
         for stream in (process.stdin, process.stdout, process.stderr):
             stream.close()
