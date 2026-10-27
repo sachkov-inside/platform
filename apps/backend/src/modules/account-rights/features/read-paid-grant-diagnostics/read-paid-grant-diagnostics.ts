@@ -105,7 +105,7 @@ export async function readPaidGrantDiagnostics(
               const access = byPair.get(
                 JSON.stringify([source.accountId, source.productId]),
               );
-              if (access === undefined || access.firstIssuedAt === null)
+              if (access?.firstIssuedAt == null)
                 throw new Error("purchase_product_access_unavailable");
               return {
                 accountId: source.accountId,
