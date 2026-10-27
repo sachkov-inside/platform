@@ -104,6 +104,8 @@ The optional provider proves a private Telegram identity after an explicit confi
 It does not issue a website session or create/merge an Account. The protocol, server-side switch,
 and remaining Platform integration gates are in
 [`docs/specifications/bot-sign-in-v1.md`](docs/specifications/bot-sign-in-v1.md).
+The flow keeps one bot message: approval sends no receipt, and committed account linking edits
+the original prompt. An uneditable sign-in result never creates a replacement message.
 
 ## Course Activation and community observations
 
