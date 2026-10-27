@@ -12,6 +12,10 @@ export async function register(): Promise<void> {
   // SDK Request bodies need HTTP/1.1 framing for Logto's token parser (ADR 0032).
   const { Agent, setGlobalDispatcher } = await import("undici");
   setGlobalDispatcher(new Agent({ allowH2: false }));
+
+  const { registerWebHttpSource } =
+    await import("./src/shared/lib/web-http-source.server");
+  registerWebHttpSource();
 }
 
 /** Серверный сбой отрисовки или обработчика — строкой в журнал площадки с кодом обращения. */
