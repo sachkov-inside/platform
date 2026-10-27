@@ -48,8 +48,8 @@ class Scenario:
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
-    def _until(self,read,predicate):
-        deadline=time.monotonic()+min(60,self.remaining())
+    def _until(self,read,predicate,*,budget_seconds=60):
+        deadline=time.monotonic()+min(budget_seconds,self.remaining())
         while time.monotonic()<deadline:
             self.remaining()
             value=read()
@@ -82,7 +82,7 @@ class Scenario:
         finally:self.targets.change('vmauth','start')
         return self.ready()['completed']
 
-    def snapshot(self,previous=None):
+    def snapshot(self,previous=None,*,evaluated_at=None):
         if self.acquisitions>=128:raise AcquisitionBudgetRefusal()
         # A prior acquisition's completion cannot be later than the new fixed evaluation time.
         while previous is not None and math.floor(time.time())<math.ceil(previous['completed_at']):
@@ -90,7 +90,8 @@ class Scenario:
         self.acquisitions+=1
         started=time.time()
         report,acquired=caddy_query.read_snapshot(self.token,previous=previous,
-            deadline_seconds=min(10,self.remaining()),diagnose=True)
+            deadline_seconds=min(10,self.remaining()),diagnose=True,
+            **({} if evaluated_at is None else {'evaluated_at':evaluated_at}))
         if acquired is None or report['state']=='malformed' or report['transport']['canonical']!='passed':
             raise ValueError('closed Caddy canonical query refused')
         self.journal.record(started,time.time(),'GET',200,count=2)
@@ -180,20 +181,36 @@ class Scenario:
                 independent=native_source.parse(raw)
                 held.assert_holding()
                 if independent is None or independent['in_flight']!=1:status.refuse()
+                registry_base=raw
+                # Exclude a scrape already in progress before R. The registry's
+                # sole active handler must first be this owned native read.
+                while native_source.scrape_registry(registry_base)['in_flight']!=1:
+                    held.assert_holding();time.sleep(min(.25,self.remaining()))
+                    registry_base=self.targets.native_raw()
+                    held.assert_holding()
+                own_reads=0
                 while True:
                     held.assert_holding()
-                    report,canonical=self.snapshot()
-                    if (report['state']=='observed' and report['observation']['in_flight']>=1
-                            and self.stamp(canonical)>status.clock(held.started_at)):
-                        mcp=self.matching(canonical,read=read)
-                        held.finish()
-                        inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
-                            r_received=held.started_at,f_sent=held.finished_at)
-                        break
-                    # The source scrapes every five seconds. Re-reading the same
-                    # cohort every 50ms can exhaust the whole scenario's 128 reads
-                    # before a valid held sample is visible within its eight seconds.
+                    current=self.targets.native_raw();own_reads+=1
+                    held.assert_holding()
+                    if inflight.scraped(registry_base,current,own_reads):break
                     time.sleep(min(.25,self.remaining()))
+                # Freeze a historical integer E only after the proved scrape can
+                # belong to E. This clock boundary never substitutes for the scrape.
+                cut=math.ceil(time.time())
+                while time.time()<cut:
+                    held.assert_holding();time.sleep(min(.05,self.remaining()))
+                held.finish()
+                evaluated=math.floor(held.finished_at)
+            def stored(value):
+                report,canonical=value
+                return (report['state']=='observed' and report['observation']['in_flight']>=1
+                    and status.clock(held.started_at)<self.stamp(canonical)<status.clock(held.finished_at))
+            _,canonical=self._until(lambda:self.snapshot(evaluated_at=evaluated),stored,
+                budget_seconds=caddy_query.QUERY_SECONDS)
+            mcp=self.matching(canonical,read=read)
+            inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
+                r_received=held.started_at,f_sent=held.finished_at)
         self.passed('inflight')
 
     def outages(self):

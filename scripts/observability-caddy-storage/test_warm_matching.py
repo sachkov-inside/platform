@@ -11,74 +11,86 @@ import json
 
 class WarmMatching(unittest.TestCase):
     def test_held_waits_for_next_scraped_frame_without_spending_snapshot_cap(self):
-        # Seven-second visibility fits the unchanged eight-second held witness.
-        # Exercise the actual cap, paired canonical decoder and held predicate.
+        # A real scrape occurs at105 while R100..F106 is held; its stored frame
+        # appears at109. Export latency must not extend the eight-second socket.
         from types import SimpleNamespace
         import caddy_query
-        now=[100.0];events=[];reads=[];visible_at=[107]
-        clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
-            sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
-        held_wire=wire();baseline=held_wire.replace(b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 1',b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 0')
-        class Targets:
-            def native_raw(self):return held_wire if events else baseline
-        class Held:
-            started_at=100.0;finished_at=None
-            def __init__(self,token):pass
-            def __enter__(self):events.append('held');return self
-            def __exit__(self,*args):pass
-            def assert_holding(self):
-                if now[0]>=108:raise TimeoutError('unchanged eight-second hold expired')
-            def finish(self):
-                self.assert_holding();now[0]+=.001;self.finished_at=now[0]
-        class Response:
-            status=200
-            def __init__(self,raw):
-                from email.message import Message
-                self.raw=raw;self.headers=Message()
-            def __enter__(self):return self
-            def __exit__(self,*args):pass
-            def read(self,_):return self.raw
-        def opened(request,timeout):
-            from urllib.parse import parse_qs,urlparse
-            params=parse_qs(urlparse(request.full_url).query)
-            point=int(params['time'][0]);current=point>=visible_at[0]
-            values,stamps=acquisition(point=point,stamp=visible_at[0] if current else 99)
-            if not current:values['data']['result'][3]['value'][1]='0'
-            raw=stamps if 'source_metric' in params['query'][0] else values
-            now[0]+=.001;reads.append(point)
-            return Response(json.dumps(raw).encode())
-        original=caddy_query.read_snapshot
-        def canonical(*args,**kwargs):return original(*args,wall_clock=clock.time,**kwargs)
-        def read(*,evaluated_at,previous=None):
-            report,current=canonical('owned_token',evaluated_at=evaluated_at,previous=previous)
-            report['transport']['mcp']='passed';return report,current
-        @contextmanager
-        def ready(*args,**kwargs):yield read
-        experiment=scenario.Scenario(Targets(),'owned_token',Path('/native'),lambda *_:None)
-        experiment.deadline=700
-        with patch.object(scenario,'time',clock),patch.object(scenario.mcp_snapshot,'session',ready), \
-                patch.object(scenario.request_hold,'Held',Held), \
-                patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
-                patch('urllib.request.OpenerDirector.open',side_effect=opened):
-            experiment.held()
-            self.assertLess(now[0],108)
-            self.assertLess(experiment.acquisitions,40)
-            self.assertGreaterEqual(now[0],107)
-            self.assertEqual(len(reads),2*(experiment.acquisitions+1))
-            # Pacing must not turn an out-of-window sample into acceptance.
-            now[0]=100;visible_at[0]=109;events.clear();reads.clear()
-            experiment.acquisitions=0
-            with self.assertRaises(TimeoutError):experiment.held()
-            self.assertLess(experiment.acquisitions,40)
+        for fault in (None,'prior_scrape','outside_interval','no_scrape','stale'):
+            with self.subTest(fault=fault):
+                now=[100.0];events=[];reads=[];registry=[10];finished=[]
+                clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
+                    sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
+                class Targets:
+                    def native_raw(self):
+                        registry[0]+=1
+                        extra=(int(now[0]>=100.5)+int(now[0]>=105)) if fault=='prior_scrape' else int(fault!='no_scrape' and now[0]>=105)
+                        busy=2 if fault=='prior_scrape' and now[0]<101 else 1
+                        raw=wire()+f'caddy_http_requests_total{{server="srv1",handler="metrics"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="metrics"}} {busy}\n'.encode()
+                        if not events:raw=raw.replace(b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 1',b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 0')
+                        return raw
+                class Held:
+                    started_at=100.0;finished_at=None
+                    def __init__(self,token):pass
+                    def __enter__(self):events.append('held');return self
+                    def __exit__(self,*args):pass
+                    def assert_holding(self):
+                        if now[0]>=108:raise TimeoutError('unchanged eight-second hold expired')
+                    def finish(self):
+                        self.assert_holding();now[0]+=.001;self.finished_at=now[0];finished.append(now[0])
+                class Response:
+                    status=200
+                    def __init__(self,raw):
+                        from email.message import Message
+                        self.raw=raw;self.headers=Message()
+                    def __enter__(self):return self
+                    def __exit__(self,*args):pass
+                    def read(self,_):return self.raw
+                def opened(request,timeout):
+                    from urllib.parse import parse_qs,urlparse
+                    params=parse_qs(urlparse(request.full_url).query)
+                    point=int(params['time'][0]);visible=now[0]>=(116 if fault=='stale' else 109)
+                    stamp=109 if fault=='outside_interval' else 105
+                    values,stamps=acquisition(point=point,stamp=stamp if visible else 99)
+                    if not visible:values['data']['result'][3]['value'][1]='0'
+                    raw=stamps if 'source_metric' in params['query'][0] else values
+                    now[0]+=.001;reads.append(point)
+                    return Response(json.dumps(raw).encode())
+                original=caddy_query.read_snapshot
+                def canonical(*args,**kwargs):return original(*args,wall_clock=clock.time,**kwargs)
+                def read(*,evaluated_at,previous=None):
+                    report,current=canonical('owned_token',evaluated_at=evaluated_at,previous=previous)
+                    report['transport']['mcp']='passed';return report,current
+                @contextmanager
+                def ready(*args,**kwargs):yield read
+                experiment=scenario.Scenario(Targets(),'owned_token',Path('/native'),lambda *_:None)
+                experiment.deadline=700
+                with patch.object(scenario,'time',clock),patch.object(scenario.mcp_snapshot,'session',ready), \
+                        patch.object(scenario.request_hold,'Held',Held), \
+                        patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                        patch('urllib.request.OpenerDirector.open',side_effect=opened):
+                    if fault in (None,'prior_scrape'):
+                        experiment.held()
+                        self.assertLess(finished[0],108)
+                        self.assertGreaterEqual(now[0],109)
+                        self.assertEqual(set(reads),{int(finished[0])})
+                        self.assertEqual(len(reads),2*(experiment.acquisitions+1))
+                    else:
+                        with self.assertRaises((TimeoutError,ValueError)):experiment.held()
+                        if fault=='no_scrape':self.assertEqual(reads,[])
+                    self.assertLess(experiment.acquisitions,48)
 
     def test_ready_native_session_precedes_held_body_and_exact_canonical_acquisition(self):
-        events=[]
-        values,stamps=acquisition()
-        canonical={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),'evaluated_at':100,'completed_at':101}
+        events=[];registry=[100]
+        values,stamps=acquisition(point=102,stamp=101)
+        canonical={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),'evaluated_at':102,'completed_at':103}
         report=scenario.status.evaluate(**canonical)
         held_wire=wire();baseline=held_wire.replace(b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 1',b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 0')
         class Targets:
-            def native_raw(self):return baseline if not events else held_wire
+            def native_raw(self):
+                raw=baseline if not events else held_wire
+                registry[0]+=1
+                extra=int(registry[0]>102)
+                return raw+f'caddy_http_requests_total{{server="srv1",handler="metrics"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="metrics"}} 1\n'.encode()
         class Held:
             started_at=98;finished_at=None
             def __init__(self,token):pass
@@ -89,7 +101,7 @@ class WarmMatching(unittest.TestCase):
             def assert_holding(self):pass
             def finish(self):self.finished_at=102;events.append('held_finished')
         def read(*,evaluated_at,previous=None):
-            self.assertEqual(evaluated_at,100);self.assertIsNone(previous)
+            self.assertEqual(evaluated_at,102);self.assertIsNone(previous)
             events.append('mcp_same_E');return {**report,'transport':{'canonical':'unrun','mcp':'passed'}},canonical.copy()
         @contextmanager
         def ready(*args,**kwargs):
@@ -97,9 +109,12 @@ class WarmMatching(unittest.TestCase):
             try:yield read
             finally:events.append('native_closed')
         experiment=scenario.Scenario(Targets(),'a'*32,Path('/native'),lambda *_:None)
-        with patch.object(scenario.mcp_snapshot,'session',ready,create=True),patch.object(scenario.request_hold,'Held',Held),patch.object(experiment,'snapshot',return_value=(report,canonical)):
+        with patch.object(scenario.mcp_snapshot,'session',ready),patch.object(scenario.request_hold,'Held',Held), \
+                patch.object(experiment,'snapshot',return_value=(report,canonical)) as acquired, \
+                patch.object(scenario.time,'time',return_value=102):
             experiment.held()
-        self.assertEqual(events,['native_ready','held_started','mcp_same_E','held_finished','held_closed','native_closed'])
+        acquired.assert_called_once_with(evaluated_at=102)
+        self.assertEqual(events,['native_ready','held_started','held_finished','held_closed','mcp_same_E','native_closed'])
 
     def test_partition_prepares_native_before_selecting_current_canonical_sample(self):
         events=[]
