@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { problemException } from "../../../infrastructure/http/problem-details.js";
-import type { PeopleDirectoryError } from "../facets/people-directory/people-directory.js";
+import type { PeopleDirectoryError } from "./people-composition.js";
 
 /** One person on the wire: every field named, so a new fact never leaks through a spread. */
 export const personIdentityHttpSchema = z
@@ -25,6 +25,8 @@ export function peopleDirectoryProblem(error: PeopleDirectoryError): Error {
         error.code,
         "The account may not read people",
       );
+    case "not_found":
+      return problemException(404, error.code, "Person not found");
     case "dependency_unavailable":
       return problemException(
         503,
