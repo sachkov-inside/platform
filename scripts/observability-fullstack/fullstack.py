@@ -249,9 +249,7 @@ def seed(compose,output):
     telegram.initialize(output,compose,invoke,sql)
     ready(compose,'/ready','telegram',3002)
     ready(compose,'/oidc/.well-known/openid-configuration','logto',3001)
-    established_telegram=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','telegram-establish'],timeout=45))
-    if established_telegram!={'accepted':actors}:raise ValueError('all_telegram_contacts_required')
-    pilot.await_fact(lambda:telegram.processed(compose,sql,1000000,1000000+actors,actors),bool,budget=30,probe='synthetic_telegram_seed_processed')
+    telegram.establish(compose,invoke,pilot.await_fact,sql,actors)
     contacts=int(sql(compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
     if contacts!=actors:raise ValueError('all_telegram_contacts_required')
     from importlib.util import spec_from_file_location,module_from_spec
