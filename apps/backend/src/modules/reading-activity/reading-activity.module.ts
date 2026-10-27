@@ -103,6 +103,6 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
         }),
     },
   ],
-  exports: [MaterialFirstOpens],
+  exports: [MaterialFirstOpens, ReadingActivity],
 })
 export class ReadingActivityModule {}
