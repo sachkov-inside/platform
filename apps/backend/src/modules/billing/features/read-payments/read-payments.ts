@@ -6,6 +6,7 @@ import type { z } from "zod";
 import type {
   BillingPrisma,
   BillingPrismaClient,
+  Prisma,
 } from "../../../../infrastructure/prisma/index.js";
 import {
   auditEntryViewSchema,
@@ -135,36 +136,89 @@ export async function refundDecisionViews(
   );
 }
 
+type ListPaymentsCommand = Extract<
+  OwnerOperation,
+  { operation: "payments.list" }
+>;
+
+/**
+ * Неизменяемая часть фильтра: покупатель, вид, продукт оплаченного снимка и период создания.
+ * Cursor обязан лежать внутри неё. Состояние меняется со временем, поэтому позиция платежа,
+ * сменившего состояние, остаётся допустимым продолжением.
+ */
+function scopeOf(
+  command: ListPaymentsCommand,
+): Prisma.BillingPurchaseWhereInput {
+  return {
+    ...(command.accountId === undefined
+      ? {}
+      : { accountId: command.accountId }),
+    ...(command.kind === undefined ? {} : { kind: command.kind }),
+    ...(command.productId === undefined
+      ? {}
+      : { snapshot: { path: ["product", "id"], equals: command.productId } }),
+    ...(command.from === undefined && command.to === undefined
+      ? {}
+      : {
+          createdAt: {
+            ...(command.from === undefined
+              ? {}
+              : { gte: new Date(command.from) }),
+            ...(command.to === undefined ? {} : { lt: new Date(command.to) }),
+          },
+        }),
+  };
+}
+
+function statesOf(command: ListPaymentsCommand): readonly string[] | null {
+  if (command.states !== undefined) return command.states;
+  return command.state === undefined ? null : [command.state];
+}
+
 export async function listPayments(
   prisma: BillingPrismaClient,
-  command: Extract<OwnerOperation, { operation: "payments.list" }>,
+  command: ListPaymentsCommand,
 ): Promise<OwnerResult> {
+  if (command.state !== undefined && command.states !== undefined)
+    return ownerFailure("invalid_request");
+  if (
+    command.states !== undefined &&
+    new Set(command.states).size !== command.states.length
+  )
+    return ownerFailure("invalid_request");
+  if (
+    command.from !== undefined &&
+    command.to !== undefined &&
+    Date.parse(command.from) >= Date.parse(command.to)
+  )
+    return ownerFailure("invalid_request");
+  const scope = scopeOf(command);
   // Cursor — идентификатор последнего показанного платежа: его позиция читается на сервере.
   const after =
     command.cursor === undefined
       ? null
-      : await prisma.billingPurchase.findUnique({
-          where: { id: command.cursor },
+      : await prisma.billingPurchase.findFirst({
+          where: { AND: [{ id: command.cursor }, scope] },
           select: { id: true, createdAt: true },
         });
-  // Неизвестный идентификатор не выдаётся за начало списка.
+  // Неизвестный идентификатор и платёж вне фильтра не выдаются за начало списка.
   if (command.cursor !== undefined && after === null)
     return ownerFailure("invalid_request");
+  const states = statesOf(command);
   const rows = await prisma.billingPurchase.findMany({
     where: {
-      ...(command.accountId === undefined
-        ? {}
-        : { accountId: command.accountId }),
-      ...(command.state === undefined ? {} : { state: command.state }),
-      ...(command.kind === undefined ? {} : { kind: command.kind }),
-      ...(after === null
-        ? {}
-        : {
-            OR: [
-              { createdAt: { lt: after.createdAt } },
-              { createdAt: after.createdAt, id: { lt: after.id } },
-            ],
-          }),
+      AND: [
+        scope,
+        states === null ? {} : { state: { in: [...states] } },
+        after === null
+          ? {}
+          : {
+              OR: [
+                { createdAt: { lt: after.createdAt } },
+                { createdAt: after.createdAt, id: { lt: after.id } },
+              ],
+            },
+      ],
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: command.limit + 1,

@@ -73,3 +73,145 @@ test("link creation is owner-authorized and exact replay is stable", async () =>
     }),
   ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
 });
+
+const defaultNow = new Date("2030-01-31T10:00:00Z");
+
+async function createLink(
+  s: Awaited<ReturnType<typeof world.scenario>>,
+  at: string,
+  expiresAt: string | null = null,
+) {
+  world.setTime(new Date(at));
+  return value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "discount", percent: 10 },
+      expiresAt,
+    }),
+  );
+}
+
+test("paymentLinks.list narrows by Product and visible state, newest first, with a cursor bound to its Product", async () => {
+  try {
+    const s = await world.scenario();
+    const other = await world.scenario();
+    const oldest = await createLink(s, "2030-02-01T10:00:00Z");
+    const expiring = await createLink(
+      s,
+      "2030-02-02T10:00:00Z",
+      "2030-02-02T11:00:00Z",
+    );
+    const revoked = await createLink(s, "2030-02-03T10:00:00Z");
+    const reserved = await createLink(s, "2030-02-04T10:00:00Z");
+    const newest = await createLink(s, "2030-02-05T10:00:00Z");
+    const foreign = await createLink(other, "2030-02-05T10:00:00Z");
+    value(
+      await s.pricing.managePaymentLink(world.owner, {
+        operation: "paymentLinks.revoke",
+        operationId: randomUUID(),
+        id: revoked.id,
+        expectedRevision: revoked.revision,
+      }),
+    );
+    const buyer = await world.scenario({
+      productId: s.productId,
+      paymentLinkId: reserved.id,
+    });
+    value(await buyer.payments.purchase(buyer.buyer, buyer.command));
+    world.setTime(new Date("2030-02-06T10:00:00Z"));
+
+    const list = async (filter: Record<string, unknown>) => {
+      const result = await s.pricing.paymentLinks(world.owner, filter);
+      if (!result.ok) throw new Error(result.error.code);
+      return {
+        ids: result.value.items.map((item) => [item.id, item.state]),
+        nextCursor: result.value.nextCursor,
+      };
+    };
+    expect(await list({ productId: s.productId })).toEqual({
+      ids: [
+        [newest.id, "active"],
+        [reserved.id, "pending"],
+        [revoked.id, "revoked"],
+        [expiring.id, "expired"],
+        [oldest.id, "active"],
+      ],
+      nextCursor: null,
+    });
+    for (const [state, expected] of [
+      ["active", [newest.id, oldest.id]],
+      ["pending", [reserved.id]],
+      ["revoked", [revoked.id]],
+      ["expired", [expiring.id]],
+      ["paid", []],
+      ["unknown", []],
+      ["changed", []],
+    ] as const)
+      expect(
+        (await list({ productId: s.productId, state })).ids.map(([id]) => id),
+      ).toEqual(expected);
+
+    const firstPage = await list({ productId: s.productId, limit: 2 });
+    expect(firstPage).toEqual({
+      ids: [
+        [newest.id, "active"],
+        [reserved.id, "pending"],
+      ],
+      nextCursor: reserved.id,
+    });
+    expect(
+      await list({ productId: s.productId, limit: 2, cursor: reserved.id }),
+    ).toEqual({
+      ids: [
+        [revoked.id, "revoked"],
+        [expiring.id, "expired"],
+      ],
+      nextCursor: expiring.id,
+    });
+    for (const filter of [
+      { productId: s.productId, cursor: foreign.id },
+      { productId: s.productId, cursor: randomUUID() },
+      { state: "archived" },
+    ])
+      expect(await s.pricing.paymentLinks(world.owner, filter)).toEqual({
+        ok: false,
+        error: { code: "invalid_request" },
+      });
+  } finally {
+    world.setTime(defaultNow);
+  }
+});
+
+test("a Payment Link of a Product whose price was archived reads and filters as changed", async () => {
+  try {
+    const s = await world.scenario();
+    const link = await createLink(s, "2030-02-01T10:00:00Z");
+    value(
+      await s.pricing.manage(world.owner, {
+        operation: "productPrices.archive",
+        operationId: randomUUID(),
+        id: s.productId,
+        expectedRevision: 1,
+      }),
+    );
+    const changed = await s.pricing.paymentLinks(world.owner, {
+      productId: s.productId,
+      state: "changed",
+    });
+    expect(changed).toMatchObject({
+      ok: true,
+      value: { items: [{ id: link.id, state: "changed" }], nextCursor: null },
+    });
+    expect(
+      await s.pricing.paymentLinks(world.owner, {
+        productId: s.productId,
+        state: "active",
+      }),
+    ).toEqual({ ok: true, value: { items: [], nextCursor: null } });
+  } finally {
+    world.setTime(defaultNow);
+  }
+});

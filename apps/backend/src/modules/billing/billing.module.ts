@@ -35,6 +35,9 @@ import { BillingProductSales } from "./features/list-product-sales/list-product-
 import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
 import { PurchaseProductController } from "./features/purchase-product/purchase-product.controller.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
+import { OwnerOrderEmailRead } from "./features/read-order-email/read-order-email.js";
+import { ReadOwnerOrderEmailController } from "./features/read-order-email/read-order-email.controller.js";
+import { BillingPaymentSearch } from "./features/search-payments/search-payments.js";
 import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 import { bankRequest } from "./infrastructure/tbank/bank-request.js";
 import { Tbank } from "./infrastructure/tbank/tbank.js";
@@ -54,6 +57,7 @@ const BILLING_BANK = Symbol("BillingBank");
     ListOffersController,
     ListProductSalesStatesController,
     PaymentLinksController,
+    ReadOwnerOrderEmailController,
   ],
   providers: [
     {
@@ -93,6 +97,21 @@ const BILLING_BANK = Symbol("BillingBank");
         contentCatalog: CoverageCatalog,
       ) =>
         new BillingPayments({ prisma, contact, grants, bank, contentCatalog }),
+    },
+    {
+      provide: OwnerOrderEmailRead,
+      inject: [PrismaClientProvider, ACCOUNTS, BILLING_BANK],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        accounts: Accounts,
+        bank: Tbank | undefined,
+      ) => new OwnerOrderEmailRead({ prisma, accounts, bank }),
+    },
+    {
+      provide: BillingPaymentSearch,
+      inject: [PrismaClientProvider, ACCOUNTS],
+      useFactory: (prisma: PrismaClientProvider, accounts: Accounts) =>
+        new BillingPaymentSearch({ prisma, accounts }),
     },
     {
       provide: BillingNotices,
@@ -165,6 +184,7 @@ const BILLING_BANK = Symbol("BillingBank");
     BillingOperations,
     BillingNotices,
     BillingPricing,
+    BillingPaymentSearch,
   ],
 })
 export class BillingModule {}

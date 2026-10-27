@@ -1,12 +1,14 @@
 import { Module } from "@nestjs/common";
 
 import { AccountsModule } from "../accounts/index.js";
+import { BillingModule, BillingPaymentSearch } from "../billing/index.js";
 import {
   MATERIAL_AUTHORING,
   MaterialsModule,
   type MaterialAuthoring,
 } from "../materials/index.js";
 import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
+import { assemblePaymentsSearchGroup } from "./adapters/billing/payments-search-group.js";
 import { assembleMaterialsSearchGroup } from "./adapters/materials/materials-search-group.js";
 import { assembleProductsSearchGroup } from "./adapters/products/products-search-group.js";
 import {
@@ -23,19 +25,21 @@ import { SearchAuthoringController } from "./features/search-authoring/search-au
  * The API process imports it.
  */
 @Module({
-  imports: [AccountsModule, MaterialsModule],
+  imports: [AccountsModule, MaterialsModule, BillingModule],
   controllers: [SearchAuthoringController],
   providers: [
     {
       provide: AUTHORING_SEARCH,
-      inject: [PRODUCT_AUTHORING, MATERIAL_AUTHORING],
+      inject: [PRODUCT_AUTHORING, MATERIAL_AUTHORING, BillingPaymentSearch],
       useFactory: (
         productAuthoring: ProductAuthoring,
         materialAuthoring: MaterialAuthoring,
+        paymentSearch: BillingPaymentSearch,
       ): AuthoringSearch =>
         assembleAuthoringSearch([
           assembleProductsSearchGroup(productAuthoring),
           assembleMaterialsSearchGroup(materialAuthoring),
+          assemblePaymentsSearchGroup(paymentSearch),
         ]),
     },
   ],

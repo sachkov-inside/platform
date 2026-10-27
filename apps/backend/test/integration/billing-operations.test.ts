@@ -143,3 +143,52 @@ test("one owner operation id cannot cross command families or repeat a changed P
     ).snapshot.firstPriceKopecks,
   ).toBe(250000);
 });
+
+test("productPrices.list reads one Product's price when asked by productId", async () => {
+  const { s, owner } = await operations();
+  await world.scenario();
+  const result = await owner.execute(world.owner, {
+    operation: "productPrices.list",
+    operationId: randomUUID(),
+    productId: s.productId,
+  });
+  if (!result.ok || result.result.outcome !== "catalogOffers")
+    throw new Error(JSON.stringify(result));
+  expect(result.result.nextCursor).toBeNull();
+  expect(result.result.items.map((item) => item.product?.id)).toEqual([
+    s.productId,
+  ]);
+});
+
+test.each([
+  ["payments.list", { productId: randomUUID(), states: ["confirmed"] }],
+  ["paymentLinks.list", { productId: randomUUID(), state: "active" }],
+  ["productPrices.list", { productId: randomUUID() }],
+  ["promotions.list", { archived: true }],
+])(
+  "%s refuses Materials-only and rightless accounts instead of answering empty",
+  async (operation, filter) => {
+    const { owner } = await operations();
+    for (const permission of ["materials:manage", null] as const) {
+      const actor = randomUUID();
+      await world.db.prisma.account.create({
+        data: {
+          id: actor,
+          logtoIssuer: "https://identity.invalid",
+          logtoSubject: actor,
+        },
+      });
+      if (permission !== null)
+        await world.db.prisma.accountPermission.create({
+          data: { accountId: actor, permission },
+        });
+      expect(
+        await owner.execute(actor, {
+          operation,
+          operationId: randomUUID(),
+          ...filter,
+        }),
+      ).toEqual({ ok: false, error: { code: "forbidden" } });
+    }
+  },
+);

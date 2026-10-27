@@ -36,8 +36,18 @@ export class AuthoringSearchService {
       }>;
       kind: 'materials';
       state: 'ready';
+    } | {
+      items: Array<{
+        amountKopecks: number;
+        createdAt: string;
+        productName: string;
+        purchaseRef: string;
+        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+      }>;
+      kind: 'payments';
+      state: 'ready';
     }) | {
-      kind: 'products' | 'materials';
+      kind: 'products' | 'materials' | 'payments';
       state: 'unavailable';
     })>;
   }> {
