@@ -48,11 +48,12 @@ class Scenario:
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
-    def _until(self,read,predicate,*,budget_seconds=60):
-        deadline=time.monotonic()+min(budget_seconds,self.remaining())
+    def _until(self,read,predicate,*,deadline=None):
+        if deadline is None:deadline=time.monotonic()+min(60,self.remaining())
         while time.monotonic()<deadline:
             self.remaining()
             value=read()
+            if time.monotonic()>=deadline:raise TimeoutError()
             if predicate(value):return value
             time.sleep(min(.25,self.remaining(),max(0,deadline-time.monotonic())))
         raise TimeoutError()
@@ -82,15 +83,19 @@ class Scenario:
         finally:self.targets.change('vmauth','start')
         return self.ready()['completed']
 
-    def snapshot(self,previous=None,*,evaluated_at=None):
+    def snapshot(self,previous=None,*,evaluated_at=None,deadline=None):
         if self.acquisitions>=128:raise AcquisitionBudgetRefusal()
         # A prior acquisition's completion cannot be later than the new fixed evaluation time.
         while previous is not None and math.floor(time.time())<math.ceil(previous['completed_at']):
             time.sleep(min(.05,self.remaining()))
         self.acquisitions+=1
         started=time.time()
+        query_seconds=min(10,self.remaining())
+        if deadline is not None:
+            query_seconds=min(query_seconds,deadline-time.monotonic())
+            if query_seconds<=0:raise TimeoutError()
         report,acquired=caddy_query.read_snapshot(self.token,previous=previous,
-            deadline_seconds=min(10,self.remaining()),diagnose=True,
+            deadline_seconds=query_seconds,diagnose=True,
             **({} if evaluated_at is None else {'evaluated_at':evaluated_at}))
         if acquired is None or report['state']=='malformed' or report['transport']['canonical']!='passed':
             raise ValueError('closed Caddy canonical query refused')
@@ -200,14 +205,15 @@ class Scenario:
                 cut=math.ceil(time.time())
                 while time.time()<cut:
                     held.assert_holding();time.sleep(min(.05,self.remaining()))
+                publication_deadline=time.monotonic()+min(caddy_query.QUERY_SECONDS,self.remaining())
                 held.finish()
                 evaluated=math.floor(held.finished_at)
             def stored(value):
                 report,canonical=value
                 return (report['state']=='observed' and report['observation']['in_flight']>=1
                     and status.clock(held.started_at)<self.stamp(canonical)<status.clock(held.finished_at))
-            _,canonical=self._until(lambda:self.snapshot(evaluated_at=evaluated),stored,
-                budget_seconds=caddy_query.QUERY_SECONDS)
+            _,canonical=self._until(lambda:self.snapshot(evaluated_at=evaluated,deadline=publication_deadline),
+                stored,deadline=publication_deadline)
             mcp=self.matching(canonical,read=read)
             inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
                 r_received=held.started_at,f_sent=held.finished_at)

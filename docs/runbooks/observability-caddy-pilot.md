@@ -151,11 +151,14 @@ finally and outer group ownership cover success, failure, timeout and interrupti
 
 Before this child, a quiescent raw9091 snapshot must show retained in-flight zero. After `R`,
 **before any8080 canonical/MCP query**, full raw9091 must show exactly one while the final body
-byte remains withheld. Only then may stored canonical/MCP original cohorts strictly inside the
-conservative `R`-received to `F`-sent interval establish the case, followed by validated finite
-HTTP200 completion. A canonical self-query's in-flight value is insufficient. Missing native
-visibility within eight seconds fails/incompletes the case; no deadline is increased. The source
-predicate and protocol fixtures do not replace actual Linux Caddy evidence.
+byte remains withheld. After the proved native scrape, F must produce validated finite HTTP200/D
+completion and close the child inside its eight-second deadline. Only afterward may stored
+canonical/MCP original cohorts establish the historical case. Every source timestamp must lie
+strictly inside the conservative `R`-received to `F`-sent interval. A canonical self-query's
+in-flight value is insufficient. Missing native visibility within eight seconds fails/incompletes
+the case; no deadline is increased. Stored publication has its separate ten-second deadline,
+and every final source observation still requires age at most ten seconds. The source predicate
+and protocol fixtures do not replace actual Linux Caddy evidence.
 
 The held socket proves native collection separately from asynchronous storage visibility.
 After the independent public gauge witness, the worker reads the validated private

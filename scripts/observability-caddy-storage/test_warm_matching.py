@@ -1,7 +1,7 @@
 """Cold native initialization must finish before the eight-second held-body witness starts."""
 from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 import unittest
 import scenario
 from test_native_source import wire
@@ -113,8 +113,27 @@ class WarmMatching(unittest.TestCase):
                 patch.object(experiment,'snapshot',return_value=(report,canonical)) as acquired, \
                 patch.object(scenario.time,'time',return_value=102):
             experiment.held()
-        acquired.assert_called_once_with(evaluated_at=102)
+        acquired.assert_called_once_with(evaluated_at=102,deadline=ANY)
         self.assertEqual(events,['native_ready','held_started','held_finished','held_closed','mcp_same_E','native_closed'])
+        # A valid wall-clock cohort cannot override an expired monotonic deadline.
+        from types import SimpleNamespace
+        events.clear();registry[0]=100;monotonic=[100]
+        clock=SimpleNamespace(time=lambda:102,monotonic=lambda:monotonic[0],sleep=lambda _:None)
+        late=scenario.Scenario(Targets(),'a'*32,Path('/native'),lambda *_:None);late.deadline=700
+        def delayed(**kwargs):
+            self.assertEqual(kwargs,{'evaluated_at':102,'deadline':110})
+            monotonic[0]=118
+            return report,canonical
+        with patch.object(scenario,'time',clock),patch.object(scenario.mcp_snapshot,'session',ready), \
+                patch.object(scenario.request_hold,'Held',Held),patch.object(late,'snapshot',side_effect=delayed):
+            with self.assertRaises(TimeoutError):late.held()
+        self.assertNotIn('mcp_same_E',events)
+        monotonic[0]=109
+        with patch.object(scenario,'time',clock), \
+                patch.object(scenario.caddy_query,'read_snapshot',return_value=({**report,'transport':{'canonical':'passed'}},canonical)) as query:
+            late.snapshot(evaluated_at=102,deadline=110)
+        self.assertEqual(query.call_args.kwargs['deadline_seconds'],1)
+
 
     def test_partition_prepares_native_before_selecting_current_canonical_sample(self):
         events=[]
