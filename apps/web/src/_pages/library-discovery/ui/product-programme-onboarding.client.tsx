@@ -76,7 +76,7 @@ export function ProductProgrammeOnboarding({
               telegramAction={
                 <TelegramLinkAction
                   className="min-h-12 w-full"
-                  label="Привязать Telegram"
+                  label="Подключить Telegram"
                   onRefresh={async () => {
                     await query.refetch();
                   }}

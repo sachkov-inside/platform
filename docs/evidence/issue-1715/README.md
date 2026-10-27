@@ -257,6 +257,7 @@
 | Было | Стало |
 | --- | --- |
 | Не удалось проверить онбординг продукта. | Не удалось проверить подключение к продукту. |
+| Привязать Telegram | Подключить Telegram |
 
 ### [apps/web/src/_pages/product-task/ui/product-task-states.tsx](../../../apps/web/src/_pages/product-task/ui/product-task-states.tsx)
 
@@ -373,13 +374,16 @@
 `pnpm docs:check` и `git diff --check` пройдены. Browser engines: 10 файлов, 76 тестов пройдены, один пропущен существующим набором.
 Итоговые результаты полного продуктового прогона и независимого ревью записываются в [PR #1750](https://github.com/sachkov-inside/platform/pull/1750).
 
-В Storybook проверены 12 состояний на ширинах 390 и 1440 px. Горизонтального переполнения нет.
+В Storybook проверены 18 состояний на ширинах 390 и 1440 px. Горизонтального переполнения нет.
 Снимки просмотрены; это проверка производственных компонентов с тестовыми данными, а не рабочего стенда.
 
 - [Cookies, телефон](storage-mobile.png), [компьютер](storage-desktop.png).
 - [Первый вход](welcome-mobile.png).
 - [Telegram занят другим аккаунтом](telegram-conflict-mobile.png).
 - [Проверка оплаты](payment-status-mobile.png).
+- [Продолжение оплаты после потери ответа](payment-retry-mobile.png).
+- [Отправленная сдача](submission-success-mobile.png).
+- [Подтверждение почты](email-code-mobile.png).
 
 У механической проверки дизайна четыре рекомендации о существующих размерах шрифта.
 Эти стили не меняются в задаче.
