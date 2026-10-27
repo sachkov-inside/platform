@@ -11,6 +11,11 @@ import collector_privacy
 
 
 class CollectorPrivacyContract(unittest.TestCase):
+    def test_shared_native_writer_keeps_one_second_batch_without_other_queue_overrides(self):
+        import privacy_config
+        block=privacy_config.render().split('prometheus.remote_write "collector_health" {',1)[1].split('\n}\n',1)[0]
+        self.assertEqual(block, '\n  endpoint {\n    url = "http://metrics:8428/api/v1/write"\n    queue_config { batch_send_deadline = "1s" }\n  }')
+
     def test_trace_exporter_removes_only_link_metadata_at_the_pinned_storage_boundary(self):
         import privacy_config
         actual = privacy_config.render()
