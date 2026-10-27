@@ -1592,3 +1592,123 @@ export const TelegramAnnouncementPublished: Story = {
     await expect(checkbox).toBeDisabled();
   },
 };
+
+const inlineVideoPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    document: {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Перед видео" }] },
+        {
+          type: "video",
+          attrs: {
+            description: "Демонстрационная запись",
+            chapters: [{ start: 0, title: "Введение" }],
+          },
+        },
+        { type: "paragraph", content: [{ type: "text", text: "После видео" }] },
+      ],
+    },
+  },
+};
+export const InlineVideoEditing: Story = {
+  args: { initialPresentation: inlineVideoPresentation },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const description = await canvas.findByLabelText("Описание видео");
+    await userEvent.clear(description);
+    await userEvent.type(description, "Описание записи");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить таймкод" }),
+    );
+    await expect(canvas.getByLabelText("Начало главы 2, секунды")).toHaveValue(
+      60,
+    );
+    await waitFor(() => {
+      const body = savedField("document");
+      if (!JSON.stringify(body).includes("Описание записи"))
+        throw new Error("Video context has not been saved");
+    });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать блок видео" }),
+    );
+    await waitFor(async () => {
+      await expect(
+        canvas.queryByLabelText("Описание видео"),
+      ).not.toBeInTheDocument();
+    });
+    await expect(canvas.getByText("Перед видео")).toBeVisible();
+    await expect(canvas.getByText("После видео")).toBeVisible();
+  },
+};
+export const InlineVideoMobile: Story = {
+  args: { initialPresentation: inlineVideoPresentation },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const InlineVideoInsert: Story = {
+  args: {
+    initialPresentation: {
+      ...inlineVideoPresentation,
+      draft: {
+        ...inlineVideoPresentation.draft,
+        document: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Перед видео" }],
+            },
+            { type: "paragraph" },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "После видео" }],
+            },
+          ],
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const textbox = await canvas.findByRole("textbox", {
+      name: "Содержимое материала",
+    });
+    const insertion = textbox.querySelectorAll("p")[1];
+    if (insertion === undefined) throw new Error("Missing insertion paragraph");
+    await userEvent.click(insertion);
+    // Finish native selection after the click wrapper restores its previous caret.
+    const document = canvasElement.ownerDocument;
+    const selection = document.getSelection();
+    if (selection === null) throw new Error("Selection is unavailable");
+    selection.collapse(insertion, 0);
+    document.dispatchEvent(new Event("selectionchange"));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить блок" }),
+    );
+    await userEvent.click(
+      within(canvas.getByRole("dialog", { name: "Добавить блок" })).getByRole(
+        "button",
+        { name: "Видео" },
+      ),
+    );
+    await expect(canvas.getByLabelText("Описание видео")).toBeVisible();
+    await waitFor(async () => {
+      await expect(JSON.stringify(savedField("document"))).toMatch(
+        /Перед видео.*"type":"video".*После видео/u,
+      );
+    });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить блок" }),
+    );
+    await userEvent.click(
+      within(canvas.getByRole("dialog", { name: "Добавить блок" })).getByRole(
+        "button",
+        { name: "Видео" },
+      ),
+    );
+    await expect(canvas.getAllByLabelText("Описание видео")).toHaveLength(1);
+  },
+};

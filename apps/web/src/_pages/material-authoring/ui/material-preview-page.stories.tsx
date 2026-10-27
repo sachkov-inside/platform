@@ -411,3 +411,64 @@ export const UnexpectedError: Story = {
     await expect(page.getByRole("link", { name: "Повторить" })).toBeVisible();
   },
 };
+
+export const InlineVideo: Story = {
+  args: {
+    preview: {
+      ...materialPreview,
+      video: {
+        kind: "attached",
+        ready: true,
+        title: "Запись урока",
+        videoId: "03000000-0000-4000-8000-000000000001",
+        durationSeconds: 754,
+      },
+      blocks: [
+        {
+          kind: "paragraph",
+          content: [{ kind: "text", text: "Текст перед записью", marks: [] }],
+        },
+        {
+          kind: "video",
+          description: "Описание демонстрационной записи",
+          chapters: [
+            { start: 0, title: "Введение" },
+            { start: 37, title: "Пример" },
+          ],
+        },
+        {
+          kind: "paragraph",
+          content: [{ kind: "text", text: "Текст после записи", marks: [] }],
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const player = canvasElement.querySelector("[data-video-id]");
+    if (player === null) throw new Error("Video is missing");
+    await expect(
+      canvasElement.querySelectorAll("[data-video-id]"),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getByText("Описание демонстрационной записи"),
+    ).toBeVisible();
+    await expect(
+      Boolean(
+        canvas
+          .getByText("Текст перед записью")
+          .compareDocumentPosition(player) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    await expect(
+      Boolean(
+        player.compareDocumentPosition(canvas.getByText("Текст после записи")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    await expect(canvas.getByRole("link", { name: /Пример/u })).toHaveAttribute(
+      "href",
+      "#t=37",
+    );
+  },
+};

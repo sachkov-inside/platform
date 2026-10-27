@@ -808,16 +808,20 @@ test("повторный переход не ходит в backend, а гост�
   await page.goto(programme);
   await programmeReady(page)();
   await shellPrefetched(materialShell);
-  const lessonLink = () =>
+  const neighboringLesson = "navigation-lesson-2";
+  const lessonLink = (slug = freeLesson) =>
     page
-      .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
+      .locator(`[data-product-programme] a[href*='/materials/${slug}']`)
       .first();
-  await lessonLink().click();
-  await lessonReady(page, freeLesson)();
-  await (await readerProgrammeLink(page)).click();
-  await programmeReady(page)();
-  // Журнал backend очищается, когда первый круг закончен целиком: личная часть программы пришла.
-  await personalPartLanded(page);
+  // Оба бесплатных урока уже посещены: фокус на соседе при возврате к программе может
+  // предзагрузить его, и это тоже должно быть повторное чтение из памяти.
+  for (const slug of [freeLesson, neighboringLesson]) {
+    await lessonLink(slug).click();
+    await lessonReady(page, slug)();
+    await (await readerProgrammeLink(page)).click();
+    await programmeReady(page)();
+    await personalPartLanded(page);
+  }
   // Закрытый урок гостю не кешируется целиком: его личная часть читает backend при любом кеше,
   // поэтому чтения без токена в этом круге есть всегда.
   await page
@@ -840,6 +844,8 @@ test("повторный переход не ходит в backend, а гост�
   ).toEqual([]);
 
   await fetch(`${backend}/__requests`, { method: "DELETE" });
+  // Воспроизводим intent соседа явно, чтобы замер не зависел от положения указателя.
+  await lessonLink(neighboringLesson).focus();
   await lessonLink().click();
   await lessonReady(page, freeLesson)();
   await (await readerProgrammeLink(page)).click();

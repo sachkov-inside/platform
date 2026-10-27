@@ -217,3 +217,11 @@ Record primary exit and cleanup exit separately, plus actual owned PID/kernel ab
 resource inventory. A successful CLI exit or an EXIT trap alone does not prove complete closure.
 If admission, deadline, storage or cleanup fails, retain the failure and request a new scope;
 do not retry, enlarge budgets or prune shared cache to obtain green.
+
+## macOS Docker storage
+
+The stand measures free space on the active Docker runtime's data filesystem. Docker Desktop uses
+its open `Docker.raw`; OrbStack uses the open `data.img.raw` of its running process, selected by
+`docker info` reporting `OrbStack`. Missing or ambiguous images refuse the build. The existing
+build allowance, host reserve and stop margin apply to both runtimes. Switching the Docker context
+does not transfer stand volumes; the controller uses the already selected context.

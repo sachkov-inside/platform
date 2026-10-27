@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createStandBuildBudget,
   dockerDesktopStoragePath,
+  orbstackStoragePath,
 } from "./local-stand-budget.mjs";
 
 const gib = 1024 ** 3;
@@ -61,4 +62,24 @@ test("stand retains a 256 MiB stop margin above the mandatory host floor", () =>
   const budget = createStandBuildBudget(() => available);
   available = 10 * gib + 256 * 1024 ** 2;
   assert.throws(() => budget.assertAvailable(), /256 MiB.*10 GiB host floor/u);
+});
+
+test("OrbStack budget measures its open data image and refuses missing or ambiguous images", () => {
+  assert.equal(
+    orbstackStoragePath(
+      "n/Volumes/orb/data.img.raw\nn/Volumes/orb/data.img.raw\nn/Volumes/orb/swap.img\n",
+    ),
+    "/Volumes/orb/data.img.raw",
+  );
+  assert.throws(
+    () => orbstackStoragePath("n/Volumes/orb/swap.img\n"),
+    /refusing an unmeasured/u,
+  );
+  assert.throws(
+    () =>
+      orbstackStoragePath(
+        "n/Volumes/a/data.img.raw\nn/Volumes/b/data.img.raw\n",
+      ),
+    /refusing an unmeasured/u,
+  );
 });

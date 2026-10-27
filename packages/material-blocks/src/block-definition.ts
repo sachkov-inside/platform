@@ -60,7 +60,8 @@ export interface MaterialBlockNodeDescription extends MaterialBlockChildNodeDesc
   readonly childNodes?: Readonly<
     Record<string, MaterialBlockChildNodeDescription>
   >;
-  readonly group: "block";
+  /** Root-only blocks cannot be wrapped in lists, quotes or table cells. */
+  readonly group: "block" | "topLevelBlock";
 }
 
 /** Reports one field rule failure. `attribute` names the offending `attrs` entry. */
