@@ -10,13 +10,16 @@ import pilot
 import caddy_status
 
 BASE_CADDY_SHA256='dc93c89bfe3b2cb6824c2689603ebdbe1c49f25bdf82c8105e5ca6cf510b98d5'
-ADAPTED_CANONICAL_SHA256='00a8d5fe3cef873218d140a5f374e203530afc975011f1ca03be59f5810c9ed3'
+ADAPTED_CANONICAL_SHA256='e954228fe04eda2a8df984595ec43b651f9f4c2e6a908241f263bc91cfb0d7b4'
 
 
 def caddy_config():
     raw=(pilot.CONFIG/'Caddyfile').read_bytes()
     if hashlib.sha256(raw).hexdigest()!=BASE_CADDY_SHA256: raise ValueError('Caddy source changed; re-adapt before acceptance')
-    return raw.decode().replace('auto_https off','auto_https off\n\tmetrics',1)+'''\n:9091 {
+    # Keep the withheld body at Caddy until F, within the existing request-body cap.
+    # Streaming it into vmauth starts its body-read timeout before the native witness.
+    return raw.decode().replace('auto_https off','auto_https off\n\tmetrics',1).replace(
+        'reverse_proxy vmauth:8427 {','reverse_proxy vmauth:8427 {\n\t\t\trequest_buffers 64KB',1)+'''\n:9091 {
 \t@native {
 \t\tmethod GET
 \t\tpath /metrics
