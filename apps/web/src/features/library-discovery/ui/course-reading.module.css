@@ -370,14 +370,43 @@
   background: color-mix(in srgb, var(--foreground) 25%, transparent);
 }
 .dialogHead {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
 }
 .dialogHead h2 {
   font-size: 1.125rem;
   font-weight: 600;
+}
+.dialogCourseLink {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.dialogCourseLink > svg {
+  flex-shrink: 0;
+}
+.dialogCourseLink > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dialogCourseLink:hover {
+  background: var(--muted);
+}
+.dialogCourseLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 .dialogHead button,
 .mobileProgramme > button {
@@ -473,9 +502,6 @@
 .metadata {
   margin-bottom: 0.25rem;
 }
-.dock {
-  display: none;
-}
 .dialog {
   overscroll-behavior: contain;
 }
@@ -537,7 +563,7 @@
 }
 @media (width < 48rem) {
   .document {
-    padding-bottom: 6rem;
+    padding-bottom: 9rem;
   }
   .header h1 {
     font-size: 1.25rem;
@@ -546,61 +572,6 @@
   }
   .footer {
     display: none;
-  }
-  .dock {
-    display: grid;
-    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
-    align-items: center;
-    position: fixed;
-    bottom: calc(
-      max(0.75rem, env(safe-area-inset-bottom)) +
-        var(--storage-notice-space, 0px)
-    );
-    left: 50%;
-    width: min(calc(100% - 2rem), 17rem);
-    transform: translateX(-50%);
-    z-index: 40;
-    padding: 0.125rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--background);
-    box-shadow: var(--shadow-floating-nav);
-  }
-  .dock > :is(a, button) {
-    min-height: 2.75rem;
-    display: grid;
-    place-items: center;
-    color: var(--foreground);
-    text-decoration: none;
-    border-radius: 999px;
-  }
-  .dock[data-supplementary] {
-    grid-template-columns: minmax(0, 1fr);
-    width: max-content;
-    max-width: calc(100% - 2rem);
-    padding-inline: 1rem;
-  }
-  .dock > :is(a, button):hover {
-    background: var(--muted);
-  }
-  .dock > button:disabled {
-    color: var(--muted-foreground);
-    opacity: 0.4;
-  }
-  .dockProgramme {
-    padding: 0;
-  }
-  .dockProgramme > span {
-    color: var(--muted-foreground);
-    font-size: 0.6875rem;
-    line-height: 1.5;
-  }
-  .dockProgramme strong {
-    display: flex;
-    gap: 0.375rem;
-    align-items: center;
-    font-size: 0.875rem;
-    font-weight: 500;
   }
   .dialog {
     position: fixed;
@@ -789,10 +760,6 @@
 .references a:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
-}
-
-.dock[data-supplementary] .dockProgramme > span {
-  color: var(--foreground);
 }
 
 /* Keep the page's full-width box stable while the persistent rail shares its grid row. */
