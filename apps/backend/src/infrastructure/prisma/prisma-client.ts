@@ -46,6 +46,7 @@ export type VideosPrismaClient = VideosPrisma & TransactionClient<VideosPrisma>;
 export type AccountsPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
+  | "$queryRaw"
   | "account"
   | "accountAuditEvent"
   | "accountPermission"
