@@ -104,6 +104,32 @@ test("Обзор: владелец, «Всё в порядке» и автор �
     main(page).getByRole("list", { name: "Последние события" }),
   ).toBeVisible();
   await capture(page, info, "overview");
+  if (info.project.name === "mobile-chromium") {
+    // Настоящее окно 390 × 844 без растяжения, прокрученное до конца: нижняя панель стоит
+    // вплотную к краю окна. Полоса под ней на снимках всей страницы появляется от растяжения окна.
+    const panel = await page
+      .getByRole("navigation", { name: "Основные разделы" })
+      .boundingBox();
+    expect((panel?.y ?? 0) + (panel?.height ?? 0)).toBe(
+      page.viewportSize()?.height,
+    );
+    await adminEvidence(
+      page,
+      info,
+      "overview-bottom-viewport",
+      {
+        flag,
+        issue: "issue-1719",
+      },
+      { viewportAtBottom: true },
+    );
+    const scrolled = await page
+      .getByRole("navigation", { name: "Основные разделы" })
+      .boundingBox();
+    expect((scrolled?.y ?? 0) + (scrolled?.height ?? 0)).toBe(
+      page.viewportSize()?.height,
+    );
+  }
 
   await context.clearCookies();
   await signIn(context, baseURL, "overview-clear");

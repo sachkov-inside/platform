@@ -9,9 +9,16 @@ export const metadata: Metadata = { title: "Редактирование про�
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   readonly params: Promise<{ readonly productId: string }>;
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { productId } = await params;
-  return <ProductEditorPage productId={productId} />;
+  const [{ productId }, { tab }] = await Promise.all([params, searchParams]);
+  return (
+    <ProductEditorPage
+      productId={productId}
+      tab={typeof tab === "string" ? tab : null}
+    />
+  );
 }

@@ -27,7 +27,11 @@ CAPTURE_ADMIN_SPEC_EVIDENCE=1 UPDATE_EVIDENCE=issue-1719 pnpm --filter @inside/w
 съёмки проверены `scrollWidth === clientWidth` и Axe по всей странице вместе с каркасом:
 нарушений 0 ([компьютер](live-checks-desktop-chromium.json), [телефон](live-checks-mobile-chromium.json)).
 Снимки показывают всю страницу; на телефоне окно на время снимка растянуто на высоту документа,
-поэтому нижняя панель стоит в конце снимка, а под ней остаётся пустая полоса окна.
+поэтому нижняя панель стоит в конце снимка. Пустая полоса под панелью на снимках телефона
+появляется только от этого растяжения окна при съёмке: в настоящем окне 390 × 844, прокрученном до
+конца, панель стоит вплотную к нижнему краю, что сценарий проверяет по её положению и показывает
+отдельный снимок окна без растяжения (последняя строка таблицы). Этот снимок сделан на коде `b194b3c30b8e5e625e8cf5262deb44703f8f6607`: web в нём отличается от
+`49ec1062d` только сценарием съёмки и комментариями сгенерированного клиента.
 
 | Состояние | Компьютер, 1440 px | Телефон, 390 px |
 | --- | --- | --- |
@@ -44,6 +48,7 @@ CAPTURE_ADMIN_SPEC_EVIDENCE=1 UPDATE_EVIDENCE=issue-1719 pnpm --filter @inside/w
 | Платежи из «Требует внимания»: оплачены, выдача не завершена (`?state=confirmed&fulfillment=incomplete`) | [Снимок](live-payments-fulfillment-incomplete-desktop-chromium.png) | [Снимок](live-payments-fulfillment-incomplete-mobile-chromium.png) |
 | Материалы (`/authoring/materials`) | [Снимок](live-materials-desktop-chromium.png) | [Снимок](live-materials-mobile-chromium.png) |
 | Сдачи (`/authoring/submissions`, фильтр «Без комментария») | [Снимок](live-submissions-desktop-chromium.png) | [Снимок](live-submissions-mobile-chromium.png) |
+| Обзор в окне 390 × 844 без растяжения, прокручен до конца: нижняя панель вплотную к краю окна | нет снимка для этой ширины | [Снимок](live-overview-bottom-viewport-mobile-chromium.png) |
 
 ## Storybook
 
