@@ -190,6 +190,7 @@ class PilotPreparationTest(unittest.TestCase):
     def test_only_loopback_published_services_join_the_owned_ingress_bridge(self):
         plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
                                   {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        self.assertIn("-search.latencyOffset=1ms", plan["services"]["metrics"]["command"])
         ingress_services = {"gateway", "alloy", "grafana"}
         self.assertTrue(plan["networks"]["pilot"]["internal"])
         self.assertEqual(plan["networks"].get("ingress"), {"driver": "bridge", "internal": False})

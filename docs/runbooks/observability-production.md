@@ -27,6 +27,12 @@ Query gateway ограничивает HTTP methods/body; vmauth проверя�
 и [закрытые маршруты чтения](../../infra/observability/pilot/vmauth.routes.json), включая read POST.
 Ingest/delete/admin не разрешены. Ключ Grafana отличается от ключа агента. Anonymous Grafana и
 signup выключены. Loopback сам по себе не защищает от root/пользователей сервера с Docker access.
+VictoriaMetrics запускается с `-search.latencyOffset=1ms`: instant-query по умолчанию
+оценивается у текущего времени, с минимальным поддерживаемым сдвигом 1 мс.
+Штатный сдвиг версии v1.154.0 равен 30 секундам. Он скрывал все samples первой
+20-секундной нагрузочной фазы и сдвигал проверку свежести owner cache. Настройка
+не ускоряет приём, flush или export: их фактическое запаздывание продолжает измеряться,
+а пустой ответ не считается нулём. Запрос с явным историческим `time` сохраняет этот срез.
 Для всех LogsQL routes vmauth принудительно добавляет `extra_filters=_time:14d`.
 Это глобальный фильтр хранилища, включая subqueries, с текущим временем самого VictoriaLogs,
 а не с переданными клиентом `time` или `end`. Совпавший URL query argument клиента
