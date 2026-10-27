@@ -46,7 +46,7 @@ const stateSchema = z.strictObject({
  * @typedef {z.infer<typeof sourceSchema>} StandSource
  * @typedef {z.infer<typeof stateSchema>} StandState
  * @typedef {z.infer<typeof modeSchema>} StandMode
- * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; recordIdentity: () => Promise<void> }} StandOperation
+ * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; recordIdentity: (expected: string) => Promise<void> }} StandOperation
  * @typedef {{ command: "status" | "show" | "refresh" | "release"; worktree: string; replace?: string; mode?: "snapshot" | "live" | "production" }} StandRequest
  * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}> }} StandDependencies
  */
@@ -195,7 +195,7 @@ export async function controlStand(request, dependencies) {
         generation: state.generation,
         cold,
         resumeCold: cold && snapshot.containers.length > 0,
-        recordIdentity: async () => {
+        recordIdentity: async (expected) => {
           if (!cold)
             throw new Error(
               "Identity bootstrap checkpoint is restricted to cold startup",
@@ -203,6 +203,10 @@ export async function controlStand(request, dependencies) {
           const bootstrapped = sourceSchema.parse(
             await dependencies.source?.(request.worktree),
           );
+          if (bootstrapped.identity !== expected)
+            throw new Error(
+              "Stand identity no longer matches its owned bootstrap receipt",
+            );
           state.source.identity = bootstrapped.identity;
           await writeState(dependencies.directory, state);
         },

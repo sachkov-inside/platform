@@ -115,7 +115,7 @@ test("live preparation labels roles, mounts only selected Web source, and binds 
         ),
       );
       assert.equal(overlay.services["postgres"]?.volumes, undefined);
-      await options.onIdentityReady?.();
+      await options.onIdentityReady?.("fixture-owned-identity");
     },
   });
   await runtime.inspect();

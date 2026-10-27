@@ -456,7 +456,7 @@ test("a failed cold start records its bootstrap identity but refuses unrelated i
     /** @type {import("./stand-controller.mjs").StandOperation} */ operation,
   ) => {
     inputs.identity = "controller-bootstrap";
-    await operation.recordIdentity();
+    await operation.recordIdentity(inputs.identity);
     throw new Error("startup failed after bootstrap");
   };
   await assert.rejects(
@@ -504,5 +504,21 @@ test("interrupted cold preparation resumes bootstrap instead of refreshing an in
       )
     ).status,
     "ready",
+  );
+});
+
+test("bootstrap receipt refuses a different current identity instead of adopting external keys", async (t) => {
+  const { dependencies, inputs } = await fixture(t);
+  dependencies.prepare = async (operation) => {
+    inputs.identity = "external-replacement";
+    await operation.recordIdentity("owned-bootstrap");
+  };
+  await assert.rejects(
+    controlStand({ command: "show", worktree: "/fixture/a" }, dependencies),
+    /identity no longer matches/u,
+  );
+  await assert.rejects(
+    controlStand({ command: "refresh", worktree: "/fixture/a" }, dependencies),
+    /identity settings/u,
   );
 });

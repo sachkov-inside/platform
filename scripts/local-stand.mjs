@@ -6,11 +6,13 @@ import { execFileSync } from "node:child_process";
 import { commandExit } from "./diagnostic-command.mjs";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
+import { finished } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 import { realpathSync, statfsSync } from "node:fs";
 import { z } from "zod";
+import { standIdentityReceiptPrefix } from "./stand-identity-receipt.mjs";
 import { standApplicationServices } from "./stand-services.mjs";
 import { requireUnmanagedStand } from "./stand-controller.mjs";
 import {
@@ -21,7 +23,7 @@ import {
 /**
  * The caller holds the shared local-setup lock. Refresh only recreates application roles;
  * the stand controller verifies ownership and schema/configuration compatibility first.
- * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: () => Promise<void>}} options
+ * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
  */
 export async function launchLocalStand({
   repositoryRoot,
@@ -213,8 +215,24 @@ export async function launchLocalStand({
       "logto-postgres",
       "logto",
     ]);
-    await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
-    await onIdentityReady?.();
+    await run(process.execPath, [pnpmPath, "identity:proof:bootstrap"], {
+      extraEnvironment: {
+        LOGTO_ON_STAND: "true",
+        ...(onIdentityReady ? { LOCAL_STAND_IDENTITY_RECEIPT: "true" } : {}),
+      },
+      ...(onIdentityReady
+        ? {
+            onLine: async (line) => {
+              if (line.startsWith(standIdentityReceiptPrefix))
+                await onIdentityReady(
+                  z
+                    .hash("sha256")
+                    .parse(line.slice(standIdentityReceiptPrefix.length)),
+                );
+            },
+          }
+        : {}),
+    });
     // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
     await compose(["up", "--detach", "--no-build", "--wait"]);
     await runPnpm(["local:accounts:bootstrap"]);
@@ -285,7 +303,7 @@ export async function launchLocalStand({
   }
 
   /**
-   * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string>; cleanup?: boolean }} RunOptions
+   * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string>; cleanup?: boolean; onLine?: (line: string) => Promise<void> }} RunOptions
    */
 
   /**
@@ -318,7 +336,7 @@ export async function launchLocalStand({
   async function run(
     command,
     arguments_,
-    { capture = false, extraEnvironment = {}, cleanup = false } = {},
+    { capture = false, extraEnvironment = {}, cleanup = false, onLine } = {},
   ) {
     const label = `${command === process.execPath ? "pnpm" : command} ${arguments_.join(" ")}`;
     if (interruptedSignal !== undefined && !cleanup)
@@ -326,11 +344,12 @@ export async function launchLocalStand({
     const child = spawnOwned(command, arguments_, {
       cwd: repositoryRoot,
       env: { ...environment, ...extraEnvironment },
-      stdio: capture
-        ? ["ignore", "pipe", "pipe"]
-        : logToStderr
-          ? ["inherit", 2, 2]
-          : "inherit",
+      stdio:
+        capture || onLine
+          ? ["ignore", "pipe", "pipe"]
+          : logToStderr
+            ? ["inherit", 2, 2]
+            : "inherit",
       ...(capture ? { timeout: 20_000 } : cleanup ? { timeout: 60_000 } : {}),
     });
     activeProcesses.add(child);
@@ -349,6 +368,29 @@ export async function launchLocalStand({
           }, standDiskPollIntervalMilliseconds);
     let output = "";
     let diagnostic = "";
+    let pendingLines = "";
+    let lineEffects = Promise.resolve();
+    /** @type {unknown} */
+    let lineFailure;
+    if (onLine) {
+      child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
+        outputStream.write(chunk);
+        pendingLines += chunk.toString();
+        let newline;
+        while ((newline = pendingLines.indexOf("\n")) !== -1) {
+          const line = pendingLines.slice(0, newline).trimEnd();
+          pendingLines = pendingLines.slice(newline + 1);
+          lineEffects = lineEffects
+            .then(() => onLine(line))
+            .catch((error) => {
+              lineFailure ??= error;
+            });
+        }
+      });
+      child.stderr?.on("data", (/** @type {Buffer} */ chunk) =>
+        process.stderr.write(chunk),
+      );
+    }
     if (capture) {
       child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
         output += chunk.toString();
@@ -359,6 +401,10 @@ export async function launchLocalStand({
     }
     try {
       const exitCode = await commandExit(child);
+      if (onLine && child.stdout)
+        await finished(child.stdout, { cleanup: true });
+      await lineEffects;
+      if (lineFailure !== undefined) throw lineFailure;
       if (budgetFailure !== undefined) throw budgetFailure;
       if (!cleanup) buildBudget?.assertAvailable();
       if (exitCode !== 0) {

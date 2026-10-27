@@ -10,8 +10,9 @@ Use the stand controller from one checkout with installed dependencies. Pass the
 worktree path when invoking it from that controller checkout. Its status names the registered
 controller; keep using that checkout while its stand state exists.
 
-1. Inspect `pnpm --silent stand status --json`. A missing controller receipt or changed container
-   ownership means an unmanaged stand. Preserve it and obtain its owner's handoff.
+1. Inspect `pnpm --silent stand status --json`. For `unmanaged`, preserve the runtime and obtain
+   its owner's handoff. For `stopped`, continue using the reported reservation; an empty first
+   startup needs no handoff.
 2. Map the owner's request:
    - Show a task, including a review postponed until later: `pnpm stand show --worktree <task>`.
      This reserves a source snapshot and leaves it running after this session ends.

@@ -56,7 +56,7 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean; resumeCold?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean; resumeCold?: boolean; failedBootstrapAfterIdentity?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
@@ -71,6 +71,7 @@ async function launch({
   diagnosticLog = false,
   refresh = false,
   resumeCold = false,
+  failedBootstrapAfterIdentity = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "platform-stand-cli-"));
   try {
@@ -100,6 +101,10 @@ const args = process.argv.slice(2);
 appendFileSync(process.env.CALL_LOG, JSON.stringify({command: process.argv[1].endsWith("docker") ? "docker" : "pnpm", args, source: process.env.STAND_WEB_SOURCE_SHA, storageOrigin: process.env.STAND_WEB_OBJECT_STORAGE_ORIGIN}) + "\\n");
 if(args.includes("build") && args.includes(process.env.FAILED_BUILD)) process.exit(9);
 if(args.includes("up") && !args.includes("logto-postgres") && process.env.FAILED_STARTUP === "true") process.exit(1);
+if(args.includes("identity:proof:bootstrap") && process.env.LOCAL_STAND_IDENTITY_RECEIPT === "true") {
+  process.stdout.write("inside-stand-identity:" + "c".repeat(64) + "\\n");
+  if(process.env.FAILED_BOOTSTRAP_AFTER_IDENTITY === "true") process.exit(11);
+}
 if(args.includes("logs")) process.stdout.write("migrations: primary dependency error\\n");
 if(process.argv[1].endsWith("lsof")) process.stdout.write("n" + process.env.DOCKER_STORAGE + "/Docker.raw\\n");
 if(args.includes("info")) process.stdout.write(process.env.DOCKER_STORAGE + "\\n");
@@ -138,7 +143,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
 import {acquireLocalSetupLock} from "./scripts/local-setup-lock.mjs";
 import {appendFile} from "node:fs/promises";
 const release = await acquireLocalSetupLock("busy");
-try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: ${refresh}, resumeCold: ${resumeCold}, onIdentityReady: async () => appendFile(process.env.CALL_LOG, JSON.stringify({command:"checkpoint",args:[]})+"\\n")}); }
+try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: ${refresh}, resumeCold: ${resumeCold}, onIdentityReady: async (expected) => appendFile(process.env.CALL_LOG, JSON.stringify({command:"checkpoint",args:[expected]})+"\\n")}); }
 finally { await release(); }`,
       );
     if (envFileStoragePort !== undefined)
@@ -179,6 +184,7 @@ finally { await release(); }`,
           CALL_LOG: log,
           FAILED_BUILD: failedBuild,
           FAILED_STARTUP: String(failedStartup),
+          FAILED_BOOTSTRAP_AFTER_IDENTITY: String(failedBootstrapAfterIdentity),
           CAPACITY_FILE: capacityFile,
           DOCKER_STORAGE: dockerStorage,
           EXHAUST_DISK: String(exhaustDisk),
@@ -416,4 +422,21 @@ test("owned cold recovery checkpoints bootstrap identity before a later startup 
     bootstrap >= 0 && checkpoint > bootstrap && application > checkpoint,
   );
   assert.ok(!calls.some((call) => call.args.includes("--volumes")));
+});
+
+test("an owned identity receipt survives failure inside bootstrap before it returns (CLI adapter)", async () => {
+  const { result, calls } = await launch({
+    resumeCold: true,
+    failedBootstrapAfterIdentity: true,
+  });
+  assert.notEqual(result.status, 0);
+  assert.deepEqual(calls.find((call) => call.command === "checkpoint")?.args, [
+    "c".repeat(64),
+  ]);
+  assert.ok(
+    !calls.some(
+      (call) =>
+        call.args.includes("up") && !call.args.includes("logto-postgres"),
+    ),
+  );
 });

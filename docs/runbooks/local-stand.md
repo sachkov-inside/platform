@@ -52,7 +52,9 @@ Snapshots are reconciled with actual container IDs, immutable images and live HT
 Failed preparation keeps the reservation and reports recovery; retry `refresh` after edits settle.
 An unavailable application can be repaired by refreshing the same source and mode; restore readiness
 before switching to other code. Interrupted initial bootstrap resumes the cold-start procedure,
-retaining its generated identity checkpoint.
+retaining its generated identity checkpoint. Bootstrap emits only a public digest immediately
+after writing the private stand environment; the controller accepts it only while it matches the
+current file, even when later bootstrap requests fail.
 Preserve the state for diagnosis instead of deleting it to bypass a refusal.
 
 The first cold start requires the controller checkout's schema and infrastructure baseline and
