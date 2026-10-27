@@ -320,6 +320,27 @@ Account audit and can be repeated without adding another Account or permission. 
 run by container startup or migrations. The production Compose smoke executes this exact
 compiled command twice on its disposable database.
 
+## Billing Contact fingerprints
+
+Migration `0114_billing_contact_email_fingerprint` adds an email fingerprint to Billing Contacts.
+Every confirmation after deploy writes it in the same transaction as the verified address. Contacts
+verified before that release have none, so a search by email does not find them until the owner
+runs the backfill. The production backend image includes `dist/release/fingerprint-billing-contacts.js`.
+After a successful deploy of the release that adds `0114`, run it once in the current API container:
+
+```bash
+docker exec inside-platform-production-api-1 node dist/release/fingerprint-billing-contacts.js
+```
+
+It uses that container's database, Billing Contact configuration and
+`IDENTITY_EMAIL_FINGERPRINT_KEY`, and prints only counts:
+`{"scanned":…,"written":…,"skippedConcurrent":…,"unreadable":…}`. `skippedConcurrent` counts
+contacts confirmed again while it ran; that confirmation wrote its own fingerprint. `unreadable`
+counts addresses it could not decrypt or normalize; they stay unsearchable and need investigation,
+not a retry loop. A rerun is safe: it touches only contacts whose fingerprint does not match their
+current revision, so it is also the repair after a rollback to a release that confirms addresses
+without a fingerprint. It is never run by container startup or migrations.
+
 ## Migrations, failure and rollback
 
 Schema evolution is forward-only: expand, deploy/backfill while N-1 remains compatible, then remove
