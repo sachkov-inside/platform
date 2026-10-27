@@ -126,7 +126,7 @@ class Preparation(unittest.TestCase):
             self.assertTrue(all(mount.endswith(':ro') for mount in seeder['volumes']))
             self.assertNotIn('/app/dist/development:size=1m,mode=1777',plan['services']['api']['tmpfs'])
             self.assertEqual(len(plan['services']['volume-reader']['volumes']),9)
-            self.assertEqual(plan['services']['provider']['environment']['INSIDE_RESOURCE_ACCOUNT_COUNT'],'128')
+            self.assertEqual(plan['services']['provider']['environment']['INSIDE_RESOURCE_ACCOUNT_COUNT'],'256')
             self.assertIn('postgres:5432/umami',(output/'monitoring/umami.env').read_text())
             self.assertEqual((output/'monitoring/umami.database.password').stat().st_mode&0o777,0o600)
             for enabled in (False,True):

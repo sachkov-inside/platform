@@ -29,7 +29,7 @@ def assess(value):
 
 def validate_profile(value):
     if (type(value) is not dict or value.get('schema')!=1 or value.get('name')!='platform-representative-v1'
-            or type(value.get('accounts')) is not int or not 32<=value['accounts']<=128
+            or type(value.get('accounts')) is not int or value['accounts']!=256
             or type(value.get('materials')) is not int or not 256<=value['materials']<=512
             or value.get('pairs')!=[['off','on'],['on','off']]
             or value.get('concurrency')!=8 or value.get('sample_ratio')!=1

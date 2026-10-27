@@ -16,31 +16,31 @@ function parse(text) {
 const rawProfile = parse(readFileSync("/resource/full-profile.json", "utf8"));
 if (
   !record(rawProfile) ||
-  rawProfile["accounts"] !== 128 ||
+  rawProfile["accounts"] !== 256 ||
   rawProfile["materials"] !== 512 ||
   rawProfile["concurrency"] !== 8
 )
   throw new Error("fixed profile required");
-const profile = { accounts: 128, materials: 512, concurrency: 8 };
+const profile = { accounts: 256, materials: 512, concurrency: 8 };
 const privateTokens = () => {
   const raw = parse(readFileSync("/private/token.json", "utf8"));
   if (
     !record(raw) ||
     !Array.isArray(raw["tokens"]) ||
-    raw["tokens"].length !== 128 ||
+    raw["tokens"].length !== profile.accounts ||
     !raw["tokens"].every((value) => typeof value === "string")
   )
-    throw new Error("128 private tokens required");
+    throw new Error("256 private tokens required");
   return raw["tokens"];
 };
 const privateAccounts = () => {
   const raw = parse(readFileSync("/private/accounts.json", "utf8"));
   if (
     !Array.isArray(raw) ||
-    raw.length !== 128 ||
+    raw.length !== profile.accounts ||
     !raw.every((value) => typeof value === "string")
   )
-    throw new Error("128 private Account identities required");
+    throw new Error("256 private Account identities required");
   return raw;
 };
 const analytics = () => {
@@ -704,7 +704,7 @@ if (action === "cache-ready") {
   );
 } else if (action === "telegram-establish") {
   let accepted = 0;
-  for (let index = 0; index < 128; index++) {
+  for (let index = 0; index < profile.accounts; index++) {
     const result = await telegramUpdate(index, 1000000 + index);
     if (!operationOk(result, "telegram_webhook", ""))
       throw new Error("synthetic Telegram contact creation failed");

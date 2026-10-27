@@ -231,6 +231,7 @@ def ready(compose,path,host='api',port=3001):
 
 
 def seed(compose,output):
+    actors=acceptance.validate_profile(json.loads(PROFILE.read_text()))['accounts']
     resource_runtime.wait_ready(compose)
     invoke(compose,['run','--rm','--no-deps','migrations'],timeout=60)
     definitions=invoke(compose,['run','--rm','--no-deps','broker-config'],timeout=15)
@@ -249,10 +250,10 @@ def seed(compose,output):
     ready(compose,'/ready','telegram',3002)
     ready(compose,'/oidc/.well-known/openid-configuration','logto',3001)
     established_telegram=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','telegram-establish'],timeout=45))
-    if established_telegram!={'accepted':128}:raise ValueError('all_telegram_contacts_required')
-    pilot.await_fact(lambda:telegram.processed(compose,sql,1000000,1000128,128),bool,budget=30,probe='synthetic_telegram_seed_processed')
-    contacts=int(sql(compose,"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND 1000128;",role='telegram_owner',database='inside_telegram'))
-    if contacts!=128:raise ValueError('all_telegram_contacts_required')
+    if established_telegram!={'accepted':actors}:raise ValueError('all_telegram_contacts_required')
+    pilot.await_fact(lambda:telegram.processed(compose,sql,1000000,1000000+actors,actors),bool,budget=30,probe='synthetic_telegram_seed_processed')
+    contacts=int(sql(compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
+    if contacts!=actors:raise ValueError('all_telegram_contacts_required')
     from importlib.util import spec_from_file_location,module_from_spec
     spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
     # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
@@ -270,10 +271,10 @@ def seed(compose,output):
     (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
     (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
     established=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
-    if (set(established)!={'created','accounts'} or established['created']!=128 or not isinstance(established['accounts'],list) or len(established['accounts'])!=128 or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=128):raise ValueError('all_accounts_required')
+    if (set(established)!={'created','accounts'} or established['created']!=actors or not isinstance(established['accounts'],list) or len(established['accounts'])!=actors or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=actors):raise ValueError('all_accounts_required')
     (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
     corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
-    if corpus!={'accounts':128,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
+    if corpus!={'accounts':actors,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
     return guard_proof
 
 

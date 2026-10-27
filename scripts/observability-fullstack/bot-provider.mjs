@@ -94,7 +94,7 @@ export function botProvider(tls) {
             });
             return;
           }
-          if (!Number.isSafeInteger(id) || id < 1000001 || id > 1000128) {
+          if (!Number.isSafeInteger(id) || id < 1000001 || id > 1000256) {
             finish(400, { ok: false, error_code: 400 });
             return;
           }
@@ -109,7 +109,7 @@ export function botProvider(tls) {
         }
         if (method === "sendMessage") {
           const id = "chat_id" in raw ? Number(raw.chat_id) : NaN;
-          if (!Number.isSafeInteger(id) || id < 1000001 || id > 1000128) {
+          if (!Number.isSafeInteger(id) || id < 1000001 || id > 1000256) {
             finish(400, { ok: false, error_code: 400 });
             return;
           }
