@@ -36,6 +36,8 @@ export function assemblePaymentsSearchGroup(
         accountIds = found.value.accountIds;
         if (found.value.nameSearch === "unavailable")
           personSearch = "name_unavailable";
+        else if (found.value.nameSearch === "truncated")
+          personSearch = "truncated";
       } else if (found.error.code === "forbidden") {
         return { ok: false, error: found.error };
       } else if (found.error.code === "dependency_unavailable") {

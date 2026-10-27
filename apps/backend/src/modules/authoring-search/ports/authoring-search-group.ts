@@ -93,12 +93,13 @@ export interface AuthoringSearchPayment {
 /**
  * Whether the payments of a person were searched, so that an empty list is an answer:
  * `name_unavailable` means the text was read as a name or @username and the people directory could
- * not search names (as its own `nameSearch: "unavailable"`); `unavailable` means the people
- * directory did not answer at all. Order number, bank payment number and amount are searched in
- * either case.
+ * not search names (as its own `nameSearch: "unavailable"`); `truncated` means more people matched
+ * than the search takes, so the payments of only some of them were searched (as its own
+ * `nameSearch: "truncated"`); `unavailable` means the people directory did not answer at all.
+ * Order number, bank payment number and amount are searched in every case.
  */
 export type PaymentPersonSearchState =
-  "available" | "name_unavailable" | "unavailable";
+  "available" | "name_unavailable" | "truncated" | "unavailable";
 
 /** What one group search receives: the normalized text and the most hits to return. */
 export interface AuthoringSearchRequest {

@@ -64,9 +64,9 @@ export class AuthoringSearchService {
       }>;
       kind: 'payments';
       /**
-       * Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in either case
+       * Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, truncated when more people matched than the search takes and only the payments of some of them were searched, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in every case
        */
-      personSearch: 'available' | 'name_unavailable' | 'unavailable';
+      personSearch: 'available' | 'name_unavailable' | 'truncated' | 'unavailable';
       state: 'ready';
     }) | {
       kind: 'people' | 'products' | 'materials' | 'payments';

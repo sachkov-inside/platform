@@ -21,7 +21,10 @@ import {
   assembleAccounts,
 } from "../../src/modules/accounts/index.js";
 import { fingerprintEmail } from "../../src/modules/accounts/shared/account-input.js";
-import { BillingPaymentSearch } from "../../src/modules/billing/index.js";
+import {
+  BillingPaymentSearch,
+  PAYMENT_SEARCH_ACCOUNT_LIMIT,
+} from "../../src/modules/billing/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { PeopleDirectory } from "../../src/modules/people-directory/index.js";
 import {
@@ -928,6 +931,64 @@ describe("Authoring search", () => {
         ],
       },
     });
+  });
+
+  test("when more people match than the search takes, the Payments group answers the payments of those taken and says the list is cut", async () => {
+    const owner = randomUUID();
+    await createAccount(owner, "billing:manage");
+    const commerce = createProductCommerceFixture(database, owner);
+    const s = await commerce.scenario();
+    const purchase = commerceValue(
+      await s.payments.purchase(s.buyer, s.command),
+    );
+    const row = await database.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchase.purchaseRef },
+    });
+    const requests: unknown[] = [];
+    const registry = assembleAuthoringSearch([
+      assemblePaymentsSearchGroup(
+        new BillingPaymentSearch({
+          prisma: database.prisma,
+          accounts: s.accounts,
+        }),
+        {
+          searchPersonAccounts: (_actor, input) => {
+            requests.push(input);
+            return Promise.resolve({
+              ok: true as const,
+              value: {
+                accountIds: [s.buyer],
+                nameSearch: "truncated" as const,
+              },
+            });
+          },
+        },
+      ),
+    ]);
+    expect(await registry.search(owner, "Анна")).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          {
+            kind: "payments",
+            state: "ready",
+            items: [
+              {
+                purchaseRef: purchase.purchaseRef,
+                productName: "Курс",
+                amountKopecks: 200000,
+                state: row.state,
+                createdAt: row.createdAt.toISOString(),
+              },
+            ],
+            personSearch: "truncated",
+          },
+        ],
+      },
+    });
+    expect(requests).toEqual([
+      { query: "Анна", limit: PAYMENT_SEARCH_ACCOUNT_LIMIT },
+    ]);
   });
 
   /** An Account with one permission, or none; a second call for the same Account changes nothing. */

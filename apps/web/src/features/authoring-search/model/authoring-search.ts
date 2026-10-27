@@ -92,7 +92,12 @@ export const searchGroupSchema = z.union([
     .object({
       items: z.array(paymentHitSchema),
       kind: z.literal("payments"),
-      personSearch: z.enum(["available", "name_unavailable", "unavailable"]),
+      personSearch: z.enum([
+        "available",
+        "name_unavailable",
+        "truncated",
+        "unavailable",
+      ]),
       state: z.literal("ready"),
     })
     .strict(),
@@ -219,7 +224,7 @@ export function searchGroupEntries(
 /**
  * Пояснение к группе, чтобы пустой или неполный список не выглядел полным ответом. У «Людей» без
  * поиска по имени работают только email и ID. Платежи по номеру заказа и сумме ищутся всегда; по
- * человеку сервер мог не искать.
+ * человеку сервер мог не искать или искать не у всех найденных людей.
  */
 export function searchGroupNote(group: AuthoringSearchGroup): string | null {
   if (group.state !== "ready") return null;
@@ -242,6 +247,7 @@ const paymentsNote = {
   available: null,
   name_unavailable:
     "Поиск по имени временно недоступен. Найдите платежи человека по email или ID.",
+  truncated: "Показаны платежи не всех найденных людей. Уточните запрос.",
   unavailable:
     "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.",
 } as const satisfies Record<

@@ -142,9 +142,9 @@ const readyGroupHttpSchema = z.discriminatedUnion("kind", [
         )
         .max(AUTHORING_SEARCH_GROUP_LIMIT),
       personSearch: z
-        .enum(["available", "name_unavailable", "unavailable"])
+        .enum(["available", "name_unavailable", "truncated", "unavailable"])
         .describe(
-          "Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in either case",
+          "Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, truncated when more people matched than the search takes and only the payments of some of them were searched, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in every case",
         ),
     })
     .strict(),

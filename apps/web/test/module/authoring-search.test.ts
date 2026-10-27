@@ -75,7 +75,8 @@ describe("authoring search Payments group (#1718)", () => {
 
   it("says when payments were not searched by person, so an empty group is no answer", () => {
     const group = (
-      personSearch: "available" | "name_unavailable" | "unavailable",
+      personSearch:
+        "available" | "name_unavailable" | "truncated" | "unavailable",
     ) => ({
       kind: "payments" as const,
       state: "ready" as const,
@@ -89,6 +90,12 @@ describe("authoring search Payments group (#1718)", () => {
     expect(searchGroupNote(group("unavailable"))).toBe(
       "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.",
     );
+    expect(searchGroupNote(group("truncated"))).toBe(
+      "Показаны платежи не всех найденных людей. Уточните запрос.",
+    );
+    expect(
+      searchResponseSchema.parse({ groups: [group("truncated")] }).groups,
+    ).toEqual([group("truncated")]);
     // The flag is part of the group: a Payments group without it is not read.
     expect(
       searchResponseSchema.safeParse({
