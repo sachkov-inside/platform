@@ -1,4 +1,5 @@
 // @ts-check
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import {
@@ -49,17 +50,18 @@ function computePlan() {
 function main() {
   const plan = computePlan();
   const serialized = JSON.stringify(plan);
+  const digest = createHash("sha256").update(serialized).digest("hex");
   if (process.argv[2] === "plan") {
     const output = process.env["GITHUB_OUTPUT"];
     if (output === undefined) throw new Error("Missing Actions output");
     appendFileSync(
       output,
-      `plan=${serialized}\nrequired=${JSON.stringify(plan.required)}\n`,
+      `plan=${serialized}\nplan_sha256=${digest}\nrequired=${JSON.stringify(plan.required)}\n`,
     );
     return;
   }
   if (process.argv[2] !== "gate") throw new Error("Expected plan or gate");
-  if (process.env["SELECTED_PLAN"] !== serialized)
+  if (process.env["SELECTED_PLAN_SHA256"] !== digest)
     throw new Error("Selected plan does not match complete source change set");
   /** @type {unknown} */
   const results = JSON.parse(process.env["JOB_RESULTS"] ?? "null");
