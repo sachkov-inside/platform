@@ -52,7 +52,8 @@ def establish(compose,invoke,wait,sql,actors):
     if type(actors) is not int or actors!=256:raise ValueError('fixed_telegram_corpus_required')
     # The real delivery worker polls every 250ms. Bound admission instead of relaxing
     # the durable-delivery deadline or changing production transport pacing.
-    deadline=time.monotonic()+90
+    # Preserve the former composed setup ceiling: client45s + durable ledger30s.
+    deadline=time.monotonic()+75
     def remaining(limit):
         value=min(limit,deadline-time.monotonic())
         if value<=0:raise TimeoutError('synthetic_telegram_setup_deadline')

@@ -32,7 +32,7 @@ class Telegram(unittest.TestCase):
         with self.assertRaises(TimeoutError):telegram.establish([],invoke,deadline,incomplete,256)
         self.assertEqual(events,[('admit',0)])
         events.clear()
-        with patch.object(telegram.time,'monotonic',side_effect=[0,0,0,91]):
+        with patch.object(telegram.time,'monotonic',side_effect=[0,0,0,76]):
             with self.assertRaisesRegex(TimeoutError,'synthetic_telegram_setup_deadline'):
                 telegram.establish([],invoke,wait,sql,256)
         self.assertEqual(events,[('admit',0)])
