@@ -89,6 +89,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
   const contactOn = (documents: readonly LegalDocument[]) =>
     new BillingContact({
       prisma: db.prisma,
+      emailFingerprintKey: "synthetic-billing-fingerprint-key-000000",
       protection,
       documents,
       now: () => now,

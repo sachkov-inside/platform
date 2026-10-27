@@ -183,6 +183,7 @@ describe("оплата, выдача прав и доступ к материа�
     });
     contact = new BillingContact({
       prisma: db.prisma,
+      emailFingerprintKey: "synthetic-matrix-fingerprint-key-00000",
       protection: billingContactProtection(
         Buffer.alloc(32, 62).toString("base64"),
       ),

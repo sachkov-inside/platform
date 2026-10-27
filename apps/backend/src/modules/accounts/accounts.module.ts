@@ -57,6 +57,7 @@ import {
       useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
         new BillingContact({
           prisma,
+          emailFingerprintKey: config.identity.emailFingerprintKey,
           protection: config.billingContact
             ? billingContactProtection(config.billingContact.encryptionKey)
             : undefined,
