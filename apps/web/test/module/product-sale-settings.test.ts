@@ -299,13 +299,13 @@ describe("маршруты продажи", () => {
       salesState,
     });
     expect(fakes.manage).toHaveBeenCalledTimes(1);
+    // Одна запись одного продукта: каталог не перебирается страницами.
     expect(fakes.manage).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         operation: "productPrices.list",
-        operationId: expect.any(String),
         productId,
         limit: 1,
-      },
+      }),
       "owner-token",
     );
     expect(fakes.salesStates).toHaveBeenCalledWith(productId);

@@ -127,6 +127,40 @@ function Fixture({
       kind: "ready",
       pin: { productId: collection.id, version: 1 },
     });
+    queryClient.setQueryData(["product-sale", collection.id], {
+      price: {
+        revision: 2,
+        name: collection.name,
+        priceKopecks: 1_490_000,
+        published: true,
+      },
+      salesState: {
+        productId: collection.id,
+        revision: 1,
+        name: "Первый поток",
+        stage: "preorder",
+        startsOn: "2027-02-01",
+        nextEvent: "",
+        priceAfterStartKopecks: 1_990_000,
+      },
+    });
+    queryClient.setQueryData(
+      ["owner-activation-rules"],
+      [
+        {
+          id: "97000000-0000-4000-8000-0000000000a1",
+          code: "FIRST-RELEASE-2025",
+          name: "Участники прежнего курса о первом релизе",
+          revision: 1,
+          productId: collection.id,
+          sourceRef: "inside-course:first-release-2025",
+          verificationMode: "course_membership",
+          published: true,
+          startsAt: "2026-09-01T00:00:00.000Z",
+          endsAt: null,
+        },
+      ],
+    );
     return queryClient;
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -167,7 +201,7 @@ type Story = StoryObj<typeof meta>;
 export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
     await expect(
@@ -195,7 +229,7 @@ export const TabFromAddress: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      page.getByRole("tab", { name: "Описание и обложка" }),
+      page.getByRole("tab", { name: "Описание и витрина" }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(
       page.getByRole("textbox", { name: "Название продукта" }),
@@ -223,21 +257,139 @@ export const UnknownTabFallsBack: Story = {
   },
 };
 
+/** Старые ссылки (#1720): `?tab=settings` открывает описание с закрепом, `?tab=artifacts` программу. */
+export const LegacySettingsLink: Story = {
+  globals: desktop.globals,
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=settings"),
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("tab", { name: "Описание и витрина" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("button", { name: "Снять закреп с главной" }),
+    ).toBeVisible();
+  },
+};
+export const LegacyArtifactsLink: Story = {
+  globals: mobile.globals,
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=artifacts"),
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(page.getByRole("tab", { name: "Программа" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(
+      page.getByRole("heading", { name: "Артефакты" }),
+    ).toBeVisible();
+  },
+};
+
+function tabStory(
+  tab: string,
+  name: string,
+  check: (page: ReturnType<typeof routeContent>) => Promise<void>,
+  globals: StoryViewport["globals"],
+): Story {
+  return {
+    globals,
+    beforeEach: () => {
+      mocked(useSearchParams).mockReturnValue(
+        new ReadonlyURLSearchParams(`tab=${tab}`),
+      );
+    },
+    play: async ({ canvasElement }) => {
+      const page = routeContent(canvasElement);
+      await expect(page.getByRole("tab", { name })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await check(page);
+    },
+  };
+}
+const saleTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(
+    page.getByText("Предзаказ", { selector: ".admin-badge" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Закрыть продажи" }),
+  ).toBeVisible();
+};
+const learnersTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(
+    page.getByRole("heading", { name: "Ученики пока не показаны" }),
+  ).toBeVisible();
+};
+const communityTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(
+    page.getByText("Все продукты используют общую группу Telegram."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Участники прежнего курса о первом релизе"),
+  ).toBeVisible();
+};
+export const SaleTabDesktop = tabStory(
+  "sale",
+  "Продажа",
+  saleTab,
+  desktop.globals,
+);
+export const SaleTabMobile = tabStory(
+  "sale",
+  "Продажа",
+  saleTab,
+  mobile.globals,
+);
+export const LearnersTabDesktop = tabStory(
+  "learners",
+  "Ученики",
+  learnersTab,
+  desktop.globals,
+);
+export const LearnersTabMobile = tabStory(
+  "learners",
+  "Ученики",
+  learnersTab,
+  mobile.globals,
+);
+export const CommunityTabDesktop = tabStory(
+  "community",
+  "Сообщество и активация",
+  communityTab,
+  desktop.globals,
+);
+export const CommunityTabMobile = tabStory(
+  "community",
+  "Сообщество и активация",
+  communityTab,
+  mobile.globals,
+);
+
 /** Скрытые вкладки остаются смонтированными: несохранённое описание переживает смену вкладки. */
 export const DraftSurvivesTabSwitch: Story = {
   globals: mobile.globals,
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await userEvent.click(
-      page.getByRole("tab", { name: "Описание и обложка" }),
+      page.getByRole("tab", { name: "Описание и витрина" }),
     );
     const summary = page.getByRole("textbox", { name: /^Краткое описание/u });
     await userEvent.clear(summary);
     await userEvent.type(summary, "Черновик описания");
-    await userEvent.click(page.getByRole("tab", { name: "Настройки" }));
+    await userEvent.click(page.getByRole("tab", { name: "Продажа" }));
     await expect(summary).not.toBeVisible();
     await userEvent.click(
-      page.getByRole("tab", { name: "Описание и обложка" }),
+      page.getByRole("tab", { name: "Описание и витрина" }),
     );
     await expect(summary).toHaveValue("Черновик описания");
   },
@@ -275,7 +427,7 @@ export const Imported: Story = {
   decorators: importedDecorators,
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("note")).toHaveTextContent(
@@ -336,6 +488,24 @@ export const ImportedMobile: Story = {
   name: "Продукт из источника, телефон",
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
+/** У продукта из источника содержание только для чтения, а продажа и активация работают. */
+export const ImportedSaleTab: Story = {
+  name: "Продукт из источника, вкладка «Продажа»",
+  ...tabStory("sale", "Продажа", saleTab, desktop.globals),
+  args: { initialCollection: importedCollection },
+  decorators: importedDecorators,
+};
+export const ImportedCommunityTab: Story = {
+  name: "Продукт из источника, вкладка «Сообщество и активация»",
+  ...tabStory(
+    "community",
+    "Сообщество и активация",
+    communityTab,
+    mobile.globals,
+  ),
+  args: { initialCollection: importedCollection },
+  decorators: importedDecorators,
+};
 export const ImportedArchived: Story = {
   name: "Продукт из источника в архиве",
   args: { initialCollection: { ...importedCollection, archived: true } },
@@ -372,7 +542,7 @@ export const ImportedBare: Story = {
   ],
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: "Программа" }));
@@ -408,7 +578,7 @@ export const SavedAfterActivity: Story = {
   ),
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
 
@@ -435,7 +605,7 @@ export const FailedAfterActivity: Story = {
   ...SavedAfterActivity,
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
 

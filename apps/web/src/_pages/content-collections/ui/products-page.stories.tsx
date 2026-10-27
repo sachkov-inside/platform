@@ -336,12 +336,13 @@ export const RowMenuOpensProductTabs: Story = {
         .map((item) => item.textContent),
     ).toEqual([
       "Программа",
-      "Описание и обложка",
-      "Материалы продукта",
-      "Настройки",
+      "Описание и витрина",
+      "Продажа",
+      "Ученики",
+      "Сообщество и активация",
     ]);
     await expect(
-      within(menu).getByRole("menuitem", { name: "Описание и обложка" }),
+      within(menu).getByRole("menuitem", { name: "Описание и витрина" }),
     ).toHaveAttribute(
       "href",
       `/authoring/products/${product.id}?tab=description`,
