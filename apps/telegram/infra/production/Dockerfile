@@ -43,5 +43,8 @@ COPY --from=build --chown=node:node /workspace/.production/telegram/node_modules
 COPY --from=build --chown=node:node /workspace/apps/telegram/dist ./dist
 COPY --from=build --chown=node:node /workspace/.telegram-build-identity/ ./
 USER node
+# Resolve the real bootstrap graph after production deployment has removed devDependencies.
+# A workspace install can hide missing runtime packages through ancestor node_modules.
+RUN node --input-type=module -e 'await import("./dist/application/create-telegram-application.js")'
 EXPOSE 3002
 CMD ["node", "dist/main.js"]
