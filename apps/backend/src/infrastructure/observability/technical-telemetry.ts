@@ -672,7 +672,7 @@ export function observePostgresPool(
 
 type PostgresOperation = "query" | "acquire" | "material-slug-lock";
 
-/** Driver wall duration and acquisition are distinct observations; no SQL or errors enter here. */
+/** Driver duration and acquisition stay distinct; only finite cause fields leave this observer, never SQL or error text. */
 export function beginPostgresObservation(operation: PostgresOperation): {
   run<Value>(work: () => Value): Value;
   complete<Value>(failed: boolean, work: () => Value, error?: unknown): Value;
