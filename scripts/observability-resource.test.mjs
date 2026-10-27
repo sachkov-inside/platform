@@ -101,6 +101,64 @@ test("resource corpus meets the real API identity and account response contracts
   assert.match(result.stdout, /# tests [1-9][0-9]*\b/u);
 });
 
+// deterministic-test-allow unit-io: dependency-ready tooling validates the generated private Telegram env through its real parser; bounded.execute owns the complete Node/tsx group for five seconds inside the existing external owner.
+test("resource Telegram corpus meets the real application configuration contract", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-resource-telegram-"));
+  const loader = new URL(
+    "../apps/telegram/node_modules/tsx/dist/loader.mjs",
+    import.meta.url,
+  ).href;
+  const application = new URL(
+    "../apps/telegram/src/config/application-config.ts",
+    import.meta.url,
+  ).href;
+  const program = `import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
+try {
+  const { loadApplicationConfig } = await import(process.argv[2]);
+  const config = loadApplicationConfig(parseEnv(readFileSync(process.argv[1], "utf8")));
+  process.stdout.write(JSON.stringify({accepted:true,deliveryMode:config.deliveryMode,workersEnabled:config.workersEnabled}));
+} catch {
+  process.stdout.write(JSON.stringify({accepted:false}));
+  process.exitCode=1;
+}`;
+  const command = `import sys
+from pathlib import Path
+sys.path.insert(0,str(Path.cwd()/"scripts/observability-fullstack"))
+import telegram
+sys.path.insert(0,str(Path.cwd()/"scripts/heavy-check"))
+from bounded import execute
+output=Path(sys.argv[1])
+telegram.configure(output,{'services':{'provider':{},'loadgen':{'volumes':[]}}},{'telegram':'owned-fixed-image'})
+sys.stdout.buffer.write(execute([sys.argv[2],'--import',sys.argv[3],'--input-type=module','-e',sys.argv[4],str(output/'telegram/application.env'),sys.argv[5]],timeout=5))
+`;
+  try {
+    const result = await runOwnedProcess("python3", [
+      "-B",
+      "-c",
+      command,
+      directory,
+      process.execPath,
+      loader,
+      program,
+      application,
+    ]);
+    assert.equal(
+      result.reason,
+      "exit",
+      "Telegram configuration owner completed",
+    );
+    assert.equal(result.code, 0, "generated Telegram configuration accepted");
+    assert.deepEqual(JSON.parse(result.stdout), {
+      accepted: true,
+      deliveryMode: "live",
+      workersEnabled: true,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("resource source progress projects canonical complete and active ordered prefixes", () => {
   const first = sourceIds[0],
     second = sourceIds[1];

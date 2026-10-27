@@ -35,8 +35,8 @@ Production compilation явно включает публичный
 RabbitMQ с теми же TLS/definitions, PostgreSQL 18 foundation и отдельная база Umami в том же
 кластере. Telegram запускается из текущего production Dockerfile со своими миграциями,
 базой и рабочими циклами. 256 синтетических BotContact создаются через webhook.
-Fixture явно задаёт `TELEGRAM_MEMBERSHIP_MODE=disabled`: этот прежний режим удалён
-из текущего Telegram. Доставка остаётся `live`, workers включены; проверки processed,
+Fixture явно задаёт `TELEGRAM_MEMBERSHIP_MODE=disabled`: прежнее значение `live`
+удалено из текущего Telegram. Доставка остаётся `live`, workers включены; проверки processed,
 planned и delivered выполняются по прежним реальным квитанциям.
 Logto собирается из закреплённого fork и выполняет реальные seed/alteration migrations.
 Web и API читаются через Caddy HTTPS с проверкой выданного им локального сертификата.
