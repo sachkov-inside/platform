@@ -797,6 +797,13 @@ function route(method, url, entitled) {
   }
   if (/^\/products\/[^/]+\/artifacts$/u.test(path))
     return json({ artifacts: [] });
+  // Артефакты продукта в программе автора: у продуктов набора их нет, панель показывает пустой
+  // список, а не сбой чтения.
+  if (
+    path === "/authoring/product-artifacts" ||
+    /^\/authoring\/products\/[^/]+\/artifacts$/u.test(path)
+  )
+    return json({ artifacts: [] });
   // Продукт продаётся, как в production: у программы с закрытыми уроками есть приглашение к оплате.
   if (/^\/accounts\/current\/billing\/products\/[^/]+\/purchase$/u.test(path))
     return json(null);
