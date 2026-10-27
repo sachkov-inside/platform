@@ -123,16 +123,30 @@ export class PeopleDirectory {
 
   /**
    * The Account IDs of the people the same search finds, without their names or contacts: another
-   * owner's search by person, such as payments, joins its own facts by them.
+   * owner's search by person, such as payments, joins its own facts by them. `nameSearch` says, as
+   * in `searchPeople`, whether an empty list for a name is an answer.
    */
   async searchPersonAccounts(
     actorId: string,
     input: { readonly query: unknown; readonly limit?: unknown },
-  ): Promise<PeopleDirectoryResult<readonly string[]>> {
+  ): Promise<
+    PeopleDirectoryResult<{
+      readonly accountIds: readonly string[];
+      readonly nameSearch: NameSearchState;
+    }>
+  > {
     const found = await this.findCandidates(actorId, input);
     if (!found.ok) return found;
     const people = await this.selectPeople(found.value.candidates);
-    return people.ok ? { ok: true, value: people.value.ids } : people;
+    return people.ok
+      ? {
+          ok: true,
+          value: {
+            accountIds: people.value.ids,
+            nameSearch: found.value.nameSearch,
+          },
+        }
+      : people;
   }
 
   /** The Accounts a search text names, at most `limit`, after the right is checked. */

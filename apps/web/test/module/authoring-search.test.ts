@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   searchGroupEntries,
+  searchGroupNote,
   searchGroupPresentation,
   searchResponseSchema,
 } from "@/features/authoring-search/model/authoring-search";
@@ -23,7 +24,12 @@ describe("authoring search Payments group (#1718)", () => {
     expect(
       searchResponseSchema.parse({
         groups: [
-          { kind: "payments", state: "ready", items: [payment] },
+          {
+            kind: "payments",
+            state: "ready",
+            items: [payment],
+            personSearch: "available",
+          },
           { kind: "payments", state: "unavailable" },
         ],
       }).groups,
@@ -42,6 +48,7 @@ describe("authoring search Payments group (#1718)", () => {
               kind: "payments",
               state: "ready",
               items: [{ ...payment, ...extra }],
+              personSearch: "available",
             },
           ],
         }).success,
@@ -54,6 +61,7 @@ describe("authoring search Payments group (#1718)", () => {
       kind: "payments",
       state: "ready",
       items: [{ ...payment, state: "confirmed" }],
+      personSearch: "available",
     });
     expect(rest).toEqual([]);
     expect(entry).toMatchObject({
@@ -63,6 +71,33 @@ describe("authoring search Payments group (#1718)", () => {
     });
     // 22:30 UTC on 31 January is already 1 February in Moscow.
     expect(plain(entry?.caption ?? null)).toBe("1 260 ₽ · 1 февр. 2030");
+  });
+
+  it("says when payments were not searched by person, so an empty group is no answer", () => {
+    const group = (
+      personSearch: "available" | "name_unavailable" | "unavailable",
+    ) => ({
+      kind: "payments" as const,
+      state: "ready" as const,
+      items: [],
+      personSearch,
+    });
+    expect(searchGroupNote(group("available"))).toBeNull();
+    expect(searchGroupNote(group("name_unavailable"))).toBe(
+      "Поиск по имени временно недоступен. Найдите платежи человека по email или ID.",
+    );
+    expect(searchGroupNote(group("unavailable"))).toBe(
+      "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.",
+    );
+    // The flag is part of the group: a Payments group without it is not read.
+    expect(
+      searchResponseSchema.safeParse({
+        groups: [{ kind: "payments", state: "ready", items: [] }],
+      }).success,
+    ).toBe(false);
+    expect(
+      searchGroupNote({ kind: "payments", state: "unavailable" }),
+    ).toBeNull();
   });
 
   it("shows nothing for an unavailable Payments group", () => {

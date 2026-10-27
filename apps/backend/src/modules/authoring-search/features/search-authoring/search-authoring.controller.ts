@@ -113,6 +113,11 @@ const readyGroupHttpSchema = z.discriminatedUnion("kind", [
             .strict(),
         )
         .max(AUTHORING_SEARCH_GROUP_LIMIT),
+      personSearch: z
+        .enum(["available", "name_unavailable", "unavailable"])
+        .describe(
+          "Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in either case",
+        ),
     })
     .strict(),
 ]);
@@ -242,6 +247,7 @@ export class SearchAuthoringController {
                 state: payment.state,
                 createdAt: payment.createdAt,
               })),
+              personSearch: group.personSearch,
             };
         }
       }),

@@ -28,6 +28,7 @@ export type AuthoringSearchReadyGroup =
       readonly kind: "payments";
       readonly state: "ready";
       readonly items: readonly AuthoringSearchPayment[];
+      readonly personSearch: PaymentPersonSearchState;
     };
 
 export type AuthoringSearchKind = AuthoringSearchReadyGroup["kind"];
@@ -65,6 +66,16 @@ export interface AuthoringSearchPayment {
     | "failed";
   readonly createdAt: string;
 }
+
+/**
+ * Whether the payments of a person were searched, so that an empty list is an answer:
+ * `name_unavailable` means the text was read as a name or @username and the people directory could
+ * not search names (as its own `nameSearch: "unavailable"`); `unavailable` means the people
+ * directory did not answer at all. Order number, bank payment number and amount are searched in
+ * either case.
+ */
+export type PaymentPersonSearchState =
+  "available" | "name_unavailable" | "unavailable";
 
 /** What one group search receives: the normalized text and the most hits to return. */
 export interface AuthoringSearchRequest {
