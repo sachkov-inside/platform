@@ -6,6 +6,7 @@ import { AuthoringSearchHttpModule } from "../../modules/authoring-search/index.
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
+import { ProductLearnersModule } from "../../modules/product-learners/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
 import { SalesFunnelModule } from "../../modules/sales-funnel/index.js";
 import {
@@ -86,6 +87,7 @@ export class ApiModule {
         WebTelemetryHttpModule,
         BillingModule,
         ReadingActivityModule,
+        ProductLearnersModule,
         BookmarksModule,
         SalesFunnelModule,
         CommunicationsModule,
