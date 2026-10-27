@@ -589,6 +589,7 @@ test("Product access writes refresh a second owner surface without committing it
             revision,
             affectedCount: 0,
             affected: [],
+            community: "remains",
           },
         };
       await route.fulfill({ json: { ok: true, value } });
