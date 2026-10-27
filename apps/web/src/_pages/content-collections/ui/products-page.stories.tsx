@@ -185,6 +185,7 @@ const meta = {
       // Общий клиент запросов Storybook помнит закреп прошлой истории; каждая читает его заново.
       getQueryClient().removeQueries({ queryKey: ["authoring-home-pin"] });
       getQueryClient().removeQueries({ queryKey: ["product-sale"] });
+      getQueryClient().removeQueries({ queryKey: ["owner-price-catalog"] });
       return () => {
         mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
       };
