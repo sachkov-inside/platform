@@ -112,10 +112,13 @@ function productColumns(
     sale: {
       id: "sale",
       header: "Продажа",
-      width: "10rem",
+      // Самая длинная плашка («Продажи закрыты») умещается в одну строку.
+      width: "11.5rem",
       cell: (row) =>
         row.sale !== null ? (
-          <StateBadge state={row.sale} />
+          <span className="whitespace-nowrap">
+            <StateBadge state={row.sale} />
+          </span>
         ) : saleLoading ? (
           <>
             <span
@@ -131,7 +134,7 @@ function productColumns(
     holders: {
       id: "holders",
       header: "Обладатели",
-      width: "8rem",
+      width: "7rem",
       align: "end",
       cell: (row) => (
         <span className="tabular-nums">
@@ -146,7 +149,7 @@ function productColumns(
     published: {
       id: "published",
       header: "Опубликовано",
-      width: "9rem",
+      width: "8rem",
       align: "end",
       cell: (row) => (
         <span className="tabular-nums">
@@ -157,7 +160,7 @@ function productColumns(
     home: {
       id: "home",
       header: "На главной",
-      width: "9rem",
+      width: "8rem",
       cell: (row) =>
         row.id === pinnedId ? <StateBadge state="product.pinned" /> : null,
     },

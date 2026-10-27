@@ -374,7 +374,7 @@ function PercentField({
           }
           aria-invalid={error !== ""}
           autoComplete="off"
-          className="admin-field-input max-w-[8rem]"
+          className="admin-field-input admin-field-input-narrow"
           disabled={pending}
           id={id}
           inputMode="numeric"

@@ -97,6 +97,16 @@ test("products list opens a product whose tabs live in the address and keep the 
   await expect(
     products.filter({ hasText: "Прежнее руководство" }),
   ).toContainText("Архив");
+  // Число обладателей приходит с backend; плашка продажи стоит в одну строку.
+  const architecture = products.filter({ hasText: "Архитектура приложения" });
+  await expect(architecture).toContainText(/1\s240/u);
+  const closed = architecture.locator('.admin-badge[data-state="sale.closed"]');
+  const lineHeight = await closed.evaluate((badge) =>
+    Number.parseFloat(getComputedStyle(badge).lineHeight),
+  );
+  expect((await closed.boundingBox())?.height ?? 0).toBeLessThan(
+    lineHeight * 2,
+  );
   await expectAccessibleWithoutOverflow(page);
   await salesAdminEvidence(page, info, "products");
 
