@@ -32,6 +32,16 @@ export function paymentLinkTitle(link: PaymentLink): string {
   return link.snapshot.product?.name ?? link.snapshot.offer.name;
 }
 
+/** По ссылке уже нельзя оплатить: она оплачена, отозвана, её срок истёк или цена изменилась. */
+export function paymentLinkClosed(link: PaymentLink): boolean {
+  return (
+    link.state === "paid" ||
+    link.state === "revoked" ||
+    link.state === "expired" ||
+    link.state === "changed"
+  );
+}
+
 /** Ссылку можно отозвать, пока по ней не началась оплата и она действует. */
 export function canRevokePaymentLink(link: PaymentLink): boolean {
   return link.state === "active";

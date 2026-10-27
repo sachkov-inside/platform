@@ -60,6 +60,7 @@ import {
   PaymentLinkCreateDialog,
   type ProductChoicesState,
 } from "./payment-link-create-dialog.client";
+import { PaymentLinkDetailsDialog } from "./payment-link-details-dialog.client";
 import { copyPaymentLink, paymentLinkUrl } from "./payment-link-share.client";
 
 const pageSize = 30;
@@ -98,6 +99,7 @@ export function PaymentLinksPanel({
   };
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<PaymentLink | null>(null);
+  const [opened, setOpened] = useState<PaymentLink | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [revokeConflict, setRevokeConflict] = useState(false);
   const [status, setStatus] = useState("");
@@ -419,6 +421,10 @@ export function PaymentLinksPanel({
                 label={`Действия со ссылкой «${paymentLinkTitle(link)}» от ${formatMoscowDate(link.createdAt)}`}
               />
             )}
+            onRowOpen={(link) => {
+              setStatus("");
+              setOpened(link);
+            }}
             rowKey={(link) => link.id}
             rowTitle={(link) => paymentLinkTitle(link)}
             rows={links}
@@ -454,6 +460,17 @@ export function PaymentLinksPanel({
         onOpenChange={setCreating}
         open={creating}
         products={products}
+      />
+      <PaymentLinkDetailsDialog
+        // Подробности показывают последнее прочитанное состояние ссылки, а не снимок щелчка.
+        link={
+          opened === null
+            ? null
+            : (links.find((link) => link.id === opened.id) ?? opened)
+        }
+        onClose={() => {
+          setOpened(null);
+        }}
       />
       <AdminConfirmDialog
         confirmLabel="Отозвать ссылку"

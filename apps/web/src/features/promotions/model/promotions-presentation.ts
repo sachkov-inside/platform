@@ -50,6 +50,17 @@ export function promotionPeriodLabel(
     : `${formatMoscowDate(first)} – ${formatMoscowDate(last)}`;
 }
 
+/** Почему скидку из списка можно только посмотреть: архив, прежняя область или анкета. */
+export function promotionReadOnlyReason(
+  promotion: Pick<PromotionListItem, "archived" | "legacy" | "questionnaire">,
+): string {
+  if (promotion.archived)
+    return "Скидка в архиве. Изменить её нельзя: для новых покупок создайте новую.";
+  if (promotion.legacy)
+    return "Скидка прежней области. Её можно только посмотреть: область задана по прежним предложениям.";
+  return "Анкетная скидка. Её можно только посмотреть: анкетные скидки из админки больше не меняются.";
+}
+
 const countFormat = new Intl.NumberFormat("ru-RU");
 
 /** «12 из 50» или «12, без лимита». */

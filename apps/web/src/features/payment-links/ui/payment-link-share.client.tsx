@@ -5,11 +5,16 @@ import Link from "next/link";
 import { useId, useState } from "react";
 
 import { paymentLinkHref, type PaymentLink } from "@/entities/subscription";
-import { formatRubles } from "@/shared/lib/moscow-format";
+import { formatMoscowDateTime, formatRubles } from "@/shared/lib/moscow-format";
+import { StateBadge } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
 import { paymentLinkExpiryLabel } from "../model/payment-link-expiry";
-import { paymentLinkTitle } from "../model/payment-links-presentation";
+import {
+  paymentLinkBadge,
+  paymentLinkClosed,
+  paymentLinkTitle,
+} from "../model/payment-links-presentation";
 
 /** Полный адрес ссылки для покупателя на адресе этой площадки. */
 export function paymentLinkUrl(id: string): string {
@@ -30,16 +35,19 @@ export async function copyPaymentLink(url: string): Promise<string> {
 }
 
 /**
- * Созданная ссылка: адрес для покупателя, «Скопировать», «Поделиться» (меню отправки
+ * Ссылка для отправки: адрес для покупателя, «Скопировать», «Поделиться» (меню отправки
  * устройства, где оно есть) и «Открыть оформление». Ни одно действие не отправляет сообщений
- * само: ссылку отправляет владелец.
+ * само: ссылку отправляет владелец. Сразу после создания показывает только цену и срок; как
+ * подробности строки списка (`details`) ещё состояние и дату создания.
  */
 export function PaymentLinkShare({
   link,
   onDone,
+  details = false,
 }: {
   readonly link: PaymentLink;
   readonly onDone: () => void;
+  readonly details?: boolean;
 }) {
   const id = useId();
   // Компонент появляется только после создания ссылки, в браузере: адрес и меню отправки
@@ -66,7 +74,25 @@ export function PaymentLinkShare({
         <dd className="text-muted-foreground">
           {paymentLinkExpiryLabel(link.expiresAt)}
         </dd>
+        {details ? (
+          <>
+            <dt className="sr-only">Состояние</dt>
+            <dd className="mt-2">
+              <StateBadge state={paymentLinkBadge(link.state)} />
+            </dd>
+            <dt className="sr-only">Создана</dt>
+            <dd className="text-muted-foreground">
+              Создана {formatMoscowDateTime(link.createdAt)}
+            </dd>
+          </>
+        ) : null}
       </dl>
+      {details && paymentLinkClosed(link) ? (
+        <p className="text-sm leading-6 text-muted-foreground">
+          Оплатить по этой ссылке больше нельзя. Покупатель, открыв её, увидит
+          почему.
+        </p>
+      ) : null}
       <div className="admin-field">
         <label className="admin-field-label" htmlFor={id}>
           Ссылка для покупателя

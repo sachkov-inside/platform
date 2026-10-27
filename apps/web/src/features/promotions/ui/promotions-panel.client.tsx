@@ -57,6 +57,11 @@ import {
   PromotionFormDialog,
   type PromotionDraft,
 } from "./promotion-form-dialog.client";
+import {
+  PromotionDetailsDialog,
+  scopeText,
+  type PromotionDetails,
+} from "./promotion-details-dialog.client";
 import { QuestionnaireArchive } from "./questionnaire-archive.client";
 
 export const promotionsQueryKey = ["owner-promotions"] as const;
@@ -88,6 +93,7 @@ export function PromotionsPanel({
   const repeat = useRepeatableOperations();
   const [draft, setDraft] = useState<PromotionDraft | null>(null);
   const [archiving, setArchiving] = useState<PromotionListItem | null>(null);
+  const [viewing, setViewing] = useState<PromotionDetails | null>(null);
   const [archiveError, setArchiveError] = useState<{
     readonly message: string;
     readonly conflict: boolean;
@@ -191,6 +197,24 @@ export function PromotionsPanel({
   const refused =
     filter.view === "promotions" &&
     (isBillingRefusal(list.error) || isBillingRefusal(catalog.error));
+  /** Строка открывает свою скидку: изменяемую в форме, остальные подробностями для чтения. */
+  const openRow = (row: PromotionRow) => {
+    setStatus("");
+    if (!isPromotionEditable(row.item)) {
+      setViewing(row);
+      return;
+    }
+    setDraft({
+      id: row.item.id,
+      initial: promotionFormFromItem(row.item),
+      origin: {
+        id: row.item.id,
+        revision: row.item.revision,
+        startsAt: row.item.startsAt,
+        endsAt: row.item.endsAt,
+      },
+    });
+  };
   const createButton = refused ? undefined : (
     <Button className="min-h-11 px-4" onClick={openCreate} type="button">
       <Plus aria-hidden="true" data-icon="inline-start" />
@@ -375,17 +399,7 @@ export function PromotionsPanel({
                         label: "Изменить",
                         disabled: !isPromotionEditable(row.item),
                         onSelect: () => {
-                          setStatus("");
-                          setDraft({
-                            id: row.item.id,
-                            initial: promotionFormFromItem(row.item),
-                            origin: {
-                              id: row.item.id,
-                              revision: row.item.revision,
-                              startsAt: row.item.startsAt,
-                              endsAt: row.item.endsAt,
-                            },
-                          });
+                          openRow(row);
                         },
                       },
                       {
@@ -402,6 +416,7 @@ export function PromotionsPanel({
                     label={`Действия со скидкой «${row.item.name}»`}
                   />
                 )}
+                onRowOpen={openRow}
                 rowKey={(row) => row.item.id}
                 rowTitle={(row) => row.item.name}
                 rows={rows}
@@ -451,6 +466,12 @@ export function PromotionsPanel({
         }}
         products={choices}
       />
+      <PromotionDetailsDialog
+        details={viewing}
+        onClose={() => {
+          setViewing(null);
+        }}
+      />
       <AdminConfirmDialog
         confirmLabel="Архивировать скидку"
         consequence="Новые покупки её не получат. Сохранённые расчёты и оплаты не изменятся. Из архива скидку не вернуть: нужна новая."
@@ -496,17 +517,6 @@ export function PromotionsPanel({
       />
     </section>
   );
-}
-
-function scopeText(scope: PromotionScope): string {
-  switch (scope.kind) {
-    case "all":
-      return "Все продукты";
-    case "legacy":
-      return "Прежние предложения";
-    case "products":
-      return scope.names.join(", ");
-  }
 }
 
 const shownChips = 2;

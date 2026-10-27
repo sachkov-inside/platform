@@ -58,7 +58,7 @@
   padding-inline: 4px;
   text-align: end;
 }
-.admin-table tbody tr[data-href] {
+.admin-table tbody tr:is([data-href], [data-opens]) {
   cursor: pointer;
 }
 .admin-table tbody tr:is(:hover, :focus-within) > td {
@@ -89,7 +89,7 @@
   border-bottom: 1px solid var(--border);
   overflow-wrap: anywhere;
 }
-.admin-list-item[data-href] {
+.admin-list-item:is([data-href], [data-opens]) {
   cursor: pointer;
 }
 .admin-list-item:is(:hover, :focus-within) {
@@ -140,6 +140,16 @@
   font-weight: 600;
   text-decoration: none;
   border-radius: 4px;
+}
+/* Название строки без своего адреса: кнопка выглядит как ссылка строки. */
+.admin-row-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
 }
 .admin-row-link:hover {
   text-decoration: underline;

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { expect, mocked, within } from "storybook/test";
+import { expect, mocked, userEvent, within } from "storybook/test";
 
 import { desktop, mobile } from "@/storybook/loads-in-place";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
@@ -183,6 +183,46 @@ export const Unavailable: Story = {
     await expect(
       await page.findByRole("heading", { name: "Не удалось загрузить скидки" }),
     ).toBeVisible();
+  },
+};
+
+/** Щелчок по строке действующей скидки открывает её форму изменения. */
+export const RowOpensEditForm: Story = {
+  beforeEach: scenario(fullFixture),
+  globals: desktop.globals,
+  name: "Строка открывает форму скидки",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const table = await page.findByRole("table", { name: "Скидки" });
+    await userEvent.click(
+      within(table).getByRole("button", { name: "Скидка выпускникам" }),
+    );
+    const dialog = await within(document.body).findByRole("dialog", {
+      name: "Изменить скидку",
+    });
+    await expect(
+      within(dialog).getByRole("textbox", { name: "Название" }),
+    ).toHaveValue("Скидка выпускникам");
+  },
+};
+
+/** Архивная скидка прежней области открывается подробностями только для чтения. */
+export const ArchivedDetailsMobile: Story = {
+  beforeEach: scenario(fullFixture, "archived=1"),
+  globals: mobile.globals,
+  name: "Архивная скидка · подробности, телефон",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const list = await page.findByRole("list", { name: "Скидки" });
+    await userEvent.click(
+      within(list).getByRole("button", { name: "Скидка подписчикам Tribute" }),
+    );
+    const dialog = await within(document.body).findByRole("dialog", {
+      name: "Скидка подписчикам Tribute",
+    });
+    await expect(within(dialog).getByText("Прежние предложения")).toBeVisible();
+    await expect(within(dialog).getByText("Архивная")).toBeVisible();
+    await expect(within(dialog).queryByRole("textbox")).toBeNull();
   },
 };
 

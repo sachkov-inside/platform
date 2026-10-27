@@ -198,6 +198,59 @@ export const Unavailable: Story = {
   },
 };
 
+/** Щелчок по строке открывает подробности ссылки: диалог с копированием и оформлением. */
+export const LinkDetailsDesktop: Story = {
+  beforeEach: scenario({ links: storyPaymentLinks(3) }),
+  globals: desktop.globals,
+  name: "Подробности ссылки · диалог",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const table = await page.findByRole("table", {
+      name: "Ссылки на оплату, новые сверху",
+    });
+    await userEvent.click(
+      within(table).getAllByRole("button", { name: "AI Engineering" })[0] ??
+        table,
+    );
+    const dialog = await within(document.body).findByRole("dialog", {
+      name: "Ссылка на оплату",
+    });
+    await expect(within(dialog).getByText("Готова к оплате")).toBeVisible();
+    await expect(
+      within(dialog).getByRole("textbox", { name: "Ссылка для покупателя" }),
+    ).toHaveDisplayValue(/\/payment\/links\//u);
+    await expect(
+      within(dialog).getByRole("button", { name: "Скопировать ссылку" }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole("link", { name: "Открыть оформление" }),
+    ).toBeVisible();
+  },
+};
+
+/** На телефоне подробности ссылки открываются листом снизу по касанию строки. */
+export const LinkDetailsMobile: Story = {
+  beforeEach: scenario({ links: storyPaymentLinks(3) }),
+  globals: mobile.globals,
+  name: "Подробности ссылки · лист",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const list = await page.findByRole("list", {
+      name: "Ссылки на оплату, новые сверху",
+    });
+    const rows = within(list).getAllByRole("listitem");
+    await userEvent.click(within(rows[2] ?? list).getByText(/Без срока|^по /u));
+    const dialog = await within(document.body).findByRole("dialog", {
+      name: "Ссылка на оплату",
+    });
+    await expect(within(dialog).getByText(/^Создана /u)).toBeVisible();
+    await expect(
+      document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ).toBe(true);
+  },
+};
+
 /** Аккаунт без права billing:manage: отказ без повтора, фильтров и «Создать ссылку». */
 export const RefusedDesktop: Story = {
   beforeEach: scenario({ forbidden: true }),
