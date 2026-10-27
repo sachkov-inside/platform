@@ -1659,6 +1659,7 @@ export const InlineVideoInsert: Story = {
               type: "paragraph",
               content: [{ type: "text", text: "Перед видео" }],
             },
+            { type: "paragraph" },
             {
               type: "paragraph",
               content: [{ type: "text", text: "После видео" }],
@@ -1670,8 +1671,12 @@ export const InlineVideoInsert: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(await canvas.findByText("Перед видео"));
-    await userEvent.keyboard("{End}{Enter}");
+    const textbox = await canvas.findByRole("textbox", {
+      name: "Содержимое материала",
+    });
+    const insertion = textbox.querySelectorAll("p")[1];
+    if (insertion === undefined) throw new Error("Missing insertion paragraph");
+    await userEvent.click(insertion);
     await userEvent.click(
       canvas.getByRole("button", { name: "Добавить блок" }),
     );
