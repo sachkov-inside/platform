@@ -7,6 +7,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { createQueryRowClient } from "./setup/query-rows.js";
+import { telegramWithoutContactsV2 } from "../support/telegram-contacts-v1.js";
 
 describe("BC-2 contact association through the public owner", () => {
   let db: TestDatabase;
@@ -57,6 +58,7 @@ describe("BC-2 contact association through the public owner", () => {
     async ({ size, ids }) => {
       let providerPortCalls = 0;
       const provider: TelegramContactsProvider = {
+        ...telegramWithoutContactsV2,
         read(queries) {
           providerPortCalls++;
           return Promise.resolve({
@@ -109,6 +111,7 @@ describe("BC-2 contact association through the public owner", () => {
     const id = groups[0]?.ids[0];
     if (id === undefined) throw new Error("Missing fixture Account");
     const duplicates: TelegramContactsProvider = {
+      ...telegramWithoutContactsV2,
       read(queries) {
         const query = queries[0];
         if (query === undefined) throw new Error("Missing provider query");
@@ -133,6 +136,7 @@ describe("BC-2 contact association through the public owner", () => {
       telegramContactState: "unavailable",
     });
     const changed: TelegramContactsProvider = {
+      ...telegramWithoutContactsV2,
       async read(queries) {
         await db.prisma.telegramAccountLinkState.update({
           where: { accountId: id },

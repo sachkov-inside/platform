@@ -26,6 +26,7 @@ import { assembleMaterials } from "../../src/entrypoints/composition/assemble-ma
 import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { telegramWithoutContactsV2 } from "../support/telegram-contacts-v1.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import {
   createMigratedTestDatabase,
@@ -503,6 +504,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     );
     let unlink = false;
     const identities = new TelegramAccountLinks(db.prisma, {
+      ...telegramWithoutContactsV2,
       read: async (queries) => {
         expect(queries).toEqual([
           { accountRef: principalRef, telegramIdentityRef: identityRef },
