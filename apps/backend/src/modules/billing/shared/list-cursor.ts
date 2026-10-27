@@ -46,7 +46,7 @@ export function decodeListCursor(
   try {
     decoded = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
   } catch {
-    // Malformed caller data is invalid input, not a failure.
+    // Not a dependency failure: malformed caller cursor data is invalid input.
     return null;
   }
   const cursor = cursorSchema.safeParse(decoded);
