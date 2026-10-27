@@ -1,0 +1,344 @@
+[
+  {
+    "id": "patterns-каркас-админки--desktop",
+    "width": 390,
+    "file": "storybook-patterns-admin-shell--desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "patterns-каркас-админки--desktop",
+    "width": 1440,
+    "file": "storybook-patterns-admin-shell--desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "patterns-каркас-админки--mobile",
+    "width": 390,
+    "file": "storybook-patterns-admin-shell--mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "patterns-каркас-админки--mobile",
+    "width": 1440,
+    "file": "storybook-patterns-admin-shell--mobile-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--populated",
+    "width": 390,
+    "file": "storybook-pages-authoring-materials--populated-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--populated",
+    "width": 1440,
+    "file": "storybook-pages-authoring-materials--populated-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--empty",
+    "width": 390,
+    "file": "storybook-pages-authoring-materials--empty-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--empty",
+    "width": 1440,
+    "file": "storybook-pages-authoring-materials--empty-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--no-results",
+    "width": 390,
+    "file": "storybook-pages-authoring-materials--no-results-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--no-results",
+    "width": 1440,
+    "file": "storybook-pages-authoring-materials--no-results-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-продукты--products-desktop",
+    "width": 390,
+    "file": "storybook-pages-authoring-products--products-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-продукты--products-desktop",
+    "width": 1440,
+    "file": "storybook-pages-authoring-products--products-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-продукты--empty",
+    "width": 390,
+    "file": "storybook-pages-authoring-products--empty-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-продукты--empty",
+    "width": 1440,
+    "file": "storybook-pages-authoring-products--empty-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-темы--topics-desktop",
+    "width": 390,
+    "file": "storybook-pages-authoring-topics--topics-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-темы--topics-desktop",
+    "width": 1440,
+    "file": "storybook-pages-authoring-topics--topics-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-темы--topic-from-address",
+    "width": 390,
+    "file": "storybook-pages-authoring-topics--topic-from-address-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-темы--topic-from-address",
+    "width": 1440,
+    "file": "storybook-pages-authoring-topics--topic-from-address-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--tab-from-address",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-editor--tab-from-address-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--tab-from-address",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-editor--tab-from-address-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--submissions",
+    "width": 390,
+    "file": "storybook-pages-authoring-task-submissions--submissions-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--submissions",
+    "width": 1440,
+    "file": "storybook-pages-authoring-task-submissions--submissions-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--submission",
+    "width": 390,
+    "file": "storybook-pages-authoring-task-submissions--submission-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--submission",
+    "width": 1440,
+    "file": "storybook-pages-authoring-task-submissions--submission-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--nothing-awaiting",
+    "width": 390,
+    "file": "storybook-pages-authoring-task-submissions--nothing-awaiting-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--nothing-awaiting",
+    "width": 1440,
+    "file": "storybook-pages-authoring-task-submissions--nothing-awaiting-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-admintable--materials-desktop",
+    "width": 390,
+    "file": "storybook-components-admin-admintable--materials-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-admintable--materials-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-admintable--materials-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--thirty-days-desktop",
+    "width": 390,
+    "file": "storybook-components-admin-trendchart--thirty-days-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--thirty-days-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-trendchart--thirty-days-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-metriccard--overview-row-desktop",
+    "width": 390,
+    "file": "storybook-components-admin-metriccard--overview-row-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-metriccard--overview-row-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-metriccard--overview-row-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-reasondialog--revoke-desktop",
+    "width": 390,
+    "file": "storybook-components-admin-reasondialog--revoke-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-reasondialog--revoke-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-reasondialog--revoke-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-adminfilterbar--materials-desktop",
+    "width": 390,
+    "file": "storybook-components-admin-adminfilterbar--materials-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-adminfilterbar--materials-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-adminfilterbar--materials-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-adminstates--error-desktop",
+    "width": 390,
+    "file": "storybook-components-admin-adminstates--error-desktop-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-adminstates--error-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-adminstates--error-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  }
+]
