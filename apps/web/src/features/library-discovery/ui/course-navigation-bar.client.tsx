@@ -50,7 +50,7 @@ export function CourseNavigationBar({
 }
 
 type NavigationItemProps = {
-  readonly icon: LucideIcon;
+  readonly icon?: LucideIcon;
   readonly label: string;
   readonly caption?: ReactNode;
   readonly title?: string;
@@ -68,7 +68,7 @@ export function CourseNavigationItem(props: NavigationItemProps) {
   const Icon = props.icon;
   const content = (
     <>
-      <Icon size={16} aria-hidden="true" />
+      {Icon === undefined ? null : <Icon size={16} aria-hidden="true" />}
       <span className={styles["label"]} aria-hidden="true">
         {props.caption === undefined ? null : <small>{props.caption}</small>}
         <span>{props.label}</span>

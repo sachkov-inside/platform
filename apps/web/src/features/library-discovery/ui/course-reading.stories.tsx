@@ -301,6 +301,16 @@ export const PhoneProgramme: Story = {
     const labelRange = document.createRange();
     labelRange.selectNodeContents(label);
     await expect(labelRange.getClientRects()).toHaveLength(1);
+    const textBounds = labelRange.getBoundingClientRect();
+    const buttonBounds = dock
+      .getByRole("button", { name: "Вся программа" })
+      .getBoundingClientRect();
+    await expect(textBounds.left - buttonBounds.left).toBeGreaterThanOrEqual(
+      12,
+    );
+    await expect(buttonBounds.right - textBounds.right).toBeGreaterThanOrEqual(
+      12,
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Вся программа" }),
     );

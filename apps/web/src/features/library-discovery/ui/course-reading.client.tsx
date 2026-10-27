@@ -512,7 +512,6 @@ export function ProgrammeDialog({
           />
         )}
         <CourseNavigationItem
-          icon={List}
           label="Программа"
           onClick={openProgramme}
           opensProgramme
