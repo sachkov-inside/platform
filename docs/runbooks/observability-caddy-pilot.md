@@ -143,6 +143,14 @@ owned-vmauth outage, sentinel-bearing headers/path/query/body, exact partition r
 both query transports, gateway outage, Alloy staleness and a deliberately visible counter reset.
 No provider, business message or production application call is made.
 
+The privacy POST places its body sentinel in a MetricsQL comment on the constant `1` query,
+using only the admitted `query` form key. Its sentinel Host, Cookie, trace and other private
+headers remain present. The case still requires HTTP200 and the complete validated query-one
+response through the closed query guard and native VictoriaMetrics. Unknown form keys remain
+refused before storage. The local native guard/vendor replay establishes this request contract;
+exact-source Linux Caddy acceptance remains a separate requirement.
+
+
 For in-flight observation, a child sends the existing POST query's declared seven-byte body
 `query=1`, withholding its final byte. Its total monotonic eight-second deadline covers connect,
 prefix send, wait, response headers/body and parsing. The child owns one outbound socket and

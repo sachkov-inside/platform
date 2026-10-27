@@ -21,7 +21,7 @@ def perform(case,token,*,_connection=None):
     if case=='fallback':path='/'+SENTINEL+'?private='+SENTINEL
     if case=='body_limit':body=b'query=1&padding='+b'x'*(65537-len(b'query=1&padding='))
     if case=='privacy':
-        body=b'query=1&private='+SENTINEL.encode()
+        body=b'query=1%20%23'+SENTINEL.encode()  # A MetricsQL comment keeps the body canary inside the admitted query key.
         headers.update({'Host':SENTINEL+'.invalid','Cookie':'private='+SENTINEL,'X-Private':SENTINEL,
             'traceparent':'00-'+'0a'*16+'-'+'0b'*8+'-01','tracestate':'private='+SENTINEL,'baggage':'private='+SENTINEL})
     connection=_connection or http.client.HTTPConnection('127.0.0.1',18427,timeout=10)
