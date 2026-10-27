@@ -50,8 +50,8 @@ export function NotificationChannelsForm({
         Новые материалы
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Сообщение приходит один раз — когда материал опубликован впервые. Чеки и
-        служебные сообщения об оплате приходят на подтверждённый email всегда.
+        Сообщаем о каждом новом материале один раз. Чеки и сообщения об оплате
+        всегда приходят на подтверждённую почту.
       </p>
 
       {sessionExpired ? (
@@ -78,8 +78,8 @@ export function NotificationChannelsForm({
       ) : unavailable ? (
         <div className="mt-5 text-sm leading-6" role="alert">
           <p>
-            {error ?? "Настройки уведомлений сейчас недоступны."} Мы перечитаем
-            их сами.
+            {error ?? "Не удалось загрузить настройки уведомлений."} Повторим
+            загрузку автоматически.
           </p>
         </div>
       ) : (
@@ -99,7 +99,7 @@ export function NotificationChannelsForm({
                   checked={email}
                   disabled={pending}
                   hint="Письмом на подтверждённый адрес."
-                  label="Email"
+                  label="Почта"
                   onChange={onChange}
                 />
               </li>

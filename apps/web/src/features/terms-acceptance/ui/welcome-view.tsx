@@ -49,8 +49,7 @@ export function WelcomeView({
         {unavailable ? (
           <>
             <p className="mt-4 text-sm leading-6" role="alert">
-              Условия сейчас не удаётся загрузить. Обновите страницу немного
-              позже.
+              Не удалось загрузить условия. Обновите страницу позже.
             </p>
             <Button
               asChild
@@ -72,8 +71,7 @@ export function WelcomeView({
               >
                 условия использования
               </Link>
-              ; пользоваться Sachkov Dev можно с 14 лет. Данные аккаунта
-              обрабатываются по{" "}
+              . Сайтом можно пользоваться с 14 лет. Обработка данных описана в{" "}
               <Link
                 className="text-action underline underline-offset-4"
                 href={privacyHref}

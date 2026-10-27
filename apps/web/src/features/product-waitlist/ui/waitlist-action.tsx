@@ -45,21 +45,19 @@ export function WaitlistMembership({
             type="button"
             onClick={onBegin}
           >
-            {retryingWithdrawal ? "Повторить отказ" : "Повторить"}
+            {retryingWithdrawal ? "Отказаться от ожидания" : "Повторить"}
           </button>
         </>
       ) : state === "linking" ? (
         <>
-          <p>
-            Подключите Telegram к текущему аккаунту, чтобы завершить запись.
-          </p>
+          <p>Подключите Telegram к этому аккаунту, чтобы завершить запись.</p>
           {linking}
         </>
       ) : (
         <p role="status">
           {state === "expired"
             ? "Срок заявки истёк. Запись не завершена."
-            : "Вы отказались от ожидания."}
+            : "Вы вышли из списка ожидания."}
         </p>
       )}
     </div>
@@ -90,9 +88,7 @@ export function WaitlistAction({
     >
       {state === "linking" ? (
         <div className="waitlist-link-context">
-          <p>
-            Подключите Telegram к текущему аккаунту, чтобы завершить запись.
-          </p>
+          <p>Подключите Telegram к этому аккаунту, чтобы завершить запись.</p>
           {linking}
         </div>
       ) : (

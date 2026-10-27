@@ -32,7 +32,7 @@ export function AcceptedDocumentsPanel({
         </p>
       ) : state.kind === "unavailable" ? (
         <p className="mt-3 text-sm leading-6" role="alert">
-          Список принятых документов сейчас недоступен. Сами принятия сохранены.
+          Не удалось загрузить список документов. Ваши согласия сохранены.
         </p>
       ) : state.items.length === 0 ? (
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -62,7 +62,7 @@ export function AcceptedDocumentsPanel({
               </p>
               {item.shownTerms === null ? null : (
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Показанные условия: {item.shownTerms}
+                  Условия при покупке: {item.shownTerms}
                 </p>
               )}
             </li>

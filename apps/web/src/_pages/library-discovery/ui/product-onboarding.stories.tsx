@@ -103,7 +103,7 @@ export const LinkTelegram: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByRole("heading", { name: "Привяжите Telegram" }),
+      await page.findByRole("heading", { name: "Подключите Telegram" }),
     ).toBeInTheDocument();
     await expect(
       page.getAllByRole("button", { name: "Онбординг" })[0],

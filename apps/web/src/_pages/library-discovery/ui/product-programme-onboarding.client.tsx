@@ -90,7 +90,7 @@ export function ProductProgrammeOnboarding({
       {children}
       {purchased && error && entry === null ? (
         <p role="alert" className="mt-4 text-sm">
-          Не удалось проверить онбординг продукта.
+          Не удалось проверить подключение к продукту.
         </p>
       ) : null}
     </ProductOnboardingContext>

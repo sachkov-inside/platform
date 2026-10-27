@@ -29,14 +29,15 @@ export function telegramLinkPresentation(
     case "unlinked":
       return {
         account: {
-          description: "Подключите бота платформы — это займёт меньше минуты.",
+          description:
+            "Подключите Telegram через бота. Это займёт меньше минуты.",
           title: "Telegram не подключён",
           tone: "pending",
         },
         action: { context: "initial", kind: "begin" },
         onboarding: {
           description:
-            "Бот платформы присылает сообщения о новых материалах и открывает сообщество продукта тем, у кого он входит в доступ. Подключение займёт меньше минуты.",
+            "Бот сообщает о новых материалах и помогает вступить в сообщество, если оно входит в ваш доступ. Подключение займёт меньше минуты.",
           title: "Подключите Telegram",
           tone: "pending",
         },
@@ -45,7 +46,7 @@ export function telegramLinkPresentation(
       return {
         account: {
           description:
-            "Нажмите Start в боте и вернитесь сюда — подключение проверится автоматически.",
+            "Нажмите Start в боте и вернитесь сюда. Подключение проверим автоматически.",
           title: "Подключаем Telegram",
           tone: "pending",
         },
@@ -56,7 +57,7 @@ export function telegramLinkPresentation(
         },
         onboarding: {
           description:
-            "Нажмите Start в боте и вернитесь — мы всё проверим автоматически.",
+            "Нажмите Start в боте и вернитесь сюда. Подключение проверим автоматически.",
           title: "Подключаем Telegram",
           tone: "pending",
         },
@@ -64,13 +65,13 @@ export function telegramLinkPresentation(
     case "linked":
       return {
         account: {
-          description: "Готово. Аккаунт связан с ботом платформы.",
+          description: "Аккаунт подключён к Telegram.",
           title: "Telegram подключён",
           tone: "active",
         },
         action: { kind: "complete" },
         onboarding: {
-          description: "Готово — аккаунт связан с Telegram.",
+          description: "Аккаунт подключён к Telegram.",
           title: "Telegram подключён",
           tone: "active",
         },
@@ -79,8 +80,8 @@ export function telegramLinkPresentation(
       return {
         account: {
           description:
-            "Эта Telegram identity уже связана с другим Account. Автоматический перенос отключён; обратитесь к владельцу сообщества.",
-          title: "Обнаружен конфликт",
+            "Этот Telegram уже подключён к другому аккаунту. Для переноса обратитесь к владельцу сообщества.",
+          title: "Telegram занят другим аккаунтом",
           tone: "warning",
         },
         action:
@@ -90,7 +91,7 @@ export function telegramLinkPresentation(
         onboarding: {
           description:
             "Этот Telegram уже связан с другим аккаунтом. Напишите владельцу сообщества.",
-          title: "Не получилось подключить",
+          title: "Не удалось подключить Telegram",
           tone: "warning",
         },
       };
@@ -99,18 +100,17 @@ export function telegramLinkPresentation(
         account: {
           description:
             state.reason === "expired"
-              ? "Срок предыдущей попытки истёк. Можно безопасно начать новую привязку."
-              : "Ответ предыдущей попытки уже использован. Можно безопасно начать новую привязку.",
+              ? "Время подключения истекло. Подключите Telegram заново."
+              : "Эта ссылка уже использована. Подключите Telegram заново.",
           title:
             state.reason === "expired"
-              ? "Срок попытки истёк"
-              : "Попытка уже использована",
+              ? "Время подключения истекло"
+              : "Ссылка уже использована",
           tone: "warning",
         },
         action: { context: "retry", kind: "begin" },
         onboarding: {
-          description:
-            "Предыдущая попытка закончилась. Можно безопасно начать заново.",
+          description: "Подключение не завершено. Попробуйте ещё раз.",
           title: "Подключите Telegram заново",
           tone: "warning",
         },
@@ -118,8 +118,7 @@ export function telegramLinkPresentation(
     case "unavailable":
       return {
         account: {
-          description:
-            "Не получилось обновить связь. Попробуйте ещё раз — аккаунт останется без изменений.",
+          description: "Не удалось проверить подключение. Попробуйте ещё раз.",
           title: "Telegram временно недоступен",
           tone: "warning",
         },
@@ -132,7 +131,7 @@ export function telegramLinkPresentation(
               }
             : { kind: "refresh" },
         onboarding: {
-          description: "Не удалось проверить связь. Попробуйте ещё раз.",
+          description: "Не удалось проверить подключение. Попробуйте ещё раз.",
           title: "Telegram временно недоступен",
           tone: "warning",
         },
@@ -141,7 +140,7 @@ export function telegramLinkPresentation(
       return {
         account: {
           description:
-            "Автоматическое продолжение остановлено, чтобы не перенести identity молча. Обратитесь к владельцу сообщества.",
+            "Не удалось продолжить подключение. Для проверки аккаунта обратитесь к владельцу сообщества.",
           title: "Нужна ручная проверка",
           tone: "warning",
         },
@@ -151,7 +150,7 @@ export function telegramLinkPresentation(
             : { kind: "support", url: state.recovery.url },
         onboarding: {
           description:
-            "Автоматически продолжить не получилось. Напишите владельцу сообщества.",
+            "Не удалось продолжить подключение. Напишите владельцу сообщества.",
           title: "Нужна помощь с подключением",
           tone: "warning",
         },

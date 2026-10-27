@@ -126,7 +126,7 @@ test("сбой Telegram не прячет документы и выход", asy
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "Состояние аккаунта сейчас недоступно." }),
+      .filter({ hasText: "Не удалось загрузить аккаунт." }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Выйти из аккаунта" }),

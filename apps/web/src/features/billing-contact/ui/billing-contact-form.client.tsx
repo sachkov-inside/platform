@@ -83,7 +83,7 @@ export function BillingContactForm({
         className="text-2xl font-bold tracking-[-0.035em]"
         id={`${emailId}-heading`}
       >
-        Email для чеков и сообщений
+        Почта для чеков и сообщений
       </Heading>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Чек и служебные сообщения о подписке приходят на подтверждённый адрес.
@@ -105,26 +105,26 @@ export function BillingContactForm({
         </div>
       ) : loading === true ? (
         <p className="mt-5 text-sm text-muted-foreground" role="status">
-          Загружаем email…
+          Загружаем почту…
         </p>
       ) : unavailable === true ? (
         <div className="mt-5 text-sm leading-6" role="alert">
           <p>
-            {error ?? "Данные контакта сейчас недоступны."} Мы перечитаем их
-            сами.
+            {error ?? "Не удалось загрузить почту."} Повторим загрузку
+            автоматически.
           </p>
         </div>
       ) : (
         <>
           <p className="mt-5 break-words text-sm leading-6">
             {contact === null ? (
-              "Email пока не подтверждён."
+              "Почта пока не подтверждена."
             ) : (
               <>
                 Подтверждённый адрес:{" "}
                 <strong className="font-semibold">{contact.email}</strong>.
                 {editorOpen
-                  ? " Он продолжит действовать, пока не подтверждён новый."
+                  ? " Он действует до подтверждения нового адреса."
                   : null}
               </>
             )}
@@ -152,7 +152,7 @@ export function BillingContactForm({
               }}
             >
               <label className="text-sm font-semibold" htmlFor={emailId}>
-                {contact === null ? "Email" : "Новый email"}
+                {contact === null ? "Почта" : "Новая почта"}
               </label>
               <input
                 autoComplete="email"
@@ -189,7 +189,7 @@ export function BillingContactForm({
                     type="button"
                     variant="ghost"
                   >
-                    Оставить прежний
+                    Отмена
                   </Button>
                 ) : null}
               </div>
@@ -242,14 +242,14 @@ export function BillingContactForm({
                 disabled={pending}
                 type="submit"
               >
-                Подтвердить email
+                Подтвердить почту
               </Button>
             </form>
           )}
 
           {verified === true ? (
             <p className="mt-5 text-sm font-semibold" role="status">
-              Email подтверждён.
+              Почта подтверждена.
             </p>
           ) : null}
 
@@ -266,7 +266,7 @@ export function BillingContactForm({
 
       <div className="mt-6 border-t border-border pt-5">
         <p className="text-sm text-muted-foreground">
-          Документы к этим данным:
+          Обработка данных и условия:
         </p>
         <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <li>

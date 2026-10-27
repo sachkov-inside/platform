@@ -24,7 +24,7 @@ test("возврат из банка не выдаётся за подтверж
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Возвращаемся из банка",
+    "Статус оплаты",
   );
   await expect(
     page.getByText("Переход обратно не подтверждает оплату"),
@@ -91,9 +91,10 @@ test("возврат показывает покупку и кабинет бе�
   await page.goto("/payment/return");
   await expect(page.getByText("Оплата подтверждена")).toBeVisible();
   await expect(page.getByText("AI Engineering", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Платёжный кабинет" }),
-  ).toHaveAttribute("href", "/account/purchases");
+  await expect(page.getByRole("link", { name: "Мои покупки" })).toHaveAttribute(
+    "href",
+    "/account/purchases",
+  );
   await expect(
     page.getByRole("region", { name: "Сообщество Inside" }),
   ).toHaveCount(0);
@@ -227,9 +228,9 @@ test("подтверждённая покупка перечитывает ст�
 
   // Повторное чтение подтверждённого состояния и перезагрузка экрана возврата — та же покупка:
   // объявлять её снова нечего.
-  await purchase.getByRole("button", { name: "Обновить состояние" }).click();
+  await purchase.getByRole("button", { name: "Проверить статус" }).click();
   await expect(
-    purchase.getByRole("button", { name: "Обновить состояние" }),
+    purchase.getByRole("button", { name: "Проверить статус" }),
   ).toBeEnabled();
   await purchase.reload();
   await expect(purchase.getByText("Оплата подтверждена")).toBeVisible();

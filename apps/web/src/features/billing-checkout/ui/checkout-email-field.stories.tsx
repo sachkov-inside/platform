@@ -27,7 +27,7 @@ type Story = StoryObj<typeof meta>;
 export const Editable: Story = {
   play: async ({ canvasElement, args }) => {
     const email = within(canvasElement).getByRole("textbox", {
-      name: "Email",
+      name: "Почта для чека",
     });
     await userEvent.type(email, "buyer@example.test");
     await expect(email).toHaveValue("buyer@example.test");
@@ -37,7 +37,7 @@ export const Editable: Story = {
 export const Invalid: Story = {
   args: {
     value: "broken",
-    error: "Проверьте email: например, name@example.com.",
+    error: "Проверьте адрес почты. Например, name@example.com.",
   },
 };
 export const Sending: Story = {

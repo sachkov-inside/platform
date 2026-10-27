@@ -17,14 +17,13 @@ import {
 
 const failures: Partial<Record<SubmitProductTaskResult["kind"], string>> = {
   invalid_input:
-    "Проверь поля: заметка обязательна, адрес репозитория начинается с http.",
+    "Заполните заметку и проверьте ссылку на репозиторий. Она должна начинаться с http.",
   submissions_closed:
-    "Приём сдач ещё не открыт. Сохрани заметку у себя и отправь позже.",
-  task_not_available: "Задание сейчас закрыто для твоего аккаунта.",
-  rate_limited:
-    "За последний час сдач слишком много. Попробуй отправить позже.",
-  unauthorized: "Сессия закончилась. Войди снова, заметка останется в форме.",
-  unavailable: "Не удалось отправить сдачу. Попробуй ещё раз.",
+    "Приём сдач ещё не открыт. Сохраните заметку у себя и отправьте позже.",
+  task_not_available: "Это задание недоступно вашему аккаунту.",
+  rate_limited: "Слишком много сдач за последний час. Попробуйте позже.",
+  unauthorized: "Сессия завершилась. Войдите снова. Заметка останется в форме.",
+  unavailable: "Не удалось отправить сдачу. Попробуйте ещё раз.",
 };
 
 /**
@@ -105,7 +104,7 @@ export function ProductTaskForm({
         <span>
           Репозиторий{" "}
           <span className="font-normal text-muted-foreground">
-            — необязательно
+            (необязательно)
           </span>
         </span>
         <input
@@ -160,7 +159,7 @@ export function ProductTaskForm({
         <span>
           Отчёт проверки{" "}
           <span className="font-normal text-muted-foreground">
-            — необязательно, текстом
+            (необязательно, текстом)
           </span>
         </span>
         <textarea
@@ -187,7 +186,7 @@ export function ProductTaskForm({
           {result?.kind === "submitted" ? (
             <span className="inline-flex items-center gap-1.5 text-[color:var(--callout-good)]">
               <CircleCheck aria-hidden="true" className="size-4" />
-              Сдача отправлена. Она появилась в «Моих сдачах».
+              Сдача отправлена. Результат появится в «Моих сдачах».
             </span>
           ) : null}
         </p>
@@ -198,8 +197,8 @@ export function ProductTaskForm({
           role="alert"
         >
           <p>
-            Требования задания обновились, пока страница была открыта. Обнови
-            страницу и проверь работу по новой версии.
+            Задание обновилось. Обновите страницу и проверьте работу по новым
+            требованиям.
           </p>
           <Button
             className="min-h-11"

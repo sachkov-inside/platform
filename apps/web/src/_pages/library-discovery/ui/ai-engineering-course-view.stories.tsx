@@ -640,7 +640,7 @@ function ExistingWaitlistCourseFixture({
   const membership = (
     <WaitlistMembership
       state={state}
-      notice={state === "idle" ? "Вы отказались от ожидания." : ""}
+      notice={state === "idle" ? "Вы вышли из списка ожидания." : ""}
       onBegin={() => {
         setState("success");
       }}

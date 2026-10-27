@@ -7,7 +7,7 @@ const meta = {
   args: {
     labels: ["Telegram", "Сообщество", "Первый урок"],
     current: 1,
-    label: "Шаги онбординга",
+    label: "Шаги подключения",
   },
   parameters: { layout: "padded" },
 } satisfies Meta<typeof JourneyProgress>;
@@ -17,7 +17,7 @@ export const CurrentStep: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("list", { name: "Шаги онбординга" }),
+      canvas.getByRole("list", { name: "Шаги подключения" }),
     ).toBeVisible();
     await expect(canvas.getByText("Сообщество").closest("li")).toHaveAttribute(
       "aria-current",

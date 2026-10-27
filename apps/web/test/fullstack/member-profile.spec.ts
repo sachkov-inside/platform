@@ -74,7 +74,7 @@ test("cabinet saves display name without a bio editor", async ({
     page.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
   const name = page.getByRole("textbox", {
-    name: "Отображаемое имя",
+    name: "Имя",
     exact: true,
   });
   await expect(name).toBeVisible();
@@ -121,9 +121,9 @@ test("cabinet saves display name without a bio editor", async ({
     previous.state.kind === "profile" ? previous.state.profile.avatar : null,
   );
   await page.reload();
-  await expect(
-    page.getByRole("textbox", { name: "Отображаемое имя" }),
-  ).toHaveValue(savedName);
+  await expect(page.getByRole("textbox", { name: "Имя" })).toHaveValue(
+    savedName,
+  );
   await expect(
     page.getByRole("region", { name: "Почта", exact: true }),
   ).toContainText("fullstack-member@inside.test");

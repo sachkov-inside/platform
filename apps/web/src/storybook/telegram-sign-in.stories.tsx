@@ -83,7 +83,7 @@ export const Unavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Вернуться ко входу" }),
+      canvas.getByRole("link", { name: "Войти снова" }),
     ).toHaveAttribute("href", "/sign-in");
     await expect(
       canvas.queryByRole("link", { name: "Открыть бота" }),
@@ -99,7 +99,7 @@ export const Reconnecting: Story = {
       "Нет связи. Пробуем ещё раз…",
     );
     await expect(
-      canvas.getByRole("link", { name: "Вернуться ко входу" }),
+      canvas.getByRole("link", { name: "Войти снова" }),
     ).toHaveAttribute("href", "/sign-in");
   },
 };

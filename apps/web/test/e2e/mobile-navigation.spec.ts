@@ -255,9 +255,9 @@ test("background Profile failure retains data but lost authorization removes it"
       await expect(
         page.getByRole("button", { name: "Выйти из аккаунта" }),
       ).toBeVisible();
-      await expect(
-        page.getByText("Состояние аккаунта сейчас недоступно."),
-      ).toHaveCount(0);
+      await expect(page.getByText("Не удалось загрузить аккаунт.")).toHaveCount(
+        0,
+      );
     } else {
       await expect(
         page.getByText("Войдите, чтобы открыть личный кабинет."),

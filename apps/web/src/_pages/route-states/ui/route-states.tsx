@@ -22,7 +22,7 @@ export function PageNotFound() {
           </Button>
         }
         icon={<SearchX aria-hidden="true" />}
-        message="Проверьте адрес или откройте Главную: там все материалы, темы и продукты."
+        message="Проверьте адрес или найдите материал на главной."
         state={{ "data-route-state": "not-found" }}
         title="Страница не найдена"
       />
@@ -53,7 +53,7 @@ export function PageUnexpectedError({
         </div>
       }
       icon={<ShieldAlert aria-hidden="true" />}
-      message="Не удалось показать страницу. Попробуйте ещё раз или вернитесь на Главную."
+      message="Не удалось загрузить страницу. Попробуйте ещё раз или вернитесь на главную."
       state={{ "data-route-state": "unexpected-error" }}
       title="Страница сейчас недоступна"
     />
