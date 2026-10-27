@@ -348,7 +348,9 @@ test("failed OTLP callbacks are observed within the fixed exporter budget withou
   });
   for (const key of Object.keys(process.env))
     if (key.startsWith("OTEL_EXPORTER_OTLP")) vi.stubEnv(key, undefined);
-  owner.onTestFinished(() => vi.unstubAllEnvs());
+  owner.onTestFinished(() => {
+    vi.unstubAllEnvs();
+  });
   const warnings = vi
     .spyOn(console, "warn")
     .mockImplementation(() => undefined);
