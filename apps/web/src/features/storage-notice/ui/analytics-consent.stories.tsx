@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { Button } from "@/shared/ui/button";
 import { AnalyticsChoicePanel } from "./analytics-choice-panel.client";
 
@@ -54,7 +55,7 @@ function ConsentProof({
       </p>
       {open ? (
         <AnalyticsChoicePanel
-          policyHref="/legal/cookies"
+          policyHref={legalDocumentPath("cookies")}
           error={error}
           onChoose={(choice) => {
             if (storageUnavailable) {
