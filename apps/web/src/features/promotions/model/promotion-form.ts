@@ -1,10 +1,13 @@
 import { z } from "zod";
 
+import {
+  addMoscowDays,
+  moscowDayOf,
+  moscowDayStartIso,
+} from "@/shared/lib/moscow-day";
+
 import type { PromotionListItem, PromotionValue } from "./promotion-operations";
 
-const MOSCOW_OFFSET = "+03:00";
-const MOSCOW_OFFSET_MS = 3 * 3_600_000;
-const DAY_MS = 86_400_000;
 const dateSchema = z.iso.date();
 const wholePattern = /^\d+$/u;
 
@@ -41,26 +44,14 @@ export interface PromotionOrigin {
   readonly endsAt: string;
 }
 
-function moscowDay(instant: number): string {
-  return new Date(instant + MOSCOW_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-function moscowMidnight(date: string): string {
-  return `${date}T00:00:00${MOSCOW_OFFSET}`;
-}
-
-function nextDay(date: string): string {
-  return moscowDay(Date.parse(moscowMidnight(date)) + DAY_MS);
-}
-
 /** Первый день периода по Москве. */
 export function promotionStartDate(startsAt: string): string {
-  return moscowDay(Date.parse(startsAt));
+  return moscowDayOf(Date.parse(startsAt));
 }
 
 /** Последний день периода по Москве: `endsAt` уже не входит в период. */
 export function promotionEndDate(endsAt: string): string {
-  return moscowDay(Date.parse(endsAt) - 1);
+  return moscowDayOf(Date.parse(endsAt) - 1);
 }
 
 export function emptyPromotionForm(
@@ -143,11 +134,11 @@ export function promotionCommand(
     origin !== undefined &&
     promotionStartDate(origin.startsAt) === values.startDate
       ? origin.startsAt
-      : moscowMidnight(values.startDate);
+      : moscowDayStartIso(values.startDate);
   const endsAt =
     origin !== undefined && promotionEndDate(origin.endsAt) === values.endDate
       ? origin.endsAt
-      : moscowMidnight(nextDay(values.endDate));
+      : moscowDayStartIso(addMoscowDays(values.endDate, 1));
   return {
     ok: true,
     value: {

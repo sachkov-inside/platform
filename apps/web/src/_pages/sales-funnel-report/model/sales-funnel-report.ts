@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import {
+  addMoscowDays,
+  moscowDayOf,
+  moscowDayStart,
+} from "@/shared/lib/moscow-day";
+
+import {
   defaultFunnelPeriodPreset,
   type FunnelPeriodPreset,
 } from "./sales-funnel-query";
@@ -146,24 +152,8 @@ export interface SurveyRespondentsView {
 }
 
 const MOSCOW = "Europe/Moscow";
-/** Москва живёт без перехода на летнее время: смещение постоянно. */
-const MOSCOW_OFFSET_MS = 3 * 3_600_000;
-const MOSCOW_OFFSET = "+03:00";
-const DAY_MS = 86_400_000;
 export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(defaultFunnelPeriodPreset)} дней.`;
 const dateSchema = z.iso.date();
-
-/** Календарная дата по Москве для мгновения. */
-function moscowDate(instant: Date): string {
-  return new Date(instant.getTime() + MOSCOW_OFFSET_MS)
-    .toISOString()
-    .slice(0, 10);
-}
-
-/** Начало московских суток даты как мгновение. */
-function moscowStart(date: string): Date {
-  return new Date(`${date}T00:00:00${MOSCOW_OFFSET}`);
-}
 
 /**
  * Период отчёта из параметров адреса: свой период датами включительно по Москве или готовый
@@ -184,9 +174,8 @@ export function readReportPeriod(
   readonly corrected: boolean;
   readonly preset: FunnelPeriodPreset | null;
 } {
-  const today = moscowDate(now);
-  const startFor = (days: number) =>
-    moscowDate(new Date(moscowStart(today).getTime() - (days - 1) * DAY_MS));
+  const today = moscowDayOf(now);
+  const startFor = (days: number) => addMoscowDays(today, -(days - 1));
   const requested =
     params.from === undefined && params.to === undefined
       ? undefined
@@ -208,8 +197,8 @@ export function readReportPeriod(
     from,
     to,
     query: {
-      from: moscowStart(from).toISOString(),
-      to: new Date(moscowStart(to).getTime() + DAY_MS).toISOString(),
+      from: moscowDayStart(from).toISOString(),
+      to: moscowDayStart(addMoscowDays(to, 1)).toISOString(),
     },
     corrected: requested !== undefined && !valid,
     preset,

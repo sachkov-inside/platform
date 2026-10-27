@@ -1,23 +1,17 @@
 import { z } from "zod";
 
 import {
+  addMoscowDays,
+  moscowDayOf,
+  moscowDayStart,
+  moscowDayStartIso,
+} from "@/shared/lib/moscow-day";
+import {
   formatMoscowDate,
   formatMoscowDateTime,
 } from "@/shared/lib/moscow-format";
 
-const MOSCOW_OFFSET = "+03:00";
-const DAY_MS = 86_400_000;
 const dateSchema = z.iso.date();
-
-/** Начало московских суток календарного дня «YYYY-MM-DD». */
-function moscowMidnight(date: string): Date {
-  return new Date(`${date}T00:00:00${MOSCOW_OFFSET}`);
-}
-
-/** Календарный день по Москве для момента. */
-function moscowDay(instant: Date): string {
-  return new Date(instant.getTime() + 3 * 3_600_000).toISOString().slice(0, 10);
-}
 
 export type PaymentLinkExpiry =
   | { readonly ok: true; readonly expiresAt: string | null }
@@ -35,10 +29,10 @@ export function paymentLinkExpiresAt(
   if (date === "") return { ok: true, expiresAt: null };
   if (!dateSchema.safeParse(date).success)
     return { ok: false, error: "Введите дату полностью: день, месяц и год" };
-  const end = new Date(moscowMidnight(date).getTime() + DAY_MS);
-  if (end.getTime() <= clock().getTime())
+  const endDay = addMoscowDays(date, 1);
+  if (moscowDayStart(endDay).getTime() <= clock().getTime())
     return { ok: false, error: "Дата окончания не может быть в прошлом" };
-  return { ok: true, expiresAt: `${moscowDay(end)}T00:00:00${MOSCOW_OFFSET}` };
+  return { ok: true, expiresAt: moscowDayStartIso(endDay) };
 }
 
 /**
@@ -49,7 +43,7 @@ export function paymentLinkExpiryLabel(expiresAt: string | null): string {
   if (expiresAt === null) return "Без срока";
   const instant = new Date(expiresAt);
   const lastDay = new Date(instant.getTime() - 1);
-  return moscowMidnight(moscowDay(instant)).getTime() === instant.getTime()
-    ? `по ${formatMoscowDate(moscowDay(lastDay))}`
+  return moscowDayStart(moscowDayOf(instant)).getTime() === instant.getTime()
+    ? `по ${formatMoscowDate(moscowDayOf(lastDay))}`
     : `до ${formatMoscowDateTime(expiresAt)}`;
 }

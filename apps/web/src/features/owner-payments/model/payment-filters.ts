@@ -2,6 +2,7 @@ import type { Route } from "next";
 import { z } from "zod";
 
 import { attemptStateSchema } from "@/entities/subscription";
+import { addMoscowDays, moscowDayStart } from "@/shared/lib/moscow-day";
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
 
 /** Банковское состояние попытки оплаты: закрытый список владельца billing. */
@@ -143,20 +144,9 @@ export function withPaymentsCursor(
   return cursor === undefined ? rest : { ...rest, cursor };
 }
 
-/** Москва живёт без перехода на летнее время: смещение постоянно. */
-const moscowOffset = "+03:00";
-const dayMs = 86_400_000;
-
-/** Начало московских суток дня как мгновение ISO. */
-function moscowDayStart(day: string): string {
-  return new Date(`${day}T00:00:00${moscowOffset}`).toISOString();
-}
-
 /** Начало суток, следующих за днём: правая граница `[from, to)` для последнего дня периода. */
 function moscowDayAfter(day: string): string {
-  return new Date(
-    Date.parse(`${day}T00:00:00${moscowOffset}`) + dayMs,
-  ).toISOString();
+  return moscowDayStart(addMoscowDays(day, 1)).toISOString();
 }
 
 /** Чтение списка, которое уходит в `payments.list` владельца billing. */
@@ -182,7 +172,9 @@ export function paymentsListRequest(
     ...(accountId === undefined ? {} : { accountId }),
     ...(query.states.length === 0 ? {} : { states: query.states }),
     ...(query.productId === undefined ? {} : { productId: query.productId }),
-    ...(query.from === undefined ? {} : { from: moscowDayStart(query.from) }),
+    ...(query.from === undefined
+      ? {}
+      : { from: moscowDayStart(query.from).toISOString() }),
     ...(query.to === undefined ? {} : { to: moscowDayAfter(query.to) }),
     ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
   };
