@@ -74,9 +74,11 @@ describe.each([1, 10, 100])(
         ...productIds.map((productId) => ({ productId, sold: true })),
         ...(size === 100 ? [] : [{ productId: absent, sold: false }]),
       ]);
+      // Price rows, Product catalogue and active promotions. No fixture promotion has a usage
+      // limit, so the shared promotion usage read is skipped. The count is the same at every size.
       expect(
         read.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(4);
+      ).toBe(3);
     });
   },
 );
