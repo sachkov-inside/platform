@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import { diagnosticDatabase } from "../fixtures/payment-diagnostics-database.js";
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
@@ -75,6 +76,7 @@ it.each([
   "reports $state paid-source evidence through the registered Platform MCP",
   async ({ state, grants, missingCount, rightsFailure }) => {
     const accountId = "10000000-0000-4000-8000-000000000001";
+    const productId = "30000000-0000-4000-8000-000000000001";
     const purchaseId = "20000000-0000-4000-8000-000000000001";
     const now = new Date("2026-10-19T12:00:00Z");
     const snapshot = {
@@ -82,7 +84,7 @@ it.each([
         id: accountId,
         revision: 1,
         name: "Inside",
-        benefits: ["materials"],
+        benefits: [productCapability(productId)],
         archived: false,
       },
       paymentOption: {
@@ -90,6 +92,7 @@ it.each([
         revision: 1,
         offerId: accountId,
         months: 1,
+        mode: "one_time",
         priceKopecks: 10000,
         archived: false,
       },
@@ -101,13 +104,24 @@ it.each([
     };
     const prisma = diagnosticDatabase({
       rightsFailure,
-      payments: [{ id: purchaseId, accountId, snapshot, confirmedAt: now }],
+      payments: [
+        {
+          id: purchaseId,
+          accountId,
+          snapshot,
+          kind: "one_time",
+          confirmedAt: now,
+        },
+      ],
       grants: grants.map((row) => ({
         ...row,
-        source: "paid",
-        sourceRef: `${purchaseId}:materials`,
+        source: "purchase",
+        sourceRef: `payment:${purchaseId}`,
+        productId,
+        issuedAt: now,
+        firstIssuedAt: now,
         accountId,
-        capabilities: ["materials"],
+        capabilities: [productCapability(productId)],
         startsAt: now,
         validUntil: null,
       })),
@@ -152,7 +166,7 @@ it.each([
               {
                 purchaseRef: purchaseId,
                 payment: "confirmed",
-                grants: [{ capability: "materials", state }],
+                grants: [{ capability: productCapability(productId), state }],
               },
             ],
           },

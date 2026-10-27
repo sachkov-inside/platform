@@ -168,7 +168,6 @@ beforeAll(async () => {
     id: "s3-api-proof:public-file",
     path: "lessons/s3-api-proof.md",
     revision: "a".repeat(64),
-    showInFeed: false,
   };
   const reserved = await materials.authoring.reserveSourceMaterial({
     actor,

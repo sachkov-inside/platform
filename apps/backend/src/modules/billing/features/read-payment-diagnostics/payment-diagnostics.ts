@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import { savedContentProductIds } from "../../domain/saved-content-product-ids.js";
 import { paidGrantSourceRef } from "../../domain/paid-grant-source-ref.js";
 import { z } from "zod";
@@ -147,7 +148,7 @@ export class PaymentDiagnostics {
         const grants =
           snapshot?.success === true
             ? (products[index] ?? []).map((productId, _, productIds) => {
-                const capability = `product:${productId}`;
+                const capability = productCapability(productId);
                 const fact = byKey.get(
                   JSON.stringify([
                     row.accountId,
