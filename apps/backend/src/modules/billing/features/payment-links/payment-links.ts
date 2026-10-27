@@ -8,6 +8,7 @@ import {
   lockBillingPricing,
   type BillingPrisma,
   type BillingPrismaClient,
+  type Prisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import {
@@ -34,6 +35,7 @@ import {
   paymentLinksListSchema,
   paymentLinkViewSchema,
   type paymentLinksPageSchema,
+  type PaymentLinkState,
   type PaymentLinkView,
 } from "./payment-links.contract.js";
 
@@ -343,10 +345,37 @@ export async function listPaymentLinks(
     if (!permission.allowed) return failure("forbidden");
     return await dependencies.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
-      const { limit, cursor } = parsed.data;
+      const { limit, cursor, productId, state } = parsed.data;
+      // Продукт ссылки неизменен, поэтому cursor обязан лежать в нём; состояние меняется со временем.
+      const scope: Prisma.BillingPaymentLinkWhereInput =
+        productId === undefined
+          ? {}
+          : { snapshot: { path: ["product", "id"], equals: productId } };
+      const after =
+        cursor === undefined
+          ? null
+          : await tx.billingPaymentLink.findFirst({
+              where: { AND: [{ id: cursor }, scope] },
+              select: { id: true, createdAt: true },
+            });
+      if (cursor !== undefined && after === null)
+        return failure("invalid_request");
       const rows = await tx.billingPaymentLink.findMany({
-        where: cursor === undefined ? {} : { id: { gt: cursor } },
-        orderBy: { id: "asc" },
+        where: {
+          AND: [
+            scope,
+            state === undefined ? {} : stateCandidates(state, now),
+            after === null
+              ? {}
+              : {
+                  OR: [
+                    { createdAt: { lt: after.createdAt } },
+                    { createdAt: after.createdAt, id: { lt: after.id } },
+                  ],
+                },
+          ],
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: limit + 1,
       });
       const page = rows.slice(0, limit);
@@ -387,10 +416,15 @@ export async function listPaymentLinks(
           now,
         );
       });
+      // «active» и «changed» различает только сравнение с текущей ценой: страница кандидатов
+      // может стать короче, а продолжение идёт по последней прочитанной строке.
       return {
         ok: true as const,
         value: {
-          items,
+          items:
+            state === undefined
+              ? items
+              : items.filter((item) => item.state === state),
           nextCursor: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
         },
       };
@@ -401,5 +435,39 @@ export async function listPaymentLinks(
       error,
       failure("dependency_unavailable"),
     );
+  }
+}
+
+/**
+ * Строки, чьё видимое состояние может совпасть с `state`, по тем же правилам, что
+ * `projectPaymentLink`: незавершённый резерв важнее отзыва, отзыв важнее срока.
+ */
+function stateCandidates(
+  state: PaymentLinkState,
+  now: Date,
+): Prisma.BillingPaymentLinkWhereInput {
+  const unreserved = { reservations: { none: { state: { not: "failed" } } } };
+  switch (state) {
+    case "paid":
+      return { reservations: { some: { state: "confirmed" } } };
+    case "unknown":
+      return { reservations: { some: { state: "unknown" } } };
+    case "pending":
+      return {
+        reservations: {
+          some: { state: { notIn: ["confirmed", "unknown", "failed"] } },
+        },
+      };
+    case "revoked":
+      return { ...unreserved, revokedAt: { not: null } };
+    case "expired":
+      return { ...unreserved, revokedAt: null, expiresAt: { lte: now } };
+    case "active":
+    case "changed":
+      return {
+        ...unreserved,
+        revokedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      };
   }
 }
