@@ -13,6 +13,7 @@ class SourceProgress(unittest.TestCase):
         suite=unittest.defaultTestLoader.discover(str(Path(__file__).parent),pattern='test_*.py')
         source_progress.verify_inventory(suite)
         added={
+            'test_warm_matching.WarmMatching.test_held_waits_for_next_scraped_frame_without_spending_snapshot_cap',
             'test_mcp_snapshot.MCPObservation.test_ready_session_is_one_pair_only_and_original_stale_frames_remain_stale',
             'test_mcp_snapshot.MCPObservation.test_shared_ten_second_query_budget_includes_final_oracle_validation',
             'test_warm_matching.WarmMatching.test_partition_prepares_native_before_selecting_current_canonical_sample',
@@ -24,17 +25,17 @@ class SourceProgress(unittest.TestCase):
             'test_source_progress.SourceProgress.test_discovery_matches_fixed_inventory_and_original_methods_once',
             'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
             'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome'}
-        self.assertEqual(len(source_progress.SOURCE_IDS),84)
-        self.assertEqual(len(set(source_progress.SOURCE_IDS)),84)
+        self.assertEqual(len(source_progress.SOURCE_IDS),85)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),85)
         self.assertTrue(added<=set(source_progress.SOURCE_IDS))
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),73)
         self.assertEqual(hashlib.sha256(json.dumps(baseline).encode()).hexdigest(),'34a7fb8b62c29fdf4980fa775a515fe1917839dfd1bd17cfae82db0b4de1be00')
         groups=source_progress.SOURCE_GROUPS
         self.assertEqual(tuple(groups),('contracts','process-owner'))
-        self.assertEqual(tuple(map(len,groups.values())),(81,3))
+        self.assertEqual(tuple(map(len,groups.values())),(82,3))
         combined=tuple(value for group in groups.values() for value in group)
-        self.assertEqual(len(set(combined)),84)
+        self.assertEqual(len(set(combined)),85)
         self.assertEqual(tuple(sorted(combined)),source_progress.SOURCE_IDS)
         for group,expected in groups.items():
             selected=source_progress.select_group(suite,group)

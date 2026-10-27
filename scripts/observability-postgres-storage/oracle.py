@@ -310,6 +310,35 @@ def previous_committed_pending(raw_values,raw_timestamps,*,evaluated_at,complete
     return values==wanted
 
 
+def controlled_down_pending(raw_values,raw_timestamps,*,evaluated_at,completed_us,previous,expected,down):
+    """A proved controlled-down frame may remain visible while restart publication settles.
+
+    This is only a publication barrier. It never changes the ordinary unavailable verdict,
+    and admits neither another failure timestamp nor a changed retained counter/identity.
+    """
+    fields={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}
+    if (type(previous) is not dict or type(expected) is not dict or set(previous)!=fields or set(expected)!=fields
+            or any(type(value) is not int or not 0<=value<=_MAX for sample in (previous,expected) for value in sample.values())
+            or not 0<previous['sample_us']<expected['sample_us']
+            or expected['postmaster_us']==previous['postmaster_us'] or type(down) is not tuple or len(down)!=4):return False
+    try:
+        old_values,old_stamps,old_evaluated,old_completed=down
+        if evaluate(old_values,old_stamps,evaluated_at=old_evaluated,completed_us=old_completed,expected=previous)['freshness']!='unavailable':return False
+        if evaluate(raw_values,raw_timestamps,evaluated_at=evaluated_at,completed_us=completed_us,expected=expected)['freshness'] not in ('unavailable','stale'):return False
+        values,labels=_vector(raw_values,evaluated_at)
+        stamps,time_labels=_vector(raw_timestamps,evaluated_at,timestamps=True)
+        witnessed,witness_labels=_vector(old_values,old_evaluated)
+        witness_stamps,witness_time_labels=_vector(old_stamps,old_evaluated,timestamps=True)
+        wanted={'inside.postgresql.server.'+suffix:previous[key] for suffix,key in (
+            ('backends','connected_backends'),('waiting_locks','waiting_locks'),('deadlocks_since_reset','deadlocks'),
+            ('postmaster_start_time_microseconds','postmaster_us'),('statistics_reset_time_microseconds','stats_reset_us'),('sample_time_microseconds','sample_us'))}
+        wanted['inside.postgresql.server.available']=0
+        return (values==witnessed==wanted and stamps==witness_stamps
+            and labels==time_labels==witness_labels==witness_time_labels
+            and stamps['inside.postgresql.server.available']<Decimal(expected['sample_us'])/1_000_000)
+    except (ValueError,KeyError,TypeError,UnicodeError,OverflowError,RecursionError):return False
+
+
 def evaluate_protocol(raw_values,raw_timestamps,raw_global,*,evaluated_at,completed_us,expected):
     """Full protocol-only seven-family vector; clean rows alone do not prove pipeline completion."""
     try:

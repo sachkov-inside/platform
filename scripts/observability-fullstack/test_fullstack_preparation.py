@@ -43,7 +43,7 @@ class Preparation(unittest.TestCase):
             self.assertIn('logto',plan['services'])
             seeder=plan['services']['migrations']
             self.assertIn('/app/dist/development:size=1m,mode=1777',seeder['tmpfs'])
-            self.assertEqual(len(seeder['volumes']),4)
+            self.assertEqual(len(seeder['volumes']),3)
             self.assertTrue(all(mount.endswith(':ro') for mount in seeder['volumes']))
             self.assertNotIn('/app/dist/development:size=1m,mode=1777',plan['services']['api']['tmpfs'])
             self.assertEqual(len(plan['services']['volume-reader']['volumes']),9)
