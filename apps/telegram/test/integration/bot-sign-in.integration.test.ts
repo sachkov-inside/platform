@@ -49,6 +49,7 @@ import type {
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
+import { InitialMembershipCheckProcessor } from "../../src/modules/membership-evidence/initial-membership-check-processor.js";
 import { MembershipEvidenceProvider } from "../../src/modules/membership-evidence/membership-evidence-provider.js";
 import { CommunityProvider } from "../../src/modules/community/community-provider.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
@@ -106,7 +107,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`truncate sign_in_requests, sign_in_subjects, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
+  await sql`truncate membership_provider_state, membership_provider_observations, sign_in_requests, sign_in_subjects, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
     database,
   );
 });
@@ -118,88 +119,100 @@ afterAll(async () => {
 });
 
 describe("bot sign-in provider", () => {
-  it("acknowledges approval durably before the browser consumes it and deduplicates repeated presses", async () => {
+  it("accepts repeated approval without sending another message before account finalization", async () => {
     const challenge = await register();
     await start(challenge, 42);
     await Promise.all([callback(challenge, 42), callback(challenge, 42)]);
     expect(await status(challenge)).toMatchObject({ status: "approved" });
-    const messages: TelegramTextMessage[] = [];
-    const worker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(
-        database,
-        settleBlockedDelivery,
-        undefined,
-        signInReplyEligibility,
-      ),
-      {
-        sendText(message) {
-          messages.push(message);
-          return Promise.resolve({
-            kind: "delivered",
-            providerMessageId: "101",
-          });
-        },
-        editText() {
-          throw new Error("Success must still wait for account finalization");
-        },
-      },
-      new RuntimeMetrics(),
-      config,
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
     );
-    expect(await worker.processAvailable()).toBe(1);
-    expect(messages).toMatchObject([
-      {
-        text: "Подтверждение принято. Вернитесь в браузер, где вы начали вход.",
-        buttons: [],
-      },
-    ]);
+    // deterministic-test-allow wall-clock: registerFixedClock fixes Date for the producer and queue.
+    expect(await queue.claimNext(new Date(), true)).toBeUndefined();
     await callback(challenge, 42);
-    expect(await worker.processAvailable()).toBe(0);
-    expect(
-      await database.selectFrom("platform_links").selectAll().execute(),
-    ).toEqual([]);
+    // deterministic-test-allow wall-clock: registerFixedClock fixes Date for the producer and queue.
+    expect(await queue.claimNext(new Date(), true)).toBeUndefined();
   });
 
-  it.each(["linked", "expired"] as const)(
-    "does not retry an approval receipt after the request is %s",
+  it.each(["delivered", "uneditable"] as const)(
+    "keeps one bot message through sign-in and membership when the result is %s",
     async (outcome) => {
       const challenge = await register();
+      const sent: TelegramTextMessage[] = [];
+      const edited: TelegramMessageEdit[] = [];
+      const worker = new StartResponseDeliveryProcessor(
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
+        {
+          sendText(message) {
+            sent.push(message);
+            return Promise.resolve({
+              kind: "delivered",
+              providerMessageId: "100",
+            });
+          },
+          editText(message) {
+            edited.push(message);
+            return Promise.resolve(
+              outcome === "uneditable"
+                ? { kind: "api_rejected" as const, providerErrorCode: 400 }
+                : {
+                    kind: "delivered" as const,
+                    providerMessageId: message.messageId,
+                  },
+            );
+          },
+        },
+        new RuntimeMetrics(),
+        config,
+      );
       await start(challenge, 42);
+      expect(await worker.processAvailable()).toBe(1);
       await callback(challenge, 42);
-      const queue = new StartResponseDeliveryQueue(
-        database,
-        settleBlockedDelivery,
-        undefined,
-        signInReplyEligibility,
-      );
-      // deterministic-test-allow wall-clock: registerFixedClock fixes Date for both the producer and queue.
-      const now = new Date();
-      const receipt = await queue.claimNext(now, true);
-      expect(receipt?.messageText).toBe(
-        "Подтверждение принято. Вернитесь в браузер, где вы начали вход.",
-      );
-      if (!receipt) throw new Error("Expected approval receipt");
-      await queue.recordResult(receipt, { kind: "transport_unknown" }, now);
-      let retryAt = new Date(now.getTime() + 1001);
-      if (outcome === "linked") {
-        const proof = await status(challenge, true);
-        if (proof.status !== "verified") throw new Error("Expected proof");
+      expect(await worker.processAvailable()).toBe(0);
+      const proof = await status(challenge, true);
+      if (proof.status !== "verified")
+        throw new Error("Expected verified proof");
+      const accountRef = randomUUID();
+      for (let attempt = 0; attempt < 2; attempt++) {
         expect(
           (
             await request(`/${challenge.requestRef}/account-link`, {
               contractVersion,
               subjectRef: proof.subjectRef,
-              accountRef: randomUUID(),
+              accountRef,
             })
           ).json(),
         ).toMatchObject({ status: "linked" });
-        expect(await queue.claimNext(retryAt, true)).toMatchObject({
-          editMessageId: "100",
-        });
-      } else {
-        retryAt = new Date(challenge.envelope.expiresAt);
       }
-      expect(await queue.claimNext(retryAt, true)).toBeUndefined();
+      const membership = await application
+        .get(InitialMembershipCheckProcessor)
+        .processNext();
+      expect(membership?.evidence).toMatchObject({
+        principalRef: accountRef,
+        decision: "unavailable",
+      });
+      expect(membership?.responsePlanned).toBe(false);
+      expect(await worker.processAvailable()).toBe(1);
+      expect(await worker.processAvailable()).toBe(0);
+      expect(sent.map((message) => message.text)).toEqual([
+        "Вы входите в Sachkov Inside?",
+      ]);
+      expect(edited).toEqual([
+        {
+          chatId: "42",
+          messageId: "100",
+          text: "Вход подтверждён. Вернитесь на сайт.",
+          buttons: [{ text: "Открыть Inside", url: "https://platform.test/" }],
+        },
+      ]);
     },
   );
 
@@ -628,7 +641,7 @@ describe("bot sign-in provider", () => {
           ).toMatchObject({ status: "unavailable" });
       }
       expect(await worker.processAvailable()).toBe(
-        ["denied", "unfinalized", "wrong-subject"].includes(outcome) ? 1 : 0,
+        outcome === "denied" ? 1 : 0,
       );
       expect(edits).toEqual(
         outcome === "denied"
