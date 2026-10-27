@@ -5,6 +5,7 @@ import {
   priceSnapshotSchema,
   revisionSchema,
 } from "../../domain/pricing.js";
+import { listCursorSchema } from "../../shared/list-cursor.js";
 
 export const paymentLinkPriceSchema = z.discriminatedUnion("kind", [
   z.strictObject({
@@ -55,16 +56,16 @@ export const paymentLinkViewSchema = z.strictObject({
   snapshot: priceSnapshotSchema,
 });
 export type PaymentLinkView = z.infer<typeof paymentLinkViewSchema>;
-/** Список ссылок от новых к старым; cursor хранит позицию и действует только в своём продукте. */
+/** Список ссылок от новых к старым; cursor хранит позицию и продолжает только свой фильтр. */
 export const paymentLinksListSchema = z.strictObject({
   productId: idSchema.optional(),
   state: paymentLinkStateSchema.optional(),
-  cursor: idSchema.optional(),
+  cursor: listCursorSchema.optional(),
   limit: z.int().min(1).max(100).default(50),
 });
 export const paymentLinksPageSchema = z.strictObject({
   items: z.array(paymentLinkViewSchema),
-  nextCursor: idSchema.nullable(),
+  nextCursor: listCursorSchema.nullable(),
 });
 
 export const paymentLinkDetailSchema = paymentLinkViewSchema.extend({

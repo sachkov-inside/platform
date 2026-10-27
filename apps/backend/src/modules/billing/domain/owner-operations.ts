@@ -34,6 +34,7 @@ import {
   priceSnapshotSchema,
   revisionSchema,
 } from "./pricing.js";
+import { listCursorSchema } from "../shared/list-cursor.js";
 
 export const reasonSchema = z.string().trim().min(1).max(1000);
 const command = { operationId: idSchema };
@@ -264,7 +265,7 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("promotions"),
     items: z.array(promotionListItemSchema),
-    nextCursor: idSchema.nullable(),
+    nextCursor: listCursorSchema.nullable(),
   }),
   z.strictObject({
     outcome: z.literal("payments"),

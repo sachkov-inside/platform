@@ -20,7 +20,7 @@ export const paymentLinkSchema = z.object({
 });
 export const paymentLinksPageSchema = z.object({
   items: z.array(paymentLinkSchema),
-  nextCursor: z.uuid().nullable(),
+  nextCursor: z.string().min(1).nullable(),
 });
 export const paymentLinkDetailSchema = paymentLinkSchema.extend({
   product: coverageEntrySchema.nullable(),

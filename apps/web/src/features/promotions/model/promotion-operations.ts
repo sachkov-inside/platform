@@ -34,7 +34,7 @@ export const listPromotionsInputSchema = z.strictObject({
   archived: z.boolean().optional(),
   productId: z.uuid().optional(),
   questionnaire: z.boolean().optional(),
-  cursor: z.uuid().optional(),
+  cursor: z.string().min(1).max(1024).optional(),
   limit: z.int().min(1).max(100),
 });
 
@@ -67,7 +67,7 @@ export const promotionsOutcomeSchema = envelope(
   z.object({
     outcome: z.literal("promotions"),
     items: z.array(promotionListItemSchema),
-    nextCursor: z.uuid().nullable(),
+    nextCursor: z.string().min(1).nullable(),
   }),
 );
 export const promotionCatalogOutcomeSchema = envelope(

@@ -71257,8 +71257,11 @@
                     "additionalProperties": false,
                     "properties": {
                       "cursor": {
-                        "format": "uuid",
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "contentEncoding": "base64url",
+                        "format": "base64url",
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$",
                         "type": "string"
                       },
                       "limit": {
@@ -71750,8 +71753,11 @@
                         "type": "boolean"
                       },
                       "cursor": {
-                        "format": "uuid",
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "contentEncoding": "base64url",
+                        "format": "base64url",
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$",
                         "type": "string"
                       },
                       "limit": {
@@ -72976,9 +72982,12 @@
                               "type": "array"
                             },
                             "nextCursor": {
-                              "format": "uuid",
+                              "contentEncoding": "base64url",
+                              "format": "base64url",
+                              "maxLength": 1024,
+                              "minLength": 1,
                               "nullable": true,
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$",
                               "type": "string"
                             },
                             "outcome": {
@@ -73796,9 +73805,12 @@
                               "type": "array"
                             },
                             "nextCursor": {
-                              "format": "uuid",
+                              "contentEncoding": "base64url",
+                              "format": "base64url",
+                              "maxLength": 1024,
+                              "minLength": 1,
                               "nullable": true,
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$",
                               "type": "string"
                             },
                             "outcome": {

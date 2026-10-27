@@ -94,7 +94,7 @@ async function createLink(
   );
 }
 
-test("paymentLinks.list narrows by Product and visible state, newest first, with a cursor bound to its Product", async () => {
+test("paymentLinks.list narrows by Product and visible state, newest first, with a cursor bound to its whole filter", async () => {
   try {
     const s = await world.scenario();
     const other = await world.scenario();
@@ -107,7 +107,7 @@ test("paymentLinks.list narrows by Product and visible state, newest first, with
     const revoked = await createLink(s, "2030-02-03T10:00:00Z");
     const reserved = await createLink(s, "2030-02-04T10:00:00Z");
     const newest = await createLink(s, "2030-02-05T10:00:00Z");
-    const foreign = await createLink(other, "2030-02-05T10:00:00Z");
+    await createLink(other, "2030-02-05T10:00:00Z");
     value(
       await s.pricing.managePaymentLink(world.owner, {
         operation: "paymentLinks.revoke",
@@ -155,28 +155,72 @@ test("paymentLinks.list narrows by Product and visible state, newest first, with
       ).toEqual(expected);
 
     const firstPage = await list({ productId: s.productId, limit: 2 });
-    expect(firstPage).toEqual({
-      ids: [
-        [newest.id, "active"],
-        [reserved.id, "pending"],
-      ],
-      nextCursor: reserved.id,
+    expect(firstPage.ids).toEqual([
+      [newest.id, "active"],
+      [reserved.id, "pending"],
+    ]);
+    const cursor = firstPage.nextCursor ?? "";
+    expect(cursor).not.toBe("");
+    const secondPage = await list({
+      productId: s.productId,
+      limit: 2,
+      cursor,
     });
+    expect(secondPage.ids).toEqual([
+      [revoked.id, "revoked"],
+      [expiring.id, "expired"],
+    ]);
     expect(
-      await list({ productId: s.productId, limit: 2, cursor: reserved.id }),
-    ).toEqual({
-      ids: [
-        [revoked.id, "revoked"],
-        [expiring.id, "expired"],
-      ],
-      nextCursor: expiring.id,
+      (
+        await list({
+          productId: s.productId,
+          limit: 2,
+          cursor: secondPage.nextCursor,
+        })
+      ).ids,
+    ).toEqual([[oldest.id, "active"]]);
+    const activeFirst = await list({
+      productId: s.productId,
+      state: "active",
+      limit: 1,
     });
+    expect(activeFirst.ids).toEqual([[newest.id, "active"]]);
+    // The cursor continues its list even after the row it stopped at left the filter.
+    value(
+      await s.pricing.managePaymentLink(world.owner, {
+        operation: "paymentLinks.revoke",
+        operationId: randomUUID(),
+        id: newest.id,
+        expectedRevision: newest.revision,
+      }),
+    );
+    expect(
+      await list({
+        productId: s.productId,
+        state: "active",
+        limit: 1,
+        cursor: activeFirst.nextCursor,
+      }),
+    ).toEqual({ ids: [[oldest.id, "active"]], nextCursor: null });
+    // A cursor continues only its own filter: another Product, another state or none at all.
     for (const filter of [
-      { productId: s.productId, cursor: foreign.id },
+      { productId: other.productId, cursor },
+      { productId: s.productId, state: "active", cursor },
+      { cursor },
+      {
+        productId: s.productId,
+        state: "pending",
+        cursor: activeFirst.nextCursor,
+      },
       { productId: s.productId, cursor: randomUUID() },
+      { productId: s.productId, cursor: "bm90LWpzb24" },
+      { productId: s.productId, cursor: "!" },
       { state: "archived" },
     ])
-      expect(await s.pricing.paymentLinks(world.owner, filter)).toEqual({
+      expect(
+        await s.pricing.paymentLinks(world.owner, filter),
+        JSON.stringify(filter),
+      ).toEqual({
         ok: false,
         error: { code: "invalid_request" },
       });

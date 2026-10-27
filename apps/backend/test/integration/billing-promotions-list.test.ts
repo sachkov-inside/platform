@@ -131,18 +131,35 @@ test("promotions.list reads owner Promotions newest first with usage counted lik
 
   const first = itemsOf(await listPromotions(owner, world.owner, { limit: 1 }));
   expect(first.items.map((item) => item.id)).toEqual([everyProduct]);
-  expect(first.nextCursor).toBe(everyProduct);
-  const second = itemsOf(
-    await listPromotions(owner, world.owner, {
-      limit: 1,
-      cursor: first.nextCursor,
+  const cursor = first.nextCursor ?? "";
+  expect(cursor).not.toBe("");
+  // The cursor continues its list even after the row it stopped at left the filter.
+  value(
+    await s.pricing.manage(world.owner, {
+      operation: "promotions.archive",
+      operationId: randomUUID(),
+      id: everyProduct,
+      expectedRevision: 1,
     }),
+  );
+  const second = itemsOf(
+    await listPromotions(owner, world.owner, { limit: 1, cursor }),
   );
   expect(second.items.map((item) => item.id)).toEqual([promotionId]);
   expect(second.nextCursor).toBeNull();
-  expect(
-    await listPromotions(owner, world.owner, { cursor: randomUUID() }),
-  ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  // A cursor continues only its own filter: archive, Product and questionnaire side all count.
+  for (const filter of [
+    { archived: true, cursor },
+    { productId: s.productId, cursor },
+    { questionnaire: true, cursor },
+    { cursor: randomUUID() },
+    { cursor: "bm90LWpzb24" },
+    { cursor: "!" },
+  ])
+    expect(
+      await listPromotions(owner, world.owner, filter),
+      JSON.stringify(filter),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
 });
 
 test("promotions.list keeps questionnaire Promotions apart and flags a migrated legacy scope", async () => {
