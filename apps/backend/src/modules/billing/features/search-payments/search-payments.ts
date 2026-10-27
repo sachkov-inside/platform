@@ -25,6 +25,7 @@ export type BillingPaymentSearchResult =
   | {
       readonly ok: false;
       readonly error:
+        | { readonly code: "invalid_request" }
         | { readonly code: "forbidden" }
         | { readonly code: "dependency_unavailable"; readonly retryable: true };
     };
@@ -53,7 +54,8 @@ export class BillingPaymentSearch {
     readonly limit: number;
   }): Promise<BillingPaymentSearchResult> {
     const parsed = requestSchema.safeParse(request);
-    if (!parsed.success) return { ok: false, error: { code: "forbidden" } };
+    if (!parsed.success)
+      return { ok: false, error: { code: "invalid_request" } };
     try {
       const permission = await this.dependencies.accounts.checkPermission({
         accountId: parsed.data.actor,

@@ -463,6 +463,17 @@ describe("Authoring search", () => {
         query,
       ).toEqual({ ok: true, value: [] });
 
+    // A malformed request is invalid, not a refusal of the actor.
+    for (const request of [
+      { actor: owner, query: " ", limit: 5 },
+      { actor: owner, query: "1260", limit: 0 },
+      { actor: "not-an-account", query: "1260", limit: 5 },
+    ])
+      expect(await payments.search(request)).toEqual({
+        ok: false,
+        error: { code: "invalid_request" },
+      });
+
     for (const permission of ["materials:manage", null] as const) {
       const actor = randomUUID();
       await database.prisma.account.create({
