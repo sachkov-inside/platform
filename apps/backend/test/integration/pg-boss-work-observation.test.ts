@@ -1,4 +1,5 @@
 import { eventually } from "./setup/eventually.js";
+// deterministic-test-allow wall-clock: native pg-boss scheduling uses its public Clock; controlled expiry and owned lock/ACK facts prove the deadline case.
 import { PgBoss, systemClock, type ClockTimer } from "pg-boss";
 import { Client } from "pg";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -344,6 +345,7 @@ it("actual native work ACK is not held behind a blocked diagnostic writer at the
     clock: {
       ...systemClock,
       setTimeout(fn, ms) {
+        // deterministic-test-allow duration-wait: delegate non-expiry native scheduling; controlled expiry and actual lock/ACK facts establish completion.
         if (ms !== 1000) return systemClock.setTimeout(fn, ms);
         const handle = {};
         expirations.set(handle, fn);

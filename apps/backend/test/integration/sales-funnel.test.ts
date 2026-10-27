@@ -282,6 +282,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     });
   const scope = (productIds: readonly string[], wholePlatform = false) => ({
     offer: {
+      benefits: ["materials"],
       coverage: {
         productIds,
         materialIds: [],

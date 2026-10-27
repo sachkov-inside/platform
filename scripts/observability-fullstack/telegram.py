@@ -14,7 +14,7 @@ def configure(output,plan,images):
         'TELEGRAM_WEBHOOK_SECRET':'synthetic_webhook_secret_for_runtime_smoke','PLATFORM_INTEGRATION_SECRET':'synthetic_linking_secret_for_runtime_smoke',
         'TELEGRAM_WELCOME_TEXT':'synthetic','TELEGRAM_LINK_RECEIPT_TEXT':'synthetic','TELEGRAM_LINKED_MEMBER_TEXT':'synthetic',
         'TELEGRAM_LINKED_NON_MEMBER_TEXT':'synthetic','TELEGRAM_LINKED_UNAVAILABLE_TEXT':'synthetic',
-        'TELEGRAM_DELIVERY_MODE':'live','TELEGRAM_MEMBERSHIP_MODE':'live','TELEGRAM_BOT_TOKEN':'1566:synthetic',
+        'TELEGRAM_DELIVERY_MODE':'live','TELEGRAM_MEMBERSHIP_MODE':'disabled','TELEGRAM_BOT_TOKEN':'1566:synthetic',
         'PLATFORM_EVIDENCE_DELIVERY_MODE':'disabled','TELEGRAM_COMMUNITY_CONTRACT_VERSION':'inside.community-entitlement.v2',
         'TELEGRAM_COMMUNITY_MODE':'disabled','TELEGRAM_COMMUNITY_REMOVALS_ENABLED':'false','TELEGRAM_SIGN_IN_ENABLED':'false',
         'TELEGRAM_NOTIFICATIONS_ENABLED':'false','TELEGRAM_MARKETING_ENABLED':'false','TELEGRAM_ACTIVATION_ENABLED':'false',

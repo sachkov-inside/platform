@@ -795,7 +795,8 @@ async function prove(
       "providerIdentityRef",
     ] as const)
       assert.equal(linked[key], receipt[key]);
-    const bindings = await database.prisma.membershipBinding.findMany();
+    assert.equal(await database.prisma.membershipBinding.count(), 0);
+    const bindings = await database.prisma.telegramAccountLinkState.findMany();
     assert.equal(bindings.length, 1);
     assert.equal(bindings[0]?.accountId, accountId);
     assert.equal(bindings[0].principalRef, receipt.principalRef);

@@ -139,7 +139,9 @@ export const ModelComparison: Story = {
       canvas.getByText("Продолжение урока после сравнения."),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Kimi" }));
-    await expect(canvas.getByRole("region", { name: "Kimi K3" })).toBeVisible();
+    await expect(
+      canvas.getByRole("region", { name: "Kimi K3.1 Pro" }),
+    ).toBeVisible();
     await expect(
       canvas.getByRole("link", { name: "Ссылка на тарифы" }),
     ).toBeVisible();

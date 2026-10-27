@@ -88,7 +88,7 @@ test("only post-auth decoded confirmations admit one canonical Node-parsed paren
     app = await createApiApplication(config, { logger: false });
     await app.listen(0, "127.0.0.1");
     const url = new URL(
-      "/integrations/telegram/v1/communications/waitlist",
+      "/integrations/telegram/v2/communications/waitlist",
       await app.getUrl(),
     );
     const command = {

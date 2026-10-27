@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import { sourceRefSchema } from "../../domain/access-grant.js";
@@ -110,7 +111,7 @@ export async function readPaidGrantDiagnostics(
               return {
                 accountId: source.accountId,
                 sourceRef: source.sourceRef,
-                capabilities: [`product:${source.productId}`],
+                capabilities: [productCapability(source.productId)],
                 startsAt: source.issuedAt.toISOString(),
                 validUntil: null,
                 revokedAt: access.revokedAt?.toISOString() ?? null,

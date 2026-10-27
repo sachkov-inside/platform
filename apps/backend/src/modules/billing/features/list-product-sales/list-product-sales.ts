@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import {
   DIAGNOSTIC_SOURCE_ROW_LIMIT,
   diagnosticAccountScopeSchema,
@@ -118,13 +119,13 @@ async function readBillingProductSales(
   // constraint attached only to community/support does not grant a Product.
   const quoteProduct =
     operation === "listForDiagnostics"
-      ? Prisma.sql`(quote.snapshot -> 'offer' -> 'benefits' @> jsonb_build_array(${"product:" + parsed.data}::text)
+      ? Prisma.sql`(quote.snapshot -> 'offer' -> 'benefits' @> jsonb_build_array(${productCapability(parsed.data)}::text)
         or (quote.snapshot -> 'offer' -> 'benefits' @> '["materials"]'::jsonb
           and quote.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}))`
       : Prisma.sql`quote.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}`;
   const purchaseProduct =
     operation === "listForDiagnostics"
-      ? Prisma.sql`(purchase.snapshot -> 'offer' -> 'benefits' @> jsonb_build_array(${"product:" + parsed.data}::text)
+      ? Prisma.sql`(purchase.snapshot -> 'offer' -> 'benefits' @> jsonb_build_array(${productCapability(parsed.data)}::text)
         or (purchase.snapshot -> 'offer' -> 'benefits' @> '["materials"]'::jsonb
           and purchase.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}))`
       : Prisma.sql`purchase.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}`;

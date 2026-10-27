@@ -39,32 +39,17 @@ const cases = [
       "web-telemetry.retention",
       "membership-activity.retention",
       "billing.payment-recovery",
-      "billing.subscription-renewal",
-      "billing.subscription-notices",
-      "tribute.source-reconciliation",
     ],
   },
   {
     worker: "billing-worker",
     retentionFailure: "registration_refusal",
-    queues: [
-      "web-telemetry.retention",
-      "billing.payment-recovery",
-      "billing.subscription-renewal",
-      "billing.subscription-notices",
-      "tribute.source-reconciliation",
-    ],
+    queues: ["web-telemetry.retention", "billing.payment-recovery"],
   },
   {
     worker: "billing-worker",
     retentionFailure: "partial",
-    queues: [
-      "web-telemetry.retention",
-      "billing.payment-recovery",
-      "billing.subscription-renewal",
-      "billing.subscription-notices",
-      "tribute.source-reconciliation",
-    ],
+    queues: ["web-telemetry.retention", "billing.payment-recovery"],
   },
 ] as const;
 const workerMessage = z.object({
