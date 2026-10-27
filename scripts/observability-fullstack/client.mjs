@@ -696,7 +696,13 @@ function argument(index) {
   if (value === undefined) throw new Error("fixed action arguments required");
   return value;
 }
-if (action === "cache-ready") {
+if (action === "source-warmup") {
+  const positive = await call("site.resource.test", 443, "/_health/live");
+  const error = await call("site.resource.test", 443, "/_source_probe/error");
+  console.log(
+    JSON.stringify({ ok: positive.status === 200 && error.status === 503 }),
+  );
+} else if (action === "cache-ready") {
   console.log(JSON.stringify({ ok: (await sourceCacheReady()).ok }));
 } else if (action === "web-http-witness") {
   console.log(JSON.stringify(await webHttpWitness()));

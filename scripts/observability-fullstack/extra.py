@@ -17,6 +17,7 @@ CADDY = '''{
 }
 https://site.resource.test {
   tls internal
+  error /_source_probe/error 503
   reverse_proxy web:3000
 }
 https://api.resource.test {
@@ -100,3 +101,10 @@ def initialize(output, compose, invoke):
     with path.open('x') as stream:
         path.chmod(0o600)
         stream.write(ca)
+
+
+def warmup(compose, invoke):
+    """Identical OFF/ON public TLS probes instantiate genuine lazy native families."""
+    value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','source-warmup'],timeout=4))
+    if type(value) is not dict or set(value)!={'ok'} or value['ok'] is not True:
+        raise ValueError('source_warmup_unavailable')
