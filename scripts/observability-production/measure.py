@@ -254,7 +254,7 @@ def diagnose_host_startup(compose, project):
             raise ValueError('host_startup_owner')
     verify()
     result = {'cause': 'unavailable', 'exit_code': None}
-    command([*compose, 'stop', '--timeout', '2', 'host-agent'])
+    command(['docker', 'stop', '--timeout', '2', identity])
     verify()
     def observe(raw, status):
         result.update(cause=check.startup_cause(raw), exit_code=status)
@@ -266,7 +266,7 @@ def diagnose_host_startup(compose, project):
         # Preserve a captured cause even if the external supervisor must finish cleanup.
         try:
             verify()
-            command([*compose, 'stop', '--timeout', '2', 'host-agent'])
+            command(['docker', 'stop', '--timeout', '2', identity])
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError): pass
     return result
 
