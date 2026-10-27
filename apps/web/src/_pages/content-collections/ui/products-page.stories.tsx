@@ -246,7 +246,7 @@ export const ProductsDesktop: Story = {
           .slice(1)
           .map((row) => [
             row.querySelector("[data-state]")?.textContent ?? null,
-            row.querySelectorAll("td")[2]?.textContent?.replace(/\s+/gu, " "),
+            row.querySelectorAll("td")[2]?.textContent.replace(/\s+/gu, " "),
           ]),
       ).toEqual([
         ["Поток идёт", "128"],

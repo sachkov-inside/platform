@@ -77,6 +77,7 @@ const chapteredItems = items.map((item, index) => ({
   ...item,
   chapterId: index < 2 ? chapters[0]?.id : index === 2 ? chapters[1]?.id : null,
 }));
+const learnerId = "d1210000-0000-4000-8000-000000000001";
 function Fixture({
   chaptered = false,
   children,
@@ -121,6 +122,42 @@ function Fixture({
       {
         ok: true,
         value: { productId: collection.id, groupRef: "primary" },
+      },
+    );
+    // «Ученики»: одна страница обладателей и подписи людей этой страницы.
+    queryClient.setQueryData(
+      ["authoring", "product-holders", collection.id, ""],
+      {
+        kind: "ready",
+        items: [
+          {
+            accountId: learnerId,
+            access: "active",
+            firstIssuedAt: "2026-10-20T09:30:00.000Z",
+            learning: {
+              readCount: 2,
+              totalCount: 4,
+              startedAt: "2026-10-20T10:00:00.000Z",
+              lastActivityAt: "2026-10-24T18:15:00.000Z",
+            },
+          },
+        ],
+        nextCursor: null,
+      },
+    );
+    queryClient.setQueryData(
+      ["authoring", "people", "identities", [learnerId]],
+      {
+        kind: "ready",
+        items: [
+          {
+            accountId: learnerId,
+            displayName: "Анна Петрова",
+            username: "anna_petrova",
+            email: "anna.petrova@example.test",
+            contactsState: "complete",
+          },
+        ],
       },
     );
     queryClient.setQueryData(["authoring-home-pin"], {
@@ -326,8 +363,12 @@ const saleTab = async (page: ReturnType<typeof routeContent>) => {
   ).toBeVisible();
 };
 const learnersTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(page.getByRole("heading", { name: "Ученики" })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Ученики пока не показаны" }),
+    page.getByRole("link", { name: "Анна Петрова" }),
+  ).toHaveAttribute("href", `/authoring/people/${learnerId}`);
+  await expect(
+    page.getByRole("button", { name: "Выдать продукт" }),
   ).toBeVisible();
 };
 const communityTab = async (page: ReturnType<typeof routeContent>) => {
