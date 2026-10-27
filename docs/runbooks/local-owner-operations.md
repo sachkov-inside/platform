@@ -20,6 +20,20 @@ redacted Account audit events including the selected permission,
 and prints a JSON summary. It does not run from an application startup hook or public route and does
 not need the owner's email. Repeating it reports that no Account or permission was created.
 
+## Billing Contact fingerprint backfill
+
+Billing Contacts verified before migration `0114_billing_contact_email_fingerprint` have no email
+fingerprint and are not found by email search. With the API environment, including the
+`BILLING_CONTACT_*` settings and `IDENTITY_EMAIL_FINGERPRINT_KEY`, fill them in the migrated database:
+
+```bash
+pnpm --filter @inside/backend release:fingerprint-billing-contacts
+```
+
+The command prints `{scanned, written, skippedConcurrent, unreadable}` and never an address. A
+rerun writes only what is still missing or stale. The production step is in
+[production delivery](production-delivery.md#billing-contact-fingerprints).
+
 ## Manual Member Profile moderation
 
 Use the owner-only release operation to disable or restore the exact Profile by opaque identity

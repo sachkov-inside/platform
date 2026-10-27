@@ -198,6 +198,7 @@ describe("приёмка обоих источников Notifications (реал
     });
     contact = new BillingContact({
       prisma: platform.prisma,
+      emailFingerprintKey: "synthetic-acceptance-fingerprint-00",
       protection,
       documents,
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.

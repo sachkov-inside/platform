@@ -5,12 +5,14 @@ import { hasText } from "../../../../infrastructure/contracts/text.js";
 import {
   dependencyFailure,
   reportDependencyFailure,
+  writeLog,
 } from "../../../../infrastructure/observability/index.js";
 import {
   lockAccountRecords,
   type AccountsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
+import { fingerprintEmail } from "../../shared/account-input.js";
 import { shownRenewalTermsSchema } from "../legal-acceptances/legal-acceptances.contract.js";
 import {
   acceptConsentsResultSchema,
@@ -40,6 +42,8 @@ const maxCodeAttempts = 5;
 export interface BillingContactDependencies {
   readonly prisma: AccountsPrismaClient;
   readonly protection: ReturnType<typeof billingContactProtection> | undefined;
+  /** The `Account.emailFingerprint` key: one address yields one fingerprint on both. */
+  readonly emailFingerprintKey: string;
   readonly sendCode:
     | ((message: {
         readonly email: string;
@@ -419,13 +423,21 @@ export class BillingContact {
           });
           if (!matches) result = contactFailure("challenge_invalid");
           else {
+            // Only the address this code proves becomes searchable, under the revision it creates.
+            const revision = contact.revision + 1;
+            const emailFingerprint = this.fingerprint(
+              protection.open(accountId, challenge.emailCiphertext),
+            );
             const verified = await transaction.billingContact.update({
               where: { accountId },
               data: {
                 emailCiphertext: challenge.emailCiphertext,
                 verifiedAt: instant,
-                revision: { increment: 1 },
+                revision,
                 challengeRef: null,
+                emailFingerprint,
+                emailFingerprintRevision:
+                  emailFingerprint === null ? null : revision,
               },
             });
             result = { ok: true, revision: verified.revision };
@@ -448,6 +460,21 @@ export class BillingContact {
         contactFailure("internal_error"),
       );
     }
+  }
+
+  private fingerprint(email: string): string | null {
+    const fingerprint = fingerprintEmail(
+      email,
+      this.dependencies.emailFingerprintKey,
+    );
+    if (fingerprint !== undefined) return fingerprint;
+    // The contact stays verified but is not found by email; the address never reaches the log.
+    writeLog("warn", "billing_contact_fingerprint_skipped", {
+      module: "accounts",
+      operation: "confirm",
+      reason: "email_not_normalizable",
+    });
+    return null;
   }
 
   async acceptConsents(
