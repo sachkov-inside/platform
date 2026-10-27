@@ -29,6 +29,8 @@ export const contentCollectionSchema = z
     kind: z.enum(["product", "topic"]),
     materialCount: z.number().int().nonnegative(),
     publishedMaterialCount: z.number().int().nonnegative(),
+    // Только в ответе списка (#1718): `null`, когда число держателей не факт (тема или нет ответа).
+    holderCount: z.number().int().nonnegative().nullable().optional(),
     name: z.string(),
     // Страница Product из авторского оригинала (#671); список автора её не рисует, поэтому схема
     // её только пропускает, а не проверяет.

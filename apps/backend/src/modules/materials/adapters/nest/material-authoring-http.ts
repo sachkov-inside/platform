@@ -214,7 +214,18 @@ export const contentCollectionSchema = z
     cover: contentCoverProjectionHttpSchema.nullable(),
   })
   .strict();
-export const contentCollectionListSchema = z.array(contentCollectionSchema);
+export const contentCollectionListSchema = z.array(
+  contentCollectionSchema.extend({
+    holderCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .describe(
+        "Accounts whose Product Access is active now, a count without personal data. Null when it is not a fact here: a Topic has no holders, or the Product Access owner did not answer; never a stand-in 0",
+      ),
+  }),
+);
 export const createContentCollectionBodySchema = z
   .object({
     kind: contentCollectionKindSchema,

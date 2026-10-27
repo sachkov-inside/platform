@@ -20311,10 +20311,27 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "access": {
+                    "enum": [
+                      "active",
+                      "revoked"
+                    ],
+                    "type": "string"
+                  },
                   "accountId": {
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                     "type": "string"
+                  },
+                  "accountIds": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "minItems": 1,
+                    "type": "array"
                   },
                   "cursor": {
                     "maxLength": 1024,
@@ -20327,6 +20344,12 @@
                     "maximum": 100,
                     "minimum": 1,
                     "type": "integer"
+                  },
+                  "order": {
+                    "enum": [
+                      "recent"
+                    ],
+                    "type": "string"
                   },
                   "productId": {
                     "format": "uuid",
@@ -22427,6 +22450,459 @@
         ]
       }
     },
+    "/admin/products/{productId}/holders": {
+      "get": {
+        "operationId": "listProductHolders",
+        "parameters": [
+          {
+            "description": "Only these Accounts (repeat the parameter, at most 50); an Account without access is absent",
+            "in": "query",
+            "name": "accountIds",
+            "required": false,
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "access",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "revoked"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "access": {
+                            "enum": [
+                              "active",
+                              "revoked"
+                            ],
+                            "type": "string"
+                          },
+                          "accountId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "firstIssuedAt": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                            "type": "string"
+                          },
+                          "learning": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "lastActivityAt": {
+                                "description": "The latest open of a programme Material; null when none",
+                                "format": "date-time",
+                                "nullable": true,
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                "type": "string"
+                              },
+                              "readCount": {
+                                "description": "Programme Materials marked read, the rule of Product progress",
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "startedAt": {
+                                "description": "When the Account started the Product; null until it does",
+                                "format": "date-time",
+                                "nullable": true,
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                "type": "string"
+                              },
+                              "totalCount": {
+                                "description": "Published programme Materials, the rule of Product progress",
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "readCount",
+                              "totalCount",
+                              "startedAt",
+                              "lastActivityAt"
+                            ],
+                            "type": "object"
+                          },
+                          "revision": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "accountId",
+                          "access",
+                          "firstIssuedAt",
+                          "revision",
+                          "learning"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "nextCursor": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "invalid_request"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        400
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        403
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "product_not_found"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:product_not_found"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "dependency_unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            503
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read one Product's holders newest first with their learning progress, without names or emails",
+        "tags": [
+          "Access"
+        ]
+      }
+    },
     "/authoring/collections": {
       "get": {
         "operationId": "listAuthoringContentCollections",
@@ -22494,6 +22970,13 @@
                           "renditions"
                         ],
                         "type": "object"
+                      },
+                      "holderCount": {
+                        "description": "Accounts whose Product Access is active now, a count without personal data. Null when it is not a fact here: a Topic has no holders, or the Product Access owner did not answer; never a stand-in 0",
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "nullable": true,
+                        "type": "integer"
                       },
                       "id": {
                         "format": "uuid",
@@ -22923,7 +23406,8 @@
                       "sourceId",
                       "summary",
                       "version",
-                      "cover"
+                      "cover",
+                      "holderCount"
                     ],
                     "type": "object"
                   },

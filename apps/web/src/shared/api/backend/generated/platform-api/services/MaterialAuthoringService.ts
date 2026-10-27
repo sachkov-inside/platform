@@ -25,6 +25,10 @@ export class MaterialAuthoringService {
         width: number;
       }>;
     } | null;
+    /**
+     * Accounts whose Product Access is active now, a count without personal data. Null when it is not a fact here: a Topic has no holders, or the Product Access owner did not answer; never a stand-in 0
+     */
+    holderCount: number | null;
     id: string;
     introduction: {
       audience: string;
