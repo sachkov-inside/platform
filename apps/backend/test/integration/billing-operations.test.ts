@@ -160,6 +160,68 @@ test("productPrices.list reads one Product's price when asked by productId", asy
   ]);
 });
 
+test("productPrices.list tells the owner a Product's price is archived, which no save restores or replaces", async () => {
+  const { s, owner } = await operations();
+  value(
+    await s.pricing.manage(world.owner, {
+      operation: "productPrices.archive",
+      operationId: randomUUID(),
+      id: s.productId,
+      expectedRevision: 1,
+    }),
+  );
+  const read = async (filter: Record<string, unknown>) => {
+    const result = await owner.execute(world.owner, {
+      operation: "productPrices.list",
+      operationId: randomUUID(),
+      ...filter,
+    });
+    if (!result.ok || result.result.outcome !== "catalogOffers")
+      throw new Error(JSON.stringify(result));
+    return result.result;
+  };
+  expect(await read({ productId: s.productId })).toMatchObject({
+    items: [],
+    archivedProductIds: [s.productId],
+    nextCursor: null,
+  });
+  // The whole catalog walks archived prices too: none of them is an item.
+  const pages = [];
+  let cursor: string | null | undefined;
+  do {
+    const page = await read({
+      limit: 2,
+      ...(cursor == null ? {} : { cursor }),
+    });
+    pages.push(page);
+    cursor = page.nextCursor;
+  } while (cursor !== null);
+  expect(pages.flatMap((page) => page.archivedProductIds)).toContain(
+    s.productId,
+  );
+  expect(
+    pages.flatMap((page) => page.items.map((item) => item.product?.id)),
+  ).not.toContain(s.productId);
+  // The archive is final: neither a new price nor opening sales comes back.
+  for (const published of [false, true])
+    expect(
+      await s.pricing.manage(world.owner, {
+        operation: "productPrices.save",
+        operationId: randomUUID(),
+        expectedRevision: 2,
+        value: {
+          productId: s.productId,
+          name: "Курс",
+          priceKopecks: 300000,
+          published,
+        },
+      }),
+    ).toEqual({ ok: false, error: { code: "not_found" } });
+  // The public catalog still lists only prices on sale, without the archive.
+  const offers = value(await s.pricing.offers({ productId: s.productId }));
+  expect(offers).toEqual({ items: [], nextCursor: null });
+});
+
 test.each([
   ["payments.list", { productId: randomUUID(), states: ["confirmed"] }],
   ["paymentLinks.list", { productId: randomUUID(), state: "active" }],

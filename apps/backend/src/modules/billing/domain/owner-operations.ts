@@ -260,6 +260,11 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("catalogOffers"),
     items: z.array(priceSnapshotSchema),
+    /**
+     * Продукты страницы, чья цена в архиве. Архивную цену нельзя вернуть или заменить, поэтому
+     * продукт больше не продаётся.
+     */
+    archivedProductIds: z.array(idSchema),
     nextCursor: idSchema.nullable(),
   }),
   z.strictObject({
