@@ -35,6 +35,14 @@ async function listen(
   return `http://127.0.0.1:${address.port}`;
 }
 
+const rejectOtlpExport: RequestListener = (request, response) => {
+  request.resume();
+  // The server retry window exceeds the SDK's fixed one-second export budget,
+  // so the failed callback settles before its independent batch deadline.
+  response.writeHead(503, { "Retry-After": "2" });
+  response.end("private-export-error-sentinel");
+};
+
 const upload = {
   access: "free",
   byteSize: 42,
@@ -283,11 +291,7 @@ test("real eight second provider deadline remains independent of failed OTLP exp
     calls++;
     request.resume();
   });
-  const failedExporter = await listen(owner, (request, response) => {
-    request.resume();
-    response.writeHead(503);
-    response.end("private-export-error-sentinel");
-  });
+  const failedExporter = await listen(owner, rejectOtlpExport);
   for (const key of Object.keys(process.env))
     if (key.startsWith("OTEL_EXPORTER_OTLP")) vi.stubEnv(key, undefined);
   owner.onTestFinished(() => {
@@ -321,6 +325,63 @@ test("real eight second provider deadline remains independent of failed OTLP exp
   expect(telemetry.diagnostics().failedMetricExports).toBeGreaterThan(0);
   expect(JSON.stringify(warnings.mock.calls)).not.toContain("private-");
 }, 15_000);
+
+test("failed OTLP callbacks are observed within the fixed exporter budget without retry jitter", async (owner) => {
+  let traceAttempts = 0;
+  let metricAttempts = 0;
+  const failedExporter = await listen(owner, (request, response) => {
+    if (request.url === "/v1/traces") {
+      traceAttempts++;
+      // A retry uses its real native socket timeout. The first failure must settle
+      // before that retry can outlive the batch processor's independent deadline.
+      if (traceAttempts > 1) {
+        request.resume();
+        return;
+      }
+    }
+    if (request.url === "/v1/metrics") metricAttempts++;
+    rejectOtlpExport(request, response);
+  });
+  const providerUrl = await listen(owner, (request, response) => {
+    request.resume();
+    response.writeHead(404).end();
+  });
+  for (const key of Object.keys(process.env))
+    if (key.startsWith("OTEL_EXPORTER_OTLP")) vi.stubEnv(key, undefined);
+  owner.onTestFinished(() => {
+    vi.unstubAllEnvs();
+  });
+  const warnings = vi
+    .spyOn(console, "warn")
+    .mockImplementation(() => undefined);
+  owner.onTestFinished(() => warnings.mockRestore());
+  const jitter = vi.spyOn(Math, "random").mockReturnValue(0);
+  owner.onTestFinished(() => jitter.mockRestore());
+  const telemetry = technicalTelemetryFromEnvironment({
+    environment: {
+      INSIDE_OTEL_ENABLED: "true",
+      INSIDE_OTEL_ENDPOINT: failedExporter,
+    },
+    service: "platform-video-deletions-worker",
+    mode: "test",
+    identity: { release: "proof", sourceSha: "a".repeat(40) },
+  });
+  owner.onTestFinished(() => telemetry.shutdown());
+  const provider = createKinescopeVideoProvider({
+    apiBaseUrl: providerUrl,
+    uploaderBaseUrl: providerUrl,
+    apiToken: "private-token-sentinel",
+  });
+  await expect(
+    telemetry.runJob(() => provider.delete({ id: "not-found" })),
+  ).resolves.toEqual({ kind: "not_found" });
+  await telemetry.flush();
+  expect(telemetry.diagnostics().failedTraceExports).toBeGreaterThan(0);
+  expect(telemetry.diagnostics().failedMetricExports).toBeGreaterThan(0);
+  expect(traceAttempts).toBe(1);
+  expect(metricAttempts).toBeGreaterThan(0);
+  expect(JSON.stringify(warnings.mock.calls)).not.toContain("private-");
+});
 
 test("repeated dependency runtimes release only their context leases", async () => {
   for (let iteration = 0; iteration < 3; iteration++) {
