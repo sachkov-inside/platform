@@ -82,20 +82,12 @@ export function requestPersonCard(
   );
 }
 
-/**
- * Products the owner may grant or filter people by (`listPeopleProductChoices`), archived ones
- * included; `billing:manage` only. Temporary hand-written path until the generated
- * `PeopleService.listPeopleProductChoices` arrives with the backend contract of #1721.
- */
+/** Products the owner may grant or filter people by, archived ones included; `billing:manage` only. */
 export function requestPeopleProductChoices(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) =>
-      request.request({
-        method: "GET",
-        url: "/authoring/people/product-choices",
-      }),
+    (request) => new PeopleService(request).listPeopleProductChoices(),
     200,
     { accessToken },
   );
