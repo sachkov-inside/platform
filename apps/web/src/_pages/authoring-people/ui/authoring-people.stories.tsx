@@ -301,6 +301,42 @@ export const NameSearchUnavailableMobile: Story = {
   },
 };
 
+export const NameSearchTruncated: Story = {
+  args: {
+    query: { search: "Мария" },
+    state: peopleState(storyPeopleRows(25), {
+      nameSearch: "truncated",
+      nextCursor: "o:25",
+      total: 50,
+    }),
+  },
+  globals: desktop.globals,
+  name: "Совпадений по имени больше 50",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByText(
+        "Совпадений по имени больше 50, показаны первые. Уточните запрос.",
+      ),
+    ).toBeVisible();
+    // `total` считает только первые совпадения: число названо нижней границей, а не итогом.
+    await expect(
+      page.getByText("Больше 50 человек", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Найдено: Больше 50 человек")).toBeVisible();
+    await expect(page.queryByText("50 человек", { exact: true })).toBeNull();
+  },
+};
+
+export const NameSearchTruncatedMobile: Story = {
+  ...NameSearchTruncated,
+  globals: mobile.globals,
+  name: "Совпадений по имени больше 50 · телефон",
+  play: async ({ canvasElement }) => {
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
 export const Empty: Story = {
   args: { state: peopleState([]) },
   globals: desktop.globals,

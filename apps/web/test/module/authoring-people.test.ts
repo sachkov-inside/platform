@@ -151,6 +151,30 @@ describe("people list BFF", () => {
   });
 });
 
+describe("people list name truncation", () => {
+  it("passes a truncated name search through as its own state", async () => {
+    const response = await handlePeopleListRequest(
+      new Request("https://inside.example.test/api/authoring/people?query=a"),
+      {
+        list: () =>
+          Promise.resolve(
+            backendAnswer(200, {
+              items: [annaRow],
+              total: 50,
+              nextCursor: "o:25",
+              nameSearch: "truncated",
+            }),
+          ),
+      },
+    );
+    expect(await response.json()).toMatchObject({
+      kind: "ready",
+      nameSearch: "truncated",
+      total: 50,
+    });
+  });
+});
+
 describe("people list BFF refusal", () => {
   it("answers a Nest 400 (stale or foreign cursor) as a refused query, not as an outage", async () => {
     const response = await handlePeopleListRequest(

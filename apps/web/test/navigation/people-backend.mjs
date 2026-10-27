@@ -26,6 +26,8 @@ const commandSchema = z
  * - `Bearer people-empty` sees a directory without people.
  * - `Bearer people-unavailable` gets 503 `dependency_unavailable` for the list and the card.
  * - A query `telegram-down` stands for a name search while Telegram cannot answer.
+ * - More than `nameMatchLimit` name matches answer `nameSearch: "truncated"` with the first ones;
+ *   the double caps at 20 people where Nest caps at 50, so its small directory reaches the case.
  * - `POST /__people/reset` restores the state; `POST /__people/bump` with `{accountId, productId}`
  *   changes one access revision as another session would, to provoke `revision_conflict`.
  */
@@ -213,6 +215,8 @@ function listItem(person) {
   };
 }
 
+const nameMatchLimit = 20;
+
 /** @param {URL} url */
 function listPeople(url) {
   const text = (url.searchParams.get("query") ?? "").trim().toLowerCase();
@@ -221,8 +225,8 @@ function listPeople(url) {
   const state = url.searchParams.get("state");
   const limit = Number(url.searchParams.get("limit") ?? "25");
   const offset = Number((url.searchParams.get("cursor") ?? "o:0").slice(2));
-  const nameSearch = text === "telegram-down" ? "unavailable" : "available";
-  const matches = directory.filter((person) => {
+  let nameSearch = text === "telegram-down" ? "unavailable" : "available";
+  let matches = directory.filter((person) => {
     if (text === "telegram-down") return false;
     if (text !== "") {
       const byId = person.accountId === text;
@@ -245,6 +249,15 @@ function listPeople(url) {
       )
     );
   });
+  const byName =
+    text !== "" &&
+    text !== "telegram-down" &&
+    (!text.includes("@") || text.startsWith("@")) &&
+    !directory.some((person) => person.accountId === text);
+  if (byName && matches.length > nameMatchLimit) {
+    nameSearch = "truncated";
+    matches = matches.slice(0, nameMatchLimit);
+  }
   const page = matches.slice(offset, offset + limit);
   return {
     items: page.map(listItem),

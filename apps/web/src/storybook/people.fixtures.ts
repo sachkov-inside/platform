@@ -164,7 +164,7 @@ export function peopleState(
   totals: {
     readonly total?: number;
     readonly nextCursor?: string | null;
-    readonly nameSearch?: "available" | "unavailable";
+    readonly nameSearch?: "available" | "unavailable" | "truncated";
   } = {},
 ): Extract<PeopleListState, { readonly kind: "ready" }> {
   return {
