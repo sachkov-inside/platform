@@ -17,3 +17,13 @@ export {
   type CatalogQuery,
   type OffersResult,
 } from "./subscription/api/billing-catalog.server";
+export {
+  handleIssueProductAccess,
+  handleListProductAccess,
+  handleReadProductAccess,
+  handleRestoreProductAccess,
+} from "./subscription/api/product-access.server";
+export {
+  handlePreviewProductRevocation,
+  handleRevokeProductAccess,
+} from "./subscription/api/product-revocation.server";

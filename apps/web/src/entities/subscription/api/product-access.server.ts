@@ -9,7 +9,7 @@ import { handleMutationOperation } from "@/shared/auth/index.server";
 import {
   billingInvalidInput,
   executeBillingOperation,
-} from "@/entities/subscription.server";
+} from "./billing-command.server";
 import { listProductAccessOperation } from "./product-access.operation";
 export function handleListProductAccess(request: Request): Promise<Response> {
   return handleMutationOperation(request, listProductAccessOperation, {

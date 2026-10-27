@@ -31,6 +31,7 @@ import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
 import { authoringSearchRoute } from "./authoring-search-backend.mjs";
+import { peopleRoute } from "./people-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1099,6 +1100,8 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   const search = authoringSearchRoute(request, url);
   if (search !== null) return send(search.status, search.value);
+  const peopleRead = peopleRoute(request, url);
+  if (peopleRead !== null) return send(peopleRead.status, peopleRead.value);
   const materials = await authoringMaterialsRoute(request, url, readBody);
   if (materials !== null) return send(materials.status, materials.value);
   const collections = await contentCollectionsRoute(request, url, readBody);

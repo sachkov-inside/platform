@@ -3,7 +3,7 @@ import { defineMutationOperation } from "@/shared/api/mutation-operation";
 import {
   billingCommandResultSchema,
   billingTransportFailure,
-} from "@/entities/subscription";
+} from "./billing-operation";
 import {
   accessPairSchema,
   changeProductAccessSchema,

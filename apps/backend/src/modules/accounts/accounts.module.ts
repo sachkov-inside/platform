@@ -1,4 +1,5 @@
 import { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
+import { AccountDirectory } from "./facets/account-directory/account-directory.js";
 import { BillingContact } from "./facets/billing-contact/billing-contact.js";
 import { BillingContactController } from "./features/billing-contact/billing-contact.controller.js";
 import { billingContactProtection } from "./infrastructure/billing-contact-protection.js";
@@ -50,6 +51,18 @@ import {
             ? billingContactProtection(config.billingContact.encryptionKey)
             : undefined,
         ),
+    },
+    {
+      provide: AccountDirectory,
+      inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
+        new AccountDirectory({
+          prisma,
+          protection: config.billingContact
+            ? billingContactProtection(config.billingContact.encryptionKey)
+            : undefined,
+          emailFingerprintKey: config.identity.emailFingerprintKey,
+        }),
     },
     {
       provide: BillingContact,
@@ -107,6 +120,7 @@ import {
     OptionalAccountGuard,
   ],
   exports: [
+    AccountDirectory,
     LegalAcceptances,
     AcceptedTermsGuard,
     BillingContact,

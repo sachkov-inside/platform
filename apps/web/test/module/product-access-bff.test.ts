@@ -23,7 +23,7 @@ import {
   handleIssueProductAccess,
   handleRestoreProductAccess,
   handleReadProductAccess,
-} from "@/features/billing-admin/api/product-access.server";
+} from "@/entities/subscription/api/product-access.server";
 const accountId = "00000000-0000-4000-8000-000000000001",
   productId = "00000000-0000-4000-8000-000000000002";
 function command(input: unknown, origin = "https://inside.example.test") {
