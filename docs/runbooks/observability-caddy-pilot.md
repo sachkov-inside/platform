@@ -157,6 +157,16 @@ HTTP200 completion. A canonical self-query's in-flight value is insufficient. Mi
 visibility within eight seconds fails/incompletes the case; no deadline is increased. The source
 predicate and protocol fixtures do not replace actual Linux Caddy evidence.
 
+The in-flight wait polls every 250ms, like the other scenario waits, instead of every 50ms.
+The source itself scrapes every five seconds. Repeated reads of the same stored cohort consume
+one shared 128-acquisition cap across all phases; rapid polling can exhaust it before a valid
+held sample becomes visible inside the existing eight seconds. A 2026-10-27 owned local HTTP
+replay with the pinned native MCP, forty actual prior acquisitions and a 6.8-second visibility
+delay reproduced the old cap refusal. This proves the polling failure pattern, not the exact
+unrecorded phase counts or latency of the failed Linux run. Canonical/MCP original maps, fixed
+evaluation time, freshness, held interval and the scenario-wide cap remain unchanged. A source
+that becomes visible after the held deadline still fails. Linux native acceptance remains pending.
+
 ## Outcomes and cleanup
 
 Only baseline can establish native observation acceptance. Other matrix jobs inject a closed
@@ -266,10 +276,10 @@ establish native acceptance. Fresh source-bound native evidence is still require
 
 ## Source test progress
 
-The source wrapper runs two separately owned contract groups: 81 pure/protocol methods and
+The source wrapper runs two separately owned contract groups: 82 pure/protocol methods and
 three process-lifecycle methods that acquire real launchers and listeners. Each invocation keeps
 the existing `15000ms` deadline and fixture/cleanup budgets. Complete discovery must match the
-84-method inventory, retaining all original methods, before selection in either process. The checked group union has
+85-method inventory, retaining all original methods, before selection in either process. The checked group union has
 no missing or repeated method; every method executes once across the two invocations.
 Best-effort start/completed markers identify only fixed inventoried source test IDs in
 its private captured stderr. The parent validates the complete ordered marker prefix before

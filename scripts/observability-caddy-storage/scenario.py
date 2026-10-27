@@ -190,7 +190,10 @@ class Scenario:
                         inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
                             r_received=held.started_at,f_sent=held.finished_at)
                         break
-                    time.sleep(min(.05,self.remaining()))
+                    # The source scrapes every five seconds. Re-reading the same
+                    # cohort every 50ms can exhaust the whole scenario's 128 reads
+                    # before a valid held sample is visible within its eight seconds.
+                    time.sleep(min(.25,self.remaining()))
         self.passed('inflight')
 
     def outages(self):
