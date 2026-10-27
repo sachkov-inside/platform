@@ -68,12 +68,13 @@ export function handleOwnerPaymentsRequest(
     const input = parsePaymentsListRequest(new URL(request.url).searchParams);
     if (input === null) return billingFailureResponse("invalid_request", 400);
     // Поля фильтра уходят в backend как есть: правила отбора и курсора принадлежат billing.
-    const command = {
+    const { states, ...filters } = input;
+    const command: ManageBillingCommand = {
       operation: "payments.list",
       operationId: randomUUID(),
-      ...input,
-      ...(input.states === undefined ? {} : { states: [...input.states] }),
-    } as ManageBillingCommand;
+      ...filters,
+      ...(states === undefined ? {} : { states: [...states] }),
+    };
     return ownerRead(
       accessToken,
       command,
