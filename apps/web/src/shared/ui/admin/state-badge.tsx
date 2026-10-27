@@ -38,6 +38,7 @@ export const adminStates = {
   "sale.running": { label: "Поток идёт", tone: "positive" },
   "sale.between": { label: "Между потоками", tone: "positive" },
   "sale.archived": { label: "Продукт в архиве", tone: "muted" },
+  "sale.priceArchived": { label: "Цена в архиве", tone: "muted" },
   "activationRule.published": { label: "Опубликовано", tone: "positive" },
   "activationRule.paused": { label: "Приостановлено", tone: "muted" },
   // Платёж (#1718): банковское состояние попытки и отдельно готовность доступа. Неизвестное

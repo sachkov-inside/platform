@@ -185,10 +185,11 @@ export function ProductSalePanel({
     );
   }
 
-  const { price, salesState } = sale.data;
+  const { price, priceArchived, salesState } = sale.data;
   const status = deriveSaleStatus({
     productArchived: archived,
     price,
+    priceArchived,
     salesState,
   });
   const conflict = failure === "revision_conflict";
@@ -246,6 +247,7 @@ export function ProductSalePanel({
         }}
         pending={pending}
         price={price}
+        priceArchived={priceArchived}
         productName={productName}
       />
 
@@ -273,6 +275,7 @@ export function ProductSalePanel({
         }}
         pending={pending}
         price={price}
+        priceArchived={priceArchived}
       />
 
       {paymentLinks}
@@ -328,8 +331,7 @@ export function ProductSalePanel({
           consequence={
             <p>
               Продажи продукта закроются. Полученный доступ и прежние покупки
-              сохранятся. Архив необратим: вернуть цену или задать новую из
-              админки нельзя.
+              сохранятся. Архив необратим: вернуть цену или задать новую нельзя.
             </p>
           }
           error={
@@ -423,6 +425,7 @@ function BlockHeading({
 
 function PriceBlock({
   price,
+  priceArchived,
   productName,
   pending,
   conflict,
@@ -430,6 +433,7 @@ function PriceBlock({
   onArchive,
 }: {
   readonly price: OwnerProductPrice | null;
+  readonly priceArchived: boolean;
   readonly productName: string;
   readonly pending: boolean;
   readonly conflict: boolean;
@@ -476,35 +480,39 @@ function PriceBlock({
           )
         }
         description={
-          price === null
-            ? "У продукта ещё нет цены. Цена сохранится без открытия продаж."
-            : "Одна разовая цена продукта. Новая цена не меняет уже начатые покупки."
+          priceArchived
+            ? "Цена в архиве. Вернуть её или задать новую нельзя, поэтому продукт больше не продаётся. Купленный доступ сохраняется."
+            : price === null
+              ? "У продукта ещё нет цены. Цена сохранится без открытия продаж."
+              : "Одна разовая цена продукта. Новая цена не меняет уже начатые покупки."
         }
         id={headingId}
         title="Цена"
       />
-      <form className="grid gap-4" noValidate onSubmit={submit}>
-        <AmountField
-          error={error ?? ""}
-          label="Цена"
-          max={priceBounds.max}
-          min={priceBounds.min}
-          onChange={(value) => {
-            setKopecks(value);
-            if (error !== undefined) setError(undefined);
-          }}
-          required
-          valueKopecks={kopecks}
-        />
-        <Button
-          aria-busy={pending}
-          className="min-h-11 w-full sm:w-fit"
-          disabled={pending || conflict || unchanged}
-          type="submit"
-        >
-          Сохранить цену
-        </Button>
-      </form>
+      {priceArchived ? null : (
+        <form className="grid gap-4" noValidate onSubmit={submit}>
+          <AmountField
+            error={error ?? ""}
+            label="Цена"
+            max={priceBounds.max}
+            min={priceBounds.min}
+            onChange={(value) => {
+              setKopecks(value);
+              if (error !== undefined) setError(undefined);
+            }}
+            required
+            valueKopecks={kopecks}
+          />
+          <Button
+            aria-busy={pending}
+            className="min-h-11 w-full sm:w-fit"
+            disabled={pending || conflict || unchanged}
+            type="submit"
+          >
+            Сохранить цену
+          </Button>
+        </form>
+      )}
     </section>
   );
 }
@@ -658,12 +666,14 @@ function PriceAfterStartField({
 
 function SaleSwitchBlock({
   price,
+  priceArchived,
   archived,
   pending,
   conflict,
   onToggle,
 }: {
   readonly price: OwnerProductPrice | null;
+  readonly priceArchived: boolean;
   readonly archived: boolean;
   readonly pending: boolean;
   readonly conflict: boolean;
@@ -671,8 +681,9 @@ function SaleSwitchBlock({
 }) {
   const headingId = useId();
   const published = price?.published === true;
-  const description =
-    price === null
+  const description = priceArchived
+    ? "Цена в архиве: открыть продажи нельзя."
+    : price === null
       ? "Сначала задайте цену: без неё продавать нечего."
       : published
         ? "Продажи открыты: покупатели могут оплатить продукт. Закрытие не отзывает полученный доступ."

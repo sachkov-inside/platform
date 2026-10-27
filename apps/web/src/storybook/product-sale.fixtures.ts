@@ -118,6 +118,8 @@ export const activationRules: readonly ActivationRuleFixture[] = [
 
 export interface SaleBffOptions {
   readonly price?: SaleFixturePrice | null;
+  /** Цена продукта в архиве: billing её не отдаёт и новую не принимает. */
+  readonly priceArchived?: boolean;
   readonly salesState?: SaleFixtureState | null;
   readonly rules?: readonly ActivationRuleFixture[];
   /** Первая запись цены или состояния получает конфликт ревизии, как после правки в другой вкладке. */
@@ -195,6 +197,7 @@ const refused = (code: string) => Response.json({ ok: false, code });
 /** Ответы BFF на один показ story. */
 export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
   let price = options.price ?? null;
+  let priceArchived = options.priceArchived === true;
   let salesState = options.salesState ?? null;
   let rules = [...(options.rules ?? [])];
   let conflict = options.conflictOnce === true;
@@ -228,6 +231,7 @@ export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
             result: {
               outcome: "catalogOffers",
               items: price === null ? [] : [priceSnapshot(price)],
+              archivedProductIds: priceArchived ? [saleProductId] : [],
               nextCursor: null,
             },
           })
@@ -235,6 +239,7 @@ export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
     if (path === "/api/authoring/billing/product-sales-states/read")
       return ok({ salesState });
     if (path === "/api/authoring/billing/product-prices/save") {
+      if (priceArchived) return refused("not_found");
       if (conflict || command.expectedRevision !== price?.revision) {
         conflict = false;
         if (price !== null) price = { ...price, revision: price.revision + 1 };
@@ -246,6 +251,7 @@ export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
     }
     if (path === "/api/authoring/billing/product-prices/archive") {
       price = null;
+      priceArchived = true;
       return catalog(saleProductId, 99, false);
     }
     if (path === "/api/authoring/billing/product-sales-states/save") {

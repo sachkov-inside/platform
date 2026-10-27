@@ -108,10 +108,18 @@ const problem = (code: string, status: number) => ({
   problem: { code },
   response: new Response(null, { status }),
 });
-const catalog = (items: readonly PriceSnapshot[]) =>
+const catalog = (
+  items: readonly PriceSnapshot[],
+  archivedProductIds?: readonly string[],
+) =>
   ok({
     operationRef: operationId,
-    result: { outcome: "catalogOffers", items, nextCursor: null },
+    result: {
+      outcome: "catalogOffers",
+      items,
+      ...(archivedProductIds === undefined ? {} : { archivedProductIds }),
+      nextCursor: null,
+    },
   });
 
 const routes = {
@@ -160,23 +168,52 @@ describe("состояние продажи продукта", () => {
       "between",
     ],
     [{ productArchived: false, price, salesState: null }, "running"],
+    [
+      { productArchived: false, price: null, priceArchived: true, salesState },
+      "priceArchived",
+    ],
+    [
+      { productArchived: true, price: null, priceArchived: true, salesState },
+      "archived",
+    ],
   ] as const)("выводит %o как «%s»", (input, status) => {
     expect(deriveSaleStatus(input)).toBe(status);
   });
 
   it("читает цену владельца своего продукта и отвергает чужой продукт", () => {
-    expect(ownerPriceOf([], productId)).toEqual({ ok: true, price: null });
+    expect(ownerPriceOf([], productId)).toEqual({
+      ok: true,
+      price: null,
+      archived: false,
+    });
     expect(ownerPriceOf([snapshot(productId, true)], productId)).toEqual({
       ok: true,
       price,
+      archived: false,
     });
     expect(ownerPriceOf([snapshot(productId)], productId)).toEqual({
       ok: true,
       price: { ...price, published: false },
+      archived: false,
     });
     expect(ownerPriceOf([snapshot(otherProductId)], productId)).toEqual({
       ok: false,
     });
+  });
+
+  it("цена в архиве читается как архив, а не как продукт без цены", () => {
+    expect(ownerPriceOf([], productId, [productId])).toEqual({
+      ok: true,
+      price: null,
+      archived: true,
+    });
+    // Чужой архив или действующая цена рядом с архивом той же цены: нарушенный контракт.
+    expect(ownerPriceOf([], productId, [otherProductId])).toEqual({
+      ok: false,
+    });
+    expect(
+      ownerPriceOf([snapshot(productId, true)], productId, [productId]),
+    ).toEqual({ ok: false });
   });
 });
 
@@ -344,6 +381,7 @@ describe("маршруты продажи", () => {
 
     await expect(readProductSale(productId)).resolves.toEqual({
       price,
+      priceArchived: false,
       salesState,
     });
     expect(fakes.manage).toHaveBeenCalledTimes(1);
@@ -366,7 +404,22 @@ describe("маршруты продажи", () => {
 
     await expect(readProductSale(productId)).resolves.toEqual({
       price: null,
+      priceArchived: false,
       salesState: null,
+    });
+  });
+
+  it("цена в архиве приходит отдельным признаком, а не пустой ценой", async () => {
+    routeBrowserMutations(routes);
+    fakes.manage.mockResolvedValue(catalog([], [productId]));
+    fakes.salesStates.mockResolvedValue(
+      ok({ items: [salesState], nextCursor: null }),
+    );
+
+    await expect(readProductSale(productId)).resolves.toEqual({
+      price: null,
+      priceArchived: true,
+      salesState,
     });
   });
 
@@ -478,6 +531,13 @@ describe("продажи каталога в списке продуктов", (
     expect(catalogSaleStatus(otherProductId, false, reads)).toBe("closed");
     expect(catalogSaleStatus(thirdProductId, false, reads)).toBe("unpriced");
     expect(catalogSaleStatus(productId, true, reads)).toBe("archived");
+    const archivedPrices = new Set([thirdProductId]);
+    expect(
+      catalogSaleStatus(thirdProductId, false, { ...reads, archivedPrices }),
+    ).toBe("priceArchived");
+    expect(
+      catalogSaleStatus(thirdProductId, true, { ...reads, archivedPrices }),
+    ).toBe("archived");
   });
 
   it("без цен владельца показывает публичный этап или неизвестность, но не «закрыто»", () => {
@@ -518,13 +578,17 @@ describe("продажи каталога в списке продуктов", (
           result: {
             outcome: "catalogOffers",
             items: [snapshot(productId, true)],
+            archivedProductIds: [thirdProductId],
             nextCursor: cursor,
           },
         }),
       )
       .mockResolvedValueOnce(catalog([snapshot(otherProductId)]));
 
-    await expect(readCatalogPrices()).resolves.toEqual(prices);
+    await expect(readCatalogPrices()).resolves.toEqual({
+      prices,
+      archived: new Set([thirdProductId]),
+    });
     expect(fakes.manage).toHaveBeenCalledTimes(2);
     expect(fakes.manage).toHaveBeenNthCalledWith(
       1,

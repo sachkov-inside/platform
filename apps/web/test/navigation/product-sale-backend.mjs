@@ -5,8 +5,8 @@ import { z } from "zod";
  * Подставные цены, состояния продажи, пустой список ссылок на оплату и правила активации для
  * вкладок «Продажа» и «Сообщество и активация» страницы продукта (#1718). Это HTTP-двойник `POST /billing/admin` и публичного
  * `GET /billing/product-sales-states`, а не проверка прав: любой токен владельца получает тот же
- * каталог. Ревизии проверяются, как в billing. `POST /__product-sale/reset` возвращает исходный
- * каталог перед каждой проверкой.
+ * каталог. Ревизии проверяются, как в billing; архивная цена, как в billing, не возвращается и не
+ * заменяется. `POST /__product-sale/reset` возвращает исходный каталог перед каждой проверкой.
  */
 
 const operationRef = "c0110000-0000-4000-8000-0000000001f0";
@@ -116,6 +116,14 @@ const conflict = {
   status: 409,
   value: { code: "revision_conflict", status: 409 },
 };
+const notFound = { status: 404, value: { code: "not_found", status: 404 } };
+
+/**
+ * @param {Price} price
+ * @param {string | undefined} productId
+ */
+const inScope = (price, productId) =>
+  productId === undefined || price.productId === productId;
 
 /**
  * @param {import("node:http").IncomingMessage} request
@@ -158,12 +166,14 @@ export async function productSaleRoute(request, url, readBody) {
             outcome: "catalogOffers",
             items: catalog.prices
               .filter(
-                (price) =>
-                  !price.archived &&
-                  (command.productId === undefined ||
-                    price.productId === command.productId),
+                (price) => !price.archived && inScope(price, command.productId),
               )
               .map(snapshot),
+            archivedProductIds: catalog.prices
+              .filter(
+                (price) => price.archived && inScope(price, command.productId),
+              )
+              .map((price) => price.productId),
             nextCursor: null,
           },
         },
@@ -174,6 +184,7 @@ export async function productSaleRoute(request, url, readBody) {
         (price) => price.productId === value.productId,
       );
       if (current?.revision !== command.expectedRevision) return conflict;
+      if (current?.archived === true) return notFound;
       const saved = {
         ...value,
         revision: (current?.revision ?? 0) + 1,
@@ -196,6 +207,38 @@ export async function productSaleRoute(request, url, readBody) {
               revision: saved.revision,
               archived: false,
               published: saved.published,
+            },
+          },
+        },
+      };
+    }
+    case "productPrices.archive": {
+      const current = catalog.prices.find(
+        (price) => price.productId === command.id,
+      );
+      if (current === undefined) return notFound;
+      if (current.revision !== command.expectedRevision) return conflict;
+      const archived = {
+        ...current,
+        revision: current.revision + 1,
+        published: false,
+        archived: true,
+      };
+      catalog.prices = [
+        ...catalog.prices.filter((price) => price.productId !== command.id),
+        archived,
+      ];
+      return {
+        status: 200,
+        value: {
+          operationRef,
+          result: {
+            outcome: "catalog",
+            value: {
+              id: archived.productId,
+              revision: archived.revision,
+              archived: true,
+              published: false,
             },
           },
         },

@@ -31,10 +31,18 @@ export async function readProductSale(
     readProductSalesStateOperation.send({ productId }),
   ]);
   if (!price.ok) throw new ProductSaleReadError(price.code);
-  const own = ownerPriceOf(price.value.result.items, productId);
+  const own = ownerPriceOf(
+    price.value.result.items,
+    productId,
+    price.value.result.archivedProductIds,
+  );
   if (!own.ok) throw new ProductSaleReadError("unavailable");
   if (!state.ok) throw new ProductSaleReadError(state.code);
-  return { price: own.price, salesState: state.value.salesState };
+  return {
+    price: own.price,
+    priceArchived: own.archived,
+    salesState: state.value.salesState,
+  };
 }
 
 export function useProductSale(productId: string) {

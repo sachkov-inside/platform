@@ -36,19 +36,27 @@ async function readAllPages<Item>(
   return null;
 }
 
-/** Цены владельца по продуктам; `null`, когда права нет или чтение не удалось. */
-export async function readCatalogPrices(): Promise<ReadonlyMap<
-  string,
-  OwnerProductPrice
-> | null> {
+/**
+ * Цены владельца по продуктам и продукты с ценой в архиве; `null`, когда права нет или чтение не
+ * удалось.
+ */
+export async function readCatalogPrices(): Promise<{
+  readonly prices: ReadonlyMap<string, OwnerProductPrice>;
+  readonly archived: ReadonlySet<string>;
+} | null> {
+  const archived = new Set<string>();
   const items = await readAllPages<PriceSnapshot>(async (cursor) => {
     const result = await listOwnerProductPricesOperation.send({
       operationId: crypto.randomUUID(),
       ...(cursor === undefined ? {} : { cursor }),
     });
-    return result.ok ? result.value.result : null;
+    if (!result.ok) return null;
+    for (const id of result.value.result.archivedProductIds) archived.add(id);
+    return result.value.result;
   });
-  return items === null ? null : ownerPricesByProduct(items);
+  return items === null
+    ? null
+    : { prices: ownerPricesByProduct(items), archived };
 }
 
 /** Публичные состояния продажи по продуктам; `null`, когда чтение не удалось. */
@@ -88,7 +96,8 @@ export function useCatalogSale():
   return {
     kind: "ready",
     reads: {
-      prices: prices.data ?? null,
+      prices: prices.data?.prices ?? null,
+      ...(prices.data == null ? {} : { archivedPrices: prices.data.archived }),
       salesStates: salesStates.data ?? null,
     },
   };
