@@ -32,7 +32,7 @@ function plan(input: unknown) {
 }
 
 describe("Telegram delivery across the repository transition", () => {
-  it("records the current canonical communication migration identity", () => {
+  it("records the current migration identity", () => {
     const result = runOwnedCommandSync(
       process.execPath,
       ["scripts/release-contract.mjs", "migrations-identity"],
@@ -41,9 +41,9 @@ describe("Telegram delivery across the repository transition", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       identity:
-        "sha256:003851e09a8e653a4dd1e55ed186c95e705e70197d24c1598a23a94ab510a60a",
-      count: 38,
-      latest: "037-canonical-communication-sequences.ts",
+        "sha256:01876aac073c5a8c3d319994bbda6d9c0b98c81d9d6091ae3cdf3000af8f456c",
+      count: 39,
+      latest: "038-platform-link-profiles.ts",
     });
   });
 
