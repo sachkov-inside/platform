@@ -24,13 +24,15 @@ HTTP_PATHS = ('/metrics', '/config/')
 MAX_HTTP_BYTES = 1_048_576
 
 
-def _execute(args, *, timeout, payload=None):
+def _execute(args, *, timeout, payload=None, observe_failure=None):
     """Bound both pipes while reading; always reap this command and kill its own group."""
+    if observe_failure is not None and not callable(observe_failure):
+        raise ValueError('native_source_command_observer')
     if timeout <= 0 or payload is not None and (type(payload) is not bytes or len(payload) > 65536):
         raise ValueError('native_source_command_input')
     deadline = time.monotonic() + timeout
     process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, start_new_session=True,
+        stderr=subprocess.PIPE if observe_failure is None else subprocess.STDOUT, start_new_session=True,
         env={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'})
     output = bytearray()
     counts = {'stdout': 0, 'stderr': 0}
@@ -38,6 +40,7 @@ def _execute(args, *, timeout, payload=None):
     try:
         with selectors.DefaultSelector() as selector:
             for stream, name in ((process.stdout, 'stdout'), (process.stderr, 'stderr')):
+                if stream is None: continue
                 os.set_blocking(stream.fileno(), False)
                 selector.register(stream, selectors.EVENT_READ, name)
             if pending:
@@ -64,9 +67,9 @@ def _execute(args, *, timeout, payload=None):
                         selector.unregister(key.fileobj)
                         continue
                     counts[key.data] += len(chunk)
+                    if key.data == 'stdout': output.extend(chunk[:4096 - len(output)])
                     if counts[key.data] > 4096:
                         raise ValueError('native_source_command_size')
-                    if key.data == 'stdout': output.extend(chunk)
             # Observe exit without reaping. The zombie leader retains this PGID until
             # finally kills the owned group, so PID reuse cannot target a foreign group.
             while True:
@@ -81,10 +84,16 @@ def _execute(args, *, timeout, payload=None):
                 raise RuntimeError('native_source_command_exit')
             return bytes(output)
     finally:
+        primary = sys.exc_info()
         signal_groups({process.pid}, signal.SIGKILL)
         process.wait(timeout=1)
         for stream in (process.stdin, process.stdout, process.stderr):
-            stream.close()
+            if stream is not None: stream.close()
+        if observe_failure is not None:
+            try: observe_failure(bytes(output), process.returncode)
+            except BaseException:
+                if primary[1] is None: raise
+                BaseException.__traceback__.__set__(primary[1], primary[2])
 
 
 def postgres_read(project, sql, *, setup=False, execute=_execute):
