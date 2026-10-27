@@ -45,6 +45,9 @@ VictoriaLogs, VictoriaTraces, Alloy, vmauth, query gateway, Grafana и отде�
 Тестовый peer подтверждает роль administrator только для bot `1566` в фиксированном
 синтетическом chat; для 256 тестовых контактов возвращает `left`. Это ответ изолированного
 peer, не проверка прав или изменение роли настоящего production bot.
+Одноразовый `ready` client завершает собственный Node process после callback записи полного
+закрытого результата в stdout. Ожидающий DNS lookup не продлевает его жизнь после сетевого отказа;
+результат timeout остаётся `ok: false`, а готовность определяется прежним содержимым ответа.
 При отказе готовности `fullstack_readiness` сохраняет отдельно последний завершённый ответ и исход
 родительского probe: `completed`, `timeout`, `command_failed` либо `subprocess_failed`. Только закрытая
 проекция `ok/status/cause` может попасть в диагностику. Частичный JSON от незавершившегося child

@@ -699,8 +699,12 @@ if (action === "cache-ready") {
   console.log(JSON.stringify(await webHttpStored(argument(0))));
 } else if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
-  console.log(
-    JSON.stringify(readinessObservation(response, argument(0), argument(3))),
+  // This one-shot process owns pending resolver handles too. Exit only after the
+  // complete closed observation is flushed, keeping transport failure as false.
+  process.stdout.write(
+    JSON.stringify(readinessObservation(response, argument(0), argument(3))) +
+      "\n",
+    (error) => process.exit(error ? 1 : 0),
   );
 } else if (action === "telegram-establish") {
   let accepted = 0;
