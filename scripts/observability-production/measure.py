@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -235,6 +236,41 @@ def prepare(output, *, host_metrics):
     pilot.write_json(output / 'measurement-mode.json', {'host_metrics': host_metrics})
 
 
+def diagnose_host_startup(compose, project):
+    """After failure only: attach the same verified synthetic container; no new service or PASS."""
+    import native_sources
+    deadline = time.monotonic() + 12
+    def command(args, *, timeout=3, observe_failure=None):
+        pilot.assert_docker_identity(deadline=deadline)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0: raise TimeoutError('host_startup_deadline')
+        return native_sources._execute(pilot.docker_args(args), timeout=min(timeout, remaining), observe_failure=observe_failure)
+    identity = command([*compose, 'ps', '--all', '-q', 'host-agent']).decode().strip()
+    if re.fullmatch(r'[a-f0-9]{64}', identity) is None: raise ValueError('host_startup_owner')
+    def verify():
+        row = json.loads(command(['docker', 'inspect', identity, '--format', native_sources.INSPECT]))
+        if (type(row) is not dict or set(row) != {'id', 'project', 'service', 'running'} or
+                row['id'] != identity or row['project'] != project or row['service'] != 'host-agent' or type(row['running']) is not bool):
+            raise ValueError('host_startup_owner')
+    verify()
+    result = {'cause': 'unavailable', 'exit_code': None}
+    command([*compose, 'stop', '--timeout', '2', 'host-agent'])
+    verify()
+    def observe(raw, status):
+        result.update(cause=check.startup_cause(raw), exit_code=status)
+    try:
+        command(['docker', 'start', '--attach', identity], timeout=8, observe_failure=observe)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        pass
+    finally:
+        # Preserve a captured cause even if the external supervisor must finish cleanup.
+        try:
+            verify()
+            command([*compose, 'stop', '--timeout', '2', 'host-agent'])
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError): pass
+    return result
+
+
 def worker(output):
     if sys.platform != 'linux':
         raise ValueError('measurement_requires_owned_linux_runner')
@@ -248,6 +284,7 @@ def worker(output):
     report = {'schema': 1, 'scope': 'isolated synthetic production technical topology only',
         'acceptance': 'pending', 'host_metrics': 'enabled: privileged owned Linux runner' if host_metrics else 'disabled',
         'profile': profile, 'phases': [], 'missing': profile['missing'], 'state': 'running'}
+    host_startup_pending = host_metrics
     try:
         with pilot.worker_storage_guard(owner, compose, output):
             if host_metrics:
@@ -262,6 +299,7 @@ def worker(output):
                     if value != 0:
                         raise ValueError('unowned_container_series_retained')
             states = owned(compose, owner['project'], services)
+            host_startup_pending = False
             for repetition in range(profile['repetitions']):
                 for definition in profile['phases']:
                     report['phases'].append(phase(definition, repetition=repetition, states=states,
@@ -278,8 +316,14 @@ def worker(output):
                         raise ValueError('measurement_container_replaced_oom_or_restarted')
                     pilot.write_json(output / 'production-measurements.json', report)
             report['state'] = 'completed: capacity acceptance remains pending'
-    except BaseException:
+    except BaseException as primary:
         report['state'] = 'failed'
+        if host_startup_pending and isinstance(primary, (OSError, ValueError, RuntimeError, subprocess.SubprocessError)):
+            traceback = primary.__traceback__
+            try: report['host_startup_diagnostic'] = diagnose_host_startup(compose, owner['project'])
+            except BaseException:
+                report['host_startup_diagnostic'] = {'cause': 'unavailable', 'exit_code': None}
+                BaseException.__traceback__.__set__(primary, traceback)
         raise
     finally:
         pilot.write_json(output / 'production-measurements.json', report)

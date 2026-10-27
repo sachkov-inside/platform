@@ -356,3 +356,22 @@ Timer просит цикл каждые 5 s; фактический возра�
 оставить старые snapshots со старым timestamp (они станут UNKNOWN), затем выключать host-agent.
 Откат использует прежний immutable source/unit/config; не удаляет приложение или чужие данные.
 Готовность Linux fixture не подтверждает установку systemd или private Caddy config на production.
+
+### Закрытая диагностика startup в synthetic proof
+
+Если optional host-agent завершился до первого подтверждённого stored observation, proof остаётся
+неуспешным. В пределах того же зарегистрированного CI project worker проверяет точный container ID,
+project и service, останавливает только этот контейнер с grace 2 секунды и один раз запускает
+`docker start --attach` для того же ID. Новый service, контейнер или image не создаётся. Attached
+read ограничен 8 секундами и 4096 байтами совокупного stdout/stderr, вся процедура 12 секундами;
+прежний внешний supervisor и его предел 600 секунд сохраняются. Последующая очистка остаётся
+обязанностью того же supervisor.
+
+Содержимое output существует только в ограниченной памяти и преобразуется в один код причины
+из фиксированного перечня и exit code. Файлы, public artifacts и job log не получают исходный
+output, текст ошибки, command или environment. `host_startup_diagnostic` публикует только эти
+два поля. `unknown` и `unavailable` не объясняют причину; совпадение фиксированного сообщения
+показывает класс отказа, который требуется проверить исправлением и повторным native запуском.
+Диагностика не запускается после успешного startup, при исходном interrupt или exit и никогда
+не превращает исходный failure в PASS. Эта процедура относится только к disposable synthetic
+proof, её код не устанавливается на production host и не запускает production контейнеры.
