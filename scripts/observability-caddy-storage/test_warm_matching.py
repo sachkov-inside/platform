@@ -203,3 +203,31 @@ class WarmMatching(unittest.TestCase):
                     with self.assertRaises(ValueError):startup.ready(_recovery=True)
                 self.assertEqual(call.call_count,1)
                 self.assertEqual(startup.journal._windows,[])
+
+        # Optional diagnostics preserve an active failure, including its identity.
+        primary=ValueError('private-primary');interrupt=KeyboardInterrupt('private-secondary')
+        def interrupted_contract(kind,value):
+            if value=='gateway_recovery_contract':raise interrupt
+        startup=scenario.Scenario(None,'owned_token',Path('/unused'),interrupted_contract)
+        with patch.object(scenario.traffic,'perform',side_effect=primary):
+            with self.assertRaises(BaseException) as caught:startup.ready(_recovery=True)
+        self.assertIs(caught.exception,primary)
+        def interrupted(*_):raise interrupt
+        startup=scenario.Scenario(None,'owned_token',Path('/unused'),interrupted)
+        with patch.object(scenario.traffic,'perform') as perform:
+            with self.assertRaises(KeyboardInterrupt) as caught:startup.ready(_recovery=True)
+        self.assertIs(caught.exception,interrupt);perform.assert_not_called()
+        for active in (False,True):
+            with self.subTest(outage_primary=active):
+                changes=[]
+                class Targets:
+                    def change(self,*args):changes.append(args)
+                def marker(kind,value):
+                    if kind=='recovery_checkpoint':raise interrupt
+                startup=scenario.Scenario(Targets(),'owned_token',Path('/unused'),marker)
+                query={'state':'query_unavailable','observation':None}
+                with patch.object(scenario.caddy_query,'query',side_effect=primary if active else None,return_value=query), \
+                        patch.object(scenario.mcp_snapshot,'read_snapshot',side_effect=scenario.caddy_mcp.QueryUnavailable):
+                    with self.assertRaises(BaseException) as caught:startup.outages()
+                self.assertIs(caught.exception,primary if active else interrupt)
+                self.assertEqual(changes,[('gateway','stop'),('gateway','start')])

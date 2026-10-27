@@ -403,6 +403,7 @@ response-free EOF, reset, timeout, contract, other failure and the fresh acquisi
 They update memory only; existing progress/terminal persistence writes the same six-field
 `caddy-run.json`. Readiness failure categories use exact exception types without reading their
 text, arguments or provider bodies. Optional checkpoint failures cannot replace the experiment's
-failure, and the mandatory restart still runs if its checkpoint is interrupted. These phases
-do not prove a historical unknown failure's cause. Collection requires the current source-bound
+active failure, including when the callback raises an operator interrupt. Without an active
+failure, an operator interrupt still propagates; the mandatory restart runs in either case.
+These phases do not prove a historical unknown failure's cause. Collection requires the current source-bound
 reader; no positive case, query oracle, freshness tolerance or acquisition budget is changed.

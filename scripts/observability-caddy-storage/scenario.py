@@ -48,9 +48,11 @@ class Scenario:
 
     def _inflight_checkpoint(self,name):self.progress('inflight_checkpoint',name)
 
-    def _recovery_checkpoint(self,name):
+    def _recovery_checkpoint(self,name,*,_primary=None):
         try:self.progress('recovery_checkpoint',name)
         except Exception:pass  # Optional diagnostics cannot block service restoration or replace its failure.
+        except BaseException:
+            if _primary is None:raise  # An operator interrupt still wins when no failure is active.
 
     def failed(self,error):
         self.progress('failure',failure_reason(error))
@@ -88,7 +90,7 @@ class Scenario:
                 if _recovery:
                     phase={ConnectionResetError:'gateway_recovery_reset',TimeoutError:'gateway_recovery_timeout',
                            ValueError:'gateway_recovery_contract'}.get(type(error),'gateway_recovery_other')
-                    self._recovery_checkpoint(phase)
+                    self._recovery_checkpoint(phase,_primary=error)
                 raise
         return self._until(read,lambda value:value is not None and value['code']==200)
 
@@ -253,6 +255,7 @@ class Scenario:
     def outages(self):
         self.phase('gateway_outage')
         self.targets.change('gateway','stop')
+        outage_error=None
         try:
             unavailable=caddy_query.query(self.token)
             if unavailable['state']!='query_unavailable' or unavailable['observation'] is not None:status.refuse()
@@ -263,9 +266,10 @@ class Scenario:
             else:status.refuse()
             self.passed('gateway_unavailable')
         except BaseException as error:
+            outage_error=error
             self.failed(error);raise
         finally:
-            try:self._recovery_checkpoint('gateway_recovery_start')
+            try:self._recovery_checkpoint('gateway_recovery_start',_primary=outage_error)
             finally:self.targets.change('gateway','start')
         self.ready(_recovery=True)
         recovered=self.seed()  # Restarted native counters/groups are lazy and must all be reseeded.
