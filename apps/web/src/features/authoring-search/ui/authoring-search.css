@@ -78,7 +78,7 @@
   color: var(--foreground);
 }
 .authoring-search-dialog::backdrop {
-  background: oklch(0.2 0.014 129 / 0.36);
+  background: color-mix(in oklch, var(--foreground) 36%, transparent);
 }
 .authoring-search-panel {
   display: flex;
@@ -205,7 +205,7 @@
     margin: 12svh auto auto;
     border: 1px solid var(--border);
     border-radius: 16px;
-    box-shadow: 0 24px 64px oklch(0.2 0.014 129 / 0.22);
+    box-shadow: var(--elevation-floating-nav);
   }
   .authoring-search-panel {
     max-height: min(36rem, calc(100svh - 20svh));

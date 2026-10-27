@@ -1376,7 +1376,7 @@ test("trusted author finds every Material and returns from Editor to the same li
   ).toBeVisible();
   await expect(
     page
-      .getByRole("navigation", { name: "Редактор" })
+      .getByRole("navigation", { name: "Разделы админки" })
       .getByRole("link", { name: "Новый материал" }),
   ).toHaveCount(0);
   await expect(

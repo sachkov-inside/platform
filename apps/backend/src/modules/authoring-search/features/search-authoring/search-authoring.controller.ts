@@ -42,6 +42,13 @@ const searchKinds = [
   "products",
   "materials",
 ] as const satisfies readonly AuthoringSearchKind[];
+/** Every group kind can answer «unavailable»: a kind missing above fails compilation here. */
+const everyKindListed: [
+  Exclude<AuthoringSearchKind, (typeof searchKinds)[number]>,
+] extends [never]
+  ? true
+  : never = true;
+void everyKindListed;
 
 /** One variant per group kind: adding a group adds its variant here. */
 const readyGroupHttpSchema = z.discriminatedUnion("kind", [

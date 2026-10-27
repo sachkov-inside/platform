@@ -954,7 +954,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     ]);
     expect((await listed({ feedback: "given" })).ids).toEqual([fourth, second]);
 
-    // The client resends the filter with the cursor; the next page continues the filtered order.
+    // The client resends the filter with its cursor; the next page continues the filtered order.
     for (const [feedback, expected] of [
       ["awaiting", [third, first]],
       ["given", [fourth, second]],
@@ -968,6 +968,28 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         cursor: page.nextCursor,
       });
       expect(next).toEqual({ ids: [expected[1]], nextCursor: null });
+      // The cursor keeps the filter it was produced under: another filter or none is refused.
+      for (const other of [
+        { feedback: feedback === "awaiting" ? "given" : "awaiting" },
+        {},
+      ])
+        expect(
+          await review().list(owner, {
+            taskCode: task.code,
+            limit: 1,
+            cursor: page.nextCursor,
+            ...other,
+          }),
+        ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
+      // A detail read opened from a filtered page ignores the cursor and its filter.
+      expect(
+        (
+          await listed({
+            submissionId: expected[0],
+            cursor: page.nextCursor,
+          })
+        ).ids,
+      ).toEqual([expected[0]]);
     }
 
     // The detail read ignores the filter, so a submission stays readable once its comment is saved.

@@ -255,6 +255,13 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
   of submissions without author feedback. Selected links use a card surface, fine border, an orange
   icon and `aria-current`. On phones every active admin route stays reachable through the bottom
   panel and its «Ещё» sheet.
+- **State badges (#1720):** every admin list takes state labels and tones from one dictionary,
+  `adminStates` in `src/shared/ui/admin/state-badge.tsx`; the label is always visible and each
+  tone also has its own mark shape. Tones map to existing tokens only: `neutral` is `secondary`
+  with a ring, `positive` a `primary` tint with a dot, `attention` an `accent` tint with `action`
+  ink (a queue waiting for the author, such as «Новая» submission: orange as the next-action
+  signal), `critical` a `destructive` tint (failures only; unused so far) and `muted` a bordered,
+  dashed mark for archived or withdrawn states. No green and no callout tones.
 - **Task tabs:** `WorkspaceTabs` wraps labels onto additional lines on narrow screens, keeps a
   visible orange underline for the current task, and provides 44px minimum tab height. Arrow keys,
   Home and End move selection and focus. Inactive panels stay mounted with `hidden`, preserving

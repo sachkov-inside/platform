@@ -175,6 +175,9 @@ function SearchPanel({
     enabled: query.success,
     placeholderData: keepPreviousData,
   });
+  // Results of the previous text stay visible while the new one is read, but they no longer
+  // answer it: Enter and the arrows wait for the answer to the current text.
+  const stale = search.isPlaceholderData || debounced !== text;
   const state: AuthoringSearchState | undefined = query.success
     ? search.data
     : undefined;
@@ -185,7 +188,9 @@ function SearchPanel({
           entries: searchGroupEntries(group),
         }))
       : [];
-  const entries = groups.flatMap(({ entries: groupEntries }) => groupEntries);
+  const entries = stale
+    ? []
+    : groups.flatMap(({ entries: groupEntries }) => groupEntries);
   const [activeId, setActiveId] = useState<string | null>(null);
   const active =
     entries.find((entry) => entry.id === activeId) ?? entries[0] ?? null;
@@ -214,7 +219,7 @@ function SearchPanel({
 
   const status = !query.success
     ? "Найдите продукт или материал по названию."
-    : search.isPending
+    : search.isPending || stale
       ? "Ищем…"
       : state === undefined
         ? "Поиск временно недоступен."
@@ -280,7 +285,7 @@ function SearchPanel({
         </button>
       </div>
       <div
-        aria-busy={search.isFetching || undefined}
+        aria-busy={search.isFetching || stale || undefined}
         className="authoring-search-results"
       >
         <p aria-live="polite" className="authoring-search-status">

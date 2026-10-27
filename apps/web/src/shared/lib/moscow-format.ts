@@ -4,6 +4,8 @@
  * Модуль чистый и без React: его вызывают и сервер, и браузер, и проверки.
  */
 
+import { z } from "zod";
+
 export const MOSCOW_TIME_ZONE = "Europe/Moscow";
 
 const dateTimeFormat = new Intl.DateTimeFormat("ru-RU", {
@@ -45,7 +47,12 @@ const fractionalRublesInputFormat = new Intl.NumberFormat("ru-RU", {
 });
 const pluralRules = new Intl.PluralRules("ru-RU");
 
-const calendarDayPattern = /^\d{4}-\d{2}-\d{2}$/u;
+/** A calendar day «YYYY-MM-DD», validated by the schema library rather than a handwritten pattern. */
+const calendarDaySchema = z.iso.date();
+
+function isCalendarDay(value: string): boolean {
+  return calendarDaySchema.safeParse(value).success;
+}
 // «24 окт. 2026 г.» → «24 окт. 2026»: в плотных строках админки год без «г.» читается так же.
 // «г.» после года отделён пробелом; без него это конец месяца («авг.»), и его не трогаем.
 const yearSuffixPattern = /\s+г\./u;
@@ -57,13 +64,13 @@ export function formatMoscowDateTime(iso: string): string {
 
 /** «24 окт. 2026»: момент по московскому времени или календарный день «YYYY-MM-DD» как есть. */
 export function formatMoscowDate(iso: string): string {
-  const format = calendarDayPattern.test(iso) ? calendarDateFormat : dateFormat;
+  const format = isCalendarDay(iso) ? calendarDateFormat : dateFormat;
   return format.format(new Date(iso)).replace(yearSuffixPattern, "");
 }
 
 /** «10 окт» для подписей осей и коротких списков; «10 мая» остаётся полным словом. */
 export function formatMoscowShortDay(iso: string): string {
-  const format = calendarDayPattern.test(iso)
+  const format = isCalendarDay(iso)
     ? calendarShortDayFormat
     : instantShortDayFormat;
   return format.format(new Date(iso)).replace(/\.$/u, "");

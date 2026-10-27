@@ -137,6 +137,17 @@ test("Materials filters live in the address, reach the server and survive reload
   await expect(page.getByText("1 материал", { exact: true })).toBeVisible();
   await expect(materialRow(page, reviewTitle)).toBeVisible();
   await expect(materialRow(page, "Субагенты")).toHaveCount(0);
+  // Each chosen filter is its own history entry: «назад» returns the previous choice.
+  await page.goBack();
+  await expect(page).toHaveURL(`/authoring/materials?topic=${agentsTopic.id}`);
+  await expect(
+    page.getByRole("main").getByRole("combobox", { name: "Формат" }),
+  ).not.toHaveText("Видео");
+  await page.goForward();
+  await expect(page).toHaveURL(
+    `/authoring/materials?topic=${agentsTopic.id}&format=video`,
+  );
+  await expect(page.getByText("1 материал", { exact: true })).toBeVisible();
   const chips = page
     .getByRole("main")
     .getByRole("list", { name: "Применённые фильтры" });
