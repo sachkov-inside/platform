@@ -77,6 +77,13 @@
   background: var(--popover);
   color: var(--foreground);
 }
+@media (max-width: 47.999rem) {
+  /* Full screen on a phone: viewport-fit=cover puts the edges under the notch and the home bar. */
+  .authoring-search-dialog {
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+}
 .authoring-search-dialog::backdrop {
   background: color-mix(in oklch, var(--foreground) 36%, transparent);
 }

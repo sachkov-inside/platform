@@ -127,7 +127,15 @@ export function AdminFilterBar({
               value={filter.value}
             >
               <SelectTrigger aria-label={filter.label}>
-                <SelectValue />
+                {/* The label is given, not looked up: Radix finds the chosen item only after
+                    hydration, so a server-rendered list would otherwise show empty selects. */}
+                <SelectValue>
+                  {
+                    filter.options.find(
+                      (option) => option.value === filter.value,
+                    )?.label
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {filter.options.map((option) => (
