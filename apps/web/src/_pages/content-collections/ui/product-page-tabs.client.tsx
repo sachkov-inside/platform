@@ -36,11 +36,17 @@ export function ProductPageTabs({
         select(parseProductPageTab(id));
       }}
       selectedId={tab}
-      tabs={productPageTabIds.map((id) => ({
-        id,
-        label: productPageTabLabels[id],
-        panel: panels[id],
-      }))}
+      tabs={[
+        tabOf(productPageTabIds[0], panels),
+        ...productPageTabIds.slice(1).map((id) => tabOf(id, panels)),
+      ]}
     />
   );
+}
+
+function tabOf(
+  id: ProductPageTabId,
+  panels: Readonly<Record<ProductPageTabId, ReactNode>>,
+) {
+  return { id, label: productPageTabLabels[id], panel: panels[id] };
 }

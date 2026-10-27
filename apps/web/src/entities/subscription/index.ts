@@ -18,6 +18,7 @@ export {
   paymentModeSchema,
   paymentOptionSchema,
   priceSnapshotSchema,
+  productSalesStatesSchema,
   purchaseStatusSchema,
   quoteSchema,
   verifiedContactSchema,
