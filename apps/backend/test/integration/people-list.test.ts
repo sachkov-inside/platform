@@ -429,6 +429,13 @@ describe("People list", () => {
             partial: false,
             truncated: true,
           },
+          // billing:manage reads the payments of the people found too; this one has none.
+          {
+            kind: "payments",
+            state: "ready",
+            items: [],
+            personSearch: "available",
+          },
         ],
       });
     } finally {
