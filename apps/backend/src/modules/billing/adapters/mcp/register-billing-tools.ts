@@ -69,6 +69,8 @@ function description(operation: string): string {
       return "Revoke an individual payment link before payment starts, with expectedRevision. A reserved or uncertain payment blocks revocation; successful purchases remain intact.";
     case "paymentLinks.list":
       return "List issued individual payment links newest first with their current status, optionally for one productId and one visible state, with cursor and limit. Contains bearer URLs: show only to the authorized owner. Sends nothing.";
+    case "productPrices.list":
+      return "List current Product prices ordered by productId, optionally for one productId, with cursor and limit. archivedProductIds names the Products of the page whose price is archived: an archived price cannot be restored or replaced, so that Product is no longer sold. Sends nothing.";
     case "promotions.list":
       return "List Promotions newest first by start with their usage count. archived and questionnaire each select one side (both default false); productId selects Promotions that apply to that Product, including those for every Product. legacy marks an archived Promotion whose old offer scope did not move to Products: its empty productIds does not mean every Product. Sends nothing.";
     case "refunds.read":
