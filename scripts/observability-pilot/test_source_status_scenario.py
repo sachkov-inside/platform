@@ -283,8 +283,8 @@ class ScenarioTests(unittest.TestCase):
                            'Error response from daemon: network ' + identity + ' not found')
                 raise subprocess.CalledProcessError(1, args, output='[]', stderr=message + '\n')
             result = scenario.verify_cleanup(output, PROJECT, read=gone, clock=lambda: 0)
-            self.assertEqual(result, {'outcome': 'passed', 'containers': 7, 'volumes': 4, 'networks': 2})
-            self.assertEqual(len(calls), 13)
+            self.assertEqual(result, {'outcome': 'passed', 'containers': 8, 'volumes': 4, 'networks': 2})
+            self.assertEqual(len(calls), 14)
             def ambiguous(args, **_):
                 raise subprocess.CalledProcessError(1, args, output='', stderr='daemon private-secret unavailable')
             result = scenario.verify_cleanup(output, PROJECT, read=ambiguous, clock=lambda: 0)
@@ -346,7 +346,7 @@ class ScenarioTests(unittest.TestCase):
                 self.assertIs(kwargs['assert_identity'], pilot.assert_docker_identity)
                 return {'state': 'passed', 'duration_seconds': 12}
             with patch.object(pilot, 'worker_storage_guard', return_value=nullcontext()), \
-                    patch.object(pilot, 'install_plugin'), patch.object(pilot, 'command'), \
+                    patch.object(pilot, 'install_horizon'), patch.object(pilot, 'install_plugin'), patch.object(pilot, 'command'), \
                     patch.object(pilot, 'smoke', side_effect=smoke), patch.object(scenario, 'run', side_effect=freshness):
                 pilot.run_worker(output)
             self.assertEqual(order, ['original smoke', 'freshness'])

@@ -1,0 +1,7 @@
+{
+  "module": "github.com/VictoriaMetrics/metricsql",
+  "version": "v0.87.5",
+  "source_sha256": "3c2ee43decf01ec63b8ae60b5c6f4386d760663678b3326c850ad0c1f89d7a17",
+  "patch_sha256": "960878f56946c99d0043c7506bda0a6ca745df2126b7a532dceb62cd9da43c04",
+  "patched_sha256": "7873d645a43d9ef955056fd4184d1b5b7b6b046eb7b8cd5d6b1bdf6f3c71f6c1"
+}

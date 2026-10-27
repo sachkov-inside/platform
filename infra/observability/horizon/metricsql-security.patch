@@ -1,0 +1,288 @@
+--- parser.go
++++ parser.go
+@@ -15,0 +16,19 @@
++	return parseWithBudget(s, nil)
++}
++
++// ParseBounded is the Inside project security patch, not an upstream API.
++func ParseBounded(s string) (result Expr, err error) {
++	defer func() {
++		if failure := recover(); failure != nil {
++			if failure == errInsideComplexity {
++				result, err = nil, errInsideComplexity
++			} else {
++				panic(failure)
++			}
++		}
++	}()
++	insideSyntax(s)
++	return parseWithBudget(s, &insideBudget{})
++}
++
++func parseWithBudget(s string, budget *insideBudget) (Expr, error) {
+@@ -24 +43 @@
+-	if e, err = expandWithExpr(was, e); err != nil {
++	if e, err = expandWithExpr(budget, was, e); err != nil {
+@@ -25,0 +45,4 @@
++	}
++	if budget != nil {
++		final := insideBudget{}
++		final.tree(e)
+@@ -742 +765,5 @@
+-func expandWithExpr(was []*withArgExpr, e Expr) (Expr, error) {
++func expandWithExpr(budget *insideBudget, was []*withArgExpr, e Expr) (Expr, error) {
++	if budget != nil {
++		budget.enter(e, len(was))
++		defer budget.leave()
++	}
+@@ -745,13 +772,13 @@
+-		left, err := expandWithExpr(was, t.Left)
+-		if err != nil {
+-			return nil, err
+-		}
+-		right, err := expandWithExpr(was, t.Right)
+-		if err != nil {
+-			return nil, err
+-		}
+-		groupModifierArgs, err := expandModifierArgs(was, t.GroupModifier.Args)
+-		if err != nil {
+-			return nil, err
+-		}
+-		joinModifierArgs, err := expandModifierArgs(was, t.JoinModifier.Args)
++		left, err := expandWithExpr(budget, was, t.Left)
++		if err != nil {
++			return nil, err
++		}
++		right, err := expandWithExpr(budget, was, t.Right)
++		if err != nil {
++			return nil, err
++		}
++		groupModifierArgs, err := expandModifierArgs(budget, was, t.GroupModifier.Args)
++		if err != nil {
++			return nil, err
++		}
++		joinModifierArgs, err := expandModifierArgs(budget, was, t.JoinModifier.Args)
+@@ -763 +790 @@
+-			jmp, err := expandWithExpr(was, t.JoinModifierPrefix)
++			jmp, err := expandWithExpr(budget, was, t.JoinModifierPrefix)
+@@ -776,0 +804 @@
++				budget.take(1, len(lse.S)+len(rse.S))
+@@ -792 +820 @@
+-		args, err := expandWithArgs(was, t.Args)
++		args, err := expandWithArgs(budget, was, t.Args)
+@@ -798 +826 @@
+-			return expandWithExprExt(was, wa, args)
++			return expandWithExprExt(budget, was, wa, args)
+@@ -804 +832 @@
+-		args, err := expandWithArgs(was, t.Args)
++		args, err := expandWithArgs(budget, was, t.Args)
+@@ -810,3 +838,3 @@
+-			return expandWithExprExt(was, wa, args)
+-		}
+-		modifierArgs, err := expandModifierArgs(was, t.Modifier.Args)
++			return expandWithExprExt(budget, was, wa, args)
++		}
++		modifierArgs, err := expandModifierArgs(budget, was, t.Modifier.Args)
+@@ -821 +849 @@
+-		exprs, err := expandWithArgs(was, *t)
++		exprs, err := expandWithArgs(budget, was, *t)
+@@ -834,0 +863 @@
++				budget.take(1, 4*len(token))
+@@ -846 +875 @@
+-			eNew, err := expandWithExprExt(was, wa, nil)
++			eNew, err := expandWithExprExt(budget, was, wa, nil)
+@@ -856,0 +886 @@
++			budget.take(1, 3*len(seSrc.S))
+@@ -858,0 +889 @@
++		budget.take(1, len(b))
+@@ -864 +895 @@
+-		eNew, err := expandWithExpr(was, t.Expr)
++		eNew, err := expandWithExpr(budget, was, t.Expr)
+@@ -870 +901 @@
+-		re.Window, err = expandDuration(was, re.Window)
++		re.Window, err = expandDuration(budget, was, re.Window)
+@@ -874 +905 @@
+-		re.Step, err = expandDuration(was, re.Step)
++		re.Step, err = expandDuration(budget, was, re.Step)
+@@ -878 +909 @@
+-		re.Offset, err = expandDuration(was, re.Offset)
++		re.Offset, err = expandDuration(budget, was, re.Offset)
+@@ -883 +914 @@
+-			atNew, err := expandWithExpr(was, t.At)
++			atNew, err := expandWithExpr(budget, was, t.At)
+@@ -890,0 +922 @@
++		budget.take(1+len(was)+len(t.Was), 128*(len(was)+len(t.Was)))
+@@ -894 +926 @@
+-		eNew, err := expandWithExpr(wasNew, t.Expr)
++		eNew, err := expandWithExpr(budget, wasNew, t.Expr)
+@@ -924,0 +957 @@
++								budget.filters(lfsNew)
+@@ -932 +965 @@
+-						eNew, err := expandWithExprExt(was, wa, []Expr{})
++						eNew, err := expandWithExprExt(budget, was, wa, []Expr{})
+@@ -949,0 +983 @@
++							budget.filters(lfssSrc[0])
+@@ -955 +989 @@
+-					se, err := expandWithExpr(was, lfe.Value)
++					se, err := expandWithExpr(budget, was, lfe.Value)
+@@ -963,0 +998 @@
++					budget.take(1, 256+4*len(lfe.Label)+4*len(lfeNew.Value.S))
+@@ -968,0 +1004 @@
++						budget.filters(lfsNew)
+@@ -982,0 +1019 @@
++				budget.filters(lfsNew)
+@@ -997,0 +1035,2 @@
++						budget.filters(lfs)
++						budget.take(1, 128+len(commonMetricName))
+@@ -1012 +1051 @@
+-		eNew, err := expandWithExprExt(was, wa, nil)
++		eNew, err := expandWithExprExt(budget, was, wa, nil)
+@@ -1045,0 +1085,2 @@
++				budget.filters(lfs)
++				budget.filters(t.LabelFilterss[0])
+@@ -1054,0 +1096,2 @@
++				budget.filters(lfssSrc[0])
++				budget.filters(lfs)
+@@ -1089 +1132,2 @@
+-func expandWithArgs(was []*withArgExpr, args []Expr) ([]Expr, error) {
++func expandWithArgs(budget *insideBudget, was []*withArgExpr, args []Expr) ([]Expr, error) {
++	budget.take(1+len(args), 32*len(args))
+@@ -1092 +1136 @@
+-		dstArg, err := expandWithExpr(was, arg)
++		dstArg, err := expandWithExpr(budget, was, arg)
+@@ -1101 +1145 @@
+-func expandDuration(was []*withArgExpr, d *DurationExpr) (*DurationExpr, error) {
++func expandDuration(budget *insideBudget, was []*withArgExpr, d *DurationExpr) (*DurationExpr, error) {
+@@ -1112 +1156 @@
+-	e, err := expandWithExprExt(was, wa, []Expr{})
++	e, err := expandWithExprExt(budget, was, wa, []Expr{})
+@@ -1130 +1174 @@
+-func expandModifierArgs(was []*withArgExpr, args []string) ([]string, error) {
++func expandModifierArgs(budget *insideBudget, was []*withArgExpr, args []string) ([]string, error) {
+@@ -1133,0 +1178 @@
++	budget.take(1+len(args), 64*len(args))
+@@ -1163,0 +1209 @@
++				budget.take(1, 64+len(metricName))
+@@ -1183 +1229 @@
+-func expandWithExprExt(was []*withArgExpr, wa *withArgExpr, args []Expr) (Expr, error) {
++func expandWithExprExt(budget *insideBudget, was []*withArgExpr, wa *withArgExpr, args []Expr) (Expr, error) {
+@@ -1192,0 +1239 @@
++	budget.take(1+len(was)+len(args), 128*(len(was)+len(args)))
+@@ -1206 +1253 @@
+-	return expandWithExpr(wasNew, wa.Expr)
++	return expandWithExpr(budget, wasNew, wa.Expr)
+@@ -2581,0 +2629,114 @@
++
++// Fixed project admission limits apply before parser recursion and before expansion allocation.
++// Bytes charge cumulative copies (including backing-array growth and map overhead), not merely
++// the final tree. Each HTTP request has its own budget; no mutable global accounting is used.
++var errInsideComplexity = fmt.Errorf("MetricsQL project complexity budget exceeded")
++
++type insideBudget struct{ work, bytes, depth int }
++
++func (b *insideBudget) take(work, bytes int) {
++	if b == nil {
++		return
++	}
++	if work < 0 || bytes < 0 || work > 4096-b.work || bytes > (1<<20)-b.bytes {
++		panic(errInsideComplexity)
++	}
++	b.work += work
++	b.bytes += bytes
++}
++func (b *insideBudget) filters(filters []LabelFilter) {
++	if b == nil {
++		return
++	}
++	b.take(len(filters)+1, 256*len(filters))
++	for _, f := range filters {
++		b.take(0, 4*(len(f.Label)+len(f.Value)))
++	}
++}
++func (b *insideBudget) enter(e Expr, scope int) {
++	b.take(1, 256+32*scope)
++	b.depth++
++	if b.depth > 128 {
++		panic(errInsideComplexity)
++	}
++	switch t := e.(type) {
++	case *StringExpr:
++		b.take(0, 4*len(t.S)+32*len(t.tokens))
++		for _, token := range t.tokens {
++			b.take(0, 4*len(token))
++		}
++	case *MetricExpr:
++		for _, filters := range t.LabelFilterss {
++			b.filters(filters)
++		}
++		for _, filters := range t.labelFilterss {
++			b.take(len(filters), 256*len(filters))
++			for _, f := range filters {
++				b.take(0, 4*len(f.Label))
++			}
++		}
++	}
++}
++func (b *insideBudget) leave() { b.depth-- }
++func (b *insideBudget) tree(e Expr) {
++	if e == nil {
++		return
++	}
++	b.enter(e, 0)
++	defer b.leave()
++	switch t := e.(type) {
++	case *BinaryOpExpr:
++		b.tree(t.Left)
++		b.tree(t.Right)
++		b.take(len(t.GroupModifier.Args)+len(t.JoinModifier.Args), 64*(len(t.GroupModifier.Args)+len(t.JoinModifier.Args)))
++		if t.JoinModifierPrefix != nil {
++			b.tree(t.JoinModifierPrefix)
++		}
++	case *FuncExpr:
++		for _, arg := range t.Args {
++			b.tree(arg)
++		}
++	case *AggrFuncExpr:
++		b.take(len(t.Modifier.Args), 64*len(t.Modifier.Args))
++		for _, arg := range t.Args {
++			b.tree(arg)
++		}
++	case *parensExpr:
++		for _, arg := range *t {
++			b.tree(arg)
++		}
++	case *RollupExpr:
++		b.tree(t.Expr)
++		if t.At != nil {
++			b.tree(t.At)
++		}
++	}
++}
++func insideSyntax(s string) {
++	if len(s) > 65536 {
++		panic(errInsideComplexity)
++	}
++	var lex lexer
++	lex.Init(s)
++	depth := 0
++	for tokens := 0; ; tokens++ {
++		if tokens > 4096 {
++			panic(errInsideComplexity)
++		}
++		if err := lex.Next(); err != nil {
++			return
++		} // The unchanged vendor parser reports syntax errors.
++		if isEOF(lex.Token) {
++			return
++		}
++		switch lex.Token {
++		case "(", "{", "[":
++			depth++
++		case ")", "}", "]":
++			depth--
++		}
++		if depth > 64 {
++			panic(errInsideComplexity)
++		}
++	}
++}

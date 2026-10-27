@@ -1,4 +1,4 @@
-"""Tracking adds exactly one owned PostgreSQL container/volume to unchanged Core7."""
+"""Tracking adds exactly one owned PostgreSQL container/volume to Core8."""
 import json
 import re
 import subprocess
@@ -28,7 +28,7 @@ def plan(output):
     auth = (output/'auth.json').stat()
     images = json.loads((pilot.CONFIG/'inputs.lock.json').read_text())['images']
     result = pilot.compose_plan(pilot.CONFIG, output, images, credential_owner=(auth.st_uid,auth.st_gid))
-    # Declared container limits sum to4GiB/2CPU after adding512MiB/.1CPU PG.
+    # Declared container limits sum to4224MiB/2.1CPU after adding512MiB/.1CPU PG.
     # This is no measurement of the host producer, application headroom or production capacity.
     # PostgreSQL's standard entrypoint owns initial volume permissions and drops to its packaged database user.
     result['services']['postgres'] = {'image':PG_IMAGE,'mem_limit':'512m','cpus':.1,'pids_limit':128,
@@ -52,7 +52,7 @@ class TrackingTargets(source_status_scenario.OwnedTargets):
         if expected != plan(output): raise RuntimeError('tracking storage plan mismatch')
         core = {**expected,'services':{key:value for key,value in expected['services'].items() if key != 'postgres'},
                 'volumes':{key:value for key,value in expected['volumes'].items() if key != 'postgres'}}
-        # The original strict Core7 verifier and its7/4/2 absence witness remain unchanged.
+        # The strict Core8 verifier and its8/4/2 absence witness remain intact.
         super().__init__(output,compose,core,read)
         self.plan = expected
         cid = read(compose+['ps','-q','postgres']).strip()
@@ -90,7 +90,7 @@ def verify_pg_absence(output, project):
         if core_path.is_symlink() or core_path.stat().st_size > 65536: return failed
         core_owner=source_status.decode_json(core_path.read_bytes())
         if (type(core_owner) is not dict or set(core_owner) != {'project','containers','volumes','networks'}
-                or any(type(core_owner[key]) is not list or len(core_owner[key]) != count for key,count in (('containers',7),('volumes',4),('networks',2)))
+                or any(type(core_owner[key]) is not list or len(core_owner[key]) != count for key,count in (('containers',8),('volumes',4),('networks',2)))
                 or core_owner.get('project') != project or set(core_owner.get('networks',[])) != set(value['networks'])
                 or value['container'] in core_owner.get('containers',[]) or value['volume'] in core_owner.get('volumes',[])): return failed
         deadline = time.monotonic()+10
@@ -105,6 +105,6 @@ def verify_pg_absence(output, project):
                 if error.returncode != 1 or (error.stdout or '').strip() not in ('','[]') or (error.stderr or '').strip() != expected: return failed
             else: return failed
         core = json.loads((output/'cleanup.json').read_text()).get('source_freshness')
-        if core != {'outcome':'passed','containers':7,'volumes':4,'networks':2}: return failed
-        return {'outcome':'passed','containers':8,'volumes':5,'networks':2}
+        if core != {'outcome':'passed','containers':8,'volumes':4,'networks':2}: return failed
+        return {'outcome':'passed','containers':9,'volumes':5,'networks':2}
     except (OSError,ValueError,KeyError,TypeError,RuntimeError,subprocess.SubprocessError): return failed

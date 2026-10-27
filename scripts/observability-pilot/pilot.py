@@ -34,7 +34,7 @@ from storage_policy import admission as check_disk, assert_budget, StorageBudget
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "infra/observability/pilot"
-SERVICES = ("metrics", "logs", "traces", "alloy", "vmauth", "gateway", "grafana")
+SERVICES = ("metrics", "logs", "traces", "alloy", "vmauth", "gateway", "grafana", "horizon")
 FROZEN_DOCKER_ENDPOINT = None
 FROZEN_DOCKER_IDENTITY = None
 COMMAND_TIMEOUT_SECONDS = 60
@@ -56,10 +56,10 @@ def compose_plan(source, output, images, *, credential_owner):
     """Only loopback fixture ingress, query ingress and human Grafana are published."""
     services = {}
     budgets = {"metrics": (768, .4), "logs": (768, .4), "traces": (768, .4),
-               "alloy": (512, .25), "vmauth": (128, .1), "gateway": (128, .1), "grafana": (512, .25)}
+               "alloy": (512, .25), "vmauth": (128, .1), "gateway": (128, .1), "grafana": (512, .25), "horizon": (128, .1)}
     for name in SERVICES:
         memory, cpus = budgets[name]
-        services[name] = {"image": images[name], "mem_limit": f"{memory}m", "cpus": cpus,
+        services[name] = {"image": images["metrics"] if name == "horizon" else images[name], "mem_limit": f"{memory}m", "cpus": cpus,
             "pids_limit": 128, "cap_drop": ["ALL"], "security_opt": ["no-new-privileges:true"],
             "read_only": True, "tmpfs": ["/tmp:size=16777216"], "networks": ["pilot"],
             "logging": {"driver": "json-file", "options": {"max-size": "5m", "max-file": "1"}}}
@@ -94,6 +94,9 @@ def compose_plan(source, output, images, *, credential_owner):
             "GF_AUTH_DISABLE_LOGIN_FORM": "true", "GF_AUTH_BASIC_ENABLED": "false",
             "GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION": "true", "GF_ANALYTICS_REPORTING_ENABLED": "false",
             "GF_ANALYTICS_CHECK_FOR_UPDATES": "false", "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES": "false"}})
+    services["horizon"].update({"entrypoint": ["/guard/horizon"], "command": [],
+        "user": f"{credential_owner[0]}:{credential_owner[1]}", "logging": {"driver":"none"},
+        "volumes": [f"{output / 'horizon/guard'}:/guard/horizon:ro"], "pids_limit": 32})
     # Internal-only networking omitted host port mappings in the component probe. Keep storage/auth isolated.
     for service in services.values():
         if "ports" in service:
@@ -487,6 +490,8 @@ def prepare(output):
     (output / "owner-overview").mkdir()
     write_json(output / "owner-overview/dashboard.json", view["dashboard"])
     (output / "plugins").mkdir()
+    import horizon_build
+    horizon_build.prepare(output)
     return token
 
 
@@ -929,6 +934,11 @@ def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, outp
             destination = output / "readiness.json"
             previous = json.loads(destination.read_text()) if destination.exists() else []
             write_json(destination, [*previous, diagnostic])
+
+
+def install_horizon(output):
+    import horizon_build
+    return horizon_build.build(output, downloaded_asset)
 
 
 def install_plugin(output):
@@ -1419,6 +1429,7 @@ def run_worker(output):
         guard = worker_storage_guard(owner, compose, output)
         with guard:
             with timing.stage('plugin_install'):
+                install_horizon(output)
                 install_plugin(output)
             with timing.stage('compose_validate'):
                 command(compose + ["config", "--quiet"])

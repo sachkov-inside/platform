@@ -253,6 +253,7 @@ class Lifecycle(unittest.TestCase):
             for target, name, replacement in (
                     (runtime,'registration',lambda output:None),
                     (runtime.pilot,'worker_storage_guard',lambda *args:nullcontext()),
+                    (runtime.pilot,'install_horizon',lambda output:None),
                     (runtime.pilot,'install_plugin',lambda output:None),
                     (runtime.resource_profile,'load',lambda:{'pairs':[['on','off']],'profile':'owned-test'}),
                     (runtime.fixture,'mode',configure),

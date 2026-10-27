@@ -130,6 +130,7 @@ def worker(output):
         pilot.command(compose + ['run', '--rm', '--no-deps', '--user', '0:0', '--cap-add', 'CHOWN',
             '--entrypoint', 'chown', 'grafana', grafana_uid, '/var/lib/grafana'],
             timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
+        pilot.install_horizon(output)
         pilot.install_plugin(output)
         pilot.command(compose + ['up', '-d'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
         pilot.await_fact(lambda: read_ready(token), query_one, output=output, probe='production_query')

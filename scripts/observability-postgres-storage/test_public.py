@@ -78,7 +78,9 @@ class AdmissionComposition(unittest.TestCase):
             yield {'checkout_sha':sha,'checkout_tree':'b'*40,'repository':environment['GITHUB_REPOSITORY'],
                 'run_id':'1','run_attempt':'1','event':'pull_request','provider_execution_sha':sha,
                 'provider_pr_head_sha':'c'*40,'provider_pr_base_sha':'d'*40,
-                'inputs':{str(source.relative_to(checkout)):hashlib.sha256(source.read_bytes()).hexdigest()},
+                'inputs':{str(item.relative_to(checkout)):hashlib.sha256(item.read_bytes()).hexdigest()
+                    for item in (source,*sorted((checkout/'infra/observability/horizon').glob('*')),
+                        checkout/'scripts/observability-pilot/horizon_build.py',checkout/'scripts/heavy-check/bounded.py')},
                 'scope':record.SCOPE}
 
     def cli_admission(self,metadata):

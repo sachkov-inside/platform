@@ -213,8 +213,11 @@ def prepare(output, *, data, project='inside-observability-production'):
     (output / 'owner-overview').mkdir()
     write(output / 'owner-overview/dashboard.json', view['dashboard'])
     (output / 'plugins').mkdir()
+    import horizon_build
+    horizon_build.prepare(output)
     inputs = [*CONFIG.glob('*'), pilot.CONFIG / 'inputs.lock.json', pilot.CONFIG / 'vmauth.routes.json',
-              pilot.CONFIG / 'privacy-policy.json', Path(__file__)]
+              pilot.CONFIG / 'privacy-policy.json', Path(__file__), *pilot.ROOT.joinpath('infra/observability/horizon').glob('*'),
+              pilot.ROOT / 'scripts/observability-pilot/horizon_build.py', pilot.ROOT / 'scripts/heavy-check/bounded.py']
     write(output / 'inputs.json', {'schema': 1, 'project': project, 'data': str(data),
         'inputs': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(inputs) if path.is_file()},
         'activation': 'disabled until explicit SDK opt-in and production authorization'})
@@ -234,6 +237,8 @@ def preflight(output, *, application_data):
         raise ValueError('data_symlinks_refused')
     for name in ('metrics', 'logs', 'traces', 'grafana'):
         (data / name).mkdir(mode=0o700, exist_ok=True)
+    import horizon_build
+    horizon_build.verify(output)
     return {'disk_isolation': 'passed', 'monitoring_capacity_bytes': disk.total,
             'application_free_fraction': round(app_disk.free / app_disk.total, 4),
             'resource_acceptance': 'not_measured'}
@@ -254,6 +259,7 @@ def main():
         if args.application_data is None: parser.error('--application-data required')
         print(json.dumps(preflight(args.output, application_data=args.application_data)))
     else:
+        pilot.install_horizon(args.output)
         pilot.install_plugin(args.output)
 
 

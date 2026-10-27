@@ -69,7 +69,13 @@ class CoreTiming(unittest.TestCase):
                     node.keywords=[kw for kw in node.keywords if kw.arg!='timing']
                     selected.append(ast.dump(node));self.generic_visit(node)
             Calls().visit(tree);return selected
-        self.assertEqual(calls(function(after,'run_worker')),calls(function(before,'run_worker')))
+        actual=calls(function(after,'run_worker'))
+        acquisition=ast.dump(ast.parse('install_horizon(output)').body[0].value)
+        self.assertEqual(actual.count(acquisition),1)
+        index=actual.index(acquisition)
+        self.assertEqual(actual[index+1],ast.dump(ast.parse('install_plugin(output)').body[0].value))
+        actual.pop(index)
+        self.assertEqual(actual,calls(function(before,'run_worker')))
 
     def test_actual_worker_observes_before_original_calls_and_keeps_original_failure(self):
         from contextlib import nullcontext
@@ -94,7 +100,7 @@ class CoreTiming(unittest.TestCase):
                     return {}
                 def freshness(*args,**kwargs):active('freshness');return {'duration_seconds':1}
                 with patch.object(pilot,'worker_storage_guard',return_value=nullcontext()), \
-                     patch.object(pilot,'install_plugin',side_effect=lambda output:active('plugin_install')), \
+                     patch.object(pilot,'install_horizon'), patch.object(pilot,'install_plugin',side_effect=lambda output:active('plugin_install')), \
                      patch.object(pilot,'command',side_effect=command),patch.object(pilot,'smoke',side_effect=smoke), \
                      patch.object(pilot,'compose_plan',return_value={}),patch.object(source_status_scenario,'run',side_effect=freshness):
                     if fail:

@@ -388,6 +388,7 @@ def worker(output):
             grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
             if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
             invoke(compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
+            production.pilot.install_horizon(output/'monitoring')
             production.pilot.install_plugin(output/'monitoring')
             for pair,order in enumerate(profile['pairs']):
                 for state in order:

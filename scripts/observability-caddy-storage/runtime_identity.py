@@ -44,7 +44,7 @@ def validate(raw,role,plan):
         if value['ports'] not in (None,{}) if not ports else value['ports']!=ports:refuse()
         user=value['user']
         if type(user) is not str or len(user.encode('utf-8'))>128:refuse()
-        if role in ('alloy','gateway','vmauth'):
+        if role in ('alloy','gateway','vmauth','horizon'):
             expected=service.get('user')
             if (type(expected) is not str or re.fullmatch(r'(0|[1-9][0-9]{0,9}):(0|[1-9][0-9]{0,9})',expected) is None
                     or any(int(v)>4294967294 for v in expected.split(':')) or user!=expected):refuse()
