@@ -364,3 +364,9 @@ Decimal strictly below 10 is refused. A saved age of 10 alone cannot establish t
 stale decision or token arithmetic. Legacy stale reports without the token retain
 their existing behavior. This serialization compatibility rule changes no native
 freshness tolerance, success predicate, query, clock, process owner or limit.
+
+`caddy-run.json` distinguishes the held baseline, child opening, independent held read, quiet registry, native scrape
+witness, integer boundary, release/HTTP response, stored history and final cohort validation using only
+fixed `inflight_*` stages. Checkpoints update memory and are persisted on terminal failure; polling does
+not add disk writes or publish native response bodies. A `contract` failure identifies its owning stage
+without implying that a controlled HTTP/MCP fixture established native Caddy acceptance.

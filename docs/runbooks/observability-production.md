@@ -431,3 +431,75 @@ initial component construction с exit 1. Изолированный запус�
 исполнение host/container exporters и ресурсная приёмка остаются отдельными проверками.
 [Закреплённый vendor contract](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/prometheus/remotewrite/types.go)
 задаёт default и строгую проверку диапазона. Предел хранения telemetry в VictoriaMetrics не меняется.
+
+### HTTP-наблюдения Web
+
+Web имеет отдельный источник `platform-web-http`, независимо от выборки трасс и browser
+analytics. Node `--import ./apps/web/web-http-preload.mjs` до запуска generated standalone server
+подписывается на публичный `http.server.request.start`. `instrumentation.register` проверяет,
+что включённый источник уже готов. В pinned Next запрос может прийти во время asynchronous
+startup до register, поэтому поздняя подписка теряла бы первый ответ. Источник считает начало, активные ответы и ровно одно окончание:
+`ServerResponse.finish` либо преждевременный `close`. Время включает передачу потока через
+Node. Это завершение записи сервером, не подтверждение доставки человеку. Обрыв после
+заголовков сохраняет уже отправленный status и `outcome=aborted`; до заголовков status равен
+`0`. Отказы TCP/TLS/HTTP parsing до Node request, WebSocket upgrade и HTTP/2 до Caddy этим
+источником не покрыты. Caddy остаётся отдельным источником ingress, его counters не суммируют с Web.
+
+Метки содержат только `platform-web`, конечное environment, полный source SHA, method,
+status/outcome и шаблон из production `.next/routes-manifest.json`. Конкретный slug, query,
+hash, cookie, Account ID и заголовки не сохраняются. Неизвестный путь получает `_unmatched`,
+Next static assets получают `_static`. Это шаблон входного адреса до внутренних Next rewrites;
+redirects/неизвестные адреса не выдаются за выбранную страницу. Считаются физические HTTP-запросы,
+включая RSC, BFF и health probes, а не просмотры страниц. Прежний владелец browser errors/vitals
+не меняется.
+
+По умолчанию `INSIDE_WEB_HTTP_METRICS_ENABLED=false`. Подготовленный overlay связывает его с
+техническим `INSIDE_OTEL_ENABLED`, независимо от legal/Umami switches. Фиксированный alias
+`inside-web-http` существует только в telemetry network. Listener того же Web-процесса слушает
+его private IPv4 на `9420`, не `0.0.0.0`; host port и Caddy route отсутствуют. Разрешён только
+`GET /metrics`, восемь connections, одна request на socket, короткие transport deadlines.
+Shutdown снимает subscription, response listeners и закрывает sockets. Node 26 исполняет
+два private runtime TypeScript модуля штатным type stripping, без дополнительного compiler
+в image. Их локальная ESM package boundary не меняет module mode остальных Web файлов. Bind/manifest failure
+не допускает готовность включённого источника. Заполненный registry (1024 combinations) или
+body больше 2 MiB возвращает 503: частичные counts не выглядят успешным scrape.
+
+Alloy читает источник каждые 5 секунд. В обзоре есть отдельная строка Web: missing/down/stale
+не означает ноль. Каждая серия содержит SHA/environment; process epoch и уменьшение counters
+обозначают reset. p50/p95/p99 доступны только для завершённых ответов при >=100 observations,
+>=58 source samples за 5 минут, без failed scrape/counter reset/process epoch change и с текущим
+возрастом источника 0..10 секунд. Иначе виден Unknown. Для сравнения выпусков выбирают разные
+`source_sha`; SDK before/after panels продолжают показывать API/MCP/Telegram.
+
+`pnpm --filter @inside/web test:standalone-config` после production build проверяет первый
+реальный HTTP request, 200/404 и закрытие owned process/listener. Только bind alias подменяется
+на loopback в отдельном fixture; Next, его generated server и Node HTTP остаются настоящими.
+Модульные HTTP contracts отдельно проверяют 500 и обрыв удерживаемого потока при sampling=0.
+
+Пять quality-gated Web queries имеют отдельный native regression. При уже подготовленном
+закреплённом VictoriaMetrics binary запустить
+`node scripts/owned-node.mjs --command python3 -B scripts/observability-production/prove_web_http_queries.py --vm-binary /absolute/path/victoria-metrics-prod`.
+Proof владеет временными storage и loopback process, проверяет настоящие dashboard expressions
+на healthy/58-sample cohort и на missing/57-sample/down/stale/reset/epoch-change/99-observation
+cohorts, затем закрывает listener. Fixture-only force flush публикует синтетические исторические
+samples, он не доказывает runtime ingest latency. Healthy gate сохраняет слева значение
+`min_over_time(up[5m]) == 1`; число samples справа только фильтрует его. Иначе PromQL `and`
+сохранил бы sample count 58..60, который финальное `== 1` ошибочно скрывало.
+
+Доли 4xx/5xx используют native MetricsQL `increase_pure` для числителя, общего числа ответов
+и наблюдённого zero-error fallback. Это собственные counters Web: новая status/outcome серия
+создаётся с нулевым count и увеличивается только настоящими окончаниями ответов; импортированных
+начальных totals и вытеснения отдельных серий нет. Первый scrape может увидеть уже 1000 ошибок.
+Обычный `increase` способен отбросить большой первый sample и показать ложный ноль;
+[`increase_pure`](https://docs.victoriametrics.com/metricsql/#increase_pure) сохраняет его при
+известном нулевом происхождении counter. Это оценка за scrape window, не журнал точного времени
+каждого ответа. Native regression отдельно создаёт новые 4xx, 5xx и 200 серии без прежнего
+status sample, проверяет one-sample burst, отсутствие ошибок и старый неизменный error counter.
+Не создаётся полный набор route × method × status серий. Source freshness, sample threshold,
+process epoch и reset guards остаются обязательными.
+
+Fullstack corpus переключает Web source вместе с ON/OFF. В ON он делает настоящие Web 200/404
+с секретным query sentinel, проверяет его отсутствие в private metrics body, затем требует
+те же SHA-bound counts в VictoriaMetrics через обычные Alloy и read gateway в пределах 10 секунд.
+Это исполняемый proof, не утверждение, что Linux-прогон уже завершился. Изменение не включает
+production monitoring или browser analytics.

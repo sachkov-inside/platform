@@ -1,3 +1,5 @@
+import { PgBossWorkObservation } from "../infrastructure/pg-boss-work-observation.js";
+import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
 import { jobQueues } from "../infrastructure/job-queues.js";
 import "reflect-metadata";
 
@@ -56,6 +58,11 @@ async function bootstrap(): Promise<void> {
     identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
   try {
+    const work = new PgBossWorkObservation(
+      application.get(PrismaClientProvider),
+      application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+      "profile-avatars-worker",
+    );
     const jobs = new PgBoss({
       openTelemetry: technicalTelemetry.pgBoss([CLEANUP_QUEUE]),
       connectionString: config.database.url,
@@ -68,6 +75,7 @@ async function bootstrap(): Promise<void> {
     );
     await runWorker({
       application,
+      workObservations: work,
       databaseUrl: config.database.url,
       jobs,
       process: "profile-avatars-worker",
@@ -99,6 +107,7 @@ async function bootstrap(): Promise<void> {
                 graceMs: config.objectStorage.profileAvatarOrphanGraceMs,
               }),
             technicalTelemetry,
+            work,
           ),
         );
       },

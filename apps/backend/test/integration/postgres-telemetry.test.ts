@@ -214,6 +214,9 @@ test("production acquisition timeout remains a failed acquisition without a fict
         "dependency.name": "postgresql",
         "dependency.operation": "acquire",
         "dependency.outcome": "failed",
+        // pg-pool exposes this timeout through text only; no finite driver code exists.
+        "failure.category": "unknown",
+        "failure.code": "unknown",
       },
     ]);
   } finally {

@@ -1,3 +1,5 @@
+import { PgBossWorkObservation } from "../infrastructure/pg-boss-work-observation.js";
+import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
 import { jobQueues } from "../infrastructure/job-queues.js";
 import "reflect-metadata";
 
@@ -62,6 +64,11 @@ async function bootstrap(): Promise<void> {
     identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
   try {
+    const work = new PgBossWorkObservation(
+      application.get(PrismaClientProvider),
+      application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+      "video-deletions-worker",
+    );
     const jobs = new PgBoss({
       openTelemetry: technicalTelemetry.pgBoss([DELETION_QUEUE]),
       connectionString: config.database.url,
@@ -74,6 +81,7 @@ async function bootstrap(): Promise<void> {
     );
     await runWorker({
       application,
+      workObservations: work,
       databaseUrl: config.database.url,
       jobs,
       process: "video-deletions-worker",
@@ -115,6 +123,7 @@ async function bootstrap(): Promise<void> {
               return result;
             },
             technicalTelemetry,
+            work,
           ),
         );
       },

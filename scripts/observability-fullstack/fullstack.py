@@ -91,7 +91,8 @@ def inputs(output, images):
         plan['services'][name]['command']=['node','dist/entrypoints/'+name+'.js']
         plan['services'][name]['env_file']=[str(output/'runtime/runtime.env'),str(output/'runtime'/ (name+'.env'))]
         plan['services'][name]['healthcheck']={'test':['CMD','node','dist/infrastructure/worker-healthcheck.js'],'interval':'30s','timeout':'3s','retries':2,'start_period':'40s'} if name!='mcp' else {'test':['CMD','node','healthcheck/http-healthcheck.mjs','mcp'],'interval':'30s','timeout':'3s','retries':2}
-    plan['services']['web']={'image':pins['web'],'init':True,'networks':['pilot','telemetry'],'mem_limit':'512m','cpus':1,'pids_limit':256,
+    plan['services']['web']={'image':pins['web'],'init':True,'networks':{'pilot':{},'telemetry':{'aliases':['inside-web-http']}},'mem_limit':'512m','cpus':1,'pids_limit':256,
+        'environment':{'INSIDE_WEB_HTTP_METRICS_ENABLED':'false','INSIDE_WEB_HTTP_METRICS_ENVIRONMENT':'isolated-pilot'},
         'env_file':[str(output/'runtime/runtime.env'),str(output/'runtime/web.env')],'logging':{'driver':'none'}}
     plan['services']['provider']['environment']={'INSIDE_RESOURCE_ACCOUNT_COUNT':str(settings['accounts'])}
     (output/'query/key').write_text((monitor/'reader.key').read_text())
@@ -130,6 +131,7 @@ def inputs(output, images):
 
 def mode(output,enabled):
     plan=json.loads((output/'compose.json').read_text())
+    plan['services']['web']['environment']['INSIDE_WEB_HTTP_METRICS_ENABLED']='true' if enabled else 'false'
     for name in (*BACKENDS,'telegram'):
         plan['services'][name]['environment']['INSIDE_OTEL_ENABLED']='true' if enabled else 'false'
     for name in (*BACKENDS,'web','rabbitmq','postgres','telegram','logto','caddy'):
@@ -247,6 +249,21 @@ def await_sources(compose,output):
     pilot.await_fact(available,bool,budget=10,probe='source_cache_stored_ready')
 
 
+def prove_web_http(compose):
+    source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
+    witness=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-witness'],timeout=8))
+    if witness!={'ok':True}:raise ValueError('web_http_boundary_unavailable')
+    deadline=time.monotonic()+10
+    def stored():
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise TimeoutError('web_http_stored_deadline')
+        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-ready',source],timeout=min(4,remaining)))
+        if time.monotonic()>=deadline:raise TimeoutError('web_http_stored_deadline')
+        return value=={'ok':True}
+    pilot.await_fact(stored,bool,budget=10,probe='web_http_stored_ready')
+    return {'state':'observed','source_sha':source,'positive_status':200,'not_found_status':404,'url_sentinel':'absent','stored_source_age_seconds_maximum':10}
+
+
 def phase(compose,project,definition,active,enabled,pair,output):
     states=technical.owned(compose,project,active)
     samples=[];stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
@@ -323,7 +340,9 @@ def worker(output):
                             try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
                             except (RuntimeError,subprocess.SubprocessError):return False
                         pilot.await_fact(healthy,bool,probe='fullstack_'+name+'_ready')
-                    if enabled:await_sources(compose,output)
+                    if enabled:
+                        await_sources(compose,output)
+                        report.setdefault('web_http',[]).append(prove_web_http(compose))
                     active=(*APPS,*CORE) if enabled else APPS
                     for definition in profile['phases']:
                         measured=phase(compose,owner['project'],definition,active,enabled,pair,output)

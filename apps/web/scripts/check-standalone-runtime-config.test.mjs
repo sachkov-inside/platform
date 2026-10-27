@@ -6,6 +6,23 @@ import process from "node:process";
 import { describe, it } from "node:test";
 
 describe("standalone runtime configuration check", () => {
+  it("observes the first real standalone request and preserves private URL boundaries", () => {
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/check-standalone-http-metrics.mjs"],
+      { encoding: "utf8", timeout: 15000 },
+    );
+    assert.ifError(result.error);
+    assert.equal(
+      result.status,
+      0,
+      `${result.stdout ?? ""}${result.stderr ?? ""}`,
+    );
+    assert.match(
+      result.stdout,
+      /Standalone first HTTP request, 200\/404\/privacy and owned cleanup passed\./u,
+    );
+  });
   it("reports the application diagnostic while port 3000 is occupied", async () => {
     const portOwner = await occupyDefaultPortIfAvailable();
 

@@ -51,8 +51,9 @@ def worker(output):
     run=evidence.Run();experiment=None
     def persist():artifact.write_run(output,run.snapshot())
     def progress(kind,value):
-        if kind=='partition_checkpoint':
-            if type(value) is not str or value not in evidence.PARTITION_PHASES:artifact.refuse()
+        if kind in ('partition_checkpoint','inflight_checkpoint'):
+            allowed=evidence.PARTITION_PHASES if kind=='partition_checkpoint' else evidence.INFLIGHT_PHASES
+            if type(value) is not str or value not in allowed:artifact.refuse()
             run.start(value)
             return
         if kind=='phase':run.start(value)

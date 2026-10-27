@@ -5,6 +5,10 @@ import {
   runtimeIdentitySchema,
 } from "@inside/runtime-identity";
 import { z } from "zod";
+import {
+  parseWebHttpMetricsConfig,
+  webHttpMetricsSchema,
+} from "../../../runtime/http-metrics-config";
 
 const localDefaults = {
   BACKEND_BASE_URL: "http://127.0.0.1:3001",
@@ -63,6 +67,7 @@ const webRuntimeConfigSchema = z
     identity: identitySchema,
     learnerMcp: learnerMcpSchema,
     runtime: runtimeIdentitySchema,
+    httpMetrics: webHttpMetricsSchema,
   })
   .readonly();
 
@@ -97,6 +102,7 @@ export function parseWebRuntimeConfig(
       environment,
       mode,
     }),
+    httpMetrics: parseWebHttpMetricsConfig(environment, mode),
   });
 
   if (!config.success) {
