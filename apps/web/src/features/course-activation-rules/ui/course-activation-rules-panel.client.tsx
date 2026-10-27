@@ -72,6 +72,8 @@ export function CourseActivationRulesPanel({
       if (!result.ok) throw new ActivationRulesReadError(result.code);
       return result.value.result.items;
     },
+    // Отказ закрытым кодом не исправится повтором; повтор остаётся кнопкой.
+    retry: false,
   });
   const save = useMutation({
     mutationFn: (input: {
