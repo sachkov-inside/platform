@@ -10,6 +10,7 @@ import {
 } from "../../config/application-config.js";
 import { DATABASE, type Database } from "../../database/database.js";
 import { CLOCK, type Clock } from "../../shared/clock.js";
+import { reportFailure } from "../../shared/failure-diagnostics.js";
 import {
   CONTACT_MARKETING,
   type ContactMarketing,
@@ -135,14 +136,19 @@ export class TelegramContacts {
             marketing,
           };
     });
-    await observeLinkProfiles(
-      this.database,
-      this.config.botIdentity,
-      this.clock.now(),
-      contacts.flatMap((item) =>
-        "observation" in item ? [item.observation] : [],
-      ),
-    );
+    // The stored profile only feeds search; a failed write never withholds the read answer.
+    try {
+      await observeLinkProfiles(
+        this.database,
+        this.config.botIdentity,
+        this.clock.now(),
+        contacts.flatMap((item) =>
+          "observation" in item ? [item.observation] : [],
+        ),
+      );
+    } catch (error) {
+      reportFailure("identity-linking.link-profile-observe", error);
+    }
     return contacts.map(({ contact, marketing }) => ({
       ...contact,
       marketing,

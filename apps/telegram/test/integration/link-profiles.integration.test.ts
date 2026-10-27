@@ -340,3 +340,42 @@ it("deletes the stored profile in the transfer transaction", async () => {
   await app.get(TelegramContacts).read([source]);
   expect(await stored()).toEqual([]);
 });
+
+it("answers the read when storing the observed profile fails, and logs only a technical code", async () => {
+  const link = await linked("anna", "42");
+  profile.mockResolvedValue({
+    kind: "available",
+    displayName: "Анна",
+    username: "anna_example",
+  });
+  await sql`create function reject_link_profile() returns trigger language plpgsql
+    as $$ begin raise exception 'synthetic profile write failure'; end $$`.execute(
+    database,
+  );
+  await sql`create trigger reject_link_profile before insert or update on platform_link_profiles
+    for each row execute function reject_link_profile()`.execute(database);
+  const stderr = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation(() => true);
+  try {
+    expect(await app.get(TelegramContacts).read([link])).toEqual([
+      {
+        ...link,
+        status: "available",
+        displayName: "Анна",
+        username: "anna_example",
+      },
+    ]);
+    const lines = stderr.mock.calls.map(([line]) => String(line));
+    expect(lines).toEqual([
+      `${JSON.stringify({ level: "error", scope: "identity-linking.link-profile-observe", failure: "pg_P0001" })}\n`,
+    ]);
+  } finally {
+    stderr.mockRestore();
+    await sql`drop trigger reject_link_profile on platform_link_profiles`.execute(
+      database,
+    );
+    await sql`drop function reject_link_profile()`.execute(database);
+  }
+  expect(await stored()).toEqual([]);
+});
