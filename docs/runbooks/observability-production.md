@@ -375,3 +375,13 @@ output, текст ошибки, command или environment. `host_startup_diagn
 Диагностика не запускается после успешного startup, при исходном interrupt или exit и никогда
 не превращает исходный failure в PASS. Эта процедура относится только к disposable synthetic
 proof, её код не устанавливается на production host и не запускает production контейнеры.
+
+Host remote-write WAL задаёт явный диапазон `min_keepalive_time=1m`, `max_keepalive_time=5m`.
+У закреплённого Alloy v1.21 default minimum равен 5 минутам, а runtime validator требует
+строго `min < max`. Поэтому прежний один `max=5m` проходил syntax validation, но завершал
+initial component construction с exit 1. Изолированный запуск того же cached pinned executable
+без host mounts, ingress, ingest или сети воспроизвёл точный vendor refusal; явный `min=1m`
+дал HTTP readiness 200 с ожидаемым body. Это проверка построения компонента, полное Linux
+исполнение host/container exporters и ресурсная приёмка остаются отдельными проверками.
+[Закреплённый vendor contract](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/prometheus/remotewrite/types.go)
+задаёт default и строгую проверку диапазона. Предел хранения telemetry в VictoriaMetrics не меняется.

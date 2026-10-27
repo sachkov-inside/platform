@@ -10,6 +10,17 @@ import unittest
 
 
 class ContainerOwnership(unittest.TestCase):
+    def test_remote_write_wal_explicit_range_satisfies_pinned_runtime_validation(self):
+        # Pinned Alloy1.21 requires min<max; its implicit minimum is five minutes.
+        # Native RED/GREEN proved that validate alone did not exercise this construction.
+        config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
+        wal = re.search(r'wal\s*\{([^}]+)\}', config).group(1)
+        limits = dict((key, int(value)) for key,value in re.findall(r'(min|max)_keepalive_time\s*=\s*"([0-9]+)m"', wal))
+        self.assertEqual(set(limits), {'min', 'max'})
+        self.assertGreater(limits['min'], 0)
+        self.assertLess(limits['min'], limits['max'])
+        self.assertLessEqual(limits['max'], 5)
+
     def test_rejects_unlabeled_cgroups_before_dropping_their_identity(self):
         config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
         section = config.split('prometheus.relabel "containers" {', 1)[1]

@@ -147,5 +147,8 @@ prometheus.remote_write "host" {
       max_samples_per_send = 200
     }
   }
-  wal { max_keepalive_time = "5m" }
+  wal {
+    min_keepalive_time = "1m"
+    max_keepalive_time = "5m"
+  }
 }

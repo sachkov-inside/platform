@@ -32,6 +32,7 @@ class Scenario:
         self.targets,self.compose,self.token,self.oracle=targets,compose,token,oracle
         self.phase='acquisition';self.clock_deadline=None;self.end=None;self.cleanup_end=None;self.last_attempt=None
         self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None;self.upload_operation=None;self.visibility=[];self.visibility_overflow=False
+        self.restart_down=None
 
     def note_visibility(self,step,started,value,observed=None,previous=False,*,finished=None,completed_us=None):
         # Closed built-in numbers only. No transport/provider content enters this witness.
@@ -178,11 +179,14 @@ class Scenario:
             observed=self.oracle.evaluate(raw,stamps,evaluated_at=evaluated,completed_us=completed,expected=value,**({} if phases is None else {'diagnose':True}))
             previous_pending=(observed['freshness']=='stale' and self.ledger.last is not None and type(self.oracle) is ModuleType
                 and self.oracle.previous_committed_pending(raw,stamps,evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value))
+            down_pending=(self.phase=='restart_observe' and self.restart_down is not None and self.ledger.last is not None
+                and type(self.oracle) is ModuleType and self.oracle.controlled_down_pending(raw,stamps,
+                    evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value,down=self.restart_down))
             query_finished=time.monotonic()
             if time.monotonic()>=query_deadline:raise TimeoutError()
             if phases is not None:self.note_visibility('stored',query_started,value,observed,previous_pending,finished=query_finished,completed_us=completed)
             if observed['freshness']=='fresh':return observed
-            if observed['freshness'] not in ('missing',) and not previous_pending:
+            if observed['freshness'] not in ('missing',) and not previous_pending and not down_pending:
                 if phases is not None and type(self.oracle) is ModuleType:
                     try:
                         reason=self.oracle.diagnostic_reason(observed)
@@ -283,7 +287,9 @@ class Scenario:
                 if time.monotonic()>=unavailable_deadline:raise TimeoutError()
                 values,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,unavailable_deadline-time.monotonic()))
                 down=self.oracle.evaluate(values,stamps,evaluated_at=evaluated,completed_us=completed,expected=reset)
-                if down['freshness']=='unavailable':break
+                if down['freshness']=='unavailable':
+                    self.restart_down=(values,stamps,evaluated,completed)
+                    break
                 if down['freshness'] not in ('fresh','missing'):raise ValueError('storage')
                 # Old retained healthy rows are pending in this controlled down phase, never a successful down verdict.
                 time.sleep(min(.25,max(0,unavailable_deadline-time.monotonic())))

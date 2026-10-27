@@ -65,7 +65,7 @@ def inputs(output, images):
     seeder['tmpfs'].append('/app/dist/development:size=1m,mode=1777')
     seeder['volumes']=[str(HERE/'seed-runtime.mjs')+':/resource/seed-runtime.mjs:ro',
         *(str(ROOT/'apps/backend/src/development'/(name+'.ts'))+':/resource/development/'+name+'.ts:ro'
-          for name in ('seed-local','seed-local-development','seed-local-offer-catalog'))]
+          for name in ('seed-local-development','seed-local-offer-catalog'))]
     settings=acceptance.validate_profile(json.loads(PROFILE.read_text()))
     monitor=output/'monitoring'
     production.prepare(monitor,data=output/'monitoring-data',project='inside-observability-full-'+os.urandom(6).hex())

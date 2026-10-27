@@ -17,10 +17,13 @@
 пользовательские данные не читались. После появления production истории конверт сверяется с ней.
 
 Production-образ backend не содержит development seed entry points. Проверочный корпус
-переиспользует три исходных модуля существующего development seed: закреплённый Node 26
+переиспользует два исходных модуля существующего development seed: закреплённый Node 26
 удаляет их TypeScript-типы внутри уже зарегистрированного migration service и пишет результат
 только в отдельный свежий tmpfs на 1 MiB. Исходники монтируются только для чтения,
 bootstrap требует явного тестового переключателя и `NODE_ENV=development`.
+Небольшой fixture entry вызывает прежний `seedLocalDevelopment` с `demo=published`,
+используя production `parsePlatformConfig` и `createPrismaClient`. Development CLI с
+его отдельным `load-platform-config` не входит в production compile closure и не запускается.
 Новый образ или контейнер вне существующего supervisor не создаётся; production payload
 и набор зависимостей приложения не расширяются. Сам seed работает только с изолированной базой корпуса.
 
