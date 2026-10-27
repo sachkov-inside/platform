@@ -19,11 +19,11 @@ import {
   refundBasisLabels,
   refundConsequenceText,
   refundDecisionStateLabels,
-  salesPaymentsHref,
   type PaymentAuditEntry,
   type PaymentPage,
 } from "@/features/owner-payments";
 import { formatMoscowDateTime, formatRubles } from "@/shared/lib/moscow-format";
+import { authoringPaymentsHref } from "@/shared/routing/authoring";
 import { StateBadge } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
@@ -377,7 +377,7 @@ export function SalesPaymentFrame({
       <div className="authoring-page-body grid-cols-[minmax(0,1fr)] content-start">
         <nav aria-label="Возврат к платежам">
           <Button asChild className="min-h-11 px-3" variant="ghost">
-            <Link href={salesPaymentsHref}>
+            <Link href={authoringPaymentsHref}>
               <ArrowLeft aria-hidden="true" />
               Все платежи
             </Link>

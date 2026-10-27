@@ -5,6 +5,12 @@ import { CircleAlert, CircleCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import {
+  encodeAccessReason,
+  otherReason,
+  reasonNoteMaxCharacters,
+  revokeReasons,
+} from "@/entities/product-access";
+import {
   announceEnrollmentChange,
   issueOutcomeMessage,
   issueProductAccessOperation,
@@ -23,12 +29,6 @@ import {
   restoredMessage,
   revokedMessage,
 } from "../model/access-outcomes";
-import {
-  encodeAccessReason,
-  otherReason,
-  reasonNoteMaxCharacters,
-  revokeReasons,
-} from "../model/access-reasons";
 import { revocationConsequence } from "../model/revocation-consequence";
 import { useAccessProductCatalog } from "../model/use-access-product-catalog.client";
 import {

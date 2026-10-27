@@ -13,7 +13,6 @@ import {
   OriginBreakdown,
   OverviewEventList,
   PeriodSwitch,
-  formatCount,
   metricChange,
   metricChartSummary,
   metricValueText,
@@ -25,7 +24,11 @@ import {
   type OverviewMetricId,
   type OverviewPeriod,
 } from "@/features/admin-overview";
-import { formatCountRu, formatMoscowDate } from "@/shared/lib/moscow-format";
+import {
+  formatCount,
+  formatCountRu,
+  formatMoscowDate,
+} from "@/shared/lib/moscow-format";
 import {
   AdminErrorState,
   AdminListHeader,

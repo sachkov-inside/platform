@@ -8,6 +8,7 @@ import {
   formatMoscowDate,
   formatMoscowDateTime,
 } from "@/shared/lib/moscow-format";
+import { authoringPersonHref } from "@/shared/routing/authoring";
 import {
   AdminCursorPagination,
   AdminEmptyState,
@@ -28,7 +29,6 @@ import type {
   ProductHoldersState,
 } from "../model/product-holders";
 import {
-  holderPersonHref,
   useHolderPersonCells,
   type HolderPersonCells,
 } from "./holder-person.client";
@@ -276,7 +276,7 @@ function HoldersList({
           badge: <StateBadge state={`access.${holder.access}`} />,
           metric: progressText(holder),
         })}
-        rowHref={(holder) => holderPersonHref(holder.accountId)}
+        rowHref={(holder) => authoringPersonHref(holder.accountId)}
         rowKey={(holder) => holder.accountId}
         rowTitle={(holder) => person.title(holder.accountId)}
         rows={state.items}

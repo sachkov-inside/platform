@@ -1,8 +1,6 @@
 import { z } from "zod";
 
 import {
-  authoringSalesFunnelAddressHref,
-  authoringSalesFunnelHref,
   defaultSalesFunnelPeriodPreset,
   salesFunnelParams,
   salesFunnelPeriodPresets,
@@ -12,19 +10,11 @@ import {
   type SalesFunnelPeriodPreset,
 } from "@/shared/routing/authoring";
 
-/** Адрес отчёта в разделе «Продажи». */
-export const salesFunnelRootHref = authoringSalesFunnelHref;
-
 /**
- * Готовые периоды, период по умолчанию и кодировщик адреса принадлежат
- * `@/shared/routing/authoring`: туда же ведут ссылки на отчёт из Обзора.
+ * Готовые периоды, период по умолчанию и кодировщик адреса отчёта принадлежат
+ * `@/shared/routing/authoring`: туда же ведут ссылки на отчёт из Обзора. Здесь разбор адреса и
+ * изменения выбора на странице отчёта.
  */
-export const funnelPeriodPresets = salesFunnelPeriodPresets;
-export type FunnelPeriodPreset = SalesFunnelPeriodPreset;
-export const defaultFunnelPeriodPreset = defaultSalesFunnelPeriodPreset;
-export type FunnelPeriod = SalesFunnelPeriod;
-/** Состояние отчёта в адресе: продукт, глава и период. */
-export type SalesFunnelQuery = SalesFunnelAddress;
 
 type SearchValue = string | readonly string[] | undefined;
 export type SalesFunnelSearchParams = Readonly<Record<string, SearchValue>>;
@@ -33,7 +23,7 @@ const idSchema = z.uuid();
 const dateSchema = z.iso.date();
 const presetSchema = z.coerce
   .number()
-  .pipe(z.union(funnelPeriodPresets.map((days) => z.literal(days))));
+  .pipe(z.union(salesFunnelPeriodPresets.map((days) => z.literal(days))));
 
 function single(value: SearchValue): string | undefined {
   return typeof value === "string" ? value : undefined;
@@ -46,7 +36,7 @@ function single(value: SearchValue): string | undefined {
  */
 export function parseSalesFunnelQuery(
   params: SalesFunnelSearchParams,
-): SalesFunnelQuery {
+): SalesFunnelAddress {
   const productId = idSchema.safeParse(
     single(params[salesFunnelParams.productId]),
   ).data;
@@ -59,10 +49,10 @@ export function parseSalesFunnelQuery(
   const preset = presetSchema.safeParse(
     single(params[salesFunnelParams.period]),
   ).data;
-  const period: FunnelPeriod =
+  const period: SalesFunnelPeriod =
     from !== undefined || to !== undefined
       ? { kind: "custom", from: from ?? "", to: to ?? "" }
-      : { kind: "preset", days: preset ?? defaultFunnelPeriodPreset };
+      : { kind: "preset", days: preset ?? defaultSalesFunnelPeriodPreset };
   return {
     productId: productId ?? null,
     chapterId: chapterId ?? null,
@@ -70,41 +60,37 @@ export function parseSalesFunnelQuery(
   };
 }
 
-export const serializeSalesFunnelQuery = serializeSalesFunnelAddress;
-
-export const salesFunnelHref = authoringSalesFunnelAddressHref;
-
 /** Другой продукт: глава прежнего продукта ему не принадлежит, сервер возьмёт первую. */
 export function withFunnelProduct(
-  query: SalesFunnelQuery,
+  query: SalesFunnelAddress,
   productId: string,
-): SalesFunnelQuery {
+): SalesFunnelAddress {
   return { ...query, productId, chapterId: null };
 }
 
 export function withFunnelChapter(
-  query: SalesFunnelQuery,
+  query: SalesFunnelAddress,
   productId: string,
   chapterId: string,
-): SalesFunnelQuery {
+): SalesFunnelAddress {
   return { ...query, productId, chapterId };
 }
 
 export function withFunnelPeriod(
-  query: SalesFunnelQuery,
-  period: FunnelPeriod,
-): SalesFunnelQuery {
+  query: SalesFunnelAddress,
+  period: SalesFunnelPeriod,
+): SalesFunnelAddress {
   return { ...query, period };
 }
 
 /** Период и выбор отличаются от того, что отчёт показывает без параметров. */
-export function hasSalesFunnelSelection(query: SalesFunnelQuery): boolean {
-  return serializeSalesFunnelQuery(query) !== "";
+export function hasSalesFunnelSelection(query: SalesFunnelAddress): boolean {
+  return serializeSalesFunnelAddress(query) !== "";
 }
 
 /** Период для чтения отчёта: свой период проверяет `readReportPeriod`. */
-export function periodParams(period: FunnelPeriod):
-  | { readonly preset: FunnelPeriodPreset }
+export function periodParams(period: SalesFunnelPeriod):
+  | { readonly preset: SalesFunnelPeriodPreset }
   | {
       readonly from: string;
       readonly to: string;

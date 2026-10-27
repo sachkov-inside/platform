@@ -5,6 +5,13 @@ import { internalRoute } from "./internal-route";
 
 export const authoringMaterialsRootHref = internalRoute("/authoring/materials");
 
+/** Список продуктов; прежний адрес `/authoring/playlists` остаётся совместимым. */
+export const authoringProductsHref = "/authoring/products" satisfies Route;
+export const authoringLegacyProductsHref =
+  "/authoring/playlists" satisfies Route;
+
+export const authoringTopicsHref = "/authoring/topics" satisfies Route;
+
 /** Обзор (#1719): стартовая страница админки, куда ведет бренд каркаса. */
 export const authoringOverviewHref = "/authoring" satisfies Route;
 
@@ -127,8 +134,18 @@ export const authoringPaymentsHref =
 
 /** Страница одного платежа. */
 export function authoringPaymentHref(purchaseRef: string): Route {
-  return internalRoute(`${authoringPaymentsHref}/${purchaseRef}`);
+  return internalRoute(
+    `${authoringPaymentsHref}/${encodeURIComponent(purchaseRef)}`,
+  );
 }
+
+/** «Ссылки на оплату» раздела «Продажи» (#1718). */
+export const authoringPaymentLinksHref =
+  "/authoring/sales/links" satisfies Route;
+
+/** «Скидки» раздела «Продажи» (#1718). */
+export const authoringDiscountsHref =
+  "/authoring/sales/discounts" satisfies Route;
 
 /** Список людей админки (#1721); прежний `/authoring/access` перенаправляется сюда. */
 export const authoringPeopleHref = internalRoute("/authoring/people");
@@ -151,9 +168,11 @@ export function authoringPeopleTelegramHref(
   return internalRoute(`${authoringPeopleHref}?telegram=${problem}`);
 }
 
-/** Карточка человека по ID аккаунта. */
+/** Карточка человека по ID аккаунта; единственный построитель этого адреса. */
 export function authoringPersonHref(accountId: string): Route {
-  return internalRoute(`/authoring/people/${accountId}`);
+  return internalRoute(
+    `${authoringPeopleHref}/${encodeURIComponent(accountId)}`,
+  );
 }
 
 /**

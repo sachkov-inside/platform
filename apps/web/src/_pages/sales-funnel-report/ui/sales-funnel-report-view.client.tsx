@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/shared/lib/moscow-format";
 import {
   AdminEmptyState,
   AdminListHeader,
@@ -32,8 +33,6 @@ interface FunnelRow {
   readonly total: boolean;
 }
 
-const countFormat = new Intl.NumberFormat("ru-RU");
-
 function Count({ value }: { readonly value: number | null }) {
   if (value === null)
     return (
@@ -42,7 +41,7 @@ function Count({ value }: { readonly value: number | null }) {
         <span className="sr-only">не измеряется</span>
       </span>
     );
-  return <span className="tabular-nums">{countFormat.format(value)}</span>;
+  return <span className="tabular-nums">{formatCount(value)}</span>;
 }
 
 function countOf(row: FunnelRow, step: StepCount["step"]): number | null {
@@ -65,7 +64,7 @@ function mobileCaption(row: FunnelRow): string {
     .slice(0, -1)
     .map((step) => {
       const value = countOf(row, step.key);
-      return `${step.label}: ${value === null ? "не измеряется" : countFormat.format(value)}`;
+      return `${step.label}: ${value === null ? "не измеряется" : formatCount(value)}`;
     })
     .join(" · ");
 }
@@ -178,7 +177,7 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
               Согласились на рассылку, контакты бота
             </dt>
             <dd className="text-2xl font-semibold tabular-nums">
-              {countFormat.format(view.historicalConsent)}
+              {formatCount(view.historicalConsent)}
             </dd>
           </dl>
         </section>

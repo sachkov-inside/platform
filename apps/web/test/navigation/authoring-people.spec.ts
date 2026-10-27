@@ -446,6 +446,34 @@ test("blocks that failed stay local and a hidden right reads as a neutral note",
   await expectAccessibleWithoutOverflow(page);
 });
 
+test("a payment in the card opens its page and «Все оплаты» opens the person's payments (#1717)", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  await signIn(context, baseURL);
+  await openCard(page, anna.accountId, anna.name);
+  const payments = page.getByRole("region", {
+    name: "Оплаты и ссылки",
+    exact: true,
+  });
+  const payment = payments
+    .locator("tr:visible, li.admin-list-item:visible")
+    .getByRole("link", { name: products.ai.name, exact: true });
+  await expect(payment).toHaveAttribute(
+    "href",
+    "/authoring/sales/payments/e1210000-0000-4000-8000-000000000001",
+  );
+  const all = payments.getByRole("link", { name: "Все оплаты", exact: true });
+  await expect(all).toHaveAttribute(
+    "href",
+    `/authoring/sales/payments?person=${anna.accountId}`,
+  );
+  const box = await all.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+  await expectAccessibleWithoutOverflow(page);
+});
+
 test("empty, failed and unknown people answer with their own states", async ({
   baseURL,
   browser,

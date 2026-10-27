@@ -25,7 +25,6 @@ export {
 } from "./model/overview-contract";
 export {
   defaultOverviewMetric,
-  formatCount,
   metricAmountText,
   metricChange,
   metricChartSummary,

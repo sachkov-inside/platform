@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   hasSalesFunnelSelection,
   parseSalesFunnelQuery,
-  salesFunnelHref,
   withFunnelChapter,
   withFunnelPeriod,
   withFunnelProduct,
 } from "@/_pages/sales-funnel-report/model/sales-funnel-query";
+import { authoringSalesFunnelAddressHref as salesFunnelHref } from "@/shared/routing/authoring";
 
 const productId = "00000000-0000-4000-8000-000000000816";
 const otherProductId = "00000000-0000-4000-8000-000000000820";

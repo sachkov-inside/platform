@@ -6,7 +6,7 @@ export {
 export { PaymentBuyer } from "./ui/payment-buyer.client";
 export {
   parsePaymentsSearchParams,
-  salesPaymentsHref,
+  personPaymentsHref,
   salesPaymentsQueryHref,
   type PaymentsQuery,
 } from "./model/payment-filters";

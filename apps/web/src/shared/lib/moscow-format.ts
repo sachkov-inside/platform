@@ -107,6 +107,11 @@ export function pluralRu(count: number, forms: RussianPluralForms): string {
 
 const countFormat = new Intl.NumberFormat("ru-RU");
 
+/** «1 234»: число с русской разбивкой разрядов. */
+export function formatCount(count: number): string {
+  return countFormat.format(count);
+}
+
 /** «12 материалов», «1 234 продажи». */
 export function formatCountRu(
   count: number,

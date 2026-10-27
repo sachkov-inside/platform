@@ -1,14 +1,13 @@
 "use client";
 
-import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import {
   CopyAccountId,
   personRowLabel,
+  personRowTitle,
   usePersonIdentities,
 } from "@/entities/authoring-person";
-import { internalRoute } from "@/shared/routing/internal-route";
 
 /**
  * Человек в строке «Учеников»: имя Telegram, затем @username, затем email (`@/entities/authoring-person`).
@@ -27,14 +26,7 @@ export function useHolderPersonCells(
 ): HolderPersonCells {
   const identities = usePersonIdentities(accountIds);
   return {
-    title: (accountId) => {
-      const label = personRowLabel(identities, accountId);
-      return (
-        label.title ?? (
-          <span className="text-muted-foreground">{label.missing}</span>
-        )
-      );
-    },
+    title: (accountId) => personRowTitle(identities, accountId),
     caption: (accountId) => {
       const { context } = personRowLabel(identities, accountId);
       return (
@@ -47,8 +39,4 @@ export function useHolderPersonCells(
       );
     },
   };
-}
-
-export function holderPersonHref(accountId: string): Route {
-  return internalRoute(`/authoring/people/${encodeURIComponent(accountId)}`);
 }

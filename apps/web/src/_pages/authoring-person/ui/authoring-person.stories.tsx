@@ -144,6 +144,25 @@ export const AllBlocks: Story = {
     await expect(
       page.getByText(`Ссылка на оплату «${ai.name}»`, { exact: false }),
     ).toBeVisible();
+    // Строка оплаты ведёт на страницу платежа, «Все оплаты» — в список с фильтром по человеку.
+    const payments = within(
+      page.getByRole("region", { name: "Оплаты и ссылки" }),
+    );
+    await expect(
+      payments
+        .getAllByRole("link")
+        .some(
+          (link) =>
+            link.getAttribute("href") ===
+            "/authoring/sales/payments/96000000-0000-4000-8000-000000000501",
+        ),
+    ).toBe(true);
+    await expect(
+      payments.getByRole("link", { name: "Все оплаты" }),
+    ).toHaveAttribute(
+      "href",
+      `/authoring/sales/payments?person=${storyAnnaId}`,
+    );
     await expect(page.getByText("Прочитано 12 из 40 · 30%")).toBeVisible();
     await expect(
       page.getByText("3 сдачи, последняя 25 окт. 2026, 14:05"),
@@ -160,11 +179,13 @@ export const AllBlocksMobile: Story = {
   globals: mobile.globals,
   name: "Все блоки · телефон",
   play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
     await expect(
-      routeContent(canvasElement).getByRole("button", {
+      page.getByRole("button", {
         name: "Выдать продукт",
       }),
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Все оплаты" })).toBeVisible();
     await expectNoHorizontalOverflow(canvasElement);
   },
 };

@@ -6,7 +6,7 @@ export type {
   GrantPerson,
   GrantPeopleSearchState,
   UseGrantPeopleSearch,
-} from "./ui/grant-product-dialog.client";
+} from "./ui/bulk-grant-product-dialog.client";
 export type {
   BulkGrantIssueInput,
   BulkGrantIssueResult,

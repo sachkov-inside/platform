@@ -1,9 +1,5 @@
-import type { Route } from "next";
-
-import type { AdminStateKey } from "@/shared/ui/admin";
+import { adminStates, type AdminStateKey } from "@/shared/ui/admin";
 import { formatRubles } from "@/shared/lib/moscow-format";
-import { authoringPaymentHref } from "@/shared/routing/authoring";
-import { internalRoute } from "@/shared/routing/internal-route";
 
 import type {
   PaymentAccess,
@@ -22,25 +18,20 @@ export function paymentAccessBadge(access: PaymentAccess): AdminStateKey {
   return `payment.access.${access}`;
 }
 
-/** Подпись состояния в фильтре и плашках: то же слово, что в общем словаре. */
+/** Подпись состояния в фильтре: слово плашки из общего словаря админки. */
 export const paymentStateLabels: Readonly<Record<PaymentState, string>> = {
-  prepared: "Подготовлен",
-  sent: "Отправлен в банк",
-  pending: "Ждёт оплаты",
-  authorized: "Деньги заблокированы",
-  confirmed: "Оплачен",
-  failed: "Не прошёл",
-  unknown: "Неизвестно, нужна сверка",
+  prepared: stateLabel("prepared"),
+  sent: stateLabel("sent"),
+  pending: stateLabel("pending"),
+  authorized: stateLabel("authorized"),
+  confirmed: stateLabel("confirmed"),
+  failed: stateLabel("failed"),
+  unknown: stateLabel("unknown"),
 };
 
-/**
- * «Ссылки на оплату»: страницу строит соседняя задача #1718, и пока её маршрута нет в дереве,
- * типизированные адреса Next его не знают.
- */
-export const paymentLinksHref: Route = internalRoute("/authoring/sales/links");
-
-/** Адрес страницы платежа. */
-export const salesPaymentHref = authoringPaymentHref;
+function stateLabel(state: PaymentState): string {
+  return adminStates[paymentStateBadge(state)].label;
+}
 
 /**
  * Название продукта из оплаченных условий. Прежние покупки без продукта в снимке называются

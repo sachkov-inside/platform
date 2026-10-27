@@ -3,12 +3,12 @@
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 
-import { Button } from "@/shared/ui/button";
-
 import {
   ACCESS_REASON_MAX_CHARACTERS,
   encodeRestoreReason,
-} from "../model/access-reasons";
+} from "@/entities/product-access";
+import { Button } from "@/shared/ui/button";
+
 import {
   AccessDialog,
   AccessDialogError,

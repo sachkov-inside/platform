@@ -1,15 +1,20 @@
 "use client";
 
+import Link from "next/link";
+
+import { personPaymentsHref } from "@/features/owner-payments";
 import {
   formatMoscowDate,
   formatMoscowDateTime,
   formatRubles,
 } from "@/shared/lib/moscow-format";
+import { authoringPaymentHref } from "@/shared/routing/authoring";
 import {
   AdminTable,
   StateBadge,
   type AdminTableColumn,
 } from "@/shared/ui/admin";
+import { buttonVariants } from "@/shared/ui/button";
 
 import type {
   PersonCard,
@@ -67,11 +72,17 @@ function paymentTitle(payment: PersonCardPayment): string {
   return payment.productName ?? "Продукт не указан";
 }
 
-/** Оплаты человека, новые сверху, и ссылки на оплату, по которым он платил. Order Email здесь нет. */
+/**
+ * Последние оплаты человека, новые сверху, и ссылки на оплату, по которым он платил. Строка ведёт
+ * на страницу платежа, «Все оплаты» — в список платежей с фильтром по этому человеку: карточка
+ * читает только последние оплаты. Order Email здесь нет.
+ */
 export function PersonPaymentsBlock({
+  accountId,
   onRetry,
   payments,
 }: {
+  readonly accountId: string;
   readonly onRetry: () => void;
   readonly payments: PersonCard["payments"];
 }) {
@@ -97,10 +108,22 @@ export function PersonPaymentsBlock({
           ),
           title: paymentTitle(payment),
         })}
+        rowHref={(payment) => authoringPaymentHref(payment.paymentId)}
         rowKey={(payment) => payment.paymentId}
         rowTitle={paymentTitle}
         rows={payments.items}
       />
+      <p className="m-0">
+        <Link
+          className={buttonVariants({
+            className: "min-h-11 px-4",
+            variant: "outline",
+          })}
+          href={personPaymentsHref(accountId)}
+        >
+          Все оплаты
+        </Link>
+      </p>
       <div className="person-card-panel">
         <h3>Ссылки, по которым человек оплатил</h3>
         {links.length === 0 ? (

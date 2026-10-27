@@ -2,9 +2,9 @@ import { CircleAlert, LockKeyhole, LogIn, RotateCcw } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/shared/ui/button";
+import { authoringSalesFunnelHref as reportHref } from "@/shared/routing/authoring";
 import { StatusPanel } from "@/shared/ui/status-panel";
 
-import { salesFunnelRootHref as reportHref } from "../model/sales-funnel-query";
 import { SalesFunnelReportFrame } from "./sales-funnel-report-frame";
 
 export function SalesFunnelReportState({

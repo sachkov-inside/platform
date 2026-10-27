@@ -5,7 +5,7 @@ import {
   HomeProductPinButton,
   type useHomePin,
 } from "@/features/product-order";
-import { formatCountRu } from "@/shared/lib/moscow-format";
+import { formatCount, formatCountRu } from "@/shared/lib/moscow-format";
 import { internalRoute } from "@/shared/routing/internal-route";
 import {
   AdminRowMenu,
@@ -101,8 +101,6 @@ export function ProductsTable({
 }
 
 const holderForms = ["обладатель", "обладателя", "обладателей"] as const;
-const holderCountFormat = new Intl.NumberFormat("ru-RU");
-
 function productColumns(
   pinnedId: string | null,
   saleLoading: boolean,
@@ -141,7 +139,7 @@ function productColumns(
           {row.holders === null ? (
             <NotKnown label="Нет данных" />
           ) : (
-            holderCountFormat.format(row.holders)
+            formatCount(row.holders)
           )}
         </span>
       ),

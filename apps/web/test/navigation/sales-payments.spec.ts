@@ -205,6 +205,32 @@ test("payments are the current sales item and their filters live in the address 
   await expect(page).toHaveURL(/\/authoring\/sales\/payments$/u);
 });
 
+test("«Все оплаты» of a person card opens the list narrowed to that buyer (#1717)", async ({
+  baseURL,
+  context,
+  page,
+  request,
+}) => {
+  await signIn(context, baseURL);
+  // The first authored payment belongs to this account and no other payment does.
+  const buyer = "33333333-0000-4000-8000-000000000001";
+  await page.goto(`/authoring/sales/payments?person=${buyer}`);
+  await expect(paymentRows(page)).toHaveCount(1);
+  expect((await listCommands(request)).at(-1)).toMatchObject({
+    accountId: buyer,
+  });
+  const chips = page.getByRole("list", { name: "Применённые фильтры" });
+  await expect(chips.getByRole("listitem")).toHaveText([/^Покупатель: /u]);
+  await expect(chips).not.toContainText(buyer);
+  await expectAccessibleWithoutOverflow(page);
+
+  await chips
+    .getByRole("button", { name: /^Убрать фильтр «Покупатель: /u })
+    .click();
+  await expect(page).toHaveURL(/\/authoring\/sales\/payments$/u);
+  await expect(paymentRows(page)).toHaveCount(50);
+});
+
 test("the payment page shows the order email on request and reconciles after confirmation (#1718)", async ({
   baseURL,
   context,

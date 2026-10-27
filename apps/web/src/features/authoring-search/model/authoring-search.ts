@@ -5,12 +5,13 @@ import { personIdentitySchema, personLabel } from "@/entities/authoring-person";
 import { attemptStateSchema } from "@/entities/subscription";
 import { formatMoscowDate, formatRubles } from "@/shared/lib/moscow-format";
 import {
+  authoringPaymentHref,
   authoringPersonHref,
   authoringProductEditorHref,
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
-import { internalRoute } from "@/shared/routing/internal-route";
+import { adminStates } from "@/shared/ui/admin";
 
 /**
  * Общий поиск админки (#1717): одна строка запроса, ответ сервера по группам. Каждая группа
@@ -138,12 +139,6 @@ export interface AuthoringSearchEntry {
   readonly caption: string | null;
 }
 
-const materialStateLabels = {
-  draft: "Черновик",
-  published: "Опубликован",
-  unpublished: "Снят с публикации",
-} as const;
-
 /** Подпись и строки каждой группы; новая группа добавляет сюда свою запись. */
 export const searchGroupPresentation: {
   readonly [Kind in AuthoringSearchGroupKind]: {
@@ -187,7 +182,10 @@ export const searchGroupPresentation: {
           authoringMaterialsRootHref,
         ),
         title: item.title ?? "Черновик без названия",
-        caption: [item.topic, materialStateLabels[item.publicationState]]
+        caption: [
+          item.topic,
+          adminStates[`material.${item.publicationState}`].label,
+        ]
           .filter((part) => part !== null)
           .join(" · "),
       })),
@@ -197,7 +195,7 @@ export const searchGroupPresentation: {
     entries: (group) =>
       group.items.map((item) => ({
         id: `payments-${item.purchaseRef}`,
-        href: internalRoute(`/authoring/sales/payments/${item.purchaseRef}`),
+        href: authoringPaymentHref(item.purchaseRef),
         title: item.productName,
         caption: `${formatRubles(item.amountKopecks)} · ${formatMoscowDate(item.createdAt)}`,
       })),

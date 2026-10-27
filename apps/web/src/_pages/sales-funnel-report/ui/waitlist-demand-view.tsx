@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
+import { authoringSalesFunnelHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
-import { salesFunnelRootHref } from "../model/sales-funnel-query";
 import type { SalesFunnelReport } from "../model/sales-funnel-report";
 export function WaitlistDemandView({
   data,
@@ -41,7 +41,7 @@ export function WaitlistDemandView({
             Данные ожидания недоступны. Число записавшихся пока неизвестно.
           </p>
           <Button asChild variant="outline">
-            <Link href={salesFunnelRootHref}>Повторить загрузку</Link>
+            <Link href={authoringSalesFunnelHref}>Повторить загрузку</Link>
           </Button>
         </div>
       ) : (

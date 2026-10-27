@@ -138,7 +138,11 @@ function PersonCardContent({
         />
       </PersonCardSection>
       <PersonCardSection id={paymentsSection.id} title={paymentsSection.label}>
-        <PersonPaymentsBlock onRetry={onRetry} payments={card.payments} />
+        <PersonPaymentsBlock
+          accountId={card.person.accountId}
+          onRetry={onRetry}
+          payments={card.payments}
+        />
       </PersonCardSection>
       <PersonCardSection id={learningSection.id} title={learningSection.label}>
         <PersonLearningBlock card={card} onRetry={onRetry} />

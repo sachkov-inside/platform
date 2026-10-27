@@ -7,11 +7,11 @@ import {
   grantReasons,
   reasonNoteMaxCharacters,
   revokeReasons,
-} from "@/features/product-access-actions/model/access-reasons";
+} from "@/entities/product-access";
 import { revocationConsequence } from "@/features/product-access-actions/model/revocation-consequence";
 
 describe("access reasons", () => {
-  it("offers the owner's revoke and grant choices in their order", () => {
+  it("offers one list of revoke and grant choices to every access dialog", () => {
     expect(revokeReasons.map((option) => option.label)).toEqual([
       "Возврат оплаты",
       "Нарушение правил",
@@ -21,8 +21,10 @@ describe("access reasons", () => {
     ]);
     expect(grantReasons.map((option) => option.label)).toEqual([
       "Подарок",
-      "Компенсация",
+      "Компенсация или решение поддержки",
+      "Оплата вне сайта",
       "Перенос оплаты",
+      "Команда и партнёры",
       "Другое",
     ]);
   });
@@ -36,10 +38,13 @@ describe("access reasons", () => {
     ).toEqual({ ok: true, text: "Возврат оплаты" });
     expect(
       encodeAccessReason(grantReasons, {
-        reason: "Компенсация",
-        note: "  сбой\n оплаты  в октябре ",
+        reason: "Оплата вне сайта",
+        note: "  перевод\n на счёт  в октябре ",
       }),
-    ).toEqual({ ok: true, text: "Компенсация: сбой оплаты в октябре" });
+    ).toEqual({
+      ok: true,
+      text: "Оплата вне сайта: перевод на счёт в октябре",
+    });
   });
 
   it("requires a note for «Другое» and keeps it after the label", () => {

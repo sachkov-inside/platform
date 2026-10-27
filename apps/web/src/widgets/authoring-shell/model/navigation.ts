@@ -1,6 +1,18 @@
 import type { Route } from "next";
 
-import { authoringOverviewHref } from "@/shared/routing/authoring";
+import {
+  authoringDiscountsHref,
+  authoringLegacyProductsHref,
+  authoringMaterialsRootHref,
+  authoringOverviewHref,
+  authoringPaymentLinksHref,
+  authoringPaymentsHref,
+  authoringPeopleHref,
+  authoringProductsHref,
+  authoringSalesFunnelHref,
+  authoringSubmissionsHref,
+  authoringTopicsHref,
+} from "@/shared/routing/authoring";
 
 /**
  * Разделы админки по решению 2 спецификации #1717. Один источник для боковой панели, нижней
@@ -61,8 +73,6 @@ export interface AuthoringNavigationGroup {
   ];
 }
 
-export { authoringOverviewHref };
-
 const overview = {
   id: "overview",
   label: "Обзор",
@@ -75,26 +85,26 @@ const overview = {
 const people = {
   id: "people",
   label: "Люди",
-  href: "/authoring/people",
+  href: authoringPeopleHref,
   icon: "people",
-  paths: ["/authoring/people"],
+  paths: [authoringPeopleHref],
 } as const satisfies AuthoringNavigationItem;
 
 const submissions = {
   id: "submissions",
   label: "Сдачи",
-  href: "/authoring/submissions",
+  href: authoringSubmissionsHref,
   icon: "submissions",
-  paths: ["/authoring/submissions"],
+  paths: [authoringSubmissionsHref],
   counter: "submissions-awaiting-feedback",
 } as const satisfies AuthoringNavigationItem;
 
 const payments = {
   id: "payments",
   label: "Платежи",
-  href: "/authoring/sales/payments",
+  href: authoringPaymentsHref,
   icon: "payments",
-  paths: ["/authoring/sales/payments"],
+  paths: [authoringPaymentsHref],
 } as const satisfies AuthoringNavigationItem;
 
 export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
@@ -106,24 +116,23 @@ export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
       {
         id: "products",
         label: "Продукты",
-        href: "/authoring/products",
+        href: authoringProductsHref,
         icon: "products",
-        // `/authoring/playlists` остаётся прежним совместимым адресом продуктов.
-        paths: ["/authoring/products", "/authoring/playlists"],
+        paths: [authoringProductsHref, authoringLegacyProductsHref],
       },
       {
         id: "materials",
         label: "Материалы",
-        href: "/authoring/materials",
+        href: authoringMaterialsRootHref,
         icon: "materials",
-        paths: ["/authoring/materials"],
+        paths: [authoringMaterialsRootHref],
       },
       {
         id: "topics",
         label: "Темы",
-        href: "/authoring/topics",
+        href: authoringTopicsHref,
         icon: "topics",
-        paths: ["/authoring/topics"],
+        paths: [authoringTopicsHref],
       },
     ],
   },
@@ -136,23 +145,23 @@ export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
       {
         id: "payment-links",
         label: "Ссылки на оплату",
-        href: "/authoring/sales/links",
+        href: authoringPaymentLinksHref,
         icon: "payment-links",
-        paths: ["/authoring/sales/links"],
+        paths: [authoringPaymentLinksHref],
       },
       {
         id: "discounts",
         label: "Скидки",
-        href: "/authoring/sales/discounts",
+        href: authoringDiscountsHref,
         icon: "discounts",
-        paths: ["/authoring/sales/discounts"],
+        paths: [authoringDiscountsHref],
       },
       {
         id: "sales-funnel",
         label: "Воронка продаж",
-        href: "/authoring/sales/funnel",
+        href: authoringSalesFunnelHref,
         icon: "sales-funnel",
-        paths: ["/authoring/sales/funnel"],
+        paths: [authoringSalesFunnelHref],
       },
     ],
   },
