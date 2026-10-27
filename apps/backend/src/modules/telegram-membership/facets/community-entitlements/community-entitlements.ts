@@ -40,6 +40,10 @@ import {
   readLinkChangedAccounts,
   readBoundaryChangedAccounts,
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
+import {
+  readMemberState,
+  type ReadMemberStateResult,
+} from "../../features/read-member-state/read-member-state.js";
 import type { CommunityEntitlementProvider } from "../../ports/community-entitlement-provider.js";
 import type { TelegramAccountLinks } from "../telegram-account-links/telegram-account-links.js";
 
@@ -270,6 +274,15 @@ export class CommunityEntitlements {
         ? {}
         : { groupUrl: result.data.groupUrl }),
     };
+  }
+
+  /**
+   * The person card's community facts: link, last observed membership and admission
+   * restriction. No actor and no right check: only a composing read that has already checked
+   * `billing:manage` calls it.
+   */
+  readMemberState(accountId: string): Promise<ReadMemberStateResult> {
+    return readMemberState(this.dependencies, accountId);
   }
 
   /** Recomputes one Account's desired community state and queues what must be sent. */
