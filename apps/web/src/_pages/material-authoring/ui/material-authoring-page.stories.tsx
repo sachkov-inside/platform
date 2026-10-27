@@ -1627,7 +1627,7 @@ export const InlineVideoEditing: Story = {
       60,
     );
     await waitFor(() => {
-      const body = savedField("body");
+      const body = savedField("document");
       if (!JSON.stringify(body).includes("Описание записи"))
         throw new Error("Video context has not been saved");
     });
@@ -1683,7 +1683,7 @@ export const InlineVideoInsert: Story = {
     );
     await expect(canvas.getByLabelText("Описание видео")).toBeVisible();
     await waitFor(async () => {
-      await expect(JSON.stringify(savedField("body"))).toMatch(
+      await expect(JSON.stringify(savedField("document"))).toMatch(
         /Перед видео.*"type":"video".*После видео/u,
       );
     });
