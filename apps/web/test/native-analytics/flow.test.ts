@@ -1,5 +1,6 @@
 /** Owned Chromium -> production Web operation -> pinned native Umami -> read-only gateway. */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -83,6 +84,21 @@ test("two Product and Material observations retain native source codes and remai
   const input = inputSchema.parse(
     JSON.parse(readFileSync(privateFile, "utf8")),
   );
+  const progressFile = process.env["INSIDE_UMAMI_BROWSER_PROOF_PROGRESS"];
+  const mark = (
+    phase:
+      | "started"
+      | "listener_ready"
+      | "choice_visible"
+      | "observations_exported"
+      | "native_events_verified"
+      | "identity_reset_verified"
+      | "revocation_verified",
+  ) => {
+    if (progressFile !== undefined)
+      writeFileSync(progressFile, JSON.stringify({ phase }), { mode: 0o600 });
+  };
+  mark("started");
   const originalFetch = globalThis.fetch;
   let nativeCalls = 0;
   vi.stubGlobal("fetch", ((
@@ -130,24 +146,7 @@ test("two Product and Material observations retain native source codes and remai
     INSIDE_ANALYTICS_PSEUDONYM_SECRET: "a".repeat(32),
   }))
     vi.stubEnv(key, value);
-  const server = await createServer({
-    configFile: false,
-    define: { "process.env": "{}" },
-    cacheDir: "node_modules/.cache/native-analytics",
-    root: fileURLToPath(new URL("../../", import.meta.url)),
-    resolve: {
-      alias: {
-        "@": fileURLToPath(new URL("../../src", import.meta.url)),
-        "next/link": fileURLToPath(
-          new URL("../../.storybook/mocks/next-link.tsx", import.meta.url),
-        ),
-      },
-    },
-    oxc: { jsx: { runtime: "automatic" } },
-    server: { host: "127.0.0.1", port: 0 },
-  });
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-  server.middlewares.use("/api/analytics", (incoming, outgoing) => {
+  function serveAnalytics(incoming: IncomingMessage, outgoing: ServerResponse) {
     void (async () => {
       const chunks: Buffer[] = [];
       let size = 0;
@@ -181,7 +180,33 @@ test("two Product and Material observations retain native source codes and remai
     })().catch(() => {
       outgoing.writeHead(500).end();
     });
+  }
+  const server = await createServer({
+    configFile: false,
+    plugins: [
+      {
+        name: "owned-analytics-operation",
+        configureServer(server) {
+          server.middlewares.use("/api/analytics", serveAnalytics);
+        },
+      },
+    ],
+    define: { "process.env": "{}" },
+    cacheDir: "node_modules/.cache/native-analytics",
+    root: fileURLToPath(new URL("../../", import.meta.url)),
+    resolve: {
+      alias: {
+        "@": fileURLToPath(new URL("../../src", import.meta.url)),
+        "next/link": fileURLToPath(
+          new URL("../../.storybook/mocks/next-link.tsx", import.meta.url),
+        ),
+      },
+    },
+    oxc: { jsx: { runtime: "automatic" } },
+    server: { host: "127.0.0.1", port: 0 },
   });
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+
   try {
     await server.listen();
     const address = server.httpServer?.address();
@@ -192,6 +217,7 @@ test("two Product and Material observations retain native source codes and remai
     )
       throw new Error("Native browser listener absent");
     requestScope.baseUrl = `http://127.0.0.1:${String(address.port)}`;
+    mark("listener_ready");
     browser = await chromium.launch();
     const page = await browser.newPage({
       userAgent:
@@ -205,6 +231,7 @@ test("two Product and Material observations retain native source codes and remai
     await browserExpect(
       page.getByRole("region", { name: "Cookies и аналитика" }),
     ).toBeVisible();
+    mark("choice_visible");
     expect(nativeCalls).toBe(0);
     const accepted = page.waitForResponse(
       (response) =>
@@ -226,6 +253,7 @@ test("two Product and Material observations retain native source codes and remai
       await page.getByRole("button", { name, exact: true }).click();
       expect((await captured).status()).toBe(200);
     }
+    mark("observations_exported");
     let rows: z.infer<typeof eventsSchema>["data"] = [];
     let rawEvents: unknown;
     await browserExpect
@@ -274,6 +302,7 @@ test("two Product and Material observations retain native source codes and remai
         "Второй продукт",
       ].sort(),
     );
+    mark("native_events_verified");
     const known = new Set(rows.map((row) => row.id));
     const sessions: string[] = [];
     for (const [account, button] of [
@@ -324,6 +353,7 @@ test("two Product and Material observations retain native source codes and remai
     expect(JSON.stringify(rawEvents)).not.toContain(
       "20000000-0000-4000-8000-00000000000",
     );
+    mark("identity_reset_verified");
     await page
       .getByRole("button", { name: "Настройки cookies и аналитики" })
       .click();
@@ -337,6 +367,7 @@ test("two Product and Material observations retain native source codes and remai
       "access_restricted",
     );
     expect(nativeCalls).toBe(7);
+    mark("revocation_verified");
   } finally {
     try {
       await browser?.close();

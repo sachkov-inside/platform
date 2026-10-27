@@ -15,6 +15,20 @@ spec.loader.exec_module(runtime)
 
 
 class NativeInputBoundary(unittest.TestCase):
+    def test_browser_progress_projects_only_closed_completed_milestones(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'progress.json'
+            self.assertEqual(runtime.browser_progress(path),'not_started')
+            path.write_text('{"phase":"choice_visible"}')
+            self.assertEqual(runtime.browser_progress(path),'choice_visible')
+            for value in ({'phase':'private-sentinel'}, {'phase':'started','body':'private-sentinel'}, [], 'private-sentinel'):
+                path.write_text(json.dumps(value))
+                self.assertEqual(runtime.browser_progress(path),'unavailable')
+            path.write_text('x'*129)
+            self.assertEqual(runtime.browser_progress(path),'unavailable')
+            path.unlink();path.symlink_to(Path(directory)/'private.json')
+            self.assertEqual(runtime.browser_progress(path),'not_started')
+
     def test_readiness_retries_only_probe_with_remaining_deadline(self):
         with patch.object(runtime.time, 'monotonic', side_effect=[100, 101, 102, 103]), \
                 patch.object(runtime.time, 'sleep') as sleep, \
