@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  accessCapabilitySchema,
-  accessSourceSchema,
-} from "@/entities/subscription";
+import { accessCapabilitySchema, accessSourceSchema } from "./billing-contract";
 export const productRevocationTargetSchema = z.strictObject({
   accountId: z.uuid(),
   productId: z.uuid(),

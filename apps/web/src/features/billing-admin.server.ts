@@ -21,20 +21,10 @@ export {
   handleRespondentsStatus,
 } from "./billing-admin/api/respondents.server";
 export {
-  handlePreviewProductRevocation,
-  handleRevokeProductAccess,
-} from "./billing-admin/api/product-revocation.server";
-export {
   handleCreatePaymentLink,
   handleRevokePaymentLink,
   handleListPaymentLinks,
 } from "./billing-admin/api/payment-links.server";
-export {
-  handleListProductAccess,
-  handleReadProductAccess,
-  handleIssueProductAccess,
-  handleRestoreProductAccess,
-} from "./billing-admin/api/product-access.server";
 export {
   handleSaveProductPrice,
   handleArchiveProductPrice,

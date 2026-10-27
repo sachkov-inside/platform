@@ -30,6 +30,7 @@ export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';
 export { NotificationsService } from './services/NotificationsService';
 export { OperationsService } from './services/OperationsService';
+export { PeopleService } from './services/PeopleService';
 export { PersonalHomeService } from './services/PersonalHomeService';
 export { ProductArtifactsService } from './services/ProductArtifactsService';
 export { ProductTaskAssetsService } from './services/ProductTaskAssetsService';
