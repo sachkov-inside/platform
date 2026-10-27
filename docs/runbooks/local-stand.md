@@ -11,14 +11,67 @@ Other local procedures are listed in the [local development index](local-develop
   selects it; the repository default is `inside-platform`.
 - **Stack**: the services one Compose project runs. `docker compose up` starts the default stack;
   [Compose stack contents](local-compose-stack.md) lists them.
-- **Stand**: the shared `inside-platform` project started through `pnpm local:stand`, with
+- **Stand**: the shared `inside-platform` project prepared through `pnpm stand show` or started through `pnpm local:stand`, with
   sign-in, the bank double and mail capture. Its volumes hold the owner's product data, accounts,
   purchases and progress.
 
 ## Parallel worktrees and singleton ownership
 
 The fixed `inside-platform` Compose project, host ports and volumes are shared by all worktrees on
-one machine. One session owns them at a time.
+one machine. The controller serializes mutations and keeps a durable review reservation separately
+from the calling session. Its commands are listed by `pnpm stand --help`.
+
+For an application review, use [the project skill](../../.agents/skills/local-stand/SKILL.md).
+One checkout supplies the controller code; use `--worktree <absolute-path>` to select task source
+from another worktree. `status` names the registered controller checkout. Keep that checkout and
+its installed dependencies available while the state exists.
+
+```bash
+pnpm stand status
+pnpm stand show
+pnpm stand show --live
+pnpm stand refresh
+pnpm stand release
+```
+
+`show` prepares and reserves a snapshot of the selected source. `--live` instead mounts that
+worktree's Web app/src/public directories into Next's development server. Web edits in these
+directories need no image build; changes elsewhere require `refresh`. `refresh` retains the mode;
+`show` without a mode freezes the current code for later review. Database contents remain mutable.
+`release` frees the reservation while leaving the application running. Reservations have no timer
+and survive session completion. Ordinary editing, Storybook and isolated tests do not reserve it.
+
+An explicit owner request to show a different task permits `show --replace <reservation-id>`.
+Read the current ID from status. A changed ID refuses replacement. Other worktrees otherwise
+preserve a foreign reservation, including when its containers are stopped.
+
+Controller state and generated Compose overlays live in `inside-platform-stand/` under the shared
+Git common directory. State stores source fingerprints, modes, reservation and container receipts,
+not secret values. The same machine-wide lock protects controller and legacy launch operations.
+Snapshots are reconciled with actual container IDs, immutable images and live HTTP readiness.
+Failed preparation keeps the reservation and reports recovery; retry `refresh` after edits settle.
+Preserve the state for diagnosis instead of deleting it to bypass a refusal.
+
+The first cold start requires the controller checkout's schema and infrastructure baseline and
+uses the existing stand bootstrap below. Switching an existing managed stand
+rebuilds the shared application image and recreates its application roles, including the local
+account gateway, without rerunning migrations, seed or identity bootstrap. Infrastructure stays up.
+The source migration files, infrastructure configuration and identity settings must match the
+recorded stand. Different versions require a separate owner-directed handoff; the controller does
+not migrate backwards, infer compatibility or erase volumes. Dependency changes use the existing
+image build and disk budget. Development mode and production-Web mode retain their existing
+runtime limits.
+
+An existing stack without a controller receipt is **unmanaged**. The controller reports it and
+refuses takeover. The owning session first hands it off and stops it without deleting volumes;
+then the first `show` can prepare the controlled stand. The same rule applies when another tool
+has replaced its containers. Direct Docker commands and old launchers can bypass these cooperative
+rules; use the registered controller for shared stand changes.
+
+The updated legacy `local:stand` entrypoint refuses startup once controller state exists, even
+when its containers are stopped. This avoids replacing a reserved review through the old command.
+
+For manual Compose operations and legacy/unmanaged stacks, retain the ownership procedure below.
 
 Before any repository Compose command, run:
 
@@ -74,7 +127,7 @@ Accounts, the owner's purchase order and the product view are in
 [Local stand accounts](local-stand-accounts.md).
 
 The stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so
-it refuses to start while a stack is already running. Start the stand only through
+it refuses to start while a stack is already running. Start the stand through the controller or
 `pnpm local:stand`: a bare `docker compose --profile identity up` starts Logto without the
 bootstrap that configures it, and sign-in then fails at the token exchange.
 

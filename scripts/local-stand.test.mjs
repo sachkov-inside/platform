@@ -56,7 +56,7 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
@@ -69,6 +69,7 @@ async function launch({
   dirtySource = false,
   runningStand = false,
   diagnosticLog = false,
+  refresh = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "platform-stand-cli-"));
   try {
@@ -129,6 +130,15 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       "fixture",
     ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
+    if (refresh)
+      writeFileSync(
+        join(root, "refresh-entry.mjs"),
+        `import {launchLocalStand} from "./scripts/local-stand.mjs";
+import {acquireLocalSetupLock} from "./scripts/local-setup-lock.mjs";
+const release = await acquireLocalSetupLock("busy");
+try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: true}); }
+finally { await release(); }`,
+      );
     if (envFileStoragePort !== undefined)
       writeFileSync(
         join(root, ".env"),
@@ -136,7 +146,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       );
     writeFileSync(
       join(root, ".git/info/exclude"),
-      "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\n",
+      "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\nrefresh-entry.mjs\n",
     );
     const sha = await fixtureGit(root, ["rev-parse", "HEAD"]);
     if (dirtySource)
@@ -148,7 +158,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       [
         "--import",
         join(root, "capacity.mjs"),
-        join(root, "scripts/local-stand.mjs"),
+        join(root, refresh ? "refresh-entry.mjs" : "scripts/local-stand.mjs"),
         ...(productionWeb ? ["--production-web"] : []),
       ],
       {
@@ -225,6 +235,43 @@ test("development stand builds one workspace for backend roles and Web", async (
     assert.ok(call.args.includes("--no-build"));
     assert.ok(!call.args.includes("--build"));
   }
+});
+
+test("a controlled refresh rebuilds the application roles without touching infrastructure or migrations (CLI adapter)", async () => {
+  const { result, calls } = await launch({ refresh: true, runningStand: true });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    calls
+      .filter((call) => call.args.includes("build"))
+      .map((call) => call.args.at(-1)),
+    ["api"],
+  );
+  const up = calls.find((call) => call.args.includes("up"));
+  assert.ok(up);
+  assert.ok(up.args.includes("--no-deps"));
+  assert.ok(up.args.includes("--force-recreate"));
+  assert.ok(up.args.includes("local-accounts"));
+  for (const service of ["postgres", "logto", "rabbitmq", "migrations", "seed"])
+    assert.ok(!up.args.includes(service));
+  assert.ok(
+    !calls.some((call) =>
+      call.args.some((arg) => arg.startsWith("identity:") || arg === "down"),
+    ),
+  );
+});
+
+test("failed controlled refresh leaves existing containers and volumes for recovery", async () => {
+  const { result, calls } = await launch({
+    refresh: true,
+    runningStand: true,
+    failedStartup: true,
+  });
+  assert.notEqual(result.status, 0);
+  assert.ok(
+    !calls.some(
+      (call) => call.args.includes("down") || call.args.includes("--volumes"),
+    ),
+  );
 });
 
 test("insufficient measured disk space refuses before certificates, builds or startup", async () => {
