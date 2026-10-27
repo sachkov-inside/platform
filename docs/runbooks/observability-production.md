@@ -14,6 +14,15 @@ VictoriaMetrics хранит метрики 90 суток, VictoriaLogs и Victo
 [каталога](../../infra/observability/pilot/privacy-policy.json). Версия image не заменяет проверку
 всего deployment на точном commit.
 
+Сохранённая причина ошибки имеет закрытые `failure.category`/`failure.code` в PostgreSQL
+spans и `failureCategory`/`failureCode` в structured stdout. Они различают constraint, timeout
+и connection failures даже при одной операции. Каталог разрешает только зарегистрированные
+SQLSTATE, Prisma и Node codes; неизвестная причина остаётся `unknown`. Сообщения, SQL,
+произвольные классы ошибок и `module`/`operation` из stdout в хранилище не проходят.
+Контекст расследования дают service, trace/span/request/release и шаблон HTTP route либо очередь.
+OTLP и stdout Alloy конфигурации генерируются одной командой `privacy_config.py`;
+источник stdout: `infra/observability/production/stdout.alloy.tmpl`.
+
 Сети разделены:
 
 - `storage`: хранилища, vmauth, Grafana и collector. Приложения к ней не подключаются.
@@ -28,7 +37,7 @@ Query gateway ограничивает HTTP methods/body; vmauth проверя�
 Ingest/delete/admin не разрешены. Ключ Grafana отличается от ключа агента. Anonymous Grafana и
 signup выключены. Loopback сам по себе не защищает от root/пользователей сервера с Docker access.
 VictoriaMetrics запускается с `-search.latencyOffset=1ms`: instant-query по умолчанию
-оценивается у текущего времени, с минимальным поддерживаемым сдвигом 1 мс.
+оценивается у текущего времени, с настроенным сдвигом 1 мс.
 Штатный сдвиг версии v1.154.0 равен 30 секундам. Он скрывал все samples первой
 20-секундной нагрузочной фазы и сдвигал проверку свежести owner cache. Настройка
 не ускоряет приём, flush или export: их фактическое запаздывание продолжает измеряться,

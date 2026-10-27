@@ -16,6 +16,7 @@ CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUT
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
     ('postgresql',op,out) for op in ('query','acquire','material-slug-lock') for out in OUTCOMES) + tuple(
     ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES) + tuple(('telegram',op,out) for op in ('community.set','community.status') for out in OUTCOMES)
+FAILURE_CAUSES = {'query':('constraint','23505'),'acquire':('connection','ECONNREFUSED'),'material-slug-lock':('timeout','57014')}
 POOL = {'available':1,'total':2,'idle':1,'waiting':3,'registry_overflow':0}
 METRICS = ('inside.dependency.operations','inside.dependency.duration')
 
@@ -59,6 +60,11 @@ def _json(now_ns, batch=None, *, communications=False, telegram_http=False):
                  {'key':'http.response.status_code','value':{'intValue':'200' if index < 6 or dependency=='logto' else '999'}}]+unsafe,
             'events':[{'timeUnixNano':str(now_ns),'name':SENTINEL,'attributes':unsafe}],
             'status':{'code':0 if known and outcome=='completed' else 2,'message':SENTINEL}})
+        if dependency=='postgresql' and outcome=='failed':
+            category,code=FAILURE_CAUSES[operation]
+            spans[-1]['attributes'] += [attr('failure.category',category),attr('failure.code',code)]
+        elif not (communications or telegram_http) and index==len(registered):
+            spans[-1]['attributes'] += [attr('failure.category',SENTINEL),attr('failure.code',SENTINEL)]
         points.append({'timeUnixNano':str(now_ns),
             'attributes':dimensions(('dependency','operation','outcome'))+unsafe+
                 [{'key':'http.response.status_code','value':{'intValue':'200'}}]})
@@ -216,6 +222,11 @@ def stored_traces(raw,transport, *, communications=False, telegram_http=False, n
                     'span_attr:dependency.operation':operation,'span_attr:dependency.outcome':outcome})
             if index < 6 or dependency=='logto':
                 attributes['span_attr:http.response.status_code']='200'
+            if dependency=='postgresql' and outcome=='failed':
+                category,code=FAILURE_CAUSES[operation]
+                attributes.update({'span_attr:failure.category':category,'span_attr:failure.code':code})
+            elif not communications and index==len(registered):
+                attributes.update({'span_attr:failure.category':'_OTHER','span_attr:failure.code':'_OTHER'})
             expected = {'trace_id':ids[transport],'parent_span_id':'b'*16,
                 'resource_attr:service.name':'platform-api','resource_attr:deployment.environment.name':'isolated-pilot',
                 'resource_attr:service.version':RELEASES[transport],'scope_name':'inside-collector',

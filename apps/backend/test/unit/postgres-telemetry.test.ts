@@ -224,6 +224,8 @@ for (const rejectAcquisition of [false, true]) {
               "dependency.name": "postgresql",
               "dependency.operation": "acquire",
               "dependency.outcome": "failed",
+              "failure.category": "unknown",
+              "failure.code": "unknown",
             },
           },
         ]);
@@ -554,7 +556,10 @@ test("pool sources belong to their active runtime, including worker scope, and s
 test("owned pg decoration preserves native Promise, callback and synchronous error identity and release", async (context) => {
   const { createPrismaPgAdapter } =
     await import("../../src/infrastructure/prisma/prisma-adapter.js");
-  const failure = new Error("private-native-driver-error-sentinel");
+  const failure = Object.assign(
+    new Error("private-native-driver-error-sentinel"),
+    { code: "23505" },
+  );
   const release = vi.fn<PoolClient["release"]>();
   const client: PoolClient = Object.assign(new Client(), { release });
   let mode: "promise" | "callback" | "synchronous" = "promise";
@@ -613,6 +618,7 @@ test("owned pg decoration preserves native Promise, callback and synchronous err
   await expect(
     root.run(() => acquired.query("private-query-sentinel")),
   ).rejects.toBe(failure);
+  failure.code = "57014";
   mode = "callback";
   let callbackReturn: unknown;
   const callbackReceivers: unknown[] = [];
@@ -630,6 +636,7 @@ test("owned pg decoration preserves native Promise, callback and synchronous err
   expect(callbackReturn).toBeUndefined();
   expect(await callbackFailure).toBe(failure);
   expect(callbackReceivers).toEqual([client]);
+  failure.code = "ECONNREFUSED";
   mode = "synchronous";
   let thrown: unknown;
   try {
@@ -666,6 +673,19 @@ test("owned pg decoration preserves native Promise, callback and synchronous err
       .filter((span) => span.name === "postgresql query")
       .every((span) => span.attributes["dependency.outcome"] === "failed"),
   ).toBe(true);
+  expect(
+    spans
+      .getFinishedSpans()
+      .filter((span) => span.name === "postgresql query")
+      .map((span) => [
+        span.attributes["failure.category"],
+        span.attributes["failure.code"],
+      ]),
+  ).toEqual([
+    ["constraint", "23505"],
+    ["timeout", "57014"],
+    ["connection", "ECONNREFUSED"],
+  ]);
   expect(
     JSON.stringify(
       spans.getFinishedSpans().map((span) => ({

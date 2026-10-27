@@ -148,6 +148,12 @@ def worker(output):
         syslog(json.dumps({'event': 'request_completed', 'level': 'error', 'traceId': trace,
                            'spanId': '1566' * 4, 'message': sentinel, 'url': '/person?email=' + sentinel,
                            'scope': {'secret': sentinel}, 'event_extra': sentinel}))
+        for category, code in (('constraint','23505'),('timeout','57014'),('connection','ECONNREFUSED')):
+            syslog(json.dumps({'event':'dependency_failure','level':'error','traceId':trace,
+                'spanId':'1566'*4,'failureCategory':category,'failureCode':code,
+                'module':sentinel,'operation':sentinel,'error':{'message':sentinel}}))
+        syslog(json.dumps({'event':'dependency_failure','level':'error',
+                          'failureCategory':sentinel,'failureCode':sentinel}))
         syslog('unstructured ' + sentinel)
         syslog(sentinel, service=sentinel)
         query = '/logs/select/logsql/query?' + urllib.parse.urlencode({'query': 'source:stdout', 'limit': '20'})
@@ -159,7 +165,9 @@ def worker(output):
                 raise RuntimeError('stdout_sentinel_retained')
             rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
             return (any(row.get('traceId') == trace and row.get('event') == 'request_completed' for row in rows)
-                    and any(row.get('event') == 'stdout_redacted' for row in rows))
+                    and any(row.get('event') == 'stdout_redacted' for row in rows)
+                    and {row.get('failureCode') for row in rows if row.get('event')=='dependency_failure'}
+                        >= {'23505','57014','ECONNREFUSED','unknown'})
         pilot.await_fact(stored, bool, output=output, probe='production_stdout_projection')
         auth = json.loads((output / 'auth.json').read_text())
         grafana_token = auth['users'][1]['bearer_token']
@@ -172,6 +180,7 @@ def worker(output):
         pilot.write_json(output / 'production-proof.json', {'schema': 1, 'config': 'passed',
             'read_only_negatives': 'passed', 'reader_revocation': 'passed', 'anonymous_grafana': 'denied',
             'stdout_sentinel': 'absent', 'structured_correlation': 'retained',
+            'finite_failure_causes':'constraint/timeout/connection retained; unregistered cause redacted',
             'missing': ['real Docker syslog driver wire', 'Linux host/container exporter execution',
                         'physical disk isolation', 'full process/capacity corpus', 'production and seven days']})
         evidence = json.loads((output / 'evidence.json').read_text())

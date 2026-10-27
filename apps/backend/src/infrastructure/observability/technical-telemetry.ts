@@ -41,6 +41,7 @@ import {
   type PushMetricExporter,
 } from "@opentelemetry/sdk-metrics";
 
+import { classifyFailure } from "./failure-cause.js";
 import { acquireTechnicalContext } from "./technical-context.js";
 import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
 
@@ -674,7 +675,7 @@ type PostgresOperation = "query" | "acquire" | "material-slug-lock";
 /** Driver wall duration and acquisition are distinct observations; no SQL or errors enter here. */
 export function beginPostgresObservation(operation: PostgresOperation): {
   run<Value>(work: () => Value): Value;
-  complete<Value>(failed: boolean, work: () => Value): Value;
+  complete<Value>(failed: boolean, work: () => Value, error?: unknown): Value;
 } {
   const parent = context.active();
   const scope = parent.getValue(technicalScopeKey);
@@ -698,14 +699,23 @@ export function beginPostgresObservation(operation: PostgresOperation): {
   let completed = false;
   return {
     run: (work) => context.with(trace.setSpan(parent, span), work),
-    complete: (failed, work) => {
+    complete: (failed, work, error) => {
       if (!completed) {
         completed = true;
         span.setAttribute(
           "dependency.outcome",
           failed ? "failed" : "completed",
         );
-        if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+        if (failed) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          if (error !== undefined) {
+            const cause = classifyFailure(error);
+            span.setAttributes({
+              "failure.category": cause.category,
+              "failure.code": cause.code,
+            });
+          }
+        }
         scope.recordDependency(
           "postgresql",
           operation,

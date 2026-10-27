@@ -148,6 +148,15 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
                     else:
                         self.assertIn(SERVICE, predicate, 'every non-Telegram instruction requires an explicit service guard')
                         self.assertFalse(predicate.startswith(prefix))
+                if context == "span":
+                    # Keep the historical B digest. The only additional instructions are
+                    # the separately admitted finite failure-cause enums and their two keys.
+                    for key, catalog in (("failure.category", "categories"), ("failure.code", "codes")):
+                        added = privacy_config.enum_rule(key, policy["failure_causes"][catalog])
+                        self.assertEqual(backend.count(added), 1)
+                        backend.remove(added)
+                    self.assertEqual(backend[0].count('"failure.category", "failure.code", '), 1)
+                    backend[0] = backend[0].replace('"failure.category", "failure.code", ', "", 1)
                 self.assertEqual(len(backend), count)
                 self.assertEqual(hashlib.sha256(json.dumps(backend,separators=(',',':')).encode()).hexdigest(), digest)
         require_original(projected)
