@@ -410,7 +410,12 @@ const saleTab = async (page: ReturnType<typeof routeContent>) => {
   await expect(
     page.getByRole("heading", { level: 2, name: "Ссылки на оплату" }),
   ).toBeVisible();
-  await expect(page.getAllByText("Готова к оплате")[0]).toBeVisible();
+  // Таблица на компьютере и список на телефоне: видна одна из двух раскладок ссылок.
+  await expect(
+    page
+      .getAllByText("Готова к оплате")
+      .filter((badge) => badge.checkVisibility()),
+  ).toHaveLength(1);
   await expect(
     page.queryByRole("combobox", { name: "Продукт" }),
   ).not.toBeInTheDocument();
