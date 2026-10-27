@@ -333,7 +333,7 @@ function TextField({
         aria-describedby={describedBy === "" ? undefined : describedBy}
         aria-invalid={error !== undefined}
         autoComplete="off"
-        className="admin-field-input max-w-none"
+        className="admin-field-input admin-field-input-wide"
         disabled={disabled}
         id={id}
         inputMode={inputMode}

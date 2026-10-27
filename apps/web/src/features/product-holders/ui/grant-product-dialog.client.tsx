@@ -466,7 +466,7 @@ function PeopleSearch({
       </label>
       <input
         autoComplete="off"
-        className="admin-field-input max-w-none"
+        className="admin-field-input admin-field-input-wide"
         enterKeyHint="search"
         id={id}
         maxLength={200}

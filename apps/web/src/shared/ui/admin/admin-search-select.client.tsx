@@ -39,7 +39,7 @@ function SearchInput({
       <span className="sr-only">Поиск: {label}</span>
       <input
         autoComplete="off"
-        className="admin-field-input max-w-none"
+        className="admin-field-input admin-field-input-wide"
         disabled={disabled}
         enterKeyHint="search"
         onChange={(event) => {
@@ -141,7 +141,7 @@ export function AdminSearchSelect({
       <select
         aria-describedby={describedBy === "" ? undefined : describedBy}
         aria-invalid={hasText(error)}
-        className="admin-field-input max-w-none"
+        className="admin-field-input admin-field-input-wide"
         disabled={disabled}
         id={id}
         name={name}

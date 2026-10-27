@@ -98,7 +98,7 @@ export function PaymentLinkShare({
           Ссылка для покупателя
         </label>
         <input
-          className="admin-field-input max-w-none font-mono text-xs"
+          className="admin-field-input admin-field-input-wide font-mono text-xs"
           id={id}
           onFocus={(event) => {
             event.currentTarget.select();

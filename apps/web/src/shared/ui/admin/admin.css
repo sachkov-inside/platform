@@ -1073,6 +1073,13 @@ button.admin-metric:focus-visible {
   font-variant-numeric: tabular-nums;
   outline: none;
 }
+/*
+ * Поле во всю ширину колонки: адрес ссылки, поиск по длинному списку. Утилита `max-w-none` предел
+ * выше не снимает: этот файл стоит вне слоёв Tailwind, и его правила сильнее утилит.
+ */
+.admin-field-input-wide {
+  max-width: none;
+}
 .admin-field-input:focus-visible {
   border-color: var(--ring);
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
