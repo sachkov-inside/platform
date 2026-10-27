@@ -1,5 +1,5 @@
 // @ts-check
-/** Semantic fixture checks consume private responses; only booleans leave this module. */
+/** Semantic fixture checks consume private responses; only closed observations leave this module. */
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function record(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -42,6 +42,41 @@ export function readiness(response, process, source) {
       ? record(body["dependencies"]) && body["dependencies"]["api"] === "ready"
       : body["database"] === "reachable")
   );
+}
+/** @param {{status:number,value:unknown}} response @param {string} process @param {string} source */
+export function readinessObservation(response, process, source) {
+  const ok = readiness(response, process, source);
+  let cause = ok
+    ? "ready"
+    : response.status === 0
+      ? "transport_unavailable"
+      : response.status >= 500
+        ? "http_unavailable"
+        : "unexpected_response";
+  if (
+    !ok &&
+    process === "telegram" &&
+    response.status === 503 &&
+    record(response.value)
+  ) {
+    if (response.value["message"] === "Database is unavailable")
+      cause = "database_unavailable";
+    if (
+      response.value["message"] ===
+      "Telegram Membership provider is unavailable"
+    )
+      cause = "membership_unavailable";
+  }
+  return {
+    ok,
+    status:
+      Number.isSafeInteger(response.status) &&
+      response.status >= 0 &&
+      response.status <= 599
+        ? response.status
+        : null,
+    cause,
+  };
 }
 /** @param {{status:number,value:unknown}} response @param {string} label @param {string} expected */
 export function operationOk(response, label, expected) {

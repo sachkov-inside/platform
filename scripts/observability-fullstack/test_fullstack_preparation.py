@@ -10,6 +10,24 @@ import fullstack
 
 
 class Preparation(unittest.TestCase):
+    def test_readiness_failure_keeps_only_the_last_closed_observation_and_original_failure(self):
+        import io
+        from contextlib import redirect_stdout
+        for projected in ({'ok':False,'status':503,'cause':'membership_unavailable'},
+                          {'ok':False,'status':503,'cause':'private-sentinel'}):
+            failure=RuntimeError('owned deadline')
+            def await_fact(read,predicate,**options):
+                self.assertFalse(predicate(read()))
+                raise failure
+            output=io.StringIO()
+            with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack,'invoke',return_value=json.dumps(projected)),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),redirect_stdout(output):
+                with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
+            self.assertIs(caught.exception,failure)
+            self.assertNotIn('private-sentinel',output.getvalue())
+            value=json.loads(output.getvalue())['fullstack_readiness']
+            self.assertEqual(value['target'],'telegram')
+            self.assertEqual(value['cause'],'membership_unavailable' if projected['cause']=='membership_unavailable' else 'observation_unavailable')
+
     def test_complete_generated_corpus_has_private_shared_pg_and_no_production_ingress(self):
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory).resolve();output=base/'owned';images=base/'images.json'

@@ -23,7 +23,7 @@ class Records(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve()
             for reason in oracle.ORACLE_REASONS:
-                for phase in ('baseline_first_stored_oracle','baseline_second_stored_oracle'):
+                for phase in ('baseline_first_stored_oracle','baseline_second_stored_oracle','restart_unavailable_read'):
                     value=self.value();value.update(state='failed',phase=phase,reason=reason)
                     record.write(root,value);self.assertEqual(record.read(root,'a'*40),value)
                     self.assertEqual(len(value),8);self.assertLessEqual((root/record.NAME).stat().st_size,4096)

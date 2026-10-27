@@ -2100,7 +2100,8 @@ Python принимает этап только после отправки setu
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
-Для отказа `baseline_first_stored_oracle` или `baseline_second_stored_oracle` существующее
+Для отказа `baseline_first_stored_oracle`, `baseline_second_stored_oracle` или
+`restart_unavailable_read` существующее
 поле `reason` также допускает закрытые `oracle_*` причины первого локального отказа.
 Они различают stale/unavailable, группы JSON/envelope/row/labels/number для значений
 и timestamps, затем join, identity, cohort и сравнение ожидаемого frame. Это категории

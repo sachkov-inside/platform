@@ -530,6 +530,23 @@ class Driver(unittest.TestCase):
             cases=driver.run(lambda source:final)
         self.assertEqual(cases[-1],{**final,'phase':'privacy'})
 
+        # Native publication may fail at the controlled-down read before restart.
+        # Keep only the existing oracle's finite reason, preserving the same refusal.
+        import oracle
+        from test_oracle import vectors,raw,NOW
+        for diagnostic_failure in (None,RuntimeError('private diagnostic failure')):
+            counter[0]=0
+            driver=scenario.Scenario(None,['compose'],'fixed',oracle)
+            driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
+            rows,stamps=vectors();rows[-1]['metric']['private']='private sentinel'
+            with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
+                    patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
+                    patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)), \
+                    patch.object(oracle,'diagnostic_reason',side_effect=diagnostic_failure,wraps=oracle.diagnostic_reason) if diagnostic_failure is not None else ExitStack():
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.run(lambda _:self.fail('privacy reached'))
+            self.assertEqual(driver.phase,'restart_unavailable_read')
+            self.assertEqual(driver.oracle_failure_reason,'oracle_values_labels' if diagnostic_failure is None else None)
+
 
     def test_baseline_entered_stage_preserves_first_failure_for_every_fixed_boundary(self):
         golden=(

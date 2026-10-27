@@ -84,7 +84,7 @@ def worker(output):
         result['reason']='query_timeout' if isinstance(error,TimeoutError) else (
             'ownership' if result['phase']=='acquisition' else 'storage' if result['phase']=='privacy' else 'query_refused')
         if (not isinstance(error,TimeoutError) and driver is not None
-                and result['phase'] in ('baseline_first_stored_oracle','baseline_second_stored_oracle')
+                and result['phase'] in ('baseline_first_stored_oracle','baseline_second_stored_oracle','restart_unavailable_read')
                 and type(driver.oracle_failure_reason) is str and driver.oracle_failure_reason in record.ORACLE_REASONS):
             result['reason']=driver.oracle_failure_reason
         if driver is not None:result['cases']=driver.cases
