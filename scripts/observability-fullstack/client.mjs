@@ -108,6 +108,12 @@ async function call(
   headers = {},
 ) {
   if (
+    (host === "inside-web-http" &&
+      (port !== 9420 ||
+        path !== "/metrics" ||
+        method !== "GET" ||
+        body !== undefined ||
+        Object.keys(headers).length !== 0)) ||
     ![
       "api",
       "web",
@@ -121,6 +127,7 @@ async function call(
       "api.resource.test",
       "telegram",
       "logto",
+      "inside-web-http",
     ].includes(host)
   )
     throw new Error("private target only");
