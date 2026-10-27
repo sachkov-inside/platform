@@ -290,10 +290,9 @@ export const PhoneProgramme: Story = {
     const dock = within(
       canvas.getByRole("navigation", { name: "Навигация по урокам" }),
     );
-    await expect(dock.getByRole("link", { name: "О курсе" })).toHaveAttribute(
-      "href",
-      "/products/ai-engineering",
-    );
+    await expect(
+      dock.getByRole("link", { name: "К прохождению курса" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await userEvent.click(
       canvas.getByRole("button", { name: "Вся программа" }),
     );
@@ -317,8 +316,8 @@ export const NarrowSupplementaryProgramme: Story = {
       name: "Навигация по урокам",
     });
     await expect(
-      within(navigation).getByRole("link", { name: "О курсе" }),
-    ).toHaveAttribute("href", "/products/ai-engineering");
+      within(navigation).getByRole("link", { name: "К прохождению курса" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(
       within(navigation).queryByRole("link", { name: "Следующий шаг" }),
     ).toBeNull();

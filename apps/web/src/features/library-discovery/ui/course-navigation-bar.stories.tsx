@@ -1,10 +1,7 @@
-import { BookOpen, List } from "lucide-react";
+import { LayoutGrid, List } from "lucide-react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { publicPageEnvironment } from "@/storybook/story-environment";
-import {
-  productHref,
-  productProgrammeHref,
-} from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   CourseNavigationBar,
   CourseNavigationItem,
@@ -20,14 +17,14 @@ const meta = {
     children: (
       <>
         <CourseNavigationItem
-          icon={BookOpen}
-          label="О курсе"
-          href={productHref("ai-engineering")}
+          icon={List}
+          label="Программа"
+          href={productProgrammeHref("ai-engineering")}
           current
         />
         <CourseNavigationItem
-          icon={List}
-          label="Программа"
+          icon={LayoutGrid}
+          label="Материалы"
           href={productProgrammeHref("ai-engineering")}
         />
       </>
@@ -36,4 +33,4 @@ const meta = {
 } satisfies Meta<typeof CourseNavigationBar>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Overview: Story = {};
+export const Programme: Story = {};

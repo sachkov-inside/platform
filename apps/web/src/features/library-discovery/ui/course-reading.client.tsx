@@ -498,65 +498,57 @@ export function ProgrammeDialog({
       >
         <List size={18} aria-hidden="true" /> Вся программа
       </button>
-      <CourseNavigationBar
-        label="Навигация по урокам"
-        position={
-          <>
-            {supplementary ? null : context.previous === null ? (
-              <button disabled aria-label="Предыдущий шаг">
-                <ArrowLeft size={16} aria-hidden="true" />
-              </button>
-            ) : (
-              <IntentPrefetchLink
-                aria-label="Предыдущий шаг"
-                title={context.previous.title}
-                href={context.previous.href}
-              >
-                <ArrowLeft size={16} aria-hidden="true" />
-              </IntentPrefetchLink>
-            )}
-            <span>
-              {supplementary ? (
-                context.currentPosition === 0 ? (
-                  "Дополнительный материал"
-                ) : (
-                  "Ваше место в курсе"
-                )
-              ) : (
-                <>
-                  Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
-                  {chapter?.steps.length ?? 0}
-                </>
-              )}
-            </span>
-            {supplementary ? null : context.next === null ? (
-              <button disabled aria-label="Следующий шаг">
-                <ArrowRight size={16} aria-hidden="true" />
-              </button>
-            ) : (
-              <IntentPrefetchLink
-                aria-label="Следующий шаг"
-                title={context.next.title}
-                href={context.next.href}
-              >
-                <ArrowRight size={16} aria-hidden="true" />
-              </IntentPrefetchLink>
-            )}
-          </>
-        }
-      >
+      <CourseNavigationBar label="Навигация по урокам">
         <CourseNavigationItem
           icon={BookOpen}
-          label="О курсе"
-          href={context.productHref}
+          label="К прохождению курса"
+          href={context.href}
         />
+        {supplementary ? null : context.previous === null ? (
+          <button type="button" disabled aria-label="Предыдущий шаг">
+            <ArrowLeft size={16} aria-hidden="true" />
+          </button>
+        ) : (
+          <CourseNavigationItem
+            icon={ArrowLeft}
+            label="Предыдущий шаг"
+            title={context.previous.title}
+            href={context.previous.href}
+          />
+        )}
         <CourseNavigationItem
           icon={List}
           label="Программа"
           onClick={openProgramme}
           opensProgramme
           current
+          caption={
+            supplementary ? (
+              context.currentPosition === 0 ? (
+                "Дополнительный материал"
+              ) : (
+                "Ваше место в курсе"
+              )
+            ) : (
+              <>
+                Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
+                {chapter?.steps.length ?? 0}
+              </>
+            )
+          }
         />
+        {supplementary ? null : context.next === null ? (
+          <button type="button" disabled aria-label="Следующий шаг">
+            <ArrowRight size={16} aria-hidden="true" />
+          </button>
+        ) : (
+          <CourseNavigationItem
+            icon={ArrowRight}
+            label="Следующий шаг"
+            title={context.next.title}
+            href={context.next.href}
+          />
+        )}
       </CourseNavigationBar>
       <dialog
         className={styles["dialog"]}

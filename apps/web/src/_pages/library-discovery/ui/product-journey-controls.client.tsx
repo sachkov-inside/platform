@@ -6,7 +6,6 @@ import {
   RefreshCw,
   Search,
   Flag,
-  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -114,12 +113,10 @@ export type ProductOnboardingPanel = Pick<
  */
 export function ProductJourneyControls({
   currentHref,
-  overviewHref,
   offersAccessRecheck,
   parts: suppliedParts,
 }: {
   readonly currentHref: Route;
-  readonly overviewHref: Route;
   /** Доступ к части уроков не проверился: читателю предлагается перепроверить его. */
   readonly offersAccessRecheck: boolean;
   readonly parts: readonly JourneyPart[];
@@ -523,7 +520,6 @@ export function ProductJourneyControls({
         />
       ) : null}
       <ProductBottomBar
-        overviewHref={overviewHref}
         activeId={part?.id ?? "programme"}
         disabled={!hydrated}
         onOpen={openPart}
@@ -755,22 +751,20 @@ const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
   programme: List,
   supplementary: LayoutGrid,
 };
-/** Labels remain visible in the course navigation at every mobile width. */
+/** Only the selected section expands with its visible label. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
   onboarding: "Онбординг",
   programme: "Программа",
   supplementary: "Материалы",
 };
 
-/** Course overview and programme sections share the lesson navigation's surface. */
+/** The programme keeps its compact section switcher while lessons reuse its styling. */
 function ProductBottomBar({
-  overviewHref,
   activeId,
   disabled,
   onOpen,
   parts,
 }: {
-  readonly overviewHref: Route;
   readonly activeId: JourneyPart["id"];
   readonly disabled: boolean;
   readonly onOpen: (id: JourneyPart["id"]) => void;
@@ -779,14 +773,8 @@ function ProductBottomBar({
   return (
     <>
       {/* Место под панель в конце списка: последний урок не прячется за ней. */}
-      <div aria-hidden="true" className="h-36 md:hidden" />
       <HidePublicFooter />
-      <CourseNavigationBar label="Разделы продукта">
-        <CourseNavigationItem
-          icon={BookOpen}
-          label="О курсе"
-          href={overviewHref}
-        />
+      <CourseNavigationBar label="Разделы продукта" reserveSpace>
         {parts.map((entry) => {
           const Icon = partIcons[entry.id];
           const current = entry.id === activeId;

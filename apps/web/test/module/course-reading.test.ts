@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { courseReadingContext } from "@/features/library-discovery";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { internalRoute } from "@/shared/routing/internal-route";
 
 const task = (code: string, afterMaterialId: string | null = null) => ({
   code,
@@ -46,19 +45,6 @@ const product = {
 } as const;
 
 describe("course reading composition", () => {
-  it("keeps the course overview separate from the programme return target", () => {
-    const context = courseReadingContext({
-      product,
-      current: { kind: "material", slug: "first" },
-      returnTarget: {
-        href: internalRoute("/products/course/programme?at=first"),
-        label: "Назад к программе",
-        kind: "product",
-      },
-    });
-    expect(context?.productHref).toBe("/products/course");
-    expect(context?.href).toBe("/products/course/programme?at=first");
-  });
   it("lists only actual chapters and counts only their materials", () => {
     const context = courseReadingContext({
       product: {

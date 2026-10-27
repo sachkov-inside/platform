@@ -190,6 +190,11 @@ export const OptionalFields: Story = {
 
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('nav[aria-label="Навигация курса"]'),
+    ).toBeNull();
+  },
 };
 
 /** Планшет: темы идут по порядку, по две равные карточки в каждом ряду. */

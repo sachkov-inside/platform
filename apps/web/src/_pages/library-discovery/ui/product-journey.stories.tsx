@@ -233,19 +233,6 @@ export const InProgress: Story = {
 };
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
-  play: async ({ canvasElement }) => {
-    const navigation = within(
-      within(canvasElement).getByRole("navigation", {
-        name: "Разделы продукта",
-      }),
-    );
-    await expect(
-      navigation.getByRole("link", { name: "О курсе" }),
-    ).toHaveAttribute("href", "/products/platform-inside");
-    await expect(
-      navigation.getByRole("button", { name: "Программа" }),
-    ).toHaveAttribute("aria-current", "true");
-  },
 };
 const lockedResult = {
   ...result,

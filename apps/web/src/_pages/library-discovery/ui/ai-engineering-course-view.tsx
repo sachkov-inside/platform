@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   Bot,
-  BookOpen,
   Check,
   ChevronDown,
   Code2,
@@ -12,7 +11,6 @@ import {
   GitPullRequest,
   Gauge,
   Layers,
-  List,
   MessagesSquare,
   Play,
   Plug,
@@ -38,14 +36,7 @@ import {
 } from "@/features/ai-engineering-course";
 import type { PublishedProductResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import {
-  productHref,
-  productProgrammeHref,
-} from "@/shared/routing/subscription-route";
-import {
-  CourseNavigationBar,
-  CourseNavigationItem,
-} from "@/features/library-discovery";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
@@ -73,7 +64,7 @@ type ResolvedProductResult = Extract<
  * продукта в Inside Content; оформление берёт композиции разделов страницы AI-first и добавляет к
  * знакомым блокам (по `id`) свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
  * Главы и прохождение живут на странице программы. На телефоне и
- * планшете навигации сайта внизу нет: на телефоне её место занимает навигация курса, а назад ведёт
+ * планшете навигации сайта внизу нет: её место занимает кнопка в программу, а назад ведёт
  * маленькая кнопка в самом верху.
  */
 export function AiEngineeringCourseView({
@@ -108,15 +99,6 @@ export function AiEngineeringCourseView({
       data-product-landing={reference.slug}
     >
       <HideMobileNavigation />
-      <CourseNavigationBar label="Навигация курса">
-        <CourseNavigationItem
-          icon={BookOpen}
-          label="О курсе"
-          href={productHref(reference.slug)}
-          current
-        />
-        <CourseNavigationItem icon={List} label="Программа" href={programme} />
-      </CourseNavigationBar>
       <div data-product-part="back">
         <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
       </div>
@@ -143,7 +125,6 @@ export function AiEngineeringCourseView({
             programme={programme}
           />
         ))}
-      <div aria-hidden="true" className="h-20 md:hidden" />
     </article>
   );
 }

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const programme = "/products/reference-course/programme";
 
-test("mobile course navigation opens the programme and returns from lessons and references to the course overview", async ({
+test("mobile course navigation opens the programme and returns from lessons and references to the course programme", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 844 });
@@ -12,11 +12,10 @@ test("mobile course navigation opens the programme and returns from lessons and 
       name: "Навигация по урокам",
     });
     await expect(navigation).toBeVisible();
-    const overview = navigation.getByRole("link", { name: "О курсе" });
-    await expect(overview).toHaveAttribute(
-      "href",
-      "/products/reference-course",
-    );
+    const overview = navigation.getByRole("link", {
+      name: "К прохождению курса",
+    });
+    await expect(overview).toHaveAttribute("href", programme);
     const trigger = navigation.getByRole("button", { name: "Вся программа" });
     await trigger.click();
     const dialog = page.getByRole("dialog", {
@@ -27,7 +26,7 @@ test("mobile course navigation opens the programme and returns from lessons and 
     await expect(dialog).not.toBeVisible();
     await expect(trigger).toBeFocused();
     await overview.click();
-    await expect(page).toHaveURL("/products/reference-course");
+    await expect(page).toHaveURL(programme);
   }
 });
 
