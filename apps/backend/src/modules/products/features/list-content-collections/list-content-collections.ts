@@ -40,7 +40,7 @@ export function assembleListContentCollections(
       ).list();
       const holders =
         parsed.value.kind === "product"
-          ? await countHolders(dependencies, collections)
+          ? await countHolders(dependencies, parsed.value.actor, collections)
           : new Map<string, number>();
       return {
         ok: true,
@@ -61,18 +61,25 @@ export function assembleListContentCollections(
   };
 }
 
-/** The owner's holder count, one call per 100 Products; an unanswered count stays absent. */
+/**
+ * The owner's holder count, one call per 100 Products, only for an actor with the right of
+ * Product holder reads. An unanswered count or a missing right leaves it absent, never 0.
+ */
 async function countHolders(
   dependencies: Pick<
     ProductAuthoringDependencies,
-    "prisma" | "productAccessHolders"
+    "prisma" | "productAccessHolders" | "holderCountPolicy"
   >,
+  actor: string,
   collections: readonly { readonly id: string }[],
 ): Promise<ReadonlyMap<string, number>> {
-  const holders = dependencies.productAccessHolders;
-  if (holders === undefined || collections.length === 0) return new Map();
+  const { productAccessHolders: holders, holderCountPolicy: policy } =
+    dependencies;
+  if (holders === undefined || policy === undefined || collections.length === 0)
+    return new Map();
   const counts = new Map<string, number>();
   try {
+    if (!(await policy.canReadHolderCounts(actor))) return counts;
     for (
       let start = 0;
       start < collections.length;

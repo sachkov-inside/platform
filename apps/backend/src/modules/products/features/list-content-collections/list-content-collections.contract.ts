@@ -22,8 +22,9 @@ export interface ListContentCollectionsQuery {
 export interface ContentCollectionListItemDto extends ContentCollectionDto {
   /**
    * Accounts whose Product Access is active now, a count without personal data. `null` means the
-   * count is not a fact here: a Topic has no holders, or the Product Access owner did not answer.
-   * It is never a stand-in 0.
+   * count is not available here: the actor lacks `billing:manage` (the right of Product holder
+   * reads), the collection is a Topic, or the Product Access owner did not answer. Never a
+   * stand-in 0.
    */
   readonly holderCount: number | null;
 }

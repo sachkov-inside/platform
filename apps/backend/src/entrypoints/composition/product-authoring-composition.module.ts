@@ -43,6 +43,15 @@ import { loadContentCoverProjections } from "../../modules/content-covers/index.
           prisma,
           materials,
           productAccessHolders: holders,
+          holderCountPolicy: {
+            async canReadHolderCounts(accountId) {
+              const decision = await accounts.checkPermission({
+                accountId,
+                permission: "billing:manage",
+              });
+              return decision.ok && decision.allowed;
+            },
+          },
           authorPolicy: {
             async canManage(accountId, handle) {
               const decision = await accounts.checkPermission(

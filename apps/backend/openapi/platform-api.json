@@ -22972,7 +22972,7 @@
                         "type": "object"
                       },
                       "holderCount": {
-                        "description": "Accounts whose Product Access is active now, a count without personal data. Null when it is not a fact here: a Topic has no holders, or the Product Access owner did not answer; never a stand-in 0",
+                        "description": "Accounts whose Product Access is active now, a count without personal data. Null when it is not available: the actor lacks billing:manage, the collection is a Topic, or the Product Access owner did not answer; never a stand-in 0",
                         "maximum": 9007199254740991,
                         "minimum": 0,
                         "nullable": true,
