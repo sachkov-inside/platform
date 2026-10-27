@@ -1,19 +1,8 @@
 import type { PriceSnapshot } from "@/entities/subscription";
-import {
-  AccessSummaryPanel,
-  InvitationsPanel,
-  PeoplePanel,
-  TariffsPanel,
-} from "@/features/billing-admin";
-
+import { ProductAccessPanel } from "@/features/billing-admin";
 import { AccessSection } from "./access-section.client";
-
-/**
- * Состав раздела «Доступ»: вкладки, их порядок и панели над одним каталогом владельца. Страница
- * передаёт сюда прочитанный каталог; Storybook показывает тот же состав на данных историй.
- */
 export function AccessAdminSection({
-  offers,
+  offers: _offers,
 }: {
   readonly offers: readonly PriceSnapshot[];
 }) {
@@ -21,24 +10,9 @@ export function AccessAdminSection({
     <AccessSection
       tabs={[
         {
-          id: "people",
-          label: "Люди и доступ",
-          panel: <PeoplePanel offers={offers} />,
-        },
-        {
-          id: "tariffs",
-          label: "Тарифы",
-          panel: <TariffsPanel offers={offers} />,
-        },
-        {
-          id: "invitations",
-          label: "Приглашения",
-          panel: <InvitationsPanel allowIssue={false} offers={offers} />,
-        },
-        {
-          id: "summary",
-          label: "Сводка",
-          panel: <AccessSummaryPanel />,
+          id: "products",
+          label: "Доступ к продуктам",
+          panel: <ProductAccessPanel />,
         },
       ]}
     />

@@ -14,7 +14,7 @@
 | Workflow `Production access pass` | GitHub-hosted runner | раз в сутки и после выпуска | вход тестовыми identities и доступ к материалам |
 
 Внешняя проверка читает Web на `https://sachkov.dev/`, публичный API потоков на
-`https://inside.sachkov.dev/billing/cohorts` и discovery на `https://auth.sachkov.dev`.
+`https://inside.sachkov.dev/billing/product-sales-states` и discovery на `https://auth.sachkov.dev`.
 Она проверяет TLS всех трёх адресов. Редирект старого Web на новый адрес не является отказом сайта.
 
 Сигнал несёт версию выпуска из `/var/lib/inside/deployments/state.json` (у внешней проверки — ссылку

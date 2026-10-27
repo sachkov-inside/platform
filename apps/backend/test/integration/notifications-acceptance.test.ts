@@ -1,9 +1,8 @@
+import { grantProductFixture } from "./setup/product-access.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
-import {
-  prepareInvitedQuote,
-  seedOptionPurchaseInvitation,
-} from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
@@ -30,23 +29,17 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
 import {
   BillingNotices,
-  BillingOperations,
   BillingPayments,
   type BillingPricing,
-  BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
-import type {
-  OwnerOutcome,
-  OwnerResult,
-} from "../../src/modules/billing/domain/owner-operations.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import {
   assembleAccessGrants,
   assembleAccountRights,
 } from "../../src/modules/account-rights/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   MaterialAnnouncements,
   materialId as checkedMaterialId,
   type MaterialId,
@@ -84,16 +77,18 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETICACCEPT",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 65).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
-  cardBinding: { confirmed: true, checkType: "3DS" },
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
   returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`,
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const documents = syntheticConsentDocuments;
+const documents = syntheticConsentDocuments
+  .filter((document) => document.kind === "terms")
+  .map((document) => ({
+    ...document,
+    commercialModel: "product-lifetime-v1" as const,
+  }));
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -102,10 +97,6 @@ function value<T>(
   return result.value;
 }
 /** Владельческий результат читается по объявленному виду, а не по форме поля. */
-function success(result: OwnerResult): OwnerOutcome {
-  if (!result.ok) throw new Error(result.error.code);
-  return result.result;
-}
 
 /**
  * Сквозная приёмка общей системы уведомлений: оба источника — подтверждённая оплата Billing и
@@ -141,8 +132,7 @@ describe("приёмка обоих источников Notifications (реал
   let grants: ReturnType<typeof assembleAccessGrants>;
   let materials: ReturnType<typeof assembleMaterials>;
   let payments: BillingPayments;
-  let subscriptions: BillingSubscriptions;
-  let operations: BillingOperations;
+
   let bank: BankFixture;
   const codes = new Map<string, string>();
 
@@ -204,7 +194,7 @@ describe("приёмка обоих источников Notifications (реал
     pricing = assembleTestBillingPricing({
       prisma: platform.prisma,
       accounts,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     contact = new BillingContact({
       prisma: platform.prisma,
@@ -233,36 +223,17 @@ describe("приёмка обоих источников Notifications (реал
     bank = new BankFixture(config);
     const client = bank.client();
     payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      contentCatalog: new CoverageCatalog(
+        platform.prisma,
+        new ProductDiscovery(platform.prisma),
+      ),
+      sale: { payments: true },
       prisma: platform.prisma,
       bank: client,
       contact,
       grants,
     });
-    const notices = new BillingNotices({
-      sale: { subscriptions: true },
-      prisma: platform.prisma,
-      enrollments: grants,
-    });
-    subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
-      prisma: platform.prisma,
-      bank: client,
-      contact,
-      grants,
-      payments,
-      notices,
-    });
-    operations = new BillingOperations({
-      sale: { subscriptions: true },
-      prisma: platform.prisma,
-      accounts,
-      pricing,
-      payments,
-      subscriptions,
-      grants,
-      bank: client,
-    });
+    const notices = new BillingNotices({ prisma: platform.prisma });
     const announcements = new MaterialAnnouncements({
       prisma: platform.prisma,
     });
@@ -405,18 +376,6 @@ describe("приёмка обоих источников Notifications (реал
   /** Участник с подтверждённым контактом, связанным Telegram и включёнными каналами. */
   async function member(): Promise<string> {
     const id = await createAccount();
-    expect(
-      await grants.classifyLegacy(owner, {
-        operationId: randomUUID(),
-        accountId: id,
-        expectedRevision: 0,
-        classification: "confirmed_new",
-        sourceRef: id,
-        reason: "Синтетический участник приёмки",
-        bridgeEnabled: false,
-        tributeStopped: false,
-      }),
-    ).toMatchObject({ ok: true });
     const start = await contact.start(id, {
       operationId: randomUUID(),
       email: `${id}@example.test`,
@@ -461,56 +420,22 @@ describe("приёмка обоих источников Notifications (реал
       months: number | null;
     }[];
   }) {
-    const offerId = randomUUID(),
-      optionId = randomUUID();
+    const productId =
+      input.benefits.find((c) => c.startsWith("product:"))?.slice(8) ??
+      (await productCollection());
     value(
       await pricing.manage(owner, {
+        operation: "productPrices.save",
         operationId: randomUUID(),
-        operation: "offers.save",
         value: {
-          id: offerId,
+          productId,
           name: input.name,
-          benefits: [...input.benefits],
-          ...(input.benefits.includes("materials")
-            ? {
-                coverage: {
-                  productIds: (
-                    await platform.prisma.product.findMany({
-                      select: { id: true },
-                    })
-                  ).map((product) => product.id),
-                  materialIds: [],
-                },
-              }
-            : {}),
-          ...(input.benefitPeriods
-            ? { benefitPeriods: [...input.benefitPeriods] }
-            : {}),
-        },
-      }),
-    );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "paymentOptions.save",
-        value: {
-          id: optionId,
-          offerId,
-          ...(input.mode !== undefined ? { mode: input.mode } : {}),
-          months: 1,
           priceKopecks: input.priceKopecks,
+          published: true,
         },
       }),
     );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.publish",
-        expectedRevision: 1,
-        id: offerId,
-      }),
-    );
-    return optionId;
+    return productId;
   }
 
   /** Подтверждённая оплата настоящим путём: расчёт, согласия, команда и ответ банка. */
@@ -520,14 +445,11 @@ describe("приёмка обоих источников Notifications (реал
     options: { readonly recurring?: boolean } = {},
   ) {
     const quote = value(
-      await pricing.quote(
-        account,
-        await prepareInvitedQuote(platform.prisma, account, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
-      ),
+      await pricing.quote(account, {
+        operationId: randomUUID(),
+        productId: optionId,
+        priceRevision: 1,
+      }),
     );
     const accepted = await contact.acceptConsents(
       account,
@@ -608,7 +530,7 @@ describe("приёмка обоих источников Notifications (реал
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...productIds],
+      productIds: [...productIds],
     };
     const created = value(
       await materials.authoring.createDraft({
@@ -708,7 +630,10 @@ describe("приёмка обоих источников Notifications (реал
     // Оба продукта продаются сейчас, и оба дают повод: подписка и разовая покупка руководства.
     expect(notices).toHaveLength(2);
 
-    const material = await publish("Первый материал приёмки", [productId]);
+    const material = await publish("Первый материал приёмки", [
+      productId,
+      subscription,
+    ]);
     const announcement = await announcementOf(material);
 
     for (const occurrenceRef of [
@@ -803,7 +728,10 @@ describe("приёмка обоих источников Notifications (реал
     await buy(both, libraryOffer, { recurring: true });
     await buy(both, productOffer);
 
-    const material = await publish("Материал внутри руководства", [productId]);
+    const material = await publish("Материал внутри руководства", [
+      productId,
+      libraryOffer,
+    ]);
     const announcement = await announcementOf(material);
     await eventually(async () => {
       const deliveries = await deliveriesOf(announcement.id);
@@ -839,40 +767,7 @@ describe("приёмка обоих источников Notifications (реал
     });
     await buy(neighbour, libraryOffer, { recurring: true });
     const granted = await createAccount();
-    const preview = success(
-      await operations.execute(owner, {
-        operation: "grants.previewBatch",
-        operationId: randomUUID(),
-        rows: [
-          {
-            rowKey: "acceptance",
-            accountId: granted,
-            source: "manual",
-            sourceRef: randomUUID(),
-            terms: {
-              capabilities: ["support"],
-              // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-              startsAt: new Date().toISOString(),
-              validUntil: null,
-              reason: "Синтетическая выдача приёмки",
-            },
-          },
-        ],
-      }),
-    );
-    if (preview.outcome !== "grantPreview")
-      throw new Error(`Unexpected outcome ${preview.outcome}`);
-    expect(
-      success(
-        await operations.execute(owner, {
-          operation: "grants.applyBatch",
-          operationId: randomUUID(),
-          previewRef: preview.previewRef,
-          expectedRevision: preview.revision,
-          confirmedRows: ["acceptance"],
-        }),
-      ).outcome,
-    ).toBe("grantBatch");
+    await grantProductFixture(platform.prisma, granted, libraryOffer);
 
     // Открытое право не является оплатой: ни платежа, ни повода, ни сообщения о нём.
     expect(
@@ -894,7 +789,9 @@ describe("приёмка обоих источников Notifications (реал
 
     // Отсутствие доказывается только после того, как сама рассылка закрыта: рядом стоит
     // участник, которому она полагается, и его сообщение — закреплённый факт этого шага.
-    const material = await publish("Материал после выдачи права");
+    const material = await publish("Материал после выдачи права", [
+      libraryOffer,
+    ]);
     const announcement = await announcementOf(material);
     await eventually(async () => {
       expect(await announcementSettled(announcement.id)).toBe(true);
@@ -1045,87 +942,6 @@ describe("приёмка обоих источников Notifications (реал
     }
   }, 240_000);
 
-  test("жизненный цикл подписки двух тарифов доходит до обоих каналов", async () => {
-    const account = await member();
-    const monthly = await offer({
-      name: `Материалы помесячно ${randomUUID()}`,
-      benefits: ["materials"],
-      priceKopecks: 100_000,
-    });
-    const yearly = await offer({
-      name: `Материалы на год ${randomUUID()}`,
-      benefits: ["materials"],
-      priceKopecks: 900_000,
-    });
-    await buy(account, monthly, { recurring: true });
-
-    // Новый тариф требует собственного приглашения, даже при действующей подписке.
-    await seedOptionPurchaseInvitation(platform.prisma, account, yearly);
-    const current = value(await subscriptions.read(account)).subscription;
-    const quoted = value(
-      await subscriptions.quoteChange(account, {
-        operationId: randomUUID(),
-        expectedRevision: current?.revision,
-        paymentOptionId: yearly,
-      }),
-    );
-    value(
-      await subscriptions.change(account, {
-        operationId: randomUUID(),
-        expectedRevision: current?.revision,
-        changeQuoteRef: quoted.changeQuoteRef,
-      }),
-    );
-
-    // Отмена продления — собственный повод жизненного цикла, отличный от подтверждённой оплаты.
-    const changed = value(await subscriptions.read(account)).subscription;
-    value(
-      await subscriptions.cancel(account, {
-        operationId: randomUUID(),
-        expectedRevision: changed?.revision,
-      }),
-    );
-    const cancelled = await platform.prisma.billingNotice.findFirstOrThrow({
-      where: { accountId: account, kind: "renewal_cancelled" },
-    });
-
-    await eventually(async () => {
-      const deliveries = await deliveriesOf(cancelled.id);
-      expect(deliveries.map((delivery) => delivery.channel).toSorted()).toEqual(
-        ["email", "telegram"],
-      );
-      expect(deliveries.every((delivery) => delivery.state === "sent")).toBe(
-        true,
-      );
-    }, barrierBudgetMs);
-    expect(
-      sent.some((message) => message.subject === "Продление Inside отменено"),
-    ).toBe(true);
-
-    // Переход на более дорогой тариф списывает разницу сразу, поэтому у Account два отдельных
-    // повода оплаты и один повод отмены — разные поводы, а не один переписанный.
-    const paid = await platform.prisma.billingNotice.findMany({
-      where: { accountId: account, kind: "payment_succeeded" },
-    });
-    expect(paid).toHaveLength(2);
-    expect(
-      await platform.prisma.billingNotice.count({
-        where: { accountId: account, kind: "renewal_cancelled" },
-      }),
-    ).toBe(1);
-    for (const notice of paid) {
-      await eventually(async () => {
-        const deliveries = await deliveriesOf(notice.id);
-        expect(
-          deliveries.map((delivery) => delivery.channel).toSorted(),
-        ).toEqual(["email", "telegram"]);
-        expect(deliveries.every((delivery) => delivery.state === "sent")).toBe(
-          true,
-        );
-      }, barrierBudgetMs);
-    }
-  }, 240_000);
-
   test("заполненная лента подписки не задерживает ленту новых материалов", async () => {
     const reader = await member();
     const optionId = await offer({
@@ -1166,7 +982,9 @@ describe("приёмка обоих источников Notifications (реал
         }),
       );
     }
-    const material = await publish("Материал при нагруженной ленте подписки");
+    const material = await publish("Материал при нагруженной ленте подписки", [
+      optionId,
+    ]);
     const announcement = await announcementOf(material);
 
     let backlogWhenAnnounced = 0;

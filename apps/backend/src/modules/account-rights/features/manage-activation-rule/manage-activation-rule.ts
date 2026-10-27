@@ -3,14 +3,14 @@ import { accessFailure } from "../../domain/access-grant.js";
 import {
   activationRuleSchema,
   manageActivationRuleSchema,
-} from "../../domain/subscription-activation.js";
-import type { MembershipActivationRulePrisma } from "../../infrastructure/prisma.js";
+} from "../../domain/course-activation.js";
+import type { AccountRightsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
 export async function manageActivationRule(
-  tx: MembershipActivationRulePrisma,
+  tx: AccountRightsPrisma,
   actorId: string,
   input: unknown,
   now: Date,
@@ -39,7 +39,9 @@ export async function manageActivationRule(
   // Source identity is durable; editing a rule cannot reclassify a previously issued course.
   if (
     current !== null &&
-    (current.code !== command.value.code ||
+    ((current.productId !== null &&
+      current.productId !== command.value.productId) ||
+      current.code !== command.value.code ||
       current.sourceRef !== command.value.sourceRef ||
       current.verificationMode !==
         (command.value.verificationMode ?? "course_membership"))

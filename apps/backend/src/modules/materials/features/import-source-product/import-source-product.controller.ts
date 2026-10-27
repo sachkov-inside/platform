@@ -12,7 +12,7 @@ import {
 } from "../../adapters/nest/material-authoring-endpoint.js";
 import {
   contentCollectionSchema,
-  reorderSeriesReceiptSchema,
+  reorderProductReceiptSchema,
   parseMaterialAuthoringBody,
   throwMaterialAuthoringError,
 } from "../../adapters/nest/material-authoring-http.js";
@@ -112,7 +112,7 @@ export class ImportSourceProductController {
     summary: "reorderSourceProduct",
   })
   @ApiBody({ schema: toOpenApiSchema(reorderSourceProductBodySchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(reorderSeriesReceiptSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(reorderProductReceiptSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
   async composition(
     @CurrentAccount() account: AuthenticatedAccount,

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { authoringImportContract } from "../../apps/backend/src/modules/materials/domain/authoring-import-contract.ts";
 
 /**
  * The item a test expects at a position; a missing item fails the test.
@@ -103,3 +104,15 @@ export const reservationBodySchema = z
     source: z.object({ id: z.string(), path: z.string() }).passthrough(),
   })
   .passthrough();
+
+/** Synthetic current receiver used by authoring transport doubles.
+ * @param {string} mode */
+export function currentEnvironment(mode) {
+  return {
+    mode: z.enum(["development", "test", "production"]).parse(mode),
+    contract: {
+      version: authoringImportContract.version,
+      packageFeatures: [...authoringImportContract.packageFeatures],
+    },
+  };
+}

@@ -5,12 +5,12 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { HttpPlatformCohortAdapter } from "../../src/adapters/platform/http-platform-cohort.adapter.js";
-import fixtures from "@inside/contracts/platform-billing-cohorts/fixtures.json" with { type: "json" };
-import provenance from "@inside/contracts/platform-billing-cohorts/provenance.json" with { type: "json" };
-import schema from "@inside/contracts/platform-billing-cohorts/schema.json" with { type: "json" };
+import { HttpPlatformProductSalesStateAdapter } from "../../src/adapters/platform/http-platform-product-sales-state.adapter.js";
+import fixtures from "@inside/contracts/platform-product-sales-states/fixtures.json" with { type: "json" };
+import provenance from "@inside/contracts/platform-product-sales-states/provenance.json" with { type: "json" };
+import schema from "@inside/contracts/platform-product-sales-states/schema.json" with { type: "json" };
 
-const endpoint = "https://platform.test/billing/cohorts";
+const endpoint = "https://platform.test/billing/product-sales-states";
 const productId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
 const cohort = (overrides: Record<string, unknown> = {}) => ({
   productId,
@@ -19,13 +19,18 @@ const cohort = (overrides: Record<string, unknown> = {}) => ({
   stage: "preorder",
   startsOn: "2026-10-20",
   nextEvent: "",
+  priceAfterStartKopecks: null,
   ...overrides,
 });
 const adapter = (response: () => Promise<Response>) => {
   const fetcher = vi.fn<typeof fetch>(() => response());
   return {
     fetcher,
-    source: new HttpPlatformCohortAdapter(endpoint, productId, fetcher),
+    source: new HttpPlatformProductSalesStateAdapter(
+      endpoint,
+      productId,
+      fetcher,
+    ),
   };
 };
 
@@ -51,14 +56,14 @@ const validResponse = ajv.compile(
   }),
 );
 
-describe("Platform GET /billing/cohorts contract", () => {
+describe("Platform GET /billing/product-sales-states contract", () => {
   it("keeps the shared corpus at its recorded historical digests", () => {
     for (const [file, sha256] of Object.entries(provenance.files))
       expect(
         createHash("sha256")
           .update(
             readFileSync(
-              `../../docs/contracts/platform-billing-cohorts/${file}`,
+              `../../docs/contracts/platform-product-sales-states/${file}`,
             ),
           )
           .digest("hex"),
@@ -74,7 +79,7 @@ describe("Platform GET /billing/cohorts contract", () => {
       { items: [{ ...item, stage: "sold_out" }] },
       { items: [item], total: 1 },
     ])
-      expect(validResponse(invalid)).toBe(false);
+      expect(validResponse({ nextCursor: null, ...invalid })).toBe(false);
   });
 
   it.each(fixtures.invalid)(
@@ -104,7 +109,7 @@ describe("Platform GET /billing/cohorts contract", () => {
       { items: [cohort(), cohort({ productId: "invalid" })] },
       { items: [cohort({ startsOn: "2026-02-30" })] },
     ]) {
-      expect(validResponse(invalid)).toBe(false);
+      expect(validResponse({ nextCursor: null, ...invalid })).toBe(false);
       expect(
         await adapter(() =>
           Promise.resolve(Response.json(invalid)),
@@ -122,7 +127,7 @@ describe("Platform GET /billing/cohorts contract", () => {
     "Platform may answer $name, and the welcome takes its date",
     async (fixture) => {
       expect(validResponse(fixture.response)).toBe(true);
-      const source = new HttpPlatformCohortAdapter(
+      const source = new HttpPlatformProductSalesStateAdapter(
         endpoint,
         fixtures.courseProductId,
         () => Promise.resolve(Response.json(fixture.response)),
@@ -141,6 +146,7 @@ describe("Platform current stream of the course", () => {
     const { fetcher, source } = adapter(() =>
       Promise.resolve(
         Response.json({
+          nextCursor: null,
           items: [
             cohort({
               productId: "00000000-0000-4000-8000-000000000001",
@@ -169,7 +175,7 @@ describe("Platform current stream of the course", () => {
     ])
       expect(
         await adapter(() =>
-          Promise.resolve(Response.json({ items })),
+          Promise.resolve(Response.json({ nextCursor: null, items })),
         ).source.read(),
       ).toEqual({});
     // An absent stream or date is an ordinary catalogue state, not a failure.
@@ -184,18 +190,27 @@ describe("Platform current stream of the course", () => {
     for (const response of [
       () =>
         Promise.resolve(
-          Response.json({ type: "dependency_unavailable" }, { status: 503 }),
+          Response.json(
+            { nextCursor: null, type: "dependency_unavailable" },
+            { status: 503 },
+          ),
         ),
       () => Promise.reject(timeout),
       () => Promise.resolve(new Response("not json", { status: 200 })),
-      () => Promise.resolve(Response.json({ items: "none" })),
+      () => Promise.resolve(Response.json({ nextCursor: null, items: "none" })),
       () =>
         Promise.resolve(
-          Response.json({ items: [cohort({ startsOn: "2026-02-30" })] }),
+          Response.json({
+            nextCursor: null,
+            items: [cohort({ startsOn: "2026-02-30" })],
+          }),
         ),
       () =>
         Promise.resolve(
-          Response.json({ items: [cohort({ startsOn: "20 октября" })] }),
+          Response.json({
+            nextCursor: null,
+            items: [cohort({ startsOn: "20 октября" })],
+          }),
         ),
     ])
       expect(await adapter(response).source.read()).toEqual({});

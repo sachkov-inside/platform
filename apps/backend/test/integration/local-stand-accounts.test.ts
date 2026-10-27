@@ -24,6 +24,13 @@ test("local stand accounts keep identity, real permissions and learner access on
   };
   const issuer = "https://identity.inside.localhost:3301/oidc";
   const clock = () => new Date("2030-01-01T00:00:00.000Z");
+  await database.prisma.product.create({
+    data: {
+      id: "a0090000-0000-4000-8000-000000000099",
+      slug: "stand-course",
+      name: "Stand course",
+    },
+  });
   const first = await seedLocalStandAccounts(
     database.prisma,
     issuer,

@@ -7,8 +7,10 @@ import { z } from "zod";
 
 import { legalNavigationEntry } from "@/entities/legal-document";
 import {
-  renewalTermsLine,
   shownRenewalTermsSchema,
+  formatKopecks,
+  formatBillingDate,
+  formatMonths,
 } from "@/entities/subscription";
 import { legalEditionPath } from "@/shared/routing/public-page-path";
 
@@ -81,7 +83,7 @@ export function acceptedDocumentItems(
       shownTerms:
         document.shownTerms === null
           ? null
-          : renewalTermsLine(document.shownTerms),
+          : `Исторические условия: ${formatKopecks(document.shownTerms.amountKopecks)}, следующее списание ${formatBillingDate(`${document.shownTerms.nextChargeOn}T12:00:00+03:00`)}, раз в ${formatMonths(document.shownTerms.periodMonths)}`,
     };
   });
 }

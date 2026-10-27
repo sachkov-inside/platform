@@ -10,13 +10,15 @@ import { contentCollectionPersistence } from "../../infrastructure/postgres/cont
 import type { ListContentCollectionsOperation } from "./list-content-collections.contract.js";
 
 const querySchema = z
-  .object({ actor: accountId, kind: z.enum(["product", "series", "topic"]) })
+  .object({ actor: accountId, kind: z.enum(["product", "topic"]) })
   .strict();
 
 export function assembleListContentCollections(
   dependencies: MaterialAuthoringDependencies,
 ): ListContentCollectionsOperation {
   return async (input) => {
+    if (input.kind !== "topic")
+      return dependencies.products.listContentCollections(input);
     const parsed = parseCommand(querySchema, input);
     if (!parsed.ok) return failure({ code: "forbidden" });
     const authorization = await authorizeManager(

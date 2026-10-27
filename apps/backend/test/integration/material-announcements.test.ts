@@ -1,3 +1,4 @@
+import { seedHistoricalFeedSource } from "./setup/historical-source.js";
 import { PublicMaterialAnnouncements } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -8,10 +9,8 @@ import {
   lanes,
   MATERIAL_EVENT_LIFETIME_MS,
 } from "../../src/infrastructure/notification-transport/wire.js";
-import {
-  assembleMaterials,
-  MaterialAnnouncements,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { MaterialAnnouncements } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -36,7 +35,7 @@ function metadata(title: string) {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: [],
+    productIds: [],
   };
 }
 
@@ -247,10 +246,7 @@ describe("анонс первой публикации материала", () =
     );
     const announcement = await announcedOccurrence(id);
     const source = publicAnnouncements();
-    await database.prisma.material.update({
-      where: { id },
-      data: { showInFeed: false },
-    });
+    await seedHistoricalFeedSource(database.prisma, id);
     expect(
       (
         await source.read(
@@ -277,7 +273,6 @@ describe("анонс первой публикации материала", () =
       await database.prisma.material.update({
         where: { id },
         data: {
-          showInFeed: true,
           access: "free",
           publicationState: "published",
         },

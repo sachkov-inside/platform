@@ -18,9 +18,9 @@ const meta = {
   args: {
     result: {
       kind: "empty",
-      discoveryKind: "series",
+      discoveryKind: "product",
       chapters: aiEngineeringCourseChapters,
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         name: "AI Engineering",
@@ -85,7 +85,7 @@ const lessons: readonly MaterialPreview[] = Array.from(
     topic: "AI Engineering",
     topicSlug: "ai-engineering",
     tags: [],
-    seriesMemberships: [],
+    productMemberships: [],
   }),
 );
 

@@ -12,7 +12,7 @@ RUN apk add --no-cache \
     pkgconf=2.5.1-r0 \
     samurai=1.2-r7 \
     bzip2-dev=1.0.8-r6 \
-    curl-dev=8.22.0-r0 \
+    curl-dev=8.23.0-r0 \
     libpq-dev=18.6-r0 \
     libxml2-dev=2.13.9-r1 \
     lz4-dev=1.10.0-r0 \

@@ -1,4 +1,3 @@
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -18,10 +17,6 @@ import type {
   SetContentCollectionArchiveError,
   SetContentCollectionArchiveOperation,
 } from "./set-content-collection-archive.contract.js";
-import {
-  checkContentWrite,
-  contentWriter,
-} from "../../domain/content-write-policy.js";
 
 const commandSchema = z
   .object({
@@ -29,7 +24,7 @@ const commandSchema = z
     archived: z.boolean(),
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
-    kind: z.enum(["product", "series", "topic"]),
+    kind: z.enum(["product", "topic"]),
   })
   .strict();
 
@@ -37,6 +32,8 @@ export function assembleSetContentCollectionArchive(
   dependencies: MaterialAuthoringDependencies,
 ): SetContentCollectionArchiveOperation {
   return async (input) => {
+    if (input.kind !== "topic")
+      return dependencies.products.setContentCollectionArchive(input);
     const parsed = parseCommand(commandSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
@@ -49,21 +46,6 @@ export function assembleSetContentCollectionArchive(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
-        if (command.kind !== "topic") {
-          await lockSeries(transaction, [command.collectionId]);
-          const source = await transaction.product.findUnique({
-            where: { id: command.collectionId },
-            select: { sourceId: true },
-          });
-          const sourceError = checkContentWrite(contentWriter(), [
-            {
-              kind: "archive",
-              sourceId: source?.sourceId ?? null,
-              path: "/collectionId",
-            },
-          ]);
-          if (sourceError !== null) return rollback(sourceError);
-        }
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,

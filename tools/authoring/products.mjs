@@ -15,7 +15,7 @@ const productRowSchema = z
     pageRejected: z.boolean().optional(),
   })
   .passthrough();
-const pinSchema = z.object({ seriesId: z.uuid().nullable() }).passthrough();
+const pinSchema = z.object({ productId: z.uuid().nullable() }).passthrough();
 
 /**
  * @typedef {Awaited<ReturnType<typeof listProducts>>[number]} ProductListing
@@ -31,7 +31,7 @@ export async function listProducts(request) {
     request("/authoring/collections?kind=product"),
     request("/authoring/home-pin"),
   ]);
-  const pinned = pinSchema.parse(pin).seriesId;
+  const pinned = pinSchema.parse(pin).productId;
   return z
     .array(productRowSchema)
     .parse(rows)

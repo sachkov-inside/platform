@@ -1,0 +1,134 @@
+{
+  "courseProductId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+  "valid": [
+    {
+      "name": "preorder-with-start",
+      "streamStartsOn": "2026-10-20",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": null
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "name": "between-without-start",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "between",
+            "startsOn": null,
+            "nextEvent": "Скоро",
+            "priceAfterStartKopecks": null
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "name": "other-product-only",
+      "response": {
+        "items": [
+          {
+            "productId": "0d9e8f7a-6b5c-4d3e-8f1a-2b3c4d5e6f7a",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": null
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "name": "no-sales-state",
+      "response": {
+        "items": [],
+        "nextCursor": null
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "legacy-envelope-without-cursor",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "legacy-guide-alias",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": null,
+            "guideId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "name": "invalid-calendar-date",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-02-30",
+            "nextEvent": "",
+            "priceAfterStartKopecks": null
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "name": "unknown-stage",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "sold_out",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": null
+          }
+        ],
+        "nextCursor": null
+      }
+    }
+  ]
+}

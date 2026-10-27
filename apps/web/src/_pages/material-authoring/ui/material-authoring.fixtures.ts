@@ -230,7 +230,7 @@ export const materialAuthoringPresentation = {
     { label: "Видео", value: "video" },
     { label: "Заметка", value: "note" },
   ],
-  availableSeries: [
+  availableProduct: [
     {
       label: "Создание Platform Inside",
       value: "94000000-0000-4000-8000-000000000041",
@@ -333,7 +333,7 @@ export const materialAuthoringPresentation = {
     materialId,
     contentVersion,
     readOnly: false,
-    seriesIds: ["94000000-0000-4000-8000-000000000041"],
+    productIds: ["94000000-0000-4000-8000-000000000041"],
     status: "draft",
     summary:
       "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
@@ -453,7 +453,7 @@ export const emptyMaterialAuthoringPresentation = {
     materialId: null,
     contentVersion: null,
     status: "new",
-    seriesIds: [],
+    productIds: [],
     summary: "",
     tagIds: [],
     title: "",

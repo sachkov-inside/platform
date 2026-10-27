@@ -7,9 +7,9 @@ import { materialReadingLabels } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import type {
-  SeriesReaderContext,
-  SeriesReaderContextItem,
-} from "../model/series-reader-context";
+  ProductReaderContext,
+  ProductReaderContextItem,
+} from "../model/product-reader-context";
 import styles from "./reader-top-actions.module.css";
 
 /** Accepted A (#1591): one left action group and the next step at the right edge. */
@@ -23,13 +23,13 @@ export function ReaderTopActions({
   format = "guide",
   position = "top",
 }: {
-  readonly context: SeriesReaderContext | null;
+  readonly context: ProductReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
   readonly returnAction?: ReactNode;
   readonly shareAction?: ReactNode;
   readonly nextStep?:
-    Pick<SeriesReaderContextItem, "href" | "title"> | null | undefined;
+    Pick<ProductReaderContextItem, "href" | "title"> | null | undefined;
   readonly format?: string;
   readonly position?: "top" | "bottom";
 }) {

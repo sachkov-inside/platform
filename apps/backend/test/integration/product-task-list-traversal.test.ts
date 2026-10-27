@@ -1,15 +1,15 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { beforeAll, afterAll, expect, test } from "vitest";
 import { z } from "zod";
-import { MemberNames } from "../../src/modules/member-profiles/index.js";
+import { AccountNames } from "../../src/modules/account-profiles/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { assembleSubmissionReview } from "../../src/modules/product-tasks/facets/submission-review/submission-review.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { accountId } from "../../src/modules/accounts/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { assembleProductTaskResourceFacts } from "../../src/modules/product-tasks/adapters/content-access/product-task-resource-facts.js";
@@ -202,14 +202,20 @@ function owners() {
     materialResourceFacts: assembleMaterialResourceFacts(
       materials.materialContent,
     ),
-    productTaskResourceFacts: assembleProductTaskResourceFacts(prisma),
+    productTaskResourceFacts: assembleProductTaskResourceFacts(
+      prisma,
+      new ProductDiscovery(prisma),
+    ),
     accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
     accountRights: assembleAccountRights({ prisma }),
   });
   let availabilityCalls = 0;
   const tasks = assembleLearningTasks({
     prisma,
-    directory: new ProductDirectory(prisma),
+    directory: new ProductDirectory(
+      prisma,
+      assembleProductMaterialReading(prisma),
+    ),
     contentAccess: {
       ...contentAccess,
       checkAvailabilityMany: (query) => {
@@ -341,7 +347,10 @@ test("51 own attempts and the oldest feedback remain reachable through stable sc
 });
 
 test("author submission pages and filters remain usable across 101 Products without oversized directory calls", async () => {
-  const directory = new ProductDirectory(measured.prisma);
+  const directory = new ProductDirectory(
+    measured.prisma,
+    assembleProductMaterialReading(measured.prisma),
+  );
   const lookupSizes: number[] = [];
   const review = assembleSubmissionReview({
     prisma: measured.prisma,
@@ -355,7 +364,7 @@ test("author submission pages and filters remain usable across 101 Products with
     },
     authorPolicy: { canManage: (actor) => actor === id(9002) },
     identities: new TelegramAccountLinks(measured.prisma),
-    names: new MemberNames(measured.prisma),
+    names: new AccountNames(measured.prisma),
   });
   const first = await measured.measure(() => review.list(id(9002), {}));
   process.stdout.write(

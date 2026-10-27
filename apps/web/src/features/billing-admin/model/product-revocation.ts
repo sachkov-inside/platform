@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { accessCapabilitySchema } from "@/entities/subscription";
+import {
+  accessCapabilitySchema,
+  accessSourceSchema,
+} from "@/entities/subscription";
 export const productRevocationTargetSchema = z.strictObject({
   accountId: z.uuid(),
   productId: z.uuid(),
@@ -16,7 +19,7 @@ export const productRevocationPreviewSchema =
     affectedCount: z.number().int().nonnegative(),
     affected: z.array(
       z.strictObject({
-        source: z.enum(["paid", "manual", "legacy"]),
+        source: accessSourceSchema,
         capabilities: z.array(accessCapabilitySchema),
         validUntil: z.iso.datetime().nullable(),
       }),
@@ -31,5 +34,6 @@ export const productRevocationResponseSchema = z.strictObject({
   value: productRevocationTargetSchema.extend({
     revision: z.number().int().positive(),
     access: z.literal("revoked"),
+    firstIssuedAt: z.iso.datetime().nullable(),
   }),
 });

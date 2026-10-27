@@ -1,7 +1,7 @@
 import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { z } from "zod";
 
-import { parsePrivateProfileState } from "@/entities/member-profile";
+import { parsePrivateProfileState } from "@/entities/account-profile";
 
 import type { AccountPresentationResult } from "../model/account-presentation";
 import { accountTelegramMembershipSchema } from "../model/account-telegram-membership";

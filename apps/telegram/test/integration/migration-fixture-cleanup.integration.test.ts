@@ -2,8 +2,12 @@ import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
-import { createFixtureDatabase } from "../support/fixture-database.js";
 import {
+  createFixtureDatabase,
+  createMigrationOwnerDatabase,
+} from "../support/fixture-database.js";
+import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
   createMigrationDatabase,
   type MigrationDatabaseFixture,
 } from "../support/migration-database.js";
@@ -16,12 +20,21 @@ const owner = createFixtureDatabase(databaseUrl, `${name}_inspection`);
 let fixture: MigrationDatabaseFixture | undefined;
 let acquisition: Promise<MigrationDatabaseFixture> | undefined;
 let blocked: Promise<unknown> | undefined;
+let businessDeadlines: { statement: string; lock: string }[];
 beforeAll(async () => {
   acquisition = createMigrationDatabase(databaseUrl, name, {
     signal: abort.signal,
   });
   fixture = await acquisition;
-});
+  businessDeadlines = (
+    await sql<{
+      statement: string;
+      lock: string;
+    }>`select current_setting('statement_timeout') as statement, current_setting('lock_timeout') as lock`.execute(
+      fixture.database,
+    )
+  ).rows;
+}, migrationDatabaseLifecycleBudgetMilliseconds);
 afterAll(async () => {
   abort.abort(new Error("Blocked migration fixture cleanup"));
   try {
@@ -31,43 +44,48 @@ afterAll(async () => {
   } finally {
     await owner.destroy();
   }
-});
+}, migrationDatabaseLifecycleBudgetMilliseconds);
 
-it("terminates an owned PostgreSQL advisory-lock wait and removes the database before cleanup returns", async () => {
-  const database = required(fixture).database;
-  let holderPid: number | undefined;
-  blocked = database.transaction().execute(async (holder) => {
-    const result = await sql<{
-      pid: number;
-    }>`select pg_backend_pid() as pid`.execute(holder);
-    holderPid = required(result.rows[0]).pid;
-    await sql`select pg_advisory_xact_lock(1392)`.execute(holder);
-    // Another real connection waits for this transaction. A pool close alone cannot drain it.
-    await sql`select pg_advisory_xact_lock(1392)`.execute(database);
-  });
-  const outcome = blocked.then(
-    () => ({ kind: "completed" as const }),
-    (error: unknown) => ({ kind: "rejected" as const, error }),
-  );
-  await vi.waitFor(async () => {
-    const result = await sql<{ blocking: number[] }>`
+it(
+  "terminates an owned PostgreSQL advisory-lock wait and removes the database before cleanup returns",
+  async () => {
+    const database = required(fixture).database;
+    let holderPid: number | undefined;
+    blocked = database.transaction().execute(async (holder) => {
+      const result = await sql<{
+        pid: number;
+      }>`select pg_backend_pid() as pid`.execute(holder);
+      holderPid = required(result.rows[0]).pid;
+      await sql`select pg_advisory_xact_lock(1392)`.execute(holder);
+      // Another real connection waits for this transaction. A pool close alone cannot drain it.
+      await sql`select pg_advisory_xact_lock(1392)`.execute(database);
+    });
+    const outcome = blocked.then(
+      () => ({ kind: "completed" as const }),
+      (error: unknown) => ({ kind: "rejected" as const, error }),
+    );
+    await vi.waitFor(async () => {
+      const result = await sql<{ blocking: number[] }>`
       select pg_blocking_pids(pid) as blocking from pg_stat_activity
       where datname = ${name} and wait_event = 'advisory'
     `.execute(owner);
-    expect(
-      result.rows.some((row) => row.blocking.includes(required(holderPid))),
-    ).toBe(true);
-  });
-  abort.abort(new Error("Intentional blocked migration cancellation"));
-  await required(fixture).close();
-  const settled = await outcome;
-  expect(settled.kind).toBe("rejected");
-  if (settled.kind === "rejected") expect(settled.error).toBeInstanceOf(Error);
-  const remaining = await sql<{ exists: boolean }>`select exists (
+      expect(
+        result.rows.some((row) => row.blocking.includes(required(holderPid))),
+      ).toBe(true);
+    });
+    abort.abort(new Error("Intentional blocked migration cancellation"));
+    await required(fixture).close();
+    const settled = await outcome;
+    expect(settled.kind).toBe("rejected");
+    if (settled.kind === "rejected")
+      expect(settled.error).toBeInstanceOf(Error);
+    const remaining = await sql<{ exists: boolean }>`select exists (
     select 1 from pg_database where datname = ${name}
   ) as exists`.execute(owner);
-  expect(required(remaining.rows[0]).exists).toBe(false);
-});
+    expect(required(remaining.rows[0]).exists).toBe(false);
+  },
+  migrationDatabaseLifecycleBudgetMilliseconds,
+);
 
 it("keeps the shared runtime fixture usable after blocked migration cancellation", async () => {
   await expect(
@@ -75,23 +93,54 @@ it("keeps the shared runtime fixture usable after blocked migration cancellation
   ).resolves.toBeDefined();
 });
 
-it("preserves an existing database when acquiring its duplicate name fails", async ({
-  signal,
+it(
+  "preserves an existing database when acquiring its duplicate name fails",
+  async ({ signal, onTestFinished }) => {
+    const duplicate = `identity_duplicate_${randomUUID().replaceAll("-", "")}`;
+    const existing = await createMigrationDatabase(databaseUrl, duplicate, {
+      signal,
+    });
+    onTestFinished(
+      () => existing.close(),
+      migrationDatabaseLifecycleBudgetMilliseconds,
+    );
+    await sql`create table acquisition_marker (value text); insert into acquisition_marker values ('original fixture')`.execute(
+      existing.database,
+    );
+    await expect(
+      createMigrationDatabase(databaseUrl, duplicate),
+    ).rejects.toMatchObject({ code: "42P04" });
+    const marker = await sql<{
+      value: string;
+    }>`select value from acquisition_marker`.execute(existing.database);
+    expect(required(marker.rows[0]).value).toBe("original fixture");
+  },
+  migrationDatabaseLifecycleBudgetMilliseconds,
+);
+
+it("reserves longer server deadlines for migration database administration", async ({
   onTestFinished,
 }) => {
-  const duplicate = `identity_duplicate_${randomUUID().replaceAll("-", "")}`;
-  const existing = await createMigrationDatabase(databaseUrl, duplicate, {
-    signal,
-  });
-  onTestFinished(() => existing.close());
-  await sql`create table acquisition_marker (value text); insert into acquisition_marker values ('original fixture')`.execute(
-    existing.database,
+  const administration = createMigrationOwnerDatabase(
+    databaseUrl,
+    `${name}_administrative_contract`,
   );
-  await expect(
-    createMigrationDatabase(databaseUrl, duplicate),
-  ).rejects.toMatchObject({ code: "42P04" });
-  const marker = await sql<{
-    value: string;
-  }>`select value from acquisition_marker`.execute(existing.database);
-  expect(required(marker.rows[0]).value).toBe("original fixture");
+  onTestFinished(
+    () => administration.destroy(),
+    migrationDatabaseLifecycleBudgetMilliseconds,
+  );
+  const deadlines = (database: typeof owner) =>
+    sql<{
+      statement: string;
+      lock: string;
+    }>`select current_setting('statement_timeout') as statement, current_setting('lock_timeout') as lock`.execute(
+      database,
+    );
+  expect(businessDeadlines).toEqual([{ statement: "5s", lock: "5s" }]);
+  expect((await deadlines(owner)).rows).toEqual([
+    { statement: "5s", lock: "5s" },
+  ]);
+  expect((await deadlines(administration)).rows).toEqual([
+    { statement: "15s", lock: "15s" },
+  ]);
 });

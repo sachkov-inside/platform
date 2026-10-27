@@ -1,7 +1,16 @@
 import { sql } from "kysely";
 
 import type { Database } from "../../src/database/database.js";
-import { createFixtureDatabase } from "./fixture-database.js";
+import {
+  createFixtureDatabase,
+  createMigrationOwnerDatabase,
+  migrationAdministrationOperationBudgetMilliseconds,
+} from "./fixture-database.js";
+
+// Pending CREATE (5s connect + 20s response), then DROP with the same bound.
+// The final 10s is outer allowance for pool retirement and reporting, not extra query time.
+export const migrationDatabaseLifecycleBudgetMilliseconds =
+  2 * migrationAdministrationOperationBudgetMilliseconds + 10_000;
 
 export interface MigrationDatabaseFixture {
   readonly database: Database;
@@ -15,7 +24,10 @@ export async function createMigrationDatabase(
   options: { signal?: AbortSignal } = {},
 ): Promise<MigrationDatabaseFixture> {
   options.signal?.throwIfAborted();
-  const owner = createFixtureDatabase(databaseUrl, `${databaseName}_owner`);
+  const owner = createMigrationOwnerDatabase(
+    databaseUrl,
+    `${databaseName}_owner`,
+  );
   let database: Database | undefined;
   let closing = false;
   let acquired = false;

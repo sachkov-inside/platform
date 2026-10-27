@@ -33,10 +33,10 @@ const projectionSchema = z.object({
   topic: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
   format: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
   tags: z.array(z.object({ id: z.string(), name: z.string() })),
-  seriesMemberships: z.array(
+  productMemberships: z.array(
     z.object({
       ordinal: z.number().int().positive(),
-      series: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
+      product: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
     }),
   ),
 });
@@ -213,10 +213,10 @@ function toMaterialMetadata(
     topic: { name: projection.topic.name, slug: projection.topic.slug },
     format: { name: projection.format.name, slug: projection.format.slug },
     tags: projection.tags.map(({ name }) => ({ name })),
-    seriesMemberships: projection.seriesMemberships.map(
-      ({ ordinal, series }) => ({
+    productMemberships: projection.productMemberships.map(
+      ({ ordinal, product }) => ({
         ordinal,
-        series: { id: series.id, name: series.name, slug: series.slug },
+        product: { id: product.id, name: product.name, slug: product.slug },
       }),
     ),
   };

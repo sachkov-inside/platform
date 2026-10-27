@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { productCohortSchema } from "@/entities/subscription/model/billing-contract";
+import { productSalesStateSchema } from "@/entities/subscription/model/billing-contract";
 import {
   kopecksToRublesText,
   parseRublesToKopecks,
@@ -47,16 +47,20 @@ describe("цена после старта потока", () => {
   });
 
   it("читает поток прежнего backend без поля как поток без цены после старта", () => {
-    expect(productCohortSchema.parse(cohort).priceAfterStartKopecks).toBeNull();
     expect(
-      productCohortSchema.parse({
+      productSalesStateSchema.parse(cohort).priceAfterStartKopecks,
+    ).toBeNull();
+    expect(
+      productSalesStateSchema.parse({
         ...cohort,
         priceAfterStartKopecks: 3_990_000,
       }).priceAfterStartKopecks,
     ).toBe(3_990_000);
     expect(
-      productCohortSchema.safeParse({ ...cohort, priceAfterStartKopecks: -1 })
-        .success,
+      productSalesStateSchema.safeParse({
+        ...cohort,
+        priceAfterStartKopecks: -1,
+      }).success,
     ).toBe(false);
   });
 

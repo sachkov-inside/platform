@@ -4,7 +4,7 @@ status: accepted
 
 # Use Prisma directly in backend use cases
 
-[ADR 0039](0039-opaque-transaction-handoff.md) records the accepted, not yet implemented refinement
+[ADR 0039](0039-opaque-transaction-handoff.md) records the implemented mechanism
 for cross-Module transactions: an opaque type-only handle replaces caller-visible foreign delegates
 without adding a repository or Unit of Work wrapper.
 

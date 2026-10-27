@@ -9,7 +9,7 @@ import type { ProductTasksPrismaClient } from "../../../infrastructure/prisma/in
 import type { ContentAccess, Subject } from "../../content-access/index.js";
 import { materialId } from "../../../infrastructure/contracts/material-id.js";
 import type { PublishedMaterialReader } from "../../materials/index.js";
-import type { ProductDirectory } from "../../materials/index.js";
+import type { ProductDirectory } from "../../products/index.js";
 import {
   taskAccessSchema,
   taskDefinitionSchema,

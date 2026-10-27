@@ -95,7 +95,7 @@ These checks require no further AIE purchase.
 
 The current runtime does not schedule this transition.
 `priceAfterStartKopecks` is a display field; the charge reads `PaymentOption.priceKopecks`.
-See [the cohort contract](../../apps/backend/src/modules/billing/domain/product-cohort.ts)
+See [the Product Sales State contract](../../apps/backend/src/modules/billing/domain/product-sales-state.ts)
 and [price selection](../../apps/backend/src/modules/billing/shared/select-price.ts).
 
 [start-date.json](../evidence/issue-1359/start-date.json) prepares a manual change for the #854 writer

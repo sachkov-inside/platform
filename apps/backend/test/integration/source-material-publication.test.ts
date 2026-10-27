@@ -8,7 +8,7 @@ import type {
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -22,7 +22,7 @@ const source = {
   id: "authoring-test-one",
   path: "materials/one.md",
   revision: "a".repeat(64),
-  showInFeed: false,
+  version: 2 as const,
 };
 const metadata = {
   title: "Imported",
@@ -33,7 +33,7 @@ const metadata = {
   topicId: null,
   formatId: "note" as const,
   tagIds: [],
-  seriesIds: [],
+  productIds: [],
 };
 
 describe("source publication only", () => {
@@ -148,7 +148,7 @@ describe("source publication only", () => {
       metadata: {
         ...metadata,
         access: "closed" as const,
-        seriesIds: [product.value.id],
+        productIds: [product.value.id],
         summary: "Publication test",
         topicId: topic.value.id,
       },
@@ -284,9 +284,9 @@ describe("source publication only", () => {
         projection: { access: "closed" },
       },
     });
-    const order = await authoring.loadSeriesOrder({
+    const order = await authoring.loadProductOrder({
       actor,
-      seriesId: product.value.id,
+      productId: product.value.id,
     });
     expect(order).toMatchObject({
       ok: true,
@@ -417,16 +417,16 @@ describe("source publication only", () => {
     );
     await compositionSnapshot;
     try {
-      const beforeRemoval = await authoring.loadSeriesOrder({
+      const beforeRemoval = await authoring.loadProductOrder({
         actor,
-        seriesId: product.value.id,
+        productId: product.value.id,
       });
       if (!beforeRemoval.ok) throw new Error(beforeRemoval.error.code);
       expect(
         await authoring.reorderSourceProduct({
           actor,
           sourceId: "publication-product",
-          seriesId: product.value.id,
+          productId: product.value.id,
           expectedOrderVersion: beforeRemoval.value.orderVersion,
           orderedMaterialIds: [],
         }),
@@ -439,7 +439,7 @@ describe("source publication only", () => {
       error: { code: "invalid_content" },
     });
     expect(
-      await authoring.loadSeriesOrder({ actor, seriesId: product.value.id }),
+      await authoring.loadProductOrder({ actor, productId: product.value.id }),
     ).toMatchObject({ ok: true, value: { items: [] } });
   });
 });

@@ -40,7 +40,7 @@ import { publishedCatalogPageHttpSchema } from "../../shared/published-catalog-h
 import { listPublishedMaterials } from "./list-published-materials.js";
 
 const CATALOG_PAGE_SIZE = 12;
-const catalogSortSchema = z.enum(["newest", "relevance", "series", "title"]);
+const catalogSortSchema = z.enum(["newest", "relevance", "product", "title"]);
 const facetSlugSchema = z
   .string()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
@@ -53,7 +53,7 @@ const catalogHttpQuerySchema = z
     canonicalTopic: queryValueSchema.optional(),
     format: queryValueSchema.optional(),
     q: queryValueSchema.optional(),
-    series: queryValueSchema.optional(),
+    product: queryValueSchema.optional(),
     sort: queryValueSchema.optional(),
     topic: queryValueSchema.optional(),
   })
@@ -119,7 +119,7 @@ export class ListPublishedMaterialsController {
     schema: toOpenApiSchema(z.array(facetSlugSchema).max(20)),
   })
   @ApiQuery({
-    name: "series",
+    name: "product",
     required: false,
     isArray: true,
     schema: toOpenApiSchema(z.array(facetSlugSchema).max(20)),
@@ -196,7 +196,7 @@ export class ListPublishedMaterialsController {
         ...(q === undefined ? {} : { q }),
         ...(parsedSort === undefined ? {} : { sort: parsedSort.data }),
         formatSlugs: queryValues(parsed.data.format),
-        seriesSlugs: queryValues(parsed.data.series),
+        productSlugs: queryValues(parsed.data.product),
         topicSlugs: queryValues(parsed.data.topic),
       },
     );

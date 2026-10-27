@@ -5,10 +5,10 @@ import { HttpException } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { describe, expect, test, vi } from "vitest";
 
-import type { ProductArtifacts } from "../../src/modules/materials/facets/product-artifacts/product-artifacts.js";
-import { ProductArtifactAuthoringController } from "../../src/modules/materials/facets/product-artifacts/product-artifacts.controller.js";
-import type { ProductArtifactDelivery } from "../../src/modules/materials/features/deliver-product-artifact/deliver-product-artifact.js";
-import { ProductArtifactReadController } from "../../src/modules/materials/features/deliver-product-artifact/deliver-product-artifact.controller.js";
+import type { ProductArtifacts } from "../../src/modules/products/facets/product-artifacts/product-artifacts.js";
+import { ProductArtifactAuthoringController } from "../../src/modules/products/facets/product-artifacts/product-artifacts.controller.js";
+import type { ProductArtifactDelivery } from "../../src/modules/products/features/deliver-product-artifact/deliver-product-artifact.js";
+import { ProductArtifactReadController } from "../../src/modules/products/features/deliver-product-artifact/deliver-product-artifact.controller.js";
 
 const productId = "10000000-0000-4000-8000-000000000001";
 const artifactId = "20000000-0000-4000-8000-000000000001";

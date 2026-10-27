@@ -7,7 +7,7 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
@@ -28,13 +28,8 @@ import {
 import { ResumeTelegramAccountSignInController } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/resume-telegram-account-sign-in.controller.js";
 import { declaredServer } from "../support/declared-api.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
-import {
-  Prisma,
-  lockTelegramMembershipLink,
-} from "../../src/infrastructure/prisma/index.js";
-import { z } from "zod";
-import { eventually } from "./setup/eventually.js";
-import { outsideTransaction } from "./setup/transaction-guard.js";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleTelegramMembership } from "../../src/modules/telegram-membership/index.js";
@@ -239,7 +234,7 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     signedIn.identity.telegram?.requestRef,
   );
   expect(
-    await database.prisma.membershipBinding.count({
+    await database.prisma.telegramAccountLinkState.count({
       where: { accountId: first.account.accountId },
     }),
   ).toBe(0);
@@ -334,151 +329,6 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   ).toMatchObject({ status: "recovery_required" });
 });
 
-test.each(["complete", "resume"] as const)(
-  "an abandoned registration stops evidence retries but %s still finalizes after personal terms acceptance",
-  async (completion) => {
-    const accounts = assembleAccounts({
-      prisma: database.prisma,
-      emailFingerprintKey: fingerprintKey,
-    });
-    const accountRights = assembleAccountRights({ prisma: database.prisma });
-    const telegramIdentityRef = randomUUID();
-    const signIn = new TelegramAccountSignIn({
-      accounts,
-      prisma: database.prisma,
-      accountRights,
-      terms,
-      provider: {
-        bindAccount: () =>
-          Promise.resolve({ status: "linked", telegramIdentityRef }),
-      },
-    });
-    const identity = proof(`abandoned-evidence-${completion}`).identity;
-    const first = await signIn.complete(identity);
-    if (!first.ok) throw new Error(first.error.code);
-    const receipt =
-      await database.prisma.telegramLinkTransaction.findFirstOrThrow({
-        where: { accountId: first.account.accountId },
-      });
-    const membership = assembleTelegramMembership({
-      prisma: database.prisma,
-      accountRights,
-      botStartUrl: "https://t.me/inside_test_bot",
-      linkLifetimeMs: 300000,
-      provider: {
-        register: () => {
-          throw new Error("Must retain the principal");
-        },
-        confirm: () => {
-          throw new Error("Must use sign-in completion");
-        },
-      },
-    });
-    const observation = (checkedAt: Date, evidenceVersion: number) => ({
-      contractVersion: "inside.membership-evidence.v1",
-      principalRef: receipt.principalRef,
-      telegramIdentityRef,
-      decision: "member",
-      reasonCode: "chat_member",
-      checkedAt: checkedAt.toISOString(),
-      validUntil: new Date(checkedAt.getTime() + 300000).toISOString(),
-      evidenceRef: `abandoned-evidence-${completion}-${evidenceVersion}`,
-      evidenceVersion,
-    });
-    vi.setSystemTime(receipt.expiresAt);
-    const delivery = {
-      deliveryId: `abandoned-delivery-${completion}`,
-      evidence: observation(receipt.expiresAt, 1),
-      source: "reconciliation" as const,
-    };
-    await expect(membership.acceptEvidence(delivery)).resolves.toEqual({
-      ok: false,
-      error: { code: "link_expired" },
-    });
-    await expect(signIn.resume(first.account)).resolves.toEqual({
-      ok: false,
-      error: { code: "unavailable" },
-    });
-    await expect(
-      accountRights.resolveForAccess(accountId(first.account.accountId)),
-    ).resolves.toEqual({ kind: "required" });
-    await expect(
-      terms.checkTerms(first.account.accountId),
-    ).resolves.toMatchObject({ ok: true, accepted: false });
-    // A repeated proof before terms acceptance retains the same receipt and reopens registering.
-    await expect(signIn.complete(identity)).resolves.toEqual(first);
-    await expect(
-      accountRights.resolveForAccess(accountId(first.account.accountId)),
-    ).resolves.toEqual({ kind: "required" });
-    await acceptTerms(terms, first.account.accountId);
-    const finalize = () =>
-      completion === "resume"
-        ? signIn.resume(first.account)
-        : signIn.complete(identity);
-    const contenders = await database.prisma.$transaction(
-      async (transaction) => {
-        await lockTelegramMembershipLink(transaction, first.account.accountId);
-        const waitForContenders = (count: number) =>
-          eventually(async () => {
-            const [row] = z.array(z.object({ waiting: z.number() })).parse(
-              await transaction.$queryRaw`
-          select count(*)::integer as waiting from pg_stat_activity
-          where datname = current_database() and wait_event = 'advisory'
-        `,
-            );
-            expect(row?.waiting).toBe(count);
-          }, 5000);
-        // Queue completion first, then ensure expiry has read registering and queued behind it.
-        // resume takes its finalization lock directly; complete first takes its receipt-selection lock.
-        const completing = outsideTransaction(() => database.run(finalize));
-        await waitForContenders(1);
-        const expiring = outsideTransaction(() =>
-          database.run(() => membership.acceptEvidence(delivery)),
-        );
-        await waitForContenders(2);
-        return { completing, expiring };
-      },
-      { timeout: 15000 },
-    );
-    await expect(contenders.completing).resolves.toEqual(first);
-    const expiryResult = await contenders.expiring;
-    expect(expiryResult.ok || expiryResult.error.code === "link_expired").toBe(
-      true,
-    );
-    // resume committed linked before expiry acquired its lock, so the stale read must be rechecked.
-    if (completion === "resume") expect(expiryResult.ok).toBe(true);
-    await expect(finalize()).resolves.toEqual(first);
-    await expect(
-      membership.readAccountPresentation({
-        accountId: accountId(first.account.accountId),
-      }),
-    ).resolves.toMatchObject({
-      ok: true,
-      presentation: { link: { kind: "linked" } },
-    });
-    const freshDelivery = {
-      ...delivery,
-      deliveryId: `resumed-delivery-${completion}`,
-      evidence: observation(receipt.expiresAt, 2),
-    };
-    const accepted = await membership.acceptEvidence(freshDelivery);
-    // Modern paid/manual rights remain independent of the legacy evidence bridge.
-    expect(accepted.ok).toBe(true);
-    await expect(
-      membership.acceptEvidence(freshDelivery),
-    ).resolves.toMatchObject({ ok: true });
-    await expect(
-      database.prisma.telegramLinkTransaction.findUnique({
-        where: { linkRef: receipt.linkRef },
-      }),
-    ).resolves.toMatchObject({
-      status: "linked",
-      principalRef: receipt.principalRef,
-      providerIdentityRef: telegramIdentityRef,
-    });
-  },
-);
-
 test.each(["identity", "correlation"] as const)(
   "a deferred %s mismatch never publishes another provider identity or principal",
   async (mismatch) => {
@@ -517,7 +367,7 @@ test.each(["identity", "correlation"] as const)(
       error: { code: "identity_conflict" },
     });
     expect(
-      await database.prisma.membershipBinding.count({
+      await database.prisma.telegramAccountLinkState.count({
         where: { accountId: first.account.accountId },
       }),
     ).toBe(0);
@@ -633,7 +483,7 @@ test.each([
       });
     }
     expect(
-      await database.prisma.membershipBinding.count({
+      await database.prisma.telegramAccountLinkState.count({
         where: { accountId: first.account.accountId },
       }),
     ).toBe(outcome.includes("mismatch") ? 0 : 1);
@@ -805,7 +655,7 @@ test.each(["resume", "confirm"] as const)(
           error: { code: "unavailable" },
         });
         expect(
-          await prisma.membershipBinding.count({
+          await prisma.telegramAccountLinkState.count({
             where: { accountId: first.account.accountId },
           }),
         ).toBe(0);
@@ -814,7 +664,7 @@ test.each(["resume", "confirm"] as const)(
         );
         await expect(finalize()).resolves.toMatchObject({ ok: true });
         expect(
-          await prisma.membershipBinding.count({
+          await prisma.telegramAccountLinkState.count({
             where: { accountId: first.account.accountId },
           }),
         ).toBe(1);

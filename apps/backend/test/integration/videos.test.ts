@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { createKinescopeVideoProvider } from "../../src/modules/videos/adapters/kinescope/kinescope-video-provider.js";
 import { randomUUID } from "node:crypto";
 
@@ -163,7 +164,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       ],
     });
     await expect(
-      videos.inspectPrimaryReference(database.prisma, {
+      videos.inspectPrimaryReference(transactionHandle(database.prisma), {
         access: "free",
         materialId,
         videoId: initialized.value.video.videoId,
@@ -723,7 +724,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     });
     await database.prisma.$transaction((transaction) =>
       requestVideoDeletion(
-        transaction,
+        transactionHandle(transaction),
         { actor: randomUUID(), materialId, videoId: video.id },
         new Date("2026-09-02T10:01:00.000Z"),
       ),
@@ -826,7 +827,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       projects: { free: "public-project", closed: "member-project" },
     });
     await expect(
-      videos.inspectPrimaryReference(database.prisma, {
+      videos.inspectPrimaryReference(transactionHandle(database.prisma), {
         access: "free",
         materialId: target.materialId,
         videoId: target.videoId,
@@ -1194,7 +1195,7 @@ async function seedRequestedVideo(
   });
   const deletion = await database.prisma.$transaction((transaction) =>
     requestVideoDeletion(
-      transaction,
+      transactionHandle(transaction),
       { actor: randomUUID(), materialId, videoId },
       new Date("2026-09-02T09:01:00.000Z"),
     ),

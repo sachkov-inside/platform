@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
 import {
@@ -10,14 +12,14 @@ import {
   parsePlatformConfig,
   PLATFORM_CONFIG,
 } from "../../src/config/platform-config.js";
-import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
-import { announcementResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+import { CourseActivationController } from "../../src/modules/telegram-membership/features/activate-course/course-activation.controller.js";
+import { announcementResponseSchema } from "../../src/modules/telegram-membership/domain/course-activation-wire.js";
 import { assertDeclaredResponse } from "../support/declared-api.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
-import { SubscriptionActivation } from "../../src/modules/billing/index.js";
+import { CourseActivation } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   createMigratedTestDatabase,
@@ -27,7 +29,7 @@ const now = new Date("2030-01-01T00:00:00.000Z");
 const version = "inside.subscription-activation.v1";
 describe("trusted private announcement metadata", () => {
   let db: TestDatabase;
-  let activation: SubscriptionActivation;
+  let activation: CourseActivation;
   let http: NestFastifyApplication;
   const secret = "test-announcement-activation-authority";
   beforeAll(async () => {
@@ -43,8 +45,11 @@ describe("trusted private announcement metadata", () => {
       recipientLinks: bindings,
       clock: () => now,
     });
-    activation = new SubscriptionActivation({
-      sale: { subscriptions: true },
+    activation = new CourseActivation({
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       grants,
       bindings,
@@ -52,9 +57,9 @@ describe("trusted private announcement metadata", () => {
         Promise.resolve({ state: "checking", admissionRestriction: null }),
     });
     @Module({
-      controllers: [SubscriptionActivationController],
+      controllers: [CourseActivationController],
       providers: [
-        { provide: SubscriptionActivation, useValue: activation },
+        { provide: CourseActivation, useValue: activation },
         { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
         {
@@ -82,16 +87,8 @@ describe("trusted private announcement metadata", () => {
   });
   async function setup() {
     const productId = randomUUID();
-    const offer = await db.prisma.billingOffer.create({
-      data: {
-        id: randomUUID(),
-        name: "AI Engineering",
-        revision: 1,
-        availableForAssignment: true,
-        benefits: [`product:${productId}`, "support"],
-        benefitPeriods: [{ capability: "support", months: 6 }],
-        coverage: { productIds: [], materialIds: [] },
-      },
+    await db.prisma.product.create({
+      data: { id: productId, name: "Course", slug: productId },
     });
     const rule = await db.prisma.activationRule.create({
       data: {
@@ -101,14 +98,13 @@ describe("trusted private announcement metadata", () => {
         reason: "Owner confirmed course",
         sourceRef: "course",
         revision: 1,
-        tierId: offer.id,
-        tierRevision: 1,
+        productId,
         verificationMode: "course_membership",
         published: true,
         startsAt: now,
       },
     });
-    return { rule, offer, productId };
+    return { rule, productId };
   }
   test("resolves only a current published rule and its exact Product without creating a learner attempt", async () => {
     const { rule, productId } = await setup();
@@ -128,8 +124,8 @@ describe("trusted private announcement metadata", () => {
       await db.prisma.activationAttempt.count({ where: { ruleId: rule.id } }),
     ).toBe(0);
   });
-  test("refuses unpublished, expired and mismatched Offer revisions", async () => {
-    const { rule, offer } = await setup();
+  test("refuses unpublished, expired and archived Products", async () => {
+    const { rule, productId } = await setup();
     const query = { contractVersion: version, code: rule.code };
     await db.prisma.activationRule.update({
       where: { id: rule.id },
@@ -155,9 +151,9 @@ describe("trusted private announcement metadata", () => {
       where: { id: rule.id },
       data: { endsAt: null },
     });
-    await db.prisma.billingOffer.update({
-      where: { id: offer.id },
-      data: { revision: 2 },
+    await db.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: now },
     });
     expect(await activation.announcement(query)).toEqual({
       ok: false,
@@ -166,8 +162,7 @@ describe("trusted private announcement metadata", () => {
   });
   test("authenticates announcement metadata and returns the declared private read-only contract", async () => {
     const { rule } = await setup();
-    const url =
-      "/integrations/telegram/v1/subscription-activation/announcement";
+    const url = "/integrations/telegram/v1/course-activation/announcement";
     const payload = { contractVersion: version, code: rule.code };
     for (const credential of [
       undefined,

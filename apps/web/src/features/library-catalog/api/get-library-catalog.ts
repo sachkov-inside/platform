@@ -36,7 +36,7 @@ const catalogSchema = z
     facets: z
       .object({
         formats: z.array(catalogFacetSchema),
-        series: z.array(catalogFacetSchema),
+        products: z.array(catalogFacetSchema),
         topics: z.array(catalogFacetSchema),
       })
       .strict(),
@@ -170,7 +170,7 @@ async function requestLibraryCatalogPage(
 function mapFacets(facets: z.infer<typeof catalogSchema>["facets"]) {
   return {
     formats: facets.formats.map(mapFacet),
-    series: facets.series.map(mapFacet),
+    products: facets.products.map(mapFacet),
     topics: facets.topics.map(mapFacet),
   };
 }

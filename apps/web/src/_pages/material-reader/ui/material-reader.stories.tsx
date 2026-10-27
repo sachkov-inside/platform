@@ -14,7 +14,7 @@ import {
 } from "@/storybook/customer-brief.fixtures";
 import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
-import { resolveSeriesReaderContext } from "../model/series-reader-context";
+import { resolveProductReaderContext } from "../model/product-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
@@ -53,7 +53,6 @@ import {
   MaterialReaderUnexpectedError,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
-import { LearningPracticePrompts } from "./learning-practice-prompts";
 import { MaterialReaderView } from "./material-reader-view";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import {
@@ -76,10 +75,10 @@ const material = {
     "Проверить его на одном реальном прогоне",
   ],
   publishedAt: "2026-08-25T05:00:00.000Z",
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: 5,
-      series: {
+      product: {
         id: "72000000-0000-4000-8000-000000000005",
         name: "Создание Platform Inside",
         slug: "platform-inside",
@@ -477,17 +476,9 @@ const productModeReturnTarget = parseMaterialReaderReturnTarget(
   "/products/platform-inside",
 );
 
-/** Ни одного задания у урока: так выглядит большинство уроков, блок практики не рисуется. */
-const noPractices = { kind: "available", practices: [] } as const;
-const learnerMcp = {
-  url: "https://inside.example.test/mcp/learning",
-  publicClientId: "o92nmcpzb2te8z4loi82d",
-  setupUrl: "https://inside.example.test/practice-review-setup.txt",
-};
-
 /**
- * Действия под уроком, которые маршрут передаёт всегда: отметка о прочтении, закладка и проверка
- * практики. Гостю отметка и закладка предлагают войти; запросов они не делают.
+ * Основные действия под уроком: отметка о прочтении и закладка.
+ * Гостю они предлагают войти; запросов они не делают.
  */
 function readerActions(
   materialId: string,
@@ -526,9 +517,6 @@ function readerActions(
         materialId={materialId}
       />
     ),
-    practiceActions: (
-      <LearningPracticePrompts connection={learnerMcp} result={noPractices} />
-    ),
   };
 }
 
@@ -566,11 +554,11 @@ function ProductModeReader({
           : {})}
         primaryVideo={null}
         returnTarget={productModeReturnTarget}
-        seriesContext={{
+        productContext={{
           currentPosition: 2,
           next: null,
           previous: null,
-          series: {
+          product: {
             hasModeVariants: withModes,
             href: productModeReturnTarget.href,
             name: "Создание Platform Inside",
@@ -1029,7 +1017,7 @@ export const Loading: Story = {
 export const PlaylistReturn: Story = {
   args: {
     returnTarget: playlistReturnTarget,
-    seriesContext: {
+    productContext: {
       currentPosition: 2,
       next: {
         href: materialReaderHref("review-video", playlistReturnTarget.href),
@@ -1039,7 +1027,7 @@ export const PlaylistReturn: Story = {
         href: materialReaderHref("first-product", playlistReturnTarget.href),
         title: "Сначала границы",
       },
-      series: {
+      product: {
         hasModeVariants: false,
         href: productProgrammeHref("platform-inside"),
         name: "Создание Platform Inside",
@@ -1048,11 +1036,11 @@ export const PlaylistReturn: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    const seriesNavigation = within(canvasElement).getByRole("navigation", {
+    const productNavigation = within(canvasElement).getByRole("navigation", {
       name: "Действия в конце материала",
     });
     await expect(
-      within(seriesNavigation).getByRole("link", { name: "Назад" }),
+      within(productNavigation).getByRole("link", { name: "Назад" }),
     ).toHaveAttribute("href", playlistReturnTarget.href);
     const top = await within(canvasElement).findByRole("navigation", {
       name: "Действия материала",
@@ -1075,11 +1063,11 @@ export const PlaylistReturn: Story = {
       throw new Error("Reader sequence is missing");
     await expect(
       Boolean(
-        readerBody.compareDocumentPosition(seriesNavigation) &
+        readerBody.compareDocumentPosition(productNavigation) &
         Node.DOCUMENT_POSITION_FOLLOWING,
       ),
     ).toBe(true);
-    await expect(readerFooter.contains(seriesNavigation)).toBe(true);
+    await expect(readerFooter.contains(productNavigation)).toBe(true);
     await expect(
       within(canvasElement).queryByRole("link", { name: "Назад к продукту" }),
     ).toBeNull();
@@ -1087,7 +1075,7 @@ export const PlaylistReturn: Story = {
       within(canvasElement).queryByText(/· №/u),
     ).not.toBeInTheDocument();
     await expect(
-      within(seriesNavigation).getByRole("link", {
+      within(productNavigation).getByRole("link", {
         name: "Дальше",
       }),
     ).toHaveAttribute(
@@ -1167,7 +1155,7 @@ export const AccessProductPurchase: Story = {
     <MaterialReaderAccess
       invitation={{
         kind: "product",
-        href: productPurchaseHref(material.seriesMemberships[0].series.slug),
+        href: productPurchaseHref(material.productMemberships[0].product.slug),
       }}
       material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
@@ -1245,7 +1233,7 @@ export const ShortMaterial: Story = {
       difficulty: null,
       outcomes: [],
       tags: [],
-      seriesMemberships: [],
+      productMemberships: [],
     },
   },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
@@ -1813,7 +1801,7 @@ const courseContext = {
   totalMaterials: 3,
   previous: courseGuide.previous,
   next: courseGuide.next,
-  series: {
+  product: {
     name: courseGuide.name,
     href: courseGuide.href,
     hasModeVariants: false,
@@ -1831,7 +1819,7 @@ export const CourseGuide: Story = {
   },
   args: {
     material: { ...material, slug: "course-intro", title: "Как устроен курс" },
-    seriesContext: courseContext,
+    productContext: courseContext,
   },
 };
 export const CourseGuideMobile: Story = {
@@ -1846,10 +1834,10 @@ const supplementaryMaterial = {
   ...material,
   slug: "aie-product-brief",
   title: "Бриф заказчика",
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: 1,
-      series: { id: "aie", name: "AI Engineering", slug: "ai-engineering" },
+      product: { id: "aie", name: "AI Engineering", slug: "ai-engineering" },
     },
   ],
 };
@@ -1860,10 +1848,10 @@ export const SupplementaryMaterial: Story = {
       material: supplementaryMaterial,
       returnTarget: supplementaryReturn,
     }),
-    seriesContext: resolveSeriesReaderContext({
+    productContext: resolveProductReaderContext({
       currentMaterialSlug: "aie-product-brief",
       returnTarget: supplementaryReturn,
-      series: {
+      product: {
         ...courseSource,
         chapters: courseSource.chapters.map((chapter) => ({
           ...chapter,
@@ -1897,7 +1885,7 @@ export const SupplementaryMaterialDirect: Story = {
   ...SupplementaryMaterial,
   args: {
     ...SupplementaryMaterial.args,
-    seriesContext: null,
+    productContext: null,
     returnTarget: resolveReaderReturnTarget({
       material: supplementaryMaterial,
       returnTarget: parseMaterialReaderReturnTarget(undefined),
@@ -1919,14 +1907,14 @@ export const SupplementaryMaterialMobile: Story = {
 };
 export const CoursePending: Story = {
   render: () => (
-    <MaterialReaderPending material={material} seriesContext={courseContext} />
+    <MaterialReaderPending material={material} productContext={courseContext} />
   ),
 };
 export const CourseLocked: Story = {
   render: () => (
     <MaterialReaderAccess
       material={material}
-      seriesContext={courseContext}
+      productContext={courseContext}
       invitation={null}
       readingAction={
         <SavedReadingAction
@@ -1943,7 +1931,7 @@ export const CourseLocked: Story = {
 export const CustomerBriefDownload: Story = {
   args: {
     material: { ...material, slug: "aie-project", title: "Проект курса" },
-    seriesContext: null,
+    productContext: null,
     body: [
       {
         kind: "paragraph",
@@ -2000,10 +1988,10 @@ export const SupplementaryFromTask: Story = {
   ...SupplementaryMaterial,
   args: {
     ...SupplementaryMaterial.args,
-    seriesContext: resolveSeriesReaderContext({
+    productContext: resolveProductReaderContext({
       currentMaterialSlug: "aie-product-brief",
       returnTarget: supplementaryReturn,
-      series: {
+      product: {
         ...courseSource,
         chapters: courseSource.chapters.map((chapter) => ({
           ...chapter,
@@ -2097,10 +2085,10 @@ export const ProjectReferenceFromLesson: Story = {
   ...SupplementaryMaterial,
   args: {
     ...SupplementaryMaterial.args,
-    seriesContext: resolveSeriesReaderContext({
+    productContext: resolveProductReaderContext({
       currentMaterialSlug: "aie-product-brief",
       returnTarget: supplementaryReturn,
-      series: {
+      product: {
         ...courseSource,
         chapters: courseSource.chapters.map((chapter) => ({
           ...chapter,

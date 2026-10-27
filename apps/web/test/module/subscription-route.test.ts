@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
 
-import { initialPaymentOptionId } from "@/_pages/product-purchase/model/initial-selection";
 import {
   productPurchaseHref,
   purchaseInvitation,
@@ -8,11 +7,6 @@ import {
   subscriptionOfferParam,
   subscriptionRouteTarget,
 } from "@/shared/routing/subscription-route";
-import {
-  billingOffers,
-  materialsOffer,
-  supportOffer,
-} from "@/storybook/billing.fixtures";
 
 it("сохраняет контекст страницы продукта и отбрасывает внешние адреса", () => {
   expect(subscriptionRouteTarget("/products/platform-inside")).toEqual({
@@ -68,14 +62,8 @@ it("ведёт призыв к покупке внутрь платформы и
       subscriptionOffered: true,
       from: "/materials/developer-pipeline",
     }),
-  ).toEqual({
-    kind: "subscription",
-    href: "/payment/checkout?from=%2Fmaterials%2Fdeveloper-pipeline",
-  });
-  expect(purchaseInvitation({ subscriptionOffered: true })).toEqual({
-    kind: "subscription",
-    href: "/payment/checkout",
-  });
+  ).toBeNull();
+  expect(purchaseInvitation({ subscriptionOffered: true })).toBeNull();
   // Выключенная продажа не зовёт никуда, даже когда человек стоит в руководстве.
   expect(
     purchaseInvitation({
@@ -116,21 +104,4 @@ it("принимает предложение из адреса бота одн�
   expect(subscriptionRouteTarget(undefined, "<script>")).toEqual({
     returnTo: "/payment/checkout",
   });
-});
-
-it("выбирает первый вариант оплаты предложения из адреса, а без него — первый тариф", () => {
-  expect(initialPaymentOptionId(billingOffers, supportOffer.offer.id)).toBe(
-    supportOffer.paymentOption.id,
-  );
-  expect(initialPaymentOptionId(billingOffers, undefined)).toBe(
-    materialsOffer.paymentOption.id,
-  );
-  // Предложения нет на витрине: остаётся обычный выбор.
-  expect(
-    initialPaymentOptionId(
-      billingOffers,
-      "00000000-0000-4000-8000-000000000999",
-    ),
-  ).toBe(materialsOffer.paymentOption.id);
-  expect(initialPaymentOptionId([], supportOffer.offer.id)).toBeNull();
 });

@@ -55,7 +55,7 @@ const priceSchema = z
     ),
   })
   .loose();
-const homeSchema = z.object({ pinnedSeries: z.object({}).loose() }).loose();
+const homeSchema = z.object({ pinnedProduct: z.object({}).loose() }).loose();
 const readerSchema = z.object({
   projection: z.object({}).loose(),
   body: z.object({ blocks: z.array(z.unknown()) }).loose(),
@@ -141,7 +141,7 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
         },
       },
     };
-  } else if (url.pathname === "/billing/cohorts") {
+  } else if (url.pathname === "/billing/product-sales-states") {
     result = {
       status: 200,
       value: {
@@ -159,11 +159,11 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
         ],
       },
     };
-  } else if (url.pathname === "/billing/offers") {
+  } else if (url.pathname === "/billing/product-prices") {
     const base = envelope.parse(
       owners.baseRoute(
         request.method,
-        new URL("/billing/offers", url),
+        new URL("/billing/product-prices", url),
         entitled,
       ),
     );
@@ -173,6 +173,12 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
       value: {
         items: value.items.slice(0, 1).map((item) => ({
           ...item,
+          product: {
+            id: metricsProductId,
+            name: "Проверочный курс",
+            priceRevision: cohortRevision,
+          },
+          supportMonths: 3,
           firstPriceKopecks: priceKopecks - (role === "non-owner" ? 100000 : 0),
           renewalPriceKopecks:
             priceKopecks - (role === "non-owner" ? 100000 : 0),
@@ -233,7 +239,7 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
     );
     const projection = {
       ...template.projection,
-      ...(subscription ? { seriesMemberships: [] } : {}),
+      ...(subscription ? { productMemberships: [] } : {}),
       materialId: metricsMaterialId,
       slug: subscription
         ? "data-loading-subscription-lesson"
@@ -310,8 +316,8 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
           ...result,
           value: {
             ...value,
-            pinnedSeries: {
-              ...value.pinnedSeries,
+            pinnedProduct: {
+              ...value.pinnedProduct,
               id: metricsProductId,
               slug: "performance-course",
               name: "Курс на 120 материалов",

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { publishedCatalogPageHttpSchema } from "../../src/modules/content-library/shared/published-catalog-http.js";
 import {

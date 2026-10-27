@@ -24,7 +24,7 @@ export class LoadHomePinController {
   @Get()
   @ApiOperation({
     operationId: "loadAuthoringHomePin",
-    summary: "Read the author's Home Series selection",
+    summary: "Read the author's Home Product selection",
   })
   @ApiOkResponse({ schema: toOpenApiSchema(homePinSchema) })
   @ApiMaterialAuthoringErrors(401, 403, 500, 503)

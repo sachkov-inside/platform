@@ -1,17 +1,17 @@
 import type { ComponentProps, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { SeriesJourney } from "@/_pages/library-discovery/ui/series-journey";
-import type { SeriesJourneyControls } from "@/_pages/library-discovery/ui/series-journey-controls.client";
+import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
+import type { ProductJourneyControls } from "@/_pages/library-discovery/ui/product-journey-controls.client";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { seriesJourneyCorpus } from "@/storybook/series-journey-corpus.fixtures";
+import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
 
 describe("Product programme presentation payload", () => {
   it("keeps the complete programme without sending a second rendered catalogue for 120 Materials", () => {
-    const journey: ReactElement<ComponentProps<typeof SeriesJourneyControls>> =
-      SeriesJourney({
+    const journey: ReactElement<ComponentProps<typeof ProductJourneyControls>> =
+      ProductJourney({
         currentHref: productProgrammeHref("platform-inside"),
-        result: seriesJourneyCorpus(),
+        result: productJourneyCorpus(),
       });
     const programme = journey.props.parts.find(
       (part) => part.kind === "materials",

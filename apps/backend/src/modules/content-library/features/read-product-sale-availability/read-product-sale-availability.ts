@@ -1,7 +1,7 @@
 import type { BillingPricing } from "../../../billing/index.js";
 import { productSaleAvailabilityQuerySchema } from "../../../billing/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
-import type { ProductDirectory } from "../../../materials/index.js";
+import type { ProductDirectory } from "../../../products/index.js";
 
 /** Purchase invitations require both current reader visibility and the buyer's sale admission. */
 export async function readProductSaleAvailability(

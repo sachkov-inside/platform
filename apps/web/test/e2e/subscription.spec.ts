@@ -17,32 +17,6 @@ const paymentOption = {
   priceKopecks: 100_000,
   archived: false,
 };
-async function stubBilling(page: Page, billing: unknown, status = 200) {
-  await page.route("**/api/account", (route) =>
-    route.fulfill({
-      status,
-      json: {
-        profile: { kind: "missing" },
-        telegramMembership: {
-          link: { kind: "linked" },
-          membership: { kind: "stale" },
-        },
-      },
-    }),
-  );
-  await page.route("**/api/account/billing/enrollments", (route) =>
-    route.fulfill({ json: { ok: true, value: { items: [] } } }),
-  );
-  await page.route("**/api/account/billing", (route) =>
-    route.fulfill({ json: billing, status }),
-  );
-  await page.route("**/api/account/billing/contact", (route) =>
-    route.fulfill({
-      json: { ok: true, contact: null, documents: [] },
-    }),
-  );
-}
-
 test("возврат из банка не выдаётся за подтверждение оплаты", async ({
   page,
 }) => {
@@ -266,78 +240,4 @@ test("подтверждённая покупка перечитывает ст�
   await postMarker(purchase, "after-reload");
   await expect.poll(announcements.marker).toBe("after-reload");
   expect(await announcements.count()).toBe(1);
-});
-
-test("раздел подписки просит войти без действующей сессии", async ({
-  page,
-}) => {
-  await stubBilling(page, { ok: false, code: "unauthorized" }, 401);
-  const response = await page.goto("/account/subscription");
-
-  expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Личный кабинет",
-  );
-  await expect(
-    page
-      .locator("[data-application-content]")
-      .getByRole("button", { name: "Войти через Telegram" })
-      .first(),
-  ).toBeVisible();
-});
-
-test("раздел подписки показывает оплаченный срок и следующее списание", async ({
-  page,
-}) => {
-  await stubBilling(page, {
-    ok: true,
-    value: {
-      subscription: {
-        subscriptionRef: "00000000-0000-4000-8000-000000000501",
-        revision: 7,
-        state: "active",
-        snapshot: {
-          offer,
-          paymentOption,
-          currency: "RUB",
-          timezone: "Europe/Moscow",
-          renewalPriceKopecks: 100_000,
-        },
-        periodStartsAt: "2026-09-01T00:00:00.000Z",
-        paidUntil: "2026-10-01T00:00:00.000Z",
-        periodAmountKopecks: 100_000,
-        periodIndex: 1,
-        paymentMethod: {
-          methodRef: "00000000-0000-4000-8000-000000000601",
-          revoked: false,
-        },
-        pendingChange: null,
-        pendingMethodChange: null,
-        inFlightPayment: null,
-      },
-      notices: [],
-      grounds: [
-        {
-          source: "paid",
-          capabilities: ["materials"],
-          startsAt: "2026-09-01T00:00:00.000Z",
-          validUntil: "2026-10-01T00:00:00.000Z",
-          active: true,
-        },
-      ],
-      payments: [],
-    },
-  });
-  await page.goto("/account/subscription");
-
-  await expect(page).toHaveURL(/\/account$/u);
-  await expect(
-    page.getByRole("heading", { name: "Личный кабинет", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Отменить продление" }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Способ оплаты" }),
-  ).toHaveCount(0);
 });

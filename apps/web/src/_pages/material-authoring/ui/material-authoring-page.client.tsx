@@ -413,8 +413,8 @@ export function MaterialAuthoringPageClient({
           setPublicationTarget(null);
           updateDraft({
             ...draftRef.current,
-            seriesIds: [
-              ...new Set([...draftRef.current.seriesIds, ...productIds]),
+            productIds: [
+              ...new Set([...draftRef.current.productIds, ...productIds]),
             ],
           });
         },
@@ -440,13 +440,13 @@ export function MaterialAuthoringPageClient({
                 ),
           });
         },
-        onSeriesToggle: (seriesId: string, checked: boolean) => {
+        onProductToggle: (productId: string, checked: boolean) => {
           updateDraft({
             ...draftRef.current,
-            seriesIds: checked
-              ? [...draftRef.current.seriesIds, seriesId]
-              : draftRef.current.seriesIds.filter(
-                  (candidate) => candidate !== seriesId,
+            productIds: checked
+              ? [...draftRef.current.productIds, productId]
+              : draftRef.current.productIds.filter(
+                  (candidate) => candidate !== productId,
                 ),
           });
         },

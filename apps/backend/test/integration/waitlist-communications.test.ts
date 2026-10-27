@@ -1,3 +1,4 @@
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -60,6 +61,7 @@ beforeAll(async () => {
   });
   waitlists = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -72,7 +74,7 @@ beforeAll(async () => {
       NODE_ENV: "test",
       DATABASE_URL: db.url,
       TELEGRAM_COMMUNICATIONS_ENDPOINT:
-        "http://127.0.0.1:9876/integrations/platform/v1/communications",
+        "http://127.0.0.1:9876/integrations/platform/v2/communications",
       TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-communications-secret",
       TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN: "https://inside.test",
       TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: secret,
@@ -104,10 +106,10 @@ afterAll(async () => {
 function request(body: object, authorization = `Bearer ${secret}`) {
   return app.inject({
     method: "POST",
-    url: "/integrations/telegram/v1/communications/waitlist",
+    url: "/integrations/telegram/v2/communications/waitlist",
     headers: { authorization },
     payload: {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       requestId: randomUUID(),
       actorAccountRef: accountRef,
       intakeId,
@@ -172,7 +174,7 @@ test("service confirmation authorization checks the exact committed generation a
   const invoke = (payload: unknown, authorization = `Bearer ${secret}`) =>
     app.inject({
       method: "POST",
-      url: "/integrations/telegram/v1/communications/waitlist",
+      url: "/integrations/telegram/v2/communications/waitlist",
       headers: { authorization, "content-type": "application/json" },
       payload: JSON.stringify(payload),
     });
@@ -197,7 +199,7 @@ test("service confirmation authorization checks the exact committed generation a
 });
 
 test("material announcements require the service credential and reject arbitrary actor, URL or recipient inputs", async () => {
-  const url = "/integrations/telegram/v1/communications/materials";
+  const url = "/integrations/telegram/v2/communications/materials";
   const payload = { contractVersion: "inside.material-announcements.v1" };
   expect((await app.inject({ method: "POST", url, payload })).statusCode).toBe(
     401,
@@ -246,7 +248,7 @@ test("material source persistence failure maps to retryable 503", async () => {
   try {
     const response = await app.inject({
       method: "POST",
-      url: "/integrations/telegram/v1/communications/materials",
+      url: "/integrations/telegram/v2/communications/materials",
       headers: { authorization: `Bearer ${secret}` },
       payload: { contractVersion: "inside.material-announcements.v1" },
     });

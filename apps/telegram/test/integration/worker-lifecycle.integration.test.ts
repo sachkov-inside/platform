@@ -29,8 +29,6 @@ import {
 import { migrateToLatest } from "../../src/database/migrator.js";
 import { TELEGRAM_CALLBACK_ANSWERS } from "../../src/modules/bot-sign-in/telegram-callback-answers.js";
 import { AUTHOR_TRANSPORT } from "../../src/modules/communications/author-delivery.js";
-import { PLATFORM_EVIDENCE_DELIVERY } from "../../src/modules/membership-evidence/platform-evidence-delivery.js";
-import { TELEGRAM_MEMBERSHIP } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import {
@@ -323,23 +321,6 @@ async function start(
     .useValue({
       send: () =>
         Promise.resolve({ kind: "delivered", providerMessageId: "1" }),
-    })
-    .overrideProvider(TELEGRAM_MEMBERSHIP)
-    .useValue({
-      getBotChatMember: () =>
-        Promise.resolve({
-          kind: "observed",
-          value: { status: "administrator" },
-        }),
-      getChatMember: () =>
-        Promise.resolve({
-          kind: "observed",
-          value: { status: "member" },
-        }),
-    })
-    .overrideProvider(PLATFORM_EVIDENCE_DELIVERY)
-    .useValue({
-      deliver: () => Promise.resolve({ kind: "delivered" }),
     })
     .compile();
   const app = module.createNestApplication<NestFastifyApplication>(

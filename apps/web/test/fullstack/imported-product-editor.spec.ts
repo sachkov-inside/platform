@@ -9,6 +9,9 @@ test("imported product opens read-only in the editor and lets the author leave",
   page,
   context,
 }) => {
+  const productId = process.env["FULLSTACK_PRACTICE_PRODUCT_ID"];
+  if (productId === undefined)
+    throw new Error("Missing isolated imported Product fixture");
   await signInFullStack(context, "OWNER");
   const writes: string[] = [];
   page.on("request", (request) => {
@@ -18,8 +21,10 @@ test("imported product opens read-only in the editor and lets the author leave",
   });
 
   await page.goto("/authoring/products");
-  await page.getByRole("link", { name: /^Synthetic practice/u }).click();
-  await expect(page).toHaveURL(/\/authoring\/products\/[a-f0-9-]{36}$/u);
+  const product = page.locator(`a[href="/authoring/products/${productId}"]`);
+  await expect(product).toHaveCount(1);
+  await product.click();
+  await expect(page).toHaveURL(`/authoring/products/${productId}`);
 
   await page
     .getByRole("tab", { name: "Описание и обложка", exact: true })
@@ -28,8 +33,13 @@ test("imported product opens read-only in the editor and lets the author leave",
     "Продукт перенесён из источника.",
   );
   await page.getByRole("tab", { name: "Программа", exact: true }).click();
-  const composition = page.getByRole("list", { name: "Материалы продукта" });
-  await expect(composition).toContainText("Synthetic practice reference");
+  const composition = page
+    .getByRole("tabpanel", { name: "Программа", exact: true })
+    .getByRole("list", { name: "Материалы главы «Практика»", exact: true });
+  await expect(composition).toHaveCount(1);
+  await expect(composition).toContainText(
+    "Synthetic practice reference closed",
+  );
   await expect(composition.getByRole("button")).toHaveCount(0);
   await expect(composition.getByRole("textbox")).toHaveCount(0);
   await expect(

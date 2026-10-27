@@ -1,4 +1,4 @@
-import type { AccessAction } from "../subscription-activation/subscription-activation.js";
+import type { AccessAction } from "../course-activation/course-activation.js";
 import type {
   VerifiedPrivateContactability,
   VerifiedPrivateStart,
@@ -9,7 +9,7 @@ import type {
   TemplateIntake,
 } from "../communications/author-input.js";
 import type { CommunityJoinRequest } from "../community/community-provider.js";
-import type { DurableMembershipEnvelope } from "../membership-evidence/membership-evidence-provider.js";
+import type { DurableMembershipEnvelope } from "../community/membership-event.js";
 
 /** Everything the application does with one Telegram update; the processor handles each kind. */
 export type TelegramUpdateCommand =
@@ -55,8 +55,6 @@ export type TelegramUpdateCommand =
           | { readonly kind: "malformed" };
         readonly marketingSource?: string;
         readonly activationCode?: string | null;
-        /** `i_<code>` without its prefix; `null` when the payload is malformed. */
-        readonly invitationCode?: string | null;
         readonly linkToken?:
           | { readonly digest: string; readonly kind: "digest" }
           | { readonly kind: "malformed" };

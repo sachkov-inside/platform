@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -35,7 +35,7 @@ describe("Topic and Playlist authoring", () => {
     });
     const playlist = await authoring.createContentCollection({
       actor,
-      kind: "series",
+      kind: "product",
       name: "Platform path",
       slug: "platform-path",
       summary: "An ordered path through the platform.",
@@ -75,7 +75,7 @@ describe("Topic and Playlist authoring", () => {
     expect(updatedTopic.value).toMatchObject({
       name: "System architecture",
       slug: "architecture",
-      version: 2,
+      version: 2 as const,
     });
     await expect(
       authoring.updateContentCollection({
@@ -117,7 +117,7 @@ describe("Topic and Playlist authoring", () => {
       archived: true,
       collectionId: playlist.value.id,
       expectedVersion: playlist.value.version,
-      kind: "series",
+      kind: "product",
     });
     if (!archivedTopic.ok || !archivedPlaylist.ok) {
       throw new Error("Expected archived collections");
@@ -128,7 +128,7 @@ describe("Topic and Playlist authoring", () => {
     expect(references.value.topics).toContainEqual(
       expect.objectContaining({ archived: true, id: topic.value.id }),
     );
-    expect(references.value.series).toContainEqual(
+    expect(references.value.products).toContainEqual(
       expect.objectContaining({ archived: true, id: playlist.value.id }),
     );
 
@@ -156,8 +156,8 @@ describe("Topic and Playlist authoring", () => {
         code: "invalid_reference",
         issues: [
           {
-            code: "series_archived",
-            path: "/metadata/seriesMemberships/0/seriesId",
+            code: "product_archived",
+            path: "/metadata/productMemberships/0/productId",
           },
           { code: "topic_archived", path: "/metadata/topicId" },
         ],
@@ -170,7 +170,7 @@ describe("Topic and Playlist authoring", () => {
     });
     const playlists = await authoring.listContentCollections({
       actor,
-      kind: "series",
+      kind: "product",
     });
     if (!topics.ok || !playlists.ok) throw new Error("Expected lists");
     expect(topics.value).toContainEqual(
@@ -196,7 +196,7 @@ describe("Topic and Playlist authoring", () => {
     });
     const product = await authoring.createContentCollection({
       actor,
-      kind: "series",
+      kind: "product",
       name: "Releases",
       slug: "releases",
       summary: "From a check to a confirmed update.",
@@ -228,7 +228,7 @@ describe("Topic and Playlist authoring", () => {
       collectionId: product.value.id,
       expectedVersion: product.value.version,
       introduction,
-      kind: "series",
+      kind: "product",
       name: product.value.name,
       summary: product.value.summary,
     });
@@ -240,7 +240,7 @@ describe("Topic and Playlist authoring", () => {
       actor,
       collectionId: product.value.id,
       expectedVersion: written.value.version,
-      kind: "series",
+      kind: "product",
       name: "Инфраструктура, релизы и продакшен",
       summary: product.value.summary,
     });
@@ -254,7 +254,7 @@ describe("Topic and Playlist authoring", () => {
         collectionId: product.value.id,
         expectedVersion: written.value.version,
         introduction,
-        kind: "series",
+        kind: "product",
         name: renamed.value.name,
         summary: product.value.summary,
       }),
@@ -279,13 +279,13 @@ describe("Topic and Playlist authoring", () => {
   });
 });
 
-function metadata(topicId: string, seriesId: string, title: string) {
+function metadata(topicId: string, productId: string, title: string) {
   return {
     access: "free" as const,
     formatId,
     difficulty: null,
     outcomes: [],
-    seriesIds: [seriesId],
+    productIds: [productId],
     summary: `${title} summary.`,
     tagIds: [],
     title,

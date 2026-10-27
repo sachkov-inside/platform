@@ -1,4 +1,5 @@
 // @ts-check
+import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // The supported content-only delivery from Content Studio (#1672): one entrypoint for the stand and
 // production. It previews first, applies exactly the reviewed receipt, preserves the target's
 // access, publication, Product membership and Task placement, and prints JSON for the caller.
@@ -22,7 +23,7 @@ import {
   prepareTrustedNetwork,
 } from "./delivery-environment.mjs";
 import { parseLocalResponse } from "./local-boundaries.mjs";
-import { contentMaterials, contentTasks, loadPackage } from "./package.mjs";
+import { contentMaterials, contentTasks } from "./package.mjs";
 import { apiPreservationState } from "./preservation-state.mjs";
 import { applyPreservation, previewPreservation } from "./preservation.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";

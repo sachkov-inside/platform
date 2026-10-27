@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import type { z } from "zod";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
-import schema from "@inside/contracts/inside-communications-v1/schema.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v2/fixtures.json" with { type: "json" };
+import schema from "@inside/contracts/inside-communications-v2/schema.json" with { type: "json" };
 import * as generated from "../../src/modules/communications/communications-schema.generated.js";
 import {
   communicationsSuccessSchema,
@@ -32,7 +32,7 @@ describe("shared communications contract", () => {
       communicationsSuccessSchema.safeParse({
         ok: true,
         value: {
-          contractVersion: "inside-communications-v1",
+          contractVersion: "inside-communications-v2",
           status: "forbidden",
         },
       }).success,
@@ -46,7 +46,7 @@ describe("shared communications contract", () => {
   });
   test("public management refuses actors, service operations and destination overrides", () => {
     const request = {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       operation: "templates.testSend",
       operationId: "11111111-1111-4111-8111-111111111111",
       expectedRevision: 1,
@@ -82,14 +82,17 @@ describe("shared communications contract", () => {
     delete input["actor"];
     const parsed = managementRequestSchema.parse(input);
     expect(parsed.payload).toEqual(input["payload"]);
-    const funnelFixture = fixtures.find(
-      (f) => f.name === "funnels.save-entry-anchor",
+    const sequenceFixture = fixtures.find(
+      (f) => f.name === "sequences.save-entry-anchor",
     );
-    if (!funnelFixture) throw new Error("Missing entry anchor fixture");
-    const funnelInput = { ...funnelFixture.value } as Record<string, unknown>;
-    delete funnelInput["actor"];
-    expect(managementRequestSchema.parse(funnelInput).payload).toEqual(
-      funnelInput["payload"],
+    if (!sequenceFixture) throw new Error("Missing entry anchor fixture");
+    const sequenceInput = { ...sequenceFixture.value } as Record<
+      string,
+      unknown
+    >;
+    delete sequenceInput["actor"];
+    expect(managementRequestSchema.parse(sequenceInput).payload).toEqual(
+      sequenceInput["payload"],
     );
     expect(
       managementRequestSchema.safeParse({

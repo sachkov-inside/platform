@@ -1,3 +1,7 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
@@ -115,26 +119,28 @@ describe("ContentAccess current Platform facts", () => {
     permissionRead.mockRestore();
   });
 
-  test("observes bounded Membership grant and removal on the next operation", async () => {
-    const currentTime = new Date("2030-01-01T00:00:00.000Z");
-    const accounts = assembleAccounts({
-      prisma: testDatabase.prisma,
-      emailFingerprintKey: "content-access-test-fingerprint-key",
+  test("observes lifetime Product issuance and explicit owner withdrawal on the next operation", async () => {
+    const productId = "83000000-0000-4000-8000-000000000009";
+    await testDatabase.prisma.product.create({
+      data: { id: productId, slug: productId, name: "Content access" },
     });
-    const accountRights = assemblePriorParticipantsFixture({
+    const rights = assemblePriorParticipantsFixture({
       prisma: testDatabase.prisma,
-
-      clock: () => currentTime,
     });
     const contentAccess = assembleContentAccess({
       materialResourceFacts: {
-        findMany: () => Promise.resolve([material]),
-        findOne: () => Promise.resolve(material),
+        findMany: () =>
+          Promise.resolve([{ ...material, productIds: [productId] }]),
+        findOne: () =>
+          Promise.resolve({ ...material, productIds: [productId] }),
       },
-      accountPermissions: assembleCurrentAccountPermissions(accounts),
-      accountRights,
-      clock: () => currentTime,
-      decisionId: () => "membership-decision-id",
+      accountPermissions: assembleCurrentAccountPermissions(
+        assembleAccounts({
+          prisma: testDatabase.prisma,
+          emailFingerprintKey: "content-access-test-fingerprint-key",
+        }),
+      ),
+      accountRights: rights,
     });
     const request = {
       subject: { kind: "account" as const, accountId },
@@ -143,65 +149,19 @@ describe("ContentAccess current Platform facts", () => {
       enforcementPoint: "published_material_read" as const,
       correlationId: "83000000-0000-4000-8000-000000000004",
     };
-
-    await expect(
-      accountRights.acceptEvidence({
-        accountId,
-        deliveryId: "content-access-member-link",
-        source: "link_time",
-        evidence: observedEvidence("member", 1),
-      }),
-    ).resolves.toMatchObject({ ok: true, outcome: "applied" });
-    await testDatabase.prisma.legacyClassification.update({
-      where: { accountId },
-      data: {
-        bridgeCoverage: {
-          productIds: [],
-          materialIds: [material.materialId],
-        },
-      },
-    });
-    await expect(contentAccess.authorize(request)).resolves.toEqual({
-      decisionId: "membership-decision-id",
-      policyVersion: "content-access-v1",
-      decidedAt: "2030-01-01T00:00:00.000Z",
+    const target = await grantProductFixture(
+      testDatabase.prisma,
+      accountId,
+      productId,
+    );
+    expect(await contentAccess.authorize(request)).toMatchObject({
       effect: "allow",
-      reason: "active_membership",
-      validUntil: "2030-01-01T00:05:00.000Z",
+      validUntil: null,
       checkedContentVersion: 7,
     });
-
-    await expect(
-      accountRights.acceptEvidence({
-        accountId,
-        deliveryId: "content-access-member-removal",
-        source: "member_status_event",
-        evidence: observedEvidence("not_member", 2),
-      }),
-    ).resolves.toMatchObject({ ok: true, outcome: "applied" });
-    await expect(contentAccess.authorize(request)).resolves.toEqual({
-      decisionId: "membership-decision-id",
-      policyVersion: "content-access-v1",
-      decidedAt: "2030-01-01T00:00:00.000Z",
+    await revokeProductFixture(testDatabase.prisma, target);
+    expect(await contentAccess.authorize(request)).toMatchObject({
       effect: "deny",
-      reason: "membership_expired",
     });
   });
 });
-
-function observedEvidence(
-  decision: "member" | "not_member",
-  evidenceVersion: number,
-) {
-  return {
-    contractVersion: "inside.membership-evidence.v1",
-    principalRef: "content-access-principal",
-    decision,
-    reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-    checkedAt: "2030-01-01T00:00:00Z",
-    validUntil: "2030-01-01T00:05:00Z",
-    telegramIdentityRef: "content-access-telegram",
-    evidenceRef: `content-access-${String(evidenceVersion)}`,
-    evidenceVersion,
-  };
-}

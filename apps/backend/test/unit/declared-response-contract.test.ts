@@ -21,7 +21,7 @@ describe("declared response contract", () => {
       id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001",
       name: "Demo · Прогресс обучения",
       previewItems: [],
-      slug: "demo-progress-series",
+      slug: "demo-progress-product",
       summary: null,
     },
     read: 1,
@@ -31,15 +31,15 @@ describe("declared response contract", () => {
       resume: { kind: "start" },
     },
   };
-  const learningHome = (series: unknown) => ({
+  const learningHome = (product: unknown) => ({
     method: "GET",
     url: "/reading-activity/learning-home",
     status: 200,
-    body: () => ({ video: null, series }),
+    body: () => ({ video: null, product }),
   });
   const productContinuation = (body: unknown) => ({
     method: "GET",
-    url: "/reading-activity/product-continuation/demo-progress-series",
+    url: "/reading-activity/product-continuation/demo-progress-product",
     status: 200,
     body: () => body,
   });
@@ -73,7 +73,7 @@ describe("declared response contract", () => {
     expect(() => {
       assertDeclaredResponse({
         ...learningHome(continuation),
-        url: "/reading-activity/series-continuation",
+        url: "/reading-activity/product-continuation",
       });
     }).toThrow(/declares no such address/u);
   });
@@ -82,7 +82,7 @@ describe("declared response contract", () => {
     expect(() => {
       assertDeclaredResponse({
         ...learningHome(continuation),
-        url: "/reading-activity/series-continuation",
+        url: "/reading-activity/product-continuation",
         status: 404,
       });
     }).not.toThrow();
@@ -110,7 +110,7 @@ describe("declared response contract", () => {
           statusCode: 200,
           json: () => ({
             video: null,
-            series: {
+            product: {
               ...continuation,
               collection: { ...continuation.collection, introduction: null },
             },

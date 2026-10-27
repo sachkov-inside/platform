@@ -1,13 +1,10 @@
+import { readProductReaderState } from "@/widgets/product-reader-state/index.server";
 import { WaitlistProvider } from "./waitlist-provider.client";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { preorderPrice } from "@/entities/subscription";
-import {
-  readGuestProductSale,
-  readViewerProductSale,
-} from "@/entities/subscription.sale.server";
 import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
@@ -15,10 +12,10 @@ import {
   readPublicProductArtifacts,
   readReaderProductArtifacts,
 } from "@/features/product-artifacts.server";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 import {
-  loadPublishedSeries,
-  readPublicSeries,
+  loadPublishedProduct,
+  readPublicProduct,
 } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -33,8 +30,8 @@ import {
   PersonalCourseFilmOverlay,
   PersonalCohortStatus,
 } from "./cohort-call.server";
-import { PersonalSeries } from "./personal-series.server";
-import { PendingSeries } from "./product-programme-view";
+import { PersonalProduct as PersonalProductView } from "./personal-product.server";
+import { PendingProduct } from "./product-programme-view";
 import {
   ProductLandingLoading,
   ProductProgrammeLoading,
@@ -47,8 +44,8 @@ interface DiscoveryRouteProps {
   }>;
 }
 
-type ResolvedSeries = Extract<
-  PublishedSeriesResult,
+type ResolvedProduct = Extract<
+  PublishedProductResult,
   { readonly kind: "ready" | "empty" }
 >;
 
@@ -62,12 +59,12 @@ const noArtifacts: ReaderProductArtifactsResult = {
  * из гостевого кеша. О читателе знает только первый экран курса с потоком: плашка этапа и кнопка
  * по нему стримятся личной частью. Доступ по урокам живёт в программе.
  */
-export async function PublishedSeriesPage({
+export async function PublishedProductPage({
   params,
   searchParams,
 }: DiscoveryRouteProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const result = await readPublicSeries(slug);
+  const result = await readPublicProduct(slug);
   if (result.kind === "not-found") {
     return (
       <Suspense fallback={<ProductLandingLoading />}>
@@ -81,17 +78,52 @@ export async function PublishedSeriesPage({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
-  const [artifacts, offerTerms] = await Promise.all([
-    publicArtifactsOf(result),
-    publicOfferTermsOf(result),
-  ]);
+  const artifacts = await publicArtifactsOf(result);
+  const returnTarget = parseMaterialReaderReturnTarget(query.from);
+  const landing = { artifacts, result, returnTarget };
   const view = (
+    <Suspense fallback={<ProductLanding {...landing} offerTerms={null} />}>
+      <ProductLandingOfferTerms {...landing} />
+    </Suspense>
+  );
+  return result.reference.id !== undefined ? (
+    <WaitlistProvider
+      productId={result.reference.id}
+      productSlug={result.reference.slug}
+    >
+      {view}
+    </WaitlistProvider>
+  ) : (
+    view
+  );
+}
+
+type ProductLandingProps = Required<
+  Pick<Parameters<typeof LibraryDiscoveryView>[0], "artifacts" | "returnTarget">
+> & { readonly result: ResolvedProduct };
+
+/** Public price placeholders are auxiliary to the Product and its personal learning actions. */
+async function ProductLandingOfferTerms(props: ProductLandingProps) {
+  return (
+    <ProductLanding
+      {...props}
+      offerTerms={await publicOfferTermsOf(props.result)}
+    />
+  );
+}
+function ProductLanding({
+  artifacts,
+  result,
+  returnTarget,
+  offerTerms,
+}: ProductLandingProps & { readonly offerTerms: OneTimeOfferTerms | null }) {
+  return (
     <LibraryDiscoveryView
       artifacts={artifacts}
       // Действие обучения участника или поток и кнопка продаж — личная часть страницы продукта. Её рисует
       // только оформление, у которого она есть; остальные продукты её не запрашивают (#814).
       heroCall={
-        <Suspense fallback={<PendingCohortCall slug={slug} />}>
+        <Suspense fallback={<PendingCohortCall slug={result.reference.slug} />}>
           <PersonalCohortCall result={result} />
         </Suspense>
       }
@@ -107,14 +139,8 @@ export async function PublishedSeriesPage({
       }
       offerTerms={offerTerms}
       result={result}
-      returnTarget={parseMaterialReaderReturnTarget(query.from)}
+      returnTarget={returnTarget}
     />
-  );
-  return result.reference.slug === "ai-engineering" &&
-    result.reference.id !== undefined ? (
-    <WaitlistProvider productId={result.reference.id}>{view}</WaitlistProvider>
-  ) : (
-    view
   );
 }
 
@@ -129,7 +155,7 @@ export async function ProductProgrammePage({
   readonly params: Promise<{ readonly slug: string }>;
 }) {
   const { slug } = await params;
-  const result = await readPublicSeries(slug);
+  const result = await readPublicProduct(slug);
   if (result.kind === "not-found") {
     return (
       <Suspense fallback={<ProductProgrammeLoading />}>
@@ -143,7 +169,7 @@ export async function ProductProgrammePage({
   const artifacts = await publicArtifactsOf(result);
   return (
     <Suspense
-      fallback={<PendingSeries artifacts={artifacts} result={result} />}
+      fallback={<PendingProduct artifacts={artifacts} result={result} />}
     >
       <PersonalProgramme
         sharedArtifacts={artifacts}
@@ -165,7 +191,7 @@ async function PersonalProduct({
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();
   if (accessToken === undefined) notFound();
-  const result = await loadPublishedSeries(slug, accessToken);
+  const result = await loadPublishedProduct(slug, accessToken);
   if (result.kind === "not-found") notFound();
   if (result.kind === "unavailable") return <LibraryDiscoveryUnavailable />;
   const [artifacts, offerTerms] = await Promise.all([
@@ -194,7 +220,7 @@ async function PersonalProgramme({
   slug,
 }: {
   readonly sharedArtifacts?: ReaderProductArtifactsResult;
-  readonly sharedResult?: ResolvedSeries;
+  readonly sharedResult?: ResolvedProduct;
   readonly slug: string;
 }) {
   // Личная часть принадлежит запросу, а не предзагрузке: `connection()` останавливает её до чтения
@@ -203,23 +229,19 @@ async function PersonalProgramme({
   const accessToken = await getOptionalPlatformAccessToken();
   if (sharedResult === undefined && accessToken === undefined) notFound();
   const resolved =
-    sharedResult ?? (await loadPublishedSeries(slug, accessToken));
+    sharedResult ?? (await loadPublishedProduct(slug, accessToken));
   if (resolved.kind === "not-found") notFound();
   if (resolved.kind === "unavailable") return <LibraryDiscoveryUnavailable />;
   // Идентификатор руководства не зависит от читателя, поэтому личные чтения идут разом.
   const productId = resolved.reference.id;
-  const [result, artifacts, sale] = await Promise.all([
+  const [result, artifacts, readerState] = await Promise.all([
     accessToken === undefined
       ? resolved
-      : loadPublishedSeries(slug, accessToken),
+      : loadPublishedProduct(slug, accessToken),
     accessToken === undefined || productId === undefined
       ? (sharedArtifacts ?? noArtifacts)
       : readReaderProductArtifacts(productId, accessToken),
-    productId === undefined
-      ? null
-      : accessToken === undefined
-        ? readGuestProductSale(productId)
-        : readViewerProductSale(productId, accessToken),
+    productId === undefined ? null : readProductReaderState(productId, slug),
   ]);
   if (result.kind === "not-found") {
     notFound();
@@ -227,9 +249,12 @@ async function PersonalProgramme({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
+  const sale =
+    readerState?.kind === "learning" ? null : (readerState?.sale ?? null);
   return (
-    <PersonalSeries
+    <PersonalProductView
       artifacts={artifacts}
+      {...(readerState === null ? {} : { readerState })}
       preorder={
         sale?.kind === "ready" && sale.access !== "open"
           ? preorderPrice(sale.cohort, sale.offers[0] ?? null)
@@ -245,7 +270,7 @@ async function PersonalProgramme({
 
 /** Раздел артефактов адресуется по id руководства, который несёт только разрешённый результат. */
 function publicArtifactsOf(
-  result: ResolvedSeries,
+  result: ResolvedProduct,
 ): Promise<ReaderProductArtifactsResult> {
   const productId = result.reference.id;
   return productId === undefined
@@ -258,7 +283,7 @@ function publicArtifactsOf(
  * их не спрашивает; сбой чтения не выдумывает срок: подстановка остаётся без чисел.
  */
 async function publicOfferTermsOf(
-  result: ResolvedSeries,
+  result: ResolvedProduct,
 ): Promise<OneTimeOfferTerms | null> {
   const productId = result.reference.id;
   if (

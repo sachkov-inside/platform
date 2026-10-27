@@ -1,3 +1,5 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { assetsTransaction } from "../../infrastructure/transaction.js";
 import { createHash, randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import { z } from "zod";
@@ -352,7 +354,8 @@ export function assembleMaterialAssets(dependencies: {
       });
     },
 
-    async inspectReferences(transaction, materialId, references) {
+    async inspectReferences(handle, materialId, references) {
+      const transaction = assetsTransaction(handle);
       return materialAssetQuery("inspectReferences", async () => {
         const unique = uniqueReferences(references);
         if (unique.length === 0) return [];
@@ -546,7 +549,7 @@ export function assembleMaterialAssets(dependencies: {
             await lockMaterialReferenceChanges(transaction, [asset.materialId]);
             if (
               asset.state === "ready" &&
-              (await input.isReferenced(transaction, {
+              (await input.isReferenced(transactionHandle(transaction), {
                 assetId: asset.id,
                 materialId: asset.materialId,
               }))

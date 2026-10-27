@@ -6,10 +6,8 @@ import {
   acceptBillingConsents,
   billingErrorMessage,
   checkoutButtonLabel,
-  renewalTermsAtCheckout,
   type BillingQuote,
   type LegalDocument,
-  paymentMode,
   type PreorderTerms,
   type PriceSnapshot,
   type PurchaseStatus,
@@ -30,7 +28,6 @@ import {
   type QuoteInput,
   type PurchaseInput,
 } from "../model/checkout";
-import { CheckoutPanel } from "./checkout-panel.client";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
 export interface CheckoutFlowProps {
@@ -106,9 +103,8 @@ export function CheckoutFlow({
   preorder = null,
 }: CheckoutFlowProps) {
   const selectionKey = JSON.stringify([
-    snapshot.paymentOption.id,
-    snapshot.paymentOption.revision,
-    paymentMode(snapshot),
+    snapshot.product?.id,
+    snapshot.product?.priceRevision,
     promoCode,
     snapshot.individualPayment?.linkId,
   ]);
@@ -173,7 +169,6 @@ export function CheckoutFlow({
         input.documents,
         input.quote,
       );
-      const recurring = paymentMode(input.quote.snapshot) === "subscription";
       // Редакции входят в нагрузку: согласие на новую редакцию — новая операция, а не повтор
       // прежней, которую сервер иначе отверг бы как ту же операцию с другими данными.
       const consents = await acceptBillingConsents({
@@ -184,9 +179,6 @@ export function CheckoutFlow({
         contextRef: input.quote.quoteRef,
         screen: "checkout",
         buttonLabel: checkoutButtonLabel(input.quote.snapshot),
-        ...(recurring
-          ? { shownTerms: renewalTermsAtCheckout(input.quote) }
-          : {}),
         documents: acceptedDocuments,
       });
       if (!consents.ok) return consents;
@@ -313,8 +305,8 @@ export function CheckoutFlow({
   const requestQuote = () => {
     updateSelection(selection.identity, { error: undefined });
     const input = {
-      paymentOptionId: snapshot.paymentOption.id,
-      optionRevision: snapshot.paymentOption.revision,
+      productId: snapshot.product?.id ?? "",
+      priceRevision: snapshot.product?.priceRevision ?? 0,
       ...(snapshot.individualPayment === undefined
         ? {}
         : { paymentLinkId: snapshot.individualPayment.linkId }),
@@ -326,11 +318,10 @@ export function CheckoutFlow({
     });
   };
   // Разовая покупка рассчитывается автоматически; подписка сохраняет явный шаг расчёта.
-  const oneTime = paymentMode(snapshot) === "one_time";
   useEffect(() => {
-    if (oneTime) requestQuote();
+    requestQuote();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- новая identity означает новые выбранные условия
-  }, [oneTime, selection.identity]);
+  }, [selection.identity]);
 
   const shared = {
     acknowledgeExistingAccess: acknowledge,
@@ -393,7 +384,7 @@ export function CheckoutFlow({
   const promoRejected =
     promoCode !== undefined && quote?.snapshot.promotion === null;
 
-  const panel = oneTime ? (
+  const panel = (
     <OneTimeCheckoutPanel
       {...shared}
       preorder={preorder}
@@ -401,8 +392,6 @@ export function CheckoutFlow({
       onRetryQuote={requestQuote}
       promoRejected={promoRejected}
     />
-  ) : (
-    <CheckoutPanel {...shared} onQuote={requestQuote} />
   );
   return (
     <>
@@ -414,7 +403,7 @@ export function CheckoutFlow({
         >
           <p>
             Получаем результат первоначальной покупки:{" "}
-            {attempt.snapshot.offer.name}.{" "}
+            {attempt.snapshot.product?.name ?? attempt.snapshot.offer.name}.{" "}
             {checkoutButtonLabel(attempt.snapshot)}. Чек на {attempt.email}.
           </p>
           <p>
