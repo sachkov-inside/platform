@@ -161,3 +161,10 @@ export {
   issueOutcomeMessage,
   type ProductAccessIssueOutcome,
 } from "./model/product-access-outcome";
+
+export { readOwnerPriceCatalog } from "./api/owner-price-catalog.browser";
+export {
+  ownerPriceCatalogQueryKey,
+  productPriceChoices,
+  type ProductPriceChoice,
+} from "./model/owner-price-catalog";

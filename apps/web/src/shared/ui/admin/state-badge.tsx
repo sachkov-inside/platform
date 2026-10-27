@@ -59,6 +59,18 @@ export const adminStates = {
     tone: "attention",
   },
   "payment.access.ready": { label: "Доступ открыт", tone: "positive" },
+  "paymentLink.active": { label: "Готова к оплате", tone: "positive" },
+  "paymentLink.pending": { label: "Идёт оплата", tone: "neutral" },
+  "paymentLink.unknown": { label: "Уточняем в банке", tone: "attention" },
+  "paymentLink.paid": { label: "Оплачена", tone: "positive" },
+  "paymentLink.revoked": { label: "Отозвана", tone: "muted" },
+  "paymentLink.expired": { label: "Срок истёк", tone: "muted" },
+  "paymentLink.changed": { label: "Цена изменилась", tone: "muted" },
+  "promotion.active": { label: "Действует", tone: "positive" },
+  "promotion.scheduled": { label: "Запланирована", tone: "neutral" },
+  "promotion.ended": { label: "Завершилась", tone: "muted" },
+  "promotion.exhausted": { label: "Лимит исчерпан", tone: "muted" },
+  "promotion.archived": { label: "Архивная", tone: "muted" },
 } as const satisfies Record<string, AdminStateDefinition>;
 
 export type AdminStateKey = keyof typeof adminStates;

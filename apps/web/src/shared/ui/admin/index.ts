@@ -3,6 +3,15 @@
  * причиной, состояния списка, постраничный вывод и поля суммы и даты. Вход безопасен для
  * клиента: интерактивные модули объявляют `"use client"` сами, остальные рендерятся где угодно.
  */
+export {
+  AdminConfirmDialog,
+  AdminDialog,
+  AdminDialogError,
+} from "./admin-dialog.client";
+export type {
+  AdminConfirmDialogProps,
+  AdminDialogProps,
+} from "./admin-dialog.client";
 export { AdminFilterBar } from "./admin-filter-bar.client";
 export type {
   AdminFilterBarProps,
@@ -16,6 +25,11 @@ export {
   AdminPagination,
 } from "./admin-pagination.client";
 export { AdminRowMenu } from "./admin-row-menu.client";
+export {
+  AdminSearchChecklist,
+  AdminSearchSelect,
+} from "./admin-search-select.client";
+export type { AdminChoice } from "./admin-search-select.client";
 export type { AdminRowMenuItem } from "./admin-row-menu.client";
 export {
   AdminEmptyState,

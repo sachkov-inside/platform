@@ -14,6 +14,7 @@ import {
   type SalesFunnelReport,
   type SalesFunnelReportView,
 } from "../model/sales-funnel-report";
+import type { FunnelPeriodPreset } from "../model/sales-funnel-query";
 
 export type SalesFunnelReportOutcome =
   | { readonly kind: "ready"; readonly view: SalesFunnelReportView }
@@ -24,6 +25,7 @@ export type SalesFunnelReportOutcome =
 export interface SalesFunnelReportParams {
   readonly from?: string;
   readonly to?: string;
+  readonly preset?: FunnelPeriodPreset;
   readonly productId?: string;
   readonly chapterId?: string;
 }
@@ -40,7 +42,7 @@ type Attempt =
     };
 
 /**
- * Отчёт воронки для `/authoring/sales-funnel`. Без выбранного продукта берётся первый; глава
+ * Отчёт воронки для `/authoring/sales/funnel`. Без выбранного продукта берётся первый; глава
  * другого продукта после смены выбора заменяется первой главой нового.
  */
 export async function loadSalesFunnelReport(

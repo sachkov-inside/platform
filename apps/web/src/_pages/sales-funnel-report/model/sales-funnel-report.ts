@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  defaultFunnelPeriodPreset,
+  type FunnelPeriodPreset,
+} from "./sales-funnel-query";
+
 const amountSchema = z.int().nonnegative();
 const countSchema = amountSchema.nullable();
 const countsSchema = z.strictObject({
@@ -74,15 +79,18 @@ export const salesFunnelReportSchema = z.strictObject({
 export type SalesFunnelReport = z.infer<typeof salesFunnelReportSchema>;
 type Counts = SalesFunnelReport["total"];
 
-/** Шаги воронки по порядку. Первые два считают контакты бота, остальные — аккаунты Platform. */
+/**
+ * Шаги воронки по порядку. Первый считает контакты бота, остальные аккаунты Platform. Согласие на
+ * рассылку больше не шаг: по #1693 явный выбор не обязателен для покупки, поэтому отчёт показывает
+ * его отдельной исторической метрикой (`historicalConsent`).
+ */
 export const funnelSteps = [
   { key: "entered", label: "Вход в бот", unit: "контакты бота" },
-  { key: "consented", label: "Согласие на рассылку", unit: "контакты бота" },
   { key: "openedChapter", label: "Открыл главу", unit: "аккаунты" },
   { key: "checkout", label: "Перешёл к оплате", unit: "аккаунты" },
   { key: "paid", label: "Оплатил", unit: "аккаунты" },
 ] as const satisfies readonly {
-  readonly key: keyof Counts;
+  readonly key: Exclude<keyof Counts, "consented">;
   readonly label: string;
   readonly unit: string;
 }[];
@@ -109,6 +117,13 @@ export interface SalesFunnelReportView {
     readonly counts: readonly StepCount[];
   }[];
   readonly total: readonly StepCount[];
+  /**
+   * Согласий на рассылку за период: историческая метрика, не шаг воронки. `null`: бот её не
+   * присылает, и отчёт её не показывает.
+   */
+  readonly historicalConsent: number | null;
+  /** Готовый период в днях или `null` для своего периода. */
+  readonly preset: FunnelPeriodPreset | null;
   /** `null` — список анкеты ещё не загружен: доли нет, а не ноль купивших. */
   readonly surveyRespondents: SurveyRespondentsView | null;
   readonly notice: string | null;
@@ -135,8 +150,7 @@ const MOSCOW = "Europe/Moscow";
 const MOSCOW_OFFSET_MS = 3 * 3_600_000;
 const MOSCOW_OFFSET = "+03:00";
 const DAY_MS = 86_400_000;
-const DEFAULT_DAYS = 30;
-export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(DEFAULT_DAYS)} дней.`;
+export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(defaultFunnelPeriodPreset)} дней.`;
 const dateSchema = z.iso.date();
 
 /** Календарная дата по Москве для мгновения. */
@@ -152,22 +166,27 @@ function moscowStart(date: string): Date {
 }
 
 /**
- * Период отчёта из параметров адреса: даты включительно по Москве. Пустой или неверный период
- * заменяется последними тридцатью днями, и страница говорит об этом.
+ * Период отчёта из параметров адреса: свой период датами включительно по Москве или готовый
+ * период в днях, считая сегодня. Неверный свой период заменяется последними тридцатью днями, и
+ * страница говорит об этом.
  */
 export function readReportPeriod(
-  params: { readonly from?: string; readonly to?: string },
+  params: {
+    readonly from?: string;
+    readonly to?: string;
+    readonly preset?: FunnelPeriodPreset;
+  },
   now: Date,
 ): {
   readonly from: string;
   readonly to: string;
   readonly query: { readonly from: string; readonly to: string };
   readonly corrected: boolean;
+  readonly preset: FunnelPeriodPreset | null;
 } {
   const today = moscowDate(now);
-  const fallbackFrom = moscowDate(
-    new Date(moscowStart(today).getTime() - (DEFAULT_DAYS - 1) * DAY_MS),
-  );
+  const startFor = (days: number) =>
+    moscowDate(new Date(moscowStart(today).getTime() - (days - 1) * DAY_MS));
   const requested =
     params.from === undefined && params.to === undefined
       ? undefined
@@ -177,8 +196,14 @@ export function readReportPeriod(
     dateSchema.safeParse(requested.from).success &&
     dateSchema.safeParse(requested.to).success &&
     (requested.from ?? "") <= (requested.to ?? "");
-  const from = valid ? (requested.from ?? fallbackFrom) : fallbackFrom;
-  const to = valid ? (requested.to ?? today) : today;
+  const preset =
+    requested === undefined
+      ? (params.preset ?? defaultFunnelPeriodPreset)
+      : valid
+        ? null
+        : defaultFunnelPeriodPreset;
+  const from = preset === null ? (requested?.from ?? today) : startFor(preset);
+  const to = preset === null ? (requested?.to ?? today) : today;
   return {
     from,
     to,
@@ -187,6 +212,7 @@ export function readReportPeriod(
       to: new Date(moscowStart(to).getTime() + DAY_MS).toISOString(),
     },
     corrected: requested !== undefined && !valid,
+    preset,
   };
 }
 
@@ -245,6 +271,7 @@ export function presentSalesFunnelReport(
     readonly from: string;
     readonly to: string;
     readonly corrected: boolean;
+    readonly preset: FunnelPeriodPreset | null;
   },
 ): SalesFunnelReportView {
   const product = report.products.find(
@@ -272,6 +299,8 @@ export function presentSalesFunnelReport(
       counts: countsOf(row.counts),
     })),
     total: countsOf(report.total),
+    historicalConsent: report.total.consented,
+    preset: period.preset,
     surveyRespondents: presentSurveyRespondents(report.surveyRespondents),
     notice: period.corrected ? correctedPeriodNotice : null,
   };

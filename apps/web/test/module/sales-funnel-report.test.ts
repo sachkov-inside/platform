@@ -19,7 +19,22 @@ describe("sales funnel report period", () => {
         to: "2030-04-01T21:00:00.000Z",
       },
       corrected: false,
+      preset: 30,
     });
+  });
+
+  it("counts a ready-made period back from today and marks a chosen period as custom", () => {
+    expect(readReportPeriod({ preset: 7 }, now)).toMatchObject({
+      from: "2030-03-26",
+      to: "2030-04-01",
+      preset: 7,
+    });
+    expect(
+      readReportPeriod(
+        { from: "2030-03-01", to: "2030-03-05", preset: 90 },
+        now,
+      ),
+    ).toMatchObject({ from: "2030-03-01", to: "2030-03-05", preset: null });
   });
 
   it("includes the last chosen day and turns dates into Moscow instants", () => {
@@ -41,6 +56,7 @@ describe("sales funnel report period", () => {
         from: "2030-03-03",
         to: "2030-04-01",
         corrected: true,
+        preset: 30,
       });
   });
 });
@@ -103,29 +119,50 @@ describe("sales funnel report presentation", () => {
     surveyRespondents: { uploaded: 40, issued: 12, paid: 3 },
   };
 
-  it("names sources in owner words and keeps unmeasured steps apart from zero", () => {
+  it("names sources in owner words, keeps unmeasured steps apart from zero and consent out of the steps", () => {
     const view = presentSalesFunnelReport(report, {
       from: "2030-03-01",
       to: "2030-03-31",
       corrected: false,
+      preset: null,
     });
     const values = (counts: readonly { readonly value: number | null }[]) =>
       counts.map((count) => count.value);
     expect(
       view.rows.map((row) => [row.key, row.label, values(row.counts)]),
     ).toEqual([
-      ["label:m_survey", "survey", [5, 4, 3, 2, 1]],
-      ["label:site", "site", [1, 0, 0, 0, 0]],
-      ["outside_bot", "Не через бота", [null, null, 2, 1, 1]],
+      ["label:m_survey", "survey", [5, 3, 2, 1]],
+      ["label:site", "site", [1, 0, 0, 0]],
+      ["outside_bot", "Не через бота", [null, 2, 1, 1]],
     ]);
-    expect(view.rows[0]?.counts[4]).toEqual({ step: "paid", value: 1 });
-    expect(values(view.total)).toEqual([6, 4, 5, 3, 2]);
+    expect(view.rows[0]?.counts.map((count) => count.step)).toEqual([
+      "entered",
+      "openedChapter",
+      "checkout",
+      "paid",
+    ]);
+    expect(values(view.total)).toEqual([6, 5, 3, 2]);
+    expect(view.historicalConsent).toBe(4);
     expect(view.chapterName).toBe("Глава 1");
     expect(view.lastBotEventAt).toBeNull();
     expect(view.generatedAt).toBe("1 апреля 2030 г. в 12:00");
   });
 
-  const period = { from: "2030-03-01", to: "2030-03-31", corrected: false };
+  const period = {
+    from: "2030-03-01",
+    to: "2030-03-31",
+    corrected: false,
+    preset: null,
+  };
+
+  it("hides the historical consent metric when the bot does not report it", () => {
+    expect(
+      presentSalesFunnelReport(
+        { ...report, total: { ...report.total, consented: null } },
+        period,
+      ).historicalConsent,
+    ).toBeNull();
+  });
 
   it("shows the share of survey respondents who bought through their personal link", () => {
     const { surveyRespondents } = presentSalesFunnelReport(report, period);
