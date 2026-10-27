@@ -113,6 +113,11 @@ export const OverviewRowDesktop: Story = {
     const sales = canvas.getByRole("button", { name: /^Продажи/u });
     await expect(revenue).toHaveAttribute("aria-pressed", "true");
     await expect(sales).toHaveAttribute("aria-pressed", "false");
+    // Card height counts wrapped lines. The first story in a cold frame reads `before` in the
+    // fallback face; Manrope arriving before `after` can rewrap a long label (CI). Force
+    // layout so the web fonts are requested, then compare both reads in the loaded face.
+    sales.getBoundingClientRect();
+    await canvasElement.ownerDocument.fonts.ready;
     const before = sales.getBoundingClientRect();
     await userEvent.click(sales);
     await expect(sales).toHaveAttribute("aria-pressed", "true");
