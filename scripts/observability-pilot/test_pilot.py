@@ -208,6 +208,11 @@ class PilotPreparationTest(unittest.TestCase):
             auth = (output / "auth.json").stat()
             plan = json.loads((output / "compose.json").read_text())
             reader = plan["services"]["vmauth"]
+            from urllib.parse import urlsplit,parse_qs
+            routes=json.loads((output/'auth.json').read_text())['users'][0]['url_map']
+            logs=next(route for route in routes if route['src_paths'][0].startswith('/logs/'))
+            self.assertEqual(parse_qs(urlsplit(logs['url_prefix']).query),{'extra_filters':['_time:14d']})
+            self.assertNotIn('merge_query_args',logs)
             self.assertEqual(auth.st_mode & 0o777, 0o600)
             self.assertEqual(reader.get("user"), f"{auth.st_uid}:{auth.st_gid}")
             self.assertEqual(reader["cap_drop"], ["ALL"])

@@ -27,6 +27,14 @@ Query gateway ограничивает HTTP methods/body; vmauth проверя�
 и [закрытые маршруты чтения](../../infra/observability/pilot/vmauth.routes.json), включая read POST.
 Ingest/delete/admin не разрешены. Ключ Grafana отличается от ключа агента. Anonymous Grafana и
 signup выключены. Loopback сам по себе не защищает от root/пользователей сервера с Docker access.
+Для всех LogsQL routes vmauth принудительно добавляет `extra_filters=_time:14d`.
+Это глобальный фильтр хранилища, включая subqueries, с текущим временем самого VictoriaLogs,
+а не с переданными клиентом `time` или `end`. Совпавший URL query argument клиента
+не заменяет доверенное значение; дополнительные form filters применяются только через AND.
+Поэтому ещё физически существующий крайний дневной partition не расширяет доступную историю.
+Основание: [vmauth query args](https://docs.victoriametrics.com/vmauth/#query-args-handling),
+[VictoriaLogs extra filters](https://docs.victoriametrics.com/victorialogs/querying/#extra-filters),
+закреплённые `logsql.parseExtraFilters` и `logstorage.ParseFilter` в VictoriaLogs v1.53.0.
 Доступ агента из другой среды дают только к query port, не ко всем портам или Docker socket.
 
 ## Подготовка
