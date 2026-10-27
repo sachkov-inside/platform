@@ -97,7 +97,7 @@ def inputs(output, images):
     plan['services']['provider']['environment']={'INSIDE_RESOURCE_ACCOUNT_COUNT':str(settings['accounts'])}
     # Whole-process TLS + OTLP/query client needs an unthrottled measurement clock.
     # This is a finite fixture budget, not product/monitoring capacity evidence.
-    plan['services']['loadgen']['cpus']=1
+    plan['services']['loadgen']['cpus']=2
     (output/'query/key').write_text((monitor/'reader.key').read_text())
     broker=output/'runtime/rabbitmq';broker.mkdir(mode=0o755)
     pilot.command(['bash',str(ROOT/'infra/production/broker/issue-broker-tls.sh'),str(broker/'tls'),'2','2'],timeout=15)
@@ -450,9 +450,10 @@ def worker(output):
                             except (RuntimeError,subprocess.SubprocessError):return False
                         pilot.await_fact(healthy,bool,probe='fullstack_'+name+'_ready')
                     extra.warmup(compose,invoke)
-                    await_sources(compose,output,enabled=enabled)
                     if enabled:
                         report.setdefault('web_http',[]).append(prove_web_http(compose))
+                    # The bounded Web witness must not age a previously ready source cohort.
+                    await_sources(compose,output,enabled=enabled)
                     active=(*APPS,*CORE) if enabled else APPS
                     for definition in profile['phases']:
                         measured=phase(compose,owner['project'],definition,active,enabled,pair,output)

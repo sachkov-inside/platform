@@ -118,7 +118,7 @@ class Preparation(unittest.TestCase):
             self.assertEqual(plan['services']['grafana']['user'],f'{secret.st_uid}:{secret.st_gid}')
             self.assertEqual(secret.st_mode&0o777,0o600)
             self.assertIn('storage',plan['services']['loadgen']['networks'])
-            self.assertEqual(plan['services']['loadgen']['cpus'],1)
+            self.assertEqual(plan['services']['loadgen']['cpus'],2)
             self.assertEqual(plan['services']['loadgen']['mem_limit'],'96m')
             self.assertEqual(plan['services']['provider']['cpus'],'0.25')
             self.assertNotIn('profiles',plan['services']['host-agent'])
@@ -143,10 +143,48 @@ class Preparation(unittest.TestCase):
                 fullstack.mode(output,enabled)
                 observed=json.loads((output/'compose.json').read_text())
                 self.assertEqual(observed['services']['web']['environment']['INSIDE_WEB_HTTP_METRICS_ENABLED'],str(enabled).lower())
-                self.assertEqual(observed['services']['loadgen']['cpus'],1)
+                self.assertEqual(observed['services']['loadgen']['cpus'],2)
                 self.assertEqual(observed['services']['loadgen']['mem_limit'],'96m')
                 self.assertEqual(observed['services']['provider']['cpus'],'0.25')
                 self.assertTrue(all(observed['services'][name]['environment']['INSIDE_OTEL_ENABLED']==str(enabled).lower() for name in fullstack.BACKENDS))
+
+    def test_mode_witness_cannot_expire_stored_source_readiness_before_first_phase(self):
+        # Pure worker unit: all Docker, native, storage and host effects are replaced.
+        # This never executes a Linux command or claims a Linux host measurement.
+        from contextlib import ExitStack, nullcontext
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            (output/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
+            (output/'compose.json').write_text(json.dumps({'services':{'grafana':{'user':'1:1'}}}))
+            clock={'now':0,'stored':None}
+            stop=RuntimeError('controlled_stop_after_first_phase')
+            def stored(*args,**options):clock['stored']=clock['now']
+            def witness(*args):clock['now']+=11;return {'state':'observed'}
+            def phase(*args):
+                self.assertIsNotNone(clock['stored'])
+                self.assertLessEqual(clock['now']-clock['stored'],10,'the bounded witness must precede the stored freshness barrier')
+                raise stop
+            profile={'pairs':[['on']],'phases':[{'name':'idle','seconds':10,'requests_per_second':0}]}
+            with ExitStack() as patches:
+                patches.enter_context(patch.object(fullstack,'sys',SimpleNamespace(platform='linux')))
+                patches.enter_context(patch.object(fullstack.acceptance,'validate_profile',return_value=profile))
+                patches.enter_context(patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()))
+                patches.enter_context(patch.object(fullstack.pilot,'write_json'))
+                patches.enter_context(patch.object(fullstack.production.pilot,'install_horizon'))
+                patches.enter_context(patch.object(fullstack.production.pilot,'install_plugin'))
+                patches.enter_context(patch.object(fullstack.resource_runtime,'wait_ready'))
+                patches.enter_context(patch.object(fullstack.extra,'warmup'))
+                for name in ('mode','ready'):
+                    patches.enter_context(patch.object(fullstack,name))
+                patches.enter_context(patch.object(fullstack,'invoke',return_value=''))
+                patches.enter_context(patch.object(fullstack,'seed',return_value={}))
+                patches.enter_context(patch.object(fullstack,'prove_web_http',side_effect=witness))
+                patches.enter_context(patch.object(fullstack,'await_sources',side_effect=stored))
+                patches.enter_context(patch.object(fullstack,'phase',side_effect=phase))
+                with self.assertRaisesRegex(RuntimeError,'controlled_stop_after_first_phase') as caught:
+                    fullstack.worker(output)
+                self.assertIs(caught.exception,stop)
 
     def test_web_iid_is_owned_only_when_registered_before_acquisition(self):
         # Same stable Docker boundary fake as the preparation lifecycle tests.
