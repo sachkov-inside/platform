@@ -165,7 +165,6 @@ export {
 } from "./model/product-access-outcome";
 
 export {
-  ownerPriceCatalogQueryKey,
   productPriceChoices,
   type ProductPriceChoice,
 } from "./model/owner-price-catalog";
