@@ -68,6 +68,7 @@ def worker(output):
     try:
         with pilot.worker_storage_guard(owner,compose,output):
             overlay.verify(output)  # Exact current source bytes and authority BEFORE Compose acquisition.
+            pilot.install_horizon(output)
             pilot.install_plugin(output)
             pilot.command(compose+['config','--quiet'])
             pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
@@ -132,7 +133,7 @@ def verify_cleanup(output):
     typed=value.get('source_freshness') if type(value) is dict else None
     if (type(value) is not dict or value.get('down')!='passed' or value.get('residue')!='passed'
             or type(typed) is not dict or set(typed)!={'outcome','containers','volumes','networks'} or typed['outcome']!='passed'
-            or any(type(typed[key]) is not int or typed[key]!=count for key,count in (('containers',7),('volumes',4),('networks',2)))):
+            or any(type(typed[key]) is not int or typed[key]!=count for key,count in (('containers',8),('volumes',4),('networks',2)))):
         raise RuntimeError('Caddy typed resource absence unproved')
 
 

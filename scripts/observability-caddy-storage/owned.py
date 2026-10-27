@@ -1,4 +1,4 @@
-"""Current Core7 ownership plus the Caddy overlay's live runtime authority checks."""
+"""Current Core8 ownership plus the Caddy overlay's live runtime authority checks."""
 import overlay
 import runtime_identity
 import source_status_scenario as core

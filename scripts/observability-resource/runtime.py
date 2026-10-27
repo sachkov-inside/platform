@@ -404,6 +404,7 @@ def worker(output):
     try:
         with pilot.worker_storage_guard(owner, compose, output):
             manifest = resource_profile.load()
+            pilot.install_horizon(output)
             pilot.install_plugin(output)
             invoke(compose, ['config', '--quiet'])
             stage = 'image_source_identity'

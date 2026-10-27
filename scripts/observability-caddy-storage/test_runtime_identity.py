@@ -66,7 +66,7 @@ class RuntimeAuthority(unittest.TestCase):
                     self.assertTrue(runtime_identity.validate(json.dumps(value).encode(),role,plan))
                     malformed=[{k:v for k,v in value.items() if k!='user'},dict(value,unknown='private-canary')]
                     malformed += [dict(value,user=bad) for bad in (None,True,1,[],{},'x'*129,'ж'*65)]
-                    if role in ('alloy','gateway','vmauth'):
+                    if role in ('alloy','gateway','vmauth','horizon'):
                         expected=service['user'];uid,gid=expected.split(':')
                         malformed += [dict(value,user=bad) for bad in ('','root',uid,uid+':',':'+gid,
                             '0'+expected,'+'+expected,expected+' ',' '+expected,'9999999999:'+gid,uid+':9999999999',

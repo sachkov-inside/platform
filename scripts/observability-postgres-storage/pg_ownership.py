@@ -158,7 +158,7 @@ def prepare(output):
 
 
 class Targets(source_status_scenario.OwnedTargets):
-    """Same Core7 registry plus same PG identity; only the PG plan differs."""
+    """Same Core8 registry plus same PG identity; only the PG plan differs."""
     def __init__(self,output,compose,expected,read):
         if expected!=plan(output):refuse()
         core={**expected,'services':{key:value for key,value in expected['services'].items() if key!='postgres'},

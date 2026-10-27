@@ -141,6 +141,7 @@ def worker(output):
         diagnostic.start('acquisition')
         try:
             with pilot.worker_storage_guard(owner,compose,output):
+                pilot.install_horizon(output)
                 pilot.install_plugin(output)
                 pilot.command(compose+['config','--quiet'])
                 pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
@@ -167,7 +168,7 @@ def worker(output):
                     observed=observed,result=result,diagnostic=diagnostic,observation=observation)
                 result.update({'state':'passed','stage':'complete','native_api_request':True,'provider_requests':2,
                     'persisted_carrier':'passed','native_timer':'passed','api_owned_sdk_shutdown':'passed',
-                    'metrics':metrics,'traces':traces,'attempts':attempts,'containers':8,'volumes':5,'networks':2})
+                    'metrics':metrics,'traces':traces,'attempts':attempts,'containers':9,'volumes':5,'networks':2})
                 evidence=json.loads((output/'evidence.json').read_text());evidence['status']='passed: one genuine API tracking success composition only'
                 pilot.write_json(output/'evidence.json',evidence)
                 diagnostic.start('complete')

@@ -69,6 +69,14 @@ Publisher releases: [Grafana 13.2.4](https://github.com/grafana/grafana/releases
 [VictoriaTraces 0.12.0](https://github.com/VictoriaMetrics/VictoriaTraces/releases/tag/v0.12.0).
 Это происхождение inputs, а не доказательство совместимости.
 
+Начиная с исправления SEC-1566-2 общий runtime включает также обязательный private `horizon`.
+Метрики и Jaeger из Grafana, native MCP и прямого query API проходят одну event-time границу;
+физический retention сам по себе её не доказывает. Перед `up` worker собирает source-bound
+статический guard закреплённым Go1.26.4, проверяет его manifest и удаляет временную сборку.
+Образ переиспользует pin metrics; отдельный процесс входит в общий lifecycle и measurement.
+Ограничения запросов и установка описаны в [production runbook](observability-production.md).
+Исторические результаты семи процессов выше не являются ресурсным доказательством нового состава.
+
 Для каждого asset закреплён `size_bytes` из GitHub Releases. Downloader читает не больше
 этого размера плюс один байт и требует точного размера и SHA256; дополнительный предел
 сжатого содержимого архива составляет 128MiB.

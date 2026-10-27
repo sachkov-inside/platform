@@ -41,6 +41,19 @@ class PrivatePlan(unittest.TestCase):
             self.assertIn('sending_queue {\n    enabled = false\n  }',text)
             for name in ('postgres-completion-auth.json','postgres-completion.alloy','compose.json'):
                 self.assertEqual(stat.S_IMODE((output/name).stat().st_mode),0o600)
+            # The shared physical cleanup owns Core8 plus PostgreSQL, and the PG public
+            # boundary must accept that exact9-container result, never the obsolete8.
+            (output/'owner.json').write_text(json.dumps({'project':'inside-observability-pilot-'+'a'*12}))
+            complete={'outcome':'passed','containers':9,'volumes':5,'networks':2}
+            with patch.object(postgres_source.pilot,'restore_daemon'), \
+                    patch.object(postgres_source.ownership,'verify_pg_absence',return_value=complete):
+                postgres_source.cleanup_proof(output)
+                self.assertEqual(json.loads((output/'postgres-source-cleanup.json').read_text()),complete)
+                self.assertEqual(complete['containers'],len(actual['services']))
+            with patch.object(postgres_source.pilot,'restore_daemon'), \
+                    patch.object(postgres_source.ownership,'verify_pg_absence',return_value={**complete,'containers':8}):
+                with self.assertRaisesRegex(ValueError,'cleanup'):postgres_source.cleanup_proof(output)
+
 
     def test_auth_and_overlay_invalid_present_files_refuse_without_adoption(self):
         for fault in ('mode','link','duplicate','unknown','empty','config','collision'):
@@ -64,7 +77,7 @@ class PrivatePlan(unittest.TestCase):
         import pg_ownership
         pg_ownership.prepare(output);fake=FakePilot(output);fake.plan=pg_ownership.plan(output);fake.ids['postgres']='8'*64
         target=pg_ownership.Targets(output,fake.compose,fake.plan,fake.command)
-        self.assertEqual(len(target.targets),8)
+        self.assertEqual(len(target.targets),9)
         self.assertEqual(set(json.loads((output/'tracking-pg-owned.json').read_text())),{'project','container','volume','networks'})
         self.assertEqual(target.postgres(),'8'*64)
         return target,fake
@@ -73,7 +86,7 @@ class PrivatePlan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target,fake=self.targets(Path(directory).resolve()/'private')
             witness=json.loads((target.output/'source-freshness-owned.json').read_text())
-            self.assertEqual((len(witness['containers']),len(witness['volumes']),len(witness['networks'])),(7,4,2))
+            self.assertEqual((len(witness['containers']),len(witness['volumes']),len(witness['networks'])),(8,4,2))
             fake.ids['postgres']='9'*64
             with self.assertRaises((ValueError,RuntimeError)):target.postgres()
 

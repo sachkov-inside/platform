@@ -132,8 +132,13 @@ class HostedEvidenceTest(unittest.TestCase):
                     'telegram_http_storage.py', 'daemon.py', 'orbstack.py', 'storage_policy.py',
                     'telegram_runtime_privacy.py', 'telegram_runtime_oracle.py')
             } | {'.github/workflows/observability-pilot.yml', 'apps/backend/openapi/platform-api.json'}
+            expected.update('infra/observability/horizon/'+name for name in (
+                'README.md', 'metricsql-security.patch', 'metricsql-security.lock.json','go.mod','go.sum','main.go','metrics.go','metrics_test.go',
+                'traces.go','traces_test.go','server.go','server_test.go','metadata.go','metadata_test.go',
+                'jaeger.go','native_test.go','toolchain.lock.json'))
+            expected.update({'scripts/observability-pilot/horizon_build.py','scripts/heavy-check/bounded.py'})
             self.assertEqual(set(proof['inputs']), expected)
-            self.assertEqual(len(proof['inputs']), 29)
+            self.assertEqual(len(proof['inputs']), 48)
             relative = 'apps/backend/openapi/platform-api.json'
             self.assertEqual(proof['inputs'][relative], hashlib.sha256((ci.ROOT/relative).read_bytes()).hexdigest())
             workflow = (ci.ROOT/'.github/workflows/observability-pilot.yml').read_text()
