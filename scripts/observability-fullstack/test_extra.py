@@ -12,6 +12,16 @@ def plan():
 
 
 class Extra(unittest.TestCase):
+    def test_source_warmup_requires_closed_success_with_existing_bounded_owner(self):
+        calls=[]
+        def invoke(compose,args,**options):
+            calls.append((args,options));return '{"ok":true}'
+        extra.warmup(['owned'],invoke)
+        self.assertEqual(calls,[(['exec','-T','loadgen','node','/resource/fullstack.mjs','source-warmup'],{'timeout':4})])
+        for value in ('{"ok":false}','{"ok":1}','{"ok":true,"private":"sentinel"}','{}'):
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                extra.warmup(['owned'],lambda *args,**options:value)
+
     def test_real_source_logto_and_tls_caddy_have_no_host_or_external_ingress(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory); value = plan()

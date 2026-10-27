@@ -408,6 +408,7 @@ def worker(output):
                             try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
                             except (RuntimeError,subprocess.SubprocessError):return False
                         pilot.await_fact(healthy,bool,probe='fullstack_'+name+'_ready')
+                    extra.warmup(compose,invoke)
                     if enabled:
                         await_sources(compose,output)
                         report.setdefault('web_http',[]).append(prove_web_http(compose))
