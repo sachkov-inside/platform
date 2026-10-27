@@ -252,7 +252,7 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
 for (const failed of [false, true]) {
   test(
     failed
-      ? "metadata failure offers a playback retry"
+      ? "metadata failure can retry a provider that replaces its mount"
       : "chapters wait for a positive duration after provider load",
     async ({ page }) => {
       await page.route("**/api/reading-progress/open", (route) =>
@@ -282,6 +282,7 @@ for (const failed of [false, true]) {
         }),
       );
       await page.addInitScript((holdDuration: boolean) => {
+        let attempts = 0;
         Object.defineProperty(window, "Kinescope", {
           value: {
             IframePlayer: {
@@ -289,8 +290,9 @@ for (const failed of [false, true]) {
               create: (mount: HTMLElement, options: { url: string }) => {
                 const iframe = document.createElement("iframe");
                 iframe.src = options.url;
-                mount.append(iframe);
-                let duration = 0;
+                mount.replaceWith(iframe);
+                const retry = attempts++ > 0;
+                let duration = retry ? 600 : 0;
                 let durationReads = 0;
                 let releaseDuration: ((value: number) => void) | undefined;
                 const listeners = new Map<string, () => void>();
@@ -310,7 +312,7 @@ for (const failed of [false, true]) {
                   getDuration: () => {
                     iframe.dataset["durationRequested"] = "true";
                     iframe.dataset["durationReads"] = String(++durationReads);
-                    if (holdDuration)
+                    if (holdDuration && !retry)
                       return new Promise<number>((resolve) => {
                         releaseDuration = resolve;
                       });
@@ -343,7 +345,7 @@ for (const failed of [false, true]) {
         });
       }, failed);
       await page.goto("/materials/navigation-video-fragment#t=3");
-      const frame = page.locator("[data-video-player-mount] iframe");
+      const frame = page.locator("[data-video-id] iframe");
       await expect(frame).toHaveAttribute("data-duration-requested", "true");
       await page.getByRole("link", { name: "4:21 Later chapter" }).click();
       if (!failed) {
@@ -362,6 +364,10 @@ for (const failed of [false, true]) {
         await expect(
           page.getByText("Загружаем видео…", { exact: true }),
         ).not.toBeVisible();
+        await page
+          .getByRole("button", { name: "Повторить", exact: true })
+          .click();
+        await expect(frame).toHaveAttribute("data-seek-seconds", "261");
         return;
       }
       await expect(frame).toHaveAttribute("data-seek-seconds", "261");

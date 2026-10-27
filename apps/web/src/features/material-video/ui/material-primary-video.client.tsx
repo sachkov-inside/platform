@@ -165,7 +165,10 @@ export function MaterialPrimaryVideo({
         if (!isActive()) return;
         const factory = await iframeApi.load();
         if (!isActive()) return;
-        const player = await factory.create(mount, {
+        // The SDK replaces its target; retain the React-owned mount for retries.
+        const playerTarget = document.createElement("div");
+        mount.replaceChildren(playerTarget);
+        const player = await factory.create(playerTarget, {
           behavior: {
             autoPlay: false,
             keyboard: true,
