@@ -7,7 +7,7 @@ export type {
   ProductChapter,
   ProductIntroduction,
   RelatedPlaylist,
-  PublishedSeriesResult,
+  PublishedProductResult,
   PublishedTopicResult,
   RelatedMaterialsResult,
 } from "./model/library-discovery-view";

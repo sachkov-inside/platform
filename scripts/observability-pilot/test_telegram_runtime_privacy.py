@@ -7,7 +7,7 @@ import unittest
 import privacy_config
 
 SERVICE = 'resource.attributes["service.name"] == "inside-telegram"'
-ROUTES = ['/health', '/ready', '/metrics', '/webhooks/telegram', '/integrations/platform/v1/telegram-contacts', '/integrations/platform/v1/participant-activity', '/integrations/platform/v1/community-entitlements', '/integrations/platform/v1/identity-links', '/integrations/platform/v1/identity-links/:linkTransactionRef/confirm', '/integrations/identity/v1/sign-in', '/integrations/identity/v1/sign-in/:requestRef/status', '/integrations/identity/v1/sign-in/:requestRef/consume', '/integrations/identity/v1/sign-in/:requestRef/account-link', '/integrations/platform/v1/communications']
+ROUTES = ['/health', '/ready', '/metrics', '/webhooks/telegram', '/integrations/platform/v1/telegram-contacts', '/integrations/platform/v1/participant-activity', '/integrations/platform/v1/community-entitlements', '/integrations/platform/v1/identity-links', '/integrations/platform/v1/identity-links/:linkTransactionRef/confirm', '/integrations/identity/v1/sign-in', '/integrations/identity/v1/sign-in/:requestRef/status', '/integrations/identity/v1/sign-in/:requestRef/consume', '/integrations/identity/v1/sign-in/:requestRef/account-link', '/integrations/platform/v2/communications']
 METRICS = ['inside.telegram.operations', 'inside.telegram.duration', 'http.server.request.count', 'http.server.request.duration', 'http.server.active_requests', 'telemetry.trace.dropped', 'telemetry.trace.export.failures', 'telemetry.metric.export.failures', 'telemetry.trace.sampling.ratio']
 
 def generated_metric_drops(service, name):
@@ -100,6 +100,16 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
                               ('routes', '/library/products/by-id/{id}/reference'), ('queues', queue)):
             self.assertEqual(projected_policy[key].count(addition), 1)
             projected_policy[key].remove(addition)
+        # Current main admits these fixed routes and retires three queue producers.
+        # Project only this catalogue delta; keep the historical B program/digests intact.
+        for addition in ('/admin/access/products/issue', '/admin/access/products/list', '/admin/access/products/read', '/admin/access/products/restore', '/authoring/history/material-receipts', '/authoring/history/practice-receipts', '/billing/product-prices', '/billing/product-sales-states', '/integrations/telegram/v1/course-activation/announcement', '/integrations/telegram/v1/course-activation/attempts', '/integrations/telegram/v1/course-activation/binding', '/integrations/telegram/v1/course-activation/evidence', '/integrations/telegram/v1/course-activation/own-access', '/integrations/telegram/v2/communications/authorize', '/integrations/telegram/v2/communications/materials', '/integrations/telegram/v2/communications/validate-content', '/integrations/telegram/v2/communications/waitlist'):
+            self.assertEqual(projected_policy['routes'].count(addition), 1)
+            projected_policy['routes'].remove(addition)
+        retired = ['billing.subscription-renewal', 'billing.subscription-notices', 'tribute.source-reconciliation']
+        for name in retired:
+            self.assertNotIn(name, projected_policy['queues'])
+        position = projected_policy['queues'].index('community.entitlement-delivery')
+        projected_policy['queues'][position:position] = retired
         actual = privacy_config.render()
         with tempfile.TemporaryDirectory(prefix='core-catalogue-') as directory:
             temporary = Path(directory)

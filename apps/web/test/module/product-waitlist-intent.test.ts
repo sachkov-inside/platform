@@ -6,6 +6,7 @@ import {
 const now = new Date("2030-03-01T12:00:00Z");
 const key = "test-secret-with-enough-length";
 const input = {
+  productSlug: "ai-engineering",
   productId: "00000000-0000-4000-8000-000000000001",
   intakeId: "00000000-0000-4000-8000-000000000002",
   accountId: null,

@@ -13,7 +13,6 @@ import type {
   BillingPaymentOption,
   NoticeKind,
   PriceSnapshot,
-  SubscriptionState,
 } from "./billing-contract";
 
 const moscow = "Europe/Moscow";
@@ -201,18 +200,11 @@ export function accessSourceLabel(source: AccessSource): string {
     case "manual":
       return "Выдано вручную";
     case "legacy":
-      return "Прежняя подписка";
-  }
-}
-
-export function subscriptionStateLabel(state: SubscriptionState): string {
-  switch (state) {
-    case "active":
-      return "Действует";
-    case "canceled":
-      return "Продление отменено";
-    case "ended":
-      return "Завершена";
+      return "Ранее полученный доступ";
+    case "course_activation":
+      return "Активация курса";
+    case "unknown":
+      return "Источник не уточнён";
   }
 }
 
@@ -319,11 +311,11 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "document_changed":
       return "Условия покупки обновились. Прочитайте действующую редакцию и нажмите кнопку оплаты снова.";
     case "existing_access":
-      return "У вас уже есть доступ к части этого состава. Подтвердите, что понимаете это, и продолжите.";
+      return "Вы уже получили этот продукт. Повторная покупка недоступна.";
     case "legacy_review_required":
-      return "Ваша прежняя подписка ещё не разобрана. Мы включим оплату после проверки — новое списание пока не начинаем.";
+      return "Оплаченный заказ требует проверки. Обратитесь в поддержку.";
     case "not_eligible":
-      return "Это предложение доступно только прежним подписчикам Tribute.";
+      return "Это предложение недоступно.";
     case "quote_expired":
       return "Расчёт устарел. Обновите условия и повторите.";
     case "quote_changed":

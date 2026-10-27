@@ -40,7 +40,7 @@ const collections = [
     name: "Legacy topic",
     slug: "legacy-topic",
     summary: "Существующие ссылки сохранены.",
-    version: 2,
+    version: 2 as const,
   },
 ] as const;
 

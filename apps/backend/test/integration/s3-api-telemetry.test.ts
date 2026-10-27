@@ -1,3 +1,4 @@
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { createHash, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -10,7 +11,7 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { createS3ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+
 import {
   assertPrivateS3Exports,
   summarizeS3Attempts,
@@ -163,6 +164,7 @@ beforeAll(async () => {
     },
   });
   const source = {
+    version: 2 as const,
     id: "s3-api-proof:public-file",
     path: "lessons/s3-api-proof.md",
     revision: "a".repeat(64),
@@ -202,7 +204,7 @@ beforeAll(async () => {
       topicId,
       formatId: "guide",
       tagIds: [],
-      seriesIds: [],
+      productIds: [],
       difficulty: null,
       outcomes: [],
     },

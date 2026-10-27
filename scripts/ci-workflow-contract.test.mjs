@@ -9,6 +9,7 @@ import { describe, it } from "node:test";
 
 import {
   ciJobNames,
+  coverageIds,
   ciMatrixJobs,
   coverageSupersets,
 } from "./ci-coverage-plan.mjs";
@@ -770,7 +771,36 @@ describe("application CI workflow contract", () => {
     for (const job of requiredJobs) {
       assert.match(gate, new RegExp(`^      - ${escapeRegExp(job)}$`, "mu"));
     }
-    assert.match(gate, /JOB_RESULTS: \$\{\{ toJSON\(needs\) \}\}/u);
+    assert.match(
+      gate,
+      /SELECTED_PLAN_SHA256: \$\{\{ needs\.plan\.outputs\.plan_sha256 \}\}/u,
+    );
+    assert.match(
+      jobBlock("plan"),
+      /plan_sha256: \$\{\{ steps\.select\.outputs\.plan_sha256 \}\}/u,
+    );
+    assert.doesNotMatch(
+      gate,
+      /toJSON\(needs\)|SELECTED_PLAN:|needs\.plan\.outputs\.plan \}\}/u,
+    );
+    const results = gate.match(/JOB_RESULTS: >-\n((?: {12}.+\n)+)/u)?.[1];
+    assert.ok(results);
+    /** @type {unknown} */
+    const projected = JSON.parse(
+      results.replaceAll(/\$\{\{ needs\.([a-z0-9-]+)\.result \}\}/gu, "$1"),
+    );
+    assert.deepEqual(
+      projected,
+      Object.fromEntries(
+        ["plan", ...coverageIds].map((id) => [id, { result: id }]),
+      ),
+    );
+    assert.deepEqual(
+      [...gate.matchAll(/^ {6}- ([a-z0-9-]+)$/gmu)]
+        .map((match) => match[1])
+        .sort(),
+      ["plan", ...coverageIds].sort(),
+    );
     assert.match(gate, /run: node scripts\/ci-coverage-run\.mjs gate/u);
   });
 });

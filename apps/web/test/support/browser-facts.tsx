@@ -1,3 +1,8 @@
+import {
+  useCurrentBilling,
+  ProductAccessList,
+} from "@/features/billing-subscription";
+import { ProductAccessPanel } from "@/features/billing-admin";
 import { AccountProductCommunity } from "@/_pages/account-access/ui/account-product-community.client";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -9,10 +14,6 @@ import {
   SavedReadingAction,
 } from "@/features/reading-progress";
 import { BookmarksPageQuery } from "@/_pages/bookmarks";
-import { PeoplePanel } from "@/features/billing-admin/ui/people-panel.client";
-import { InvitationsPanel } from "@/features/billing-admin/ui/invitations-panel.client";
-import { AccessSummaryPanel } from "@/features/billing-admin/ui/access-summary-panel.client";
-import { materialsOffer } from "@/storybook/billing.fixtures";
 
 // The main surface has the production query cache. Secondary surfaces use an independent
 // recipient cache to prove window announcements without the writer's local invalidation.
@@ -51,28 +52,10 @@ function BrowserFacts() {
         <section aria-label="Bookmark list">
           <BookmarksPageQuery />
         </section>
-        <section aria-label="People">
-          <PeoplePanel offers={[materialsOffer]} />
-        </section>
-        <section aria-label="Invitations">
-          <InvitationsPanel offers={[materialsOffer]} />
-        </section>
-        <section aria-label="Summary">
-          <AccessSummaryPanel />
-        </section>
         {new URLSearchParams(window.location.search).has("secondary") ? (
           <QueryClientProvider client={secondaryClient}>
             <section aria-label="Secondary bookmark list">
               <BookmarksPageQuery />
-            </section>
-            <section aria-label="Secondary People">
-              <PeoplePanel offers={[materialsOffer]} />
-            </section>
-            <section aria-label="Secondary Invitations">
-              <InvitationsPanel offers={[materialsOffer]} />
-            </section>
-            <section aria-label="Secondary Summary">
-              <AccessSummaryPanel />
             </section>
           </QueryClientProvider>
         ) : null}
@@ -135,10 +118,41 @@ function CommunityFacts() {
     </QueryClientProvider>
   );
 }
+function BillingFacts() {
+  const query = useCurrentBilling();
+  return query.data?.ok === true ? (
+    <ProductAccessList
+      {...query.data.value}
+      grounds={query.data.value.access.grounds}
+    />
+  ) : null;
+}
+function ProductAccessFacts() {
+  return (
+    <>
+      <QueryClientProvider client={client}>
+        <ProductAccessPanel />
+      </QueryClientProvider>
+      {new URLSearchParams(window.location.search).has("secondary") ? (
+        <QueryClientProvider client={secondaryClient}>
+          <section aria-label="Secondary access">
+            <ProductAccessPanel />
+          </section>
+        </QueryClientProvider>
+      ) : null}
+    </>
+  );
+}
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing browser facts root");
 createRoot(root).render(
-  new URLSearchParams(window.location.search).has("community") ? (
+  new URLSearchParams(window.location.search).has("productAccess") ? (
+    <ProductAccessFacts />
+  ) : new URLSearchParams(window.location.search).has("billing") ? (
+    <QueryClientProvider client={client}>
+      <BillingFacts />
+    </QueryClientProvider>
+  ) : new URLSearchParams(window.location.search).has("community") ? (
     <CommunityFacts />
   ) : new URLSearchParams(window.location.search).has("reading") ? (
     <ReadingFacts />

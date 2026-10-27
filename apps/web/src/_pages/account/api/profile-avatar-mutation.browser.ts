@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import type { PrivateMemberProfile } from "@/entities/member-profile";
+import type { PrivateAccountProfile } from "@/entities/account-profile";
 
-import { parsePrivateProfile } from "@/entities/member-profile";
+import { parsePrivateProfile } from "@/entities/account-profile";
 
 export interface ProfileAvatarCrop {
   readonly centerX: number;
@@ -15,17 +15,17 @@ export type ProfileAvatarMutationInput =
       crop: ProfileAvatarCrop;
       file: File;
       kind: "upload";
-      profile: PrivateMemberProfile;
+      profile: PrivateAccountProfile;
     }>
   | Readonly<{
       kind: "remove";
-      profile: PrivateMemberProfile;
+      profile: PrivateAccountProfile;
     }>;
 
 export type ProfileAvatarMutation = (
   input: ProfileAvatarMutationInput,
   onProgress: (progress: number) => void,
-) => Promise<PrivateMemberProfile>;
+) => Promise<PrivateAccountProfile>;
 
 const avatarProblemSchema = z
   .object({ code: z.string(), reason: z.string().optional() })
@@ -97,7 +97,7 @@ export const mutateProfileAvatar: ProfileAvatarMutation = async (
 
 async function readMutationResponse(
   response: Response,
-): Promise<PrivateMemberProfile> {
+): Promise<PrivateAccountProfile> {
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw new AvatarMutationError(body);
   return parsePrivateProfile(body);

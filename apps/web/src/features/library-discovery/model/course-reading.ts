@@ -90,12 +90,12 @@ interface CourseSource {
 
 /** Client-safe presentation only: no personal history, tokens or backend DTOs escape this mapping. */
 export function courseReadingContext({
-  series,
+  product,
   current,
   returnTarget,
   referenceView = false,
 }: {
-  readonly series: CourseSource;
+  readonly product: CourseSource;
   readonly current:
     | {
         readonly kind: "material";
@@ -106,13 +106,13 @@ export function courseReadingContext({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly referenceView?: boolean;
 }): CourseReadingContext | null {
-  const programmeHref = productProgrammeHref(series.reference.slug);
+  const programmeHref = productProgrammeHref(product.reference.slug);
   const href =
     returnTarget?.href.split("?")[0] === programmeHref
       ? returnTarget.href
       : programmeHref;
   const materialReturn = returnTarget?.href ?? href;
-  const publishedItems = series.kind === "ready" ? (series.items ?? []) : [];
+  const publishedItems = product.kind === "ready" ? (product.items ?? []) : [];
   const referenceHref = (slug: string) => {
     const url = new URL(materialReaderHref(slug, href), "https://inside.local");
     url.searchParams.set("view", "reference");
@@ -125,8 +125,8 @@ export function courseReadingContext({
     href: referenceHref(item.slug),
   }));
   const placements =
-    series.programmePlacements ??
-    series.chapters.flatMap((chapter) =>
+    product.programmePlacements ??
+    product.chapters.flatMap((chapter) =>
       chapter.materialIds.map((materialId, index) => ({
         id: `${chapter.id}-${String(index)}`,
         materialId,
@@ -140,7 +140,7 @@ export function courseReadingContext({
       entry.materialId,
       (repetitions.get(entry.materialId) ?? 0) + 1,
     );
-  const chapters = series.chapters.map(
+  const chapters = product.chapters.map(
     (chapter, index): CourseReadingChapter => {
       const placed = placeChapterTasks(
         chapter.tasks ?? [],
@@ -156,7 +156,7 @@ export function courseReadingContext({
             (chapter.tasks ?? [])
               .filter((entry) => entry.programmeVisibility !== "embedded")
               .findIndex((entry) => entry.code === task.code) + 1,
-          href: productTaskHref(series.reference.slug, task.code),
+          href: productTaskHref(product.reference.slug, task.code),
           availability: task.availability,
         }));
       const visited = new Set<string>();
@@ -200,7 +200,7 @@ export function courseReadingContext({
                 id: `material:${item.slug}${repeated ? `:${placement.id}` : ""}`,
                 kind: "material",
                 title: item.title,
-                ...(series.programmePlacements === undefined
+                ...(product.programmePlacements === undefined
                   ? {}
                   : { placementId: placement.id }),
                 href: internalRoute(`${url.pathname}${url.search}`),
@@ -267,7 +267,7 @@ export function courseReadingContext({
         ) ?? chapters[0]));
   if (step === undefined || chapter === undefined) return null;
   return {
-    name: series.reference.name,
+    name: product.reference.name,
     href,
     courseHref: programmeHref,
     chapters,
@@ -281,7 +281,7 @@ export function courseReadingContext({
     currentPosition: position + 1,
     totalSteps: steps.length,
     totalMaterials: new Set(placements.map((entry) => entry.materialId)).size,
-    hasModeVariants: series.reference.hasModeVariants ?? false,
+    hasModeVariants: product.reference.hasModeVariants ?? false,
     previous: steps[position - 1] ?? null,
     next: position < 0 ? null : (steps[position + 1] ?? null),
   };

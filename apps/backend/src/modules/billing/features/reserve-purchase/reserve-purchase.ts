@@ -1,4 +1,6 @@
-import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { productSaleAvailable } from "../../shared/product-sale-available.js";
 import { z } from "zod";
 import { canonicalJson } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -17,6 +19,7 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
+import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 
 const reserveSchema = z.strictObject({
   accountId: idSchema,
@@ -47,6 +50,7 @@ export async function reservePurchase(
   prisma: BillingPrismaClient,
   input: ReservePurchase,
   clock: () => Date,
+  contentCatalog?: Pick<CoverageCatalog, "resolve">,
 ): Promise<ReservePurchaseResult> {
   const parsed = reserveSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
@@ -54,7 +58,12 @@ export async function reservePurchase(
   try {
     return await prisma.$transaction(
       async (tx): Promise<ReservePurchaseResult> => {
-        return reservePurchaseInTransaction(tx, command, clock());
+        return reservePurchaseInTransaction(
+          tx,
+          command,
+          clock(),
+          contentCatalog,
+        );
       },
     );
   } catch (error) {
@@ -71,6 +80,7 @@ export async function reservePurchaseInTransaction(
   tx: BillingPrisma,
   command: ReservePurchase,
   now: Date,
+  contentCatalog?: Pick<CoverageCatalog, "resolve">,
 ): Promise<ReservePurchaseResult> {
   await lockBillingPricing(tx);
   const existing = await tx.billingPromoReservation.findUnique({
@@ -88,15 +98,7 @@ export async function reservePurchaseInTransaction(
     return failure("not_found");
   if (
     await tx.billingPromoReservation.findFirst({
-      where: {
-        OR: [
-          { quoteRef: command.quoteRef },
-          {
-            accountId: command.accountId,
-            state: { in: ["reserved", "sent", "unknown"] },
-          },
-        ],
-      },
+      where: { quoteRef: command.quoteRef, state: { not: "failed" } },
     })
   )
     return failure("reservation_conflict");
@@ -118,6 +120,14 @@ export async function reservePurchaseInTransaction(
         );
   // Выключенное из продажи или архивное предложение снимает заказ, а не только меняет условия.
   if (!current.ok) return current;
+  if (
+    !(await productSaleAvailable(
+      contentCatalog,
+      snapshot,
+      transactionHandle(tx),
+    ))
+  )
+    return failure("not_found");
   if (canonicalJson(current.value) !== canonicalJson(snapshot))
     return failure("quote_changed");
   const limits = command.amountLimits;

@@ -7,6 +7,7 @@ import type { Database } from "../../src/database/database.js";
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import {
+  migrationDatabaseLifecycleBudgetMilliseconds,
   createMigrationDatabase,
   withMigrationDatabase,
   type MigrationDatabaseFixture,
@@ -27,11 +28,11 @@ describe("identity-linking rollback fixture", () => {
   const abort = new AbortController();
   let fixture: MigrationDatabaseFixture | undefined;
   let acquisition: Promise<MigrationDatabaseFixture> | undefined;
-  let migrationStep = "prepare latest";
+  let migrationStep = "prepare last reversible prefix";
   let membershipRemoved: boolean;
   let identityRemoved: boolean;
   let identityRestored = false;
-  // Every distinct preparation phase retains Vitest's existing bounded hook budget.
+  // Acquisition uses the migration owner budget; later migration phases keep their existing bounds.
   beforeAll(async () => {
     acquisition = createMigrationDatabase(
       databaseUrl,
@@ -39,8 +40,8 @@ describe("identity-linking rollback fixture", () => {
       { signal: abort.signal },
     );
     fixture = await acquisition;
-    await migrateToLatest(fixture.database);
-  });
+    await migrateTo(fixture.database, "036-material-announcements");
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   beforeAll(async () => {
     migrationStep = "rollback to identity linking";
     const database = required(fixture).database;
@@ -69,7 +70,7 @@ describe("identity-linking rollback fixture", () => {
     // Acquisition may still be finishing after a hook timeout; its abort path owns cleanup.
     const acquired = fixture ?? (await acquisition?.catch(() => undefined));
     await acquired?.close();
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   it("rebuilds the identity-linking migration down and forward", () => {
     expect(membershipRemoved).toBe(true);
     expect(identityRemoved).toBe(true);
@@ -128,12 +129,12 @@ describe("failed migration fixture cleanup", () => {
       }
     })();
     await preparation;
-  });
+  }, 2 * migrationDatabaseLifecycleBudgetMilliseconds);
   afterAll(async () => {
     abort.abort(new Error("Failed migration fixture cleanup"));
     // Preserve the hook's primary failure; cancellation/drop terminates any blocked SQL first.
     await preparation?.catch(() => undefined);
-  });
+  }, migrationDatabaseLifecycleBudgetMilliseconds);
   it("removes a failed rollback fixture while preserving PostgreSQL diagnostics and runtime tables", () => {
     expect(failure).toMatchObject({
       code: "42P01",

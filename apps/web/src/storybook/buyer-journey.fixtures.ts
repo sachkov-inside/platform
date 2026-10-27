@@ -4,13 +4,13 @@ import {
 } from "@inside/access-capabilities";
 import type { AccessGround, OwnPayment } from "@/entities/subscription";
 import { productOnlyOffer, ownPayments } from "./billing.fixtures";
-import { seriesJourneyCorpus } from "./series-journey-corpus.fixtures";
+import { productJourneyCorpus } from "./product-journey-corpus.fixtures";
 export const buyerProductId =
   productIdFromCapability(productOnlyOffer.offer.benefits[0] ?? "materials") ??
   "";
 export const buyerProductName = "Создание Platform Inside";
 export function buyerProgrammeFixture(name: string) {
-  const corpus = seriesJourneyCorpus();
+  const corpus = productJourneyCorpus();
   const titles = [
     "Начало работы",
     "Подготовка проекта",

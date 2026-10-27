@@ -45,6 +45,25 @@ export function diagnosticDatabase(
                 ),
               ),
     },
+    async $transaction(
+      operation: (connection: unknown) => Promise<unknown>,
+    ): Promise<unknown> {
+      return operation(database);
+    },
+    $queryRaw: vi.fn().mockResolvedValue([]),
+    productAccessSource: {
+      findMany:
+        input.rightsFailure === true
+          ? vi.fn().mockRejectedValue(new Error("source offline"))
+          : vi
+              .fn()
+              .mockResolvedValue(
+                (input.grants ?? []).filter(
+                  (row) => source.parse(row).source === "purchase",
+                ),
+              ),
+    },
+    productAccess: { findMany: vi.fn().mockResolvedValue(input.grants ?? []) },
     billingPurchase: {
       findMany: vi.fn().mockResolvedValue(input.payments ?? []),
     },

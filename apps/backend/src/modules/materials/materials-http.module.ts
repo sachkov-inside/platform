@@ -1,3 +1,5 @@
+import { ReadHistoricalSourceMaterialReceiptController } from "./features/read-historical-source-receipt/read-historical-source-receipt.controller.js";
+import { ProductArtifactsHttpModule } from "../products/index.js";
 import { ImportSourcePracticeController } from "./features/import-source-practice/import-source-practice.controller.js";
 import { Module } from "@nestjs/common";
 
@@ -11,12 +13,12 @@ import {
   AuthoringContentCoverController,
   ContentCoverDeliveryController,
   ImportContentCoverController,
-} from "./facets/content-covers/content-covers.controller.js";
-import { ProductArtifactAuthoringController } from "./facets/product-artifacts/product-artifacts.controller.js";
+} from "./adapters/nest/content-covers.controller.js";
+
 import { CreateContentCollectionController } from "./features/create-content-collection/create-content-collection.controller.js";
 import { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
 import { DeleteDraftController } from "./features/delete-draft/delete-draft.controller.js";
-import { ProductArtifactReadController } from "./features/deliver-product-artifact/deliver-product-artifact.controller.js";
+
 import { DeliverMaterialAssetController } from "./features/deliver-material-asset/deliver-material-asset.controller.js";
 import { ImportSourceProductController } from "./features/import-source-product/import-source-product.controller.js";
 import { ImportSourceMaterialController } from "./features/import-source-material/import-source-material.controller.js";
@@ -26,10 +28,10 @@ import { ListContentCollectionsController } from "./features/list-content-collec
 import { ListMaterialsController } from "./features/list-materials/list-materials.controller.js";
 import { LoadHomePinController } from "./features/load-home-pin/load-home-pin.controller.js";
 import { LoadMaterialController } from "./features/load-material/load-material.controller.js";
-import { LoadSeriesOrderController } from "./features/load-series-order/load-series-order.controller.js";
+import { LoadProductOrderController } from "./features/load-product-order/load-product-order.controller.js";
 import { PreviewMaterialController } from "./features/preview-material/preview-material.controller.js";
 import { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
-import { ReorderSeriesController } from "./features/reorder-series/reorder-series.controller.js";
+import { ReorderProductController } from "./features/reorder-product/reorder-product.controller.js";
 import { SaveMaterialController } from "./features/save-material/save-material.controller.js";
 import { SetContentCollectionArchiveController } from "./features/set-content-collection-archive/set-content-collection-archive.controller.js";
 import { SetHomePinController } from "./features/set-home-pin/set-home-pin.controller.js";
@@ -44,15 +46,16 @@ import { MaterialsModule } from "./materials.module.js";
  * import `MaterialsModule` alone, so they register none of these controllers.
  */
 @Module({
-  imports: [AccountsModule, MaterialsModule],
+  imports: [AccountsModule, MaterialsModule, ProductArtifactsHttpModule],
   controllers: [
+    ReadHistoricalSourceMaterialReceiptController,
     ImportSourcePracticeController,
     ReadPublishedMaterialController,
     CreateDraftController,
     ListMaterialsController,
     ListAuthoringReferencesController,
     LoadMaterialController,
-    LoadSeriesOrderController,
+    LoadProductOrderController,
     SaveMaterialController,
     ImportSourceMaterialController,
     ReadSourceMaterialStateController,
@@ -61,7 +64,7 @@ import { MaterialsModule } from "./materials.module.js";
     DeleteDraftController,
     ValidateMaterialController,
     PreviewMaterialController,
-    ReorderSeriesController,
+    ReorderProductController,
     LoadHomePinController,
     SetHomePinController,
     UploadMaterialAssetController,
@@ -69,8 +72,6 @@ import { MaterialsModule } from "./materials.module.js";
     AuthoringContentCoverController,
     ImportContentCoverController,
     ContentCoverDeliveryController,
-    ProductArtifactAuthoringController,
-    ProductArtifactReadController,
     ListContentCollectionsController,
     CreateContentCollectionController,
     UpdateContentCollectionController,

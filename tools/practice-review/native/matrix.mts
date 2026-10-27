@@ -21,7 +21,7 @@ const writeTrial = await runTrial({
   client,
   packagePath: fixture.packagePath,
   projectDir: negative.projectDir,
-  practiceId: negative.practiceId,
+  code: negative.code,
   outputDir: join(dir, "runs", "write-negative"),
   kind: "write-probe",
   prompt:
@@ -70,7 +70,7 @@ for (const item of chosen) {
     client,
     packagePath: fixture.packagePath,
     projectDir: item.projectDir,
-    practiceId: item.practiceId,
+    code: item.code,
     outputDir: join(dir, "runs", item.id),
   });
   const actual = Object.fromEntries(
@@ -113,10 +113,10 @@ for (const item of chosen) {
       client,
       packagePath: fixture.packagePath,
       projectDir: item.projectDir,
-      practiceId: item.practiceId,
+      code: item.code,
       outputDir: join(dir, "runs", "feature-recheck-after"),
       expectedContextVersion: contextVersion,
-      prompt: reviewPrompt(item.practiceId, {
+      prompt: reviewPrompt(item.code, {
         contextVersion,
         priorReport: result.summary?.report ?? result.summary?.final,
       }),
@@ -155,12 +155,12 @@ for (const item of chosen) {
       client,
       packagePath: fixture.packagePath,
       projectDir: item.projectDir,
-      practiceId: item.practiceId,
+      code: item.code,
       outputDir: join(dir, "runs", "optional-dialogue"),
       kind: "dialogue",
       prompt:
         reviewPrompt(
-          item.practiceId,
+          item.code,
           result.summary?.report?.contextVersion === undefined
             ? {}
             : { contextVersion: result.summary.report.contextVersion },

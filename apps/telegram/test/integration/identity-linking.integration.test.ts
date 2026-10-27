@@ -48,7 +48,7 @@ afterAll(async () => {
 });
 
 describe("IdentityLinking", () => {
-  it("rolls back the confirmed link and initial check when the event transaction fails", async () => {
+  it("rolls back the confirmed link when its durable event transaction fails", async () => {
     const challenge = await linking.register({
       accountRef: "account-ref-a",
       returnCorrelation: "return-ref-a",
@@ -63,7 +63,7 @@ describe("IdentityLinking", () => {
     });
     await sql`create function synthetic_initial_check_fault() returns trigger language plpgsql as $$
       begin raise exception 'synthetic initial check failure'; end $$;
-      create trigger synthetic_initial_check_fault before insert on membership_checks
+      create trigger synthetic_initial_check_fault before insert on identity_link_events
       for each row execute function synthetic_initial_check_fault()`.execute(
       database,
     );
@@ -94,7 +94,7 @@ describe("IdentityLinking", () => {
           .executeTakeFirst(),
       ).toEqual({ state: "received" });
     } finally {
-      await sql`drop trigger synthetic_initial_check_fault on membership_checks;
+      await sql`drop trigger synthetic_initial_check_fault on identity_link_events;
         drop function synthetic_initial_check_fault()`.execute(database);
     }
     await expect(linking.confirm(confirmation)).resolves.toMatchObject({

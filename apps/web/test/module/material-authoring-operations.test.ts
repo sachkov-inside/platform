@@ -35,7 +35,7 @@ const materialId = "94000000-0000-4000-8000-000000000010";
 const submissionId = "94000000-0000-4000-8000-000000000011";
 const topicId = "94000000-0000-4000-8000-000000000013";
 const tagId = "94000000-0000-4000-8000-000000000014";
-const seriesId = "94000000-0000-4000-8000-000000000015";
+const productId = "94000000-0000-4000-8000-000000000015";
 const document = {
   content: [
     {
@@ -112,7 +112,7 @@ describe("Save Material through its browser adapter and Route Handler", () => {
         outcomes: ["Собрать один production path"],
         primaryVideoId: null,
         publicationState: "published",
-        seriesIds: [seriesId],
+        productIds: [productId],
         summary: null,
         tagIds: [tagId],
         title: "Saved Material",
@@ -143,7 +143,9 @@ describe("Save Material through its browser adapter and Route Handler", () => {
     routeBrowserMutations({ "/api/authoring/materials": materialsRoute });
 
     await expect(
-      saveMaterialOperation.send(saveInput({ seriesIds: ["not-a-series-id"] })),
+      saveMaterialOperation.send(
+        saveInput({ productIds: ["not-a-product-id"] }),
+      ),
     ).resolves.toEqual({
       issues: [
         {
@@ -216,7 +218,7 @@ describe("Create Material draft through its browser adapter and Route Handler", 
       expect.objectContaining({
         document,
         idempotencyKey: `web-create-${submissionId}`,
-        seriesIds: [seriesId],
+        productIds: [productId],
         topicId,
       }),
       "trusted-token",
@@ -254,7 +256,7 @@ function saveInput(
     outcomes: ["Собрать один production path", ""],
     primaryVideoId: null,
     publicationState: "published",
-    seriesIds: [seriesId],
+    productIds: [productId],
     submissionId,
     summary: "",
     tagIds: [tagId],
@@ -273,7 +275,7 @@ function draftInput(
     document,
     formatId: "unassigned",
     outcomes: [],
-    seriesIds: [seriesId],
+    productIds: [productId],
     submissionId,
     summary: "",
     tagIds: [],

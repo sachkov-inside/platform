@@ -27,9 +27,9 @@ export async function readLearningDestination(): Promise<string> {
     ]);
     if (!billing.ok) return "/";
     const parsed = currentBillingSchema.safeParse(billing.body);
-    const pinned = home.kind === "ready" ? home.value.pinnedSeries : null;
+    const pinned = home.kind === "ready" ? home.value.pinnedProduct : null;
     if (!parsed.success) return "/";
-    const active = parsed.data.grounds.filter((ground) => ground.active);
+    const active = parsed.data.access.grounds.filter((ground) => ground.active);
     if (
       pinned !== null &&
       active.some((ground) =>

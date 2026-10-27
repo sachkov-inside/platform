@@ -1,3 +1,4 @@
+import { savedContentProductIds } from "../../domain/saved-content-product-ids.js";
 import { paidGrantSourceRef } from "../../domain/paid-grant-source-ref.js";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
@@ -89,6 +90,7 @@ export class PaymentDiagnostics {
           id: true,
           accountId: true,
           snapshot: true,
+          kind: true,
           confirmedAt: true,
         },
       });
@@ -96,14 +98,19 @@ export class PaymentDiagnostics {
       const snapshots = page.map((row) =>
         priceSnapshotSchema.safeParse(row.snapshot),
       );
-      const keys = page.flatMap((row, index) => {
+      const products = page.map((row, index) => {
         const snapshot = snapshots[index];
-        return snapshot?.success === true
-          ? snapshot.data.offer.benefits.map((capability) => ({
-              accountId: row.accountId,
-              sourceRef: paidGrantSourceRef(row.id, capability),
-            }))
+        return row.kind === "one_time" && snapshot?.success === true
+          ? savedContentProductIds(snapshot.data)
           : [];
+      });
+      const keys = page.flatMap((row, index) => {
+        const productIds = products[index] ?? [];
+        return productIds.map((productId) => ({
+          accountId: row.accountId,
+          productId,
+          sourceRef: paidGrantSourceRef(row.id, productId, productIds.length),
+        }));
       });
       const facts = [];
       let rightsUnavailable = false;
@@ -139,11 +146,12 @@ export class PaymentDiagnostics {
         const snapshot = snapshots[index];
         const grants =
           snapshot?.success === true
-            ? snapshot.data.offer.benefits.map((capability) => {
+            ? (products[index] ?? []).map((productId, _, productIds) => {
+                const capability = `product:${productId}`;
                 const fact = byKey.get(
                   JSON.stringify([
                     row.accountId,
-                    paidGrantSourceRef(row.id, capability),
+                    paidGrantSourceRef(row.id, productId, productIds.length),
                   ]),
                 );
                 const state = rightsUnavailable
@@ -170,7 +178,10 @@ export class PaymentDiagnostics {
           confirmedAt: row.confirmedAt?.toISOString() ?? null,
           refundedKopecks: refundByRef.get(row.id) ?? 0,
           grants,
-          facts: snapshot?.success === true ? "known" : "unknown",
+          facts:
+            snapshot?.success === true && (products[index]?.length ?? 0) > 0
+              ? "known"
+              : "unknown",
         };
       });
       const unknown = items.filter(

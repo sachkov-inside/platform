@@ -20,7 +20,7 @@ import { homePinSchema } from "../load-home-pin/home-pin-http.js";
 
 const bodySchema = z
   .object({
-    seriesId: z.uuid().nullable(),
+    productId: z.uuid().nullable(),
     expectedVersion: z.number().int().positive(),
   })
   .strict();
@@ -35,7 +35,7 @@ export class SetHomePinController {
   @Put()
   @ApiOperation({
     operationId: "setAuthoringHomePin",
-    summary: "Replace or remove the author's Home Series selection",
+    summary: "Replace or remove the author's Home Product selection",
   })
   @ApiBody({ schema: toOpenApiSchema(bodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(homePinSchema) })

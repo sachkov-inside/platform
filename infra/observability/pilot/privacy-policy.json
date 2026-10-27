@@ -243,7 +243,24 @@
     "/sales-funnel/report",
     "/telegram-activation-intents/:attemptId",
     "/telegram-activation-intents/{attemptId}",
-    "unmatched"
+    "unmatched",
+    "/admin/access/products/issue",
+    "/admin/access/products/list",
+    "/admin/access/products/read",
+    "/admin/access/products/restore",
+    "/authoring/history/material-receipts",
+    "/authoring/history/practice-receipts",
+    "/billing/product-prices",
+    "/billing/product-sales-states",
+    "/integrations/telegram/v1/course-activation/announcement",
+    "/integrations/telegram/v1/course-activation/attempts",
+    "/integrations/telegram/v1/course-activation/binding",
+    "/integrations/telegram/v1/course-activation/evidence",
+    "/integrations/telegram/v1/course-activation/own-access",
+    "/integrations/telegram/v2/communications/authorize",
+    "/integrations/telegram/v2/communications/materials",
+    "/integrations/telegram/v2/communications/validate-content",
+    "/integrations/telegram/v2/communications/waitlist"
   ],
   "methods": [
     "GET",
@@ -262,9 +279,6 @@
     "web-telemetry.retention",
     "membership-activity.retention",
     "billing.payment-recovery",
-    "billing.subscription-renewal",
-    "billing.subscription-notices",
-    "tribute.source-reconciliation",
     "community.entitlement-delivery",
     "_OTHER"
   ],
@@ -407,7 +421,7 @@
       "/integrations/identity/v1/sign-in/:requestRef/status",
       "/integrations/identity/v1/sign-in/:requestRef/consume",
       "/integrations/identity/v1/sign-in/:requestRef/account-link",
-      "/integrations/platform/v1/communications"
+      "/integrations/platform/v2/communications"
     ],
     "methods": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     "metrics": [

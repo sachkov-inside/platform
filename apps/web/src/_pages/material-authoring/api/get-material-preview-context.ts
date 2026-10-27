@@ -4,11 +4,11 @@ import type { Route } from "next";
 import { z } from "zod";
 
 import { authoringVideoSchema } from "@/features/material-video/model/video";
-import { getSeriesOrder } from "@/features/series-order.server";
+import { getProductOrder } from "@/features/product-order.server";
 import {
   BackendConnectionError,
   requestCurrentMaterial,
-  requestSeriesOrder,
+  requestProductOrder,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 import { authoringMaterialPreviewHref } from "@/shared/routing/authoring";
@@ -40,13 +40,13 @@ export async function getMaterialPreviewRoute(
     readonly materialId: string;
     readonly returnHref: Route;
   },
-  request: typeof requestSeriesOrder = requestSeriesOrder,
+  request: typeof requestProductOrder = requestProductOrder,
 ): Promise<MaterialPreviewRoutePresentation | "unauthorized" | null> {
   const { products, materialId, returnHref } = input;
   const product =
     products.find(({ id }) => id === input.productId) ?? products[0];
   if (product === undefined) return null;
-  const order = await getSeriesOrder(product.id, input.accessToken, request);
+  const order = await getProductOrder(product.id, input.accessToken, request);
   if (order.kind === "unauthorized") return "unauthorized";
   if (order.kind === "not_found") {
     return { kind: "unavailable", reference: "product-not-found" };

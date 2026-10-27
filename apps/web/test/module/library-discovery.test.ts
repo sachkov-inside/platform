@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import {
-  getPublishedSeries,
+  getPublishedProduct,
   getPublishedTopic,
   getRelatedMaterials,
 } from "@/features/library-discovery.server";
@@ -36,10 +36,10 @@ const publishedProjection = {
       name: "Architecture",
     },
   ],
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: 3,
-      series: {
+      product: {
         id: "72000000-0000-4000-8000-000000000005",
         name: "Создание Platform Inside",
         slug: "platform-inside",
@@ -85,7 +85,7 @@ describe("Library discovery server adapter", () => {
           chapters: [chapter, empty],
           hasNext: false,
           items: [publishedProjection],
-          kind: "series",
+          kind: "product",
           reference: {
             cover: null,
             id: "72000000-0000-4000-8000-000000000002",
@@ -93,13 +93,13 @@ describe("Library discovery server adapter", () => {
             slug: "platform",
             summary: "Материалы о Platform.",
           },
-          relatedSeries: [],
+          relatedProduct: [],
           topics: [],
         }),
       ),
     );
 
-    const result = await getPublishedSeries("platform");
+    const result = await getPublishedProduct("platform");
     // An answer without tasks is a chapter without tasks (#947).
     expect(result.kind === "ready" ? result.chapters : []).toEqual([
       chapter,
@@ -109,7 +109,7 @@ describe("Library discovery server adapter", () => {
 
   it.each([
     ["topic", getPublishedTopic, "/library/topics/platform"],
-    ["series", getPublishedSeries, "/library/products/platform"],
+    ["product", getPublishedProduct, "/library/products/platform"],
   ] as const)(
     "maps a valid %s response to canonical navigation metadata",
     async (kind, getDiscovery, expectedPath) => {
@@ -128,7 +128,7 @@ describe("Library discovery server adapter", () => {
               slug: "platform",
               summary: "Материалы о Platform.",
             },
-            relatedSeries: [],
+            relatedProduct: [],
             topics: [],
           }),
         ),
@@ -149,7 +149,7 @@ describe("Library discovery server adapter", () => {
             formatSlug: "guide",
             publishedAt: "2026-08-25T05:00:00.000Z",
             materialId: "72000000-0000-4000-8000-000000000020",
-            seriesMemberships: [
+            productMemberships: [
               {
                 name: "Создание Platform Inside",
                 ordinal: 3,
@@ -175,7 +175,7 @@ describe("Library discovery server adapter", () => {
           slug: "platform",
           summary: "Материалы о Platform.",
         },
-        relatedSeries: [],
+        relatedProduct: [],
         topics: [],
       });
       const request = z
@@ -203,7 +203,7 @@ describe("Library discovery server adapter", () => {
             slug: "inside-platform-overview",
             summary: "Один реальный published Material.",
           },
-          relatedSeries: [],
+          relatedProduct: [],
           topics: [],
         }),
       ),
@@ -225,7 +225,7 @@ describe("Library discovery server adapter", () => {
         slug: "inside-platform-overview",
         summary: "Один реальный published Material.",
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
     });
   });
@@ -246,7 +246,7 @@ describe("Library discovery server adapter", () => {
             slug: "platform",
             summary: "Материалы о Platform.",
           },
-          relatedSeries: [],
+          relatedProduct: [],
           topics: [],
         }),
       ),
@@ -292,7 +292,7 @@ describe("Library discovery server adapter", () => {
     await expect(getPublishedTopic("missing")).resolves.toEqual({
       kind: "not-found",
     });
-    await expect(getPublishedSeries("platform")).resolves.toEqual({
+    await expect(getPublishedProduct("platform")).resolves.toEqual({
       kind: "unavailable",
     });
   });
@@ -312,7 +312,7 @@ describe("Library discovery server adapter", () => {
           chapters: [],
           hasNext: false,
           items: [publishedProjection],
-          kind: "series",
+          kind: "product",
           reference: {
             cover: null,
             id: "72000000-0000-4000-8000-000000000002",
@@ -321,13 +321,13 @@ describe("Library discovery server adapter", () => {
             slug: "platform",
             summary: "Материалы о Platform.",
           },
-          relatedSeries: [],
+          relatedProduct: [],
           topics: [],
         }),
       ),
     );
 
-    await expect(getPublishedSeries("platform")).resolves.toMatchObject({
+    await expect(getPublishedProduct("platform")).resolves.toMatchObject({
       kind: "ready",
       reference: { introduction },
     });
@@ -347,7 +347,7 @@ describe("Library discovery server adapter", () => {
             chapters: [],
             hasNext: false,
             items: [publishedProjection],
-            kind: "series",
+            kind: "product",
             reference: {
               cover: null,
               id: "72000000-0000-4000-8000-000000000002",
@@ -357,14 +357,14 @@ describe("Library discovery server adapter", () => {
               summary: "Материалы о Platform.",
               productPage,
             },
-            relatedSeries: [],
+            relatedProduct: [],
             topics: [],
           }),
         ),
       );
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     reply({ presentation: "ai-first-process", page });
-    await expect(getPublishedSeries("platform")).resolves.toMatchObject({
+    await expect(getPublishedProduct("platform")).resolves.toMatchObject({
       reference: { productPage: { presentation: "ai-first-process", page } },
     });
     expect(warn).not.toHaveBeenCalled();
@@ -373,7 +373,7 @@ describe("Library discovery server adapter", () => {
       presentation: "neon-hero",
       page: { card: null, blocks: [{ id: "hero", kind: "poster" }] },
     });
-    await expect(getPublishedSeries("platform")).resolves.toMatchObject({
+    await expect(getPublishedProduct("platform")).resolves.toMatchObject({
       reference: { productPage: { presentation: "default", page: null } },
     });
     expect(warn).toHaveBeenCalledTimes(2);

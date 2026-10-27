@@ -67,7 +67,7 @@ function request(source?: string, origin = "http://127.0.0.1:3000") {
   return new Request("http://127.0.0.1:3000/api/product-waitlist/intent", {
     method: "POST",
     headers: { "content-type": "application/json", origin },
-    body: JSON.stringify({ productId, source }),
+    body: JSON.stringify({ productId, productSlug: "ai-engineering", source }),
   });
 }
 beforeEach(() => {
@@ -189,4 +189,30 @@ test("ordinary new sign-in cancels an abandoned guest intent instead of later co
     kind: "expired",
   });
   expect(fakes.join).not.toHaveBeenCalled();
+});
+
+test("an explicit intake continuation returns to its own Product without a special course slug", async () => {
+  fakes.optional.mockResolvedValue(undefined);
+  const result = await handleWaitlistIntent(
+    new Request("http://127.0.0.1:3000/api/product-waitlist/intent", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://127.0.0.1:3000",
+      },
+      body: JSON.stringify({
+        productId,
+        productSlug: "systems-design",
+        source: "youtube",
+      }),
+    }),
+  );
+  const body = z.object({ returnTo: z.string() }).parse(await result.json());
+  expect(body.returnTo).toMatch(/^\/products\/systems-design\?waitlist=/u);
+  await beginWaitlistSignIn(body.returnTo);
+  await finishWaitlistSignIn(body.returnTo, "trusted-token");
+  expect(await (await handleWaitlistJoin(request())).json()).toMatchObject({
+    kind: "saved",
+    intakeId,
+  });
 });

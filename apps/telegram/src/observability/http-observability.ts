@@ -25,7 +25,7 @@ const routes = new Set([
   "/integrations/identity/v1/sign-in/:requestRef/status",
   "/integrations/identity/v1/sign-in/:requestRef/consume",
   "/integrations/identity/v1/sign-in/:requestRef/account-link",
-  "/integrations/platform/v1/communications",
+  "/integrations/platform/v2/communications",
 ]);
 const methods = new Set([
   "GET",

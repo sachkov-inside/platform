@@ -18,7 +18,7 @@ function matches(
   return (
     target !== null &&
     target.origin === new URL(baseUrl).origin &&
-    target.pathname === "/products/ai-engineering" &&
+    target.pathname === `/products/${intent.productSlug}` &&
     target.searchParams.get("waitlist") === intent.operationId
   );
 }

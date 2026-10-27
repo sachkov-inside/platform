@@ -26,8 +26,8 @@ export function assembleTransitionMaterialPublication(dependencies: {
         difficulty: current.value.metadata.difficulty,
         formatId: current.value.metadata.formatId,
         outcomes: current.value.metadata.outcomes,
-        seriesIds: current.value.metadata.seriesMemberships.map(
-          ({ seriesId }) => seriesId,
+        productIds: current.value.metadata.productMemberships.map(
+          ({ productId }) => productId,
         ),
         summary: current.value.metadata.summary,
         tagIds: current.value.metadata.tagIds,

@@ -1,6 +1,5 @@
-import { resumeLinkedActivation } from "../modules/subscription-activation/resume-activation.js";
+import { resumeLinkedActivation } from "../modules/course-activation/resume-activation.js";
 import type { LinkEffects } from "../modules/identity-linking/link-effects.js";
-import { planInitialMembershipCheck } from "../modules/membership-evidence/plan-initial-check.js";
 import { signInAllowsLink } from "../modules/bot-sign-in/link-approval.js";
 import { findBotContact } from "../modules/bot-contacts/contact-access.js";
 import {
@@ -10,7 +9,6 @@ import {
 import { recordAccountLinked } from "../modules/sales-funnel/sales-funnel-events.js";
 
 export const linkEffects: LinkEffects = {
-  initialCheck: planInitialMembershipCheck,
   signInAllowsLink,
   accountLinked: async (tx, link) => {
     await resumeLinkedActivation(tx, link);

@@ -184,10 +184,10 @@ function toCatalogItem(
     topic: { ...projection.topic },
     format: { ...projection.format },
     tags: projection.tags.map((tag) => ({ ...tag })),
-    seriesMemberships: projection.seriesMemberships.map(
-      ({ ordinal, series, stepGroup }) => ({
+    productMemberships: projection.productMemberships.map(
+      ({ ordinal, product, stepGroup }) => ({
         ordinal,
-        series: { ...series },
+        product: { ...product },
         ...(stepGroup === undefined ? {} : { stepGroup }),
       }),
     ),

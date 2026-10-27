@@ -9,7 +9,6 @@ import {
 import { Button } from "@/shared/ui/button";
 
 import type {
-  CancelSubscriptionInput,
   ListPaymentsInput,
   PaymentOutcome,
   PaymentView,
@@ -22,17 +21,18 @@ import {
   AdminField,
   AdminSection,
   AdminSelect,
-  AdminTextArea,
   formText,
   onAdminSubmit,
   optionalFormText,
-  reasonMaxLength,
 } from "./admin-form.client";
 import { presentText } from "@/shared/lib/text";
 
 /** Основание возврата словами владельца и его последствие: одна карта для выбора и для истории решений. */
 const refundBases = {
-  withdrawal: { label: "отказ от договора", consequence: "права прекращаются" },
+  withdrawal: {
+    label: "отказ от договора",
+    consequence: "отзыв доступа отдельно",
+  },
   compensation: {
     label: "компенсация без отказа",
     consequence: "доступ сохраняется",
@@ -51,9 +51,6 @@ export interface PaymentsSectionProps {
     input: AdminCommand<PurchaseCommandInput>,
   ) => void;
   readonly onReadRefunds: (input: AdminCommand<PurchaseCommandInput>) => void;
-  readonly onCancelSubscription: (
-    input: AdminCommand<CancelSubscriptionInput>,
-  ) => void;
 }
 
 export function PaymentsSection({
@@ -67,7 +64,6 @@ export function PaymentsSection({
   onReadPayment,
   onReconcilePayment,
   onReadRefunds,
-  onCancelSubscription,
 }: PaymentsSectionProps) {
   return (
     <>
@@ -285,10 +281,14 @@ export function PaymentsSection({
                 {formatKopecks(payment.value.amountKopecks)}
               </AdminRow>
               <AdminRow label="Возвращено">
-                {formatKopecks(payment.value.refundedKopecks)}
+                {payment.value.refundedKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(payment.value.refundedKopecks)}
               </AdminRow>
               <AdminRow label="Доступно к возврату">
-                {formatKopecks(payment.value.refundableKopecks)}
+                {payment.value.refundableKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(payment.value.refundableKopecks)}
               </AdminRow>
               <AdminRow label="Чек">{payment.value.fiscalization}</AdminRow>
               <AdminRow label="Терминал">
@@ -363,8 +363,15 @@ export function PaymentsSection({
               <p>
                 По платежу{" "}
                 <span className="font-mono text-xs">{refunds.purchaseRef}</span>{" "}
-                возвращено {formatKopecks(refunds.refundedKopecks)} из доступных{" "}
-                {formatKopecks(refunds.refundableKopecks)}.
+                возвращено{" "}
+                {refunds.refundedKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(refunds.refundedKopecks)}{" "}
+                из доступных{" "}
+                {refunds.refundableKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(refunds.refundableKopecks)}
+                .
               </p>
               <ul className="mt-3 grid gap-2">
                 {refunds.decisions.map((decision) => (
@@ -394,48 +401,6 @@ export function PaymentsSection({
               </ul>
             </div>
           )}
-        </AdminSection>
-      </details>
-      <details className="authoring-disclosure">
-        <summary>Отменить продление подписки участника</summary>
-        <AdminSection
-          description="Отмена продления владельцем выполняет тот же use case, что и команда покупателя: оплаченный срок сохраняется."
-          title="Подписка участника"
-        >
-          <form
-            className="grid gap-4"
-            onSubmit={onAdminSubmit((form) => {
-              onCancelSubscription({
-                accountId: formText(form.get("cancelAccount")),
-                expectedRevision: Number(formText(form.get("cancelRevision"))),
-                reason: formText(form.get("cancelReason")),
-              });
-            })}
-          >
-            <AdminField label="Account" name="cancelAccount" required />
-            <AdminField
-              inputMode="numeric"
-              label="Ожидаемая редакция"
-              name="cancelRevision"
-              required
-            />
-            <AdminTextArea
-              label="Основание"
-              maxLength={reasonMaxLength}
-              name="cancelReason"
-              required
-            />
-            <p>
-              <Button
-                className={billingActionClass}
-                disabled={pending}
-                type="submit"
-                variant="outline"
-              >
-                Отменить продление
-              </Button>
-            </p>
-          </form>
         </AdminSection>
       </details>
     </>
@@ -485,6 +450,7 @@ function paymentAccessLabel(value: PaymentView["access"]): string {
   const labels = {
     awaiting_payment: "Ожидает оплаты",
     preparing: "Готовится",
+    review_required: "Нужна проверка оплаченного заказа",
     ready: "Готов",
   };
   return labels[value];

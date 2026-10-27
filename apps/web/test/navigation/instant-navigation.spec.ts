@@ -117,12 +117,12 @@ async function expireServerCatalogCache(baseURL: string) {
     },
   });
   const response = await author.put("/api/authoring/home-pin", {
-    data: { expectedVersion: 1, seriesId: null },
+    data: { expectedVersion: 1, productId: null },
   });
   expect(response.status(), "авторская запись закрепа принята").toBe(200);
   expect(await response.json()).toEqual({
     kind: "ready",
-    pin: { seriesId: null, version: 2 },
+    pin: { productId: null, version: 2 },
   });
   await author.dispose();
 }
@@ -289,7 +289,7 @@ async function rscRequestsSettled(page: Page) {
 async function personalPartLanded(page: Page) {
   await expect(
     page.locator(
-      "[data-application-content] [data-series-access-pending]:visible, [data-application-content] [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible",
+      "[data-application-content] [data-product-access-pending]:visible, [data-application-content] [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible",
     ),
   ).toHaveCount(0);
 }
@@ -555,7 +555,7 @@ test("shared navigation fixture returns complete private Product sale admission 
     expect(schema.parse(await response.json())).toEqual({
       items: ids.map((productId, index) => ({
         productId,
-        sold: index === 0 || (viewer && index === 1),
+        sold: index === 0 || index === 1,
       })),
     });
   }
@@ -865,9 +865,11 @@ test("авторская запись сбрасывает общий кеш: с
     const guest = await browser.newContext();
     const guestPage = await guest.newPage();
     await guestPage.goto(`${baseURL}${product}`);
-    await expect(
-      guestPage.locator("[data-application-content] [data-product-landing]"),
-    ).toBeVisible();
+    const landing = guestPage
+      .locator("[data-application-content] [data-product-landing]")
+      .filter({ visible: true });
+    await expect(landing).toHaveCount(1);
+    await expect(landing).toBeVisible();
     await guest.close();
   };
 
@@ -1057,11 +1059,11 @@ test("снимки перехода «программа → урок → про
   const programmeAnchors = [
     "[data-programme-part='back']",
     "[data-programme-part='header']",
-    "[data-series-ordinal='1']",
+    "[data-product-ordinal='1']",
   ];
   await expect(
     page
-      .locator("[data-application-content] [data-series-access-pending]")
+      .locator("[data-application-content] [data-product-access-pending]")
       .first(),
   ).toBeVisible();
   const programmeSharedPart = await boxesOf(page, programmeAnchors);
@@ -1069,7 +1071,7 @@ test("снимки перехода «программа → урок → про
     path: evidenceFile(`lesson-to-programme-loading-${project}.png`),
   });
   await expect(
-    page.locator("[data-application-content] [data-series-access-pending]"),
+    page.locator("[data-application-content] [data-product-access-pending]"),
   ).toHaveCount(0);
   expect(
     await boxesOf(page, programmeAnchors),
@@ -1138,9 +1140,11 @@ test("Главная ↔ продукт: свой скелет продукта,
 
   const productReady = async () => {
     await page.waitForURL((url) => url.pathname === product);
-    await expect(
-      page.locator("[data-application-content] [data-product-landing]"),
-    ).toBeVisible();
+    const landing = page
+      .locator("[data-application-content] [data-product-landing]")
+      .filter({ visible: true });
+    await expect(landing).toHaveCount(1);
+    await expect(landing).toBeVisible();
   };
   const homeReady = async () => {
     await page.waitForURL((url) => url.pathname === "/");
@@ -1487,78 +1491,27 @@ test("архивные продукт, программа и урок откры
   }
 });
 
-test("old Offer links reach the canonical product checkout and retain the selected tariff", async ({
+test("retired subscription entry has no live checkout route", async ({
   page,
 }) => {
-  const offer = "66666666-6666-4666-8666-666666666601";
-  await page.goto(`/subscription?offer=${offer}&from=telegram&promo=COURSE`);
-  await expect(page).toHaveURL(
-    `/products/navigation-proof/buy?offer=${offer}&from=telegram&promo=COURSE`,
-  );
+  const response = await page.goto("/subscription");
+  expect(response?.status()).toBe(404);
 });
-
-test("a hidden tariff survives sign-in and resolves its own product", async ({
+test("direct Product checkout has no tariff selector", async ({
   page,
   context,
   baseURL,
 }) => {
   if (baseURL === undefined) throw new Error("Web baseURL is required");
-  const offer = "66666666-6666-4666-8666-666666666603";
-  const link = `/payment/checkout?offer=${offer}&promo=COURSE`;
-  await page.goto(`/subscription?offer=${offer}&promo=COURSE`);
+  await signInAsMember(context, baseURL);
+  await page.goto("/products/navigation-proof/buy");
   await expect(
-    page
-      .getByRole("main")
-      .getByRole("button", { name: "Войти через Telegram", exact: true }),
+    page.getByRole("heading", { name: "Проверочный продукт", exact: true }),
   ).toBeVisible();
-  await expect(page.locator('input[name="returnTo"]')).toHaveValue(link);
-  await signInAsMember(context, baseURL);
-  await page.goto(link);
-  await expect(page).toHaveURL(
-    `/products/navigation-modes/buy?offer=${offer}&promo=COURSE`,
-  );
+  await expect(page.getByRole("radio")).toHaveCount(0);
 });
 
-test("client navigation to another Offer resets the selected tariff on the same Product", async ({
-  page,
-  context,
-  baseURL,
-}) => {
-  if (baseURL === undefined) throw new Error("Web baseURL is required");
-  await signInAsMember(context, baseURL);
-  const firstOffer = "66666666-6666-4666-8666-666666666601";
-  const secondOffer = "66666666-6666-4666-8666-666666666605";
-  await page.goto(`/products/navigation-proof/buy?offer=${firstOffer}`);
-  await expect(
-    page.locator('input[value="66666666-6666-4666-8666-666666666602"]'),
-  ).toBeChecked();
-  await page.evaluate((href) => {
-    Reflect.set(window, "__offerNavigationDocument", true);
-    const next: unknown = Reflect.get(window, "next");
-    if (next === null || typeof next !== "object")
-      throw new Error("Next router is absent");
-    const router: unknown = Reflect.get(next, "router");
-    if (router === null || typeof router !== "object")
-      throw new Error("Next router is absent");
-    const push: unknown = Reflect.get(router, "push");
-    if (typeof push !== "function")
-      throw new Error("Next router cannot navigate");
-    Reflect.apply(push, router, [href]);
-  }, `/products/navigation-proof/buy?offer=${secondOffer}`);
-  await expect(page).toHaveURL(
-    `/products/navigation-proof/buy?offer=${secondOffer}`,
-  );
-  await expect(
-    page.locator('input[value="66666666-6666-4666-8666-666666666606"]'),
-  ).toBeChecked();
-  expect(
-    await page.evaluate((): unknown =>
-      Reflect.get(window, "__offerNavigationDocument"),
-    ),
-  ).toBe(true);
-});
-
-test("public course body renders while personal practice is held", async ({
+test("public course body renders while personal Task workspace is held", async ({
   page,
   context,
   baseURL,
@@ -1585,9 +1538,9 @@ test("public course body renders while personal practice is held", async ({
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     await expect(page.locator("[data-course-reading]:visible")).toBeVisible();
     const requests = await backendRequests();
-    await testInfo.attach("held-private-practice-requests", {
+    await testInfo.attach("held-private-task-requests", {
       body: JSON.stringify({
-        privatePracticeHeld: true,
+        privateTaskHeld: true,
         publicBodyVisible: true,
         requests,
       }),
@@ -1603,9 +1556,7 @@ test("public course body renders while personal practice is held", async ({
         .every((item) => item.path === "/library/products/navigation-proof"),
     ).toBe(true);
     expect(
-      requests.some(
-        (item) => item.path.endsWith("/practices") && item.authorized,
-      ),
+      requests.some((item) => item.path.endsWith("/task") && item.authorized),
     ).toBe(true);
   } finally {
     await fetch(`${backend}/__practice-hold`, {

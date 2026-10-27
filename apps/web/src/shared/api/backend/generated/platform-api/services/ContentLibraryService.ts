@@ -58,16 +58,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -116,16 +116,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -139,7 +139,7 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
-    pinnedSeries: {
+    pinnedProduct: {
       card: {
         action: string;
         eyebrow: string;
@@ -187,16 +187,16 @@ export class ContentLibraryService {
         outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
-        publishedAt: string;
-        seriesMemberships: Array<{
+        productMemberships: Array<{
           ordinal: number;
-          series: {
+          product: {
             id: string;
             name: string;
             slug: string;
           };
           stepGroup?: string | null;
         }>;
+        publishedAt: string;
         slug: string;
         summary: string;
         tags: Array<{
@@ -250,16 +250,16 @@ export class ContentLibraryService {
         outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
-        publishedAt: string;
-        seriesMemberships: Array<{
+        productMemberships: Array<{
           ordinal: number;
-          series: {
+          product: {
             id: string;
             name: string;
             slug: string;
           };
           stepGroup?: string | null;
         }>;
+        publishedAt: string;
         slug: string;
         summary: string;
         tags: Array<{
@@ -313,16 +313,16 @@ export class ContentLibraryService {
         outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
-        publishedAt: string;
-        seriesMemberships: Array<{
+        productMemberships: Array<{
           ordinal: number;
-          series: {
+          product: {
             id: string;
             name: string;
             slug: string;
           };
           stepGroup?: string | null;
         }>;
+        publishedAt: string;
         slug: string;
         summary: string;
         tags: Array<{
@@ -365,16 +365,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -406,7 +406,7 @@ export class ContentLibraryService {
    */
   public listPublishedMaterials({
     sort,
-    series,
+    product,
     format,
     topic,
     q,
@@ -414,8 +414,8 @@ export class ContentLibraryService {
     after,
     feedOnly,
   }: {
-    sort?: 'newest' | 'relevance' | 'series' | 'title',
-    series?: Array<string>,
+    sort?: 'newest' | 'relevance' | 'product' | 'title',
+    product?: Array<string>,
     format?: Array<string>,
     topic?: Array<string>,
     q?: string,
@@ -461,16 +461,16 @@ export class ContentLibraryService {
           outcomes: Array<string>;
           primaryVideoDurationSeconds?: number;
           primaryVideoId: string | null;
-          publishedAt: string;
-          seriesMemberships: Array<{
+          productMemberships: Array<{
             ordinal: number;
-            series: {
+            product: {
               id: string;
               name: string;
               slug: string;
             };
             stepGroup?: string | null;
           }>;
+          publishedAt: string;
           slug: string;
           summary: string;
           tags: Array<{
@@ -487,7 +487,7 @@ export class ContentLibraryService {
         slug: 'video' | 'guide' | 'note';
         summary: string | null;
       }>;
-      series: Array<{
+      products: Array<{
         count: number;
         cover: {
           coverId: string;
@@ -524,16 +524,16 @@ export class ContentLibraryService {
           outcomes: Array<string>;
           primaryVideoDurationSeconds?: number;
           primaryVideoId: string | null;
-          publishedAt: string;
-          seriesMemberships: Array<{
+          productMemberships: Array<{
             ordinal: number;
-            series: {
+            product: {
               id: string;
               name: string;
               slug: string;
             };
             stepGroup?: string | null;
           }>;
+          publishedAt: string;
           slug: string;
           summary: string;
           tags: Array<{
@@ -587,16 +587,16 @@ export class ContentLibraryService {
           outcomes: Array<string>;
           primaryVideoDurationSeconds?: number;
           primaryVideoId: string | null;
-          publishedAt: string;
-          seriesMemberships: Array<{
+          productMemberships: Array<{
             ordinal: number;
-            series: {
+            product: {
               id: string;
               name: string;
               slug: string;
             };
             stepGroup?: string | null;
           }>;
+          publishedAt: string;
           slug: string;
           summary: string;
           tags: Array<{
@@ -640,16 +640,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -671,7 +671,7 @@ export class ContentLibraryService {
       url: '/library/materials',
       query: {
         'sort': sort,
-        'series': series,
+        'product': product,
         'format': format,
         'topic': topic,
         'q': q,
@@ -684,34 +684,6 @@ export class ContentLibraryService {
         401: `Optional Account proof is invalid`,
         500: `Catalog or Account resolution failed internally`,
         503: `Catalog or Account proof dependency is unavailable`,
-      },
-    });
-  }
-  /**
-   * List available assignments and their current context versions for a signed-in participant
-   * @returns any
-   * @throws ApiError
-   */
-  public listLearningPractices({
-    slug,
-  }: {
-    slug: string,
-  }): CancelablePromise<{
-    practices: Array<{
-      contextVersion: string;
-      practiceId: string;
-      reviewProtocolVersion: string;
-      title: string;
-    }>;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/library/materials/{slug}/practices',
-      path: {
-        'slug': slug,
-      },
-      errors: {
-        401: `Optional Account proof is invalid`,
       },
     });
   }
@@ -769,16 +741,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -876,7 +848,7 @@ export class ContentLibraryService {
       slug: string;
       summary: string;
     };
-    relatedSeries: Array<{
+    relatedProduct: Array<{
       cover: {
         coverId: string;
         renditions: Array<{
@@ -913,7 +885,7 @@ export class ContentLibraryService {
       errors: {
         400: `Discovery slug is malformed`,
         401: `Optional Account proof is invalid`,
-        404: `Topic, Series or source Material is not published`,
+        404: `Topic, Product or source Material is not published`,
         500: `Discovery or Account resolution failed internally`,
         503: `Discovery or Account dependency is unavailable`,
       },
@@ -999,16 +971,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -1022,7 +994,7 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
-    kind: 'series';
+    kind: 'product';
     programmePlacements?: Array<{
       chapterId: string | null;
       id: string;
@@ -1106,7 +1078,7 @@ export class ContentLibraryService {
       slug: string;
       summary: string;
     };
-    relatedSeries: Array<{
+    relatedProduct: Array<{
       cover: {
         coverId: string;
         renditions: Array<{
@@ -1143,7 +1115,7 @@ export class ContentLibraryService {
       errors: {
         400: `Discovery slug is malformed`,
         401: `Optional Account proof is invalid`,
-        404: `Topic, Series or source Material is not published`,
+        404: `Topic, Product or source Material is not published`,
         500: `Discovery or Account resolution failed internally`,
         503: `Discovery or Account dependency is unavailable`,
       },
@@ -1172,211 +1144,6 @@ export class ContentLibraryService {
       errors: {
         401: `Optional Account proof is invalid`,
         500: `Account resolution failed`,
-      },
-    });
-  }
-  /**
-   * @deprecated
-   * Read a generated ordered Series view
-   * @returns any Published Materials in author-defined Series order
-   * @throws ApiError
-   */
-  public readPublishedSeries({
-    slug,
-  }: {
-    slug: string,
-  }): CancelablePromise<{
-    chapters: Array<{
-      id: string;
-      materialIds: Array<string>;
-      name: string;
-      summary: string;
-      supplementaryMaterialIds?: Array<string>;
-      tasks: Array<{
-        access: 'free' | 'closed';
-        afterMaterialId: string | null;
-        availability: 'available' | 'locked' | 'unavailable';
-        code: string;
-        embeddedMaterialId?: string;
-        lastSubmittedAt: string | null;
-        programmeVisibility?: 'embedded';
-        title: string;
-      }>;
-    }>;
-    hasNext: boolean;
-    items: Array<{
-      access: 'free' | 'closed';
-      availability: 'available' | 'locked' | 'unavailable';
-      contentVersion: number;
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
-      format: {
-        id: 'video' | 'guide' | 'note';
-        name: string;
-        slug: 'video' | 'guide' | 'note';
-      };
-      materialId: string;
-      noteExcerpt?: {
-        linkUrl?: string;
-        text: string;
-        truncated: boolean;
-      };
-      outcomes: Array<string>;
-      primaryVideoDurationSeconds?: number;
-      primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
-        ordinal: number;
-        series: {
-          id: string;
-          name: string;
-          slug: string;
-        };
-        stepGroup?: string | null;
-      }>;
-      slug: string;
-      summary: string;
-      tags: Array<{
-        id: string;
-        name: string;
-      }>;
-      title: string;
-      topic: {
-        id: string;
-        name: string;
-        slug: string;
-      };
-    }>;
-    kind: 'series';
-    programmePlacements?: Array<{
-      chapterId: string | null;
-      id: string;
-      materialId: string;
-      stepGroup: string | null;
-    }>;
-    reference: {
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      hasModeVariants: boolean;
-      id: string;
-      introduction: {
-        audience: string;
-        outcome: string;
-        prerequisites: string;
-        scope: string;
-      } | null;
-      name: string;
-      productPage: {
-        page: {
-          blocks: Array<({
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: 'hero';
-            lead: string;
-          } | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: 'cards';
-            lead: string;
-            note: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'text';
-            paragraphs: Array<string>;
-            title: string;
-          } | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: 'steps';
-            lead: string;
-            link: string;
-            title: string;
-          } | {
-            id: string;
-            items: Array<string>;
-            kind: 'list';
-            text: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'trial';
-            link: string;
-            text: string;
-            title: string;
-          })>;
-          card: {
-            action: string;
-            eyebrow: string;
-            subtitle: string;
-          } | null;
-        } | null;
-        presentation: string;
-      } | null;
-      slug: string;
-      summary: string;
-    };
-    relatedSeries: Array<{
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      id: string;
-      matchingMaterialCount: number;
-      name: string;
-      slug: string;
-      summary: string;
-      totalMaterialCount: number;
-    }>;
-    topics: Array<{
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      id: string;
-      name: string;
-      slug: string;
-    }>;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/library/series/{slug}',
-      path: {
-        'slug': slug,
-      },
-      errors: {
-        400: `Discovery slug is malformed`,
-        401: `Optional Account proof is invalid`,
-        404: `Topic, Series or source Material is not published`,
-        500: `Discovery or Account resolution failed internally`,
-        503: `Discovery or Account dependency is unavailable`,
       },
     });
   }
@@ -1465,16 +1232,16 @@ export class ContentLibraryService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{
@@ -1572,7 +1339,7 @@ export class ContentLibraryService {
       slug: string;
       summary: string;
     };
-    relatedSeries: Array<{
+    relatedProduct: Array<{
       cover: {
         coverId: string;
         renditions: Array<{
@@ -1609,7 +1376,7 @@ export class ContentLibraryService {
       errors: {
         400: `Discovery slug is malformed`,
         401: `Optional Account proof is invalid`,
-        404: `Topic, Series or source Material is not published`,
+        404: `Topic, Product or source Material is not published`,
         500: `Discovery or Account resolution failed internally`,
         503: `Discovery or Account dependency is unavailable`,
       },

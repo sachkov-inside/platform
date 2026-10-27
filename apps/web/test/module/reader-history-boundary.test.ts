@@ -6,7 +6,7 @@ import {
   MaterialReaderAccess,
 } from "@/_pages/material-reader/ui/material-reader-states";
 import { MaterialReaderView } from "@/_pages/material-reader/ui/material-reader-view";
-import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
+import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { courseSource } from "@/storybook/course-reading.fixtures";
 
@@ -37,7 +37,7 @@ const material = {
   outcomes: [],
   format: { name: "Гайд", slug: "guide" },
   publishedAt: "2026-10-15T00:00:00.000Z",
-  seriesMemberships: [],
+  productMemberships: [],
   slug: "aie-product-brief",
   summary: "",
   tags: [],
@@ -54,15 +54,15 @@ describe("Reader history activation boundary", () => {
       createElement(MaterialReaderPending, {
         material,
         returnTarget,
-        seriesContext: null,
+        productContext: null,
       }),
     );
     expect(track).not.toHaveBeenCalled();
     const context = await Promise.resolve(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: material.slug,
         returnTarget,
-        series: {
+        product: {
           ...courseSource,
           chapters: courseSource.chapters.map((chapter) => ({
             ...chapter,
@@ -78,7 +78,7 @@ describe("Reader history activation boundary", () => {
         body: [],
         primaryVideo: null,
         returnTarget,
-        seriesContext: context,
+        productContext: context,
       }),
     );
     expect(track).toHaveBeenCalledExactlyOnceWith({
@@ -93,10 +93,10 @@ describe("Locked material course entry", () => {
     const returnTarget = parseMaterialReaderReturnTarget(
       "/products/ai-engineering/programme",
     );
-    const seriesContext = resolveSeriesReaderContext({
+    const productContext = resolveProductReaderContext({
       currentMaterialSlug: material.slug,
       returnTarget,
-      series: {
+      product: {
         ...courseSource,
         chapters: courseSource.chapters.map((chapter) => ({
           ...chapter,
@@ -110,10 +110,10 @@ describe("Locked material course entry", () => {
         material: {
           ...material,
           access: "closed",
-          seriesMemberships: [
+          productMemberships: [
             {
               ordinal: 1,
-              series: {
+              product: {
                 id: "course",
                 name: "AI Engineering",
                 slug: "ai-engineering",
@@ -124,7 +124,7 @@ describe("Locked material course entry", () => {
         returnTarget: parseMaterialReaderReturnTarget(
           "/products/ai-engineering/programme",
         ),
-        seriesContext,
+        productContext,
         invitation: null,
       }),
     );

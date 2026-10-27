@@ -381,7 +381,7 @@ const publishedPresentation = {
 const removalRequired = {
   products: [
     {
-      productId: materialAuthoringPresentation.draft.seriesIds[0],
+      productId: materialAuthoringPresentation.draft.productIds[0],
       holders: 12,
       name: "Создание Platform Inside",
     },
@@ -1058,16 +1058,16 @@ export const VariantStepEditorMobile: Story = {
   },
 };
 
-export const SearchableSeries: Story = {
+export const SearchableProduct: Story = {
   name: "Продукты · поиск и продолжение списка",
   args: {
     initialPresentation: {
       ...materialAuthoringPresentation,
-      availableSeries: Array.from({ length: 45 }, (_, index) => ({
+      availableProduct: Array.from({ length: 45 }, (_, index) => ({
         label: `Руководство ${String(index + 1).padStart(2, "0")}`,
         value: `94000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
       })),
-      draft: { ...materialAuthoringPresentation.draft, seriesIds: [] },
+      draft: { ...materialAuthoringPresentation.draft, productIds: [] },
     },
   },
   play: async ({ canvasElement }) => {
@@ -1075,20 +1075,20 @@ export const SearchableSeries: Story = {
       within(canvasElement).getByRole("tab", { name: "Параметры" }),
     );
     const canvas = within(canvasElement);
-    const series = within(canvas.getByLabelText("Выбор продуктов"));
-    await expect(series.getAllByRole("checkbox")).toHaveLength(20);
-    const more = series.getByRole("button", { name: "Показать ещё" });
+    const product = within(canvas.getByLabelText("Выбор продуктов"));
+    await expect(product.getAllByRole("checkbox")).toHaveLength(20);
+    const more = product.getByRole("button", { name: "Показать ещё" });
     more.focus();
     await userEvent.keyboard("{Enter}");
-    await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
+    await expect(product.getAllByRole("checkbox").length).toBeGreaterThan(20);
     await userEvent.type(
       canvas.getByLabelText("Поиск продуктов"),
       "Руководство 45",
       { delay: null },
     );
-    await expect(series.getAllByRole("checkbox")).toHaveLength(1);
+    await expect(product.getAllByRole("checkbox")).toHaveLength(1);
     await expect(
-      series.getByRole("checkbox", { name: "Руководство 45" }),
+      product.getByRole("checkbox", { name: "Руководство 45" }),
     ).toBeVisible();
     const page = routeContent(canvasElement);
     await expect(page.getAllByText("Теги", { exact: true })).toHaveLength(1);
@@ -1441,12 +1441,12 @@ function referenceSelectorWorkload(size: number): Story {
     args: {
       initialPresentation: {
         ...materialAuthoringPresentation,
-        availableSeries: choices("Продукт", "20000000"),
+        availableProduct: choices("Продукт", "20000000"),
         availableTags: choices("Тег", "30000000"),
         availableTopics: choices("Тема", "40000000"),
         draft: {
           ...materialAuthoringPresentation.draft,
-          seriesIds: [],
+          productIds: [],
           tagIds: [],
           topicId: "40000000-0000-4000-8000-000000000001",
         },

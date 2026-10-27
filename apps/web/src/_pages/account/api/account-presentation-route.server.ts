@@ -3,12 +3,12 @@ import "server-only";
 import { handleAuthenticatedRead } from "@/shared/auth/index.server";
 
 import { getAccountTelegramMembership } from "./get-account-telegram-membership";
-import { getPrivateMemberProfile } from "./get-private-member-profile";
+import { getPrivateAccountProfile } from "./get-private-account-profile";
 
 export async function handleAccountPresentationRequest(): Promise<Response> {
   return handleAuthenticatedRead(async (accessToken) => {
     const [profile, telegramMembership] = await Promise.all([
-      getPrivateMemberProfile(accessToken),
+      getPrivateAccountProfile(accessToken),
       getAccountTelegramMembership(accessToken),
     ]);
     if (

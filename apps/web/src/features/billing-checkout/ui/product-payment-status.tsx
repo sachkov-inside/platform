@@ -12,7 +12,7 @@ export function ProductPaymentStatus({
   programmeHref,
   onRefresh,
   loading,
-  onBuyAgain,
+  onBuyAgain: _onBuyAgain,
 }: {
   readonly purchase: PurchaseStatus;
   readonly programmeHref: Route;
@@ -46,16 +46,9 @@ export function ProductPaymentStatus({
           <>
             <p className="mt-3 text-sm text-muted-foreground">
               {(purchase.refundedKopecks ?? 0) > 0
-                ? "Деньги возвращены. Права этой покупки отозваны."
+                ? "Деньги возвращены. Состояние доступа проверяется отдельно."
                 : "Действующего доступа к продукту нет."}
             </p>
-            <Button
-              className="mt-5 min-h-12 w-full"
-              type="button"
-              onClick={onBuyAgain}
-            >
-              Купить снова
-            </Button>
           </>
         ) : purchase.paymentUrl === null ? (
           <p className="mt-3 text-sm text-muted-foreground" role="status">

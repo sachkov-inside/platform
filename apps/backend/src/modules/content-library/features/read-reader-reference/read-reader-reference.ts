@@ -1,9 +1,9 @@
+import type { ProductDirectory } from "../../../products/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import {
   materialId,
-  type ProductDirectory,
   type PublishedMaterialSelection,
 } from "../../../materials/index.js";
 

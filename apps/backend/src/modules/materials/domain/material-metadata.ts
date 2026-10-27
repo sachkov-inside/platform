@@ -34,7 +34,7 @@ export const MATERIAL_OUTCOMES = {
 } as const;
 
 export interface ProductMembership {
-  readonly seriesId: string;
+  readonly productId: string;
   readonly ordinal: number;
 }
 
@@ -48,14 +48,14 @@ export interface MaterialMetadataValues {
   readonly topicId: string | null;
   readonly formatId: MaterialFormat | null;
   readonly tagIds: readonly string[];
-  readonly seriesMemberships: readonly ProductMembership[];
+  readonly productMemberships: readonly ProductMembership[];
 }
 
 export interface MaterialMetadataSelectionValues extends Omit<
   MaterialMetadataValues,
-  "seriesMemberships" | "slug"
+  "productMemberships" | "slug"
 > {
-  readonly seriesIds: readonly string[];
+  readonly productIds: readonly string[];
 }
 
 export interface PublishableMaterialMetadata extends Omit<
@@ -97,11 +97,11 @@ const metadataSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
       .max(120)
       .nullable(),
-    seriesMemberships: z
+    productMemberships: z
       .array(
         z
           .object({
-            seriesId: normalizedUuidSchema,
+            productId: normalizedUuidSchema,
             ordinal: z.number().int().positive(),
           })
           .strict(),
@@ -113,7 +113,7 @@ const metadataSchema = z
 const metadataSelectionSchema = z
   .object({
     ...metadataSelectionBaseShape,
-    seriesIds: z.array(normalizedUuidSchema).max(100),
+    productIds: z.array(normalizedUuidSchema).max(100),
   })
   .strict();
 
@@ -123,7 +123,7 @@ export class MaterialMetadataSelection {
   ) {
     Object.freeze(this.values.outcomes);
     Object.freeze(this.values.tagIds);
-    Object.freeze(this.values.seriesIds);
+    Object.freeze(this.values.productIds);
     Object.freeze(this.values);
     Object.freeze(this);
   }
@@ -142,12 +142,14 @@ export class MaterialMetadataSelection {
         error: { code: "duplicate_tag", tagId: duplicateTag },
       };
     }
-    if (findDuplicate(parsed.data.seriesIds) !== undefined) {
+    if (findDuplicate(parsed.data.productIds) !== undefined) {
       return {
         ok: false,
         error: {
           code: "invalid_content",
-          issues: [{ code: "duplicate_series", path: "/metadata/seriesIds" }],
+          issues: [
+            { code: "duplicate_products", path: "/metadata/productIds" },
+          ],
         },
       };
     }
@@ -157,13 +159,13 @@ export class MaterialMetadataSelection {
         ...parsed.data,
         outcomes: [...parsed.data.outcomes],
         tagIds: [...parsed.data.tagIds].sort(),
-        seriesIds: [...parsed.data.seriesIds].sort(),
+        productIds: [...parsed.data.productIds].sort(),
       }),
     };
   }
 
   materialize(
-    seriesMemberships: readonly ProductMembership[],
+    productMemberships: readonly ProductMembership[],
     slug: string | null,
   ): MaterialMetadata {
     const metadata = MaterialMetadata.create({
@@ -176,7 +178,7 @@ export class MaterialMetadataSelection {
       topicId: this.values.topicId,
       formatId: this.values.formatId,
       tagIds: this.values.tagIds,
-      seriesMemberships,
+      productMemberships,
     });
     if (!metadata.ok) {
       throw new TypeError(
@@ -202,12 +204,12 @@ export class MaterialMetadata {
     readonly topicId: string | null,
     readonly formatId: MaterialFormat | null,
     readonly tagIds: readonly string[],
-    readonly seriesMemberships: readonly ProductMembership[],
+    readonly productMemberships: readonly ProductMembership[],
   ) {
     Object.freeze(this.outcomes);
     Object.freeze(this.tagIds);
-    this.seriesMemberships.forEach(Object.freeze);
-    Object.freeze(this.seriesMemberships);
+    this.productMemberships.forEach(Object.freeze);
+    Object.freeze(this.productMemberships);
     Object.freeze(this);
   }
 
@@ -228,7 +230,7 @@ export class MaterialMetadata {
     }
     if (
       findDuplicate(
-        parsed.data.seriesMemberships.map(({ seriesId }) => seriesId),
+        parsed.data.productMemberships.map(({ productId }) => productId),
       ) !== undefined
     ) {
       return {
@@ -236,7 +238,10 @@ export class MaterialMetadata {
         error: {
           code: "invalid_content",
           issues: [
-            { code: "duplicate_series", path: "/metadata/seriesMemberships" },
+            {
+              code: "duplicate_products",
+              path: "/metadata/productMemberships",
+            },
           ],
         },
       };
@@ -254,8 +259,8 @@ export class MaterialMetadata {
         parsed.data.topicId,
         parsed.data.formatId,
         [...parsed.data.tagIds].sort(),
-        [...parsed.data.seriesMemberships].sort((left, right) =>
-          left.seriesId.localeCompare(right.seriesId),
+        [...parsed.data.productMemberships].sort((left, right) =>
+          left.productId.localeCompare(right.productId),
         ),
       ),
     };
@@ -292,7 +297,7 @@ export class MaterialMetadata {
         difficulty: this.difficulty,
         formatId: requireValue(this.formatId),
         outcomes: this.outcomes,
-        seriesMemberships: this.seriesMemberships,
+        productMemberships: this.productMemberships,
         slug: requireValue(this.slug),
         summary: requireValue(this.summary),
         tagIds: this.tagIds,
@@ -313,7 +318,7 @@ export class MaterialMetadata {
       topicId: this.topicId,
       formatId: this.formatId,
       tagIds: this.tagIds,
-      seriesMemberships: this.seriesMemberships,
+      productMemberships: this.productMemberships,
     };
   }
 }
@@ -343,8 +348,8 @@ function requiredPublicationIssues(
       : []),
     // Закрытое живёт внутри продуктов: закрытый материал без руководства купить негде, и открыть
     // его было бы нечем, кроме ручного состава тарифа.
-    ...(metadata.access === "closed" && metadata.seriesMemberships.length === 0
-      ? [{ code: "membership_outside_product", path: "/metadata/seriesIds" }]
+    ...(metadata.access === "closed" && metadata.productMemberships.length === 0
+      ? [{ code: "membership_outside_product", path: "/metadata/productIds" }]
       : []),
   ];
 }

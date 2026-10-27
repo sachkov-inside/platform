@@ -1,4 +1,5 @@
 import type { TechnicalTelemetry } from "../../infrastructure/observability/technical-telemetry.js";
+import { ProductReadingModule } from "../products/index.js";
 import { ReadMaterialAnnouncementsController } from "./features/read-material-announcements/read-material-announcements.controller.js";
 import { ReadWaitlistAudienceController } from "./features/read-waitlist-audience/read-waitlist-audience.controller.js";
 import { BillingModule } from "../billing/index.js";
@@ -97,6 +98,7 @@ export class TrackingHitPump
 
 @Module({
   imports: [
+    ProductReadingModule,
     PrismaModule,
     BillingModule,
     SalesFunnelModule,

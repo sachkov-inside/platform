@@ -18,31 +18,42 @@ test fails if the former address placeholder returns. The edge routes are descri
 
 ## Delivery and ownership
 
-The existing authoring local package accepts optional `practiceDefinitions`. Each record includes
-`practiceId`, `definition`, `sourceReference`, `provenance` and `publicationState`. Definitions contain
-business inputs, expected outcome, allowed freedom and stable criterion IDs with acceptable evidence.
-The package namespace must agree with IDs and selected Material source revisions. Local preflight
-validates all definitions before writes. The backend validates the complete definition, author
-permission and exact current Material binding before applying a full state.
+Product Tasks are the current assignment mechanism (#1710). Content originals and source package
+bytes remain unchanged. A legacy package's complete requirements convert through the Task importer
+only with one explicit Product/chapter owner; conflicting bindings or ambiguous ownership stop before
+writes. Expected outcome remains one exact result item, including 16000-character authored text.
+An existing target Task is reused only when its source identity, embedded Material, Product,
+chapter, source revision and definition digest are proven identical. Matching definitions preserve
+its current Task Version, metadata, publication and Submission history without a Task write.
+Divergent definitions or ownership, and uncertain pending Task commands, stop before transfer
+writes and require explicit reconciliation. Legacy requirements never restore an older definition
+over a current Task Version.
 
-The import API uses expected monotonic `practiceVersion` and `expectedContentVersion`; `null` means
-creation. Withdrawal and republishing advance the version, including ABA transitions. Definition
-digests alone are not CAS tokens. Idempotency is scoped by actor and operation and fingerprints the
-entire command; a historical receipt never means that state is still current. The local journal
-replays an uncertain request with the same key before reading current state, detects foreign changes,
-and does not republish a withdrawn definition. Omission from a package is not deletion.
+The journal retains the original package fingerprint and legacy records, and keeps historical Practice
+operation keys/receipts separate from Task import operations.
 
-Real authored originals stay in Engineering Content. Provenance records a repository, commit and relative
-path, but is an author assertion, not independent cryptographic attestation of Git history. The
-current Content exporter needs a follow-up to emit this optional metadata. Synthetic packages already
-exercise the seam; that follow-up and the first chapter do not block the technical practice cycle.
+Migration0111 retains original Practice rows/source pins/provenance/receipts in an immutable audit
+and records mapped Task identities or an explicit passive disposition. Practice version is independent
+of Task Version. Existing Task UUIDs, versions, submissions, feedback and current review snapshots
+remain unchanged. No production inventory or author editorial acceptance follows from this migration.
+
+The old `/authoring/import/practices` routes and `learning_practice_read` are removed in #1712.
+Authorized `POST /authoring/history/practice-receipts` reads only an existing receipt with its exact
+actor, operation key and request fingerprint. Missing receipts fail retired; changed requests conflict.
+Replay does not republish, change a row or certify current publication. Migration0113 preserves
+original definitions in historical storage. Current local sync, release, Reader and native review
+use Product Tasks; there is no current Practice validation or learner decoder.
+
+Real authored originals stay in Engineering Content. Provenance records repository, commit and
+relative path as the author's assertion, not independent cryptographic attestation of Git history.
+Technical source transfer/readiness and author acceptance remain distinct.
 
 ## Product Tasks and review protocol v3 (#946)
 
-A Product Task replaces lesson practice for the course chapters
-([ADR 0030](../adr/0030-guide-task-module.md), specification
-[#939](https://github.com/sachkov-inside/platform/issues/939)). Both work side by side until Content
-moves chapters 0–1 to tasks; lesson practice keeps protocol v2 and everything below about it.
+A Product Task is the one assignment mechanism
+([ADR0030](../adr/0030-guide-task-module.md), specification
+[#939](https://github.com/sachkov-inside/platform/issues/939)). Earlier protocol-v2 experiment reports
+remain historical evidence, rather than a second current assignment authority.
 
 **Publication.** A package carries optional `tasks[]`: `sourceId` (the task code), `productId` and
 `chapterId` (source IDs of a Product and chapter in the same package), `title`, `access`,
@@ -159,11 +170,12 @@ exists. Content population, chapter count and a calendar date are not technical 
 
 ## Review contract
 
-`learning_practice_read` returns numbered canonical JSON parts containing the complete authored
-context and structured reference lesson, with a common Platform review protocol. All parts must share
+`learning_task_read` returns numbered canonical JSON parts containing the complete authored Task
+requirements and review protocol, with the full pinned Material context for an embedded assignment.
+All Task context parts must share
 `contextVersion` and `contentSha256`; later parts require both pins. The end marker, part count and
 byte count distinguish complete client consumption from server success. Mismatch, withdrawal,
-rebind or unavailable source stops the review. Old versions are not archived by this feature.
+rebind or unavailable source stops the review. Task Version and Submission history are immutable. Historical Practice records do not reconstruct a version archive.
 
 The own learner agent selects one local solution, independently of branch names. Multiple plausible
 worktrees require a scope question. It covers all criteria with confirmed, violation or not_verified,
@@ -218,7 +230,7 @@ Deterministic fixture/import checks run in `pnpm check:unit`. The real PostgreSQ
 permission, source binding, CAS races, withdrawal, ABA, receipt replay and connection ownership.
 MCP protocol tests reconstruct large Unicode contexts and preserve code/table blocks. Real HTTP
 adapter tests validate responses against generated OpenAPI. A separate full-stack stand delays the
-practice read to exercise coherent Reader readiness, checks private access, copying, responsive
+Task read to exercise coherent Reader readiness, checks private access, copying, responsive
 layout and accessibility. Native trials additionally inspect actual client tools, every context
 part, local evidence discovery, reports, discussion/recheck and unchanged project fingerprints.
 
@@ -248,15 +260,15 @@ Before giving participants an endpoint, verify the released configuration and li
 3. The production IdP supports normal OAuth onboarding of any MCP client: verify
    [Universal learner access](#universal-learner-access-938). The local stand client is not a
    production client.
-4. Import the exact committed Content snapshot. Publish only the approved lessons and their practice
-   definitions; a private lesson's definition remains unpublished. For draft originals, definition
+4. Import the exact committed Content snapshot. Publish only the approved lessons and their Product Task
+   definitions; a private lesson's Task remains unpublished. For draft originals, definition
    publication must be explicitly selected in the reviewed package; publishing the lesson alone
    does not publish an unpublished definition.
-5. In a real supported client, sign in and read all parts of each approved practice. Record client
-   version, Content commit, Material version, practice version, `contextVersion`, `contentSha256`,
+5. In a real supported client, sign in and use `learning_task_read` to read all parts of each approved Task. Record client
+   version, Content commit, Material version, Task Version, `contextVersion`, `contentSha256`,
    part count and the end marker. Never record tokens or local learner evidence in the delivery log.
 
-The first chapter's four practice IDs are `inside-content:aie-project-setup`,
+The first chapter's original source IDs, retained when mapping Practice to Tasks, are `inside-content:aie-project-setup`,
 `inside-content:aie-first-task`, `inside-content:aie-project-foundation` and
 `inside-content:aie-github-app`. `aie-first-service` belongs to chapter three and is not part of
 this acceptance. An unavailable MCP blocks self-review, not the independent text transfer or
@@ -322,6 +334,6 @@ curl -si https://inside.sachkov.dev/mcp/learning -X POST | grep -i '^www-authent
 A client acceptance uses a production test account without entitlement
 ([test identities](production-test-identities.md)). For each client record its version, the
 connection path (agent request or manual command), login, refresh after the five-minute access token,
-`learning_materials_list`, the complete read of a free practice and `practice_not_available` on a
-paid one. A client that cannot sign in is recorded with the reason. Never record tokens, callback
+`learning_materials_list`, the complete `learning_task_read` of a free Task and `task_not_available` on a
+protected Task without Product Access. A client that cannot sign in is recorded with the reason. Never record tokens, callback
 URLs or local learner data.

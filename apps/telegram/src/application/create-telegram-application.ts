@@ -6,7 +6,7 @@ import {
 import { AppModule } from "../app.module.js";
 import type { ApplicationConfig } from "../config/application-config.js";
 import { createDatabase } from "../database/create-database.js";
-import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";
+import { CourseActivation } from "../modules/course-activation/course-activation.js";
 import { BackgroundWorkers } from "../operations/background-workers.js";
 import { NotificationWorker } from "../operations/notification-worker.js";
 import { telegramObservabilityFromEnvironment } from "../observability/telegram-telemetry-runtime.js";
@@ -44,7 +44,7 @@ export function createTelegramApplication(
   let application: NestFastifyApplication | undefined;
   let background: BackgroundWorkers | undefined;
   let notifications: NotificationWorker | undefined;
-  let activation: SubscriptionActivation | undefined;
+  let activation: CourseActivation | undefined;
   let closing = false;
   let startupSettled = false;
   const isClosing = (): boolean => closing;
@@ -121,7 +121,7 @@ export function createTelegramApplication(
       if (isClosing()) begin(background);
       notifications = application.get(NotificationWorker);
       if (isClosing()) begin(notifications);
-      activation = application.get(SubscriptionActivation);
+      activation = application.get(CourseActivation);
       if (isClosing()) return undefined;
       await application.init();
       if (isClosing()) return undefined;

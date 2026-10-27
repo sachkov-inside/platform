@@ -14,7 +14,7 @@ const meta = {
       access: "free",
       availability: "available",
       format: "Гайд",
-      seriesMemberships: [],
+      productMemberships: [],
       slug: "public-material",
       summary: "Материал для самостоятельного чтения.",
       tags: [],
@@ -31,7 +31,7 @@ export const WithoutSharing: Story = {
   render: (args) => (
     <div className="mx-auto grid w-full max-w-3xl gap-6 p-4">
       {(["free", "closed"] as const).flatMap((access) =>
-        (["feed", "row", "series"] as const).map((variant) => (
+        (["feed", "row", "product"] as const).map((variant) => (
           <MaterialCard
             {...args}
             key={`${access}-${variant}`}

@@ -5,7 +5,7 @@ import type { PlatformConfig } from "../../config/platform-config.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js";
-import { ProfileAvatarMaintenanceModule } from "../../modules/member-profiles/index.js";
+import { ProfileAvatarMaintenanceModule } from "../../modules/account-profiles/index.js";
 
 @Module({})
 export class ProfileAvatarsWorkerModule {

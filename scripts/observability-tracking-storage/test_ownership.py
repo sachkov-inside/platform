@@ -97,7 +97,7 @@ class TrackingOwnership(unittest.TestCase):
             'scripts/observability-tracking-storage/test_tracking_trace_reasons.py',
             'apps/backend/src/entrypoints/api/create-api-application.ts',
             'apps/backend/src/modules/communications/facets/tracking-visits/tracking-visits.ts',
-            'apps/backend/src/modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.ts',
+            'apps/backend/src/modules/communications/infrastructure/postgres/migrations/0125-tracking-trace-context.ts',
             'apps/backend/src/migrations/index.ts','apps/backend/prisma/schema.prisma',
             'apps/backend/prisma.config.ts','apps/backend/test/support/proof-dependencies.ts','docs/contracts/runtime/diagnostic-error.ts',
             '.github/actions/setup-platform/action.yml','pnpm-lock.yaml','.github/workflows/observability-tracking-storage.yml',

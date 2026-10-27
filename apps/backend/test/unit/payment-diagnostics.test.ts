@@ -5,13 +5,14 @@ import { assembleAccessGrants } from "../../src/modules/account-rights/index.js"
 import { PaymentDiagnostics } from "../../src/modules/billing/features/read-payment-diagnostics/payment-diagnostics.js";
 
 const actor = "10000000-0000-4000-8000-000000000001";
+const productId = "30000000-0000-4000-8000-000000000001";
 const purchaseId = "20000000-0000-4000-8000-000000000001";
 const snapshot = {
   offer: {
     id: actor,
     revision: 1,
     name: "Inside",
-    benefits: ["materials"],
+    benefits: [`product:${productId}`],
     archived: false,
   },
   paymentOption: {
@@ -57,6 +58,7 @@ const paid = {
   id: purchaseId,
   accountId: actor,
   snapshot,
+  kind: "one_time",
   confirmedAt: new Date("2026-10-19T10:00:00Z"),
 };
 const window = {
@@ -104,7 +106,7 @@ describe("payment diagnostics", () => {
           {
             purchaseRef: purchaseId,
             payment: "confirmed",
-            grants: [{ capability: "materials", state: "missing" }],
+            grants: [{ capability: `product:${productId}`, state: "missing" }],
             refundedKopecks: 0,
           },
         ],
@@ -112,18 +114,21 @@ describe("payment diagnostics", () => {
       },
     });
   });
-  it("keeps the paid source grant distinct from revoked or expired current access", async () => {
+  it("reads purchase provenance with the current lifetime ProductAccess revocation", async () => {
     const report = assemble(
       [paid],
       [
         {
-          source: "paid",
+          source: "purchase",
           accountId: actor,
-          sourceRef: `${purchaseId}:materials`,
+          sourceRef: `payment:${purchaseId}`,
+          productId,
+          issuedAt: new Date("2026-10-01T00:00:00Z"),
+          firstIssuedAt: new Date("2026-10-01T00:00:00Z"),
           capabilities: ["materials"],
           startsAt: new Date("2026-10-01T00:00:00Z"),
           validUntil: new Date("2026-10-15T00:00:00Z"),
-          revokedAt: null,
+          revokedAt: new Date("2026-10-16T00:00:00Z"),
         },
       ],
     );
@@ -133,9 +138,7 @@ describe("payment diagnostics", () => {
         counts: { missingPaidGrant: 0, unknown: 0 },
         items: [
           {
-            grants: [
-              { state: "granted", validUntil: "2026-10-15T00:00:00.000Z" },
-            ],
+            grants: [{ state: "revoked", validUntil: null }],
           },
         ],
       },

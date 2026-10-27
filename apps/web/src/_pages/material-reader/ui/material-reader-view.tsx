@@ -7,7 +7,7 @@ import type {
   ReaderBlock,
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
-import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
+import type { ProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import {
   type MaterialBodyRendering,
   materialTaxonomyLabel,
@@ -52,7 +52,7 @@ export interface MaterialReaderViewProps {
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly seriesContext?: SeriesReaderContext | null;
+  readonly productContext?: ProductReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
   readonly topReadingAction?: ReactNode;
@@ -77,7 +77,7 @@ export function MaterialReaderView({
   material,
   primaryVideo,
   returnTarget = homeMaterialReaderReturnTarget,
-  seriesContext = null,
+  productContext = null,
   readingAction,
   bookmarkAction,
   topReadingAction,
@@ -91,9 +91,9 @@ export function MaterialReaderView({
   const endReadingAction = readingAction ?? topReadingAction;
   const endBookmarkAction = bookmarkAction ?? topBookmarkAction;
   const origin =
-    seriesContext?.supplementary === true &&
-    (seriesContext.programme?.currentPosition ?? 0) > 0
-      ? seriesContext.programme?.current
+    productContext?.supplementary === true &&
+    (productContext.programme?.currentPosition ?? 0) > 0
+      ? productContext.programme?.current
       : undefined;
   const returnAction =
     origin === undefined ? (
@@ -108,12 +108,12 @@ export function MaterialReaderView({
       </ReaderOriginLink>
     );
   const nextStep =
-    seriesContext?.supplementary === true
+    productContext?.supplementary === true
       ? null
-      : seriesContext?.programme?.next;
+      : productContext?.programme?.next;
   const topActions = (
     <ReaderTopActions
-      context={seriesContext?.programme == null ? seriesContext : null}
+      context={productContext?.programme == null ? productContext : null}
       returnAction={returnAction}
       nextStep={nextStep}
       readingAction={topReadingAction ?? readingAction}
@@ -143,16 +143,16 @@ export function MaterialReaderView({
       <ReaderHistoryTracker
         path={materialPath(material.slug)}
         originHref={
-          seriesContext?.supplementary === true &&
-          (seriesContext.programme?.currentPosition ?? 0) > 0
-            ? seriesContext.programme?.current.href
+          productContext?.supplementary === true &&
+          (productContext.programme?.currentPosition ?? 0) > 0
+            ? productContext.programme?.current.href
             : undefined
         }
       />
       <ReaderFrame
-        context={seriesContext}
+        context={productContext}
         repeatAtBottom={false}
-        hideReturn={seriesContext !== null}
+        hideReturn={productContext !== null}
         target={returnTarget}
         topNavigation={
           <>
@@ -165,13 +165,13 @@ export function MaterialReaderView({
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          {seriesContext?.programme == null ? null : (
+          {productContext?.programme == null ? null : (
             <div className="mb-4">{topActions}</div>
           )}
           <MaterialReaderHeader
             material={material}
-            programme={seriesContext?.programme}
-            supplementary={seriesContext?.supplementary ?? false}
+            programme={productContext?.programme}
+            supplementary={productContext?.supplementary ?? false}
             showShare={false}
           />
           {modeSwitch}
@@ -213,7 +213,9 @@ export function MaterialReaderView({
           <div className="mt-5" data-material-actions data-reader-footer>
             <ReaderTopActions
               position="bottom"
-              context={seriesContext?.programme == null ? seriesContext : null}
+              context={
+                productContext?.programme == null ? productContext : null
+              }
               returnAction={returnAction}
               bookmarkAction={endBookmarkAction}
               nextStep={nextStep}
@@ -228,13 +230,13 @@ export function MaterialReaderView({
               }
               readingAction={endReadingAction}
             />
-            {seriesContext?.programme == null ? null : (
-              <MaterialReaderFooter seriesContext={seriesContext} />
+            {productContext?.programme == null ? null : (
+              <MaterialReaderFooter productContext={productContext} />
             )}
           </div>
         </div>
       </ReaderFrame>
-      <SeriesReaderBar context={seriesContext} />
+      <ProductReaderBar context={productContext} />
     </div>
   );
 }
@@ -245,10 +247,10 @@ export function MaterialReaderView({
  * навигацию снизу: Главной там нет, на неё ведёт логотип в шапке, и случайно уйти из курса
  * нельзя. Кнопки 44 px (зона нажатия); недоступный шаг остаётся на месте приглушённым.
  */
-export function SeriesReaderBar({
+export function ProductReaderBar({
   context,
 }: {
-  readonly context: SeriesReaderContext | null;
+  readonly context: ProductReaderContext | null;
 }) {
   if (context === null || context.programme != null) return null;
   const step =
@@ -260,7 +262,7 @@ export function SeriesReaderBar({
       <nav
         aria-label="Уроки продукта"
         className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0 rounded-xl border border-border bg-background/95 p-0 shadow-sm lg:hidden"
-        data-series-reader-bar
+        data-product-reader-bar
       >
         <HidePublicFooter />
         {context.previous === null ? (
@@ -283,7 +285,7 @@ export function SeriesReaderBar({
           aria-label={`Программа, урок ${String(context.currentPosition)} из ${String(context.totalMaterials)}`}
           className="inline-flex min-h-11 min-w-14 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium tabular-nums text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           title="Открыть программу"
-          href={context.series.href}
+          href={context.product.href}
         >
           {context.currentPosition} / {context.totalMaterials}
         </IntentPrefetchLink>
@@ -369,21 +371,21 @@ export function MaterialReaderHeader({
 }
 
 export function MaterialReaderFooter({
-  seriesContext,
+  productContext,
   format = "guide",
 }: {
-  readonly seriesContext: SeriesReaderContext | null;
+  readonly productContext: ProductReaderContext | null;
   readonly format?: string;
 }) {
-  if (seriesContext === null) return null;
-  if (seriesContext.supplementary === true && seriesContext.programme != null)
-    return seriesContext.programme.currentPosition === 0 ? (
+  if (productContext === null) return null;
+  if (productContext.supplementary === true && productContext.programme != null)
+    return productContext.programme.currentPosition === 0 ? (
       <nav
         aria-label="Возврат к программе"
         className="mt-8 border-t border-border pt-4"
       >
         <CatalogBackLink
-          href={seriesContext.programme.href}
+          href={productContext.programme.href}
           label="К программе"
         />
       </nav>
@@ -395,26 +397,26 @@ export function MaterialReaderFooter({
       >
         <ReaderOriginLink
           className="inline-flex min-h-11 items-center gap-2 text-action underline underline-offset-4"
-          href={seriesContext.programme.current.href}
+          href={productContext.programme.current.href}
         >
           Вернуться{" "}
-          {seriesContext.programme.current.kind === "task"
+          {productContext.programme.current.kind === "task"
             ? "к заданию"
             : "к уроку"}
-          : {seriesContext.programme.current.title}
+          : {productContext.programme.current.title}
         </ReaderOriginLink>
       </nav>
     );
-  if (seriesContext.programme != null)
-    return <CourseReadingFooter context={seriesContext.programme} />;
+  if (productContext.programme != null)
+    return <CourseReadingFooter context={productContext.programme} />;
 
   return (
     <footer className="mt-5" data-reader-footer>
       <ReaderTopActions
         position="bottom"
-        context={seriesContext}
+        context={productContext}
         returnAction={
-          <CatalogBackLink href={seriesContext.series.href} label="Назад" />
+          <CatalogBackLink href={productContext.product.href} label="Назад" />
         }
         format={format}
       />
@@ -487,7 +489,7 @@ export function ReaderFrame({
   children,
   ...props
 }: React.ComponentProps<typeof ReaderReturnNavigation> & {
-  readonly context: SeriesReaderContext | null;
+  readonly context: ProductReaderContext | null;
 }) {
   return context?.programme == null ? (
     <CourseReadingLayout context={null}>
@@ -514,15 +516,15 @@ export function MaterialReaderBreadcrumbs({
   readonly target: MaterialReaderReturnTarget;
 }) {
   if (target.kind === "home") return null;
-  const course = material.seriesMemberships.find(
-    (item) => item.series.slug === target.seriesSlug,
-  )?.series;
+  const course = material.productMemberships.find(
+    (item) => item.product.slug === target.productSlug,
+  )?.product;
   return (
     <Breadcrumbs
       compact
       items={[
         { label: "Главная", href: "/" },
-        ...(target.kind === "series" && target.seriesSlug !== undefined
+        ...(target.kind === "product" && target.productSlug !== undefined
           ? [
               {
                 label: course?.name ?? "Курс",

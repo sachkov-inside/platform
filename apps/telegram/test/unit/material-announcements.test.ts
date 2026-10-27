@@ -30,13 +30,13 @@ test("source adapter distinguishes outage from exhaustion and refuses malformed 
     Promise.resolve(Response.json({ items: [item], nextCursor: null })),
   );
   const adapter = new HttpMaterialAnnouncementsAdapter(
-    "https://platform.example/integrations/telegram/v1/communications/authorize",
+    "https://platform.example/integrations/telegram/v2/communications/authorize",
     "synthetic-secret",
     fetcher,
   );
   expect((await adapter.read({}))?.items).toEqual([item]);
   expect(fetcher.mock.calls[0]?.[0]).toBe(
-    "https://platform.example/integrations/telegram/v1/communications/materials",
+    "https://platform.example/integrations/telegram/v2/communications/materials",
   );
   const init = fetcher.mock.calls[0]?.[1];
   expect(init?.redirect).toBe("error");

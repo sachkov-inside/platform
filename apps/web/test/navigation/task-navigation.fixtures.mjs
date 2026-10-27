@@ -38,10 +38,10 @@ export function navigationTaskRoute(url, authorized) {
     return {
       status: 200,
       value: {
-        kind: "series",
+        kind: "product",
         hasNext: false,
         items: [],
-        relatedSeries: [],
+        relatedProduct: [],
         topics: [],
         reference: {
           ...product,

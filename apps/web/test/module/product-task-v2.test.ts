@@ -14,7 +14,7 @@ function page() {
       product: { slug: "synthetic-course", name: "Тестовый курс" },
       chapter: { name: "Первая глава", ordinal: 1 },
       access: "free",
-      version: 2,
+      version: 2 as const,
       page: {
         title: "Задание 1. Название страницы",
         summary: "Описание",
@@ -58,7 +58,7 @@ describe("Product Task c reader contract (#1194)", () => {
         currentVersion: 2,
         nextCursor: null,
         latestSubmittedAt: null,
-        versions: [{ version: 2, criteria }],
+        versions: [{ version: 2 as const, criteria }],
         submissions: [],
       }).success,
     ).toBe(true);
@@ -70,7 +70,7 @@ describe("Product Task c reader contract (#1194)", () => {
         latestSubmittedAt: null,
         versions: [
           {
-            version: 2,
+            version: 2 as const,
             criteria: criteria.map((criterion) => ({
               ...criterion,
               acceptableEvidence: ["Hidden"],

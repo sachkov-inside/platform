@@ -65,10 +65,20 @@
   color: var(--action);
 }
 .forward a {
+  isolation: isolate;
   color: var(--accent-foreground);
+  background: transparent;
+}
+/* Inset the visible button while keeping the shared 44px hit area. */
+.forward a::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 3px 0;
+  border-radius: inherit;
   background: var(--action);
 }
-.forward a:hover {
+.forward a:hover::before {
   background: var(--action-hover);
 }
 /* Text stays in the accessible name when its visual label no longer fits. */

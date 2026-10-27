@@ -24,7 +24,7 @@ export function AccessSection({
       <div className="authoring-page-body">
         <header className="authoring-page-heading">
           <h1 id={id}>Люди и доступ</h1>
-          <p>Участники, доступ к продуктам и личные приглашения.</p>
+          <p>Бессрочные права на продукты, источники и история действий.</p>
         </header>
         <WorkspaceTabs tabs={tabs} label="Разделы доступа" />
       </div>

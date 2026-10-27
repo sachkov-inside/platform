@@ -23,7 +23,7 @@ export * from "./product-tasks.server";
 export * from "./material-assets.server";
 export * from "./material-authoring.server";
 export * from "./material-videos.server";
-export * from "./member-profiles.server";
+export * from "./account-profiles.server";
 export * from "./telegram-membership.server";
 
 export * from "./communications.server";
@@ -33,7 +33,7 @@ export {
   requestContinueMaterials,
   requestRecordMaterialOpen,
   requestLearningHome,
-  requestSeriesContinuation,
+  requestProductContinuation,
 } from "./personal-home.server";
 
 export * from "./billing-contact.server";
@@ -42,8 +42,6 @@ export * from "./notifications.server";
 export * from "./bookmarks.server";
 export * from "./sales-funnel.server";
 export * from "./billing.server";
-
-export { requestCurrentEnrollments } from "./billing.server";
 
 export { requestCurrentCommunityAdmission } from "./billing.server";
 

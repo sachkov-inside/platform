@@ -27,7 +27,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   expect(flight).not.toContain('"data-material-variant":"feed"');
   await page.goto(programme);
   await expect(
-    page.locator("[data-series-order]:visible").first(),
+    page.locator("[data-product-order]:visible").first(),
   ).toBeVisible();
   // The personal projection replaces the shared fallback; switch parts once its access state has landed.
   await expect(
@@ -168,7 +168,7 @@ test("programme reveals the next batch before the last loaded lesson reaches the
   await expect(surface.locator('[data-programme-part="header"]')).toContainText(
     "всё открыто",
   );
-  const rows = surface.locator("[data-series-ordinal]");
+  const rows = surface.locator("[data-product-ordinal]");
   await expect(rows).toHaveCount(24);
   const first = rows.first();
   await first.evaluate((node) => {
@@ -204,7 +204,7 @@ test("programme reveals the next batch before the last loaded lesson reaches the
   }
   expect(
     await rows.evaluateAll((nodes) =>
-      nodes.map((node) => Number(node.getAttribute("data-series-ordinal"))),
+      nodes.map((node) => Number(node.getAttribute("data-product-ordinal"))),
     ),
   ).toEqual(Array.from({ length: 60 }, (_, index) => index + 1));
 });

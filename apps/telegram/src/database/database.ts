@@ -3,7 +3,7 @@ import type { MaterialAnnouncement } from "@inside/contracts/material-announceme
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
 import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
-import type { ActivationTables } from "../modules/subscription-activation/activation-storage.js";
+import type { ActivationTables } from "../modules/course-activation/activation-storage.js";
 import type { TelegramButton } from "../modules/outbound/telegram-messages.js";
 import type { SalesFunnelTables } from "../modules/sales-funnel/sales-funnel-storage.js";
 import type { CommunityTables } from "../modules/community/community-storage.js";
@@ -17,9 +17,9 @@ import type {
 import type {
   BroadcastPart,
   DeliveryPart,
-  FunnelDraft,
+  CommunicationSequenceDraft,
   IntroSnapshot,
-} from "../modules/communications/funnel-types.js";
+} from "../modules/communications/sequence-types.js";
 
 import type { MembershipEvidenceSource } from "../modules/membership-evidence/membership-evidence.js";
 
@@ -333,7 +333,7 @@ export interface DatabaseSchema
     bot_identity: string;
     owner_account_ref: string;
     draft_id: string;
-    kind: "broadcast" | "funnel" | "intro";
+    kind: "broadcast" | "sequence" | "intro";
     name: string;
     snapshot: unknown;
   };
@@ -436,31 +436,35 @@ export interface DatabaseSchema
     received_at: Timestamp;
     traffic: "unknown" | "known_automation";
   };
-  communication_funnels: {
-    funnel_id: string;
+  communication_sequences: {
+    sequence_id: string;
     bot_identity: string;
     owner_account_ref: string;
     revision: number;
     published_revision: number | null;
     lifecycle: "draft" | "published" | "paused" | "archived";
-    draft: JsonColumn<FunnelDraft>;
-    published: ColumnType<FunnelDraft | null, string | null, string | null>;
+    draft: JsonColumn<CommunicationSequenceDraft>;
+    published: ColumnType<
+      CommunicationSequenceDraft | null,
+      string | null,
+      string | null
+    >;
     is_default: boolean;
   };
   communication_publications: {
-    funnel_id: string;
+    sequence_id: string;
     revision: number;
-    snapshot: JsonColumn<FunnelDraft>;
+    snapshot: JsonColumn<CommunicationSequenceDraft>;
     published_at: Timestamp;
   };
   communication_sources: {
     bot_identity: string;
     source_id: string;
     code: string;
-    funnel_id: string;
+    sequence_id: string;
   };
   communication_step_ids: {
-    funnel_id: string;
+    sequence_id: string;
     step_id: string;
     first_published_at: Timestamp;
     part_ids: JsonColumn<readonly string[]>;
@@ -488,18 +492,18 @@ export interface DatabaseSchema
     enabled: boolean;
     observed_at: Timestamp;
   };
-  communication_enrollments: {
-    enrollment_id: string;
+  communication_participations: {
+    participation_id: string;
     contact_id: string;
-    funnel_id: string;
-    enrolled_at: Timestamp;
+    sequence_id: string;
+    participated_at: Timestamp;
     initial_entry_key: string;
   };
   communication_entries: {
     bot_identity: string;
     update_id: BigIntColumn;
     contact_id: string;
-    funnel_id: string | null;
+    sequence_id: string | null;
     source_id: string | null;
     source_code: string | null;
     entered_at: Timestamp;
@@ -510,7 +514,7 @@ export interface DatabaseSchema
     dedup_key: string;
     bot_identity: string;
     contact_id: string;
-    funnel_id: string | null;
+    sequence_id: string | null;
     step_id: string | null;
     kind: "intro" | "entry" | "step" | "fallback" | "broadcast";
     broadcast_id: ColumnType<

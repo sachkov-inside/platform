@@ -93,24 +93,23 @@ describe("MCP Streamable HTTP adapter", () => {
         tools.find((tool) => tool.name === "billing_refunds_read")?.annotations,
       ).toMatchObject({ readOnlyHint: true });
       expect(
-        tools.find((tool) => tool.name === "billing_offers_publish")
+        tools.find((tool) => tool.name === "billing_productPrices_save")
           ?.annotations,
       ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
       expect(
-        tools.find((tool) => tool.name === "billing_offers_list")?.annotations,
+        tools.find((tool) => tool.name === "billing_productPrices_list")
+          ?.annotations,
       ).toMatchObject({ readOnlyHint: true });
       expect(
         tools.find((tool) => tool.name === "billing_payments_read")
           ?.annotations,
       ).toMatchObject({ readOnlyHint: true });
-      expect(
-        tools.find((tool) => tool.name === "billing_grants_readClassification")
-          ?.annotations,
-      ).toMatchObject({ readOnlyHint: true });
-      expect(
-        tools.find((tool) => tool.name === "billing_grants_classify")
-          ?.annotations,
-      ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+      expect(tools.map(({ name }) => name)).not.toContain(
+        "billing_grants_readClassification",
+      );
+      expect(tools.map(({ name }) => name)).not.toContain(
+        "billing_grants_classify",
+      );
     } finally {
       await client.close();
     }
@@ -129,7 +128,6 @@ describe("MCP Streamable HTTP adapter", () => {
       expect(listed.tools.map(({ name }) => name).sort()).toEqual([
         "learning_material_read",
         "learning_materials_list",
-        "learning_practice_read",
         "learning_task_read",
         "learning_task_review_update",
         "learning_task_submissions",
@@ -138,6 +136,9 @@ describe("MCP Streamable HTTP adapter", () => {
       ]);
       await expect(
         client.callTool({ name: "material_create_draft", arguments: {} }),
+      ).rejects.toThrow("not found");
+      await expect(
+        client.callTool({ name: "learning_practice_read", arguments: {} }),
       ).rejects.toThrow("not found");
       const metadata = await fetch(
         new URL("/.well-known/oauth-protected-resource/mcp/learning", endpoint),

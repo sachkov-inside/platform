@@ -39,7 +39,7 @@ it("generic HTTP is a local SERVER root and the first actual wire outcome counts
       async () => {
         const observation = runtime.startHttp(
           "POST",
-          "/integrations/platform/v1/communications",
+          "/integrations/platform/v2/communications",
         );
         expect(await observation.run(() => Promise.resolve("unchanged"))).toBe(
           "unchanged",
@@ -57,7 +57,7 @@ it("generic HTTP is a local SERVER root and the first actual wire outcome counts
     "1234567890abcdef1234567890abcdef",
   );
   expect(server?.attributes).toEqual({
-    "http.route": "/integrations/platform/v1/communications",
+    "http.route": "/integrations/platform/v2/communications",
     "http.request.method": "POST",
     "http.request.outcome": "completed",
     "http.response.status_code": 200,
@@ -74,7 +74,7 @@ it("generic HTTP is a local SERVER root and the first actual wire outcome counts
   expect(counts).toEqual([
     {
       attributes: {
-        "http.route": "/integrations/platform/v1/communications",
+        "http.route": "/integrations/platform/v2/communications",
         "http.request.method": "POST",
         "http.request.outcome": "completed",
       },

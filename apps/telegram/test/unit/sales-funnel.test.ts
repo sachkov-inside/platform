@@ -209,21 +209,21 @@ describe("sales funnel configuration", () => {
     ).toThrow("PLATFORM_SALES_FUNNEL_EVENTS_URL is required");
   });
 
-  it("takes the consent wording as one complete set", () => {
-    const texts = {
-      TELEGRAM_MARKETING_CONSENT_TEXT: "prompt",
-      TELEGRAM_MARKETING_CONSENT_BUTTON: "agree",
-      TELEGRAM_MARKETING_CONSENT_CONFIRMATION: "thanks",
-    };
-    expect(loadApplicationConfig({ ...base, ...texts }).salesFunnel).toEqual({
-      consent: { prompt: "prompt", button: "agree", confirmation: "thanks" },
-    });
-    expect(() =>
+  it("ignores retired consent wording, including incomplete old configuration", () => {
+    expect(
       loadApplicationConfig({
         ...base,
-        TELEGRAM_MARKETING_CONSENT_TEXT: "prompt",
-      }),
-    ).toThrow("are set together");
+        TELEGRAM_MARKETING_CONSENT_TEXT: "old prompt",
+        TELEGRAM_MARKETING_CONSENT_BUTTON: "old button",
+        TELEGRAM_MARKETING_CONSENT_CONFIRMATION: "old confirmation",
+      }).salesFunnel,
+    ).toEqual({});
+    expect(
+      loadApplicationConfig({
+        ...base,
+        TELEGRAM_MARKETING_CONSENT_TEXT: "old prompt",
+      }).salesFunnel,
+    ).toEqual({});
   });
 });
 
@@ -240,24 +240,10 @@ describe("consent button routing", () => {
   });
   const observedAt = new Date("2030-01-01T00:00:00.000Z");
 
-  it("reads the person's own press as an explicit consent", () => {
-    expect(adapter.translate("inside", "5", press(42, 42), observedAt)).toEqual(
-      {
-        kind: "marketing_preference",
-        value: {
-          contact: {
-            botIdentity: "inside",
-            updateId: "5",
-            observedAt,
-            telegramUserId: "42",
-            privateChatId: "42",
-          },
-          enabled: true,
-          via: "consent",
-        },
-        callbackQueryId: "callback-5",
-      },
-    );
+  it("ignores an old consent button instead of restoring an explicit stop", () => {
+    expect(
+      adapter.translate("inside", "5", press(42, 42), observedAt).kind,
+    ).not.toBe("marketing_preference");
   });
 
   it("ignores a press outside the person's own chat or with other data", () => {

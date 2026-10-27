@@ -51,7 +51,7 @@ it("owned native Fastify counts normal, schema400,404, thrown500 and terminal503
       throw new Error("private_synthetic_error");
     });
     server.post(
-      "/integrations/platform/v1/communications",
+      "/integrations/platform/v2/communications",
       {
         schema: {
           body: {
@@ -68,7 +68,7 @@ it("owned native Fastify counts normal, schema400,404, thrown500 and terminal503
     const statuses: number[] = [];
     for (const [route, method, body] of [
       ["/health", "GET", undefined],
-      ["/integrations/platform/v1/communications", "POST", "{}"],
+      ["/integrations/platform/v2/communications", "POST", "{}"],
       ["/private_synthetic_identifier?private=query", "GET", undefined],
       ["/ready", "GET", undefined],
     ] as const) {
@@ -101,6 +101,13 @@ it("owned native Fastify counts normal, schema400,404, thrown500 and terminal503
     await runtime.shutdown();
   }
   expect(spans).toHaveLength(5);
+  expect(
+    spans.find((span) => span.attributes["http.response.status_code"] === 400)
+      ?.attributes,
+  ).toMatchObject({
+    "http.route": "/integrations/platform/v2/communications",
+    "http.request.method": "POST",
+  });
   for (const span of spans) {
     expect(span.parentSpanContext).toBeUndefined();
     expect(span.spanContext().traceId).not.toBe(

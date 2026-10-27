@@ -59,7 +59,7 @@ export function beginComposer(
   content?: TemplateContent,
 ) {
   t.state.prompt = undefined;
-  if (t.state.funnelAuthor) t.state.funnelAuthor.prompt = undefined;
+  if (t.state.sequenceAuthor) t.state.sequenceAuthor.prompt = undefined;
   t.state.composing = {
     destination,
     ...(content
@@ -68,7 +68,7 @@ export function beginComposer(
   };
   if (content) return show(t, true);
   t.reply(
-    "Пришлите сообщение для выбранной рассылки или блока воронки: текст, фото, видео, кружок, голосовое или документ. После просмотра подтвердите добавление. /cancel — вернуться без изменений.",
+    "Пришлите сообщение для выбранной рассылки или блока последовательности: текст, фото, видео, кружок, голосовое или документ. После просмотра подтвердите добавление. /cancel, вернуться без изменений.",
     cancel,
   );
 }

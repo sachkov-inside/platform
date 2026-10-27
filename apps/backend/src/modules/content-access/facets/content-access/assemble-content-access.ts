@@ -899,6 +899,8 @@ function resolveProductTaskFacts(
 ): ResolvedResourceFacts {
   return {
     access: task.access,
+    // Published archived programmes require whole-Product rights; unpublished author reads keep their policy.
+    archivedOnly: task.archived && task.published,
     contentVersion: task.version,
     productIds: [task.productId],
     publicationState: task.published ? "published" : "unpublished",

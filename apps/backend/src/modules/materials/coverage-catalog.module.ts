@@ -1,3 +1,4 @@
+import { ProductDiscovery, ProductsModule } from "../products/index.js";
 import { Global, Module } from "@nestjs/common";
 
 import {
@@ -17,13 +18,15 @@ import { CoverageCatalog } from "./facets/coverage-catalog/coverage-catalog.js";
  */
 @Global()
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ProductsModule],
   providers: [
     {
       provide: COVERAGE_CATALOG,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider): CoverageCatalogPort =>
-        new CoverageCatalog(prisma),
+      inject: [PrismaClientProvider, ProductDiscovery],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        products: ProductDiscovery,
+      ): CoverageCatalogPort => new CoverageCatalog(prisma, products),
     },
   ],
   exports: [COVERAGE_CATALOG],

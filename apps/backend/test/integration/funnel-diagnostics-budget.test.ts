@@ -51,7 +51,12 @@ it.each(["journal", "sales"] as const)(
           accountId: id(index + 1),
           operationId: id(index + 1),
           fingerprint: "fixture",
-          snapshot: { offer: { coverage: { productIds: [actor] } } },
+          snapshot: {
+            offer: {
+              benefits: ["materials"],
+              coverage: { productIds: [actor] },
+            },
+          },
           createdAt: at,
           expiresAt: new Date("2026-10-19T11:00:00Z"),
         })),
@@ -153,7 +158,12 @@ it("ignores unrelated historical quotes while keeping complete selected Product 
       accountId: actor,
       operationId: id(index + 1),
       fingerprint: "fixture",
-      snapshot: { offer: { coverage: { productIds: [id(9000)] } } },
+      snapshot: {
+        offer: {
+          benefits: ["materials"],
+          coverage: { productIds: [id(9000)] },
+        },
+      },
       createdAt: new Date("2025-01-01T00:00:00Z"),
       expiresAt: at,
     })),
@@ -164,7 +174,9 @@ it("ignores unrelated historical quotes while keeping complete selected Product 
       accountId: actor,
       operationId: id(3001),
       fingerprint: "selected",
-      snapshot: { offer: { coverage: { productIds: [actor] } } },
+      snapshot: {
+        offer: { benefits: ["materials"], coverage: { productIds: [actor] } },
+      },
       createdAt: at,
       expiresAt: new Date("2026-10-20T00:00:00Z"),
     },
@@ -234,7 +246,12 @@ it("preserves Product cohorts and historical/current identity attribution beyond
       accountId: id(30000 + index),
       operationId: id(40000 + index),
       fingerprint: "history",
-      snapshot: { offer: { coverage: { productIds: [id(9999)] } } },
+      snapshot: {
+        offer: {
+          benefits: ["materials"],
+          coverage: { productIds: [id(9999)] },
+        },
+      },
       createdAt: oldAt,
       expiresAt: at,
     })),
@@ -253,7 +270,12 @@ it("preserves Product cohorts and historical/current identity attribution beyond
       accountId: id(30000 + index),
       operationId: id(90000 + index),
       fingerprint: "old-selected-Product",
-      snapshot: { offer: { coverage: { productIds: [productId] } } },
+      snapshot: {
+        offer: {
+          benefits: ["materials"],
+          coverage: { productIds: [productId] },
+        },
+      },
       createdAt: oldAt,
       expiresAt: at,
     })),
@@ -379,7 +401,12 @@ it("preserves Product cohorts and historical/current identity attribution beyond
         accountId,
         operationId: quoteRef,
         fingerprint: "selected",
-        snapshot: { offer: { coverage: { productIds: [productId] } } },
+        snapshot: {
+          offer: {
+            benefits: ["materials"],
+            coverage: { productIds: [productId] },
+          },
+        },
         createdAt,
         expiresAt: after,
       },
@@ -411,7 +438,12 @@ it("preserves Product cohorts and historical/current identity attribution beyond
         terminalRef: "test",
         paymentId: `test-${index}`,
         amountKopecks: 100n,
-        snapshot: { offer: { coverage: { productIds: [productId] } } },
+        snapshot: {
+          offer: {
+            benefits: ["materials"],
+            coverage: { productIds: [productId] },
+          },
+        },
         acceptance: {},
         contact: {},
         fiscalization: "pending",
@@ -531,4 +563,56 @@ it("keeps waitlist demand in the owner report without reading or publishing it i
   } finally {
     await observer.prisma.$disconnect();
   }
+});
+
+it("diagnoses current immutable Product benefits and refuses support-only coverage as content purchase", async () => {
+  const expected = [id(95001), id(95002)];
+  const snapshots = [
+    { offer: { benefits: [`product:${actor}`] } },
+    { offer: { benefits: ["materials"], coverage: { productIds: [actor] } } },
+    { offer: { benefits: ["community"], coverage: { productIds: [actor] } } },
+  ];
+  for (const [index, snapshot] of snapshots.entries()) {
+    const accountId = id(95001 + index);
+    const quoteRef = id(96001 + index);
+    await database.prisma.billingPriceQuote.create({
+      data: {
+        id: quoteRef,
+        accountId,
+        operationId: quoteRef,
+        fingerprint: "current-product",
+        snapshot,
+        createdAt: at,
+        expiresAt: new Date("2026-10-20T00:00:00Z"),
+      },
+    });
+    await database.prisma.billingPurchase.create({
+      data: {
+        id: id(97001 + index),
+        accountId,
+        quoteRef,
+        kind: "one_time",
+        lifecycleActive: false,
+        state: "confirmed",
+        environment: "test",
+        terminalRef: "test",
+        paymentId: `current-${index}`,
+        amountKopecks: 100n,
+        snapshot,
+        acceptance: {},
+        contact: {},
+        fiscalization: "pending",
+        confirmedAt: at,
+        createdAt: at,
+        updatedAt: at,
+      },
+    });
+  }
+  const result = await new BillingProductSales(
+    database.prisma,
+  ).listForDiagnostics(actor);
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("Expected complete current Product source");
+  expect([...result.value.checkout.keys()].sort()).toEqual(expected);
+  expect([...result.value.paid.keys()].sort()).toEqual(expected);
 });

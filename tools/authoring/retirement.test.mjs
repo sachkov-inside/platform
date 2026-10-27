@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -91,7 +92,7 @@ async function fixture(t) {
     id: "inside-content:old",
     path: "old.md",
     revision: "a".repeat(64),
-    showInFeed: true,
+    version: 2,
     // A receiver with the import contract reports the recorded Content commit (#1672).
     commit: "c".repeat(40),
   };
@@ -124,7 +125,7 @@ async function fixture(t) {
       topicId: null,
       formatId: "note",
       tagIds: [],
-      seriesMemberships: [],
+      productMemberships: [],
     },
   };
   const keep = {
@@ -143,7 +144,7 @@ async function fixture(t) {
   let loseReceipt = false;
   /** @type {import("./target.mjs").LocalTransport} */
   const request = async (path, body, key) => {
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (body === undefined) {
       const row = records.get(path.split("/").at(-1) ?? "");
       if (!row) throw Object.assign(new Error("Missing"), { status: 404 });
@@ -167,7 +168,7 @@ async function fixture(t) {
         topicId: null,
         formatId: "note",
         tagIds: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: old.body,
     });

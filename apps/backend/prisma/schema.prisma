@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "queue_observation"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "queue_observation"]
 }
 
 model Account {
@@ -45,9 +45,9 @@ model AccountAuditEvent {
   @@schema("accounts")
 }
 
-model MemberProfile {
+model AccountProfile {
   accountId       String   @id @map("account_id") @db.Uuid
-  publicProfileId String   @unique(map: "member_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
+  publicProfileId String   @unique(map: "account_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
   displayName     String   @map("display_name") @db.VarChar(80)
   bio             String?  @db.VarChar(500)
   avatarId        String?  @map("avatar_id") @db.Uuid
@@ -58,9 +58,9 @@ model MemberProfile {
   avatar          ProfileAvatar? @relation("CurrentProfileAvatar", fields: [avatarId, accountId], references: [id, accountId])
   ownedAvatars    ProfileAvatar[] @relation("ProfileOwnedAvatars")
 
-  @@unique([avatarId, accountId], map: "member_profiles_avatar_account_unique")
+  @@unique([avatarId, accountId], map: "account_profiles_avatar_account_unique")
   @@map("profiles")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model ProfileAvatar {
@@ -74,14 +74,14 @@ model ProfileAvatar {
   readyAt             DateTime? @map("ready_at") @db.Timestamptz
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
-  currentProfile      MemberProfile? @relation("CurrentProfileAvatar")
-  ownerProfile        MemberProfile  @relation("ProfileOwnedAvatars", fields: [accountId], references: [accountId], onDelete: Cascade)
+  currentProfile      AccountProfile? @relation("CurrentProfileAvatar")
+  ownerProfile        AccountProfile  @relation("ProfileOwnedAvatars", fields: [accountId], references: [accountId], onDelete: Cascade)
   renditions          ProfileAvatarRendition[]
 
   @@unique([id, accountId], map: "profile_avatars_id_account_unique")
   @@index([orphanedAt, updatedAt], map: "profile_avatars_cleanup_idx")
   @@map("avatars")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model ProfileAvatarRendition {
@@ -95,10 +95,10 @@ model ProfileAvatarRendition {
 
   @@id([avatarId, size], map: "profile_avatar_renditions_primary")
   @@map("avatar_renditions")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
-model MemberProfileAuditEvent {
+model AccountProfileAuditEvent {
   id              String   @id @db.Uuid
   event           String
   accountId       String   @map("account_id") @db.Uuid
@@ -107,7 +107,7 @@ model MemberProfileAuditEvent {
 
   @@index([accountId, createdAt(sort: Desc)], map: "member_profile_audit_account_created_idx")
   @@map("audit_events")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model MembershipBinding {
@@ -200,10 +200,9 @@ model Tag {
 }
 
 model Product {
-  programmeExplicit Boolean @default(false) @map("programme_explicit")
-  sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
+  sourceId String? @unique(map: "product_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
-  slug          String    @unique(map: "series_slug_unique")
+  slug          String    @unique(map: "product_slug_unique")
   name          String
   summary       String    @default("")
   audience      String    @default("")
@@ -218,8 +217,8 @@ model Product {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
-  @@map("series")
-  @@schema("materials")
+  @@map("products")
+  @@schema("products")
 }
 
 model ProductArtifact {
@@ -246,7 +245,7 @@ model ProductArtifact {
   @@unique([sourceId], map: "product_artifacts_source_unique")
   @@index([state, updatedAt(sort: Desc)], map: "product_artifacts_state_idx")
   @@map("product_artifacts")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifactVersion {
@@ -270,7 +269,7 @@ model ProductArtifactVersion {
 
   @@id([artifactId, version], map: "product_artifact_versions_primary")
   @@map("product_artifact_versions")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifactPlacement {
@@ -283,7 +282,7 @@ model ProductArtifactPlacement {
   @@id([artifactId, productId], map: "product_artifact_placements_primary")
   @@index([productId, createdAt], map: "product_artifact_placements_product_idx")
   @@map("product_artifact_placements")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifactMaterialLink {
@@ -296,7 +295,7 @@ model ProductArtifactMaterialLink {
   @@id([artifactId, materialId], map: "product_artifact_material_links_primary")
   @@index([materialId], map: "product_artifact_material_links_material_idx")
   @@map("product_artifact_material_links")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductChapter {
@@ -311,7 +310,7 @@ model ProductChapter {
   @@unique([id, productId], map: "product_chapters_identity_unique")
   @@unique([productId, ordinal], map: "product_chapters_ordinal_unique")
   @@map("product_chapters")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductProgrammePlacement {
@@ -323,7 +322,7 @@ model ProductProgrammePlacement {
   stepGroup String? @map("step_group")
   @@unique([productId, ordinal])
   @@map("product_programme_placements")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductChapterSupplementaryMaterial {
@@ -336,16 +335,16 @@ model ProductChapterSupplementaryMaterial {
   @@unique([chapterId, ordinal])
   @@index([productId], map: "product_chapter_supplementary_materials_product_idx")
   @@map("product_chapter_supplementary_materials")
-  @@schema("materials")
+  @@schema("products")
 }
 
-model HomeSeriesPin {
+model HomeProductPin {
   id       Int     @id
-  seriesId String? @map("series_id") @db.Uuid
+  productId String? @map("product_id") @db.Uuid
   version  Int     @default(1)
 
-  @@map("home_series_pin")
-  @@schema("materials")
+  @@map("home_product_pin")
+  @@schema("products")
 }
 
 model Material {
@@ -355,7 +354,6 @@ model Material {
   sourcePath       String?   @map("source_path")
   sourceRevision   String?   @map("source_revision")
   sourceCommit     String?   @map("source_commit") @db.Char(40)
-  showInFeed       Boolean   @default(true) @map("show_in_feed")
   id               String    @id @db.Uuid
   slug             String?   @unique(map: "materials_slug_unique")
   title            String?
@@ -393,16 +391,12 @@ model MaterialTag {
 }
 
 model ProductMembership {
-  stepGroup  String? @map("step_group")
-  chapterId  String? @map("chapter_id") @db.Uuid
-  seriesId   String @map("series_id") @db.Uuid
+  productId   String @map("product_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
-  ordinal    Int
 
-  @@id([seriesId, materialId], map: "series_memberships_primary")
-  @@unique([seriesId, ordinal], map: "series_memberships_ordinal_unique")
-  @@map("series_memberships")
-  @@schema("materials")
+  @@id([productId, materialId], map: "product_memberships_primary")
+  @@map("product_memberships")
+  @@schema("products")
 }
 
 model AuthoringIdempotency {
@@ -449,7 +443,7 @@ model ContentCover {
   id                  String    @id @db.Uuid
   materialId          String?   @map("material_id") @db.Uuid
   topicId             String?   @map("topic_id") @db.Uuid
-  seriesId            String?   @map("series_id") @db.Uuid
+  productId            String?   @map("product_id") @db.Uuid
   state               String
   failureCode         String?   @map("failure_code") @db.VarChar(64)
   currentlyReferenced Boolean   @default(false) @map("currently_referenced")
@@ -462,10 +456,10 @@ model ContentCover {
 
   @@unique([id, materialId], map: "content_covers_material_identity")
   @@unique([id, topicId], map: "content_covers_topic_identity")
-  @@unique([id, seriesId], map: "content_covers_series_identity")
+  @@unique([id, productId], map: "content_covers_product_identity")
   @@index([currentlyReferenced, orphanedAt, updatedAt], map: "content_covers_orphan_idx")
   @@map("content_covers")
-  @@schema("materials")
+  @@schema("content_covers")
 }
 
 model ContentCoverRendition {
@@ -480,7 +474,7 @@ model ContentCoverRendition {
 
   @@id([coverId, width], map: "content_cover_renditions_primary")
   @@map("content_cover_renditions")
-  @@schema("materials")
+  @@schema("content_covers")
 }
 
 model PublishedMaterialTag {
@@ -494,13 +488,11 @@ model PublishedMaterialTag {
 
 model PublishedMaterialProductMembership {
   materialId String @map("material_id") @db.Uuid
-  seriesId   String @map("series_id") @db.Uuid
-  ordinal    Int
+  productId   String @map("product_id") @db.Uuid
 
-  @@id([materialId, seriesId], map: "published_material_series_primary")
-  @@unique([seriesId, ordinal], map: "published_material_series_ordinal_unique")
-  @@map("published_material_series_memberships")
-  @@schema("materials")
+  @@id([materialId, productId], map: "published_material_product_primary")
+  @@map("published_material_product_memberships")
+  @@schema("products")
 }
 
 model ProductMaterialRemoval {
@@ -514,7 +506,7 @@ model ProductMaterialRemoval {
 
   @@index([productId, removedAt(sort: Desc)], map: "product_material_removals_product_idx")
   @@map("product_material_removals")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model MaterialRelatedPin {
@@ -963,6 +955,17 @@ model TelegramCommunityProjectionCursor {
 }
 
 
+model BillingProductPrice {
+  productId String @id @map("product_id") @db.Uuid
+  revision Int
+  name String
+  priceKopecks BigInt @map("price_kopecks")
+  published Boolean @default(false)
+  archived Boolean @default(false)
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@map("product_prices")
+  @@schema("billing")
+}
 model BillingOffer {
   id String @id @db.Uuid
   revision Int
@@ -998,8 +1001,9 @@ model BillingPromotion {
   code String? @unique
   startsAt DateTime @map("starts_at") @db.Timestamptz
   endsAt DateTime @map("ends_at") @db.Timestamptz
-  offerIds String[] @map("offer_ids") @db.Uuid
-  paymentOptionIds String[] @map("payment_option_ids") @db.Uuid
+  productIds String[] @default([]) @map("product_ids") @db.Uuid
+  legacyOfferIds String[] @default([]) @map("offer_ids") @db.Uuid
+  legacyPaymentOptionIds String[] @default([]) @map("payment_option_ids") @db.Uuid
   usageLimit Int? @map("usage_limit")
   archived Boolean @default(false)
   reservations BillingPromoReservation[]
@@ -1017,7 +1021,7 @@ model BillingSurveyRespondent {
   @@map("survey_respondents")
   @@schema("billing")
 }
-model BillingProductCohort {
+model BillingProductSalesState {
   productId String @id @map("product_id") @db.Uuid
   revision Int
   name String
@@ -1026,7 +1030,7 @@ model BillingProductCohort {
   nextEvent String @default("") @map("next_event")
   priceAfterStartKopecks BigInt? @map("price_after_start_kopecks")
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
-  @@map("product_cohorts")
+  @@map("product_sales_states")
   @@schema("billing")
 }
 model BillingPricingCommand {
@@ -1415,6 +1419,7 @@ model NotificationEmailInbox {
 }
 
 model BillingPurchase {
+  refundReviewRequired Boolean @default(false) @map("refund_review_required")
   bindingCiphertext String? @map("binding_ciphertext")
   lifecycleActive Boolean @default(true) @map("lifecycle_active")
   id String @id @db.Uuid
@@ -1464,6 +1469,8 @@ model BillingPaymentEvent {
   @@schema("billing")
 }
 model BillingFulfillment {
+  reviewRequiredAt DateTime? @map("review_required_at") @db.Timestamptz
+  reviewReason String? @map("review_reason")
   nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
   eventRef String @id @map("event_ref") @db.Uuid
   purchaseRef String @map("purchase_ref") @db.Uuid
@@ -1710,8 +1717,9 @@ model ActivationRule {
  code String @unique @db.VarChar(40)
  name String @db.VarChar(200)
  revision Int
- tierId String @map("tier_id") @db.Uuid
- tierRevision Int @map("tier_revision")
+ productId String? @map("product_id") @db.Uuid
+ legacyTierId String? @map("tier_id") @db.Uuid
+ legacyTierRevision Int? @map("tier_revision")
  sourceRef String @map("source_ref") @db.VarChar(256)
  published Boolean @default(false)
  startsAt DateTime @map("starts_at") @db.Timestamptz
@@ -1721,6 +1729,7 @@ model ActivationRule {
  @@schema("account_rights")
 }
 model SourceEntitlement {
+ firstIssuedAt DateTime? @map("first_issued_at") @db.Timestamptz
  tributeState Json? @map("tribute_state")
  reconcileAt DateTime? @map("reconcile_at") @db.Timestamptz
  id String @id @db.Uuid
@@ -1793,7 +1802,7 @@ model TributeImportReview {
  @@schema("account_rights")
 }
 
-model PracticeDefinition {
+model HistoricalPracticeDefinition {
   practiceId String @id @map("practice_id")
   materialId String @map("material_id") @db.Uuid
   definition Json
@@ -1808,7 +1817,7 @@ model PracticeDefinition {
   sourcePath String @map("source_path")
   updatedAt DateTime @map("updated_at") @db.Timestamptz
   @@index([materialId, publicationState], map: "practice_definitions_material_idx")
-  @@map("practice_definitions")
+  @@map("historical_practice_definitions")
   @@schema("materials")
 }
 
@@ -1941,13 +1950,13 @@ model ProductTaskAuthorFeedback {
   @@schema("product_tasks")
 }
 
-model ProductCommunity {
+model HistoricalProductCommunityRecord {
   productId String @id @map("product_id") @db.Uuid
   groupRef String? @map("group_ref") @db.VarChar(100)
   updatedBy String @map("updated_by") @db.Uuid
   updatedAt DateTime @map("updated_at") @db.Timestamptz
 
-  @@map("product_communities")
+  @@map("historical_product_community_records")
   @@schema("telegram_membership")
 }
 
@@ -2058,4 +2067,57 @@ model QueueWorkObservation {
 
   @@map("last_successful_handler")
   @@schema("queue_observation")
+}
+
+
+// One durable lifetime decision per Account and Product. Legacy grants remain passive history.
+model ProductAccess {
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  firstIssuedAt DateTime? @map("first_issued_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  revision Int
+  @@id([accountId, productId])
+  @@map("product_access")
+  @@schema("account_rights")
+}
+model ProductAccessSource {
+  source String @db.VarChar(40)
+  sourceRef String @map("source_ref") @db.VarChar(256)
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  issuedAt DateTime @map("issued_at") @db.Timestamptz
+  reason String @db.VarChar(1000)
+  @@id([source, sourceRef])
+  @@index([accountId, productId])
+  @@map("product_access_sources")
+  @@schema("account_rights")
+}
+model ProductAccessAction {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  kind String @db.VarChar(40)
+  reason String @db.VarChar(1000)
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz
+  revision Int
+  @@index([accountId, productId, revision])
+  @@map("product_access_actions")
+  @@schema("account_rights")
+}
+
+// Immutable bridge from legacy source-bound requirements. Practice and Task versions are distinct.
+model LegacyPracticeMigration {
+  practiceId String @id @map("practice_id")
+  practiceVersion BigInt @map("practice_version")
+  definitionDigest String @map("definition_digest") @db.Char(64)
+  boundContentVersion BigInt @map("bound_content_version")
+  original Json
+  importReceipts Json @map("import_receipts")
+  disposition String
+  taskId String? @map("task_id") @db.Uuid
+  taskVersion Int? @map("task_version")
+  @@map("legacy_practice_migrations")
+  @@schema("product_tasks")
 }

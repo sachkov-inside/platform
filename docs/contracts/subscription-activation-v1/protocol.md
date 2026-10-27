@@ -1,16 +1,39 @@
-# Subscription activation v1
+# Course Activation, v1 receipt compatibility
 
-The current course Support term follows the [2026-10-23 access decision](../../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026).
-The six-month example below is a historical tariff snapshot, not the new target configuration.
-Activation preserves the agreed tariff terms; duration is not a fixed protocol constant.
+Course Activation issues one lifetime Product Access directly to the Product named by ActivationRule.
+Only evidence from the separate Activation Source can issue access. A code selects the rule; code
+possession, ordinary /start, sign-in and membership in the common community do not prove the source.
+Unconfirmed grounds remain an owner review request. First actual free issuance starts the documented
+three calendar months of support; there is no runtime access deadline. Repeat commands and different
+sources preserve first issuance. Manual revocation blocks automatic activation until explicit owner restoration.
 
-The separate TELEGRAM_ACTIVATION_INGRESS_SECRET authenticates Telegram's verified identity and activation authority. No community-dispatch, membership-evidence or notification credential is interchangeable. All requests use private bot identity, never a user-supplied Account ID or membership statement.
+The canonical base is `/integrations/telegram/v1/course-activation`. The temporary
+`/integrations/telegram/v1/subscription-activation` alias serves exactly these same course operations.
+The wire `contractVersion` remains `inside.subscription-activation.v1` and evidence audience remains
+`inside.platform.subscription-activation` to preserve uncertain writes and exact accepted receipts.
+These strings do not enable subscriptions. New successful responses use `enrollment: null`;
+old non-null Enrollment snapshots are passive receipt data only. There is no invitation HTTP operation.
+The invitation JSON definitions remain historical decoders and cannot create rights or bank operations.
 
-POST /integrations/telegram/v1/subscription-activation/attempts persists attemptId and rule revision. Without an Account it creates no access. The same attempt resumes after linking. POST /evidence accepts source proof: exact audience, sourceRef, identityRef, accountRef, linkRef/linkRevision and ruleId/ruleRevision. checkedAt must not be future or more than five minutes old; validUntil must be future and at most five minutes after checkedAt. Clock and relational constraints are runtime assertions, not only JSON Schema validation. Every timestamp is an RFC 3339 UTC date-time with seconds, such as `2030-01-01T00:00:00Z`; fractional seconds are optional.
+The separate TELEGRAM_ACTIVATION_INGRESS_SECRET authenticates the source authority. Requests carry
+private verified identity, never a caller-selected internal Account UUID. Attempts create no rights.
+Evidence binds exact sourceRef, identityRef, accountRef, linkRef/linkRevision and ruleId/ruleRevision.
+Proof is valid for at most five minutes, checkedAt cannot be future, and validUntil must be future.
+The Product Access, source first-issuance time, attempt result and exact evidence receipt commit in
+one transaction. A lost response reuses the exact original evidenceRef and payload, even after expiry,
+rule pause or unlink. Fresh verification must use a current binding; old binding references fail closed.
 
-Course identity is SHA-256 of UTF-8 JSON array ["course", sourceRef, identityRef]. Different links/rules for this source do not produce new rights. Only the first committed activation starts the unlimited assignment. Its snapshot includes benefitPeriods; each right lasts its own tariff term from assignment, or indefinitely when no duration is specified. A course tariff grants course materials and community indefinitely, and support for six calendar months. Enrollment, grant, source relation, access change, attempt result and evidence receipt commit atomically. Revoke is an independent owner decision: retries never undo it. A lost answer is retried using exactly the original evidenceRef and payload. An expired proof requires fresh source verification.
+## Ordered rollout and removal gate
 
-POST /own-access requires the exact current private binding and returns independent grounds, Enrollment snapshots and admission state. A tariff never clears moderation. Responses are private/no-store. Examples contain synthetic identifiers; no provider is enabled by this bundle. Telegram #64 implements the consumer and real source verification.
+1. Deploy the provider with both routes and both historical and nullable-enrollment response decoders.
+   Run the repository corpus in both applications and the real PostgreSQL course/binding tests.
+2. Move Telegram PLATFORM_ACTIVATION_URL to the canonical route. Keep stored evidence bytes,
+   attempt IDs, correlations, link revisions and accepted response receipts unchanged. Drain uncertain
+   evidence deliveries by exact replay. Ordinary sign-in still resumes only an existing explicit attempt.
+3. Verify that all consumers use the canonical route and that no pending/leased/uncertain legacy writes
+   remain. Retain accepted receipts under their durable retention contract.
+4. Remove the legacy route and codec only in a separately verified contract-removal change with an
+   inventory of remaining receipts and a decoder migration. A rename alone does not satisfy this gate.
 
 ## Learner Product navigation (#1496)
 
@@ -42,20 +65,6 @@ HTTP 200 returns one of:
 All objects reject unknown fields. `linkRef` is a UUID and `linkRevision` a positive integer. Linked references come exactly from Platform's current account-link state; the browser linking transaction's `linkRef` is not interchangeable. An absent or tombstoned binding is unlinked. Multiple current bindings are identity_conflict. Storage/provider read failure or malformed dependency output is unavailable, never an unlinked fallback.
 
 Telegram can begin an attempt before linking, then look up the current binding before sending fresh verified evidence or querying own-access. Lookup creates no access and reserves no binding: a subsequent relink/unlink still causes existing exact evidence and own-access validation to reject stale references. Resolve the current binding again before constructing fresh evidence; do not rewrite an already accepted evidence receipt. Exact lost-response replay retains its existing durable result even after unlink. This endpoint performs no Telegram membership verification itself.
-
-## Temporary Tribute state (#625)
-
-The shared Enrollment view state adds `pending_verification` and `suspended_source`. This shared definition occurs in BOTH `ownAccessResponse.value.enrollments[]` and `activationResponse.value.enrollment` (when non-null). The activation outcome's own state enum is unchanged. Binding operations are unchanged. Registry activation was removed by #1064.
-
-Platform owns these states. `pending_verification` means an approved temporary source lacks current usable confirmation (including TTL/timeout); it grants no temporary access. `suspended_source` means a confirmed source exit was latched; a later member observation does not restore that source. Telegram only validates and presents the state and offers the existing help/retry navigation; it does not derive policy or grant restoration. Independent Product/course rights remain effective. Only Platform's explicit owner resolution or confirmed external period can replace an ended source.
-
-## Tribute after #1064
-
-Registry activation is removed. `verificationMode` accepts only `course_membership` when present;
-`registry_lookup` is not an evidence decision. A former Tribute subscriber receives a personal
-purchase invitation from the owner and pays for Inside. The subscription sale remains disabled
-until the bank approves recurring payments. Historical Tribute Enrollment views remain readable;
-these states do not enable a new free activation.
 
 ## Content scope `wholePlatform` (Platform #648)
 

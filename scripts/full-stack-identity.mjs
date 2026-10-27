@@ -310,6 +310,7 @@ export async function startFullStackIdentity({
           error === undefined ? resolveClose() : rejectClose(error),
         );
       });
+      server.closeAllConnections();
       return closed;
     },
   };

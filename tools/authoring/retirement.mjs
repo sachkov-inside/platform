@@ -2,6 +2,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
+import { assertReceiverContract } from "./contract.mjs";
 import {
   canonical,
   checksum,
@@ -11,6 +12,7 @@ import {
 import { withJournal, applyJournaled, writeAtomic } from "./journal.mjs";
 import {
   isJournalOperation,
+  parseLocalResponse,
   materialReceiptSchema,
 } from "./local-boundaries.mjs";
 import {
@@ -24,7 +26,7 @@ const sourceSchema = z
     id: z.string().min(1),
     path: z.string().min(1),
     revision: z.hash("sha256"),
-    showInFeed: z.boolean(),
+    version: z.literal(2),
     // Sent back unchanged, so a retirement keeps the Content commit the target recorded (#1672).
     commit: z.hash("sha1").nullable().optional(),
   })
@@ -46,10 +48,10 @@ const snapshotSchema = z
         topicId: z.uuid().nullable(),
         formatId: z.string().nullable(),
         tagIds: z.array(z.uuid()),
-        seriesMemberships: z.array(
+        productMemberships: z.array(
           z
             .object({
-              seriesId: z.uuid(),
+              productId: z.uuid(),
               ordinal: z.number().int().positive(),
             })
             .strict(),
@@ -109,9 +111,11 @@ async function load(request, materialId) {
 
 /** @param {Transport} request @param {ReturnType<typeof authoringTarget>} target */
 async function checkEnvironment(request, target) {
-  const environment = z
-    .object({ mode: z.enum(["development", "test", "production"]) })
-    .parse(await request("/authoring/import/materials/environment"));
+  const environment = parseLocalResponse(
+    "/authoring/import/materials/environment",
+    await request("/authoring/import/materials/environment"),
+  );
+  assertReceiverContract(environment, {});
   assertTargetEnvironment(target, environment.mode);
   return environment.mode;
 }
@@ -191,7 +195,7 @@ export async function previewRetirement(packagePath, state, options) {
  * a lost response to this exact reviewed retirement always reuses this operation and key.
  * @param {RetirementPreview} preview @param {z.infer<typeof snapshotSchema>} material */
 function operation(preview, material) {
-  const { seriesMemberships, ...metadata } = material.metadata;
+  const { productMemberships, ...metadata } = material.metadata;
   return {
     reviewedRetirement: preview.fingerprint,
     path: "/authoring/import/materials/apply",
@@ -210,7 +214,7 @@ function operation(preview, material) {
         topicId: metadata.topicId,
         formatId: metadata.formatId,
         tagIds: metadata.tagIds,
-        seriesIds: seriesMemberships.map((row) => row.seriesId),
+        productIds: productMemberships.map((row) => row.productId),
       },
       body: material.body,
     },

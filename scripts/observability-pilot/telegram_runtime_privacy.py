@@ -7,7 +7,7 @@ SENTINEL = 'TELEGRAM_RUNTIME_PRIVACY_SENTINEL_1566'
 TRACE_IDS = {'json':('e'*30+'81','f'*30+'83','f'*30+'85'), 'protobuf':('e'*30+'82','f'*30+'84','f'*30+'86')}
 OPERATIONS = (('receipt','completed'), ('authorization','accepted'), ('attempt','completed'), ('sendMessage','delivered'), (SENTINEL,SENTINEL), (True,'completed'), ('receipt',False))
 HEALTH = (('http.server.active_requests',0,True), ('telemetry.trace.dropped',0,False), ('telemetry.trace.export.failures',0,False), ('telemetry.metric.export.failures',0,False), ('telemetry.trace.sampling.ratio',1,True))
-HTTP = (('POST','/integrations/platform/v1/communications','completed'), (False, SENTINEL, 42))
+HTTP = (('POST','/integrations/platform/v2/communications','completed'), (False, SENTINEL, 42))
 PRIVATE_KEYS = ('authorization','cookie','baggage','tracestate','traceparent','botToken','chatId','telegramUserId','accountRef','telegramIdentityRef','eventId','intakeId','linkRevision','providerMessageId','provider.request_id','http.request.body','http.response.body','url.full','exception.message','exception.stacktrace','db.statement','db.query.parameters','dependency.name','email.lane','tracking.operation','waitlist.operation','messaging.system')
 
 

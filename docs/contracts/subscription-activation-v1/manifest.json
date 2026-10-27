@@ -10,10 +10,10 @@
     "requestDefinition": "bindingQuery",
     "responseDefinition": "bindingResponse"
   },
-  "invitationRedeem": {
-    "method": "POST",
-    "path": "/integrations/telegram/v1/invitations/redeem",
-    "requestDefinition": "invitationRedeem",
-    "responseDefinition": "invitationRedeemResponse"
-  }
+  "canonicalBasePath": "/integrations/telegram/v1/course-activation",
+  "legacyBasePath": "/integrations/telegram/v1/subscription-activation",
+  "historicalDecoderDefinitions": [
+    "invitationRedeem",
+    "invitationRedeemResponse"
+  ]
 }

@@ -69,7 +69,7 @@ export async function produce(databaseUrl, progress = () => {}) {
     request.on("end", () => {
       try {
         assert.equal(request.method, "POST");
-        assert.equal(request.url, "/integrations/platform/v1/communications");
+        assert.equal(request.url, "/integrations/platform/v2/communications");
         assert.equal(request.headers.authorization, `Bearer ${secret}`);
         for (const key of ["traceparent", "tracestate", "baggage"])
           assert.equal(request.headers[key], undefined);
@@ -203,7 +203,7 @@ export async function produce(databaseUrl, progress = () => {}) {
         LOGTO_JWKS_URL: `http://127.0.0.1:${issuerAddress.port}/jwks`,
         IDENTITY_EMAIL_FINGERPRINT_KEY: "synthetic-waitlist-fingerprint-key",
         TELEGRAM_COMMUNICATIONS_ENDPOINT:
-          endpoint + "/integrations/platform/v1/communications",
+          endpoint + "/integrations/platform/v2/communications",
         TELEGRAM_COMMUNICATIONS_SECRET: secret,
         TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "private-waitlist-author-secret",
         TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "waitlist_storage_bot",

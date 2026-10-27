@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -90,7 +91,7 @@ function api(mode = "development") {
     faults,
     /** @type {import("./target.mjs").LocalTransport} */
     async request(path, body, key) {
-      if (path.endsWith("/environment")) return { mode };
+      if (path.endsWith("/environment")) return currentEnvironment(mode);
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/collections?kind=product") return [];
       if (path.endsWith("/validate")) return { valid: true };
@@ -157,10 +158,10 @@ test("preview reads only and apply releases exactly the reviewed package", async
     request: server.request,
   });
   assert.equal(itemAt(second.preview.materials, 0).change, "changed");
-  assert.deepEqual(itemAt(second.preview.materials, 0).feedChange, {
-    from: true,
-    to: false,
-  });
+  assert.equal(
+    Object.hasOwn(itemAt(second.preview.materials, 0), "feedChange"),
+    false,
+  );
 });
 
 test("drift after preview, an edited preview and unreviewed archive requests stop before any write", async (t) => {

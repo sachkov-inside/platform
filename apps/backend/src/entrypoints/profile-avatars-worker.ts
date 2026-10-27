@@ -26,7 +26,7 @@ import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
   PROFILE_AVATAR_MAINTENANCE,
   type ProfileAvatarMaintenance,
-} from "../modules/member-profiles/index.js";
+} from "../modules/account-profiles/index.js";
 import { ProfileAvatarsWorkerModule } from "./profile-avatars-worker/profile-avatars-worker.module.js";
 
 const CLEANUP_QUEUE = jobQueues.profileAvatars;

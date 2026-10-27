@@ -2,8 +2,7 @@ import type { ConfirmedTelegramAction } from "./telegram-user-activity.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
-import { SubscriptionActivation } from "../subscription-activation/subscription-activation.js";
-import { InvitationRedemption } from "../subscription-activation/invitation-redemption.js";
+import { CourseActivation } from "../course-activation/course-activation.js";
 import { AuthorAdmin } from "../communications/author-admin.js";
 import { MarketingEntry } from "../communications/marketing-entry.js";
 import { Communications } from "../communications/communications.js";
@@ -19,7 +18,6 @@ import {
   type TelegramCallbackAnswers,
 } from "../bot-sign-in/telegram-callback-answers.js";
 import { IdentityLinking } from "../identity-linking/identity-linking.js";
-import { MembershipEvidenceProvider } from "../membership-evidence/membership-evidence-provider.js";
 import {
   reportCondition,
   reportFailure,
@@ -59,19 +57,14 @@ export class TelegramUpdateProcessor {
   private readonly senderLimit: SenderRateLimit;
 
   constructor(
-    @Inject(SubscriptionActivation)
-    private readonly activation: Pick<
-      SubscriptionActivation,
-      "start" | "action"
-    >,
+    @Inject(CourseActivation)
+    private readonly activation: Pick<CourseActivation, "start" | "action">,
     @Inject(TelegramUpdateInbox) private readonly inbox: TelegramUpdateInbox,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(BotContacts) private readonly botContacts: BotContacts,
     @Inject(IdentityLinking)
     private readonly identityLinking: IdentityLinking,
     @Inject(RUNTIME_COUNTERS) private readonly metrics: RuntimeCounters,
-    @Inject(MembershipEvidenceProvider)
-    private readonly membershipEvidence: MembershipEvidenceProvider,
     @Inject(BotSignIn) private readonly signIn: BotSignIn,
     @Inject(TELEGRAM_CALLBACK_ANSWERS)
     private readonly callbackAnswers: TelegramCallbackAnswers,
@@ -86,8 +79,6 @@ export class TelegramUpdateProcessor {
     private readonly replies: StartResponseDeliveryQueue,
     @Inject(TELEGRAM_UPDATE_TRANSLATOR)
     private readonly translator: TelegramUpdateTranslator,
-    @Inject(InvitationRedemption)
-    private readonly invitations: Pick<InvitationRedemption, "start" | "retry">,
   ) {
     // Counted by webhook arrival, so a backlog after a processing delay is not refused.
     this.senderLimit = new SenderRateLimit(
@@ -235,9 +226,6 @@ export class TelegramUpdateProcessor {
     switch (command.kind) {
       case "access-action":
         await this.botContacts.observeStart(command.value, "none");
-        // "I linked Telegram" also continues invitations that wait for an Account.
-        if (command.action === "retry" && command.activationCode === undefined)
-          await this.invitations.retry(command.value);
         await this.activation.action(
           command.value,
           command.action,
@@ -267,7 +255,6 @@ export class TelegramUpdateProcessor {
         return;
       case "membership":
         await this.community.observeMembershipEvent(command.value);
-        await this.membershipEvidence.accept(command.value);
         return;
       case "join-request":
         await this.community.acceptJoinRequest(command.value);
@@ -300,8 +287,7 @@ export class TelegramUpdateProcessor {
   private async start(
     start: Extract<TelegramUpdateCommand, { kind: "start" }>["value"],
   ): Promise<void> {
-    const accessLink =
-      start.activationCode !== undefined || start.invitationCode !== undefined;
+    const accessLink = start.activationCode !== undefined;
     await this.botContacts.observeStart(
       start.contact,
       accessLink || isTruthy(this.config.activation?.enabled)
@@ -316,8 +302,6 @@ export class TelegramUpdateProcessor {
     );
     if (start.activationCode !== undefined)
       await this.activation.start(start.contact, start.activationCode);
-    if (start.invitationCode !== undefined)
-      await this.invitations.start(start.contact, start.invitationCode);
     if (start.signInToken?.kind === "digest") {
       await this.signIn.acceptStart(start.contact, start.signInToken.digest);
     }

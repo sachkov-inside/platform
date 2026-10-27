@@ -122,7 +122,7 @@ function rpcMessage(raw: string): unknown {
 
 /**
  * Строки JSON из текста, который начинается с начала JSON и может обрываться посреди него: так
- * `learning_practice_read` отдаёт часть 0 контекста (`canonical-json-parts`). Незакрытая строка в
+ * `learning_task_read` отдаёт часть 0 контекста (`canonical-json-parts`). Незакрытая строка в
  * конце части не берётся. Часть, которая начинается посреди строки, этой функции не подходит.
  */
 export function jsonStringLiterals(text: string): string[] {

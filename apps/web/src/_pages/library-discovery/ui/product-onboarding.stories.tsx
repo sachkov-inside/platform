@@ -23,7 +23,7 @@ import { materialReaderHref } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { ProductProgrammeView } from "./product-programme-view";
 import { ProductProgrammeOnboarding } from "./product-programme-onboarding.client";
-import { SeriesLearningProvider } from "./series-learning.client";
+import { ProductLearningProvider } from "./product-learning.client";
 
 const environment = publicPageEnvironment(
   "/products/platform-inside/programme",
@@ -41,7 +41,7 @@ function Programme({ started = false }: { readonly started?: boolean }) {
         failed: false,
       }}
     >
-      <SeriesLearningProvider
+      <ProductLearningProvider
         learning={{
           kind: "ready",
           started,
@@ -63,7 +63,7 @@ function Programme({ started = false }: { readonly started?: boolean }) {
             result={buyerProgrammeFixture(buyerProductName)}
           />
         </ProductProgrammeOnboarding>
-      </SeriesLearningProvider>
+      </ProductLearningProvider>
     </MaterialReadingScope>
   );
 }

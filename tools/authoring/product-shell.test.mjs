@@ -1,5 +1,6 @@
 // @ts-check
 // Product shell release (#803): the product page and programme move without any Material.
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -172,7 +173,7 @@ function platform({ stored = true } = {}) {
         body: structuredClone(body),
       });
       if (path === "/authoring/import/materials/environment")
-        return { mode: "development" };
+        return currentEnvironment("development");
       if (path === "/authoring/import/products/validate")
         return { valid: true };
       if (path === "/authoring/collections?kind=topic") return [];

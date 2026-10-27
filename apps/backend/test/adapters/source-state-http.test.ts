@@ -49,7 +49,7 @@ const materialState: SourceMaterialState = {
         path: "course/lesson.md",
         revision: "a".repeat(64),
         commit: "c".repeat(40),
-        showInFeed: false,
+        version: 2 as const,
       },
       memberships: [
         {
@@ -186,8 +186,9 @@ test("the import environment names the runtime mode and the accepted import cont
   expect(response.json()).toEqual({
     mode: "test",
     contract: {
-      version: 1,
+      version: 2,
       packageFeatures: [
+        "canonical-product-source-v2",
         "material-task-v1",
         "task-c-v2",
         "quiz-v1",

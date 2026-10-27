@@ -34,7 +34,7 @@ const HIT_RETRY_DELAY_MS = 30_000;
 const HIT_CLAIM_DURATION_MS = 60_000;
 const HIT_BATCH_SIZE = 25;
 const envelope = {
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   actor: { serviceRef: "platform-tracking" },
   expectedRevision: 0,
 } as const;

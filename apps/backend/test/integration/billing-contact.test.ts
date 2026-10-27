@@ -409,7 +409,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       }),
     ).rejects.toThrow();
   });
-  test("a pressed payment button records its screen, label and the renewal terms shown next to it", async () => {
+  test("a Product payment button records its screen and label while recurring terms are rejected", async () => {
     const owner = await account();
     await verify(owner, "button@example.test");
     const terms = document("terms");
@@ -452,26 +452,27 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       }),
     ).toEqual({ ok: false, error: { code: "invalid_input" } });
 
-    const result = await billing.acceptConsents(owner, {
+    const purchase = {
       ...subscription,
-      shownTerms,
-    });
+      buttonLabel: "Купить Product за 990 ₽",
+      documents: [accepted(terms)],
+    };
+    const result = await billing.acceptConsents(owner, purchase);
     if (!result.ok) throw new Error(result.error.code);
     const rows = await database.prisma.legalAcceptance.findMany({
       where: { id: { in: result.evidenceRefs } },
     });
-    expect(rows).toHaveLength(2);
-    for (const row of rows)
-      expect(row).toMatchObject({
-        contextRef: subscription.contextRef,
-        screen: "checkout",
-        buttonLabel: "Оформить подписку и оплатить 990 ₽",
-        shownTerms,
-        acceptedAt: instant,
-      });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      contextRef: purchase.contextRef,
+      screen: "checkout",
+      buttonLabel: "Купить Product за 990 ₽",
+      shownTerms: null,
+      acceptedAt: instant,
+    });
     expect(
-      await billing.readConsent(owner, result.evidenceRefs[1] ?? ""),
-    ).toMatchObject({ ok: true, evidence: { shownTerms } });
+      await billing.readConsent(owner, result.evidenceRefs[0] ?? ""),
+    ).toMatchObject({ ok: true, evidence: { shownTerms: null } });
     const measured = createQueryEventClient(database.url);
     try {
       const reader = new BillingContact({
@@ -501,7 +502,6 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       );
       expect(reading.result.map((entry) => entry.ok)).toEqual([
         true,
-        true,
         false,
         true,
       ]);
@@ -510,10 +510,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       ).toBe(1);
       expect(
         await reader.readConsents(await account(), result.evidenceRefs),
-      ).toEqual([
-        { ok: false, error: { code: "not_found" } },
-        { ok: false, error: { code: "not_found" } },
-      ]);
+      ).toEqual([{ ok: false, error: { code: "not_found" } }]);
     } finally {
       await measured.prisma.$disconnect();
     }

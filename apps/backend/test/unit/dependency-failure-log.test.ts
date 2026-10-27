@@ -42,7 +42,7 @@ describe("dependency failure log", () => {
 
     const response = await api.getHttpAdapter().getInstance().inject({
       method: "GET",
-      url: "/billing/offers?limit=5",
+      url: "/billing/product-prices?limit=5",
     });
 
     expect(response.statusCode).toBe(503);
@@ -55,7 +55,7 @@ describe("dependency failure log", () => {
       module: "billing",
       operation: "listOffers",
       method: "GET",
-      route: "/billing/offers",
+      route: "/billing/product-prices",
       outcome: "dependency_unavailable",
       error: {
         type: "PrismaClientKnownRequestError",
@@ -72,7 +72,7 @@ describe("dependency failure log", () => {
     );
     expect(completed).toMatchObject({
       requestId: failure?.["requestId"],
-      route: "/billing/offers",
+      route: "/billing/product-prices",
       statusCode: 503,
     });
     expect(

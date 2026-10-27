@@ -170,51 +170,6 @@ function platformLink(row: Selectable<PlatformLinksTable>): PlatformLink {
   };
 }
 
-/** A Telegram membership observation of a linked identity. */
-export interface MembershipObservation {
-  readonly observedAt: Date;
-  /** The Telegram update that reported it, when an event did. */
-  readonly updateId: string | null;
-}
-
-/** Starts a new Membership Evidence revision for a decisive observation and returns it. */
-export async function reviseMembershipEvidence(
-  transaction: Transaction<DatabaseSchema>,
-  telegramIdentityRef: string,
-  observation: MembershipObservation,
-): Promise<string> {
-  const revision = await transaction
-    .updateTable("platform_links")
-    .set({
-      ...observationMarker(observation),
-      evidence_version: sql`evidence_version + 1`,
-    })
-    .where("telegram_identity_ref", "=", telegramIdentityRef)
-    .returning("evidence_version")
-    .executeTakeFirstOrThrow();
-  return revision.evidence_version;
-}
-
-/** Moves the observation marker without a new revision, for an undecided observation. */
-export async function markMembershipObservation(
-  transaction: Transaction<DatabaseSchema>,
-  telegramIdentityRef: string,
-  observation: MembershipObservation,
-): Promise<void> {
-  await transaction
-    .updateTable("platform_links")
-    .set(observationMarker(observation))
-    .where("telegram_identity_ref", "=", telegramIdentityRef)
-    .execute();
-}
-
-function observationMarker(observation: MembershipObservation) {
-  return {
-    last_membership_observation_at: observation.observedAt,
-    last_membership_observation_update_id: observation.updateId,
-  };
-}
-
 /** Every linked identity with its link time, for scheduling per-identity work in one statement. */
 export function linkedIdentities(database: Executor) {
   return database

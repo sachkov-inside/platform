@@ -64,7 +64,7 @@ export async function CurrentMaterialAuthoringPage({
   const assetPreview = await getCurrentMaterialPreview(materialId, accessToken);
   const initialPresentation: MaterialAuthoringPresentation = {
     availableFormats: state.references.references.formats,
-    availableSeries: state.references.references.series,
+    availableProduct: state.references.references.products,
     availableTags: state.references.references.tags,
     availableTopics: state.references.references.topics,
     authorization: { kind: "allowed" },

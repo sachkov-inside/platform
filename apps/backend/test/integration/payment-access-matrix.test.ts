@@ -1,4 +1,8 @@
-import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
+
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -13,23 +17,18 @@ import {
   assembleAccountRights,
 } from "../../src/modules/account-rights/index.js";
 import {
-  BillingNotices,
-  BillingOperations,
   BillingPayments,
   type BillingPricing,
-  BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
-import type {
-  OwnerOutcome,
-  OwnerResult,
-} from "../../src/modules/billing/domain/owner-operations.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import {
   assembleProductArtifactDelivery,
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
-  assembleMaterials,
+} from "../../src/modules/products/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import {
   assembleMaterialResourceFacts,
   materialId as checkedMaterialId,
   type MaterialId,
@@ -41,11 +40,8 @@ import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
-import {
-  CommunityEntitlements,
-  TelegramAccountLinks,
-} from "../../src/modules/telegram-membership/index.js";
-import { disabledCommunityEntitlementProvider } from "../../src/modules/telegram-membership/ports/community-entitlement-provider.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
 import type {
   ObjectStorage,
@@ -53,7 +49,7 @@ import type {
 } from "../../src/infrastructure/object-storage/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { BankFixture } from "./setup/bank.js";
-import { linkTelegramAccount } from "./setup/telegram-link.js";
+
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -71,50 +67,27 @@ function value<T>(
   return result.value;
 }
 /** Владельческий результат читается по объявленному виду, а не по форме поля. */
-function success(result: OwnerResult): OwnerOutcome {
-  if (!result.ok) throw new Error(result.error.code);
-  return result.result;
-}
-function asGrantPreview(result: OwnerResult) {
-  const value = success(result);
-  if (value.outcome !== "grantPreview")
-    throw new Error(`Unexpected outcome ${value.outcome}`);
-  return value;
-}
-function asGrantBatch(result: OwnerResult) {
-  const value = success(result);
-  if (value.outcome !== "grantBatch")
-    throw new Error(`Unexpected outcome ${value.outcome}`);
-  return value;
-}
-function asClassification(result: OwnerResult) {
-  const value = success(result);
-  if (value.outcome !== "classification")
-    throw new Error(`Unexpected outcome ${value.outcome}`);
-  return value;
-}
+
 const config = syntheticTbankConfig({
   environment: "demo",
   terminalKey: "SYNTHETICMATRIX",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
-  cardBinding: { confirmed: true, checkType: "3DS" },
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
   returnUrl: "https://inside.example.test/account",
   notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const documents = syntheticConsentDocuments;
+const documents = syntheticConsentDocuments
+  .filter((d) => d.kind === "terms")
+  .map((d) => ({ ...d, commercialModel: "product-lifetime-v1" as const }));
 const productPriceKopecks = 290_000;
-const subscriptionPriceKopecks = 100_000;
+
 const startedAt = "2030-01-31T10:00:00Z";
 // Подписка куплена 31 января: её оплаченный срок заканчивается в последний день февраля.
-const subscriptionEndsAt = "2030-02-28T10:00:00.000Z";
+
 /** Сопровождение купленного продукта: шесть месяцев с подтверждения оплаты. */
-const productSupportEndsAt = "2030-07-31T10:00:00.000Z";
 
 /**
  * Одна проверяемая матрица трёх связанных слоёв: оплата, выдача прав и проверка доступа.
@@ -206,7 +179,7 @@ describe("оплата, выдача прав и доступ к материа�
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     contact = new BillingContact({
       prisma: db.prisma,
@@ -316,6 +289,10 @@ describe("оплата, выдача прав и доступ к материа�
     });
 
     const productArtifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },
@@ -410,7 +387,7 @@ describe("оплата, выдача прав и доступ к материа�
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...productIds],
+      productIds: [...productIds],
     };
     const created = await materials.authoring.createDraft({
       actor: owner,
@@ -436,15 +413,15 @@ describe("оплата, выдача прав и доступ к материа�
     productId: string,
     ordered: readonly MaterialId[],
   ): Promise<string> {
-    const loaded = await materials.authoring.loadSeriesOrder({
+    const loaded = await materials.authoring.loadProductOrder({
       actor: owner,
-      seriesId: productId,
+      productId: productId,
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const id = randomUUID();
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor: owner,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: loaded.value.orderVersion,
       orderedMaterialIds: [...ordered],
       chapters: [{ id, name: "Первая глава", summary: "" }],
@@ -486,7 +463,7 @@ describe("оплата, выдача прав и доступ к материа�
    * владельца он остаётся неопределённым, и подписка ему недоступна.
    */
   async function buyer(
-    options: { readonly classify?: boolean } = {},
+    _options: { readonly classify?: boolean } = {},
   ): Promise<string> {
     const id = randomUUID();
     await db.prisma.account.create({
@@ -496,19 +473,6 @@ describe("оплата, выдача прав и доступ к материа�
         logtoSubject: id,
       },
     });
-    if (options.classify !== false)
-      expect(
-        await grants.classifyLegacy(owner, {
-          operationId: randomUUID(),
-          accountId: id,
-          expectedRevision: 0,
-          classification: "confirmed_new",
-          sourceRef: id,
-          reason: "Synthetic new buyer",
-          bridgeEnabled: false,
-          tributeStopped: false,
-        }),
-      ).toMatchObject({ ok: true });
     const start = await contact.start(id, {
       operationId: randomUUID(),
       email: `${id}@example.test`,
@@ -535,55 +499,31 @@ describe("оплата, выдача прав и доступ к материа�
       months: number | null;
     }[];
   }) {
-    const offerId = randomUUID(),
-      optionId = randomUUID();
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.save",
-        value: {
-          id: offerId,
-          name: input.name,
-          benefits: [...input.benefits],
-          ...(input.benefits.includes("materials")
-            ? {
-                coverage: {
-                  productIds: [productA, productB, libraryProduct],
-                  materialIds: [],
-                },
-              }
-            : {}),
-          ...(input.benefitPeriods
-            ? { benefitPeriods: [...input.benefitPeriods] }
-            : {}),
-        },
-      }),
-    );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "paymentOptions.save",
-        value: {
-          id: optionId,
-          offerId,
-          ...(input.mode !== undefined ? { mode: input.mode } : {}),
-          months: 1,
-          priceKopecks: input.priceKopecks,
-        },
-      }),
-    );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.publish",
-        expectedRevision: 1,
-        id: offerId,
-      }),
-    );
-    return { offerId, optionId };
+    const productId = input.benefits
+      .find((c) => c.startsWith("product:"))
+      ?.slice(8);
+    if (productId === undefined)
+      throw new Error("Expected Product price target");
+    const current = await db.prisma.billingProductPrice.findUnique({
+      where: { productId },
+    });
+    if (current === null)
+      value(
+        await pricing.manage(owner, {
+          operation: "productPrices.save",
+          operationId: randomUUID(),
+          value: {
+            productId,
+            name: input.name,
+            priceKopecks: input.priceKopecks,
+            published: true,
+          },
+        }),
+      );
+    return { offerId: productId, optionId: productId };
   }
   async function productOffer() {
-    await db.prisma.productCommunity.upsert({
+    await db.prisma.historicalProductCommunityRecord.upsert({
       where: { productId: productA },
       create: {
         productId: productA,
@@ -605,141 +545,20 @@ describe("оплата, выдача прав и доступ к материа�
       ],
     });
   }
-  function subscriptionOffer() {
-    return offer({
-      name: "Материалы",
-      benefits: ["materials"],
-      priceKopecks: subscriptionPriceKopecks,
-    });
-  }
-  /** Старший тариф: общий чат объявлен прямо в его составе. */
-  function seniorOffer() {
-    return offer({
-      name: "Подписка Inside",
-      benefits: ["materials", "community"],
-      priceKopecks: subscriptionPriceKopecks,
-    });
-  }
-  /** Проекция сообщества: желаемое состояние считается здесь, а исполняет его бот. */
-  function communityProjection() {
-    return new CommunityEntitlements({
-      botStartUrl: "https://t.me/inside_test_bot",
-      accounts,
-      clock: () => now,
-      grants,
-      links: new TelegramAccountLinks(db.prisma),
-      prisma: db.prisma,
-      provider: disabledCommunityEntitlementProvider,
-    });
-  }
-  /** Действующие права Account: ровно тот состав, из которого собирается желаемое состояние чата. */
-  async function capabilities(account: string) {
-    const resolved = await grants.resolveCapabilities(account);
-    if (!resolved.ok) throw new Error(resolved.error.code);
-    return resolved.capabilities;
-  }
-  /** Одно действующее основание с этим правом: его владелец и снимает. */
-  async function revokeGround(account: string, capability: string) {
-    const row = await db.prisma.accessGrant.findFirstOrThrow({
-      where: {
-        accountId: account,
-        revokedAt: null,
-        capabilities: { has: capability },
-      },
-    });
-    expect(
-      await grants.changeGrant(owner, {
-        action: "revoke",
-        operationId: randomUUID(),
-        grantRef: row.id,
-        expectedRevision: row.revision,
-        reason: `Синтетический отзыв основания ${capability}`,
-      }),
-    ).toMatchObject({ ok: true });
-  }
-  /** Независимое бессрочное право на второе руководство, выданное владельцем, а не оплатой. */
-  async function manualProductGrant(
-    operations: BillingOperations,
-    account: string,
-    productId: string,
-  ) {
-    const preview = asGrantPreview(
-      await operations.execute(owner, {
-        operation: "grants.previewBatch",
-        operationId: randomUUID(),
-        rows: [
-          {
-            rowKey: "product",
-            accountId: account,
-            source: "manual",
-            sourceRef: randomUUID(),
-            terms: {
-              capabilities: [`product:${productId}`],
-              startsAt: startedAt,
-              validUntil: null,
-              reason: "Синтетическая выдача руководства",
-            },
-          },
-        ],
-      }),
-    );
-    expect(
-      asGrantBatch(
-        await operations.execute(owner, {
-          operation: "grants.applyBatch",
-          operationId: randomUUID(),
-          previewRef: preview.previewRef,
-          expectedRevision: preview.revision,
-          confirmedRows: ["product"],
-        }),
-      ).rows,
-    ).toHaveLength(1);
-  }
-  /** Полный банковский возврат конкретной покупки. Platform не отправляет Cancel. */
-  async function refundWithRevoke(
-    payments: BillingPayments,
-    bank: BankFixture,
-    purchaseRef: string,
-  ) {
-    value(await payments.notification(bank.notify(purchaseRef, "REFUNDED")));
-  }
-
   /** Один платёжный стенд: свой банк, свои платежи и своё продление. */
   function billingStand() {
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
+      sale: { payments: true },
       prisma: db.prisma,
       bank: client,
       contact,
       grants,
-      clock: () => now,
-    });
-    const subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
-      prisma: db.prisma,
-      bank: client,
-      contact,
-      grants,
-      payments,
-      notices: new BillingNotices({
-        sale: { subscriptions: true },
-        prisma: db.prisma,
-        enrollments: grants,
-        clock: () => now,
-      }),
-      clock: () => now,
-    });
-    const operations = new BillingOperations({
-      sale: { subscriptions: true },
-      prisma: db.prisma,
-      accounts,
-      pricing,
-      payments,
-      subscriptions,
-      grants,
-      bank: client,
       clock: () => now,
     });
     /** Оплаченная покупка целиком: команда, ответ банка и выдача прав одним шагом. */
@@ -770,7 +589,7 @@ describe("оплата, выдача прав и доступ к материа�
       value(await payments.recover());
       return bought.purchaseRef;
     }
-    return { bank, payments, subscriptions, operations, pay };
+    return { bank, payments, pay };
   }
   /** Расчёт и согласия одной покупки: подписка принимает списания, разовая — только оферту. */
   async function command(
@@ -782,14 +601,11 @@ describe("оплата, выдача прав и доступ к материа�
     } = {},
   ) {
     const quote = value(
-      await pricing.quote(
-        account,
-        await prepareInvitedQuote(db.prisma, account, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
-      ),
+      await pricing.quote(account, {
+        operationId: randomUUID(),
+        productId: optionId,
+        priceRevision: 1,
+      }),
     );
     const accepted = await contact.acceptConsents(
       account,
@@ -842,7 +658,7 @@ describe("оплата, выдача прав и доступ к материа�
     enforcementPoint: "published_material_read" as const,
     correlationId: randomUUID(),
   };
-  const guest = { kind: "anonymous" as const };
+
   const reader = (account: string) => ({
     kind: "account" as const,
     accountId: checkedAccountId(account),
@@ -870,7 +686,7 @@ describe("оплата, выдача прав и доступ к материа�
       materials.publishedMaterialReader,
       access,
       videos,
-      { first: null, kind: "series", slug: productSlug, subject },
+      { first: null, kind: "product", slug: productSlug, subject },
     );
     return value(discovered);
   }
@@ -949,26 +765,20 @@ describe("оплата, выдача прав и доступ к материа�
     });
 
     // Одна оплата — одно бессрочное право ровно на купленное руководство.
-    const granted = await db.prisma.accessGrant.findMany({
-      where: {
-        accountId: account,
-        capabilities: { has: `product:${productA}` },
-      },
+    const granted = await db.prisma.productAccess.findMany({
+      where: { accountId: account, productId: productA },
     });
     expect(granted).toHaveLength(1);
     expect(granted[0]).toMatchObject({
-      source: "paid",
-      capabilities: [`product:${productA}`],
-      validUntil: null,
+      accountId: account,
+      productId: productA,
+      revokedAt: null,
+      firstIssuedAt: new Date(startedAt),
     });
-    // Сопровождение продукта — отдельное право на шесть месяцев с оплаты.
     expect(
-      await db.prisma.accessGrant.findMany({
-        where: { accountId: account, capabilities: { has: "support" } },
-      }),
-    ).toMatchObject([
-      { source: "paid", validUntil: new Date(productSupportEndsAt) },
-    ]);
+      value(await payments.status(account, bought.purchaseRef)).snapshot
+        .supportMonths,
+    ).toBe(3);
     expect(bank.initCalls).toBe(1);
 
     for (const id of [productMaterial, sharedMaterial])
@@ -1034,105 +844,6 @@ describe("оплата, выдача прав и доступ к материа�
     ]);
   });
 
-  test("гость, участник, покупатель руководства и истёкшие права видят ровно своё", async () => {
-    now = new Date(startedAt);
-    await ownSweeps();
-    const [memberAccount, productBuyer, lapsedMember, lapsedProductBuyer] =
-      await Promise.all([buyer(), buyer(), buyer(), buyer()]);
-    const subscription = await subscriptionOffer();
-    const bought = await productOffer();
-    const { bank, payments } = billingStand();
-    async function paid(
-      account: string,
-      optionId: string,
-      options: {
-        readonly recurring?: boolean;
-        readonly acknowledgeExistingAccess?: boolean;
-      } = {},
-    ) {
-      const bought = value(
-        await purchase(payments, account, optionId, options),
-      );
-      if (options.recurring === true)
-        expect(
-          await payments.notification(
-            bank.notify(bought.purchaseRef, "AUTHORIZED", {
-              RebillId: "synthetic-card",
-            }),
-          ),
-        ).toMatchObject({ ok: true });
-      expect(
-        await payments.notification(
-          bank.notify(bought.purchaseRef, "CONFIRMED"),
-        ),
-      ).toMatchObject({ ok: true });
-      value(await payments.recover());
-    }
-    await paid(memberAccount, subscription.optionId, { recurring: true });
-    await paid(productBuyer, bought.optionId);
-    await paid(lapsedMember, subscription.optionId, { recurring: true });
-    await paid(lapsedProductBuyer, subscription.optionId, { recurring: true });
-    await paid(lapsedProductBuyer, bought.optionId);
-
-    // Свободный материал открыт всем, включая гостя; закрытый требует доказанного основания.
-    expect(await decide(guest, freeMaterial)).toMatchObject({
-      effect: "allow",
-      reason: "public_resource",
-    });
-    for (const id of [libraryMaterial, productMaterial, sharedMaterial])
-      expect(await decide(guest, id)).toMatchObject({
-        effect: "deny",
-        reason: "authentication_required",
-      });
-    for (const id of [
-      libraryMaterial,
-      productMaterial,
-      sharedMaterial,
-      otherProductMaterial,
-    ])
-      expect(await decide(reader(memberAccount), id)).toMatchObject({
-        effect: "allow",
-        reason: "active_membership",
-        validUntil: subscriptionEndsAt,
-      });
-    expect(await decide(reader(productBuyer), productMaterial)).toMatchObject({
-      effect: "allow",
-      reason: "active_membership",
-      validUntil: null,
-    });
-    for (const id of [libraryMaterial, otherProductMaterial])
-      expect(await decide(reader(productBuyer), id)).toMatchObject({
-        effect: "deny",
-        reason: "membership_required",
-      });
-
-    // Оплаченный срок закончился: подписка закрывается, а купленное руководство остаётся.
-    now = new Date("2030-03-01T10:00:00Z");
-    for (const id of [libraryMaterial, productMaterial, otherProductMaterial])
-      expect(await decide(reader(lapsedMember), id)).toMatchObject({
-        effect: "deny",
-        reason: "membership_expired",
-      });
-    expect(await decide(reader(lapsedMember), freeMaterial)).toMatchObject({
-      effect: "allow",
-      reason: "public_resource",
-    });
-    for (const id of [productMaterial, sharedMaterial])
-      expect(await decide(reader(lapsedProductBuyer), id)).toMatchObject({
-        effect: "allow",
-        reason: "active_membership",
-        validUntil: null,
-      });
-    for (const id of [libraryMaterial, otherProductMaterial])
-      expect(await decide(reader(lapsedProductBuyer), id)).toMatchObject({
-        effect: "deny",
-        reason: "membership_expired",
-      });
-    expect(await productProgramme(reader(lapsedProductBuyer))).toMatchObject({
-      items: [{ availability: "available" }, { availability: "available" }],
-    });
-  });
-
   test("повтор и опоздание платёжного события не создают второго права и второго списания", async () => {
     now = new Date(startedAt);
     await ownSweeps();
@@ -1157,14 +868,13 @@ describe("оплата, выдача прав и доступ к материа�
       }),
     ).toBe(1);
     value(await payments.recover());
-    const granted = await db.prisma.accessGrant.findMany({
-      where: {
-        accountId: account,
-        capabilities: { has: `product:${productA}` },
-      },
+    const granted = await db.prisma.productAccess.findMany({
+      where: { accountId: account, productId: productA },
     });
     expect(granted).toHaveLength(1);
-    expect(granted[0]?.startsAt.toISOString()).toBe("2030-01-31T10:00:00.000Z");
+    expect(granted[0]?.firstIssuedAt?.toISOString()).toBe(
+      "2030-01-31T10:00:00.000Z",
+    );
 
     // Опоздавшее уведомление и поздняя сверка приходят неделей позже и ничего не переписывают.
     now = new Date("2030-02-07T10:00:00Z");
@@ -1178,14 +888,11 @@ describe("оплата, выдача прав и доступ к материа�
       value(await payments.status(account, bought.purchaseRef)),
     ).toMatchObject({ state: "confirmed", access: "ready" });
     expect(
-      await db.prisma.accessGrant.findMany({
-        where: {
-          accountId: account,
-          capabilities: { has: `product:${productA}` },
-        },
+      await db.prisma.productAccess.findMany({
+        where: { accountId: account, productId: productA },
       }),
     ).toMatchObject([
-      { startsAt: new Date("2030-01-31T10:00:00Z"), validUntil: null },
+      { firstIssuedAt: new Date("2030-01-31T10:00:00Z"), revokedAt: null },
     ]);
     expect(
       await db.prisma.billingPurchase.count({ where: { accountId: account } }),
@@ -1251,11 +958,8 @@ describe("оплата, выдача прав и доступ к материа�
     value(await payments.recover());
     expect(bank.initCalls).toBe(2);
     expect(
-      await db.prisma.accessGrant.count({
-        where: {
-          accountId: silent,
-          capabilities: { has: `product:${productA}` },
-        },
+      await db.prisma.productAccess.count({
+        where: { accountId: silent, productId: productA },
       }),
     ).toBe(1);
     expect(await decide(reader(silent), productMaterial)).toMatchObject({
@@ -1265,630 +969,13 @@ describe("оплата, выдача прав и доступ к материа�
     });
   });
 
-  test("выключение и архивирование продажи не трогают действующий доступ и продление", async () => {
-    now = new Date(startedAt);
-    await ownSweeps();
-    const account = await buyer();
-    const { offerId, optionId } = await subscriptionOffer();
-    const { bank, payments, subscriptions } = billingStand();
-    const bought = value(
-      await purchase(payments, account, optionId, { recurring: true }),
-    );
-    expect(
-      await payments.notification(
-        bank.notify(bought.purchaseRef, "AUTHORIZED", {
-          RebillId: "synthetic-card",
-        }),
-      ),
-    ).toMatchObject({ ok: true });
-    expect(
-      await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED")),
-    ).toMatchObject({ ok: true });
-    value(await payments.recover());
-    expect(await decide(reader(account), libraryMaterial)).toMatchObject({
-      effect: "allow",
-      validUntil: subscriptionEndsAt,
-    });
-
-    // Пока вариант в продаже, витрина его показывает; после выключения — нет.
-    expect(
-      value(await pricing.offers({ mode: "subscription" }, account)).items.some(
-        (item) => item.offer.id === offerId,
-      ),
-    ).toBe(true);
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.unpublish",
-        expectedRevision: 2,
-        id: offerId,
-      }),
-    );
-    expect(
-      value(await pricing.offers({ mode: "subscription" }, account)).items.some(
-        (item) => item.offer.id === offerId,
-      ),
-    ).toBe(false);
-
-    // Принятые условия продолжают действовать: срок продлевается, доступ не прерывается.
-    now = new Date("2030-02-28T10:00:00Z");
-    value(await payments.renew());
-    value(await payments.recover());
-    expect(value(await subscriptions.read(account)).subscription).toMatchObject(
-      {
-        state: "active",
-        periodIndex: 2,
-        paidUntil: "2030-03-31T10:00:00.000Z",
-      },
-    );
-    // Продлилась ровно эта подписка: у стенда одно списание и ни одной чужой отправки.
-    expect(bank.chargeCalls).toBe(1);
-    expect(await decide(reader(account), libraryMaterial)).toMatchObject({
-      effect: "allow",
-      validUntil: "2030-03-31T10:00:00.000Z",
-    });
-
-    // Архивирование снимает предложение окончательно и тоже не переписывает уже выданное право.
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.archive",
-        expectedRevision: 3,
-        id: offerId,
-      }),
-    );
-    const paid = await db.prisma.accessGrant.findMany({
-      where: { accountId: account, source: "paid" },
-      orderBy: { startsAt: "asc" },
-    });
-    expect(paid.at(-1)).toMatchObject({
-      capabilities: ["materials"],
-      revokedAt: null,
-      validUntil: new Date("2030-03-31T10:00:00Z"),
-    });
-    expect(await decide(reader(account), libraryMaterial)).toMatchObject({
-      effect: "allow",
-      validUntil: "2030-03-31T10:00:00.000Z",
-    });
-  });
-
-  test("прежний покупатель оформляет подписку только после решения владельца", async () => {
-    now = new Date(startedAt);
-    await ownSweeps();
-    const account = await buyer({ classify: false });
-    const { optionId } = await subscriptionOffer();
-    const { bank, payments, subscriptions, operations } = billingStand();
-
-    asClassification(
-      await operations.execute(owner, {
-        operation: "grants.classify",
-        operationId: randomUUID(),
-        accountId: account,
-        expectedRevision: 0,
-        classification: "confirmed_legacy",
-        sourceRef: `matrix-${account}`,
-        reason: "Прежние списания ещё не проверены",
-        bridgeEnabled: false,
-        tributeStopped: false,
-      }),
-    );
-    // Подписка с прежними списаниями требует решения уже на этапе расчёта.
-    expect(
-      asClassification(
-        await operations.execute(owner, {
-          operation: "grants.readClassification",
-          operationId: randomUUID(),
-          accountId: account,
-        }),
-      ).value,
-    ).toEqual({
-      accountId: account,
-      classification: "confirmed_legacy",
-      revision: 1,
-      recurringAllowed: false,
-    });
-    expect(
-      await pricing.quote(
-        account,
-        await prepareInvitedQuote(db.prisma, account, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
-      ),
-    ).toMatchObject({ ok: false, error: { code: "legacy_review_required" } });
-    expect(bank.initCalls).toBe(0);
-    expect(
-      await db.prisma.billingPurchase.count({ where: { accountId: account } }),
-    ).toBe(0);
-
-    // Владелец переводит аккаунт в «новый покупатель» тем же закрытым набором операций.
-    expect(
-      asClassification(
-        await operations.execute(owner, {
-          operation: "grants.classify",
-          operationId: randomUUID(),
-          accountId: account,
-          expectedRevision: 1,
-          classification: "confirmed_new",
-          sourceRef: `matrix-${account}`,
-          reason: "Новый покупатель оформляет подписку",
-          bridgeEnabled: false,
-          tributeStopped: false,
-        }),
-      ).value,
-    ).toEqual({
-      accountId: account,
-      classification: "confirmed_new",
-      revision: 2,
-      recurringAllowed: true,
-    });
-
-    const bought = value(
-      await purchase(payments, account, optionId, { recurring: true }),
-    );
-    expect(
-      await payments.notification(
-        bank.notify(bought.purchaseRef, "AUTHORIZED", {
-          RebillId: "synthetic-card",
-        }),
-      ),
-    ).toMatchObject({ ok: true });
-    expect(
-      await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED")),
-    ).toMatchObject({ ok: true });
-    value(await payments.recover());
-    expect(value(await subscriptions.read(account)).subscription).toMatchObject(
-      { state: "active", periodIndex: 1, paidUntil: subscriptionEndsAt },
-    );
-    expect(await decide(reader(account), libraryMaterial)).toMatchObject({
-      effect: "allow",
-      reason: "active_membership",
-      validUntil: subscriptionEndsAt,
-    });
-  });
-
-  test("выдача владельческой операцией открывает продукт, не выдаётся за покупку и не выдаёт материалы напрямую", async () => {
-    now = new Date(startedAt);
-    const account = await buyer();
-    const { payments, subscriptions, operations } = billingStand();
-    const sourceRef = randomUUID();
-    // Прямое право на материалы не выдаётся: они открываются только тарифом или продуктом.
-    expect(
-      await operations.execute(owner, {
-        operation: "grants.previewBatch",
-        operationId: randomUUID(),
-        rows: [
-          {
-            rowKey: "materials",
-            accountId: account,
-            source: "manual",
-            sourceRef: randomUUID(),
-            terms: {
-              capabilities: ["materials"],
-              coverage: { productIds: [libraryProduct], materialIds: [] },
-              startsAt: startedAt,
-              validUntil: null,
-              reason: "Прямые материалы",
-            },
-          },
-        ],
-      }),
-    ).toMatchObject({ ok: false });
-    const preview = asGrantPreview(
-      await operations.execute(owner, {
-        operation: "grants.previewBatch",
-        operationId: randomUUID(),
-        rows: [
-          {
-            rowKey: "matrix",
-            accountId: account,
-            source: "manual",
-            sourceRef,
-            terms: {
-              capabilities: [`product:${libraryProduct}`],
-              startsAt: startedAt,
-              validUntil: null,
-              reason: "Синтетическая выдача через API",
-            },
-          },
-        ],
-      }),
-    );
-    expect(
-      asGrantBatch(
-        await operations.execute(owner, {
-          operation: "grants.applyBatch",
-          operationId: randomUUID(),
-          previewRef: preview.previewRef,
-          expectedRevision: preview.revision,
-          confirmedRows: ["matrix"],
-        }),
-      ).rows,
-    ).toHaveLength(1);
-    expect(await decide(reader(account), libraryMaterial)).toMatchObject({
-      effect: "allow",
-      validUntil: null,
-    });
-
-    // Открытое право не становится оплатой: ни платежа, ни подписки, ни чека.
-    expect(value(await payments.history(account))).toEqual([]);
-    expect(
-      await db.prisma.billingPurchase.count({ where: { accountId: account } }),
-    ).toBe(0);
-    expect(
-      await db.prisma.billingSubscription.count({
-        where: { accountId: account },
-      }),
-    ).toBe(0);
-    expect(value(await subscriptions.read(account))).toMatchObject({
-      subscription: null,
-      payments: [],
-      grounds: [
-        {
-          source: "manual",
-          capabilities: [`product:${libraryProduct}`],
-          startsAt: "2030-01-31T10:00:00.000Z",
-          validUntil: null,
-          active: true,
-        },
-      ],
-    });
-  });
-
   /**
    * Общий чат открывает не название тарифа, а любое действующее право: и состав старшей подписки,
    * и купленное руководство. Решение владельца от 12.09.2026: срок участия равен сроку права.
    */
-  test("купленное руководство открывает общий чат и держит его дольше истёкшей подписки", async () => {
-    now = new Date(startedAt);
-    await ownSweeps();
-    const [onlyProduct, withBoth] = await Promise.all([buyer(), buyer()]);
-    const senior = await seniorOffer();
-    const bought = await productOffer();
-    const { pay, subscriptions } = billingStand();
-    // До покупки оснований нет: ни подписки, ни права на руководство, ни чата.
-    expect(await capabilities(onlyProduct)).toEqual([]);
-    await pay(onlyProduct, bought.optionId);
-    // Одна разовая покупка: право бессрочное, и участие в чате живёт ровно его сроком.
-    expect(await capabilities(onlyProduct)).toEqual([
-      { capability: "community", validUntil: null },
-      { capability: `product:${productA}`, validUntil: null },
-      { capability: "support", validUntil: productSupportEndsAt },
-    ]);
-    // Кабинет показывает ровно одно оплаченное основание: чат выводится из него, а не из тарифа.
-    const cabinet = value(await subscriptions.read(onlyProduct));
-    expect(cabinet.subscription).toBeNull();
-    expect(cabinet.grounds).toHaveLength(3);
-    expect(cabinet.grounds).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          source: "paid",
-          capabilities: [`product:${productA}`],
-          validUntil: null,
-          active: true,
-        }),
-        expect.objectContaining({
-          source: "paid",
-          capabilities: ["support"],
-          validUntil: productSupportEndsAt,
-          active: true,
-        }),
-      ]),
-    );
-    // Проверка доступа к материалам не изменилась: чужая библиотека руководством не открывается.
-    expect(await decide(reader(onlyProduct), libraryMaterial)).toMatchObject({
-      effect: "deny",
-      reason: "membership_required",
-    });
-
-    // Появление доступа видно в проекции: та же покупка даёт боту команду впустить бессрочно.
-    await linkTelegramAccount(db.prisma, {
-      accountId: onlyProduct,
-      identityRef: `identity-${onlyProduct}`,
-      now,
-    });
-    expect(await communityProjection().project(onlyProduct)).toMatchObject({
-      ok: true,
-      entitlementRevision: 1,
-    });
-    expect(
-      await db.prisma.telegramCommunityDesiredState.findUniqueOrThrow({
-        where: { accountId: onlyProduct },
-      }),
-    ).toMatchObject({
-      access: { kind: "lifetime" },
-      nextBoundary: new Date(productSupportEndsAt),
-    });
-    expect(
-      await db.prisma.telegramCommunityOperation.findMany({
-        where: { accountId: onlyProduct },
-      }),
-    ).toMatchObject([
-      {
-        access: { kind: "lifetime" },
-        delivery: "pending",
-        entitlementRevision: 1,
-        purpose: "apply",
-      },
-    ]);
-
-    await pay(withBoth, senior.optionId, { recurring: true });
-    await pay(withBoth, bought.optionId, { acknowledgeExistingAccess: true });
-    // Два основания сразу: бессрочное право на руководство перекрывает срок подписки.
-    expect(await capabilities(withBoth)).toEqual([
-      { capability: "community", validUntil: null },
-      { capability: "materials", validUntil: subscriptionEndsAt },
-      { capability: `product:${productA}`, validUntil: null },
-      { capability: "support", validUntil: productSupportEndsAt },
-    ]);
-
-    now = new Date("2030-03-01T10:00:00Z");
-    // Оплаченный срок подписки закончился, а чат остался: его держит купленное руководство.
-    expect(await capabilities(withBoth)).toEqual([
-      { capability: "community", validUntil: null },
-      { capability: `product:${productA}`, validUntil: null },
-      { capability: "support", validUntil: productSupportEndsAt },
-    ]);
-    expect(await decide(reader(withBoth), libraryMaterial)).toMatchObject({
-      effect: "deny",
-      reason: "membership_expired",
-    });
-  });
-
-  test("чат держится, пока есть хоть одно основание, и снимается вместе с последним", async () => {
-    now = new Date(startedAt);
-    await ownSweeps();
-    const [withBoth, refunded, kept] = await Promise.all([
-      buyer(),
-      buyer(),
-      buyer(),
-    ]);
-    const senior = await seniorOffer();
-    const bought = await productOffer();
-    const { operations, pay, payments, bank } = billingStand();
-    const subscribed = await pay(withBoth, senior.optionId, {
-      recurring: true,
-    });
-    const productPurchase = await pay(withBoth, bought.optionId, {
-      acknowledgeExistingAccess: true,
-    });
-    // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
-    await refundWithRevoke(payments, bank, productPurchase);
-    value(await payments.recover());
-    expect(await capabilities(withBoth)).toEqual([
-      { capability: "community", validUntil: subscriptionEndsAt },
-      { capability: "materials", validUntil: subscriptionEndsAt },
-    ]);
-    // Снятие последнего основания забирает и чат.
-    await refundWithRevoke(payments, bank, subscribed);
-    value(await payments.recover());
-    expect(await capabilities(withBoth)).toEqual([]);
-
-    // Возврат покупки снимает доступ, когда другого основания нет.
-    const refundedPurchase = await pay(refunded, bought.optionId);
-    expect(await capabilities(refunded)).toContainEqual({
-      capability: "community",
-      validUntil: null,
-    });
-    await refundWithRevoke(payments, bank, refundedPurchase);
-    value(await payments.recover());
-    expect(await capabilities(refunded)).toEqual([]);
-
-    // A separate Product grant preserves that Product; it does not replace refunded community rights.
-    const keptPurchase = await pay(kept, bought.optionId);
-    await manualProductGrant(operations, kept, productB);
-    await refundWithRevoke(payments, bank, keptPurchase);
-    value(await payments.recover());
-    expect(await capabilities(kept)).toEqual([
-      { capability: `product:${productB}`, validUntil: null },
-    ]);
-    // Ручное основание снимает владелец, и с последним основанием чат закрывается.
-    await revokeGround(kept, `product:${productB}`);
-    expect(await capabilities(kept)).toEqual([]);
-  });
 
   /**
    * Право на руководство уже открывает чат, поэтому старший тариф пересекается с ним составом.
    * Покупатель об этом предупреждён и продолжает подтверждением, а не обходом проверки.
    */
-  test("после покупки руководства старший тариф требует подтверждения пересечения состава", async () => {
-    now = new Date(startedAt);
-    await ownSweeps();
-    const account = await buyer();
-    const senior = await seniorOffer();
-    const bought = await productOffer();
-    const { bank, payments, pay } = billingStand();
-    await pay(account, bought.optionId);
-
-    expect(
-      await payments.purchase(
-        account,
-        await command(account, senior.optionId, { recurring: true }),
-      ),
-    ).toMatchObject({ ok: false, error: { code: "existing_access" } });
-    const acknowledged = value(
-      await payments.purchase(account, {
-        ...(await command(account, senior.optionId, { recurring: true })),
-        acknowledgeExistingAccess: true,
-      }),
-    );
-    expect(
-      await payments.notification(
-        bank.notify(acknowledged.purchaseRef, "AUTHORIZED", {
-          RebillId: "synthetic-card",
-        }),
-      ),
-    ).toMatchObject({ ok: true });
-    expect(
-      await payments.notification(
-        bank.notify(acknowledged.purchaseRef, "CONFIRMED"),
-      ),
-    ).toMatchObject({ ok: true });
-    value(await payments.recover());
-    // Бессрочное право на руководство переживает срок подписки и оставляет чат бессрочным.
-    expect(await capabilities(account)).toEqual([
-      { capability: "community", validUntil: null },
-      { capability: "materials", validUntil: subscriptionEndsAt },
-      { capability: `product:${productA}`, validUntil: null },
-      { capability: "support", validUntil: productSupportEndsAt },
-    ]);
-  });
-  test("назначение курса проходит body/file/video/artifact и не открывает исключённый продукт", async () => {
-    now = new Date(startedAt);
-    const account = await buyer();
-    const { operations, bank } = billingStand();
-    const tierId = randomUUID();
-    success(
-      await operations.execute(owner, {
-        operation: "offers.save",
-        operationId: randomUUID(),
-        value: {
-          id: tierId,
-          name: "Курс: выбранный гайд",
-          benefits: ["materials", "community"],
-          availableForAssignment: true,
-          coverage: { productIds: [productA], materialIds: [] },
-        },
-      }),
-    );
-    const command = {
-      operation: "enrollments.assign",
-      operationId: randomUUID(),
-      accountId: account,
-      tierId,
-      tierRevision: 1,
-      origin: "course",
-      sourceRef: "course-matrix",
-      courseSource: {
-        policyRef: "course-matrix",
-        verifiedIdentityRef: `verified-${account}`,
-      },
-      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
-      billingRef: null,
-      reason: "Owner verified synthetic course",
-    };
-    await linkTelegramAccount(db.prisma, {
-      accountId: account,
-      identityRef: `verified-${account}`,
-      now,
-    });
-    const lookup = {
-      operation: "recipients.lookup",
-      operationId: randomUUID(),
-      identityRef: `verified-${account}`,
-    };
-    expect(await operations.execute(account, lookup)).toMatchObject({
-      ok: false,
-      error: { code: "forbidden" },
-    });
-    expect(success(await operations.execute(owner, lookup))).toMatchObject({
-      outcome: "recipient",
-      value: { state: "found", recipient: { accountId: account } },
-    });
-    const assigned = success(await operations.execute(owner, command));
-    if (assigned.outcome !== "enrollment")
-      throw new Error("Expected enrollment");
-    const subject = reader(account);
-    for (const id of [productMaterial, sharedMaterial])
-      expect(await decide(subject, id)).toMatchObject({ effect: "allow" });
-    for (const id of [libraryMaterial, otherProductMaterial])
-      expect(await decide(subject, id)).toMatchObject({ effect: "deny" });
-    expect(
-      await delivery.deliver({
-        materialId: productMaterial,
-        assetId: productResources.assetId,
-        contentVersion: 2,
-        preview: false,
-        subject,
-      }),
-    ).toMatchObject({ ok: true });
-    expect(
-      await playback.createSession({
-        materialId: productMaterial,
-        videoId: productResources.videoId,
-        subject,
-        correlationId: randomUUID(),
-      }),
-    ).toMatchObject({ ok: true });
-    expect(
-      await artifacts.deliver({
-        artifactId: productResources.artifactId,
-        productId: productA,
-        preview: false,
-        subject,
-        version: 1,
-      }),
-    ).toMatchObject({ ok: true });
-    expect(
-      await artifacts.deliver({
-        artifactId: productResources.artifactId,
-        productId: productB,
-        preview: false,
-        subject,
-        version: 1,
-      }),
-    ).toMatchObject({ ok: false });
-    const futureStep = await material([productA]);
-    const separate = await material([productB]);
-    expect(await decide(subject, futureStep)).toMatchObject({
-      effect: "allow",
-    });
-    expect(await decide(subject, separate)).toMatchObject({ effect: "deny" });
-    expect(
-      await db.prisma.billingPurchase.count({ where: { accountId: account } }),
-    ).toBe(0);
-    expect(bank.initCalls).toBe(0);
-    success(
-      await operations.execute(owner, {
-        operation: "enrollments.change",
-        operationId: randomUUID(),
-        enrollmentId: assigned.value.id,
-        expectedRevision: 1,
-        action: "revoke",
-        terms: command.terms,
-        reason: "Course revoked",
-      }),
-    );
-    expect(await decide(subject, productMaterial)).toMatchObject({
-      effect: "deny",
-    });
-    expect(
-      await delivery.deliver({
-        materialId: productMaterial,
-        assetId: productResources.assetId,
-        contentVersion: 2,
-        preview: false,
-        subject,
-      }),
-    ).toMatchObject({ ok: false });
-    expect(
-      await playback.createSession({
-        materialId: productMaterial,
-        videoId: productResources.videoId,
-        subject,
-        correlationId: randomUUID(),
-      }),
-    ).toMatchObject({ ok: false });
-    expect(
-      await artifacts.deliver({
-        artifactId: productResources.artifactId,
-        productId: productA,
-        preview: false,
-        subject,
-        version: 1,
-      }),
-    ).toMatchObject({ ok: false });
-    expect(
-      success(
-        await operations.execute(owner, {
-          ...command,
-          operationId: randomUUID(),
-        }),
-      ),
-    ).toMatchObject({
-      outcome: "enrollment",
-      value: { id: assigned.value.id, state: "revoked" },
-    });
-  });
 });

@@ -3,12 +3,12 @@ const fakes = vi.hoisted(() => ({
   token: vi.fn(),
   open: vi.fn(),
   home: vi.fn(),
-  series: vi.fn(),
+  product: vi.fn(),
 }));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestRecordMaterialOpen: fakes.open,
   requestLearningHome: fakes.home,
-  requestSeriesContinuation: fakes.series,
+  requestProductContinuation: fakes.product,
 }));
 vi.mock("@/shared/auth/platform-access-token.server", () => ({
   getPlatformAccessToken: fakes.token,
@@ -27,7 +27,7 @@ vi.mock("@/shared/auth/index.server", async () => {
 });
 import {
   handleMaterialOpen,
-  handleSeriesContinuation,
+  handleProductContinuation,
 } from "@/features/reading-progress.server";
 import { handlePersonalHome } from "@/features/reading-progress.server";
 const materialId = "10000000-0000-4000-8000-000000000001";
@@ -103,7 +103,7 @@ it("serves a private empty Home and limits failure to its personal layer", async
   fakes.home
     .mockResolvedValueOnce({
       ok: true,
-      body: { video: null, series: null },
+      body: { video: null, product: null },
       response: new Response(),
     })
     .mockResolvedValueOnce({
@@ -124,7 +124,7 @@ it("serves a private empty Home and limits failure to its personal layer", async
     });
 });
 
-const seriesId = "30000000-0000-4000-8000-000000000001";
+const productId = "30000000-0000-4000-8000-000000000001";
 const projection = {
   materialId,
   contentVersion: 1,
@@ -140,7 +140,7 @@ const projection = {
   format: { id: commandId, name: "Видео", slug: "video" },
   topic: { id: commandId, name: "Topic", slug: "topic" },
   tags: [],
-  seriesMemberships: [],
+  productMemberships: [],
 };
 it("maps published covers, saved position and a resumed collection to existing Home cards", async () => {
   fakes.home.mockResolvedValue({
@@ -151,12 +151,12 @@ it("maps published covers, saved position and a resumed collection to existing H
         lastOpenedAt: "2026-09-07T00:00:00.000Z",
         resume: { kind: "position", positionSeconds: 123 },
       },
-      series: {
+      product: {
         collection: {
-          id: seriesId,
-          slug: "series",
-          name: "Series",
-          summary: "A series",
+          id: productId,
+          slug: "product",
+          name: "Product",
+          summary: "A product",
           cover: null,
           count: 2,
           previewItems: [projection],
@@ -179,11 +179,11 @@ it("maps published covers, saved position and a resumed collection to existing H
         material: { materialId, slug: "partial-video" },
         label: "Продолжить с 2:03",
       },
-      series: { collection: { id: seriesId }, read: 1, total: 2 },
+      product: { collection: { id: productId }, read: 1, total: 2 },
     },
   });
 });
-it("rejects inaccessible video and impossible series counts in upstream responses", async () => {
+it("rejects inaccessible video and impossible product counts in upstream responses", async () => {
   fakes.home.mockResolvedValueOnce({
     ok: true,
     body: {
@@ -192,7 +192,7 @@ it("rejects inaccessible video and impossible series counts in upstream response
         lastOpenedAt: "2026-09-07T00:00:00.000Z",
         resume: { kind: "position", positionSeconds: 10 },
       },
-      series: null,
+      product: null,
     },
     response: new Response(),
   });
@@ -203,11 +203,11 @@ it("rejects inaccessible video and impossible series counts in upstream response
     ok: true,
     body: {
       video: null,
-      series: {
+      product: {
         collection: {
-          id: seriesId,
-          slug: "series",
-          name: "Series",
+          id: productId,
+          slug: "product",
+          name: "Product",
           summary: null,
           cover: null,
           count: 2,
@@ -225,12 +225,12 @@ it("rejects inaccessible video and impossible series counts in upstream response
   });
 });
 
-it("keeps series continuation private, binds the requested slug and rejects unknown response shapes", async () => {
+it("keeps product continuation private, binds the requested slug and rejects unknown response shapes", async () => {
   const value = {
     collection: {
-      id: seriesId,
-      slug: "series",
-      name: "Series",
+      id: productId,
+      slug: "product",
+      name: "Product",
       summary: null,
       cover: null,
       count: 2,
@@ -243,13 +243,13 @@ it("keeps series continuation private, binds the requested slug and rejects unkn
       resume: { kind: "position", positionSeconds: 123 },
     },
   };
-  fakes.series.mockResolvedValue({
+  fakes.product.mockResolvedValue({
     ok: true,
     body: value,
     response: new Response(),
   });
-  const response = await handleSeriesContinuation(
-    request({ slug: "series", accountId: "untrusted" }),
+  const response = await handleProductContinuation(
+    request({ slug: "product", accountId: "untrusted" }),
   );
   expect(response.headers.get("cache-control")).toBe("no-store, private");
   expect(await response.json()).toEqual({
@@ -258,14 +258,16 @@ it("keeps series continuation private, binds the requested slug and rejects unkn
     total: 2,
     continuation: { materialSlug: "partial-video", label: "Продолжить с 2:03" },
   });
-  expect(fakes.series).toHaveBeenCalledWith("series", "trusted-token");
+  expect(fakes.product).toHaveBeenCalledWith("product", "trusted-token");
   expect(
-    await (await handleSeriesContinuation(request({ slug: "another" }))).json(),
+    await (
+      await handleProductContinuation(request({ slug: "another" }))
+    ).json(),
   ).toEqual({ kind: "unavailable" });
   expect(
     (
-      await handleSeriesContinuation(
-        request({ slug: "series" }, "https://outside.test"),
+      await handleProductContinuation(
+        request({ slug: "product" }, "https://outside.test"),
       )
     ).status,
   ).toBe(403);

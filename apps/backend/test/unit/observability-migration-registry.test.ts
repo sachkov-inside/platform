@@ -15,19 +15,38 @@ const ledger = (rows: readonly Migration[]) =>
     position: index + 1,
   }));
 
-it("retains exact main101/102/103/104 prefixes and all thirteen immutable observability statements", () => {
-  for (const label of ["main101", "main102", "main103", "main104"] as const) {
+it("retains exact historical main prefixes and the independently frozen current-main 114-entry prefix", () => {
+  for (const label of [
+    "main101",
+    "main102",
+    "main103",
+    "main104",
+    "main114",
+  ] as const) {
     const main = frozenRegistry(label);
     expect(platformMigrations.slice(0, main.length)).toEqual(main);
     expect(() =>
       assertAppliedMigrations(ledger(main), platformMigrations),
     ).not.toThrow();
   }
-  expect(platformMigrations).toHaveLength(117);
-  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(117);
-  expect(platformMigrations.slice(104)).toEqual(
-    frozenRegistry("legacy115").slice(102),
-  );
+  expect(platformMigrations).toHaveLength(128);
+  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(128);
+  expect(platformMigrations.slice(114).map(({ name }) => name)).toEqual([
+    "0114_funnel_diagnostic_candidates",
+    "0115_billing_funnel_diagnostic_sources",
+    "0116_reading_funnel_diagnostic_sources",
+    "0117_telegram_funnel_diagnostic_identities",
+    "0118_funnel_diagnostic_current_products",
+    "0119_learning_activity_provenance",
+    "0120_bookmark_activity_provenance",
+    "0121_submission_activity_period",
+    "0122_materials_notification_trace_context",
+    "0123_notifications_notification_trace_context",
+    "0124_notifications_email_trace_context",
+    "0125_communications_tracking_trace_context",
+    "0126_waitlist_trace_context",
+    "0127_queue_work_observation",
+  ]);
 });
 
 it("keeps independently frozen old histories and rejects each divergent ledger without mutating it", () => {

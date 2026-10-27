@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { videosTransaction } from "../../infrastructure/transaction.js";
 import { isVideoDeletionState } from "../../facets/videos/videos.interface.js";
 import {
   newVideoDeletionOperationId,
@@ -17,11 +18,6 @@ const requestInput = z
   })
   .strict();
 
-type VideoDeletionRequestPrisma = Pick<
-  VideosPrisma,
-  "video" | "videoDeletionOperation"
->;
-
 export type RequestVideoDeletionResult =
   | Readonly<{ ok: true; operationId: string }>
   | Readonly<{
@@ -34,7 +30,7 @@ export type RequestVideoDeletionResult =
     }>;
 
 export async function requestVideoDeletion(
-  prisma: VideoDeletionRequestPrisma,
+  handle: TransactionHandle,
   input: {
     readonly actor: string;
     readonly materialId: string;
@@ -42,6 +38,7 @@ export async function requestVideoDeletion(
   },
   requestedAt: Date,
 ): Promise<RequestVideoDeletionResult> {
+  const prisma = videosTransaction(handle);
   const parsed = requestInput.safeParse(input);
   if (!parsed.success) return { code: "invalid_request", ok: false };
   const video = await prisma.video.findUnique({

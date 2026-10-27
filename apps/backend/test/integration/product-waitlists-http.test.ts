@@ -1,3 +1,5 @@
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
@@ -20,7 +22,7 @@ import { ProductWaitlistController } from "../../src/modules/sales-funnel/featur
 import { ReadFunnelReportController } from "../../src/modules/sales-funnel/features/read-funnel-report/read-funnel-report.controller.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/facets/sales-funnel/sales-funnel.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
-import { ProductOutlines } from "../../src/modules/materials/index.js";
+import { ProductOutlines } from "../../src/modules/products/index.js";
 import { MaterialFirstOpens } from "../../src/modules/reading-activity/index.js";
 import {
   BillingProductSales,
@@ -79,6 +81,7 @@ beforeAll(async () => {
   const links = new TelegramAccountLinks(db.prisma);
   const dependencies = {
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -89,7 +92,10 @@ beforeAll(async () => {
   const funnel = new SalesFunnel({
     ...dependencies,
     accounts,
-    outlines: new ProductOutlines(db.prisma),
+    outlines: new ProductOutlines(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    ),
     firstOpens: new MaterialFirstOpens(db.prisma),
     sales: new BillingProductSales(db.prisma),
     surveyRespondents: new BillingSurveyRespondentSales(db.prisma),

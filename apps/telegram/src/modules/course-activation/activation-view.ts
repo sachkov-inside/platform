@@ -1,0 +1,225 @@
+import { isProductCapability } from "@inside/access-capabilities";
+import { isTruthy } from "../../shared/truthiness.js";
+import type {
+  OwnAccess,
+  ActivationResult,
+  ActivationResponse,
+} from "./activation-contract.js";
+import type { TelegramButton } from "../outbound/telegram-messages.js";
+const enrollmentStates = {
+  active: "Действует",
+  scheduled: "Начнётся позже",
+  expired: "Срок завершён",
+  revoked: "Отозвано",
+  pending_verification:
+    "Ожидает подтверждения Tribute. Временный доступ по этому основанию не подтверждён. Повторите проверку позже или нажмите «Помощь»",
+  suspended_source:
+    "Источник Tribute завершён, доступ по нему приостановлен. Обратитесь к владельцу для подтверждения нового периода. Повторная проверка и вступление в группу не восстанавливают это основание",
+};
+/** A course student outside the course group gets access through the author's personal invitation. */
+const OUTSIDE_COURSE_GROUP =
+  "Если вы учились на курсе, но вас нет в его группе, напишите автору.";
+/** Tells the person that an unconfirmed ground is now in the owner's review queue. */
+export const OWNER_REVIEW = "Запрос передан автору курса.";
+export function activationMenu(
+  _accountUrl: string,
+  result?: ActivationResult<ActivationResponse>,
+  code?: string,
+): readonly TelegramButton[] {
+  if (
+    result?.ok === true &&
+    ["active", "already_active"].includes(result.value.state)
+  ) {
+    const product = result.value.rule?.product;
+    return [
+      ...(product
+        ? [
+            {
+              text: "Открыть курс",
+              url: `https://sachkov.dev/products/${product.slug}/programme`,
+            },
+            ...(result.value.enrollment?.tier.benefits.includes("community") ===
+            true
+              ? [
+                  {
+                    text: "Вступить в группу",
+                    callbackData: `access:community:${product.id}`,
+                  },
+                ]
+              : []),
+          ]
+        : [{ text: "Открыть платформу", url: "https://sachkov.dev" }]),
+      {
+        text: "Помощь",
+        callbackData: product ? `access:help:${product.id}` : "access:help",
+      },
+      { text: "Мои продукты", callbackData: "access:own" },
+    ];
+  }
+  const help: TelegramButton = { text: "Помощь", callbackData: "access:help" };
+  if (
+    result &&
+    !result.ok &&
+    ["policy_paused", "not_found", "identity_conflict"].includes(
+      result.error.code,
+    )
+  )
+    return [help];
+  return [
+    {
+      text: "Проверить ещё раз",
+      callbackData:
+        code === undefined ? "access:retry" : `access:retry:${code}`,
+    },
+    help,
+  ];
+}
+export function accountPrompt(
+  _accountUrl: string,
+  _code?: string,
+): {
+  text: string;
+  buttons: readonly TelegramButton[];
+} {
+  return {
+    text: "Войдите на платформу и подключите Telegram, чтобы видеть свои продукты.",
+    buttons: [
+      {
+        text: "Продолжить на платформе",
+        url: "https://sachkov.dev/account/access",
+      },
+      { text: "Помощь", callbackData: "access:help" },
+    ],
+  };
+}
+/** The answer already sends a course student outside the group to the author; no second instruction. */
+export function asksToWriteAuthor(
+  result: ActivationResult<ActivationResponse>,
+): boolean {
+  return result.ok
+    ? result.value.state === "rejected"
+    : result.error.code === "source_not_confirmed";
+}
+export function activationMessage(
+  result: ActivationResult<ActivationResponse>,
+  sourceName?: string,
+): string {
+  if (!result.ok) {
+    const messages: Partial<Record<string, string>> = {
+      policy_paused: "Получение доступа по этой ссылке сейчас недоступно.",
+      identity_conflict:
+        "Не удалось связать Telegram с аккаунтом. Напишите автору курса.",
+      source_not_confirmed: `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`,
+      not_found: "Получение доступа по этой ссылке сейчас недоступно.",
+      revision_conflict:
+        "Условия доступа обновились. Нажмите «Проверить ещё раз».",
+    };
+    return (
+      messages[result.error.code] ??
+      "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже."
+    );
+  }
+  switch (result.value.state) {
+    case "active":
+    case "already_active": {
+      const name =
+        result.value.rule?.product?.name ??
+        result.value.enrollment?.tier.name ??
+        "Курс";
+      return `${name}\n\nКурс доступен. Открывайте материалы${result.value.enrollment?.tier.benefits.includes("community") === true ? " и присоединяйтесь к группе курса" : ""}.`;
+    }
+    case "pending_review":
+      if (result.value.enrollment && result.value.enrollment.state !== "active")
+        return `Доступ пока не подтверждён.\n\n${result.value.enrollment.tier.name}: ${enrollmentStates[result.value.enrollment.state]}.`;
+      return "Доступ пока не подтверждён.";
+    case "rejected":
+      return sourceName !== undefined
+        ? `Доступ по этой ссылке предназначен для участников ${sourceName}. Не удалось подтвердить ваше участие. Проверьте, что открыли бота тем аккаунтом, которым пользуетесь в группе.`
+        : `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`;
+    case "checking":
+      return "Проверяем доступ к курсу…";
+    case "needs_account":
+      return "Войдите на платформу и привяжите Telegram в аккаунте.";
+    case "unavailable":
+      return "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.";
+  }
+}
+function productAccessOrigin(source: string): string {
+  switch (source) {
+    case "paid":
+      return "покупка";
+    case "manual":
+      return "назначение владельца";
+    case "course_activation":
+      return "активация курса";
+    case "legacy":
+      return "ранее полученный доступ";
+    default:
+      return "источник не уточнён";
+  }
+}
+
+export function ownAccessText(access: OwnAccess): string {
+  const origin = {
+    course: "Предоставлено за курс",
+    tribute: "Оплачено через Tribute",
+    manual: "Назначено владельцем",
+    platform_payment: "Оформлено на Platform",
+  };
+
+  const rows = access.enrollments
+    .slice(0, 8)
+    .map(
+      (e) =>
+        `${e.tier.name}\n${origin[e.origin]}. ${enrollmentStates[e.state]}.\nСостав: ${e.tier.benefits.map(capability).join(", ")}.\nНачало: ${date(e.startsAt)}. ${term(e.endsAt)} — срок назначения. ${(e.benefitTerms ?? []).map((t) => `${capability(t.capability)}: ${t.revoked ? "отозвано" : term(t.endsAt)}`).join("; ")}.${e.renewal === "not_applicable" ? " Списаний Inside нет." : " Продление — по вашему платёжному соглашению."}`,
+    );
+  for (const ground of access.grounds.filter((g) => g.active).slice(0, 8))
+    rows.push(
+      `Действующее основание: ${productAccessOrigin(ground.source)}. ${term(ground.validUntil)}. Состав: ${ground.capabilities.map(capability).join(", ")}.`,
+    );
+  if (!isTruthy(rows.length))
+    rows.push(
+      "Действующие права не найдены. Кабинет и история доступны; это не мешает обратиться за подтверждением прежней покупки.",
+    );
+  const admission =
+    access.admission.admissionRestriction === "moderation" ||
+    access.admission.admissionRestriction === "external_unknown" ||
+    access.admission.state === "moderation_blocked"
+      ? "Вступление ограничено. Обратитесь к владельцу; доступ к материалам не снимается этим запретом."
+      : access.admission.state === "ready"
+        ? "Право на сообщество действует. Запросите вступление отдельной кнопкой."
+        : access.admission.state === "checking"
+          ? "Состояние сообщества уточняется."
+          : "Сейчас нет действующего права на сообщество.";
+  const footer =
+    "Срок каждого отдельного права, полный состав и история — в кабинете.";
+  const heading = `Мои доступы\n\n${admission}\n\n`;
+  const details = rows.join("\n\n");
+  const room = 3900 - heading.length - footer.length - 3;
+  return `${heading}${details.length > room ? details.slice(0, room - 1) + "…" : details}\n\n${footer}`;
+}
+function date(value: string): string {
+  return (
+    new Intl.DateTimeFormat("ru-RU", {
+      timeZone: "Europe/Moscow",
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value)) + " МСК"
+  );
+}
+function term(value: string | null): string {
+  return value === null ? "Без даты окончания" : `До ${date(value)}`;
+}
+function capability(value: string): string {
+  return (
+    (
+      {
+        materials: "материалы",
+        community: "сообщество",
+        support: "поддержка",
+        reviews: "ревью",
+      } as Record<string, string>
+    )[value] ??
+    (isProductCapability(value) ? "купленный продукт" : "состав в кабинете")
+  );
+}

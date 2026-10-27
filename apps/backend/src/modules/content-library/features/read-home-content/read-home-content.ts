@@ -16,14 +16,14 @@ import type {
 } from "../list-published-materials/list-published-materials.contract.js";
 
 /** Закреплённый продукт с оформлением его карточки (ADR 0026). */
-export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
+export interface HomePinnedProductDto extends PublishedMaterialCatalogFacetDto {
   readonly presentation: string;
   readonly card: ProductPageCard | null;
   readonly hero: ProductPageHero | null;
 }
 
 export interface HomeContentDto {
-  readonly pinnedSeries: HomePinnedSeriesDto | null;
+  readonly pinnedProduct: HomePinnedProductDto | null;
   readonly topics: readonly PublishedMaterialCatalogFacetDto[];
   readonly playlists: readonly PublishedMaterialCatalogFacetDto[];
   readonly videos: readonly PublishedMaterialCatalogItemDto[];
@@ -68,7 +68,7 @@ export async function readHomeContent(
         ...home.value.guides,
         ...home.value.notes,
         ...home.value.playlists.flatMap(({ previewItems }) => previewItems),
-        ...(home.value.pinnedSeries?.previewItems ?? []),
+        ...(home.value.pinnedProduct?.previewItems ?? []),
       ].map((item) => [item.materialId, item]),
     ).values(),
   ];
@@ -94,11 +94,11 @@ export async function readHomeContent(
     cover: value.cover,
     previewItems: items(value.previewItems),
   });
-  const pin = home.value.pinnedSeries;
+  const pin = home.value.pinnedProduct;
   return {
     ok: true,
     value: {
-      pinnedSeries:
+      pinnedProduct:
         pin === null
           ? null
           : {

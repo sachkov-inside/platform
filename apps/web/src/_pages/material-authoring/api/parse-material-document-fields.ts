@@ -12,25 +12,25 @@ type ParsedMaterialDocumentFields =
   | {
       readonly document: JSONContent;
       readonly ok: true;
-      readonly seriesIds: readonly string[];
+      readonly productIds: readonly string[];
     }
   | {
       readonly issues: readonly MaterialValidationIssue[];
       readonly ok: false;
     };
 
-const seriesIdsSchema = z.array(z.uuid()).max(100);
+const productIdsSchema = z.array(z.uuid()).max(100);
 
 /** Checks the structure of the two editor fields shared by draft creation and saving. */
 export function parseMaterialDocumentFields(input: {
   readonly document: unknown;
-  readonly seriesIds: unknown;
+  readonly productIds: unknown;
 }): ParsedMaterialDocumentFields {
   const parsedDocument = materialDocumentContentSchema.safeParse(
     input.document,
   );
-  const parsedSeriesIds = seriesIdsSchema.safeParse(input.seriesIds);
-  if (!parsedDocument.success || !parsedSeriesIds.success) {
+  const parsedProductIds = productIdsSchema.safeParse(input.productIds);
+  if (!parsedDocument.success || !parsedProductIds.success) {
     return {
       issues: [
         {
@@ -45,6 +45,6 @@ export function parseMaterialDocumentFields(input: {
   return {
     document: parsedDocument.data,
     ok: true,
-    seriesIds: parsedSeriesIds.data,
+    productIds: parsedProductIds.data,
   };
 }

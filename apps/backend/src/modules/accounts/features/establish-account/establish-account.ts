@@ -2,6 +2,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import {
   lockAccountRecords,
   type AccountsPrismaClient,
+  type AccountsPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import {
   newAccountId,
@@ -19,13 +20,17 @@ import {
 import { establishTelegramAccount } from "../establish-telegram-account/establish-telegram-account.js";
 import { internalFailure } from "../../shared/internal-failure.js";
 
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { accountsTransaction } from "../../infrastructure/transaction.js";
+
 export async function establishAccount(
   prisma: AccountsPrismaClient,
   emailFingerprintKey: string,
   command: { readonly identity: VerifiedAccountSignIn },
+  handle?: TransactionHandle,
 ): Promise<EstablishAccountResult> {
   if (command.identity.telegram !== undefined) {
-    return establishTelegramAccount(prisma, command.identity);
+    return establishTelegramAccount(prisma, command.identity, handle);
   }
   const emailFingerprint = fingerprintEmail(
     command.identity.verifiedEmail,
@@ -36,7 +41,9 @@ export async function establishAccount(
   }
 
   try {
-    return await prisma.$transaction(async (transaction) => {
+    const operation = async (
+      transaction: AccountsPrisma,
+    ): Promise<EstablishAccountResult> => {
       await lockAccountRecords(transaction, [
         `logto:${JSON.stringify([
           command.identity.issuer,
@@ -107,8 +114,12 @@ export async function establishAccount(
       });
       await appendAccountAuditEvent(transaction, "account_created", accountId);
       return { ok: true, account: { accountId } };
-    });
+    };
+    return await (handle === undefined
+      ? prisma.$transaction(operation)
+      : operation(accountsTransaction(handle)));
   } catch (error) {
+    if (handle !== undefined) throw error;
     return dependencyFailure(
       { module: "accounts", operation: "establishAccount" },
       error,

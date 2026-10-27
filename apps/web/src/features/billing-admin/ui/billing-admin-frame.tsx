@@ -15,3 +15,14 @@ export function BillingAdminFrame({
     </main>
   );
 }
+
+export function BillingAdminLoading() {
+  return (
+    <BillingAdminFrame>
+      <header className="authoring-page-heading">
+        <h1>Оплата</h1>
+      </header>
+      <p role="status">Загружаем цены и оплаты…</p>
+    </BillingAdminFrame>
+  );
+}

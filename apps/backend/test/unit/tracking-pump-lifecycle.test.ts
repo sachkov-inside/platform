@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   AggregationTemporality,
   InMemoryMetricExporter,
@@ -81,7 +82,7 @@ test.each(["claim", "write"] as const)(
       DATABASE_URL: "postgresql://unused:unused@localhost/unused",
       TELEGRAM_TRACKING_ORIGIN: "https://inside.test",
       TELEGRAM_COMMUNICATIONS_ENDPOINT:
-        "https://provider.test/integrations/platform/v1/communications",
+        "https://provider.test/integrations/platform/v2/communications",
       TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-secret",
       TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic-author-secret",
       TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "test_bot",
@@ -98,7 +99,7 @@ test.each(["claim", "write"] as const)(
         calls.push(command.payload.eventId);
         if (command.payload.eventId === secondId) await heldProvider.promise;
         return Response.json({
-          contractVersion: "inside-communications-v1",
+          contractVersion: "inside-communications-v2",
           status: "ok",
           eventId: command.payload.eventId,
           outcome: "recorded",
@@ -109,7 +110,7 @@ test.each(["claim", "write"] as const)(
       prisma,
       provider,
       config.communicationsTrackingOrigin,
-      new PublicContentTargets(prisma),
+      new PublicContentTargets(prisma, new ProductDiscovery(prisma)),
     );
     const pump = new TrackingHitPump(visits, config);
     const spans = new InMemorySpanExporter();
@@ -210,7 +211,7 @@ test.each(["empty", "lost claim"] as const)(
       DATABASE_URL: "postgresql://unused:unused@localhost/unused",
       TELEGRAM_TRACKING_ORIGIN: "https://inside.test",
       TELEGRAM_COMMUNICATIONS_ENDPOINT:
-        "https://provider.test/integrations/platform/v1/communications",
+        "https://provider.test/integrations/platform/v2/communications",
       TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-secret",
       TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic-author-secret",
       TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "test_bot",
@@ -222,7 +223,7 @@ test.each(["empty", "lost claim"] as const)(
       prisma,
       provider,
       config.communicationsTrackingOrigin,
-      new PublicContentTargets(prisma),
+      new PublicContentTargets(prisma, new ProductDiscovery(prisma)),
     );
     const pump = new TrackingHitPump(visits, config);
     const spans = new InMemorySpanExporter();

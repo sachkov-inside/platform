@@ -131,6 +131,7 @@ expectFailure(
     "account-rights capability index.ts",
     "telegram-membership capability index.ts",
     "capability implementation cannot import Nest adapters",
+    "opaque transaction unwrapping belongs to the owning Module persistence implementation",
     "material document blocks belong to the shared block registry",
     "raw persistence imports",
     "src/infrastructure/prisma/unowned-pool.ts: raw persistence imports require an approved postgres owner path",

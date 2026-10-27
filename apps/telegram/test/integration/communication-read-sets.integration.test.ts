@@ -24,9 +24,9 @@ import { required } from "../support/required.js";
 import { destroyTestDatabase } from "../support/destroy-test-database.js";
 
 import { AuthorBroadcastDrafts } from "../../src/modules/communications/author-broadcast-drafts.js";
-import { AuthorFunnelDrafts } from "../../src/modules/communications/author-funnel-drafts.js";
+import { AuthorSequenceDrafts } from "../../src/modules/communications/author-sequence-drafts.js";
 import type { Context } from "../../src/modules/communications/author-admin.js";
-import { Funnels } from "../../src/modules/communications/funnels.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 
 let entryStatements: string[] = [];
@@ -77,7 +77,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   entryStatements = [];
   communicationStatements = [];
-  await sql`truncate communication_contacts, bot_contacts, communication_author_drafts, communication_funnels, communication_broadcasts, communication_operations cascade`.execute(
+  await sql`truncate communication_contacts, bot_contacts, communication_author_drafts, communication_sequences, communication_broadcasts, communication_operations cascade`.execute(
     database,
   );
 });
@@ -106,7 +106,7 @@ describe.each([0, 1, 100, 101])(
     select ('00000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, 'inside', n, true from generate_series(1,100) n`.execute(
         database,
       );
-      await sql`insert into communication_entries(bot_identity,update_id,contact_id,funnel_id,source_id,source_code,entered_at,outcome)
+      await sql`insert into communication_entries(bot_identity,update_id,contact_id,sequence_id,source_id,source_code,entered_at,outcome)
     select 'inside', c.telegram_user_id*1000+e, c.contact_id, null,
       ('10000000-0000-4000-8000-' || lpad(e::text,12,'0'))::uuid, 'source-'||e, ${instant}, 'enrolled'
     from communication_contacts c cross join generate_series(1,${entries}::int) e`.execute(
@@ -150,7 +150,7 @@ describe.each([0, 1, 100, 101])(
             {
               sourceId: "10000000-0000-4000-8000-000000000101",
               sourceCode: "source-101",
-              funnelId: null,
+              sequenceId: null,
               enteredAt: "2030-01-01T00:00:00.000Z",
               outcome: "enrolled",
             },
@@ -162,7 +162,7 @@ describe.each([0, 1, 100, 101])(
   },
 );
 
-it.each(["funnel", "broadcast"] as const)(
+it.each(["sequence", "broadcast"] as const)(
   "reads the authorized author's %s list as sets with draft preference and complete cursors",
   async (kind) => {
     const databaseUrl = required(process.env["DATABASE_URL"]);
@@ -182,7 +182,7 @@ it.each(["funnel", "broadcast"] as const)(
     const authorization = {
       authorize: vi.fn(() => Promise.resolve("allowed" as const)),
     };
-    const funnels = new Funnels(
+    const sequences = new CommunicationSequences(
       database,
       config,
       authorization,
@@ -193,7 +193,7 @@ it.each(["funnel", "broadcast"] as const)(
       `20000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
     for (let index = 1; index <= 12; index++) {
       const draft = {
-        funnelId: id(index),
+        sequenceId: id(index),
         name: `Saved ${index}`,
         isDefault: false,
         sources: [],
@@ -204,11 +204,11 @@ it.each(["funnel", "broadcast"] as const)(
         },
       };
       if (index !== 11) {
-        if (kind === "funnel")
+        if (kind === "sequence")
           await database
-            .insertInto("communication_funnels")
+            .insertInto("communication_sequences")
             .values({
-              funnel_id: id(index),
+              sequence_id: id(index),
               bot_identity: "inside",
               owner_account_ref: index === 12 ? "other" : "author",
               revision: 1,
@@ -249,9 +249,9 @@ it.each(["funnel", "broadcast"] as const)(
             kind,
             name: `Edited ${index}`,
             snapshot: JSON.stringify(
-              kind === "funnel"
+              kind === "sequence"
                 ? {
-                    funnel: {
+                    sequence: {
                       ...draft,
                       revision: 0,
                       lifecycle: "draft",
@@ -274,9 +274,9 @@ it.each(["funnel", "broadcast"] as const)(
           .execute();
     }
     const list =
-      kind === "funnel"
-        ? new AuthorFunnelDrafts(funnels)
-        : new AuthorBroadcastDrafts(funnels);
+      kind === "sequence"
+        ? new AuthorSequenceDrafts(sequences)
+        : new AuthorBroadcastDrafts(sequences);
     function context(tx: Context["tx"]): Context {
       return {
         tx,

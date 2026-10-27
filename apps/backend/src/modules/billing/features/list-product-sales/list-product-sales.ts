@@ -114,6 +114,20 @@ async function readBillingProductSales(
   const parsed = productIdSchema.safeParse(productId);
   if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
   const namesProduct = Prisma.sql`jsonb_build_array(${parsed.data}::text)`;
+  // Current content ownership comes from the immutable saved benefit. A coverage
+  // constraint attached only to community/support does not grant a Product.
+  const quoteProduct =
+    operation === "listForDiagnostics"
+      ? Prisma.sql`(quote.snapshot -> 'offer' -> 'benefits' @> jsonb_build_array(${"product:" + parsed.data}::text)
+        or (quote.snapshot -> 'offer' -> 'benefits' @> '["materials"]'::jsonb
+          and quote.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}))`
+      : Prisma.sql`quote.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}`;
+  const purchaseProduct =
+    operation === "listForDiagnostics"
+      ? Prisma.sql`(purchase.snapshot -> 'offer' -> 'benefits' @> jsonb_build_array(${"product:" + parsed.data}::text)
+        or (purchase.snapshot -> 'offer' -> 'benefits' @> '["materials"]'::jsonb
+          and purchase.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}))`
+      : Prisma.sql`purchase.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}`;
   const accountIds =
     scope !== undefined && "accountIds" in scope ? [...scope.accountIds] : null;
   const quoteAccounts =
@@ -141,7 +155,7 @@ async function readBillingProductSales(
       prisma.$queryRaw(Prisma.sql`
           select quote.account_id, min(quote.created_at) as first_at
           from billing.price_quotes as quote
-          where quote.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}
+          where ${quoteProduct}
           ${quoteAccounts}
           group by quote.account_id ${quoteWindow} ${limit}
         `),
@@ -150,7 +164,7 @@ async function readBillingProductSales(
           from billing.purchases as purchase
           where purchase.state = 'confirmed'
             and purchase.kind in ('initial', 'one_time')
-            and purchase.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}
+            and ${purchaseProduct}
           ${purchaseAccounts}
           group by purchase.account_id ${purchaseWindow} ${limit}
         `),

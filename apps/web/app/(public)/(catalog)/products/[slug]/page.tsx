@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 import { productLinkPreview } from "@/_pages/library-discovery";
-import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
-import { readPublicSeries } from "@/features/library-discovery.server";
+import { PublishedProductPage } from "@/_pages/library-discovery.server";
+import { readPublicProduct } from "@/features/library-discovery.server";
 import {
   hiddenPageMetadata,
   publicPageMetadata,
@@ -10,7 +10,7 @@ import {
 } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 
-interface SeriesPageProps {
+interface ProductPageProps {
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{
     readonly from?: string | readonly string[];
@@ -26,9 +26,9 @@ export const unstable_dynamicStaleTime = 60;
 
 export async function generateMetadata({
   params,
-}: SeriesPageProps): Promise<Metadata> {
+}: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await readPublicSeries(slug);
+  const result = await readPublicProduct(slug);
   if (result.kind === "not-found") {
     return hiddenPageMetadata("Продукт не найден");
   }
@@ -43,6 +43,9 @@ export async function generateMetadata({
 }
 
 /** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0027). */
-export default function SeriesRoute({ params, searchParams }: SeriesPageProps) {
-  return <PublishedSeriesPage params={params} searchParams={searchParams} />;
+export default function ProductRoute({
+  params,
+  searchParams,
+}: ProductPageProps) {
+  return <PublishedProductPage params={params} searchParams={searchParams} />;
 }

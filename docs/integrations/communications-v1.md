@@ -1,314 +1,136 @@
-# Platform communications integration
+# Communications integration v2
 
-Platform #307 owns the Account-authorized HTTP/MCP consumer and Telegram author authorization.
-The product authority is the accepted
-[Workspace communications contract](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md).
-Telegram owns mutable communications state. Both applications use the
-[shared schema](../contracts/inside-communications-v1/schema.json) in `@inside/contracts`.
-[The snapshot](../contracts/inside-communications-v1/snapshot.json) records its historical origin.
-Platform stores only the outgoing tracking-event ledger in `communications.tracking_hits`; it has no second mutable definition store or broadcast scheduler.
-
-## Intake opening notifications
-
-The active `waitlist` audience is an exception to the general contact-only recipient model:
-Platform owns its Account membership and current verified binding, while Telegram retains the
-broadcast snapshot and transport history. `broadcasts.preview` and the service-only waitlist
-callback preserve existing author permissions. The authoritative audience, dispatch, recovery
-and reporting contract lives in [Telegram communications](../../apps/telegram/docs/integrations/communications-v1.md#explicit-intake-opening-notification).
+The stable filename preserves existing links. Current transport is `inside-communications-v2`.
+The [Telegram integration](../../apps/telegram/docs/integrations/communications-v1.md) owns the
+complete Sequence, Participation, author-menu, delivery and scheduler contract. The accepted
+[domain model](../specifications/domain-model-refactoring-v1.md) owns product semantics.
+The pinned v1 corpus remains historical; it does not enable old writable commands or routes.
 
 ## Editor ownership
 
-Owner decision [Platform #396](https://github.com/sachkov-inside/platform/issues/396), 2026-09-08:
-funnel and broadcast management belong to the Telegram bot. Platform removes their web navigation
-and page entry points. Analytics is deferred to a separate product step. The transport and delegated
-MCP contracts below remain integration capabilities; they do not imply a Platform management UI.
+The Telegram bot author menu and delegated MCP are the current management entry points.
+The Platform communications Web editor, its private presentation code and capability BFF routes
+are retired. `/authoring/communications` and `/authoring/broadcasts` answer 404. This integration
+adds no replacement editor, browser mutation path or visual approval gate.
 
 ## Identity and permission
 
-An author needs a confirmed Telegram link and the current Account permission `communications:manage` (also covered by an explicit `platform:admin` grant).
-The owner confirmed the link prerequisite during #307 implementation on 2026-09-06. A recipient does
-not need a Platform Account. `materials:manage`, Membership, a Telegram username, and knowledge of a
-template ID confer no communications authority.
+An author needs a current confirmed Telegram link and Account permission `communications:manage`
+(or an explicit `platform:admin` grant). Product Access, `materials:manage`, a Telegram username
+and knowledge of a template ID confer no communications authority. Recipients need no Account.
+The Platform facade derives the external author reference from the authenticated Account and its
+exact confirmed link. An absent or ambiguous link fails closed; clients cannot provide their own actor.
 
-The current linking protocol passes a private `principalRef` as its external `accountRef`; it is not
-`Account.id`. The facade resolves the authenticated Account to exactly one confirmed link and uses
-that same stable reference that Telegram intake uses to own templates. An absent or ambiguous link
-returns `link_required`; unavailable persistence fails closed. This preserves the existing exact
-Logto `(issuer, subject)` identity, account establishment and independent Membership checks. The
-merged sign-in delivery in [#299](https://github.com/sachkov-inside/platform/issues/299) writes the
-same confirmed-link seam. Integration tests cover its Telegram-only Account and repeated sign-in
-without implicit communications grants. Real Logto/provider end-to-end sign-in remains separately
-verified by #299; #307 does not claim a new credentialed sign-in run.
-
-`POST /integrations/telegram/v1/communications/authorize` implements the shared
-`authorizationRequest`/`authorizationResponse`. A separate service bearer credential authenticates
-Telegram. Account subjects resolve the external reference to the current link and Account permission.
-Telegram subjects additionally match the configured bot identity and exact stored provider identity.
-Denied responses echo only contract version, request ID and `status: denied`; allowed responses echo
-the checked external Account reference. No username lookup, raw Telegram ID lookup, role copied from
-a JWT, or cached authorization is involved. A database failure returns HTTP 503, never an allow.
+`POST /integrations/telegram/v2/communications/authorize` authenticates the separate service bearer
+credential and checks current Account/link/permission. Telegram subjects also match the configured
+bot and exact provider identity. Allowed responses bind the checked Account reference; denied
+responses expose no private link facts. Unavailable persistence returns 503, never an allow.
 
 ## HTTP and delegated MCP
 
-`POST /communications` accepts the provider management envelope with `actor` removed. It validates
-unknown input and derives the actor on the server. Every operation, including a repeated operation
-ID, checks current permission and link state before calling Telegram. Responses use `{ ok: true,
-value: <provider response> }`; failures are HTTP Problem Details. MCP uses the same application
-operation and error codes in `{ ok: false, error: { code } }` with `isError: true`.
+`POST /communications` accepts the current provider management envelope with `actor` omitted.
+The server validates unknown input, derives the author and rechecks current authorization for
+reads, mutations and receipt replay. HTTP returns the owning result through the existing success
+or Problem Details boundary; MCP uses the same application operation and error codes.
 
-The delegated OAuth MCP endpoint registers `communications_<operation>` tools, replacing the dot
-with an underscore, for these provider commands:
+Delegated tools use `communications_<operation>` with dots replaced by underscores:
 
-- `templates.read`, `templates.save`, `templates.testSend`;
-- `intro.read`, `intro.save`;
-- `funnels.list`, `funnels.read`, `funnels.save`, `funnels.preview`, `funnels.publish`,
-  `funnels.lifecycle`, `funnels.rollback`;
-- `broadcasts.list`, `broadcasts.read`, `broadcasts.save`, `broadcasts.launch`, `broadcasts.lifecycle`;
-- `deliveries.read`, `delivery.resolve`, `statistics.read`, `entries.read`.
+- `templates.list/read/save/testSend` and `intro.read/save`;
+- `sequences.list/read/save/preview/publish/lifecycle/rollback`;
+- `broadcasts.list/read/save/preview/launch/lifecycle`;
+- `deliveries.read`, `delivery.resolve`, `statistics.read`, `entries.read`, `receipts.read`.
 
-Source definitions are read and saved with the funnel; the provider contract has no separate source
-mutation. MCP input omits `contractVersion` and `operation`, which are fixed by each tool, and retains
-caller-supplied `operationId`, `expectedRevision`, and `payload`. Preserve all three on a retry of the
-same request. There is no extra UI approval gate for delegated publish or launch. Publication and
-sending remain explicit operations; a read or preview never invokes test-send or launch.
+The generated [MCP surface](../../apps/backend/mcp/tool-surface.json) and current v2 schema define
+exact tool names and closed input/output shapes. MCP fixes `contractVersion` and `operation`,
+while preserving caller-supplied `operationId`, `expectedRevision` and `payload`. Retrying the same
+operation preserves these values. A read, preview or save never implicitly publishes or sends.
+An unavailable or malformed provider response remains a visible failure.
 
-`templates.testSend` has no caller-selected recipient: it addresses only the confirmed Telegram
-author through the provider contract. `delivery.resolve` selects one part, retains the expected
-revision, and requires `duplicateRiskAccepted: true` for explicit retry. An uncertain provider call
-is never automatically retried by Platform. `provider_unavailable`, `provider_invalid_response`,
-revision/operation conflicts and the provider's `not_implemented` are visible failures. A success
-must have the expected operation's response shape and matching object identifiers.
+`templates.testSend` addresses only the confirmed author, with no caller-selected recipient.
+`delivery.resolve` retains the part identity/revision and requires explicit duplicate-risk acceptance
+for a retry of an unknown external result. Unknown sends are never automatically retried.
+`receipts.read` authorizes the current actor and reads an original immutable operation receipt;
+it never executes its old v1 command or grants another actor access to that receipt.
 
-`POST /communications/templates/resolve` and `communications_templates_resolve` accept `reference`
-and `operationId`. A reference is a UUID or an HTTPS URL with the exact path
-`/communications/templates/<uuid>`, without credentials, query or fragment. The URL host is untrusted
-and is never fetched; only the extracted object ID reaches the authorized `templates.read` operation.
-A foreign template remains `not_found`.
+`POST /communications/templates/resolve` and `communications_templates_resolve` extract only a
+UUID from a UUID reference or exact HTTPS `/communications/templates/<uuid>` path. They never
+fetch the supplied host. Foreign templates remain `not_found`.
 
-Eligibility remains separate Platform #310 work. Public tracking belongs to #309 and cannot be called through delegated management tools. Provider commands still marked contract-only return `not_implemented`;
-this facade does not deliver their scheduler or audience runtime. Funnel UI is #308; broadcast/analytics UI is #309; #310 owns combined
-provider/consumer and end-to-end acceptance.
+## Explicit intake opening notification
+
+A waitlist broadcast names one immutable Product intake. Platform owns its active Account
+memberships, sale state and purchase URL. Current author authorization, confirmed link and
+`ProductWaitlists` determine eligibility; Telegram never substitutes all BotContacts or a chat
+roster. The authenticated callback is
+`POST /integrations/telegram/v2/communications/waitlist`.
+The [Telegram waitlist contract](../../apps/telegram/docs/integrations/communications-v1.md#explicit-intake-opening-notification)
+owns preview, launch, fresh checks before transport and closed-sale refusal.
 
 ## Configuration and owner bootstrap
 
-Communications are unconfigured by default. Configure all four variables together in the API and MCP
-process environments. Partial configuration fails startup:
+Configure all four variables together in API and MCP. Missing configuration leaves the capability
+unavailable; a partial or invalid configuration fails startup.
 
-| Variable                               | Meaning                                                                                                                          |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `TELEGRAM_COMMUNICATIONS_ENDPOINT`     | Provider URL ending exactly in `/integrations/platform/v1/communications`; HTTPS, or HTTP on loopback for an isolated local test |
-| `TELEGRAM_COMMUNICATIONS_SECRET`       | Dedicated secret matching the provider's `PLATFORM_COMMUNICATIONS_SECRET`; never the linking secret, kept only in private runtime configuration |
-| `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | Dedicated callback bearer secret matching the provider's `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`                                  |
-| `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` | Exact configured provider bot identity; not the author's Telegram username                                                       |
+| Variable | Meaning |
+|---|---|
+| `TELEGRAM_COMMUNICATIONS_ENDPOINT` | Provider URL ending exactly in `/integrations/platform/v2/communications`, HTTPS or isolated loopback HTTP |
+| `TELEGRAM_COMMUNICATIONS_SECRET` | Dedicated credential matching Telegram `PLATFORM_COMMUNICATIONS_SECRET` |
+| `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | Callback credential matching Telegram `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` |
+| `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` | Exact provider bot identity |
 
-Point the provider's `PLATFORM_AUTHOR_AUTHORIZATION_URL` at the Platform authorization endpoint above.
-Connections reject redirects and time out after five seconds. Credentials are never placed in URLs,
-client inputs, logs, fixtures, or shared repository state. The runtime source and container env-file
-rules are in [runtime configuration](../runbooks/runtime-configuration.md).
-
-Use the existing explicit release bootstrap with the owner's exact Logto identity and
-`OWNER_PERMISSION=communications:manage`. The default remains `materials:manage`; selecting one
-never grants the other. Grant creation and its audit event commit together and concurrent/repeated
-bootstrap is idempotent. The audit includes the permission being granted. No migration, startup
-hook or public route grants an author permission. Actual grants and production configuration remain
-explicit owner operations; #307 does not configure a real author or send real messages.
-
-## Verification
-
-`pnpm --filter @inside/backend communications:generate` derives typed Zod codecs from the pinned
-provider schema. `communications:check` verifies deterministic output and runs in backend guardrails.
-The generator rejects schema vocabulary it cannot represent. The shared positive/negative fixtures
-run against both the generated codecs and the original JSON Schema. Public input rejection and
-cross-module import negative fixtures protect the consumer seam without neighboring checkouts.
-
-Real PostgreSQL tests cover independent grants, audit/idempotency, confirmed-link authorization,
-revocation, denied ordinary/materials-only/unlinked Accounts, and signed-token HTTP/MCP parity.
-A local HTTP contract stub checks the service credential and calls the real author authorization
-endpoint. Vendored scenarios check consumer forwarding, repeated operation IDs, stale revisions,
-foreign templates and permission revocation. Stub success for publish/launch proves consumer rights
-and transport parity, not actual publication, audience selection or Telegram delivery.
-
-## Broadcasts and analytics UI
-
-Since #419 this page answers 404 like the rest of `/authoring/communications` (see
-[Editor ownership](#editor-ownership)). The UI below stays in `apps/web/src/_pages/communications`;
-its Storybook stories left the catalog in #952, which shows only what production renders. Reopening
-the page brings its stories back. No browser test exercises it against the BFF.
-
-`/authoring/communications/broadcasts` uses the same Account-authorized facade as MCP through named same-origin
-BFF operations. Browser TanStack Query owns lists and statistics; writes have distinct literal routes.
-A draft holds ordered text or imported template parts, buttons, union audience and a local-time date
-with the displayed timezone. Saving a date does not launch: explicit launch schedules a future draft
-or starts an immediate draft. The audience snapshot appears only after actual launch. Pause/resume
-keeps it; terminal broadcasts cannot launch again. Uncertain writes disable further effects until
-an explicit reload, preserving author intent instead of automatically repeating delivery.
-
-The presentation uses temporary semantic forms under #309, with the final Storybook proof and visual
-integration tracked in #317. Existing Authoring shell and accepted primitives remain the foundation.
-No real audience messages or provider media downloads are part of preview. Imported formatting/media
-references survive unchanged; explicit textarea edits clear the displayed formatting warning's entities.
-Statistics, contact entry history, funnel/source names, broadcasts and deliveries paginate through the
-provider contract. Contacts are opaque IDs, never raw Telegram identities. Each source first/latest
-observation is separate from its entry history. Counts of parts sent, hits, unique tokens with hits
-and named automation are separate; a forwarded link proves neither the visitor Account nor reading,
-Membership or purchase.
-
-## Public tracking and durable event delivery
-
-Set `TELEGRAM_TRACKING_ORIGIN` to the exact HTTPS public Platform origin. It is optional and disables
-tracking when absent. Configure Telegram's `PLATFORM_TRACKING_REDIRECT_URL` as that origin plus
-`/communications/visit`; its permitted targets match Platform `/materials/<slug>` and
-`/products/<slug>` routes, including the existing `/series/<slug>` and `/guides/<slug>`
-redirect compatibility. The route accepts only an opaque `token`; caller-supplied destination URLs
-are ignored. It resolves through the authenticated provider with `serviceRef: platform-tracking`,
-then independently checks origin, canonical content path, HTTPS, no credentials/query/fragment.
-Invalid or unresolved tokens return a safe 404/503. GET returns private no-store, no-referrer 302;
-HEAD does not create hits. Product destinations must exist and not be archived; a missing or archived
-Product returns `not_found` before a hit is recorded, and a failed Product lookup returns `unavailable`.
-A public Product page does not promise free access to its programme. Material bodies still run their
-normal ContentAccess checks.
-
-Only named TelegramBot, facebookexternalhit, Twitterbot, Slackbot-LinkExpanding, Discordbot,
-Googlebot and bingbot user agents are marked `known_automation`. Other traffic is `unknown`, never
-asserted to be human. User agents, IPs, Account identities and credentials are not stored in events.
-
-Each resolved GET creates its own durable event ID. The API's lifecycle-owned outbox pump atomically
-claims due rows and sends bounded parallel batches. Both event ID and operation ID stay identical
-across retries and process restarts; provider ingestion deduplicates even an ambiguous commit/ACK.
-Expired claims are reclaimable; acknowledgements update only their own current claim. Failed events
-remain pending and retry after 30 seconds. Statistics HTTP/MCP responses carry `trackingBacklog`:
-current pending count and live age of the oldest pending event, or explicit `unavailable`. The provider's
-historical received-event delay is displayed separately and never substitutes for live backlog age.
-
-Navigation waits at most 750 ms for local persistence confirmation after safe resolution. A failed or
-unconfirmed insert emits a token-free operational error and allows navigation; only actually persisted
-events can recover automatically. A local database outage may therefore lose hits. The dashboard
-reports an unavailable backlog during that outage rather than a fabricated zero. Provider outages
-retain already persisted events for retry. The BFF's named 12-second communications budget covers the
-provider's five-second bound and local persistence; normal backend requests retain their existing budget.
-
-No automated check drives the communications path Browser → BFF → Nest. Since #419 the
-`/authoring/communications` layout calls `notFound()` for every session (see
-[Editor ownership](#editor-ownership)), so no page reaches the BFF routes under `/api/communications`
-from a browser. `apps/web/test/fullstack/communications.spec.ts` and `broadcasts.spec.ts`, run by
-`pnpm smoke:fullstack`, prove only that both pages answer 404. The former `pnpm smoke:communications`
-ran only `broadcasts.spec.ts` against a disposable Nest/PostgreSQL stand and was removed in #881. The
-BFF adapters keep module tests in `apps/web/test/module/communications-bff.test.ts`; the Nest side keeps
-`apps/backend/test/integration/communications-{management,authorization,targets}.test.ts`. Real
-provider scheduling, Telegram sends and the combined live content route remain #310 acceptance.
+Telegram configures `PLATFORM_AUTHOR_AUTHORIZATION_URL` and `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`
+for the corresponding Platform v2 `/authorize` and `/validate-content` paths. Requests reject redirects,
+use bounded I/O and keep credentials out of URLs, browser clients and logs.
+[Runtime configuration](../runbooks/runtime-configuration.md) owns source and env-file placement.
+Existing explicit owner bootstrap can grant `communications:manage`; the default `materials:manage`
+never implies that permission. No migration or sign-in automatically grants author rights.
 
 ## Funnel management UI
 
-Since #419 this page is not reachable: the `/authoring/communications` layout answers 404. The UI
-described below stays in `apps/web/src/_pages/communications`; its Storybook stories left the
-catalog in #952. No browser test exercises it against the BFF.
+This anchor remains for existing links. The old editor is retired as described above. The following
+public-target contract applies to Telegram and MCP publication and tracking.
 
-`/authoring/communications` uses the production AuthoringShell and a feature-local presentation
-interface shared with Storybook. Browser-owned named mutations call capability BFF routes under
-`/api/communications`; the shared authenticated boundary enforces Origin, session, body limit and
-private no-store. The server adapters validate unknown responses and use the generated Nest client.
-Draft saves, preview, publish, intro save, lifecycle, template resolution and delivery retry/skip
-are separate operations. Repeated identical attempts retain their operation ID within the open
-editor; permission and expected revision remain backend/provider decisions. Reloading a conflicted
-editor explicitly replaces the local edits. Source codes are stable after the first save.
+Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical Platform origin, matching `WEB_BASE_URL`.
+Publication and preview fail closed without it. `PublicContentTargets` validates published free
+Materials and existing non-archived Product pages. Stable `/products/<slug>`, `/series/<slug>` and
+`/guides/<slug>` human URLs identify the Product page regardless of protected programme content.
+They do not select an old Series reader. Destination slugs, credentials, query/fragment, trailing
+slash and encoded/extra segments follow the strict owning parser. Guide Material Format remains
+separate from Product ownership.
 
-Common intro Save updates the block for future recipients immediately, explicitly labelled in UI;
-funnel Save never publishes. Media templates keep their snapshot and formatting. Editing formatted
-text requires an explicit remove-formatting action, avoiding silent entity loss. Preview never
-sends a Telegram message. Actual bot entry and credentialed messages require separate owner approval.
-Rollback remains an API capability and is outside this editor's lifecycle controls. Historical rollback validation is owned by Telegram #41: after checking the operation receipt and
-expected revision, the provider sends the exact restored parts to Platform's existing authenticated
-`validate-content` endpoint under its definition lock. Unpublished/paid/incomplete targets reject a
-new publication; unavailable validation fails closed. A successful receipt replays without another
-content check or publication. This requires the provider version with #41 and its content-validation
-URL/secret configuration. No new historical-read protocol or copy of Telegram history is introduced.
-[The #310 acceptance runbook](../verification/telegram-communications-acceptance.md) records the
-compatible revisions, simulated coverage, and the separate credentialed gate.
+`POST /integrations/telegram/v2/communications/validate-content` checks the service credential,
+current author/link/permission and target eligibility without calling Telegram back under its
+publication lock. Preview reports target errors. A new publish or rollback validates exact selected
+message snapshots; an already committed receipt replays without a second publication.
+The public Material Reader still checks current content access, so validation never grants access
+or promises availability after unpublishing.
 
-Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical public Platform origin, matching
-`WEB_BASE_URL`. Without it publication/preview fail closed. The Materials-owned `PublicContentTargets`
-facet owns URL parsing for both validation and tracking. It checks linked Materials for publication
-and free access. `/products/<slug>` and its `/series/<slug>` and `/guides/<slug>` compatibility routes
-name a public Product page: existence and non-archived state are required, regardless of programme
-composition or Material access. The legacy `check({ kind: "series", slug })` interface retains its
-free, complete composition check; these URLs no longer select that legacy check. Public destination
-paths use lowercase alphanumeric slug segments separated by hyphens, with at most 120 characters;
-credentials, query, fragment, trailing slash, extra path segments and encoded slugs are rejected.
-Content validation ignores foreign origins; tracking rejects them.
-Communications validates Platform URLs in plain text, buttons and Telegram URL/text_link entities (including bare-domain entities) before a fresh
-publish and adds URL-specific failures to preview. An already committed publish replay stays owned
-by the provider receipt. Content access is still checked by the public Reader; this point-in-time
-validation does not grant access or promise availability after a later unpublish.
+## Public tracking and durable event delivery
 
-The Platform success envelope adds `botStartUrl` for entry links and optional `targetErrors` for
-content diagnostics. These are Platform presentation facts, not a second Telegram schema. The
-provider-owned `funnels.preview` is supplied by [Telegram #34](https://github.com/sachkov-inside/inside-telegram/issues/34).
-The functional UI's temporary semantic implementation is tracked through visual integration
-[#316](https://github.com/sachkov-inside/platform/issues/316), under Specification #304.
-
-## Посты из Telegram и рассылки (#317, уточнение #125)
-
-С #419 страница разовых рассылок отключена и отвечает 404 (см. [Editor ownership](#editor-ownership)).
-Описание веб-редактора ниже относится к коду в `apps/web/src/_pages/communications` и Storybook;
-MCP-операции действуют.
-
-Основной путь подготовки сообщения — `/admin` в Telegram. Страница разовых рассылок загружает
-`templates.list`, позволяет настроить кнопки сохранённого поста через `templates.save`, запросить
-`templates.testSend` только автору и выбрать сохранённую версию в рассылку. Текст в редакторе рассылки
-доступен для чтения: он больше не сбрасывает native entities при вводе. Для замены текста/медиа автор
-заменяет сообщение в боте и явно выбирает новую часть в веб-редакторе.
-
-Кнопки сохранённого поста и кнопки выбранной копии в черновике — разные снимки. «Сохранить пост»
-не меняет уже выбранные части или запланированные рассылки; «Заменить часть» применяет выбранный
-снимок явно. Необязательный `row` сохраняется в BFF/schema/generated client и MCP без потери.
-Provider проверяет layout до сохранения. Образец использует только сохранённую версию поста;
-web preview не вызывает Telegram transport. Повтор запроса образца после неопределённого ответа
-сохраняет тот же operationId и revision, в том числе после перезагрузки страницы.
-Неподтверждённая операция хранится в браузере до получения ответа; при недоступном хранилище
-новая отправка не начинается. Очистка данных браузера удаляет эту защиту.
-
-Delegated MCP получает `communications_templates_list` и те же save/read/testSend operations;
-текущий authenticated Account и communications:manage остаются единственным авторским основанием.
-Публикация и запуск по-прежнему отдельны от сохранения. Provider runtime поставляется в
-[Telegram #39](https://github.com/sachkov-inside/inside-telegram/pull/39), shared decision —
-[Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Историческое происхождение схемы записано в `docs/contracts/inside-communications-v1/snapshot.json`; оба приложения читают общий пакет.
-
-## Создание воронок из сохранённых постов (#316)
-
-С #419 страница воронок отключена и отвечает 404 (см. [Editor ownership](#editor-ownership)).
-Описание веб-редактора ниже относится к коду в `apps/web/src/_pages/communications` и Storybook.
-
-Веб-редактор использует общую библиотеку постов рассылок: `templates.list/read/save/testSend`.
-Выбор добавляет копию содержимого в первый ответ, общий вводный блок или отложенный шаг.
-Оформление и медиа готовятся в Telegram; в библиотеке можно поправить кнопки и отправить образец
-только подтверждённому автору. Карточки воронки показывают выбранное содержимое и ряды кнопок.
-Явная замена сохраняет `partId`, добавление создаёт новый. Правка исходного поста не меняет
-черновик или публикацию. Задержки задаются в секундах, минутах, часах или днях.
-
-Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) использует сервисный
-`POST /integrations/telegram/v1/communications/validate-content` перед публикацией из бота.
-Контракт `contentValidationRequest/Response` передаёт выбранные сообщения вместе с подтверждённым
-автором. Endpoint проверяет bearer credential, актуальную связь и `communications:manage`, затем
-доступность Material и публичных страниц Product через `PublicContentTargets`
-по [контракту публичных целей](#funnel-management-ui). Он не обращается к Telegram; поэтому
-проверка безопасна при удерживаемых ботом блокировках определения. Ошибка конфигурации или базы
-возвращает 503, недоступные цели — структурированные причины. Для установки требуются
-`TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в
-Telegram. Используется существующий secret авторизации, новый credential не создаётся.
+Public `/communications/visit` retains its opaque token and safe redirect contract. Material and
+Product target parsing is shared with content validation. The Backend records allowed hits and a
+Sales Funnel event outbox locally; that analytics context keeps its own name. Telegram provider
+receives events through current v2 service transport, with stable event and operation IDs.
+Committed events survive provider outages and deduplicate ambiguous delivery. A local persistence
+failure remains visible and may lose the uncommitted hit; it is never reported as durable success.
+Statistics distinguish live tracking backlog/unavailable from historical delay.
 
 ## Telegram sequential authoring timing (#310 / Telegram #43)
 
-Telegram now collects one native message and its time before the next. The public v1 schema adds
-optional `sendAfterSeconds` to broadcast parts (integer 0..2147483647, default 0), measured from
-actual launch. Offsets cannot decrease. The scheduler preserves ordering, retry/unknown protection,
-pause without resetting the clock, and cancellation of future messages.
+The Telegram author menu uses the same Sequence owner and expected revisions as HTTP/MCP.
+Current callbacks are authorized and scoped to persisted sessions; stale menus cannot mutate a newer
+screen. Saving does not publish. Participation and stable step IDs preserve completion, ordering,
+unknown-effect barriers and future-message cancellation across publish, stop/resume and rollback.
+The [Telegram timing contract](../../apps/telegram/docs/integrations/communications-v1.md#sequence-settings-in-the-bot-38-100)
+and owning scheduler tests define relative versus `delayAnchor: "entry"` timing.
 
-New funnel steps may carry `delayAnchor: "entry"`: `delaySeconds` is elapsed from the recipient's
-entry. Existing steps without the field retain their previous relative semantics. Platform vendors
-the provider schema and generates the same validation for HTTP and delegated MCP; native content
-and timing round-trip without stripping fields. Saving never launches or publishes.
+## Verification and transfer
 
-The bot has no agent button or saved-post browser in its ordinary authoring flow. A terminal agent
-uses authenticated list/read/save operations with current expectedRevision and operationId. The
-bot rereads canonical provider drafts. Live management still requires the owner's Account permission;
-the bot token alone does not authorize it.
+The actual cross-application commands are Backend `conformance:communications` and Telegram
+`conformance:communications-provider`, using separate loopback proof databases and simulated
+external transport. They exercise real HTTP/MCP/provider authorization, publication, rollback,
+tracking, waitlist checks and unknown-send handling. They do not send credentialed Telegram messages.
+The [ordered transfer](../runbooks/domain-model-contract-transfer.md) and
+[mixed restore](../runbooks/domain-model-restore.md) procedures preserve receipts and effect barriers
+before incompatible contraction. Product checks and current WORKFLOW gates remain mandatory;
+local proof does not authorize production enablement, messages or legal publication.

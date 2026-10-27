@@ -29,8 +29,8 @@ export function handleBillingQuote(request: Request): Promise<Response> {
         requestBillingQuote(
           {
             operationId: input.operationId,
-            paymentOptionId: input.paymentOptionId,
-            optionRevision: input.optionRevision,
+            productId: input.productId,
+            priceRevision: input.priceRevision,
             ...(input.paymentLinkId === undefined
               ? {}
               : { paymentLinkId: input.paymentLinkId }),

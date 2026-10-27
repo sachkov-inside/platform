@@ -1,10 +1,15 @@
-import { MemberNames } from "../../src/modules/member-profiles/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { AccountNames } from "../../src/modules/account-profiles/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { accountId } from "../../src/modules/accounts/index.js";
+import {
+  accountId,
+  assembleAccounts,
+} from "../../src/modules/accounts/index.js";
 import {
   assembleContentAccess,
   type Subject,
@@ -17,11 +22,9 @@ import {
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
-import {
-  assembleMaterialResourceFacts,
-  assembleMaterials,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import {
@@ -74,7 +77,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       directory,
       authorPolicy,
       identities: new TelegramAccountLinks(db.prisma),
-      names: new MemberNames(db.prisma),
+      names: new AccountNames(db.prisma),
       clock,
     });
 
@@ -84,7 +87,10 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       await db.prisma.account.create({
         data: { id, logtoIssuer: "https://identity.test", logtoSubject: id },
       });
-    directory = new ProductDirectory(db.prisma);
+    directory = new ProductDirectory(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    );
     const materials = assembleMaterials({ prisma: db.prisma, authorPolicy });
     tasks = assembleLearningTasks({
       prisma: db.prisma,
@@ -93,7 +99,10 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         materialResourceFacts: assembleMaterialResourceFacts(
           materials.materialContent,
         ),
-        productTaskResourceFacts: assembleProductTaskResourceFacts(db.prisma),
+        productTaskResourceFacts: assembleProductTaskResourceFacts(
+          db.prisma,
+          new ProductDiscovery(db.prisma),
+        ),
         accountPermissions: {
           hasMaterialsManage: (id) => Promise.resolve(id === owner),
         },
@@ -431,7 +440,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         id: passed,
         outcome: "passed",
         attempt: 3,
-        version: 2,
+        version: 2 as const,
         summary: "Самопроверка пройдена.",
       },
       {
@@ -522,14 +531,14 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       directory,
       authorPolicy,
       identities,
-      names: new MemberNames(db.prisma),
+      names: new AccountNames(db.prisma),
       clock,
     });
     const current = await author.list(owner, { taskCode: task.code });
     expect(current.ok && current.value.submissions[0]?.person).toEqual({
       accountId: subject.accountId,
       telegramIdentityRef: identityRef,
-      displayName: "Анна Иванова",
+      displayName: null,
       telegramUsername: "anna_course",
       telegramUrl: "https://t.me/anna_course",
       telegramContactState: "available",
@@ -570,7 +579,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       title: "Имя",
     });
     const subject = await learner();
-    await db.prisma.memberProfile.create({
+    await db.prisma.accountProfile.create({
       data: {
         accountId: subject.accountId,
         publicProfileId: randomUUID(),
@@ -587,13 +596,59 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     expect(listed.ok && listed.value.submissions[0]?.person).not.toHaveProperty(
       "bio",
     );
-    await db.prisma.memberProfile.update({
+    await db.prisma.accountProfile.update({
       where: { accountId: subject.accountId },
       data: { displayName: "Борис" },
     });
     const updated = await review().list(owner, { taskCode: task.code });
     expect(updated.ok && updated.value.submissions[0]?.person.displayName).toBe(
       "Борис",
+    );
+    await db.prisma.accountProfile.update({
+      where: { accountId: subject.accountId },
+      data: { status: "disabled" },
+    });
+    const disabled = await review().list(owner, { taskCode: task.code });
+    expect(
+      disabled.ok && disabled.value.submissions[0]?.person.displayName,
+    ).toBeNull();
+    expect(
+      disabled.ok && disabled.value.submissions[0]?.person,
+    ).not.toHaveProperty("avatar");
+    const accounts = assembleAccounts({
+      prisma: db.prisma,
+      emailFingerprintKey: "profile-review-test-fingerprint-key-32",
+    });
+    const authorizedReview = assembleSubmissionReview({
+      prisma: db.prisma,
+      directory,
+      authorPolicy: {
+        canManage: async (actor) => {
+          const permission = await accounts.checkPermission({
+            accountId: accountId(actor),
+            permission: "materials:manage",
+          });
+          return permission.ok && permission.allowed;
+        },
+      },
+      identities: new TelegramAccountLinks(db.prisma),
+      names: new AccountNames(db.prisma),
+      clock,
+    });
+    await db.prisma.accountPermission.create({
+      data: { accountId: owner, permission: "materials:manage" },
+    });
+    expect(
+      (await authorizedReview.list(owner, { taskCode: task.code })).ok,
+    ).toBe(true);
+    await db.prisma.accountPermission.deleteMany({
+      where: { accountId: owner },
+    });
+    expect(await authorizedReview.list(owner, { taskCode: task.code })).toEqual(
+      {
+        ok: false,
+        error: { code: "forbidden" },
+      },
     );
   });
 

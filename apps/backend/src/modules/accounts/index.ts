@@ -37,3 +37,5 @@ export { NotificationAccounts } from "./facets/notification-accounts/notificatio
 export { BillingContact } from "./facets/billing-contact/billing-contact.js";
 export { LegalAcceptances } from "./facets/legal-acceptances/legal-acceptances.js";
 export { AcceptedTermsEndpoint } from "./adapters/nest/accepted-terms.guard.js";
+
+export { AuthoringEndpoint } from "./adapters/nest/authoring-endpoint.js";

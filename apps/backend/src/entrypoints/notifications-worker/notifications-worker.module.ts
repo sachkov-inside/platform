@@ -1,3 +1,5 @@
+import { ProductAuthoringCompositionModule } from "../composition/product-authoring-composition.module.js";
+import { ContentAccessCompositionModule } from "../composition/content-access-composition.module.js";
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { CoverageCatalogModule } from "../../modules/materials/index.js";
 import { RecipientLinksModule } from "../../modules/telegram-membership/index.js";
@@ -15,6 +17,8 @@ import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js"
     RuntimeIdentityModule,
     NotificationsModule,
     CoverageCatalogModule,
+    ContentAccessCompositionModule,
+    ProductAuthoringCompositionModule,
     RecipientLinksModule,
     ProductTaskResourceFactsModule,
   ],

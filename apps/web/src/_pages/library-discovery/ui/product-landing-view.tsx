@@ -17,7 +17,7 @@ import {
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
-  type PublishedSeriesResult,
+  type PublishedProductResult,
 } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -32,14 +32,14 @@ import { AiFirstProductView } from "./ai-first-product-view";
 import { formatArtifactCount, formatChapterCount } from "./product-counts";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
-type ResolvedSeriesResult = Extract<
-  PublishedSeriesResult,
+type ResolvedProductResult = Extract<
+  PublishedProductResult,
   { kind: "ready" | "empty" }
 >;
 
 interface ProductViewProps {
   readonly artifacts: ReaderProductArtifactsResult;
-  readonly result: ResolvedSeriesResult;
+  readonly result: ResolvedProductResult;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly freeEntryHref: Route | undefined;
   readonly page: ProductPage | null;
@@ -107,7 +107,7 @@ export function ProductLandingView({
   heroBadge,
 }: {
   readonly artifacts?: ReaderProductArtifactsResult;
-  readonly result: ResolvedSeriesResult;
+  readonly result: ResolvedProductResult;
   /** Откуда читатель пришёл: страница продукта — вход в руководство, и выход из неё нужен. */
   readonly returnTarget: MaterialReaderReturnTarget;
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */

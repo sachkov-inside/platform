@@ -4,7 +4,7 @@ import type {
   InvalidContentError,
   InvalidReferenceError,
   MaterialNotFoundError,
-  SeriesOrdinalConflictError,
+  ProductOrdinalConflictError,
   StaleContentVersionError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -29,7 +29,7 @@ export type ValidateMaterialError =
   | MaterialNotFoundError
   | StaleContentVersionError
   | InvalidReferenceError
-  | SeriesOrdinalConflictError
+  | ProductOrdinalConflictError
   | SystemError;
 export type ValidateMaterialResult = Result<
   ValidatedMaterialDto,
