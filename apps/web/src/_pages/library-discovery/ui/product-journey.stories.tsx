@@ -1371,7 +1371,7 @@ export const ProductPageEnlargedText: Story = {
       await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
       // Пункты разделов не выходят за край экрана и при крупном шрифте.
       for (const tab of canvasElement.querySelectorAll<HTMLElement>(
-        "[data-programme-sidebar] button, .product-bottom-bar-item",
+        '[data-programme-sidebar] button, nav[aria-label="Разделы продукта"] button',
       )) {
         await expect(tab.getBoundingClientRect().right).toBeLessThanOrEqual(
           root.clientWidth,
