@@ -261,6 +261,8 @@ export interface SalesCatalogFixture {
   readonly catalog?: readonly PriceSnapshot[];
   /** Чтения отвечают отказом зависимости: состояние ошибки. */
   readonly unavailable?: boolean;
+  /** Чтения отвечают отказом в праве `billing:manage`: состояние отказа. */
+  readonly forbidden?: boolean;
   /** Чтения не отвечают: состояние загрузки. */
   readonly held?: boolean;
   /** Ответ на запись скидки: по умолчанию успех. */
@@ -316,15 +318,22 @@ export function salesCatalogFetch(fixture: SalesCatalogFixture): MutationFetch {
     const body = bodyOf(init);
     const read = (respond: () => Response) =>
       Promise.resolve(
-        fixture.unavailable === true
-          ? Response.json({ ok: false, code: "unavailable" })
-          : respond(),
+        fixture.forbidden === true
+          ? Response.json({ ok: false, code: "forbidden" }, { status: 403 })
+          : fixture.unavailable === true
+            ? Response.json({ ok: false, code: "unavailable" })
+            : respond(),
       );
     switch (url.pathname) {
       case "/api/authoring/billing/catalog":
-        return fixture.unavailable === true
-          ? Response.json({ ok: false, code: "unavailable" }, { status: 503 })
-          : Response.json({ ok: true, value: fixture.catalog ?? storyCatalog });
+        return fixture.forbidden === true
+          ? Response.json({ ok: false, code: "forbidden" }, { status: 403 })
+          : fixture.unavailable === true
+            ? Response.json({ ok: false, code: "unavailable" }, { status: 503 })
+            : Response.json({
+                ok: true,
+                value: fixture.catalog ?? storyCatalog,
+              });
       case "/api/authoring/billing/payment-links/list":
         return read(() =>
           envelope({

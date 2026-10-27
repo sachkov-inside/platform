@@ -4,16 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { readOwnerPriceCatalog } from "../api/owner-price-catalog.browser";
-import type { BillingFailureCode } from "./billing-contract";
+import { BillingReadError } from "./billing-read-error";
 import { ownerPriceCatalogChanged } from "./owner-price-catalog-events";
 import { ownerPriceCatalogQueryKey } from "./owner-price-catalog";
-
-/** Каталог цен не прочитан: код отказа остаётся, чтобы отличить запрет от недоступности. */
-export class OwnerPriceCatalogReadError extends Error {
-  constructor(readonly code: BillingFailureCode) {
-    super(`Owner price catalog read failed: ${code}`);
-  }
-}
 
 /**
  * Единственное чтение полного каталога цен владельца в браузере: один ключ на все поверхности
@@ -27,7 +20,7 @@ export function useOwnerPriceCatalog() {
     queryKey: ownerPriceCatalogQueryKey,
     queryFn: async () => {
       const result = await readOwnerPriceCatalog();
-      if (!result.ok) throw new OwnerPriceCatalogReadError(result.code);
+      if (!result.ok) throw new BillingReadError(result.code);
       return result.value;
     },
     retry: false,

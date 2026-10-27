@@ -198,6 +198,32 @@ export const Unavailable: Story = {
   },
 };
 
+/** Аккаунт без права billing:manage: отказ без повтора, фильтров и «Создать ссылку». */
+export const RefusedDesktop: Story = {
+  beforeEach: scenario({ forbidden: true }),
+  globals: desktop.globals,
+  name: "Нет права · широкий экран",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      await page.findByRole("heading", {
+        name: "Нет права на ссылки на оплату",
+      }),
+    ).toBeVisible();
+    await expect(page.queryByRole("button", { name: "Повторить" })).toBeNull();
+    await expect(
+      page.queryByRole("button", { name: "Создать ссылку" }),
+    ).toBeNull();
+    await expect(page.queryByRole("combobox")).toBeNull();
+  },
+};
+
+export const RefusedMobile: Story = {
+  ...RefusedDesktop,
+  globals: mobile.globals,
+  name: "Нет права · телефон",
+};
+
 export const Loading: Story = {
   beforeEach: scenario({ held: true }),
   globals: mobile.globals,

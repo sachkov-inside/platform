@@ -170,7 +170,5 @@ export {
   type ProductPriceChoice,
 } from "./model/owner-price-catalog";
 export { ownerPriceCatalogChanged } from "./model/owner-price-catalog-events";
-export {
-  OwnerPriceCatalogReadError,
-  useOwnerPriceCatalog,
-} from "./model/use-owner-price-catalog.client";
+export { useOwnerPriceCatalog } from "./model/use-owner-price-catalog.client";
+export { BillingReadError, isBillingRefusal } from "./model/billing-read-error";

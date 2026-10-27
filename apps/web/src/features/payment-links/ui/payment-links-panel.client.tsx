@@ -9,6 +9,8 @@ import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  BillingReadError,
+  isBillingRefusal,
   ownerPriceCatalogChanged,
   paymentLinkHref,
   paymentLinksQueryKey,
@@ -130,7 +132,7 @@ export function PaymentLinksPanel({
         ...(filter.state === null ? {} : { state: filter.state }),
         ...(pageParam === null ? {} : { cursor: pageParam }),
       });
-      if (!result.ok) throw new Error(result.code);
+      if (!result.ok) throw new BillingReadError(result.code);
       return result.value.result;
     },
     getNextPageParam: (page) => page.nextCursor,
@@ -192,7 +194,10 @@ export function PaymentLinksPanel({
     choices.find((choice) => choice.productId === id)?.name ??
     "Выбранный продукт";
   const pageMode = productId === undefined;
-  const createButton = (
+  // Без права billing:manage повтор не поможет: отказ без повтора, фильтров и создания.
+  const refused =
+    isBillingRefusal(list.error) || isBillingRefusal(catalog.error);
+  const createButton = refused ? undefined : (
     <Button
       className="min-h-11 px-4"
       onClick={() => {
@@ -257,88 +262,95 @@ export function PaymentLinksPanel({
           {createButton}
         </div>
       )}
-      <AdminFilterBar
-        chips={[
-          ...(pageMode && filter.productId !== null
-            ? [
-                {
-                  id: "product",
-                  label: productName(filter.productId),
-                  onRemove: () => {
-                    changeFilter({ ...filter, productId: null });
+      {refused ? null : (
+        <AdminFilterBar
+          chips={[
+            ...(pageMode && filter.productId !== null
+              ? [
+                  {
+                    id: "product",
+                    label: productName(filter.productId),
+                    onRemove: () => {
+                      changeFilter({ ...filter, productId: null });
+                    },
                   },
-                },
-              ]
-            : []),
-          ...(filter.state === null
-            ? []
-            : [
-                {
-                  id: "state",
-                  label: adminStates[paymentLinkBadge(filter.state)].label,
-                  onRemove: () => {
-                    changeFilter({ ...filter, state: null });
+                ]
+              : []),
+            ...(filter.state === null
+              ? []
+              : [
+                  {
+                    id: "state",
+                    label: adminStates[paymentLinkBadge(filter.state)].label,
+                    onRemove: () => {
+                      changeFilter({ ...filter, state: null });
+                    },
                   },
-                },
-              ]),
-        ]}
-        filters={[
-          ...(pageMode
-            ? [
-                {
-                  id: "product",
-                  label: "Продукт",
-                  value: filter.productId ?? allValue,
-                  options: [
-                    { value: allValue, label: "Все продукты" },
-                    ...withSelectedProduct(choices, filter.productId).map(
-                      (choice) => ({
-                        value: choice.value,
-                        label: choice.label,
-                      }),
-                    ),
-                  ],
-                  onChange: (value: string) => {
-                    changeFilter({
-                      ...filter,
-                      productId: value === allValue ? null : value,
-                    });
+                ]),
+          ]}
+          filters={[
+            ...(pageMode
+              ? [
+                  {
+                    id: "product",
+                    label: "Продукт",
+                    value: filter.productId ?? allValue,
+                    options: [
+                      { value: allValue, label: "Все продукты" },
+                      ...withSelectedProduct(choices, filter.productId).map(
+                        (choice) => ({
+                          value: choice.value,
+                          label: choice.label,
+                        }),
+                      ),
+                    ],
+                    onChange: (value: string) => {
+                      changeFilter({
+                        ...filter,
+                        productId: value === allValue ? null : value,
+                      });
+                    },
                   },
-                },
-              ]
-            : []),
-          {
-            id: "state",
-            label: "Состояние",
-            value: filter.state ?? allValue,
-            options: [
-              { value: allValue, label: "Все состояния" },
-              ...paymentLinkStates.map((state) => ({
-                value: state,
-                label: adminStates[paymentLinkBadge(state)].label,
-              })),
-            ],
-            onChange: (value: string) => {
-              changeFilter({
-                ...filter,
-                state:
-                  paymentLinkStates.find((state) => state === value) ?? null,
-              });
+                ]
+              : []),
+            {
+              id: "state",
+              label: "Состояние",
+              value: filter.state ?? allValue,
+              options: [
+                { value: allValue, label: "Все состояния" },
+                ...paymentLinkStates.map((state) => ({
+                  value: state,
+                  label: adminStates[paymentLinkBadge(state)].label,
+                })),
+              ],
+              onChange: (value: string) => {
+                changeFilter({
+                  ...filter,
+                  state:
+                    paymentLinkStates.find((state) => state === value) ?? null,
+                });
+              },
             },
-          },
-        ]}
-        onReset={
-          filtered
-            ? () => {
-                changeFilter({ ...allPaymentLinks });
-              }
-            : undefined
-        }
-      />
+          ]}
+          onReset={
+            filtered
+              ? () => {
+                  changeFilter({ ...allPaymentLinks });
+                }
+              : undefined
+          }
+        />
+      )}
       <p aria-live="polite" className="text-sm empty:hidden" role="status">
         {status}
       </p>
-      {list.isPending ? (
+      {refused ? (
+        <AdminEmptyState
+          description="Ссылки на оплату видит и создаёт владелец с правом управлять оплатой. Если оно нужно вам, попросите владельца его выдать."
+          title="Нет права на ссылки на оплату"
+        />
+      ) : list.isPending ? (
         <AdminTableSkeleton columns={5} label="Загружаем ссылки" />
       ) : list.isError && links.length === 0 ? (
         <AdminErrorState

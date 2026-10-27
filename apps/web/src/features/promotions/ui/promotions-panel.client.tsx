@@ -9,6 +9,8 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
+  BillingReadError,
+  isBillingRefusal,
   productPriceChoices,
   useOwnerPriceCatalog,
 } from "@/entities/subscription";
@@ -112,7 +114,7 @@ export function PromotionsPanel({
         ...(filter.productId === null ? {} : { productId: filter.productId }),
         ...(pageParam === null ? {} : { cursor: pageParam }),
       });
-      if (!result.ok) throw new Error(result.code);
+      if (!result.ok) throw new BillingReadError(result.code);
       // Состояние скидки считается на момент этого чтения, а не во время отрисовки.
       return { ...result.value.result, readAt: Date.now() };
     },
@@ -185,7 +187,11 @@ export function PromotionsPanel({
       ),
     });
   };
-  const createButton = (
+  // Без права billing:manage повтор не поможет: отказ без повтора, фильтров и создания.
+  const refused =
+    filter.view === "promotions" &&
+    (isBillingRefusal(list.error) || isBillingRefusal(catalog.error));
+  const createButton = refused ? undefined : (
     <Button className="min-h-11 px-4" onClick={openCreate} type="button">
       <Plus aria-hidden="true" data-icon="inline-start" />
       Создать скидку
@@ -252,6 +258,11 @@ export function PromotionsPanel({
       />
       {filter.view === "questionnaire" ? (
         <QuestionnaireArchive />
+      ) : refused ? (
+        <AdminEmptyState
+          description="Скидки видит и меняет владелец с правом управлять оплатой. Если оно нужно вам, попросите владельца его выдать."
+          title="Нет права на скидки"
+        />
       ) : (
         <>
           <AdminFilterBar

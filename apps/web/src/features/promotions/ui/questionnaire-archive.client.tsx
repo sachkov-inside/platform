@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { BillingReadError, isBillingRefusal } from "@/entities/subscription";
 import { formatCountRu, formatMoscowDate } from "@/shared/lib/moscow-format";
 import {
   AdminEmptyState,
@@ -58,13 +59,20 @@ export function QuestionnaireArchive() {
       const result = await readQuestionnaireRespondents({
         operationId: crypto.randomUUID(),
       });
-      if (!result.ok) throw new Error(result.code);
+      if (!result.ok) throw new BillingReadError(result.code);
       return result.value.result.value;
     },
   });
 
   if (status.isPending)
     return <AdminTableSkeleton columns={3} label="Загружаем анкетные скидки" />;
+  if (isBillingRefusal(status.error))
+    return (
+      <AdminEmptyState
+        description="Архив анкетных скидок видит владелец с правом управлять оплатой. Если оно нужно вам, попросите владельца его выдать."
+        title="Нет права на анкетные скидки"
+      />
+    );
   if (status.isError)
     return (
       <AdminErrorState

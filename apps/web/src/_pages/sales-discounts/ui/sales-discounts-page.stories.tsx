@@ -186,6 +186,46 @@ export const Unavailable: Story = {
   },
 };
 
+/** Аккаунт без права billing:manage: отказ без повтора, фильтров и «Создать скидку». */
+export const RefusedDesktop: Story = {
+  beforeEach: scenario({ forbidden: true }),
+  globals: desktop.globals,
+  name: "Нет права · широкий экран",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      await page.findByRole("heading", { name: "Нет права на скидки" }),
+    ).toBeVisible();
+    await expect(page.queryByRole("button", { name: "Повторить" })).toBeNull();
+    await expect(
+      page.queryByRole("button", { name: "Создать скидку" }),
+    ).toBeNull();
+    await expect(page.queryByRole("combobox")).toBeNull();
+  },
+};
+
+export const RefusedMobile: Story = {
+  ...RefusedDesktop,
+  globals: mobile.globals,
+  name: "Нет права · телефон",
+};
+
+/** Архив анкетных скидок без права: тот же отказ без повтора. */
+export const QuestionnaireRefused: Story = {
+  beforeEach: scenario({ forbidden: true }, "view=questionnaire"),
+  globals: mobile.globals,
+  name: "Анкетные скидки, нет права · телефон",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      await page.findByRole("heading", {
+        name: "Нет права на анкетные скидки",
+      }),
+    ).toBeVisible();
+    await expect(page.queryByRole("button", { name: "Повторить" })).toBeNull();
+  },
+};
+
 export const Loading: Story = {
   beforeEach: scenario({ held: true }),
   globals: mobile.globals,
