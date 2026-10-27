@@ -173,7 +173,29 @@ python3 scripts/observability-fullstack/fullstack.py collect \
 ```
 
 CI job `Representative whole-process monitoring OFF/ON resource proof` выполняет тот же путь.
-Публикуются только `fullstack-proof.json`, `fullstack-source.json`, 12 ограниченных файлов
+Публикуются только `fullstack-proof.json`, `fullstack-source.json`, `fullstack-timing.json`, 12 ограниченных файлов
 численных samples и общие outcomes/cleanup. Private Compose, env, сертификаты, native Umami key,
 JWT и ответы прикладных API не публикуются. До фактического native PASS профиль подготовлен;
 готовность процесса GitHub Actions сама по себе не означает ресурсную приёмку.
+
+`fullstack-timing.json` отделяет время подготовки seed, установки Horizon и plugin,
+четырёх переключений режима, volume-reader/SQL, нагрузки, обработки Telegram,
+счётчиков и outage/recovery. Имена стадий закрыты; `group` 0..3 следует порядку
+OFF/ON/ON/OFF, `phase` 0..11 следует порядку выполнения. Значение -1 означает
+подготовку или стадию вне фазы. Файл содержит source SHA и SHA-256 канонического
+private output path, без самого пути. Public collection проверяет эту привязку,
+размер и закрытую схему до копирования и записывает канонический JSON.
+Неизвестные поля, повторные JSON keys и неверная привязка останавливают collection.
+Отсутствие файла у прежнего запуска означает отсутствие этих измерений.
+
+Часы монотонные, в миллисекундах от начала worker diagnostics. При превышении
+600000 ms значение насыщается с явным `saturated=true`; это не расширяет прежний
+предел worker 600 секунд. Не более 384 стадий и 128 KiB сохраняется атомарно до
+и после каждой стадии, включая failed/interrupted. При принудительном SIGKILL
+может остаться последняя running стадия. Время между стадиями остаётся отдельным
+неразмеченным остатком, его нельзя приписывать seed или компиляции.
+Запись, часы или схема diagnostics не заменяют исходный `BaseException` работы.
+При отсутствии исходной ошибки отказ diagnostics завершает запуск ошибкой.
+Commands, SQL, payload, stdout/stderr и exception messages в этот файл не входят.
+Эти часы не меняют профиль, квоты, все 12 фаз, свежесть источников или p95 oracle
+и не доказывают производительность либо достаточность production server.

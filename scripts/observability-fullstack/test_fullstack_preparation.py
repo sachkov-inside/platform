@@ -161,7 +161,7 @@ class Preparation(unittest.TestCase):
             stop=RuntimeError('controlled_stop_after_first_phase')
             def stored(*args,**options):clock['stored']=clock['now']
             def witness(*args):clock['now']+=11;return {'state':'observed'}
-            def phase(*args):
+            def phase(*args,**options):
                 self.assertIsNotNone(clock['stored'])
                 self.assertLessEqual(clock['now']-clock['stored'],10,'the bounded witness must precede the stored freshness barrier')
                 raise stop
@@ -262,10 +262,14 @@ class Preparation(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)
             (output/'owner.json').write_text(json.dumps({'supervisor_pid':fullstack.os.getppid(),'project':'owned-project'}))
+            (output/'evidence.json').write_text(json.dumps({'source':'a'*40}))
             with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.pilot,'write_json',side_effect=[None,OSError('ENOSPC')]),patch.object(fullstack.pilot,'worker_storage_guard',side_effect=primary):
                 try:fullstack.worker(output)
                 except RuntimeError as caught:self.assertIs(caught,primary)
                 else:self.fail('original failure was lost')
+            retained=fullstack.stage_timing.read(output,'a'*40)
+            self.assertEqual(retained['state'],'failed')
+            self.assertNotIn('private',json.dumps(retained))
 
     def test_both_modes_prefill_once_and_only_on_requires_fresh_stored_sources(self):
         observed={'postgresql':'observed','caddy':'observed'}

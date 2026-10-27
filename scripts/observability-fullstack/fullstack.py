@@ -2,6 +2,7 @@
 """Bounded whole-application monitoring experiment on a task-owned Linux runner."""
 import argparse
 import copy
+from functools import partial
 import json
 import math
 import os
@@ -29,6 +30,7 @@ import acceptance
 import extra
 import telegram
 import storage
+import stage_timing
 import source_guard
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
@@ -37,7 +39,7 @@ APPS=(*BACKENDS,'web','rabbitmq','postgres','umami','provider','loadgen','telegr
 CORE=(*pilot.SERVICES,'host-agent','umami-ingest','umami-query')
 SERVICES=(*APPS,*CORE,'migrations','broker-config','telegram-migrations','logto-migrations','volume-reader')
 PREFIX='inside-observability-fullstack-'
-ARTIFACTS=(*(f'fullstack-phase-{index}.json' for index in range(12)),'fullstack-proof.json','fullstack-source.json','evidence.json','cleanup.json','worker-outcome.json','monitor-failure.json')
+ARTIFACTS=(*(f'fullstack-phase-{index}.json' for index in range(12)),'fullstack-proof.json','fullstack-source.json',stage_timing.NAME,'evidence.json','cleanup.json','worker-outcome.json','monitor-failure.json')
 
 
 def invoke(compose,args,**options):return resource_runtime.invoke(compose,args,**options)
@@ -233,48 +235,49 @@ def ready(compose,path,host='api',port=3001):
         raise
 
 
-def seed(compose,output):
+def seed(compose,output,*,timing=None):
+    call=partial(stage_timing.call,timing)
     actors=acceptance.validate_profile(json.loads(PROFILE.read_text()))['accounts']
-    resource_runtime.wait_ready(compose)
-    invoke(compose,['run','--rm','--no-deps','migrations'],timeout=60)
-    definitions=invoke(compose,['run','--rm','--no-deps','broker-config'],timeout=15)
+    call('seed_database_ready',resource_runtime.wait_ready,compose)
+    call('seed_migrate',invoke,compose,['run','--rm','--no-deps','migrations'],timeout=60)
+    definitions=call('seed_broker_config',invoke,compose,['run','--rm','--no-deps','broker-config'],timeout=15)
     (output/'runtime/rabbitmq/definitions.json').write_text(definitions)
     (output/'runtime/rabbitmq/definitions.json').chmod(0o644)
-    invoke(compose,['up','-d','rabbitmq','provider','loadgen','api'],timeout=30)
-    ready(compose,'/health/ready')
-    invoke(compose,['run','--rm','--no-deps','-e','NODE_ENV=development','-e','LOCAL_SEED_DEMO=published',
+    call('seed_api_up',invoke,compose,['up','-d','rabbitmq','provider','loadgen','api'],timeout=30)
+    call('seed_api_ready',ready,compose,'/health/ready')
+    call('seed_accounts',invoke,compose,['run','--rm','--no-deps','-e','NODE_ENV=development','-e','LOCAL_SEED_DEMO=published',
         '-e','INSIDE_RESOURCE_SEED_ENABLED=true','migrations','node','/resource/seed-runtime.mjs'],timeout=30)
-    sql(compose,(ROOT/'infra/observability/fullstack/corpus.sql').read_text(),role='platform',database='inside')
-    extra.initialize(output,compose,invoke)
-    adapted=invoke(compose,['exec','-T','caddy','caddy','adapt','--config','/etc/caddy/Caddyfile','--adapter','caddyfile'],timeout=3).encode()
+    call('seed_corpus',sql,compose,(ROOT/'infra/observability/fullstack/corpus.sql').read_text(),role='platform',database='inside')
+    call('seed_extra',extra.initialize,output,compose,invoke)
+    adapted=call('seed_caddy_adapt',invoke,compose,['exec','-T','caddy','caddy','adapt','--config','/etc/caddy/Caddyfile','--adapter','caddyfile'],timeout=3).encode()
     public_server=source_cache.select_caddy_server(adapted)
     pilot.write_json(output/'caddy-source.json',{'server':public_server});(output/'caddy-source.json').chmod(0o600)
-    telegram.initialize(output,compose,invoke,sql)
-    ready(compose,'/ready','telegram',3002)
-    ready(compose,'/oidc/.well-known/openid-configuration','logto',3001)
-    telegram.establish(compose,invoke,pilot.await_fact,sql,actors)
-    contacts=int(sql(compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
+    call('seed_telegram_initialize',telegram.initialize,output,compose,invoke,sql)
+    call('seed_telegram_ready',ready,compose,'/ready','telegram',3002)
+    call('seed_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
+    call('seed_contacts',telegram.establish,compose,invoke,pilot.await_fact,sql,actors)
+    contacts=int(call('seed_contact_count',sql,compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
     if contacts!=actors:raise ValueError('all_telegram_contacts_required')
     from importlib.util import spec_from_file_location,module_from_spec
     spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
     # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
-    sql(compose,'SELECT pg_stat_reset();',database='inside')
+    call('seed_statistics_epoch',sql,compose,'SELECT pg_stat_reset();',database='inside')
     password=(output/'monitoring/umami.database.password').read_text().strip()
-    sql(compose,owner.sql(password))
+    call('seed_umami_database',sql,compose,owner.sql(password))
     # Umami first preserves existing PUBLIC CONNECT rights before it revokes PUBLIC.
     # Establish the dedicated source reader afterward with only its own inside CONNECT.
     bootstrap=source_cache.postgres_setup_sql()
-    sql(compose,bootstrap)
-    guard_proof=source_guard.prove(compose,sql,bootstrap)
-    invoke(compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
-    ready(compose,'/api/heartbeat','umami',3000)
-    seeded=json.loads(invoke(compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
+    call('seed_source_bootstrap',sql,compose,bootstrap)
+    guard_proof=call('seed_source_authority',source_guard.prove,compose,sql,bootstrap)
+    call('seed_umami_up',invoke,compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
+    call('seed_umami_ready',ready,compose,'/api/heartbeat','umami',3000)
+    seeded=json.loads(call('seed_umami',invoke,compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
     (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
     (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
-    established=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
+    established=json.loads(call('seed_establish',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
     if (set(established)!={'created','accounts'} or established['created']!=actors or not isinstance(established['accounts'],list) or len(established['accounts'])!=actors or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=actors):raise ValueError('all_accounts_required')
     (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
-    corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
+    corpus=json.loads(call('seed_validate_corpus',sql,compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
     if corpus!={'accounts':actors,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
     return guard_proof
 
@@ -358,10 +361,11 @@ def loadgen_cpu_pressure(samples):
     return {'state':'throttled' if delta['cpu_throttled_periods'] or delta['cpu_throttled_ns'] else 'unthrottled',**delta}
 
 
-def phase(compose,project,definition,active,enabled,pair,output):
-    states=technical.owned(compose,project,active)
+def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1):
+    call=partial(stage_timing.call,timing,group=group,phase=index)
+    states=call('phase_ownership_before',technical.owned,compose,project,active)
     # A delayed native source read must not let the load outrun its CPU baseline.
-    samples=[{'counters':technical.capture(states),'host':host()}]
+    samples=[call('phase_baseline',lambda:{'counters':technical.capture(states),'host':host()})]
     stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
     def sampling():
         next_source=time.monotonic()
@@ -375,19 +379,23 @@ def phase(compose,project,definition,active,enabled,pair,output):
         except BaseException:errors.append('sampler_failed')
     worker=threading.Thread(target=sampling)
     worker.start()
+    def observed(position):
+        return storage.observe(compose,
+            lambda *args,**options:call('phase_storage_'+position+'_reader',invoke,*args,**options),
+            lambda *args,**options:call('phase_storage_'+position+'_database',sql,*args,**options))
     try:
-        storage_samples.append(storage.observe(compose,invoke,sql))
-        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','load',json.dumps(definition),'on' if enabled else 'off',str(pair)],timeout=definition['seconds']+65))
+        storage_samples.append(observed('before'))
+        value=json.loads(call('phase_load',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','load',json.dumps(definition),'on' if enabled else 'off',str(pair)],timeout=definition['seconds']+65))
         phase_id=pair*6+(3 if enabled else 0)+('idle','steady','spike').index(definition['name'])
         acknowledged=value.get('telegram_acknowledged')
         if type(acknowledged) is not int or not 0<=acknowledged<=1000:raise ValueError('synthetic_telegram_acknowledgement')
-        value['telegram_processed']=pilot.await_fact(lambda:telegram.processed(compose,sql,2000000+phase_id*1000,2001000+phase_id*1000,acknowledged),bool,budget=30,probe='synthetic_telegram_phase_processed')
-        storage_samples.append(storage.observe(compose,invoke,sql))
+        value['telegram_processed']=call('phase_telegram',pilot.await_fact,lambda:telegram.processed(compose,sql,2000000+phase_id*1000,2001000+phase_id*1000,acknowledged),bool,budget=30,probe='synthetic_telegram_phase_processed')
+        storage_samples.append(observed('after'))
     finally:
-        stop.set();worker.join(timeout=15)
+        stop.set();call('phase_sampler_join',worker.join,timeout=15)
         if worker.is_alive():raise RuntimeError('fullstack_sampler_unsettled')
-    samples.append({'counters':technical.capture(states),'host':host()})
-    current=technical.owned(compose,project,active)
+    samples.append(call('phase_final_counters',lambda:{'counters':technical.capture(states),'host':host()}))
+    current=call('phase_ownership_after',technical.owned,compose,project,active)
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
     pressure=loadgen_cpu_pressure(samples)
     if pressure['state']!='unthrottled':errors.append('fixture_loadgen_cpu_'+pressure['state'])
@@ -417,72 +425,79 @@ def worker(output):
     profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
     report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
     pilot.write_json(output/'fullstack-proof.json',report)
+    timing=stage_timing.Timing(output,stage_timing.source(output))
+    call=partial(stage_timing.call,timing)
     try:
         with pilot.worker_storage_guard(owner,compose,output):
-            mode(output,False)
-            invoke(compose,['up','-d','postgres','provider','loadgen'],timeout=30)
-            invoke(compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
-            report['source_role_authority']=seed(compose,output)
+            call('initial_mode',mode,output,False)
+            call('initial_up',invoke,compose,['up','-d','postgres','provider','loadgen'],timeout=30)
+            call('response_contract',invoke,compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
+            report['source_role_authority']=seed(compose,output,timing=timing)
             pilot.write_json(output/'fullstack-proof.json',report)
             grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
             if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
-            invoke(compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
-            production.pilot.install_horizon(output/'monitoring')
-            production.pilot.install_plugin(output/'monitoring')
+            call('grafana_permissions',invoke,compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
+            call('horizon_install',production.pilot.install_horizon,output/'monitoring')
+            call('plugin_install',production.pilot.install_plugin,output/'monitoring')
             for pair,order in enumerate(profile['pairs']):
-                for state in order:
-                    enabled=state=='on';mode(output,enabled)
+                for position,state in enumerate(order):
+                    group=pair*2+position
+                    mode_call=partial(call,group=group)
+                    enabled=state=='on';mode_call('mode_configure',mode,output,enabled)
                     if enabled:
-                        invoke(compose,['up','-d',*pilot.SERVICES],timeout=30)
-                        invoke(compose,['--profile','host-metrics','up','-d','host-agent','umami-ingest','umami-query'],timeout=30)
+                        mode_call('mode_core_up',invoke,compose,['up','-d',*pilot.SERVICES],timeout=30)
+                        mode_call('mode_source_up',invoke,compose,['--profile','host-metrics','up','-d','host-agent','umami-ingest','umami-query'],timeout=30)
                     else:
-                        invoke(compose,['stop','--timeout','2',*CORE],timeout=30)
-                    invoke(compose,['up','-d','--force-recreate','--no-deps','postgres','rabbitmq'],timeout=30)
-                    resource_runtime.wait_ready(compose)
-                    invoke(compose,['up','-d','--force-recreate','--no-deps',*BACKENDS,'web','telegram','logto','caddy'],timeout=30)
-                    ready(compose,'/health/ready');ready(compose,'/_health/ready','web',3000)
-                    ready(compose,'/ready','telegram',3002)
-                    ready(compose,'/oidc/.well-known/openid-configuration','logto',3001)
+                        mode_call('mode_core_stop',invoke,compose,['stop','--timeout','2',*CORE],timeout=30)
+                    mode_call('mode_database_broker_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps','postgres','rabbitmq'],timeout=30)
+                    mode_call('mode_database_ready',resource_runtime.wait_ready,compose)
+                    mode_call('mode_applications_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps',*BACKENDS,'web','telegram','logto','caddy'],timeout=30)
+                    mode_call('mode_api_ready',ready,compose,'/health/ready');mode_call('mode_web_ready',ready,compose,'/_health/ready','web',3000)
+                    mode_call('mode_telegram_ready',ready,compose,'/ready','telegram',3002)
+                    mode_call('mode_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
                     for name in BACKENDS:
                         command=['node','healthcheck/http-healthcheck.mjs',name] if name in ('api','mcp') else ['node','dist/infrastructure/worker-healthcheck.js']
                         def healthy(name=name,command=command):
                             try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
                             except (RuntimeError,subprocess.SubprocessError):return False
-                        pilot.await_fact(healthy,bool,probe='fullstack_'+name+'_ready')
-                    extra.warmup(compose,invoke)
+                        mode_call('mode_backend_'+name+'_ready',pilot.await_fact,healthy,bool,probe='fullstack_'+name+'_ready')
+                    mode_call('mode_warmup',extra.warmup,compose,invoke)
                     if enabled:
-                        report.setdefault('web_http',[]).append(prove_web_http(compose))
+                        report.setdefault('web_http',[]).append(mode_call('mode_web_witness',prove_web_http,compose))
                     # The bounded Web witness must not age a previously ready source cohort.
-                    await_sources(compose,output,enabled=enabled)
+                    mode_call('mode_source_barrier',await_sources,compose,output,enabled=enabled)
                     active=(*APPS,*CORE) if enabled else APPS
                     for definition in profile['phases']:
-                        measured=phase(compose,owner['project'],definition,active,enabled,pair,output)
-                        pilot.write_json(output/('fullstack-phase-'+str(len(report['phases']))+'.json'),measured)
+                        index=len(report['phases'])
+                        measured=phase(compose,owner['project'],definition,active,enabled,pair,output,timing=timing,group=group,index=index)
+                        call('phase_report',pilot.write_json,output/('fullstack-phase-'+str(index)+'.json'),measured,group=group,phase=index)
                         measured['host_samples']=[sample['host'] for sample in measured['samples']]
                         measured['counter_summary']=technical.summarize([sample['counters'] for sample in measured['samples']])
                         if any(sample['counters']['errors'] for sample in measured['samples']):measured['errors'].append('counter_missing')
                         del measured['samples']
                         report['phases'].append(measured)
-                        pilot.write_json(output/'fullstack-proof.json',report)
+                        call('phase_report',pilot.write_json,output/'fullstack-proof.json',report,group=group,phase=index)
             # One explicitly accounted outage, then a fresh known probe after restart.
-            invoke(compose,['up','-d',*pilot.SERVICES],timeout=30)
-            invoke(compose,['stop','--timeout','2','alloy'],timeout=10)
-            lost=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','loss'],timeout=10))
-            invoke(compose,['up','-d','alloy'],timeout=15)
-            await_collector(output)
-            reconciled=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','recover-probe'],timeout=65))
+            call('outage_core_up',invoke,compose,['up','-d',*pilot.SERVICES],timeout=30)
+            call('outage_collector_stop',invoke,compose,['stop','--timeout','2','alloy'],timeout=10)
+            lost=json.loads(call('outage_loss',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','loss'],timeout=10))
+            call('outage_collector_up',invoke,compose,['up','-d','alloy'],timeout=15)
+            call('outage_ready',await_collector,output)
+            reconciled=json.loads(call('outage_recover',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','recover-probe'],timeout=65))
             report['controlled_outage']={**lost,**reconciled}
             report['source_cache_workload']=all(row['mode']=='off' or row['load']['completed'] and bool(row['load']['query_seconds']) and len(row['source_cache_samples'])>=({'idle':2,'steady':8,'spike':2}[row['name']]) and all(state=={'postgresql':'observed','caddy':'observed'} for state in row['source_cache_samples']) for row in report['phases'])
             if report['source_cache_workload']:report['missing'].remove('PG/Caddy source-cache sampler workload')
             report['state']='measured'
-            report['measured_linux_acceptance']=evaluate(report)
+            report['measured_linux_acceptance']=call('evaluate',evaluate,report)
             if report['measured_linux_acceptance']['state']!='passed':raise ValueError('fullstack_resource_acceptance_failed')
+        timing.finish()
     except BaseException:
         report['state']='failed'
         try:pilot.write_json(output/'fullstack-proof.json',report)
         except BaseException:pass
         raise
     else:pilot.write_json(output/'fullstack-proof.json',report)
+    finally:timing.finish()
 
 
 def evaluate(report):
@@ -519,10 +534,14 @@ def evaluate(report):
 
 def collect(output, metadata, destination):
     import preparation_evidence
+    if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
     source,_=hosted.metadata_source(metadata)
     path=metadata/preparation_evidence.NAME
     evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
-    resource_runtime.ci.collect(output,metadata,destination,artifacts=ARTIFACTS)
+    path=output/stage_timing.NAME
+    timing=stage_timing.read(output,source['checkout_sha']) if path.exists() or path.is_symlink() else None
+    resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name!=stage_timing.NAME))
+    if timing is not None:stage_timing.write(destination,timing,source['checkout_sha'],binding_output=output)
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
 
 
