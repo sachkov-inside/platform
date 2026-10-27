@@ -122,7 +122,7 @@ export const LinkTelegramEnlarged: Story = {
     try {
       root.style.fontSize = "200%";
       const action = await routeContent(canvasElement).findByRole("button", {
-        name: "Привязать Telegram",
+        name: "Подключить Telegram",
       });
       await waitFor(async () => {
         window.scrollTo(0, root.scrollHeight);
