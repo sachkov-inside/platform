@@ -8,9 +8,12 @@ import {
 import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import {
+  backendFeedback,
   consistentSelection,
+  defaultFeedbackFilter,
   sameSelection,
   taskSubmissionsSchema,
+  type FeedbackFilter,
   type SubmissionSelection,
   type TaskSubmissions,
 } from "../model/task-submissions";
@@ -20,6 +23,7 @@ export type TaskSubmissionsOutcome =
       readonly kind: "ready";
       readonly submissions: TaskSubmissions;
       readonly selection: SubmissionSelection;
+      readonly feedback: FeedbackFilter;
       /** Whether this page continues an earlier one: the list then offers a way back to the start. */
       readonly continued: boolean;
       readonly cursor: string | undefined;
@@ -39,12 +43,17 @@ type Attempt =
  * The «Сдачи» section for `/authoring/submissions` (#948). A filter the Products on offer cannot show
  * — a chapter of another Product, a task of another chapter, a malformed value — is dropped and read
  * again from the first page, so the selects and the list always agree.
+ *
+ * `feedback` narrows a list read to submissions awaiting Author Feedback or given it (#1717) and
+ * travels with the cursor. A detail read by `submissionId` does not send it: a submission that
+ * was just commented still opens from the «без комментария» address it was chosen on.
  */
 export async function loadTaskSubmissions(
   selection: SubmissionSelection,
   cursor: string | undefined,
   submissionId?: string,
   productCursor?: string,
+  feedback: FeedbackFilter = defaultFeedbackFilter,
 ): Promise<TaskSubmissionsOutcome> {
   const session = await readAuthenticatedSession("rsc");
   if (session.kind !== "ready") {
@@ -56,6 +65,8 @@ export async function loadTaskSubmissions(
     return { kind: "not_found" };
   const accessToken = session.value;
   let filterCursor = productCursor;
+  const feedbackQuery =
+    submissionId === undefined ? backendFeedback(feedback) : undefined;
   const read = async (
     query: SubmissionSelection,
     page: string | undefined,
@@ -68,6 +79,7 @@ export async function loadTaskSubmissions(
           ...(filterCursor === undefined
             ? {}
             : { productCursor: filterCursor }),
+          ...(feedbackQuery === undefined ? {} : { feedback: feedbackQuery }),
           ...(page === undefined ? {} : { cursor: page }),
           ...(submissionId === undefined ? {} : { submissionId }),
         },
@@ -120,6 +132,7 @@ export async function loadTaskSubmissions(
     kind: "ready",
     submissions: attempt.submissions,
     selection: shown,
+    feedback,
     continued: page !== undefined,
     cursor: page,
     submissionId,

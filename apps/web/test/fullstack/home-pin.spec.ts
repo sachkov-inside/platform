@@ -41,7 +41,11 @@ test("author Home pin persists for guests and members, replaces and removes thro
     );
     await page.goto("/authoring/products");
     const releaseName = "Demo · Релиз своего проекта";
-    const pin = page.getByRole("list", { name: "Все продукты" });
+    // Список продуктов: таблица на компьютере, список строк на телефоне (#1720).
+    const pin = page.getByRole(
+      (page.viewportSize()?.width ?? 1440) < 768 ? "list" : "table",
+      { name: "Все продукты" },
+    );
     const pinButton = () =>
       pin.getByRole("button", {
         name: `Закрепить «${releaseName}» на главной`,

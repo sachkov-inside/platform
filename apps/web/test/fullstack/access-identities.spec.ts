@@ -283,7 +283,9 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
     await expect(
       author.page
         .getByRole("region", { name: "Список материалов" })
-        .getByText(publishedMaterial.title, { exact: true }),
+        .getByText(publishedMaterial.title, { exact: true })
+        // The list renders a table and a phone list; CSS shows one of them.
+        .filter({ visible: true }),
     ).toBeVisible();
     expect((await authoringMaterial(author.page)).publicationState).toBe(
       "published",

@@ -26,6 +26,8 @@ import {
 } from "../../shared/result.js";
 import {
   authorFeedbackOf,
+  feedbackStateSchema,
+  feedbackStateWhere,
   type AuthorFeedback,
 } from "../../shared/author-feedback.js";
 import type { SubmissionReviewDependencies } from "../../shared/submission-review-dependencies.js";
@@ -37,7 +39,17 @@ const productCursorValueSchema = z
   .object({ v: z.literal(1), kind: z.literal("products"), id: z.uuid() })
   .strict();
 
-const cursorSchema = z.object({ at: z.iso.datetime(), id: z.uuid() }).strict();
+/**
+ * The row position plus the feedback filter it was produced under (#1720): a cursor of one filter
+ * never continues another. A cursor without `feedback` belongs to the unfiltered list.
+ */
+const cursorSchema = z
+  .object({
+    at: z.iso.datetime(),
+    id: z.uuid(),
+    feedback: feedbackStateSchema.optional(),
+  })
+  .strict();
 
 /** The page cursor and size; the controller publishes these same schemas in OpenAPI. */
 export const submissionsCursorSchema = z.string().min(1).max(200);
@@ -50,6 +62,7 @@ export const authorSubmissionsQuerySchema = z
     productId: z.uuid().optional(),
     chapterId: z.uuid().optional(),
     taskCode: taskCodeSchema.optional(),
+    feedback: feedbackStateSchema.optional(),
     cursor: submissionsCursorSchema.nullable().optional(),
     limit: z.coerce.number().pipe(submissionsLimitSchema).optional(),
   })
@@ -135,9 +148,17 @@ export type AuthorSubmissionsResult = Result<
   ListAuthorSubmissionsError
 >;
 
-function encodeCursor(at: Date, id: string): string {
+function encodeCursor(
+  at: Date,
+  id: string,
+  feedback: z.infer<typeof feedbackStateSchema> | undefined,
+): string {
   return Buffer.from(
-    JSON.stringify({ at: at.toISOString(), id }),
+    JSON.stringify({
+      at: at.toISOString(),
+      id,
+      ...(feedback === undefined ? {} : { feedback }),
+    }),
     "utf8",
   ).toString("base64url");
 }
@@ -157,6 +178,11 @@ function decodeCursor(cursor: string): z.infer<typeof cursorSchema> | null {
 /**
  * Submissions for the author, newest first, narrowed by Product, chapter and task (#948). Published
  * and unpublished tasks alike: a task taken off publication keeps its submissions for reviews.
+ * `feedback` narrows them to those awaiting Author Feedback or given it (#1720; see
+ * `feedbackStateSchema`). The cursor carries the position and its `feedback` filter: a cursor sent
+ * with another `feedback` is a bad request. The client resends the Product, chapter and task scope
+ * with the cursor, and the next page continues the same filtered order. A detail read by
+ * `submissionId` ignores `feedback`, so a submission stays readable after its comment is saved.
  */
 export async function listAuthorSubmissions(
   dependencies: SubmissionReviewDependencies,
@@ -170,7 +196,14 @@ export async function listAuthorSubmissions(
     parsed.data.cursor !== null
       ? decodeCursor(parsed.data.cursor)
       : undefined;
-  if (!parsed.success || cursor === null)
+  if (
+    !parsed.success ||
+    cursor === null ||
+    // A detail read ignores both the cursor and `feedback`, so only a list read compares them.
+    (cursor !== undefined &&
+      parsed.data.submissionId === undefined &&
+      cursor.feedback !== parsed.data.feedback)
+  )
     return { ok: false, error: { code: "invalid_request_shape" } };
   const productCursor =
     parsed.data.productCursor !== undefined
@@ -192,6 +225,9 @@ export async function listAuthorSubmissions(
       where: {
         version: { task: taskScope },
         ...(query.submissionId === undefined ? {} : { id: query.submissionId }),
+        ...(query.feedback === undefined || query.submissionId !== undefined
+          ? {}
+          : feedbackStateWhere(query.feedback)),
         ...(cursor === undefined || query.submissionId !== undefined
           ? {}
           : {
@@ -370,7 +406,7 @@ export async function listAuthorSubmissions(
           query.submissionId === undefined &&
           rows.length > limit &&
           last !== undefined
-            ? encodeCursor(last.submittedAt, last.id)
+            ? encodeCursor(last.submittedAt, last.id, query.feedback)
             : null,
       },
     };

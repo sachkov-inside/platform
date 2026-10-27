@@ -736,27 +736,37 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
       .click();
   }
   await expect(page).toHaveURL(/\/authoring\/materials$/u);
-  if (testInfo.project.name === "mobile-chromium")
-    await page.getByRole("button", { name: "Меню", exact: true }).click();
-  await page.getByRole("link", { name: "Темы", exact: true }).click();
+  // На телефоне «Темы» и «Продукты» открывает лист «Ещё» нижней панели (#1720).
+  const phone = testInfo.project.name === "mobile-chromium";
+  const sections = page.getByRole("navigation", {
+    name: phone ? "Другие разделы" : "Разделы админки",
+    exact: true,
+  });
+  if (phone)
+    await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await sections.getByRole("link", { name: "Темы", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Темы", level: 1 }),
   ).toBeVisible();
-  // Тема раскрывается кнопкой: её название, адрес и число материалов складываются в доступное имя.
+  // Строка темы: название ссылкой, адрес подстрокой, число опубликованных из всех материалов.
+  const topics = page.getByRole(phone ? "list" : "table", {
+    name: "Все темы",
+  });
   await expect(
-    page.getByRole("button", { name: /^Platform \/platform · \d+ материал/u }),
+    topics.getByRole("link", { name: "Platform", exact: true }),
   ).toBeVisible();
+  await expect(topics.getByText("/platform", { exact: true })).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
-  if (testInfo.project.name === "mobile-chromium")
-    await page.getByRole("button", { name: "Меню", exact: true }).click();
-  await page.getByRole("link", { name: "Продукты", exact: true }).click();
+  if (phone)
+    await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await sections.getByRole("link", { name: "Продукты", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Продукты", level: 1 }),
   ).toBeVisible();
-  const platformProduct = page.getByRole("link", {
-    name: /^Создание Platform Inside \d+ материал/u,
-  });
+  const platformProduct = page
+    .getByRole(phone ? "list" : "table", { name: "Все продукты" })
+    .getByRole("link", { name: /^Создание Platform Inside/u });
   await expect(platformProduct).toBeVisible();
   await expect(platformProduct).toHaveAttribute(
     "href",

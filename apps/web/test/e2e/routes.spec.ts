@@ -509,7 +509,7 @@ test("authoring route owns a dedicated shell outside the public application shel
     0,
   );
   const authoringSidebar = page.getByRole("complementary", {
-    name: "Редактор",
+    name: "Админка",
   });
   await expect(authoringSidebar).toBeVisible();
   await expect(page.getByRole("main")).toHaveCount(1);
@@ -519,6 +519,15 @@ test("authoring route owns a dedicated shell outside the public application shel
   expect(sidebarBox?.x).toBe(0);
   expect(box?.x).toBe(sidebarBox?.width);
   expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
+});
+
+test("the admin entry leads to Products until the Overview exists", async ({
+  request,
+}) => {
+  const response = await request.get("/authoring", { maxRedirects: 0 });
+
+  expect(response.status()).toBe(307);
+  expect(response.headers()["location"]).toBe("/authoring/products");
 });
 
 test("sales funnel report asks a signed-out visitor to sign in inside the authoring shell", async ({
@@ -540,7 +549,7 @@ test("sales funnel report asks a signed-out visitor to sign in inside the author
   if (navigationMode(testInfo.project.name) === "desktop")
     await expect(
       page
-        .getByRole("complementary", { name: "Редактор" })
+        .getByRole("complementary", { name: "Админка" })
         .getByRole("link", { name: "Воронка продаж" }),
     ).toHaveAttribute("aria-current", "page");
   expect(

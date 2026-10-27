@@ -14,6 +14,7 @@ import { z } from "zod";
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
+import { contentCollectionsRoute } from "./content-collections-backend.mjs";
 import {
   holdNavigationTasks,
   navigationTaskRoute,
@@ -22,6 +23,8 @@ import {
 import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
 import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.mjs";
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
+import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
+import { authoringSearchRoute } from "./authoring-search-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1070,6 +1073,12 @@ const server = createServer(async (request, response) => {
     path: `${url.pathname}${url.search}`,
   });
   await waitNavigationTask(url.pathname);
+  const search = authoringSearchRoute(request, url);
+  if (search !== null) return send(search.status, search.value);
+  const materials = await authoringMaterialsRoute(request, url, readBody);
+  if (materials !== null) return send(materials.status, materials.value);
+  const collections = await contentCollectionsRoute(request, url, readBody);
+  if (collections !== null) return send(collections.status, collections.value);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, seriesId } = homePinSchema.parse(

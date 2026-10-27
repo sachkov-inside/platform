@@ -206,24 +206,104 @@ export function sameSelection(
   );
 }
 
-/** The address of a filtered list, and of its next page when a cursor is given. */
-export function selectionHref(
-  selection: SubmissionSelection,
-  cursor?: string,
-  submissionId?: string,
-  productCursor?: string,
-): string {
+/**
+ * Which submissions the list shows by Author Feedback (#1717). «Без комментария» (`awaiting`) is the
+ * default: the address carries `feedback` only for another choice. A submission is awaiting while
+ * it has no stored Author Feedback, neither a comment nor the legacy «посмотрел автор» mark.
+ */
+export const feedbackFilters = ["awaiting", "given", "all"] as const;
+export type FeedbackFilter = (typeof feedbackFilters)[number];
+export const defaultFeedbackFilter: FeedbackFilter = "awaiting";
+
+/** The address value of `feedback`; a missing, repeated or unknown value is the default. */
+export function parseFeedbackFilter(value: string | undefined): FeedbackFilter {
+  return (
+    feedbackFilters.find((filter) => filter === value) ?? defaultFeedbackFilter
+  );
+}
+
+/** The backend filter for a list read: «все» sends none. */
+export function backendFeedback(
+  filter: FeedbackFilter,
+): "awaiting" | "given" | undefined {
+  return filter === "all" ? undefined : filter;
+}
+
+/** Whether a submission already has Author Feedback: a comment or the legacy mark. */
+export function hasAuthorFeedback(submission: {
+  readonly authorFeedback: AuthorFeedback | null;
+}): boolean {
+  return submission.authorFeedback !== null;
+}
+
+/** Everything the list address holds: server filters, the row cursor, the open submission. */
+export interface SubmissionsAddress {
+  readonly selection: SubmissionSelection;
+  readonly feedback: FeedbackFilter;
+  readonly cursor?: string | undefined;
+  readonly submissionId?: string | undefined;
+  /** The continuation of Product choices, independent from the row cursor. */
+  readonly productCursor?: string | undefined;
+}
+
+/** The default view: new submissions of every Product, newest first. */
+export const defaultSubmissionsAddress: SubmissionsAddress = {
+  selection: {},
+  feedback: defaultFeedbackFilter,
+};
+
+/** Whether the address shows anything other than the default view (the «Сбросить» condition). */
+export function isDefaultView(address: SubmissionsAddress): boolean {
+  return (
+    address.feedback === defaultFeedbackFilter &&
+    address.selection.productId === undefined &&
+    address.selection.chapterId === undefined &&
+    address.selection.taskCode === undefined
+  );
+}
+
+/** The address of a list, its page or one of its submissions. */
+export function submissionsListHref(address: SubmissionsAddress): string {
+  const { selection, feedback, cursor, submissionId, productCursor } = address;
   const query = new URLSearchParams();
   if (selection.productId !== undefined)
     query.set("productId", selection.productId);
   if (selection.chapterId !== undefined)
     query.set("chapterId", selection.chapterId);
   if (selection.taskCode !== undefined) query.set("task", selection.taskCode);
+  if (feedback !== defaultFeedbackFilter) query.set("feedback", feedback);
   if (cursor !== undefined) query.set("cursor", cursor);
   if (submissionId !== undefined) query.set("submission", submissionId);
   if (productCursor !== undefined) query.set("productCursor", productCursor);
   const text = query.toString();
   return text === "" ? submissionsHref : `${submissionsHref}?${text}`;
+}
+
+type SearchValue = string | string[] | undefined;
+
+/** A single non-empty value of the address; repeats and blanks mean «not chosen». */
+function single(value: SearchValue): string | undefined {
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+/** `/authoring/submissions` search parameters as the list address. */
+export function parseSubmissionsAddress(
+  params: Readonly<Record<string, SearchValue>>,
+): SubmissionsAddress {
+  const productId = single(params["productId"]);
+  const chapterId = single(params["chapterId"]);
+  const taskCode = single(params["task"]);
+  return {
+    selection: {
+      ...(productId === undefined ? {} : { productId }),
+      ...(chapterId === undefined ? {} : { chapterId }),
+      ...(taskCode === undefined ? {} : { taskCode }),
+    },
+    feedback: parseFeedbackFilter(single(params["feedback"])),
+    cursor: single(params["cursor"]),
+    submissionId: single(params["submission"]),
+    productCursor: single(params["productCursor"]),
+  };
 }
 
 /** The criteria of the version a submission was reviewed against. */

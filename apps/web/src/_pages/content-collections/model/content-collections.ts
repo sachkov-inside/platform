@@ -28,6 +28,7 @@ export const contentCollectionSchema = z
     introduction: productIntroductionSchema.nullable().default(null),
     kind: z.enum(["series", "topic"]),
     materialCount: z.number().int().nonnegative(),
+    publishedMaterialCount: z.number().int().nonnegative(),
     name: z.string(),
     // Страница Product из авторского оригинала (#671); список автора её не рисует, поэтому схема
     // её только пропускает, а не проверяет.

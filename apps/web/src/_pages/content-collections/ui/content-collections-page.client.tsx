@@ -1,35 +1,66 @@
 "use client";
 
-import {
-  Archive,
-  ChevronDown,
-  LoaderCircle,
-  Plus,
-  RotateCcw,
-} from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { Activity, useState } from "react";
+import { Plus } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
-import { useHomePin, HomeSeriesPinButton } from "@/features/series-order";
-import Link from "next/link";
-import { formatMaterialCount } from "@/features/library-discovery";
-import { MutationNotice } from "./collection-mutation-notice";
-import { useCollectionDraft } from "../model/use-collection-draft.client";
-import { ContentCoverImage } from "@/entities/material";
+import { useHomePin } from "@/features/series-order";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
-import { cn } from "@/shared/lib/utils";
-import { authoringProductEditorHref } from "@/shared/routing/authoring";
+import {
+  AdminEmptyState,
+  AdminFilterBar,
+  AdminListHeader,
+  AdminNoResults,
+  AdminNotFound,
+  AdminPagination,
+} from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
-import { ContentCoverEditor } from "@/features/content-covers";
 
-import { createContentCollection } from "../api/content-collections.browser";
+import { setContentCollectionArchive } from "../api/content-collections.browser";
+import {
+  COLLECTION_SEARCH_MAX,
+  collectionListHref,
+  collectionStateFilterLabel,
+  collectionStateFilterOptions,
+  filterCollections,
+  formatCollectionCount,
+  hasCollectionFilters,
+  pageOfCollections,
+  presentProductRow,
+  presentTopicRow,
+  withoutCollectionFilters,
+  withoutOpenTopic,
+  type CollectionListQuery,
+  type CollectionPage,
+  type CollectionStateFilter,
+} from "../model/collection-list";
 import type {
   ContentCollection,
   ContentCollectionKind,
   ContentCollectionMutationResult,
 } from "../model/content-collections";
+import {
+  useCollectionListQuery,
+  type CollectionListNavigation,
+} from "../model/use-collection-list-query.client";
+import { CollectionCreateForm } from "./collection-create-form.client";
+import { MutationNotice } from "./collection-mutation-notice";
+import { HomePinNotice, ProductsTable } from "./products-list.client";
+import { TopicEditor } from "./topic-editor.client";
+import { TopicsTable } from "./topics-list.client";
 
+/**
+ * Списки «Продукты» и «Темы» в общем образце админки (#1717). Поиск и фильтр живут в адресе;
+ * список полный, поэтому сужается в браузере. Строка продукта открывает его страницу, строка темы
+ * открывает тему на этой же странице по адресу `?topic=`.
+ */
 export function ContentCollectionsPageClient({
   initialCollections,
   kind,
@@ -37,31 +68,10 @@ export function ContentCollectionsPageClient({
   readonly initialCollections: readonly ContentCollection[];
   readonly kind: ContentCollectionKind;
 }) {
-  const router = useRouter();
   const [collections, setCollections] = useState(initialCollections);
-  // Once shown, an editor remains mounted through further pages and saved-name reordering.
-  const [shownIds, setShownIds] = useState(
-    () =>
-      new Set(
-        initialCollections.slice(0, collectionPageSize).map(({ id }) => id),
-      ),
-  );
-  const [search, setSearch] = useState("");
-  const matchesSearch = (collection: ContentCollection) =>
-    collection.name
-      .toLocaleLowerCase("ru")
-      .includes(search.trim().toLocaleLowerCase("ru"));
-  const shownCollections = collections.filter(({ id }) => shownIds.has(id));
-  const remainingCollections = collections.filter(
-    (collection) => !shownIds.has(collection.id) && matchesSearch(collection),
-  );
-  const [createOpen, setCreateOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [summary, setSummary] = useState("");
+  const [query, navigation] = useCollectionListQuery(kind);
   const applySavedCollection = (result: ContentCollectionMutationResult) => {
     if (result.kind !== "saved") return;
-    setShownIds((current) => new Set([...current, result.collection.id]));
     setCollections((current) => {
       const existing = current.some(({ id }) => id === result.collection.id);
       const next = existing
@@ -76,442 +86,386 @@ export function ContentCollectionsPageClient({
       );
     });
   };
-  const createMutation = useMutation({
-    mutationFn: createContentCollection,
-    onSuccess: (result) => {
-      applySavedCollection(result);
-      if (result.kind === "saved") {
-        setName("");
-        setSlug("");
-        setSummary("");
-        setCreateOpen(false);
-        if (kind === "series")
-          router.push(authoringProductEditorHref(result.collection.id));
-      }
-    },
-  });
-  const pending = createMutation.isPending;
-  const refreshCollections = () => {
-    router.refresh();
-  };
-  const noun = kind === "topic" ? "тему" : "продукт";
-  const plural = kind === "topic" ? "Темы" : "Продукты";
 
   return (
     <main className="authoring-page" id="authoring-content" tabIndex={-1}>
       <div className="authoring-page-body">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {plural}{" "}
-            <span className="text-base font-normal text-muted-foreground">
-              {collections.length}
-            </span>
-          </h1>
-          <Button
-            aria-label={`Создать ${noun}`}
-            onClick={() => {
-              setCreateOpen(!createOpen);
-            }}
-            type="button"
-          >
-            <Plus />
-            {kind === "topic" ? "Создать тему" : "Создать"}
-          </Button>
-        </header>
-        {createOpen ? (
-          <section
-            aria-label={`Создать ${noun}`}
-            className="mt-6 rounded-2xl border border-border bg-card p-5"
-          >
-            <form
-              className="mt-4 grid gap-3 sm:grid-cols-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                createMutation.mutate({ kind, name, slug, summary });
-              }}
-            >
-              <Field label="Название">
-                <input
-                  className={fieldClassName}
-                  maxLength={120}
-                  onChange={(event) => {
-                    setName(event.currentTarget.value);
-                  }}
-                  required
-                  value={name}
-                />
-              </Field>
-              <Field hint="После создания не меняется" label="Адрес">
-                <input
-                  className={fieldClassName}
-                  maxLength={120}
-                  onChange={(event) => {
-                    setSlug(event.currentTarget.value);
-                  }}
-                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                  placeholder="platform-engineering"
-                  required
-                  value={slug}
-                />
-              </Field>
-              <Field className="sm:col-span-2" label="Краткое описание">
-                <textarea
-                  className={`${fieldClassName} min-h-20 py-3`}
-                  maxLength={500}
-                  onChange={(event) => {
-                    setSummary(event.currentTarget.value);
-                  }}
-                  value={summary}
-                />
-              </Field>
-              <div className="sm:col-span-2">
-                <Button disabled={pending} type="submit">
-                  {createMutation.isPending ? (
-                    <LoaderCircle aria-hidden="true" className="animate-spin" />
-                  ) : (
-                    <Plus aria-hidden="true" />
-                  )}
-                  Создать
-                </Button>
-              </div>
-            </form>
-            <MutationNotice
-              onRefresh={refreshCollections}
-              result={createMutation.data ?? null}
-            />
-          </section>
-        ) : null}
-
-        <section aria-labelledby="collection-list" className="mt-9">
-          <div className="flex items-end justify-between gap-4">
-            <h2
-              className="text-xl font-semibold tracking-[-0.025em]"
-              id="collection-list"
-            >
-              Все {plural.toLocaleLowerCase("ru")}
-            </h2>
-            <span className="font-mono text-xs text-muted-foreground">
-              {String(collections.length)}
-            </span>
-          </div>
-          <input
-            aria-label={kind === "series" ? "Поиск продуктов" : "Поиск тем"}
-            type="search"
-            placeholder="Найти по названию"
-            className={`${fieldClassName} mt-4`}
-            value={search}
-            onChange={(event) => {
-              const next = event.currentTarget.value;
-              setSearch(next);
-              const found = collections
-                .filter((collection) =>
-                  collection.name
-                    .toLocaleLowerCase("ru")
-                    .includes(next.trim().toLocaleLowerCase("ru")),
-                )
-                .slice(0, collectionPageSize);
-              setShownIds(
-                (current) =>
-                  new Set([...current, ...found.map(({ id }) => id)]),
-              );
-            }}
+        {kind === "series" ? (
+          <ProductsSection
+            collections={collections}
+            navigation={navigation}
+            onSaved={applySavedCollection}
+            query={query}
           />
-          {collections.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-border bg-card px-5 py-10 text-center">
-              <p className="font-semibold">Пока ничего нет</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Нажмите «Создать», чтобы добавить первую запись.
-              </p>
-            </div>
-          ) : kind === "series" ? (
-            <SeriesList collections={shownCollections.filter(matchesSearch)} />
-          ) : (
-            <div className="mt-4 grid gap-3">
-              {shownCollections.map((collection) => (
-                <Activity
-                  key={collection.id}
-                  mode={matchesSearch(collection) ? "visible" : "hidden"}
-                >
-                  <CollectionEditor
-                    collection={collection}
-                    onSaved={applySavedCollection}
-                  />
-                </Activity>
-              ))}
-            </div>
-          )}
-          {remainingCollections.length > 0 ? (
-            <div className="mt-6 flex justify-center">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => {
-                  setShownIds(
-                    (current) =>
-                      new Set([
-                        ...current,
-                        ...remainingCollections
-                          .slice(0, collectionPageSize)
-                          .map(({ id }) => id),
-                      ]),
-                  );
-                }}
-              >
-                Показать ещё
-              </Button>
-            </div>
-          ) : null}
-        </section>
+        ) : (
+          <TopicsSection
+            collections={collections}
+            navigation={navigation}
+            onSaved={applySavedCollection}
+            query={query}
+          />
+        )}
       </div>
     </main>
   );
 }
 
-function CollectionEditor({
-  collection,
-  onSaved,
-}: {
-  readonly collection: ContentCollection;
-  readonly onSaved: (result: ContentCollectionMutationResult) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const {
-    name,
-    setName,
-    summary,
-    setSummary,
-    cover,
-    setCover,
-    setArchived,
-    update,
-    archive,
-    autosave,
-  } = useCollectionDraft(collection, onSaved);
-  return (
-    <article
-      className={cn(
-        "overflow-hidden border-b border-border bg-card",
-        collection.archived && "bg-muted/20",
-      )}
-    >
-      <button
-        className="flex w-full items-center gap-4 p-4 text-left hover:bg-muted/30"
-        aria-expanded={open}
-        onClick={() => {
-          if (!open) setOpen(true);
-          else
-            void flushPendingEdits().then((ok) => {
-              if (ok) setOpen(false);
-            });
-        }}
-        type="button"
-      >
-        {cover !== null ? (
-          <ContentCoverImage
-            alt=""
-            cover={cover}
-            className="aspect-video w-20 shrink-0 rounded-lg"
-            sizes="5rem"
-          />
-        ) : null}
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{name}</span>
-          <span className="mt-1 block text-xs text-muted-foreground">
-            /{collection.slug} · {formatMaterialCount(collection.materialCount)}
-            {collection.archived ? " · Архив" : ""}
-          </span>
-        </span>
-        <ChevronDown
-          className={cn("size-4 transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {open ? (
-        <div className="border-t border-border p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Название">
-              <input
-                className={fieldClassName}
-                maxLength={120}
-                onChange={(event) => {
-                  setName(event.currentTarget.value);
-                }}
-                required
-                value={name}
-              />
-            </Field>
-            <Field label="Краткое описание">
-              <textarea
-                className={`${fieldClassName} min-h-20 py-2`}
-                maxLength={500}
-                onChange={(event) => {
-                  setSummary(event.currentTarget.value);
-                }}
-                value={summary}
-              />
-            </Field>
-            <ContentCoverEditor
-              initialCover={cover}
-              onChange={setCover}
-              ownerId={collection.id}
-              ownerKind={collection.kind}
-              ownerLabel={name}
-            />
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span
-              className="mr-auto text-xs text-muted-foreground"
-              role="status"
-            >
-              {autosave.pending
-                ? "Сохранение…"
-                : autosave.dirty
-                  ? "Не сохранено"
-                  : "Сохранено"}
-            </span>
-            {autosave.error ? (
-              <Button
-                onClick={() => {
-                  void autosave.retry();
-                }}
-                type="button"
-                variant="outline"
-              >
-                Повторить сохранение
-              </Button>
-            ) : null}
-            <Button
-              disabled={archive.isPending}
-              onClick={() => {
-                setArchived(!collection.archived);
-              }}
-              type="button"
-              variant="ghost"
-            >
-              {collection.archived ? <RotateCcw /> : <Archive />}
-              {collection.archived ? "Вернуть" : "В архив"}
-            </Button>
-          </div>
-          <MutationNotice
-            onRefresh={() => {
-              window.location.reload();
-            }}
-            result={
-              autosave.error ? (update.data ?? null) : (archive.data ?? null)
-            }
-          />
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function Field({
-  children,
-  className,
-  hint,
-  label,
-}: {
-  readonly children: React.ReactNode;
-  readonly className?: string;
-  readonly hint?: string;
-  readonly label: string;
-}) {
-  return (
-    <label className={className}>
-      <span className="text-sm font-semibold">{label}</span>
-      {hint === undefined ? null : (
-        <span className="ml-2 text-xs text-muted-foreground">{hint}</span>
-      )}
-      <span className="mt-2 block">{children}</span>
-    </label>
-  );
-}
-
-const collectionPageSize = 20;
-
-const fieldClassName =
-  "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-60";
-
-function SeriesList({
-  collections,
-}: {
+interface SectionProps {
   readonly collections: readonly ContentCollection[];
-}) {
-  const { controls, hasError, message, retry } = useHomePin();
+  readonly query: CollectionListQuery;
+  readonly navigation: CollectionListNavigation;
+  readonly onSaved: (result: ContentCollectionMutationResult) => void;
+}
+
+function ProductsSection({
+  collections,
+  query,
+  navigation,
+  onSaved,
+}: SectionProps) {
+  const homePin = useHomePin();
+  const found = filterCollections(collections, query);
+  const shown = pageOfCollections(found, query.page);
+  return (
+    <CollectionListFrame
+      collections={collections}
+      kind="series"
+      onSaved={onSaved}
+      query={query}
+      resultCount={found.length}
+      onQueryChange={navigation.replace}
+    >
+      <HomePinNotice homePin={homePin} />
+      {found.length === 0 ? (
+        <CollectionNoResults
+          onReset={() => {
+            navigation.replace(withoutCollectionFilters(query));
+          }}
+        />
+      ) : (
+        <>
+          <ProductsTable
+            homePin={homePin}
+            rows={shown.rows.map(presentProductRow)}
+          />
+          <CollectionPagination
+            kind="series"
+            onPage={(page) => {
+              navigation.replace({ ...query, page });
+            }}
+            shown={shown}
+          />
+        </>
+      )}
+    </CollectionListFrame>
+  );
+}
+
+function TopicsSection({
+  collections,
+  query,
+  navigation,
+  onSaved,
+}: SectionProps) {
+  const router = useRouter();
+  const listPath = usePathname();
+  const openId = query.topicId;
+  const openTopic =
+    openId === undefined
+      ? undefined
+      : collections.find(({ id }) => id === openId);
+  // Однажды открытая тема остаётся смонтированной: черновик и запись в полёте переживают возврат.
+  const [mountedIds, setMountedIds] = useState<readonly string[]>(() =>
+    openTopic === undefined ? [] : [openTopic.id],
+  );
+  if (openTopic !== undefined && !mountedIds.includes(openTopic.id))
+    setMountedIds([...mountedIds, openTopic.id]);
+  const archive = useMutation({
+    mutationFn: setContentCollectionArchive,
+    onSuccess: onSaved,
+  });
+  const listRef = useRef<HTMLDivElement>(null);
+  useTopicFocus(openId, listRef);
+
+  const found = filterCollections(collections, query);
+  const shown = pageOfCollections(found, query.page);
+  const open = (topicId: string) => {
+    navigation.push({ ...query, topicId });
+  };
+  const close = () => {
+    navigation.push(withoutOpenTopic(query));
+  };
+
   return (
     <>
-      <div
-        className="mt-3 grid min-h-28 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm text-muted-foreground sm:min-h-16"
-        role={hasError ? "alert" : "status"}
-      >
-        <p>
-          {hasError
-            ? message
-            : "Закрепите продукт значком справа — он появится первым на главной."}
-        </p>
-        <Button
-          className={
-            hasError
-              ? "max-w-28 whitespace-normal"
-              : "invisible max-w-28 whitespace-normal"
-          }
-          disabled={!hasError}
-          onClick={retry}
-          type="button"
-          variant="outline"
-          size="sm"
+      <div className="contents" hidden={openId !== undefined} ref={listRef}>
+        <CollectionListFrame
+          collections={collections}
+          kind="topic"
+          onQueryChange={navigation.replace}
+          onSaved={onSaved}
+          query={query}
+          resultCount={found.length}
         >
-          Обновить закреп
-        </Button>
+          <MutationNotice
+            onRefresh={() => {
+              router.refresh();
+            }}
+            result={archive.data ?? null}
+          />
+          {found.length === 0 ? (
+            <CollectionNoResults
+              onReset={() => {
+                navigation.replace(withoutCollectionFilters(query));
+              }}
+            />
+          ) : (
+            <TopicsTable
+              archivePending={archive.isPending}
+              onArchive={(row) => {
+                const collection = collections.find(({ id }) => id === row.id);
+                if (collection === undefined) return;
+                void flushPendingEdits().then((ok) => {
+                  if (!ok) return;
+                  archive.mutate({
+                    archived: !collection.archived,
+                    collectionId: collection.id,
+                    expectedVersion: collection.version,
+                    kind: "topic",
+                  });
+                });
+              }}
+              onOpen={(row) => {
+                open(row.id);
+              }}
+              rowHref={(row) =>
+                collectionListHref(listPath, { ...query, topicId: row.id })
+              }
+              rows={shown.rows.map(presentTopicRow)}
+            />
+          )}
+          {found.length === 0 ? null : (
+            <CollectionPagination
+              kind="topic"
+              onPage={(page) => {
+                navigation.replace({ ...query, page });
+              }}
+              shown={shown}
+            />
+          )}
+        </CollectionListFrame>
       </div>
-      <ul
-        className="mt-2 divide-y divide-border border-y border-border"
-        aria-label="Все продукты"
-      >
-        {collections.map((collection) => {
-          const pinned = controls.pin?.seriesId === collection.id;
-          return (
-            <li
-              className="flex items-center gap-3 py-4 sm:gap-5"
-              key={collection.id}
-            >
-              <Link
-                className="group flex min-w-0 flex-1 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5"
-                href={authoringProductEditorHref(collection.id)}
-              >
-                {collection.cover != null ? (
-                  <ContentCoverImage
-                    alt=""
-                    cover={collection.cover ?? null}
-                    className="aspect-video w-20 shrink-0 rounded-lg sm:w-28"
-                    sizes="7rem"
-                  />
-                ) : null}
-                <span className="min-w-0">
-                  <span className="block text-base font-semibold leading-snug group-hover:underline sm:text-lg">
-                    {collection.name}
-                  </span>
-                  <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
-                    <span>{formatMaterialCount(collection.materialCount)}</span>
-                    {collection.archived ? <span>Архив</span> : null}
-                    {pinned ? (
-                      <span className="font-medium text-action">
-                        На главной
-                      </span>
-                    ) : null}
-                  </span>
-                </span>
-              </Link>
-              <HomeSeriesPinButton
-                seriesId={collection.id}
-                seriesName={collection.name}
-                archived={collection.archived}
-                controls={controls}
-              />
-            </li>
-          );
-        })}
-      </ul>
+      {openId !== undefined && openTopic === undefined ? (
+        <AdminNotFound
+          backHref={collectionListHref(listPath, withoutOpenTopic(query))}
+          backLabel="Все темы"
+          description="Темы с таким адресом нет. Откройте тему из списка."
+          title="Тема не найдена"
+        />
+      ) : null}
+      {mountedIds.map((id) => {
+        const collection = collections.find((topic) => topic.id === id);
+        if (collection === undefined) return null;
+        return (
+          <div className="contents" hidden={id !== openId} key={id}>
+            <TopicEditor
+              collection={collection}
+              headingId={topicHeadingId(id)}
+              onClose={close}
+              onSaved={onSaved}
+            />
+          </div>
+        );
+      })}
     </>
   );
+}
+
+/**
+ * Фокус идёт за видом: открытая тема получает его на заголовке, а возврат к списку ставит его на
+ * ссылку той же темы в строке.
+ */
+function useTopicFocus(
+  openId: string | undefined,
+  listRef: RefObject<HTMLDivElement | null>,
+) {
+  const previous = useRef(openId);
+  useEffect(() => {
+    const left = previous.current;
+    if (left === openId) return;
+    previous.current = openId;
+    if (openId !== undefined) {
+      document.getElementById(topicHeadingId(openId))?.focus();
+      return;
+    }
+    const link = [
+      ...(listRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]") ??
+        []),
+    ].find(
+      (anchor) =>
+        anchor.getClientRects().length > 0 &&
+        new URL(anchor.href).searchParams.get("topic") === left,
+    );
+    link?.focus();
+  }, [openId, listRef]);
+}
+
+function topicHeadingId(topicId: string): string {
+  return `topic-editor-${topicId}`;
+}
+
+/** Заголовок, форма создания, поиск и фильтр архива одного списка. */
+function CollectionListFrame({
+  kind,
+  collections,
+  query,
+  resultCount,
+  onQueryChange,
+  onSaved,
+  children,
+}: {
+  readonly kind: ContentCollectionKind;
+  readonly collections: readonly ContentCollection[];
+  readonly query: CollectionListQuery;
+  readonly resultCount: number;
+  readonly onQueryChange: (next: CollectionListQuery) => void;
+  readonly onSaved: (result: ContentCollectionMutationResult) => void;
+  readonly children: ReactNode;
+}) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const createLabel = kind === "topic" ? "Создать тему" : "Создать продукт";
+  const createButton = (
+    <Button
+      aria-expanded={createOpen}
+      onClick={() => {
+        setCreateOpen(!createOpen);
+      }}
+      type="button"
+    >
+      <Plus aria-hidden="true" />
+      {createLabel}
+    </Button>
+  );
+  const empty = collections.length === 0;
+  const filtered = hasCollectionFilters(query);
+  return (
+    <>
+      <AdminListHeader
+        action={empty ? undefined : createButton}
+        count={formatCollectionCount(kind, collections.length)}
+        title={kind === "topic" ? "Темы" : "Продукты"}
+      />
+      {createOpen ? (
+        <CollectionCreateForm
+          kind={kind}
+          onCreated={(result) => {
+            onSaved(result);
+            setCreateOpen(false);
+          }}
+        />
+      ) : null}
+      {empty ? (
+        <AdminEmptyState
+          action={createButton}
+          description={
+            kind === "topic"
+              ? "Тема объединяет материалы библиотеки. Создайте первую, чтобы выбрать её в материале."
+              : "Продукт собирает материалы в программу. Создайте первый, чтобы настроить его описание и состав."
+          }
+          title={kind === "topic" ? "Тем пока нет" : "Продуктов пока нет"}
+        />
+      ) : (
+        <section
+          aria-label={kind === "topic" ? "Список тем" : "Список продуктов"}
+          className="grid gap-4"
+        >
+          <AdminFilterBar
+            chips={
+              query.state === "all"
+                ? []
+                : [
+                    {
+                      id: "state",
+                      label: collectionStateFilterLabel(query.state),
+                      onRemove: () => {
+                        onQueryChange({ ...query, state: "all", page: 1 });
+                      },
+                    },
+                  ]
+            }
+            filters={[
+              {
+                id: "state",
+                label: "Состояние",
+                value: query.state,
+                options: collectionStateFilterOptions,
+                onChange: (value) => {
+                  onQueryChange({
+                    ...query,
+                    state: stateFilterOf(value),
+                    page: 1,
+                  });
+                },
+              },
+            ]}
+            onReset={
+              filtered
+                ? () => {
+                    onQueryChange(withoutCollectionFilters(query));
+                  }
+                : undefined
+            }
+            resultLabel={
+              filtered
+                ? `Найдено: ${formatCollectionCount(kind, resultCount)}`
+                : undefined
+            }
+            search={{
+              label: kind === "topic" ? "Поиск по темам" : "Поиск по продуктам",
+              placeholder: "Название",
+              value: query.search,
+              maxLength: COLLECTION_SEARCH_MAX,
+              onChange: (search) => {
+                onQueryChange({ ...query, search, page: 1 });
+              },
+            }}
+          />
+          {children}
+        </section>
+      )}
+    </>
+  );
+}
+
+function CollectionPagination({
+  kind,
+  shown,
+  onPage,
+}: {
+  readonly kind: ContentCollectionKind;
+  readonly shown: CollectionPage<ContentCollection>;
+  readonly onPage: (page: number) => void;
+}) {
+  return (
+    <AdminPagination
+      label={kind === "topic" ? "Страницы тем" : "Страницы продуктов"}
+      onPage={onPage}
+      page={shown.page}
+      {...(shown.summary === undefined ? {} : { summary: shown.summary })}
+      totalPages={shown.totalPages}
+    />
+  );
+}
+
+function CollectionNoResults({ onReset }: { readonly onReset: () => void }) {
+  return (
+    <AdminNoResults
+      description="Ни одно название не подходит под поиск и фильтр. Измените их или сбросьте."
+      onReset={onReset}
+    />
+  );
+}
+
+function stateFilterOf(value: string): CollectionStateFilter {
+  return value === "active" || value === "archived" ? value : "all";
 }

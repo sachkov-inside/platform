@@ -15,20 +15,37 @@ export interface WorkspaceTab {
   readonly panel: ReactNode;
 }
 
-/** Keeps drafts, previews and retry identities alive while another task is visible. */
+/**
+ * Keeps drafts, previews and retry identities alive while another task is visible.
+ *
+ * Without `selectedId` the tabs own the selection, starting at `initialId`. With `selectedId` the
+ * caller owns it (for example the address of the page) and `onSelect` reports each choice; an
+ * unknown `selectedId` shows the first tab.
+ */
 export function WorkspaceTabs({
   tabs,
   label,
   initialId,
+  selectedId: controlledId,
+  onSelect,
 }: {
   readonly tabs: readonly [WorkspaceTab, ...WorkspaceTab[]];
   readonly label: string;
   readonly initialId?: string;
+  readonly selectedId?: string;
+  readonly onSelect?: (id: string) => void;
 }) {
-  const [selectedId, setSelectedId] = useState(initialId ?? tabs[0].id);
+  const [ownId, setOwnId] = useState(initialId ?? tabs[0].id);
+  const selectedId = controlledId ?? ownId;
   const id = useId();
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const current = tabs.find((tab) => tab.id === selectedId) ?? tabs[0];
+
+  function select(next: string) {
+    if (next === current.id) return;
+    if (controlledId === undefined) setOwnId(next);
+    onSelect?.(next);
+  }
 
   function navigate(event: KeyboardEvent<HTMLDivElement>) {
     const index = tabs.findIndex((tab) => tab.id === current.id);
@@ -46,7 +63,7 @@ export function WorkspaceTabs({
     event.preventDefault();
     const next = tabs[nextIndex];
     if (next === undefined) return;
-    setSelectedId(next.id);
+    select(next.id);
     buttons.current.get(next.id)?.focus();
   }
 
@@ -72,7 +89,7 @@ export function WorkspaceTabs({
               else buttons.current.set(tab.id, node);
             }}
             onClick={() => {
-              setSelectedId(tab.id);
+              select(tab.id);
             }}
           >
             {tab.label}

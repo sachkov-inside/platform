@@ -1,10 +1,14 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Save } from "lucide-react";
 import { useId } from "react";
 
-import { formatSubmissionMoment } from "@/entities/product-task";
+import {
+  authorFeedbackWritten,
+  resetAwaitingFeedbackCount,
+} from "@/features/submission-feedback-queue";
+import { formatMoscowDateTime } from "@/shared/lib/moscow-format";
 import { Button } from "@/shared/ui/button";
 
 import { saveAuthorFeedback } from "../api/save-author-feedback.browser";
@@ -33,6 +37,8 @@ const failures: Record<
  * The author's optional comment on one submission (#1351).
  * The learner reads it on the task page and through `learning_task_submissions`.
  * Previously stored «посмотрел автор» marks survive edits; this form cannot add a mark.
+ * A saved answer changes how many submissions await feedback: the form re-reads the shell counter
+ * and announces the write to the other open surfaces (#1717).
  */
 export function AuthorFeedbackForm({
   feedback,
@@ -44,9 +50,14 @@ export function AuthorFeedbackForm({
   const id = useId();
   const { draft, update } = useFeedbackDraft(submissionId, feedback);
   const { saved, comment, reviewed, result } = draft;
+  const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (input: SaveAuthorFeedbackInput) => saveAuthorFeedback(input),
     onSuccess: (outcome) => {
+      if (outcome.kind === "saved") {
+        authorFeedbackWritten.announce();
+        void resetAwaitingFeedbackCount(queryClient);
+      }
       update((current) =>
         outcome.kind === "saved"
           ? {
@@ -129,7 +140,7 @@ export function AuthorFeedbackForm({
             <span className="text-muted-foreground">
               Отмечено{" "}
               <time dateTime={saved.reviewedAt}>
-                {formatSubmissionMoment(saved.reviewedAt)}
+                {formatMoscowDateTime(saved.reviewedAt)}
               </time>
             </span>
           )}

@@ -1,4 +1,10 @@
+/*
+ * Каркас админки (#1717). От 64rem: постоянная боковая панель и строка поиска над страницей,
+ * прокручивается `#authoring-content`. До 64rem: верхняя строка, вкладки подразделов и
+ * закреплённая нижняя панель; до 48rem прокручивается документ, от 48rem — `#authoring-content`.
+ */
 .authoring-workspace {
+  --authoring-bottom-nav-height: 64px;
   min-height: 100svh;
   background: var(--background);
   color: var(--foreground);
@@ -26,8 +32,8 @@
 }
 .authoring-skip {
   position: fixed;
-  left: 16px;
-  top: 12px;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  top: max(12px, env(safe-area-inset-top, 0px));
   transform: translateY(-180%);
   z-index: 100;
   padding: 12px;
@@ -43,12 +49,18 @@
 }
 .authoring-main {
   min-width: 0;
+  /* With viewport-fit=cover a landscape phone draws under the notch: keep the page out of it. */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: calc(
+    var(--authoring-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
+  );
 }
 .authoring-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 8px 10px 32px;
+  margin: 6px 10px 24px;
   font-weight: 650;
   text-decoration: none;
   color: var(--foreground);
@@ -73,7 +85,7 @@
   margin-top: 2px;
   color: var(--muted-foreground);
 }
-.authoring-sidebar nav {
+.authoring-nav {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -81,83 +93,267 @@
 }
 .authoring-nav-group {
   display: grid;
-  gap: 3px;
-  margin-bottom: 22px;
+  gap: 2px;
+  margin-bottom: 18px;
 }
 .authoring-nav-group > p {
   padding: 0 12px;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: 12px;
+  font-weight: 550;
   color: var(--muted-foreground);
 }
-.authoring-nav-group a,
+.authoring-nav-link,
 .authoring-public-links a {
   display: flex;
   align-items: center;
-  min-height: 44px;
-  border-radius: 7px;
+  gap: 10px;
+  min-height: 40px;
+  border-radius: 8px;
   padding: 8px 12px;
   text-decoration: none;
   color: var(--muted-foreground);
   font-size: 14px;
 }
-.authoring-nav-group a:hover,
+.authoring-nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.authoring-nav-label {
+  flex: 1;
+  min-width: 0;
+}
+.authoring-nav-link:hover,
 .authoring-public-links a:hover {
   color: var(--foreground);
   background: var(--muted);
 }
-.authoring-nav-group a[aria-current] {
+.authoring-nav-link[aria-current] {
   background: var(--card);
   color: var(--foreground);
   box-shadow: inset 0 0 0 1px var(--border);
-  font-weight: 550;
+  font-weight: 600;
+}
+.authoring-nav-link[aria-current] .authoring-nav-icon {
+  color: var(--accent);
+}
+.authoring-nav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 .authoring-public-links {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   margin-top: auto;
   border-top: 1px solid var(--border);
-  padding-top: 14px;
+  padding-top: 12px;
 }
 .authoring-preview-note {
   padding: 10px 12px;
   color: var(--muted-foreground);
 }
-.authoring-mobile-bar {
+.authoring-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
-  min-height: 64px;
+  min-height: 56px;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--border);
-  padding: 8px 16px;
-}
-.authoring-mobile-brand {
-  font-weight: 650;
-  text-decoration: none;
-  color: var(--foreground);
-}
-.authoring-menu-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
-  font-size: 14px;
-}
-.authoring-mobile-menu {
-  padding: 20px 16px;
+  padding: max(6px, env(safe-area-inset-top, 0px)) 8px 6px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--background);
 }
-.authoring-current-section {
+.authoring-topbar-title {
+  min-width: 0;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.authoring-section-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+.authoring-section-tabs a {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.authoring-section-tabs a[aria-current] {
+  color: var(--foreground);
+}
+.authoring-section-tabs a[aria-current]::after {
+  content: "";
+  position: absolute;
+  inset: auto 10px 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.authoring-bottom-nav {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: var(--authoring-bottom-nav-height);
+  padding: 4px max(4px, env(safe-area-inset-right, 0px))
+    env(safe-area-inset-bottom, 0px) max(4px, env(safe-area-inset-left, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+.authoring-tab {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+.authoring-tab > span {
+  max-width: 100%;
+  overflow-wrap: normal;
+  text-align: center;
+}
+.authoring-tab-icon {
+  width: 22px;
+  height: 22px;
+}
+.authoring-tab[aria-current],
+.authoring-tab[data-current] {
+  color: var(--foreground);
+}
+.authoring-tab[aria-current] .authoring-tab-icon,
+.authoring-tab[data-current] .authoring-tab-icon {
+  color: var(--accent);
+}
+.authoring-tab .authoring-nav-count {
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 6px);
+  min-width: 18px;
+  height: 18px;
+  font-size: 11px;
+}
+.authoring-tab .authoring-nav-label {
+  flex: none;
+}
+.authoring-more-sheet {
+  width: 100%;
+  max-width: 32rem;
+  max-height: 85svh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 18px 18px 0 0;
+  background: var(--popover);
+  color: var(--foreground);
+  box-shadow: 0 -1px 0 var(--border);
+}
+.authoring-more-sheet::backdrop {
+  background: color-mix(in oklch, var(--foreground) 36%, transparent);
+}
+.authoring-more-body {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.authoring-more-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 4px 12px;
+}
+.authoring-more-header h2 {
+  margin: 0;
   font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 20px;
+  font-weight: 650;
+}
+.authoring-more-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.authoring-more-close:hover {
+  background: var(--muted);
+}
+.authoring-more-sheet .authoring-nav-link,
+.authoring-more-sheet .authoring-public-links a {
+  min-height: 48px;
+  font-size: 15px;
+}
+.authoring-more-sheet .authoring-public-links {
+  margin-top: 0;
+}
+@media (min-width: 48rem) and (max-width: 63.999rem) {
+  .authoring-workspace {
+    height: 100svh;
+    overflow: hidden;
+  }
+}
+@media (min-width: 48rem) {
+  .authoring-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .authoring-topbar,
+  .authoring-section-tabs {
+    flex-shrink: 0;
+  }
+  .authoring-main > #authoring-content {
+    height: auto;
+    min-height: 0;
+    flex: 1;
+  }
 }
 @media (min-width: 64rem) {
   .authoring-workspace {
@@ -171,37 +367,24 @@
     flex-direction: column;
     width: 232px;
     flex-shrink: 0;
-    padding: 18px 12px;
+    padding: 16px 12px;
     border-right: 1px solid var(--border);
     overflow-y: auto;
   }
   .authoring-main {
     flex: 1;
-    height: 100%;
+    padding: 0;
   }
-  .authoring-mobile-bar,
-  .authoring-mobile-menu {
+  .authoring-topbar {
+    position: static;
+    min-height: 60px;
+    padding: 10px 40px;
+  }
+  .authoring-topbar-title,
+  .authoring-section-tabs,
+  .authoring-bottom-nav,
+  .authoring-more-sheet {
     display: none;
-  }
-}
-@media (min-width: 48rem) and (max-width: 63.999rem) {
-  .authoring-workspace {
-    height: 100svh;
-    overflow: hidden;
-  }
-  .authoring-main {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-  .authoring-main > #authoring-content {
-    min-height: 0;
-    flex: 1;
-  }
-  .authoring-mobile-menu {
-    max-height: 65svh;
-    overflow-y: auto;
-    flex-shrink: 0;
   }
 }
 .authoring-page {

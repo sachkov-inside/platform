@@ -1,12 +1,23 @@
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { materialFormatPresentation } from "../../domain/material-format.js";
+import {
+  materialFormatPresentation,
+  materialFormatSchema,
+} from "../../domain/material-format.js";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
-import { accountId, parseCommand } from "../../shared/command-validation.js";
+import {
+  authoringMaterialSearchWhere,
+  authoringSearchTextSchema,
+} from "../../shared/authoring-material-search.js";
+import {
+  accountId,
+  entityId,
+  parseCommand,
+} from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import type {
   AuthoringMaterialListItemDto,
@@ -20,13 +31,9 @@ const querySchema = z
     first: z.number().int().min(1).max(50),
     page: z.number().int().min(1).max(10_000),
     publicationState: publicationStateSchema.optional(),
-    search: z
-      .string()
-      .trim()
-      .min(1)
-      .max(160)
-      .transform((value) => value.replace(/\s+/gu, " "))
-      .optional(),
+    search: authoringSearchTextSchema.optional(),
+    topicId: entityId.optional(),
+    format: materialFormatSchema.optional(),
   })
   .strict();
 
@@ -46,18 +53,14 @@ export function assembleListMaterials(
       return failure(authorization.error);
     }
 
-    const { first, page, publicationState, search } = parsed.value;
+    const { first, format, page, publicationState, search, topicId } =
+      parsed.value;
+    // Every filter narrows the same set, so the total and the pages count only matching Materials.
     const where = {
       ...(publicationState === undefined ? {} : { publicationState }),
-      ...(search === undefined
-        ? {}
-        : {
-            OR: [
-              { title: { contains: search, mode: "insensitive" as const } },
-              { summary: { contains: search, mode: "insensitive" as const } },
-              { slug: { contains: search, mode: "insensitive" as const } },
-            ],
-          }),
+      ...(topicId === undefined ? {} : { topicId }),
+      ...(format === undefined ? {} : { formatId: format }),
+      ...(search === undefined ? {} : authoringMaterialSearchWhere(search)),
     };
 
     try {

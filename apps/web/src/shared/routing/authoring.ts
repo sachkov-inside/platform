@@ -37,7 +37,7 @@ export function parseAuthoringReturnHref(value: unknown): Route {
   if (url.pathname !== authoringMaterialsRootHref) {
     return authoringMaterialsRootHref;
   }
-  const allowedKeys = new Set(["page", "search", "state"]);
+  const allowedKeys = new Set(["format", "page", "search", "state", "topic"]);
   if ([...url.searchParams.keys()].some((key) => !allowedKeys.has(key))) {
     return authoringMaterialsRootHref;
   }

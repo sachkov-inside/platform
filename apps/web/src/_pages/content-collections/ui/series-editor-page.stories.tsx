@@ -4,11 +4,27 @@ import {
 } from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import { Suspense, use, useState, type ReactNode } from "react";
+import { expect, mocked, userEvent, within } from "storybook/test";
+import {
+  boxOf,
+  desktop,
+  mobile,
+  originOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+  type StagedLoading,
+  type StoryViewport,
+} from "@/storybook/loads-in-place";
 import { withMutationFetch } from "@/storybook/mutation-mock";
+import { ProductPageLoading } from "./content-collections-loading.client";
 import { SeriesEditorPageClient } from "./series-editor-page.client";
-import { authoringPageEnvironment } from "@/storybook/story-environment";
+import {
+  authoringPageEnvironment,
+  routeContent,
+} from "@/storybook/story-environment";
 
 const collection = {
   archived: false,
@@ -25,6 +41,7 @@ const collection = {
   },
   kind: "series",
   materialCount: 4,
+  publishedMaterialCount: 2,
   name: "Demo · От проекта до первого релиза",
   slug: "demo-first-release",
   summary:
@@ -115,6 +132,12 @@ const environment = authoringPageEnvironment(
 
 const meta = {
   ...environment,
+  beforeEach: [
+    environment.beforeEach,
+    () => () => {
+      mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
+    },
+  ],
   component: SeriesEditorPageClient,
   args: { initialCollection: collection },
   decorators: [
@@ -152,6 +175,65 @@ export const Desktop: Story = {
 };
 export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** Адрес `?tab=description` открывает страницу сразу на описании. */
+export const TabFromAddress: Story = {
+  globals: desktop.globals,
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=description"),
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("tab", { name: "Описание и обложка" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("textbox", { name: "Название продукта" }),
+    ).toBeVisible();
+  },
+};
+
+/** Незнакомая вкладка в адресе открывает программу. */
+export const UnknownTabFallsBack: Story = {
+  globals: mobile.globals,
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=sales"),
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(page.getByRole("tab", { name: "Программа" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(
+      page.getByRole("list", { name: "Материалы продукта" }),
+    ).toBeVisible();
+  },
+};
+
+/** Скрытые вкладки остаются смонтированными: несохранённое описание переживает смену вкладки. */
+export const DraftSurvivesTabSwitch: Story = {
+  globals: mobile.globals,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      page.getByRole("tab", { name: "Описание и обложка" }),
+    );
+    const summary = page.getByRole("textbox", { name: /^Краткое описание/u });
+    await userEvent.clear(summary);
+    await userEvent.type(summary, "Черновик описания");
+    await userEvent.click(page.getByRole("tab", { name: "Настройки" }));
+    await expect(summary).not.toBeVisible();
+    await userEvent.click(
+      page.getByRole("tab", { name: "Описание и обложка" }),
+    );
+    await expect(summary).toHaveValue("Черновик описания");
+  },
 };
 export const Empty: Story = {
   decorators: [
@@ -270,6 +352,7 @@ export const ImportedBare: Story = {
       ...importedCollection,
       introduction: null,
       materialCount: 0,
+      publishedMaterialCount: 0,
       summary: "",
     },
   },
@@ -367,3 +450,40 @@ export const FailedAfterActivity: Story = {
     ).not.toBeInTheDocument();
   },
 };
+
+function ArrivedProduct({ sequence }: { readonly sequence: StagedLoading }) {
+  use(sequence.sharedPart);
+  return <SeriesEditorPageClient initialCollection={collection} />;
+}
+
+function loadsInPlace({ globals, width }: StoryViewport): Story {
+  return {
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => (
+      <Suspense fallback={<ProductPageLoading />}>
+        <ArrivedProduct sequence={stagedLoadingOf(loaded)} />
+      </Suspense>
+    ),
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const page = routeContent(canvasElement);
+      await expect(page.getByText("Загружаем продукт")).toBeInTheDocument();
+      const anchors = () =>
+        // Вкладки стоят под названием продукта, высота которого зависит от его длины: скелет
+        // держит строку возврата и начало заголовка.
+        ["nav[aria-label='Навигация продукта']", ".authoring-page-heading"].map(
+          (selector) => originOf(boxOf(canvasElement, selector)),
+        );
+      const loading = anchors();
+      stagedLoadingOf(loaded).deliverSharedPart();
+      // Готовая страница приносит свой `main`: прежний ушёл вместе со скелетом.
+      await within(canvasElement).findByRole("tablist", {
+        name: "Разделы продукта",
+      });
+      await expect(anchors()).toEqual(loading);
+    },
+  };
+}
+export const LoadsInPlace: Story = loadsInPlace(desktop);
+export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);

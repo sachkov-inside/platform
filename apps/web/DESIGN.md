@@ -197,12 +197,13 @@ The system is mobile-first. Narrow surfaces preserve content priority and a sing
 
 The issue #38 authoring proof keeps metadata → document in that order on narrow screens and expresses the same order as two desktop columns inside a bounded workbench. Intermediate widths keep the form near `52rem` and use a compact two-column metadata grid instead of stretching fields across the viewport. Current Preview has desktop and 390 × 844 mobile evidence with no horizontal overflow. The sticky author header keeps save state visible without exposing a technical version group.
 
-The prepared admin workspace from issue #1617 inherits the warm platform tokens and uses a
-light text-navigation sidebar (232px) from `64rem`. Below that breakpoint, a labelled «Меню»
-button exposes the same active routes. This authoring shell is a scoped replacement for the
-previous admin navigation, not a replacement for public/member navigation. Its grouped task
-panels and compact lists are documented in the [admin surface brief](.impeccable/surfaces/admin-workspace.md).
-The owner selected direction A; final production visual GO is still pending.
+The admin workspace inherits the warm platform tokens. Since #1720 (specification #1717) it uses
+a light sidebar (232px) with grouped, icon-labelled sections and a global search row above the page
+from `64rem`. Below that breakpoint a top row names the section and opens search, section siblings
+appear as tabs under it, and a fixed bottom panel holds «Обзор», «Люди», «Продажи», «Сдачи» and
+«Ещё»; «Ещё» opens a sheet with the remaining sections and the site links. This authoring shell is
+a scoped replacement for the previous admin navigation, not a replacement for public/member
+navigation. Owner production visual GO for the #1717 shell is pending.
 
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
@@ -249,9 +250,18 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **World:** warm background/card tokens, graphite text and primary buttons, and restrained orange
   for task selection and focus. The light sidebar inherits `background`, not the dark `sidebar`
   token. No new palette or type family is introduced.
-- **Navigation:** text links grouped as «Контент» and «Управление»; selected links use a card
-  surface, fine border and `aria-current`. Standard icons identify actions where useful, rather
-  than decorating every route. All active admin routes remain reachable through mobile «Меню».
+- **Navigation:** sections grouped as «Контент», «Ученики» and «Продажи» after «Обзор» (#1717,
+  decision 2); every item has a lucide icon and a visible label, and only «Сдачи» carries a counter
+  of submissions without author feedback. Selected links use a card surface, fine border, an orange
+  icon and `aria-current`. On phones every active admin route stays reachable through the bottom
+  panel and its «Ещё» sheet.
+- **State badges (#1720):** every admin list takes state labels and tones from one dictionary,
+  `adminStates` in `src/shared/ui/admin/state-badge.tsx`; the label is always visible and each
+  tone also has its own mark shape. Tones map to existing tokens only: `neutral` is `secondary`
+  with a ring, `positive` a `primary` tint with a dot, `attention` an `accent` tint with `action`
+  ink (a queue waiting for the author, such as «Новая» submission: orange as the next-action
+  signal), `critical` a `destructive` tint (failures only; unused so far) and `muted` a bordered,
+  dashed mark for archived or withdrawn states. No green and no callout tones.
 - **Task tabs:** `WorkspaceTabs` wraps labels onto additional lines on narrow screens, keeps a
   visible orange underline for the current task, and provides 44px minimum tab height. Arrow keys,
   Home and End move selection and focus. Inactive panels stay mounted with `hidden`, preserving
