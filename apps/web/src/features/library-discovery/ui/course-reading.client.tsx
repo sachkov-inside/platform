@@ -6,7 +6,7 @@ import { CourseReferenceNavigation } from "./course-reference-navigation";
 import {
   CourseNavigationBar,
   CourseNavigationItem,
-} from "./course-navigation-bar";
+} from "./course-navigation-bar.client";
 
 import {
   ArrowLeft,

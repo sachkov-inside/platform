@@ -5,7 +5,7 @@ import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   CourseNavigationBar,
   CourseNavigationItem,
-} from "./course-navigation-bar";
+} from "./course-navigation-bar.client";
 
 const meta = {
   ...publicPageEnvironment("/products/ai-engineering"),
