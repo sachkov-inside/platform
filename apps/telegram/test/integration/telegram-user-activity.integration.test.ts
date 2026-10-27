@@ -395,6 +395,41 @@ it("does not count a repeated, expired or foreign sign-in decision as a fresh su
         requestRef,
         decision: "approve" as const,
       };
+      const expiredRef = randomUUID();
+      const expiredDigest = digestSignInSecret("synthetic-expired-start");
+      expect(
+        await signin.register({
+          requestRef: expiredRef,
+          startTokenDigest: expiredDigest,
+          browserSecretDigest: digestSignInSecret("synthetic-expired-browser"),
+          expiresAt: new Date(at.getTime() + 300000),
+        }),
+      ).toMatchObject({ status: "registered" });
+      await signin.acceptStart(
+        {
+          botIdentity: config.botIdentity,
+          updateId: "10",
+          telegramUserId: "102",
+          privateChatId: "102",
+          observedAt: at,
+        },
+        expiredDigest,
+      );
+      const expired = new BotSignIn(
+        database,
+        { ...config, signInEnabled: true },
+        { now: () => new Date(at.getTime() + 300001) },
+      );
+      const expiredDecision = {
+        ...decision,
+        requestRef: expiredRef,
+        telegramUserId: "102",
+        privateChatId: "102",
+      };
+      await expired.decide(expiredDecision, "11");
+      expect(await expired.confirmedDecision(expiredDecision, "11")).toBe(
+        false,
+      );
       await signin.decide(decision, "2");
       expect(await signin.confirmedDecision(decision, "2")).toBe(true);
       await signin.decide(decision, "3");
