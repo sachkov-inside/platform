@@ -16,7 +16,10 @@ import { ProductMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { materialReaderHref } from "@/shared/routing/material-reader";
 import { productReaderReturnHref } from "@/shared/routing/material-reader";
-import { productTaskHref } from "@/shared/routing/subscription-route";
+import {
+  productHref,
+  productTaskHref,
+} from "@/shared/routing/subscription-route";
 import { ChapterSummary, PreparingChapter } from "./course-programme-overview";
 
 import { ChapterReadingProgress } from "./chapter-reading-progress.client";
@@ -137,6 +140,7 @@ export function ProductJourney({
   // Программа и каталог доступны также у пустого продукта.
   return (
     <ProductJourneyControls
+      overviewHref={productHref(result.reference.slug)}
       currentHref={currentHref}
       offersAccessRecheck={
         !accessPending &&

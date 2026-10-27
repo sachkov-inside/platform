@@ -56,7 +56,13 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   a 272 px left chapter rail, position/title, the matching Material action panels, and
   a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
   access states. Owner correction 2026-10-15: below 48rem, phones use a floating rounded lesson dock without backdrop blur
-  with previous/next arrows, chapter/step position and a programme opener. Its bottom sheet leaves
+  with previous/next arrows, chapter/step position and a programme opener. Owner decision
+  2026-10-27 (#1748): the course overview, programme and lesson navigation share one opaque
+  rounded surface and always-visible labels. Lessons show position and arrows above «О курсе»
+  and «Программа»; the former opens the course overview, the latter opens the programme sheet.
+  Supplementary materials retain both actions without step arrows. Size the bar to the available
+  viewport width, allow labels to wrap with enlarged text, and reserve space after the content.
+  Its bottom sheet leaves
   a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide
   and desktop resize. From 48rem to below 64rem, a top button opens a left modal drawer;
   omit the bottom dock and retain the previous/next footer. At 64rem the rail stays visible.

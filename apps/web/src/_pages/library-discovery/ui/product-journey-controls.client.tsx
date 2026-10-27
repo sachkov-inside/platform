@@ -2,10 +2,11 @@
 
 import {
   LayoutGrid,
-  ListOrdered,
+  List,
   RefreshCw,
   Search,
   Flag,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -23,7 +24,11 @@ import {
   ProductContinuationProvider,
   type MaterialPreview,
 } from "@/entities/material";
-import { formatMaterialCount } from "@/features/library-discovery";
+import {
+  formatMaterialCount,
+  CourseNavigationBar,
+  CourseNavigationItem,
+} from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { resetShellScroll } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
@@ -109,10 +114,12 @@ export type ProductOnboardingPanel = Pick<
  */
 export function ProductJourneyControls({
   currentHref,
+  overviewHref,
   offersAccessRecheck,
   parts: suppliedParts,
 }: {
   readonly currentHref: Route;
+  readonly overviewHref: Route;
   /** Доступ к части уроков не проверился: читателю предлагается перепроверить его. */
   readonly offersAccessRecheck: boolean;
   readonly parts: readonly JourneyPart[];
@@ -515,14 +522,13 @@ export function ProductJourneyControls({
           parts={parts}
         />
       ) : null}
-      {parts.length > 1 ? (
-        <ProductBottomBar
-          activeId={part?.id ?? "programme"}
-          disabled={!hydrated}
-          onOpen={openPart}
-          parts={parts}
-        />
-      ) : null}
+      <ProductBottomBar
+        overviewHref={overviewHref}
+        activeId={part?.id ?? "programme"}
+        disabled={!hydrated}
+        onOpen={openPart}
+        parts={parts}
+      />
     </section>
   );
 }
@@ -746,23 +752,25 @@ function MaterialCatalog({
 
 const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
   onboarding: Flag,
-  programme: ListOrdered,
+  programme: List,
   supplementary: LayoutGrid,
 };
-/** Labels identify both parts; only the selected mobile label is visible. */
+/** Labels remain visible in the course navigation at every mobile width. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
   onboarding: "Онбординг",
   programme: "Программа",
   supplementary: "Материалы",
 };
 
-/** Programme and Materials share a floating mobile bar; the active item expands with its label. */
+/** Course overview and programme sections share the lesson navigation's surface. */
 function ProductBottomBar({
+  overviewHref,
   activeId,
   disabled,
   onOpen,
   parts,
 }: {
+  readonly overviewHref: Route;
   readonly activeId: JourneyPart["id"];
   readonly disabled: boolean;
   readonly onOpen: (id: JourneyPart["id"]) => void;
@@ -771,37 +779,31 @@ function ProductBottomBar({
   return (
     <>
       {/* Место под панель в конце списка: последний урок не прячется за ней. */}
-      <div aria-hidden="true" className="h-20 md:hidden" />
-      <div aria-hidden="true" className="course-bar-fade md:hidden" />
-      <nav
-        aria-label="Разделы продукта"
-        className="product-bottom-bar md:hidden"
-      >
-        <HidePublicFooter />
+      <div aria-hidden="true" className="h-36 md:hidden" />
+      <HidePublicFooter />
+      <CourseNavigationBar label="Разделы продукта">
+        <CourseNavigationItem
+          icon={BookOpen}
+          label="О курсе"
+          href={overviewHref}
+        />
         {parts.map((entry) => {
           const Icon = partIcons[entry.id];
           const current = entry.id === activeId;
           return (
-            <button
-              aria-current={current ? "true" : undefined}
-              aria-label={partBarLabels[entry.id]}
-              className="product-bottom-bar-item"
-              data-current={current}
+            <CourseNavigationItem
+              current={current}
+              label={partBarLabels[entry.id]}
+              icon={Icon}
               disabled={disabled}
               key={entry.id}
               onClick={() => {
                 onOpen(entry.id);
               }}
-              type="button"
-            >
-              <Icon aria-hidden="true" />
-              <span className="product-bottom-bar-label" aria-hidden="true">
-                {partBarLabels[entry.id]}
-              </span>
-            </button>
+            />
           );
         })}
-      </nav>
+      </CourseNavigationBar>
     </>
   );
 }

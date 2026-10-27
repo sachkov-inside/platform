@@ -3,6 +3,10 @@
 import { usePathname } from "next/navigation";
 import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 import { CourseReferenceNavigation } from "./course-reference-navigation";
+import {
+  CourseNavigationBar,
+  CourseNavigationItem,
+} from "./course-navigation-bar";
 
 import {
   ArrowLeft,
@@ -494,63 +498,66 @@ export function ProgrammeDialog({
       >
         <List size={18} aria-hidden="true" /> Вся программа
       </button>
-      <nav
-        className={styles["dock"]}
-        aria-label="Навигация по урокам"
-        data-supplementary={supplementary ? "" : undefined}
-      >
-        {supplementary ? null : context.previous === null ? (
-          <button disabled aria-label="Предыдущий шаг">
-            <ArrowLeft size={20} />
-          </button>
-        ) : (
-          <IntentPrefetchLink
-            aria-label="Предыдущий шаг"
-            title={context.previous.title}
-            href={context.previous.href}
-          >
-            <ArrowLeft size={20} aria-hidden="true" />
-          </IntentPrefetchLink>
-        )}
-        <button
-          type="button"
-          className={styles["dockProgramme"]}
-          onClick={openProgramme}
-          aria-haspopup="dialog"
-          aria-label="Вся программа"
-        >
-          <span>
-            {supplementary ? (
-              context.currentPosition === 0 ? (
-                "Дополнительный материал"
-              ) : (
-                "Ваше место в курсе"
-              )
+      <CourseNavigationBar
+        label="Навигация по урокам"
+        position={
+          <>
+            {supplementary ? null : context.previous === null ? (
+              <button disabled aria-label="Предыдущий шаг">
+                <ArrowLeft size={18} aria-hidden="true" />
+              </button>
             ) : (
-              <>
-                Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
-                {chapter?.steps.length ?? 0}
-              </>
+              <IntentPrefetchLink
+                aria-label="Предыдущий шаг"
+                title={context.previous.title}
+                href={context.previous.href}
+              >
+                <ArrowLeft size={18} aria-hidden="true" />
+              </IntentPrefetchLink>
             )}
-          </span>
-          <strong>
-            <List size={16} aria-hidden="true" /> Программа
-          </strong>
-        </button>
-        {supplementary ? null : context.next === null ? (
-          <button disabled aria-label="Следующий шаг">
-            <ArrowRight size={20} />
-          </button>
-        ) : (
-          <IntentPrefetchLink
-            aria-label="Следующий шаг"
-            title={context.next.title}
-            href={context.next.href}
-          >
-            <ArrowRight size={20} aria-hidden="true" />
-          </IntentPrefetchLink>
-        )}
-      </nav>
+            <span>
+              {supplementary ? (
+                context.currentPosition === 0 ? (
+                  "Дополнительный материал"
+                ) : (
+                  "Ваше место в курсе"
+                )
+              ) : (
+                <>
+                  Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
+                  {chapter?.steps.length ?? 0}
+                </>
+              )}
+            </span>
+            {supplementary ? null : context.next === null ? (
+              <button disabled aria-label="Следующий шаг">
+                <ArrowRight size={18} aria-hidden="true" />
+              </button>
+            ) : (
+              <IntentPrefetchLink
+                aria-label="Следующий шаг"
+                title={context.next.title}
+                href={context.next.href}
+              >
+                <ArrowRight size={18} aria-hidden="true" />
+              </IntentPrefetchLink>
+            )}
+          </>
+        }
+      >
+        <CourseNavigationItem
+          icon={BookOpen}
+          label="О курсе"
+          href={context.productHref}
+        />
+        <CourseNavigationItem
+          icon={List}
+          label="Программа"
+          onClick={openProgramme}
+          opensProgramme
+          current
+        />
+      </CourseNavigationBar>
       <dialog
         className={styles["dialog"]}
         ref={dialog}

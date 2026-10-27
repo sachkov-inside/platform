@@ -32,5 +32,9 @@ export {
 } from "./ui/course-reading.client";
 
 export { CourseReferenceNavigation } from "./ui/course-reference-navigation";
+export {
+  CourseNavigationBar,
+  CourseNavigationItem,
+} from "./ui/course-navigation-bar";
 
 export { CourseReadingHost } from "./ui/course-reading-host.client";

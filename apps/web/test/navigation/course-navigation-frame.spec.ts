@@ -2,6 +2,35 @@ import { expect, test } from "@playwright/test";
 
 const programme = "/products/reference-course/programme";
 
+test("mobile course navigation opens the programme and returns from lessons and references to the course overview", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const slug of ["reference-lesson-5", "aie-project"]) {
+    await page.goto(`/materials/${slug}?from=${encodeURIComponent(programme)}`);
+    const navigation = page.getByRole("navigation", {
+      name: "Навигация по урокам",
+    });
+    await expect(navigation).toBeVisible();
+    const overview = navigation.getByRole("link", { name: "О курсе" });
+    await expect(overview).toHaveAttribute(
+      "href",
+      "/products/reference-course",
+    );
+    const trigger = navigation.getByRole("button", { name: "Вся программа" });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", {
+      name: "Программа: Курс со справочными документами",
+    });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await overview.click();
+    await expect(page).toHaveURL("/products/reference-course");
+  }
+});
+
 test("the course sidebar stays mounted while only the material changes", async ({
   page,
   request,

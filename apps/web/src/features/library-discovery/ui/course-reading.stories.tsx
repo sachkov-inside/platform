@@ -287,6 +287,13 @@ export const PhoneProgramme: Story = {
     await expect(
       canvas.getByRole("navigation", { name: "Навигация по урокам" }),
     ).toBeVisible();
+    const dock = within(
+      canvas.getByRole("navigation", { name: "Навигация по урокам" }),
+    );
+    await expect(dock.getByRole("link", { name: "О курсе" })).toHaveAttribute(
+      "href",
+      "/products/ai-engineering",
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Вся программа" }),
     );
@@ -298,6 +305,86 @@ export const PhoneProgramme: Story = {
       within(dialog).getByRole("button", { name: "Закрыть программу" }),
     );
     await expect(dialog).not.toBeVisible();
+  },
+};
+
+export const NarrowSupplementaryProgramme: Story = {
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  args: { supplementaryTitle: "Описание учебного проекта" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const navigation = canvas.getByRole("navigation", {
+      name: "Навигация по урокам",
+    });
+    await expect(
+      within(navigation).getByRole("link", { name: "О курсе" }),
+    ).toHaveAttribute("href", "/products/ai-engineering");
+    await expect(
+      within(navigation).queryByRole("link", { name: "Следующий шаг" }),
+    ).toBeNull();
+    await document.fonts.ready;
+    for (const control of navigation.querySelectorAll<HTMLElement>(
+      "a, button",
+    )) {
+      await expect(control.scrollWidth).toBeLessThanOrEqual(
+        control.clientWidth,
+      );
+      await expect(
+        control.getBoundingClientRect().height,
+      ).toBeGreaterThanOrEqual(44);
+    }
+    await userEvent.click(
+      within(navigation).getByRole("button", { name: "Вся программа" }),
+    );
+    const dialog = canvas.getByRole("dialog", {
+      name: "Программа: AI Engineering",
+    });
+    await expect(
+      within(dialog).getByRole("link", { current: "step" }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть программу" }),
+    );
+    await expect(dialog).not.toBeVisible();
+    await expect(
+      within(navigation).getByRole("button", { name: "Вся программа" }),
+    ).toHaveFocus();
+  },
+};
+
+export const PhoneFirstStep: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  args: { context: { ...courseGuide, previous: null } },
+  play: async ({ canvasElement }) => {
+    const navigation = within(
+      within(canvasElement).getByRole("navigation", {
+        name: "Навигация по урокам",
+      }),
+    );
+    await expect(
+      navigation.getByRole("button", { name: "Предыдущий шаг" }),
+    ).toBeDisabled();
+    await expect(
+      navigation.getByRole("link", { name: "Следующий шаг" }),
+    ).toHaveAttribute("href", courseGuide.next?.href);
+  },
+};
+
+export const PhoneLastStep: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  args: { context: { ...courseGuide, next: null } },
+  play: async ({ canvasElement }) => {
+    const navigation = within(
+      within(canvasElement).getByRole("navigation", {
+        name: "Навигация по урокам",
+      }),
+    );
+    await expect(
+      navigation.getByRole("button", { name: "Следующий шаг" }),
+    ).toBeDisabled();
+    await expect(
+      navigation.getByRole("link", { name: "Предыдущий шаг" }),
+    ).toHaveAttribute("href", courseGuide.previous?.href);
   },
 };
 

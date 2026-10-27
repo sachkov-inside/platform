@@ -7,6 +7,7 @@ import {
 } from "@/shared/routing/material-reader";
 import {
   productProgrammeHref,
+  productHref,
   productTaskHref,
 } from "@/shared/routing/subscription-route";
 import type { ProductChapter } from "./library-discovery-view";
@@ -46,6 +47,7 @@ export interface CourseReadingContext {
   readonly name: string;
   readonly href: Route;
   readonly courseHref: Route;
+  readonly productHref: Route;
   readonly chapters: readonly CourseReadingChapter[];
   readonly current: CourseReadingStep;
   readonly currentChapterId: string;
@@ -270,6 +272,7 @@ export function courseReadingContext({
     name: product.reference.name,
     href,
     courseHref: programmeHref,
+    productHref: productHref(product.reference.slug),
     chapters,
     references,
     materialHrefs: publishedItems.map((item) =>
