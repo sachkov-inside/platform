@@ -1,61 +1,5 @@
 [
   {
-    "file": "live-products-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-product-sale-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=sale",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-product-community-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=community",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-product-sale-archived-price-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=sale",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-product-learners-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-grant-product-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
-    "file": "live-grant-product-outcome-mobile-chromium.png",
-    "project": "mobile-chromium",
-    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
-    "scrollWidth": 390,
-    "clientWidth": 390,
-    "axeViolations": 0
-  },
-  {
     "file": "live-payment-link-create-mobile-chromium.png",
     "project": "mobile-chromium",
     "url": "/authoring/sales/links",
@@ -139,6 +83,62 @@
     "file": "live-payment-mobile-chromium.png",
     "project": "mobile-chromium",
     "url": "/authoring/sales/payments/78000000-0000-4000-8000-000000000101",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-products-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-sale-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=sale",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-community-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=community",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-sale-archived-price-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=sale",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-learners-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-grant-product-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-grant-product-outcome-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=learners",
     "scrollWidth": 390,
     "clientWidth": 390,
     "axeViolations": 0

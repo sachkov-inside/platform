@@ -5,12 +5,16 @@
 «Визуальная приёмка»: Storybook и живой маршрут на 390 и 1440 px, доступность, отсутствие
 горизонтальной прокрутки. Visual GO владелец даёт по итоговому интегрированному результату.
 
-Снимки сделаны на коде `89eb9436f45f27dbf5cc5511a61efae308f0d37c`: ветка `feat/1718-admin-sales`
-от `ace13f7b4` с двумя исправлениями, найденными при съёмке (см. «Найдено при съёмке»), и самой съёмкой. После review на
-ветке могут появиться новые коммиты; снимки относятся к этому коду. Названия, имена, email и
-даты вымышлены.
+Первая съёмка шла на коде `89eb9436f45f27dbf5cc5511a61efae308f0d37c`. После слияния #1721 («Люди»,
+`6d8a17878`) и исправлений визуальных заметок наборы сняты заново: у каждого набора ниже указан его
+код. Снимок, который не изменился побайтно, остался прежним файлом. После review на ветке могут
+появиться новые коммиты; снимки относятся к указанному коду. Названия, имена, email и даты
+вымышлены.
 
 ## Живой маршрут
+
+Код: `2b8e80e267065fe5d3eeb4842bf3fd0a1fedec87` (весь набор навигации с одной сборкой, затем
+`content-collections`, `product-learners` и `authoring-people` повторно на той же сборке).
 
 Production-сборка web (`next build`) против тестового HTTP-бэкенда набора навигации
 (`apps/web/test/navigation/fake-backend.mjs`), а не общего стенда. Chromium 1440 × 1024 и
@@ -32,7 +36,7 @@ CAPTURE_SALES_ADMIN_EVIDENCE=1 UPDATE_EVIDENCE=issue-1718 pnpm --filter @inside/
 
 | Состояние | Компьютер, 1440 px | Телефон, 390 px |
 | --- | --- | --- |
-| Продукты: колонки «Продажа» и «Обладатели» (тестовый бэкенд навигации не отдаёт число обладателей, поэтому «Нет данных»; числа видны в Storybook `Pages/Authoring/Продукты`) | [Снимок](live-products-desktop-chromium.png) | [Снимок](live-products-mobile-chromium.png) |
+| Продукты: колонки «Продажа» (плашка в одну строку) и «Обладатели» (число из тестового бэкенда навигации) | [Снимок](live-products-desktop-chromium.png) | [Снимок](live-products-mobile-chromium.png) |
 | Продукт, вкладка «Продажа»: цена, состояние продажи, блок ссылок на оплату (`?tab=sale`) | [Снимок](live-product-sale-desktop-chromium.png) | [Снимок](live-product-sale-mobile-chromium.png) |
 | Продукт, вкладка «Продажа» с ценой в архиве | [Снимок](live-product-sale-archived-price-desktop-chromium.png) | [Снимок](live-product-sale-archived-price-mobile-chromium.png) |
 | Продукт, вкладка «Ученики»: подписи людей вместо ID (`?tab=learners`) | [Снимок](live-product-learners-desktop-chromium.png) | [Снимок](live-product-learners-mobile-chromium.png) |
@@ -52,6 +56,8 @@ CAPTURE_SALES_ADMIN_EVIDENCE=1 UPDATE_EVIDENCE=issue-1718 pnpm --filter @inside/
 | Воронка продаж | [Снимок](live-funnel-desktop-chromium.png) | [Снимок](live-funnel-mobile-chromium.png) |
 
 ## Storybook
+
+Код: `eddd5309fa73e6c0b4ee6703822df3a6dc61b136` (после него менялись только навигационные проверки).
 
 Собранный Storybook (`pnpm build:storybook`), история после завершения её `play`:
 
@@ -139,5 +145,12 @@ UPDATE_EVIDENCE=issue-1718 node apps/web/test/evidence/capture-sales-admin.mjs
 - Истории `Pages/Authoring/Продукт/Ученики` стояли без рамки страницы продукта, и на 1440 px конец
   длинного списка был обрезан. Истории получили ту же рамку `main#authoring-content`, что и
   маршрут.
+
+- После первой съёмки: плашка «Продажи закрыты» в списке продуктов переносилась на две строки, а
+  поле процента в новой ссылке на оплату было шириной 14rem вместо 8rem (утилита `max-w-[8rem]`
+  не перебивала `admin.css`). Колонка «Продажа» стала шире за счёт числовых колонок, плашка стоит
+  в одну строку; поле процента получило модификатор `.admin-field-input-narrow`.
+- Тестовый бэкенд навигации не отдавал число обладателей, и живой список показывал «Нет данных».
+  Теперь он отдаёт `holderCount` продуктов, как backend.
 
 Горизонтальной прокрутки и нарушений Axe в production-модулях не найдено.
