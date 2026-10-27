@@ -4,9 +4,8 @@ import Link from "next/link";
 import { Button } from "@/shared/ui/button";
 import { StatusPanel } from "@/shared/ui/status-panel";
 
-import { SalesFunnelReportFrame } from "./sales-funnel-report-view";
-
-const reportHref = "/authoring/sales-funnel";
+import { salesFunnelRootHref as reportHref } from "../model/sales-funnel-query";
+import { SalesFunnelReportFrame } from "./sales-funnel-report-frame";
 
 export function SalesFunnelReportState({
   kind,
