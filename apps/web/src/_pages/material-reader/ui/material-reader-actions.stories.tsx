@@ -373,6 +373,7 @@ async function expectEdgeNavigation(panel: HTMLElement) {
     .getBoundingClientRect();
   await expect(back.left - frame.left).toBeLessThanOrEqual(10);
   await expect(frame.right - next.right).toBeLessThanOrEqual(10);
+  await expectCompactNext(actions.getByRole("link", { name: "Дальше" }));
   const controls = [
     actions.getByRole("link", { name: "Назад" }),
     actions.getByRole("button", { name: "Сохранить" }),
@@ -388,6 +389,15 @@ async function expectEdgeNavigation(panel: HTMLElement) {
       previous.getBoundingClientRect().right,
     );
   }
+}
+
+async function expectCompactNext(next: HTMLElement) {
+  const bounds = next.getBoundingClientRect();
+  const surface = getComputedStyle(next, "::before");
+  await expect(bounds.height).toBe(44);
+  await expect(
+    bounds.height - parseFloat(surface.top) - parseFloat(surface.bottom),
+  ).toBe(36);
 }
 
 /** Accepted A keeps action order and touch targets at both ends of the material. */
@@ -888,6 +898,7 @@ export const GroupedReaderActions: Story = {
         name: /Поделиться материалом/u,
       });
       const next = actions.getByRole("link", { name: "Дальше" });
+      await expectCompactNext(next);
       const bounds = [back, save, studied, share, next].map((control) =>
         control.getBoundingClientRect(),
       );
