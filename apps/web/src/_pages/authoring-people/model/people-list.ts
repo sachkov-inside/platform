@@ -10,7 +10,10 @@ import {
   type AccessOrigin,
   type ProductAccessState,
 } from "@/entities/authoring-person";
-import { authoringPeopleHref } from "@/shared/routing/authoring";
+import {
+  authoringPeopleHref,
+  authoringPeopleTelegramProblems,
+} from "@/shared/routing/authoring";
 import { internalRoute } from "@/shared/routing/internal-route";
 
 /**
@@ -29,10 +32,7 @@ export interface PeopleListQuery {
   readonly cursor?: string;
 }
 
-export const telegramProblemSchema = z.enum([
-  "community_failed",
-  "delivery_failed",
-]);
+export const telegramProblemSchema = z.enum(authoringPeopleTelegramProblems);
 export type TelegramProblem = z.infer<typeof telegramProblemSchema>;
 
 export const telegramProblemLabels: Readonly<Record<TelegramProblem, string>> =

@@ -5,6 +5,7 @@ import { mocked, within } from "storybook/test";
 
 import { currentLegalEdition } from "@inside/legal";
 
+import { ProductEditorPageFrame } from "@/_pages/content-collections";
 import { PublicApplicationFrame } from "@/_app/ui/public-application-frame.client";
 import { PublicShellContent } from "@/_app/ui/public-shell-content";
 import { type PriceSnapshot } from "@/entities/subscription";
@@ -258,6 +259,16 @@ export function authoringPageEnvironment(
       </AuthoringShell>
     ),
   ]);
+}
+
+/**
+ * Вкладка страницы продукта в каркасе админки и в настоящей рамке этой страницы
+ * (`ProductEditorPageFrame`), без копии её разметки в story.
+ */
+export function productPageEnvironment(currentPath: string): StoryEnvironment {
+  return authoringPageEnvironment(currentPath, {
+    frame: ProductEditorPageFrame,
+  });
 }
 
 /**

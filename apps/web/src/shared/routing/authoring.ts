@@ -53,18 +53,72 @@ export function authoringSubmissionHref(submissionId: string): Route {
 export const authoringSalesFunnelHref =
   "/authoring/sales/funnel" satisfies Route;
 
+/** Готовые периоды отчёта воронки в днях, считая сегодняшний день по Москве. */
+export const salesFunnelPeriodPresets = [7, 30, 90] as const;
+export type SalesFunnelPeriodPreset = (typeof salesFunnelPeriodPresets)[number];
+/** Тридцать дней идут по умолчанию и в адрес не пишутся. */
+export const defaultSalesFunnelPeriodPreset: SalesFunnelPeriodPreset = 30;
+
+export type SalesFunnelPeriod =
+  | { readonly kind: "preset"; readonly days: SalesFunnelPeriodPreset }
+  /** Даты по Москве включительно, `YYYY-MM-DD`. */
+  | { readonly kind: "custom"; readonly from: string; readonly to: string };
+
 /**
- * Отчёт воронки по продукту за готовый период в днях (`period`, один из готовых периодов отчёта);
- * тридцать дней, период отчёта по умолчанию, в адрес не пишутся. Имена параметров те же, что читает
- * страница отчёта.
+ * Адрес отчёта воронки: продукт, глава и период. `null` у продукта и главы значит выбор сервера
+ * (первый продукт и его первая глава). Здесь единственный кодировщик этого адреса: им пользуются
+ * страница отчёта и ссылки на неё из других разделов.
  */
+export interface SalesFunnelAddress {
+  readonly productId: string | null;
+  readonly chapterId: string | null;
+  readonly period: SalesFunnelPeriod;
+}
+
+/** Имена параметров адреса отчёта воронки. */
+export const salesFunnelParams = {
+  productId: "productId",
+  chapterId: "chapterId",
+  period: "period",
+  from: "from",
+  to: "to",
+} as const;
+
+export function serializeSalesFunnelAddress(
+  address: SalesFunnelAddress,
+): string {
+  const params = new URLSearchParams();
+  if (address.productId !== null)
+    params.set(salesFunnelParams.productId, address.productId);
+  if (address.productId !== null && address.chapterId !== null)
+    params.set(salesFunnelParams.chapterId, address.chapterId);
+  if (address.period.kind === "custom") {
+    params.set(salesFunnelParams.from, address.period.from);
+    params.set(salesFunnelParams.to, address.period.to);
+  } else if (address.period.days !== defaultSalesFunnelPeriodPreset)
+    params.set(salesFunnelParams.period, String(address.period.days));
+  return params.toString();
+}
+
+export function authoringSalesFunnelAddressHref(
+  address: SalesFunnelAddress,
+): Route {
+  const serialized = serializeSalesFunnelAddress(address);
+  return serialized === ""
+    ? authoringSalesFunnelHref
+    : internalRoute(`${authoringSalesFunnelHref}?${serialized}`);
+}
+
+/** Отчёт воронки по продукту за готовый период, первая глава продукта. */
 export function authoringSalesFunnelProductHref(
   productId: string,
-  periodDays: number,
+  periodDays: SalesFunnelPeriodPreset,
 ): Route {
-  const params = new URLSearchParams({ productId });
-  if (periodDays !== 30) params.set("period", String(periodDays));
-  return internalRoute(`${authoringSalesFunnelHref}?${params.toString()}`);
+  return authoringSalesFunnelAddressHref({
+    productId,
+    chapterId: null,
+    period: { kind: "preset", days: periodDays },
+  });
 }
 
 /** «Платежи» раздела «Продажи» (#1718). */
@@ -79,9 +133,16 @@ export function authoringPaymentHref(purchaseRef: string): Route {
 /** Список людей админки (#1721); прежний `/authoring/access` перенаправляется сюда. */
 export const authoringPeopleHref = internalRoute("/authoring/people");
 
-/** Проблема Telegram, которой список людей открывается из Обзора (#1719). */
+/**
+ * Проблемы Telegram, которыми список людей открывается из Обзора (#1719), как их принимает
+ * фильтр `?telegram=`. Схема фильтра списка людей строится из этого списка.
+ */
+export const authoringPeopleTelegramProblems = [
+  "community_failed",
+  "delivery_failed",
+] as const;
 export type AuthoringPeopleTelegramProblem =
-  "community_failed" | "delivery_failed";
+  (typeof authoringPeopleTelegramProblems)[number];
 
 /** Список людей с этой проблемой Telegram (`?telegram=`). */
 export function authoringPeopleTelegramHref(

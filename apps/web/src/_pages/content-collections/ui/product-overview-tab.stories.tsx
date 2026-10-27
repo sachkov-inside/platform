@@ -12,17 +12,13 @@ import {
   storyProductOverviewUnavailable,
 } from "@/storybook/admin-overview.fixtures";
 import { desktop, mobile } from "@/storybook/loads-in-place";
-import { authoringPageEnvironment } from "@/storybook/story-environment";
-
-import { ProductEditorPageFrame } from "./product-editor-page-frame";
+import { productPageEnvironment } from "@/storybook/story-environment";
 
 const productId = "97000000-0000-4000-8000-000000000301";
 const productPath = authoringProductEditorHref(productId);
 
 /** Вкладка стоит в настоящей рамке страницы продукта, как на маршруте. */
-const environment = authoringPageEnvironment(productPath, {
-  frame: ProductEditorPageFrame,
-});
+const environment = productPageEnvironment(productPath);
 const periodChanged = fn();
 const retried = fn();
 
