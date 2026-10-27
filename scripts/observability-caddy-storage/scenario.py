@@ -112,14 +112,11 @@ class Scenario:
         def read():
             if _recovery:self._recovery_checkpoint('gateway_recovery_ready')
             try:return self._one('recovery')
-            except ConnectionRefusedError:
-                if _recovery:self._recovery_checkpoint('gateway_recovery_refused')
-                return None  # No accepted HTTP request; no counter admission inferred.
-            except http.client.RemoteDisconnected as error:
-                if type(error) is not http.client.RemoteDisconnected:raise
-                if _recovery:self._recovery_checkpoint('gateway_recovery_eof')
-                # Docker may accept the published socket before Caddy can answer HTTP.
-                # No response/counter admission is invented; native comparisons stay strict.
+            except traffic.ReadinessUnavailable as error:
+                if type(error) is not traffic.ReadinessUnavailable:raise
+                if _recovery:self._recovery_checkpoint('gateway_recovery_'+error.phase)
+                # No whole HTTP response was observed. Prior server-side traffic
+                # is unknown, not zero; later source baselines/accounting stay strict.
                 return None
             except BaseException as error:
                 if _recovery:

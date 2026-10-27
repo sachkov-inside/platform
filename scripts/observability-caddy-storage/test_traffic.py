@@ -3,6 +3,8 @@ import http.client
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
+import socket
+from unittest.mock import Mock
 from urllib.parse import parse_qs
 import unittest
 import traffic
@@ -33,6 +35,31 @@ class FixedTraffic(unittest.TestCase):
         with peer(status=502) as (port,_,_):
             result=traffic.perform('recovery','owned_token',_connection=http.client.HTTPConnection('127.0.0.1',port,timeout=3))
             self.assertEqual((result['method'],result['code']),('GET',502))
+
+        # Only an actual refused connect and the response's first empty read are
+        # retryable. Request-side failures and foreign error subclasses stay fatal.
+        with socket.socket() as blocked:
+            blocked.bind(('127.0.0.1',0));address=blocked.getsockname();blocked.close()
+            with self.assertRaises(traffic.ReadinessUnavailable) as caught:
+                traffic.perform('recovery','owned_token',_connection=http.client.HTTPConnection(*address,timeout=1))
+            self.assertEqual(caught.exception.phase,'refused')
+        class ForeignRefused(ConnectionRefusedError):pass
+        class ForeignReset(ConnectionResetError):pass
+        for error in (ConnectionResetError('private'),BrokenPipeError('private'),ConnectionAbortedError('private'),
+                      OSError('private'),TimeoutError('private'),KeyboardInterrupt(),ForeignRefused('private')):
+            with self.subTest(request_error=type(error).__name__):
+                connection=Mock(spec=http.client.HTTPConnection);connection.response_class=http.client.HTTPResponse
+                connection.request.side_effect=error
+                with self.assertRaises(type(error)) as caught:traffic.perform('recovery','owned_token',_connection=connection)
+                self.assertIs(caught.exception,error);connection.getresponse.assert_not_called();connection.close.assert_called_once()
+        for received,error in ((False,ForeignReset('private')),(True,ConnectionResetError('private'))):
+            with self.subTest(prefix_seen=received):
+                sock=Mock();wire=Mock();sock.makefile.return_value=wire;wire.peek.side_effect=error
+                response=traffic._ReadinessResponse(sock);response._received=received
+                try:
+                    with self.assertRaises(type(error)) as caught:response._read_status()
+                    self.assertIs(caught.exception,error)
+                finally:response.close()
 
     def test_fixed_post_records_only_a_validated_successful_whole_response(self):
         for status in (200,500):

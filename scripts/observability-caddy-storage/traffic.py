@@ -10,6 +10,47 @@ CASES={'http_get':('GET',200),'http_post':('POST',200),'unauthorized':('GET',401
        'recovery':('GET',(200,502))}
 
 
+class ReadinessUnavailable(ConnectionError):
+    def __init__(self,phase):
+        if phase not in ('refused','eof','reset'):request_hold.refuse()
+        self.phase=phase
+        super().__init__('closed Caddy readiness transport')
+
+
+class _ReadinessResponse(http.client.HTTPResponse):
+    def __init__(self,*args,**kwargs):
+        self._received=False
+        super().__init__(*args,**kwargs)
+
+    def _read_status(self):
+        # Peek does not consume bytes or replace the standard status/header parser.
+        # Once even an interim/status prefix was observed, transport failure is fatal.
+        try:prefix=self.fp.peek(1)
+        except ConnectionResetError as error:
+            if type(error) is not ConnectionResetError or self._received:raise
+            raise ReadinessUnavailable('reset') from None
+        if prefix:self._received=True
+        try:return super()._read_status()
+        except http.client.RemoteDisconnected as error:
+            if type(error) is not http.client.RemoteDisconnected or self._received:raise
+            raise ReadinessUnavailable('eof') from None
+
+
+def _response(connection,case,method,path,body,headers):
+    if case!='recovery':
+        connection.request(method,path,body=body,headers=headers)
+        return connection.getresponse()
+    original=connection.response_class
+    connection.response_class=_ReadinessResponse
+    try:
+        try:connection.request(method,path,body=body,headers=headers)
+        except ConnectionRefusedError as error:
+            if type(error) is not ConnectionRefusedError:raise
+            raise ReadinessUnavailable('refused') from None
+        return connection.getresponse()
+    finally:connection.response_class=original
+
+
 def perform(case,token,*,_connection=None):
     if case not in CASES or not source_status_query.valid_token(token):request_hold.refuse()
     method,expected=CASES[case]
@@ -28,8 +69,7 @@ def perform(case,token,*,_connection=None):
     started=time.time()
     try:
         with source_status_query._deadline(10):
-            connection.request(method,path,body=body,headers=headers)
-            with connection.getresponse() as response:
+            with _response(connection,case,method,path,body,headers) as response:
                 accepted=expected if type(expected) is tuple else (expected,)
                 code=response.status
                 lengths=response.headers.get_all('Content-Length',[])
