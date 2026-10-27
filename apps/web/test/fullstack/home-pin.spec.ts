@@ -113,9 +113,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       path: testInfo.outputPath("product-editor-text-200.png"),
     });
     await page.reload();
-    await page
-      .getByRole("button", { name: "Все продукты", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Все продукты", exact: true }).click();
     await expect(page).toHaveURL(/\/authoring\/products$/u);
     await expect(
       pin.getByRole("button", { name: `Снять закреп «${releaseName}»` }),
