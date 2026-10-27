@@ -209,11 +209,15 @@ describe("person card presentation", () => {
     expect(paymentStateText("refund_pending_v2")).toBe("Состояние уточняется");
   });
 
-  it("links Telegram only over https", () => {
+  it("links Telegram only to https://t.me", () => {
     expect(telegramHref("https://t.me/anna_petrova")).toBe(
       "https://t.me/anna_petrova",
     );
     expect(telegramHref("javascript:alert(1)")).toBeNull();
+    expect(telegramHref("https://evil.example/anna_petrova")).toBeNull();
+    expect(telegramHref("https://t.me.evil.example/anna")).toBeNull();
+    expect(telegramHref("https://user@t.me/anna")).toBeNull();
+    expect(telegramHref("http://t.me/anna")).toBeNull();
     expect(telegramHref("tg://resolve?domain=anna")).toBeNull();
     expect(telegramHref(null)).toBeNull();
   });

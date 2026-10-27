@@ -169,11 +169,21 @@ export function productNameOf(card: PersonCard, productId: string): string {
   return fromProducts ?? fromLearning ?? "Продукт";
 }
 
-/** Ссылка на Telegram для `href`: только https, иначе ссылки нет и @username остаётся текстом. */
+/**
+ * Ссылка на Telegram для `href`: только `https://t.me/...`. Любой другой адрес, даже https,
+ * ссылкой не становится, и @username остаётся текстом.
+ */
 export function telegramHref(url: string | null): string | null {
   if (url === null) return null;
   try {
-    return new URL(url).protocol === "https:" ? url : null;
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" &&
+      parsed.hostname === "t.me" &&
+      parsed.username === "" &&
+      parsed.password === "" &&
+      parsed.port === ""
+      ? parsed.href
+      : null;
   } catch {
     return null;
   }
