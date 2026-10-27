@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
   token: vi.fn<() => Promise<string>>(),
-  manage: vi.fn(),
+  manage: vi.fn<(body: unknown) => Promise<unknown>>(),
 }));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestManageBilling: fakes.manage,
@@ -107,7 +107,7 @@ it("creates a link with the price revision and revokes with the expected revisio
       expectedRevision: 2,
     }),
   );
-  expect(fakes.manage.mock.calls.map(([body]) => body)).toEqual([
+  expect(fakes.manage.mock.calls.map((call): unknown => call[0])).toEqual([
     {
       operation: "paymentLinks.create",
       operationId,
@@ -188,7 +188,7 @@ it("saves an edit with the list revision and archives with the expected revision
       expectedRevision: 5,
     }),
   );
-  expect(fakes.manage.mock.calls.map(([body]) => body)).toEqual([
+  expect(fakes.manage.mock.calls.map((call): unknown => call[0])).toEqual([
     {
       operation: "promotions.save",
       operationId,
@@ -228,7 +228,7 @@ it("reads every page of the owner price catalog and refuses for another role", a
     );
   const response = await handleOwnerPriceCatalogRead();
   expect(await response.json()).toEqual({ ok: true, value: [] });
-  expect(fakes.manage.mock.calls.map(([body]) => body)).toEqual([
+  expect(fakes.manage.mock.calls.map((call): unknown => call[0])).toEqual([
     expect.objectContaining({ operation: "productPrices.list", limit: 100 }),
     expect.objectContaining({ operation: "productPrices.list", cursor }),
   ]);
