@@ -157,6 +157,14 @@ prefix send, wait, response headers/body and parsing. The child owns one outboun
 remains in the existing worker group. Private `R/F/D` protocol, EOF and extra-byte checks, parent
 finally and outer group ownership cover success, failure, timeout and interruption.
 
+Only this private Caddy overlay buffers query request bodies within the same existing `64KB`
+body limit before forwarding them to vmauth. The held native gauge therefore witnesses Caddy
+receiving the incomplete body, rather than an already active upstream request. F completes that
+body, then the real vmauth, horizon guard and VictoriaMetrics must return the validated HTTP200
+response inside the unchanged eight-second child deadline. Without buffering, native vmauth can
+return HTTP408 while waiting for the withheld byte across a five-second scrape and the integer
+boundary. No upstream timeout, body limit, Core or production Caddy configuration is changed.
+
 Before this child, a quiescent raw9091 snapshot must show retained in-flight zero. After `R`,
 **before any8080 canonical/MCP query**, full raw9091 must show exactly one while the final body
 byte remains withheld. After the proved native scrape, F must produce validated finite HTTP200/D

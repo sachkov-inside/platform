@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "origin": "Official Mac arm64 Caddy2.11.4 pure adaptation, verified publisher archive. Not Linux/runtime evidence.",
-  "synthetic_config_sha256": "3ae3101ff0ae79ec591f3c965e76157599e957f6e7fbfcce370c89784492713d",
-  "adapted_canonical_sha256": "00a8d5fe3cef873218d140a5f374e203530afc975011f1ca03be59f5810c9ed3",
+  "synthetic_config_sha256": "da5ebb4c40a78f359413feb7742764ed2402bc342ba22e51f7a686ae7749f592",
+  "adapted_canonical_sha256": "e954228fe04eda2a8df984595ec43b651f9f4c2e6a908241f263bc91cfb0d7b4",
   "servers": {
     "srv0": {
       "listen": [":8080"],
@@ -79,6 +79,131 @@
           "handlers": ["static_response"]
         }
       ]
+    }
+  },
+  "canonical_adaptation": {
+    "admin": {
+      "disabled": true
+    },
+    "apps": {
+      "http": {
+        "servers": {
+          "srv0": {
+            "listen": [":8080"],
+            "routes": [
+              {
+                "group": "group4",
+                "match": [
+                  {
+                    "method": ["GET", "POST"],
+                    "path": ["/metrics/*", "/logs/*", "/traces/*"]
+                  }
+                ],
+                "handle": [
+                  {
+                    "handler": "subroute",
+                    "routes": [
+                      {
+                        "handle": [
+                          {
+                            "handler": "request_body",
+                            "max_size": 64000
+                          },
+                          {
+                            "handler": "reverse_proxy",
+                            "request_buffers": 64000,
+                            "transport": {
+                              "protocol": "http",
+                              "response_header_timeout": 10000000000
+                            },
+                            "upstreams": [
+                              {
+                                "dial": "vmauth:8427"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "group4",
+                "handle": [
+                  {
+                    "handler": "subroute",
+                    "routes": [
+                      {
+                        "handle": [
+                          {
+                            "handler": "static_response",
+                            "status_code": 403
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "automatic_https": {
+              "disable": true
+            }
+          },
+          "srv1": {
+            "listen": [":9091"],
+            "routes": [
+              {
+                "group": "group6",
+                "match": [
+                  {
+                    "method": ["GET"],
+                    "path": ["/metrics"]
+                  }
+                ],
+                "handle": [
+                  {
+                    "handler": "subroute",
+                    "routes": [
+                      {
+                        "handle": [
+                          {
+                            "disable_openmetrics": true,
+                            "handler": "metrics"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "group6",
+                "handle": [
+                  {
+                    "handler": "subroute",
+                    "routes": [
+                      {
+                        "handle": [
+                          {
+                            "handler": "static_response",
+                            "status_code": 403
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "automatic_https": {
+              "disable": true
+            }
+          }
+        },
+        "metrics": {}
+      }
     }
   }
 }
