@@ -7,11 +7,11 @@ import { context, ROOT_CONTEXT } from "@opentelemetry/api";
 import { z } from "zod";
 
 import { jobQueues } from "./job-queues.js";
-import {
-  Prisma,
-  type PlatformPrisma,
-  type TransactionClient,
-} from "./prisma/index.js";
+import { Prisma } from "./prisma/generated/client.js";
+import type {
+  PlatformPrisma,
+  TransactionClient,
+} from "./prisma/prisma-client.js";
 import type { RuntimeIdentity } from "./runtime-identity.js";
 
 const queueSchema = z.enum(Object.values(jobQueues));
