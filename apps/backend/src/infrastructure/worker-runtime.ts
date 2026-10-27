@@ -124,6 +124,7 @@ export async function runWorker(input: {
     }): Promise<unknown>;
   };
   readonly failed?: Promise<void>;
+  readonly workObservations?: { close(): Promise<void> };
   readonly process: WorkerProcess;
   readonly readiness: Pick<OperationalReadiness, "check">;
   readonly registerJobs: () => Promise<void>;
@@ -177,6 +178,9 @@ export async function runWorker(input: {
   } catch (error) {
     stopFailures.push({ reason: "worker_drain_failed", error });
   }
+  await attempt("worker_observation_close_failed", async () => {
+    await input.workObservations?.close();
+  });
   await attempt("worker_close_failed", () => input.application.close());
   await attempt("worker_lease_release_failed", async () => {
     await lease?.release();

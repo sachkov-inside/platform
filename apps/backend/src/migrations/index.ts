@@ -1,4 +1,8 @@
 import {
+  name as queueWorkName,
+  statement as queueWorkStatement,
+} from "../infrastructure/postgres/migrations/0114-queue-work-observation.js";
+import {
   name as waitlistTraceName,
   statement as waitlistTraceStatement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0113-waitlist-trace-context.js";
@@ -737,6 +741,7 @@ export const platformMigrations = [
   { name: emailTraceName, statement: emailTraceStatement },
   { name: trackingTraceName, statement: trackingTraceStatement },
   { name: waitlistTraceName, statement: waitlistTraceStatement },
+  { name: queueWorkName, statement: queueWorkStatement },
 ] as const;
 
 export function migrateToLatest(

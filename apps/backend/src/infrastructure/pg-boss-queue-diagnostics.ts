@@ -1,4 +1,8 @@
 import {
+  readPgBossWorkObservations,
+  unknownPgBossWork,
+} from "./pg-boss-work-observation.js";
+import {
   activityRetentionLastPass,
   activityRetentionReceiptUnknown,
   ACTIVITY_RETENTION_REPORT_BYTES,
@@ -20,7 +24,7 @@ import {
 } from "./prisma/index.js";
 
 type QueueDiagnosticPrisma = TransactionClient<
-  Pick<PlatformPrisma, "$queryRaw" | "$executeRaw">
+  Pick<PlatformPrisma, "$queryRaw" | "$executeRaw" | "queueWorkObservation">
 >;
 
 const countSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -93,13 +97,22 @@ export class PgBossQueueDiagnostics {
           where q.name in (${Prisma.join(names)}) group by q.name order by q.name
         `),
           );
+        const work = await readPgBossWorkObservations(
+          transaction,
+          snapshot.asOf,
+        );
+        const lastSuccessfulWorkAt =
+          [...work.values()]
+            .map((row) => row.at)
+            .sort()
+            .at(-1) ?? null;
         return {
           ok: true as const,
           value: {
             schemaVersion: snapshot.version,
             asOf: snapshot.asOf.toISOString(),
-            workerFreshness: "not_proven" as const,
-            lastSuccessfulWorkAt: null,
+            workerFreshness: "per_queue" as const,
+            lastSuccessfulWorkAt,
             queues: names.map((name) => {
               const row = rows.find((candidate) => candidate.name === name);
               if (row === undefined)
@@ -107,6 +120,7 @@ export class PgBossQueueDiagnostics {
                   name,
                   status: "unknown" as const,
                   reason: "queue_not_registered" as const,
+                  lastSuccessfulWork: work.get(name) ?? unknownPgBossWork,
                 };
               return {
                 name,
@@ -119,7 +133,8 @@ export class PgBossQueueDiagnostics {
                   cancelled: row.cancelled,
                   failed: row.failed,
                 },
-                backlog: row.created + row.retry,
+                lastSuccessfulWork: work.get(name) ?? unknownPgBossWork,
+                backlog: countSchema.parse(row.created + row.retry),
                 ready: row.ready,
                 scheduled: row.scheduled,
                 blocked: row.blocked,

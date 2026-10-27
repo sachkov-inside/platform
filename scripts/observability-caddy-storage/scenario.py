@@ -45,6 +45,8 @@ class Scenario:
 
     def _partition_checkpoint(self,name):self.progress('partition_checkpoint',name)
 
+    def _inflight_checkpoint(self,name):self.progress('inflight_checkpoint',name)
+
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
@@ -174,13 +176,16 @@ class Scenario:
 
     def held(self):
         self.phase('inflight')
+        self._inflight_checkpoint('inflight_baseline')
         baseline=self.targets.native_raw()
         initial=native_source.parse(baseline)
         if initial is None or initial['in_flight']!=0:status.refuse()
         with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
             self.phase('inflight')
+            self._inflight_checkpoint('inflight_open')
             with request_hold.Held(self.token) as held:
                 # These registry reads are srv1 only. No8080 observation is sent before this exact1 witness.
+                self._inflight_checkpoint('inflight_raw_held')
                 held.assert_holding()
                 raw=self.targets.native_raw()
                 independent=native_source.parse(raw)
@@ -189,10 +194,12 @@ class Scenario:
                 registry_base=raw
                 # Exclude a scrape already in progress before R. The registry's
                 # sole active handler must first be this owned native read.
+                self._inflight_checkpoint('inflight_registry_quiet')
                 while native_source.scrape_registry(registry_base)['in_flight']!=1:
                     held.assert_holding();time.sleep(min(.25,self.remaining()))
                     registry_base=self.targets.native_raw()
                     held.assert_holding()
+                self._inflight_checkpoint('inflight_registry_scrape')
                 own_reads=0
                 while True:
                     held.assert_holding()
@@ -202,19 +209,23 @@ class Scenario:
                     time.sleep(min(.25,self.remaining()))
                 # Freeze a historical integer E only after the proved scrape can
                 # belong to E. This clock boundary never substitutes for the scrape.
+                self._inflight_checkpoint('inflight_boundary')
                 cut=math.ceil(time.time())
                 while time.time()<cut:
                     held.assert_holding();time.sleep(min(.05,self.remaining()))
                 publication_deadline=time.monotonic()+min(caddy_query.QUERY_SECONDS,self.remaining())
+                self._inflight_checkpoint('inflight_release')
                 held.finish()
                 evaluated=math.floor(held.finished_at)
             def stored(value):
                 report,canonical=value
                 return (report['state']=='observed' and report['observation']['in_flight']>=1
                     and status.clock(held.started_at)<self.stamp(canonical)<status.clock(held.finished_at))
+            self._inflight_checkpoint('inflight_stored')
             _,canonical=self._until(lambda:self.snapshot(evaluated_at=evaluated,deadline=publication_deadline),
                 stored,deadline=publication_deadline)
             mcp=self.matching(canonical,read=read)
+            self._inflight_checkpoint('inflight_cohort')
             inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
                 r_received=held.started_at,f_sent=held.finished_at)
         self.passed('inflight')
