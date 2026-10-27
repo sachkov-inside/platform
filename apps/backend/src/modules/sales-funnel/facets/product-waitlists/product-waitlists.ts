@@ -271,7 +271,7 @@ export class ProductWaitlists {
         });
       if (memberships.length > ACCOUNT_WAITLISTS_LIMIT)
         return dependencyFailure(
-          { module: "sales-funnel", operation: "readWaitlistsForAccount" },
+          { module: "sales-funnel", operation: "readForAccount" },
           new RangeError("Account waitlist memberships exceed their bound"),
           fail("dependency_unavailable"),
         );
@@ -305,7 +305,7 @@ export class ProductWaitlists {
       } as const;
     } catch (error) {
       return dependencyFailure(
-        { module: "sales-funnel", operation: "readWaitlistsForAccount" },
+        { module: "sales-funnel", operation: "readForAccount" },
         error,
         fail("dependency_unavailable"),
       );

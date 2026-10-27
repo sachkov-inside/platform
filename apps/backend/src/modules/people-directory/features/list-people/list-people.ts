@@ -216,7 +216,7 @@ export async function listPeople(
       ),
     ),
   ];
-  const names = await readProductNames(dependencies, productIds);
+  const names = await readProductNames(dependencies, productIds, "listPeople");
   if (names === undefined) return failure("dependency_unavailable");
 
   return {
