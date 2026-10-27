@@ -7,6 +7,8 @@ import {
   readiness,
   readinessObservation,
   telegramSeedRange,
+  webHttpObservation,
+  webHttpExpected,
 } from "./responses.mjs";
 
 test("Telegram seed admits only the four complete disjoint corpus batches", () => {
@@ -305,4 +307,53 @@ test("MCP initialize decodes only one complete bounded JSON or SSE message", () 
     assert.equal(mcpInitializeResponse(text, "text/event-stream"), null);
   assert.equal(mcpInitializeResponse(frame, "application/json"), null);
   assert.equal(mcpInitializeResponse(data, "text/plain"), null);
+});
+
+test("Web witness admits only current bounded raw GET counters and a complete process cohort", () => {
+  const base =
+    'service="platform-web",environment="isolated-pilot",source_sha="' +
+    "7".repeat(40) +
+    '"';
+  const rows = [
+    `inside_web_http_process_start_time_seconds{${base}} 100`,
+    `inside_web_http_observed_at_seconds{${base}} 200.125`,
+    `inside_web_http_requests_total{${base},route="/_health/live",method="GET",code="200",outcome="completed"} 42`,
+    `inside_web_http_requests_total{${base},route="_unmatched",method="GET",code="404",outcome="completed"} 43`,
+  ];
+  const expected = {
+    ok: true,
+    positive_count: 42,
+    not_found_count: 43,
+    process_start_seconds: 100,
+    observed_at_seconds: 200.125,
+  };
+  const body = rows.join("\n") + "\n";
+  assert.deepEqual(webHttpObservation(body, "7".repeat(40)), expected);
+  for (const invalid of [
+    body + rows[0] + "\n",
+    body + rows[3] + "\n",
+    rows.slice(1).join("\n"),
+    body.replace('code="404"', 'code="500"'),
+    body.replace('method="GET"', 'method="POST"'),
+    body.replace('outcome="completed"', 'outcome="aborted"'),
+    body.replace("200.125", "NaN"),
+    body.replace("200.125", "99"),
+    body.replace("} 43", "} 0"),
+    body.replace("} 43", "} 1.5"),
+    body.replace("} 43", "} 9007199254740992"),
+    body + "private-http-sentinel",
+    "x".repeat(1_048_577),
+  ])
+    assert.equal(webHttpObservation(invalid, "7".repeat(40)), null);
+  assert.equal(webHttpObservation(body, "8".repeat(40)), null);
+  assert.equal(webHttpObservation(body, '"'), null);
+  for (const invalid of [
+    { ...expected, positive_count: true },
+    { ...expected, not_found_count: NaN },
+    { ...expected, observed_at_seconds: Infinity },
+    { ...expected, process_start_seconds: 201 },
+    { ...expected, private: "sentinel" },
+    { ok: true },
+  ])
+    assert.equal(webHttpExpected(invalid), false);
 });
