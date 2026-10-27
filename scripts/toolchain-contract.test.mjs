@@ -1009,7 +1009,6 @@ write_runtime_configuration`,
         "KINESCOPE_API_TOKEN",
         "OBJECT_STORAGE_SECRET_ACCESS_KEY",
         "TELEGRAM_LINKING_SECRET",
-        "TRIBUTE_API_KEY",
         "API_HOST",
         "API_PORT",
       ]) {
@@ -1020,6 +1019,13 @@ write_runtime_configuration`,
         assert.ok(
           !worker.split("\n").some((line) => line.startsWith(forbidden + "=")),
           "unrelated API credentials must not reach the notification worker",
+        );
+      }
+      for (const configuration of [api, worker]) {
+        assert.doesNotMatch(
+          configuration,
+          /^TRIBUTE_/mu,
+          "retired Tribute configuration must not reach either process",
         );
       }
     } finally {
