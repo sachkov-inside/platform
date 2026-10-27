@@ -19,7 +19,7 @@ func (g *guard) jaeger(ctx context.Context, path string, params url.Values, now 
 		if !allowed(params, "service,operation,start,end,limit,minDuration,maxDuration,tags,lookback") {
 			return nil, errHorizon
 		}
-		start, end := now.Add(-time.Hour).UnixMicro(), now.UnixMicro()
+		start, end := cutoff, now.UnixMicro()
 		var err error
 		if s := params.Get("start"); s != "" {
 			start, err = strconv.ParseInt(s, 10, 64)

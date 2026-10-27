@@ -52,8 +52,11 @@ func (g *guard) discovery(ctx context.Context, path string, params url.Values, n
 	limit := seriesLimit
 	if s := params.Get("limit"); s != "" {
 		limit, err = strconv.Atoi(s)
-		if err != nil || limit < 1 || limit > seriesLimit {
+		if err != nil || limit < 0 || limit > seriesLimit {
 			return nil, errHorizon
+		}
+		if limit == 0 {
+			limit = seriesLimit
 		}
 	}
 	matches := params["match[]"]
@@ -66,7 +69,7 @@ func (g *guard) discovery(ctx context.Context, path string, params url.Values, n
 	found := map[string]map[string]string{}
 	stamps := map[string]float64{}
 	for _, match := range matches {
-		expr, err := metricsql.Parse(match)
+		expr, err := metricsql.ParseBounded(match)
 		if err != nil {
 			return nil, errHorizon
 		}

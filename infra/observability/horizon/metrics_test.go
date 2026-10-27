@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"github.com/VictoriaMetrics/metricsql"
+	"strings"
 	"testing"
 	"time"
 )
@@ -34,5 +37,40 @@ func TestMetricsHistoryCannotCrossCutoffThroughExpressions(t *testing.T) {
 	}
 	if proveMetrics(`boundary_sample`, cutoff+1000, cutoff+1000, 300000, cutoff) == nil {
 		t.Fatal("historical instant can read expired predecessor")
+	}
+}
+
+func TestBoundedVendorParserPreservesOrdinaryMacrosAndRefusesExpansionWork(t *testing.T) {
+	for _, query := range []string{
+		`WITH (f(x)=x+x, y=m) f(f(y))`,
+		`WITH (labels=(job,instance), filters={job="platform"}) sum by(labels)(m{filters})`,
+		`WITH (name="plat"+"form") m{job=name}`,
+		`ru(m,100)`, `ttf(m)`, `range_median(m)`, `alias(m,"named")`,
+		`increase_pure(inside_web_http_requests_total[5m])`,
+	} {
+		if _, err := metricsql.ParseBounded(query); err != nil {
+			t.Errorf("ordinary vendor macro refused %q: %v", query, err)
+		}
+	}
+	stringParts := []string{`s0="` + strings.Repeat("x", 4096) + `"`}
+	expressionParts := []string{"f0(x)=x"}
+	labelParts := []string{`l0={a="x"}`}
+	for i := 1; i <= 24; i++ {
+		stringParts = append(stringParts, fmt.Sprintf("s%d=s%d+s%d", i, i-1, i-1))
+		expressionParts = append(expressionParts, fmt.Sprintf("f%d(x)=f%d(x)+f%d(x)", i, i-1, i-1))
+		labelParts = append(labelParts, fmt.Sprintf("l%d={l%d,l%d}", i, i-1, i-1))
+	}
+	for _, query := range []string{
+		"WITH(" + strings.Join(stringParts, ",") + ")m{job=s24}",
+		"WITH(" + strings.Join(expressionParts, ",") + ")f24(m)",
+		"WITH(" + strings.Join(labelParts, ",") + ")m{l24}",
+		strings.Repeat("(", 65) + "m" + strings.Repeat(")", 65),
+		strings.Repeat("m+", 600) + "m",
+	} {
+		start := time.Now()
+		_, err := metricsql.ParseBounded(query)
+		if err == nil || !strings.Contains(err.Error(), "complexity budget") || time.Since(start) > time.Second {
+			t.Fatalf("unbounded expansion: error=%v elapsed=%v", err, time.Since(start))
+		}
 	}
 }

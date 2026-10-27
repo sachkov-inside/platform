@@ -90,7 +90,7 @@ def verify_pg_absence(output, project):
         if core_path.is_symlink() or core_path.stat().st_size > 65536: return failed
         core_owner=source_status.decode_json(core_path.read_bytes())
         if (type(core_owner) is not dict or set(core_owner) != {'project','containers','volumes','networks'}
-                or any(type(core_owner[key]) is not list or len(core_owner[key]) != count for key,count in (('containers',7),('volumes',4),('networks',2)))
+                or any(type(core_owner[key]) is not list or len(core_owner[key]) != count for key,count in (('containers',8),('volumes',4),('networks',2)))
                 or core_owner.get('project') != project or set(core_owner.get('networks',[])) != set(value['networks'])
                 or value['container'] in core_owner.get('containers',[]) or value['volume'] in core_owner.get('volumes',[])): return failed
         deadline = time.monotonic()+10
@@ -105,6 +105,6 @@ def verify_pg_absence(output, project):
                 if error.returncode != 1 or (error.stdout or '').strip() not in ('','[]') or (error.stderr or '').strip() != expected: return failed
             else: return failed
         core = json.loads((output/'cleanup.json').read_text()).get('source_freshness')
-        if core != {'outcome':'passed','containers':7,'volumes':4,'networks':2}: return failed
+        if core != {'outcome':'passed','containers':8,'volumes':4,'networks':2}: return failed
         return {'outcome':'passed','containers':8,'volumes':5,'networks':2}
     except (OSError,ValueError,KeyError,TypeError,RuntimeError,subprocess.SubprocessError): return failed

@@ -1,0 +1,445 @@
+--- parser.go
++++ parser.go
+@@ -13,6 +13,21 @@
+ //
+ // MetricsQL is backwards-compatible with PromQL.
+ func Parse(s string) (Expr, error) {
++	return parseWithBudget(s, nil)
++}
++
++// ParseBounded is the Inside project security overlay, not an upstream API.
++func ParseBounded(s string) (result Expr, err error) {
++	defer func() {
++		if failure := recover(); failure != nil {
++			if failure == errInsideComplexity { result, err = nil, errInsideComplexity } else { panic(failure) }
++		}
++	}()
++	insideSyntax(s)
++	return parseWithBudget(s, &insideBudget{})
++}
++
++func parseWithBudget(s string, budget *insideBudget) (Expr, error) {
+ 	// Parse s
+ 	e, err := parseInternal(s)
+ 	if err != nil {
+@@ -21,9 +36,10 @@
+ 
+ 	// Expand `WITH` expressions.
+ 	was := getDefaultWithArgExprs()
+-	if e, err = expandWithExpr(was, e); err != nil {
++	if e, err = expandWithExpr(budget, was, e); err != nil {
+ 		return nil, fmt.Errorf(`cannot expand WITH expressions: %s`, err)
+ 	}
++	if budget != nil { final := insideBudget{}; final.tree(e) }
+ 	e = removeParensExpr(e)
+ 	e = simplifyConstants(e)
+ 	if err := checkSupportedFunctions(e); err != nil {
+@@ -739,28 +755,29 @@
+ 	}
+ }
+ 
+-func expandWithExpr(was []*withArgExpr, e Expr) (Expr, error) {
++func expandWithExpr(budget *insideBudget, was []*withArgExpr, e Expr) (Expr, error) {
++	if budget != nil { budget.enter(e, len(was)); defer budget.leave() }
+ 	switch t := e.(type) {
+ 	case *BinaryOpExpr:
+-		left, err := expandWithExpr(was, t.Left)
+-		if err != nil {
+-			return nil, err
+-		}
+-		right, err := expandWithExpr(was, t.Right)
+-		if err != nil {
+-			return nil, err
+-		}
+-		groupModifierArgs, err := expandModifierArgs(was, t.GroupModifier.Args)
+-		if err != nil {
+-			return nil, err
+-		}
+-		joinModifierArgs, err := expandModifierArgs(was, t.JoinModifier.Args)
++		left, err := expandWithExpr(budget, was, t.Left)
++		if err != nil {
++			return nil, err
++		}
++		right, err := expandWithExpr(budget, was, t.Right)
++		if err != nil {
++			return nil, err
++		}
++		groupModifierArgs, err := expandModifierArgs(budget, was, t.GroupModifier.Args)
++		if err != nil {
++			return nil, err
++		}
++		joinModifierArgs, err := expandModifierArgs(budget, was, t.JoinModifier.Args)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+ 		var joinModifierPrefix *StringExpr
+ 		if t.JoinModifierPrefix != nil {
+-			jmp, err := expandWithExpr(was, t.JoinModifierPrefix)
++			jmp, err := expandWithExpr(budget, was, t.JoinModifierPrefix)
+ 			if err != nil {
+ 				return nil, err
+ 			}
+@@ -774,6 +791,7 @@
+ 			lse, lok := left.(*StringExpr)
+ 			rse, rok := right.(*StringExpr)
+ 			if lok && rok {
++				budget.take(1, len(lse.S) + len(rse.S))
+ 				se := &StringExpr{
+ 					S: lse.S + rse.S,
+ 				}
+@@ -789,27 +807,27 @@
+ 		pe := parensExpr{&be}
+ 		return &pe, nil
+ 	case *FuncExpr:
+-		args, err := expandWithArgs(was, t.Args)
++		args, err := expandWithArgs(budget, was, t.Args)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+ 		wa := getWithArgExpr(was, t.Name)
+ 		if wa != nil {
+-			return expandWithExprExt(was, wa, args)
++			return expandWithExprExt(budget, was, wa, args)
+ 		}
+ 		fe := *t
+ 		fe.Args = args
+ 		return &fe, nil
+ 	case *AggrFuncExpr:
+-		args, err := expandWithArgs(was, t.Args)
++		args, err := expandWithArgs(budget, was, t.Args)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+ 		wa := getWithArgExpr(was, t.Name)
+ 		if wa != nil {
+-			return expandWithExprExt(was, wa, args)
+-		}
+-		modifierArgs, err := expandModifierArgs(was, t.Modifier.Args)
++			return expandWithExprExt(budget, was, wa, args)
++		}
++		modifierArgs, err := expandModifierArgs(budget, was, t.Modifier.Args)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -818,7 +836,7 @@
+ 		ae.Modifier.Args = modifierArgs
+ 		return &ae, nil
+ 	case *parensExpr:
+-		exprs, err := expandWithArgs(was, *t)
++		exprs, err := expandWithArgs(budget, was, *t)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -832,6 +850,7 @@
+ 		var b []byte
+ 		for _, token := range t.tokens {
+ 			if isStringPrefix(token) {
++				budget.take(1, 4*len(token))
+ 				s, err := extractStringValue(token)
+ 				if err != nil {
+ 					return nil, err
+@@ -843,7 +862,7 @@
+ 			if wa == nil {
+ 				return nil, fmt.Errorf("missing %q value inside StringExpr", token)
+ 			}
+-			eNew, err := expandWithExprExt(was, wa, nil)
++			eNew, err := expandWithExprExt(budget, was, wa, nil)
+ 			if err != nil {
+ 				return nil, err
+ 			}
+@@ -854,33 +873,35 @@
+ 			if len(seSrc.tokens) > 0 {
+ 				panic(fmt.Errorf("BUG: seSrc.tokens must be empty; got %q", seSrc.tokens))
+ 			}
++			budget.take(1, 3*len(seSrc.S))
+ 			b = append(b, seSrc.S...)
+ 		}
++		budget.take(1, len(b))
+ 		se := &StringExpr{
+ 			S: string(b),
+ 		}
+ 		return se, nil
+ 	case *RollupExpr:
+-		eNew, err := expandWithExpr(was, t.Expr)
++		eNew, err := expandWithExpr(budget, was, t.Expr)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+ 		re := *t
+ 		re.Expr = eNew
+-		re.Window, err = expandDuration(was, re.Window)
++		re.Window, err = expandDuration(budget, was, re.Window)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("cannot parse window for %s: %w", re.Expr.AppendString(nil), err)
+ 		}
+-		re.Step, err = expandDuration(was, re.Step)
++		re.Step, err = expandDuration(budget, was, re.Step)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("cannot parse step in %s: %w", re.Expr.AppendString(nil), err)
+ 		}
+-		re.Offset, err = expandDuration(was, re.Offset)
++		re.Offset, err = expandDuration(budget, was, re.Offset)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("cannot parse offset in %s: %w", re.Expr.AppendString(nil), err)
+ 		}
+ 		if t.At != nil {
+-			atNew, err := expandWithExpr(was, t.At)
++			atNew, err := expandWithExpr(budget, was, t.At)
+ 			if err != nil {
+ 				return nil, err
+ 			}
+@@ -888,10 +909,11 @@
+ 		}
+ 		return &re, nil
+ 	case *withExpr:
++		budget.take(1 + len(was) + len(t.Was), 128*(len(was)+len(t.Was)))
+ 		wasNew := make([]*withArgExpr, 0, len(was)+len(t.Was))
+ 		wasNew = append(wasNew, was...)
+ 		wasNew = append(wasNew, t.Was...)
+-		eNew, err := expandWithExpr(wasNew, t.Expr)
++		eNew, err := expandWithExpr(budget, wasNew, t.Expr)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -922,6 +944,7 @@
+ 							// but value is nil
+ 							if lfe.IsPossibleMetricName {
+ 								var err error
++								budget.filters(lfsNew)
+ 								if lfsNew, localMetricName, err = checkAndPrependMetricNameFilter(lfsNew, localMetricName, lfe.Label); err != nil {
+ 									return nil, err
+ 								}
+@@ -929,7 +952,7 @@
+ 							}
+ 							return nil, fmt.Errorf("cannot find WITH template for %q inside %q", lfe.Label, t.AppendString(nil))
+ 						}
+-						eNew, err := expandWithExprExt(was, wa, []Expr{})
++						eNew, err := expandWithExprExt(budget, was, wa, []Expr{})
+ 						if err != nil {
+ 							return nil, err
+ 						}
+@@ -947,12 +970,13 @@
+ 								lfe.Label, t.AppendString(nil), wme.AppendString(nil))
+ 						}
+ 						if len(lfssSrc) == 1 {
++							budget.filters(lfssSrc[0])
+ 							lfsNew = append(lfsNew, lfssSrc[0]...)
+ 						}
+ 						continue
+ 					}
+ 					// convert lfe to LabelFilter.
+-					se, err := expandWithExpr(was, lfe.Value)
++					se, err := expandWithExpr(budget, was, lfe.Value)
+ 					if err != nil {
+ 						return nil, err
+ 					}
+@@ -961,11 +985,13 @@
+ 					lfeNew.Value = se.(*StringExpr)
+ 					lfeNew.IsNegative = lfe.IsNegative
+ 					lfeNew.IsRegexp = lfe.IsRegexp
++					budget.take(1, 256 + 4*len(lfe.Label) + 4*len(lfeNew.Value.S))
+ 					lf, err := lfeNew.toLabelFilter()
+ 					if err != nil {
+ 						return nil, err
+ 					}
+ 					if lf.isMetricNameFilter() {
++						budget.filters(lfsNew)
+ 						if lfsNew, localMetricName, err = checkAndPrependMetricNameFilter(lfsNew, localMetricName, lf.Value); err != nil {
+ 							return nil, err
+ 						}
+@@ -980,6 +1006,7 @@
+ 						haveCommonMetric = false
+ 					}
+ 				}
++				budget.filters(lfsNew)
+ 				lfsNew = removeDuplicateLabelFilters(lfsNew)
+ 				me.LabelFilterss = append(me.LabelFilterss, lfsNew)
+ 			}
+@@ -995,6 +1022,7 @@
+ 						}
+ 					}
+ 					if !haveNameClause {
++						budget.filters(lfs); budget.take(1, 128 + len(commonMetricName))
+ 						me.LabelFilterss[i] = prependMetricNameFilter(lfs, commonMetricName)
+ 					}
+ 				}
+@@ -1009,7 +1037,7 @@
+ 		if wa == nil {
+ 			return t, nil
+ 		}
+-		eNew, err := expandWithExprExt(was, wa, nil)
++		eNew, err := expandWithExprExt(budget, was, wa, nil)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -1043,7 +1071,8 @@
+ 			}
+ 			// {filters} doesn't contain `or`. Merge it with {... or ...} into {...,filters or ...,filters}
+ 			for _, lfs := range lfssSrc {
+-				lfsNew := append([]LabelFilter{}, lfs...)
++				budget.filters(lfs); budget.filters(t.LabelFilterss[0])
++			lfsNew := append([]LabelFilter{}, lfs...)
+ 				lfsNew = append(lfsNew, t.LabelFilterss[0][1:]...)
+ 				lfsNew = removeDuplicateLabelFilters(lfsNew)
+ 				lfssNew = append(lfssNew, lfsNew)
+@@ -1052,7 +1081,8 @@
+ 			// template_name{... or ...} where template_name is an ordinary {filters} without 'or'.
+ 			// Merge it into {filters,... or filters,...}
+ 			for _, lfs := range t.LabelFilterss {
+-				lfsNew := append([]LabelFilter{}, lfssSrc[0]...)
++				budget.filters(lfssSrc[0]); budget.filters(lfs)
++			lfsNew := append([]LabelFilter{}, lfssSrc[0]...)
+ 				lfsNew = append(lfsNew, lfs[1:]...)
+ 				lfsNew = removeDuplicateLabelFilters(lfsNew)
+ 				lfssNew = append(lfssNew, lfsNew)
+@@ -1086,10 +1116,11 @@
+ 	return append([]LabelFilter{lf}, lfs...)
+ }
+ 
+-func expandWithArgs(was []*withArgExpr, args []Expr) ([]Expr, error) {
++func expandWithArgs(budget *insideBudget, was []*withArgExpr, args []Expr) ([]Expr, error) {
++	budget.take(1 + len(args), 32*len(args))
+ 	dstArgs := make([]Expr, len(args))
+ 	for i, arg := range args {
+-		dstArg, err := expandWithExpr(was, arg)
++		dstArg, err := expandWithExpr(budget, was, arg)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -1098,7 +1129,7 @@
+ 	return dstArgs, nil
+ }
+ 
+-func expandDuration(was []*withArgExpr, d *DurationExpr) (*DurationExpr, error) {
++func expandDuration(budget *insideBudget, was []*withArgExpr, d *DurationExpr) (*DurationExpr, error) {
+ 	if d == nil {
+ 		return nil, nil
+ 	}
+@@ -1109,7 +1140,7 @@
+ 	if wa == nil {
+ 		return nil, fmt.Errorf("cannot find WITH template for %q", d.s)
+ 	}
+-	e, err := expandWithExprExt(was, wa, []Expr{})
++	e, err := expandWithExprExt(budget, was, wa, []Expr{})
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -1127,10 +1158,11 @@
+ 	}
+ }
+ 
+-func expandModifierArgs(was []*withArgExpr, args []string) ([]string, error) {
++func expandModifierArgs(budget *insideBudget, was []*withArgExpr, args []string) ([]string, error) {
+ 	if len(args) == 0 {
+ 		return nil, nil
+ 	}
++	budget.take(1 + len(args), 64*len(args))
+ 	dstArgs := make([]string, 0, len(args))
+ 	for _, arg := range args {
+ 		wa := getWithArgExpr(was, arg)
+@@ -1161,6 +1193,7 @@
+ 					return nil, fmt.Errorf("cannot use %q instead of %q in %s", pe.AppendString(nil), arg, args)
+ 				}
+ 				metricName := me.getMetricName()
++				budget.take(1, 64 + len(metricName))
+ 				dstArgs = append(dstArgs, metricName)
+ 			}
+ 			continue
+@@ -1180,7 +1213,7 @@
+ 	return filteredArgs, nil
+ }
+ 
+-func expandWithExprExt(was []*withArgExpr, wa *withArgExpr, args []Expr) (Expr, error) {
++func expandWithExprExt(budget *insideBudget, was []*withArgExpr, wa *withArgExpr, args []Expr) (Expr, error) {
+ 	if len(wa.Args) != len(args) {
+ 		if args == nil {
+ 			// This case is possible if metric name clashes with one of the WITH template name.
+@@ -1190,6 +1223,7 @@
+ 		}
+ 		return nil, fmt.Errorf("invalid number of args for %q; got %d; want %d", wa.Name, len(args), len(wa.Args))
+ 	}
++	budget.take(1 + len(was) + len(args), 128*(len(was)+len(args)))
+ 	wasNew := make([]*withArgExpr, 0, len(was)+len(args))
+ 	for _, waTmp := range was {
+ 		if waTmp == wa {
+@@ -1203,7 +1237,7 @@
+ 			Expr: arg,
+ 		})
+ 	}
+-	return expandWithExpr(wasNew, wa.Expr)
++	return expandWithExpr(budget, wasNew, wa.Expr)
+ }
+ 
+ func newMetricExpr(name string) *MetricExpr {
+@@ -2579,3 +2613,71 @@
+ func (lf *LabelFilter) isMetricNameFilter() bool {
+ 	return lf.Label == "__name__" && !lf.IsNegative && !lf.IsRegexp
+ }
++
++// Fixed project admission limits apply before parser recursion and before expansion allocation.
++// Bytes charge cumulative copies (including backing-array growth and map overhead), not merely
++// the final tree. Each HTTP request has its own budget; no mutable global accounting is used.
++var errInsideComplexity = fmt.Errorf("MetricsQL project complexity budget exceeded")
++type insideBudget struct { work, bytes, depth int }
++func (b *insideBudget) take(work, bytes int) {
++    if b == nil { return }
++    if work < 0 || bytes < 0 || work > 4096-b.work || bytes > (1<<20)-b.bytes { panic(errInsideComplexity) }
++    b.work += work; b.bytes += bytes
++}
++func (b *insideBudget) filters(filters []LabelFilter) {
++    if b == nil { return }
++    b.take(len(filters)+1, 256*len(filters))
++    for _, f := range filters { b.take(0, 4*(len(f.Label)+len(f.Value))) }
++}
++func (b *insideBudget) enter(e Expr, scope int) {
++    b.take(1, 256 + 32*scope)
++    b.depth++; if b.depth > 128 { panic(errInsideComplexity) }
++    switch t := e.(type) {
++    case *StringExpr:
++        b.take(0, 4*len(t.S) + 32*len(t.tokens))
++        for _, token := range t.tokens { b.take(0, 4*len(token)) }
++    case *MetricExpr:
++        for _, filters := range t.LabelFilterss { b.filters(filters) }
++        for _, filters := range t.labelFilterss {
++            b.take(len(filters), 256*len(filters))
++            for _, f := range filters { b.take(0, 4*len(f.Label)) }
++        }
++    }
++}
++func (b *insideBudget) leave() { b.depth-- }
++func (b *insideBudget) tree(e Expr) {
++    if e == nil { return }
++    b.enter(e, 0); defer b.leave()
++    switch t := e.(type) {
++    case *BinaryOpExpr:
++        b.tree(t.Left); b.tree(t.Right)
++        b.take(len(t.GroupModifier.Args)+len(t.JoinModifier.Args), 64*(len(t.GroupModifier.Args)+len(t.JoinModifier.Args)))
++        if t.JoinModifierPrefix != nil { b.tree(t.JoinModifierPrefix) }
++    case *FuncExpr:
++        for _, arg := range t.Args { b.tree(arg) }
++    case *AggrFuncExpr:
++        b.take(len(t.Modifier.Args), 64*len(t.Modifier.Args))
++        for _, arg := range t.Args { b.tree(arg) }
++    case *parensExpr:
++        for _, arg := range *t { b.tree(arg) }
++    case *RollupExpr:
++        b.tree(t.Expr)
++        if t.At != nil { b.tree(t.At) }
++    }
++}
++func insideSyntax(s string) {
++    if len(s) > 65536 { panic(errInsideComplexity) }
++    var lex lexer
++    lex.Init(s)
++    depth := 0
++    for tokens := 0; ; tokens++ {
++        if tokens > 1024 { panic(errInsideComplexity) }
++        if err := lex.Next(); err != nil { return } // The unchanged vendor parser reports syntax errors.
++        if isEOF(lex.Token) { return }
++        switch lex.Token {
++        case "(", "{", "[": depth++
++        case ")", "}", "]": depth--
++        }
++        if depth > 64 { panic(errInsideComplexity) }
++    }
++}

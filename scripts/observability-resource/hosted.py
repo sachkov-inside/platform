@@ -218,7 +218,7 @@ def prepare_images(source, disk, images, recorder, numeric, consumer):
     runtime.fixture.images({'schema': 1, 'source': source['checkout_sha'], 'owner': owner,
                             'backend': 'sha256:' + 'a'*64, 'foundation': 'sha256:' + 'b'*64}, source['checkout_sha'])
     pins = json.loads((binding.ROOT / 'infra/observability/pilot/inputs.lock.json').read_text())['images']
-    if set(pins) != set(runtime.pilot.SERVICES):
+    if set(pins) != set(runtime.pilot.SERVICES)-{'horizon'}:
         raise ValueError('resource_preload_service_set')
     for image in pins.values():
         if not isinstance(image, str) or not re.fullmatch(r'[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}', image):

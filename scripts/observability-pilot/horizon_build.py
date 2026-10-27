@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import sys
 import tarfile
@@ -22,7 +23,8 @@ VERSION='go1.26.4'
 def inputs():
     return {str(path.relative_to(ROOT)):hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted([*SOURCE.glob('*.go'), SOURCE/'go.mod', SOURCE/'go.sum',
-                            SOURCE/'toolchain.lock.json', Path(__file__), ROOT/'scripts/heavy-check/bounded.py'])}
+                            SOURCE/'toolchain.lock.json', SOURCE/'metricsql-security.patch',
+                            SOURCE/'metricsql-security.lock.json', Path(__file__), ROOT/'scripts/heavy-check/bounded.py'])}
 
 
 def architecture():
@@ -71,6 +73,40 @@ def unpack_sdk(raw,destination):
                 path.chmod(0o700 if item.mode&0o111 else 0o600)
 
 
+def parser_overlay(directory):
+    """Apply only the recorded exact-source security patch, with no fuzzy hunks."""
+    lock=json.loads((SOURCE/'metricsql-security.lock.json').read_text())
+    if lock['module']!='github.com/VictoriaMetrics/metricsql' or lock['version']!='v0.87.5':
+        raise ValueError('horizon_parser_module')
+    upstream=directory/'mod/github.com/!victoria!metrics/metricsql@v0.87.5/parser.go'
+    raw=upstream.read_bytes()
+    patch=(SOURCE/'metricsql-security.patch').read_bytes()
+    if hashlib.sha256(raw).hexdigest()!=lock['source_sha256'] or hashlib.sha256(patch).hexdigest()!=lock['patch_sha256']:
+        raise ValueError('horizon_parser_source')
+    original=raw.decode().splitlines(keepends=True)
+    lines=patch.decode().splitlines(keepends=True)
+    if lines[:2]!=['--- parser.go\n','+++ parser.go\n']:raise ValueError('horizon_parser_patch')
+    result=[];position=0;index=2
+    while index<len(lines):
+        match=re.fullmatch(r'@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@\n',lines[index])
+        if match is None:raise ValueError('horizon_parser_hunk')
+        beginning=int(match[1])-1
+        if beginning<position:raise ValueError('horizon_parser_hunk')
+        result.extend(original[position:beginning]);position=beginning;index+=1
+        while index<len(lines) and not lines[index].startswith('@@ '):
+            line=lines[index];index+=1
+            if line[0] in ' -':
+                if position>=len(original) or original[position]!=line[1:]:raise ValueError('horizon_parser_context')
+                position+=1
+            if line[0] in ' +':result.append(line[1:])
+            elif line[0]!='-':raise ValueError('horizon_parser_patch')
+    result.extend(original[position:])
+    patched=directory/'parser-security.go';patched.write_text(''.join(result));patched.chmod(0o600)
+    overlay=directory/'overlay.json'
+    overlay.write_text(json.dumps({'Replace':{str(upstream):str(patched)}})+'\n');overlay.chmod(0o600)
+    return overlay
+
+
 def build(output,download,*,run=execute,check=False):
     directory=output/'horizon'
     expected={'schema':1,'toolchain':VERSION,'target_os':'linux','target_architecture':architecture(),'inputs':inputs()}
@@ -78,29 +114,31 @@ def build(output,download,*,run=execute,check=False):
     if (directory/'binary.json').exists():return verify(output)
     host={'Darwin':'darwin','Linux':'linux'}.get(platform.system())
     if host is None:raise ValueError('horizon_host')
-    go=shutil.which('go')
-    wanted=f'go version {VERSION} {host}/{architecture()}\n'.encode()
-    if go is None or run([go,'version'],timeout=5)!=wanted:
-        lock=json.loads((SOURCE/'toolchain.lock.json').read_text())
-        if lock['version']!=VERSION:raise ValueError('horizon_toolchain_version')
-        asset=next(item for item in lock['assets'] if item['os']==host and item['architecture']==architecture())
-        raw=download(asset)
-        if len(raw)!=asset['size_bytes'] or 'sha256:'+hashlib.sha256(raw).hexdigest()!=asset['digest']:raise ValueError('horizon_sdk_digest')
-        sdk=directory/'sdk';sdk.mkdir(mode=0o700);unpack_sdk(raw,sdk);go=str(sdk/'go/bin/go')
-        if run([go,'version'],timeout=5)!=wanted:raise ValueError('horizon_toolchain_version')
-    for name in ('cache','mod','tmp','home'):(directory/name).mkdir(mode=0o700)
-    environment={'CGO_ENABLED':'0','GOOS':'linux','GOARCH':architecture(),'GOTOOLCHAIN':'local',
-        'GOFLAGS':'-mod=readonly -modcacherw','GOPROXY':'https://proxy.golang.org','GOSUMDB':'sum.golang.org',
-        'GOCACHE':str(directory/'cache'),'GOMODCACHE':str(directory/'mod'),'TMPDIR':str(directory/'tmp'),
-        'HOME':str(directory/'home'),'GOMAXPROCS':'2','GOMEMLIMIT':'256MiB'}
     target=directory/'guard'
     try:
-        run(['/usr/bin/env',*(key+'='+value for key,value in environment.items()),go,'-C',str(SOURCE),
-             'build','-trimpath','-buildvcs=false','-ldflags=-s -w','-o',str(target),'.'],timeout=BUILD_SECONDS)
+        go=shutil.which('go')
+        wanted=f'go version {VERSION} {host}/{architecture()}\n'.encode()
+        if go is None or run(['/usr/bin/env','GOENV=off','GOTOOLCHAIN=local',go,'version'],timeout=5)!=wanted:
+            lock=json.loads((SOURCE/'toolchain.lock.json').read_text())
+            if lock['version']!=VERSION:raise ValueError('horizon_toolchain_version')
+            asset=next(item for item in lock['assets'] if item['os']==host and item['architecture']==architecture())
+            raw=download(asset)
+            if len(raw)!=asset['size_bytes'] or 'sha256:'+hashlib.sha256(raw).hexdigest()!=asset['digest']:raise ValueError('horizon_sdk_digest')
+            sdk=directory/'sdk';sdk.mkdir(mode=0o700);unpack_sdk(raw,sdk);go=str(sdk/'go/bin/go')
+            if run(['/usr/bin/env','GOENV=off','GOTOOLCHAIN=local',go,'version'],timeout=5)!=wanted:raise ValueError('horizon_toolchain_version')
+        for name in ('cache','mod','tmp','home'):(directory/name).mkdir(mode=0o700)
+        environment={'GOENV':'off','CGO_ENABLED':'0','GOOS':'linux','GOARCH':architecture(),'GOTOOLCHAIN':'local',
+            'GOFLAGS':'-mod=readonly -modcacherw','GOPROXY':'https://proxy.golang.org','GOSUMDB':'sum.golang.org',
+            'GOCACHE':str(directory/'cache'),'GOMODCACHE':str(directory/'mod'),'TMPDIR':str(directory/'tmp'),
+            'HOME':str(directory/'home'),'GOMAXPROCS':'2','GOMEMLIMIT':'256MiB'}
+        prefix=['/usr/bin/env',*(key+'='+value for key,value in environment.items()),go,'-C',str(SOURCE)]
+        run([*prefix,'mod','download'],timeout=BUILD_SECONDS)
+        overlay=parser_overlay(directory)
+        run([*prefix,'build','-overlay='+str(overlay),'-trimpath','-buildvcs=false','-ldflags=-s -w','-o',str(target),'.'],timeout=BUILD_SECONDS)
         if check:
             test_environment={**environment,'GOOS':host}
             run(['/usr/bin/env',*(key+'='+value for key,value in test_environment.items()),go,'-C',str(SOURCE),
-                 'test','-count=1','-timeout=20s','./...'],timeout=BUILD_SECONDS)
+                 'test','-overlay='+str(overlay),'-count=1','-timeout=20s','./...'],timeout=BUILD_SECONDS)
         target.chmod(0o500)
         binding={**expected,'binary_sha256':hashlib.sha256(target.read_bytes()).hexdigest()}
         (directory/'binary.json').write_text(json.dumps(binding,sort_keys=True)+'\n');(directory/'binary.json').chmod(0o600)
@@ -110,15 +148,14 @@ def build(output,download,*,run=execute,check=False):
     finally:
         primary=sys.exc_info()[1]
         cleanup_failed=False
-        for name in ('cache','mod','tmp','home','sdk'):
+        for name in ('cache','mod','tmp','home','sdk','parser-security.go','overlay.json'):
             path=directory/name
             try:
-                if path.exists() and not path.is_symlink():
-                    # Applied only to this build's private cache. Never follow a cache symlink.
+                if path.is_file() and not path.is_symlink():path.unlink()
+                elif path.exists() and not path.is_symlink():
                     for child in path.rglob('*'):
                         if child.is_dir() and not child.is_symlink():child.chmod(0o700)
-                    path.chmod(0o700)
-                    shutil.rmtree(path)
+                    path.chmod(0o700);shutil.rmtree(path)
             except OSError:cleanup_failed=True
         if cleanup_failed:
             target.unlink(missing_ok=True);(directory/'binary.json').unlink(missing_ok=True)

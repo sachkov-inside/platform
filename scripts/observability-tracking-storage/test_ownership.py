@@ -32,11 +32,11 @@ class TrackingOwnership(unittest.TestCase):
             plan=ownership.plan(output)
             self.assertEqual(json.loads((output/'compose.json').read_text()),plan)
             self.assertEqual(set(plan['services']),set(ownership.SERVICES))
-            self.assertEqual(len(plan['services']),8)
+            self.assertEqual(len(plan['services']),9)
             self.assertEqual(len(plan['volumes']),5)
             self.assertEqual(len(plan['networks']),2)
-            self.assertEqual(sum(float(value['cpus']) for value in plan['services'].values()),2)
-            self.assertEqual(sum(int(value['mem_limit'][:-1]) for value in plan['services'].values()),4096)
+            self.assertEqual(sum(float(value['cpus']) for value in plan['services'].values()),2.1)
+            self.assertEqual(sum(int(value['mem_limit'][:-1]) for value in plan['services'].values()),4224)
             self.assertEqual(plan['services']['postgres']['image'],ownership.PG_IMAGE)
             self.assertEqual(plan['services']['postgres']['logging'],{'driver':'none'})
             self.assertEqual(plan['services']['postgres']['volumes'],['postgres:/var/lib/postgresql'])
@@ -48,10 +48,10 @@ class TrackingOwnership(unittest.TestCase):
         value={'project':project,'container':'b'*64,'volume':project+'_postgres','networks':['c'*64,'d'*64]}
         (output/'tracking-pg-owned.json').write_text(json.dumps(value))
         (output/'source-freshness-owned.json').write_text(json.dumps({'project':project,
-            'containers':['e'+str(i)*63 for i in range(7)],
+            'containers':['e'+str(i)*63 for i in range(8)],
             'volumes':[project+'_'+name for name in ('metrics','logs','traces','grafana')],
             'networks':['c'*64,'d'*64]}))
-        (output/'cleanup.json').write_text(json.dumps({'source_freshness':{'outcome':'passed','containers':7,'volumes':4,'networks':2}}))
+        (output/'cleanup.json').write_text(json.dumps({'source_freshness':{'outcome':'passed','containers':8,'volumes':4,'networks':2}}))
         return project,value
 
     def test_absence_needs_exact_missing_container_and_volume_plus_successful_core_proof(self):
@@ -138,9 +138,9 @@ class ActualOwnershipRows(unittest.TestCase):
                     return json.dumps(actual[argv[-1]])
                 if case=='accepted':
                     targets=ownership.TrackingTargets(output,compose,plan,read)
-                    self.assertEqual(len(targets.targets),8)
+                    self.assertEqual(len(targets.targets),9)
                     self.assertEqual(targets.postgres(),ids['postgres'])
-                    self.assertEqual(len(json.loads((output/'source-freshness-owned.json').read_text())['containers']),7)
+                    self.assertEqual(len(json.loads((output/'source-freshness-owned.json').read_text())['containers']),8)
                     self.assertEqual(json.loads((output/'tracking-pg-owned.json').read_text())['container'],ids['postgres'])
                 else:
                     with self.assertRaises(RuntimeError): ownership.TrackingTargets(output,compose,plan,read)

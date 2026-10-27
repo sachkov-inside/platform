@@ -64,7 +64,7 @@ class PrivatePlan(unittest.TestCase):
         import pg_ownership
         pg_ownership.prepare(output);fake=FakePilot(output);fake.plan=pg_ownership.plan(output);fake.ids['postgres']='8'*64
         target=pg_ownership.Targets(output,fake.compose,fake.plan,fake.command)
-        self.assertEqual(len(target.targets),8)
+        self.assertEqual(len(target.targets),9)
         self.assertEqual(set(json.loads((output/'tracking-pg-owned.json').read_text())),{'project','container','volume','networks'})
         self.assertEqual(target.postgres(),'8'*64)
         return target,fake
@@ -73,7 +73,7 @@ class PrivatePlan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target,fake=self.targets(Path(directory).resolve()/'private')
             witness=json.loads((target.output/'source-freshness-owned.json').read_text())
-            self.assertEqual((len(witness['containers']),len(witness['volumes']),len(witness['networks'])),(7,4,2))
+            self.assertEqual((len(witness['containers']),len(witness['volumes']),len(witness['networks'])),(8,4,2))
             fake.ids['postgres']='9'*64
             with self.assertRaises((ValueError,RuntimeError)):target.postgres()
 

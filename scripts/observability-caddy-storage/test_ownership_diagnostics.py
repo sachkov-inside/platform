@@ -46,7 +46,7 @@ class Runtime:
     def fail_worker(self,case,extra=()):
         with ExitStack() as stack:
             for context in (patch.object(caddy_storage.native_fault,'owner',return_value=self.owner),
-                patch.object(pilot,'worker_storage_guard',return_value=nullcontext()),patch.object(pilot,'install_plugin'),
+                patch.object(pilot,'worker_storage_guard',return_value=nullcontext()),patch.object(pilot,'install_horizon'),patch.object(pilot,'install_plugin'),
                 patch.object(pilot,'assert_docker_identity'),patch.object(pilot,'command',side_effect=self.read),*extra):stack.enter_context(context)
             try:caddy_storage.worker(self.output)
             except BaseException as error:caught=error
@@ -88,7 +88,7 @@ class OwnershipDiagnostics(unittest.TestCase):
             self.assertNotIn('private-controlled',json.dumps(run))
 
     def test_all_139_literal_role_gate_phases_reach_the_actual_owning_boundary(self):
-        expected_roles=('metrics','logs','traces','alloy','vmauth','gateway','grafana')
+        expected_roles=('metrics','logs','traces','alloy','vmauth','gateway','grafana','horizon')
         expected_gates=('lookup_read','lookup_empty','lookup_id','lookup_duplicate','inspect_read','inspect_decode',
             'inspect_shape','inspect_id','inspect_image','inspect_project','inspect_service','inspect_config',
             'inspect_mount_plan','inspect_mount_shape','inspect_mount_set','inspect_network_set','inspect_network_ids',
@@ -114,7 +114,7 @@ class OwnershipDiagnostics(unittest.TestCase):
                     self.assertEqual(run['phase'],'ownership_'+role+'_'+gate)
                     self.assertEqual(run['reason'],'contract')
         self.assertEqual(observed,expected)
-        self.assertEqual(len(observed),139)
+        self.assertEqual(len(observed),158)
         self.assertEqual(set(evidence.OWNERSHIP_PHASES),expected)
         for phase in expected:
             run=evidence.Run();run.start(phase);run.fail('contract');record=evidence.validate(run.snapshot())
@@ -168,6 +168,7 @@ class OwnershipDiagnostics(unittest.TestCase):
             for owner_type in (baseline,core.OwnedTargets):
                 with tempfile.TemporaryDirectory() as directory:
                     runtime=Runtime(directory);access=[]
+                    if owner_type is baseline:runtime.fake.plan['services'].pop('horizon')
                     def change(argv,result):
                         if argv[:4]!=['docker','inspect','--format',core.INSPECT] or argv[-1]!=runtime.fake.ids['metrics']:return result
                         item=json.loads(result)
@@ -188,6 +189,9 @@ class OwnershipDiagnostics(unittest.TestCase):
                     def instrument(raw):
                         value=actual_decode(raw)
                         if type(value) is dict:
+                            # Preserve the frozen original reader trace; the added guard's
+                            # schema/mount/UID negatives are exercised by the all-role cases.
+                            if value.get('service')=='horizon':return value
                             if type(value.get('mounts')) is list:value['mounts']=[Access(m) for m in value['mounts']]
                             return Access(value)
                         return value
@@ -198,6 +202,18 @@ class OwnershipDiagnostics(unittest.TestCase):
                             targets.check('metrics')
                             outcome=('valid',json.loads((runtime.output/'source-freshness-owned.json').read_text()))
                     commands=[[part.replace(str(runtime.output),'OWN_OUTPUT') for part in argv] for argv in runtime.commands]
+                    if owner_type is core.OwnedTargets:
+                        guard_id=runtime.fake.ids['horizon']
+                        if outcome[0]=='valid':
+                            self.assertEqual(len(outcome[1]['containers']),8)
+                            self.assertIn(guard_id,outcome[1]['containers'])
+                            outcome[1]['containers'].remove(guard_id)
+                        guard_commands=[command for command in commands if command[-1] in ('horizon',guard_id)]
+                        if guard_commands:
+                            self.assertEqual(guard_commands,[
+                                [*runtime.fake.compose[:5],'OWN_OUTPUT/compose.json','ps','-q','horizon'],
+                                ['docker','inspect','--format',core.INSPECT,guard_id]])
+                        commands=[command for command in commands if command[-1] not in ('horizon',guard_id)]
                     outcomes.append((outcome,commands,access))
             with self.subTest(case=case):self.assertEqual(outcomes[0],outcomes[1])
 
@@ -320,10 +336,10 @@ class OwnershipDiagnostics(unittest.TestCase):
             self.assertEqual(run['cases']['logging'],'passed');self.assertEqual(run['cases']['identity'],'unrun')
             self.assertTrue((runtime.output/'source-freshness-owned.json').exists())
             ownership=[phase for phase,state,logging in written if phase in evidence.OWNERSHIP_PHASES and logging=='unrun']
-            self.assertEqual([phase for phase,state,logging in written if phase in evidence.OWNERSHIP_PHASES and logging=='passed'],['ownership_grafana_runtime_contract'])
+            self.assertEqual([phase for phase,state,logging in written if phase in evidence.OWNERSHIP_PHASES and logging=='passed'],['ownership_horizon_runtime_contract'])
             allowed={'ownership_plan','ownership_witness'}|{'ownership_'+role+'_'+gate for role in core.CORE_ROLES for gate in ('lookup_read','inspect_read','runtime_read')}
             self.assertEqual(set(ownership),allowed)
-            self.assertEqual(len(ownership),24)  # Two real plan reads, three reads per role, one witness write.
+            self.assertEqual(len(ownership),27)  # Two real plan reads, three reads per role, one witness write.
 
     def test_public_phase_decoder_refuses_invalid_present_or_hostile_values(self):
         import artifact
@@ -392,6 +408,9 @@ class OwnershipDiagnostics(unittest.TestCase):
                 for owner_type in (baseline,core.OwnedTargets):
                     with tempfile.TemporaryDirectory() as directory:
                         runtime=Runtime(directory)
+                        # Compare the frozen original seven-role behavior; only the added
+                        # guard is projected from its baseline plan, never from current ownership.
+                        if owner_type is baseline:runtime.fake.plan['services'].pop('horizon')
                         targets=owner_type(runtime.output,runtime.fake.compose,runtime.fake.plan,runtime.read)
                         runtime.commands=[]
                         try:

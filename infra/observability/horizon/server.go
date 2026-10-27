@@ -90,7 +90,7 @@ func (g *guard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				start, err = instant(params.Get("time"), start)
 				end = start
 			} else {
-				start, err = instant(params.Get("start"), start-3600000)
+				start, err = instant(params.Get("start"), start-silence)
 				if err == nil {
 					end, err = instant(params.Get("end"), end)
 				}

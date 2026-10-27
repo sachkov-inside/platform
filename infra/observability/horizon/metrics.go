@@ -24,7 +24,7 @@ func proveMetrics(query string, start, end, step, cutoff int64) error {
 	if len(query) > 65536 || step <= 0 || step > metricsHorizon || start > end {
 		return errHorizon
 	}
-	expr, err := metricsql.Parse(query)
+	expr, err := metricsql.ParseBounded(query)
 	if err != nil {
 		return errHorizon
 	}

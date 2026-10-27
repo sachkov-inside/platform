@@ -7,7 +7,16 @@ human/agent key and owns the finite external route map. Logs use their separate 
 `extra_filters=_time:14d` enforcement.
 
 Metrics use official `metricsql v0.87.5`, identical to VM `v1.154.0`'s module pin. The parser expands
-WITH; the proof visits every resulting expression. A conservative lower bound covers raw rollup
+WITH. A checked-in Inside security patch adds mandatory `ParseBounded`; it is not upstream
+behavior. Acquisition verifies the exact upstream parser and patch digests before applying a Go
+source overlay. Both query and selector paths require that symbol, so an unpatched build fails.
+The official lexer admits at most64KiB/1,024 tokens/64 delimiter levels before recursive parsing.
+A per-call budget then stops expansion before allocation at4,096 work units,128 recursive levels
+and1MiB cumulative charged copies (strings, scopes, arguments and label-template merges).
+A separate bounded tree check precedes the vendor cleanup/constant/function passes. These are
+admission limits, not a measured RSS claim. Ordinary WITH expressions and vendor default macros
+remain supported; inputs exceeding the budget are refused with a closed error. The retention
+proof visits every resulting expression. A conservative lower bound covers raw rollup
 lookbehind, explicit windows/offsets, implicit and explicit subqueries, and alignment. Dynamic @
 expressions whose evaluation time cannot be proven are refused. Literal @, start()/end(), fixed
 historical evaluation time, timestamp_with_name and keep_metric_names remain supported. Requests

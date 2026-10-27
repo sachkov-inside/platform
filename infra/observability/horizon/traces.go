@@ -52,6 +52,9 @@ func filterTraces(raw []byte, cutoffMicro int64) ([]byte, error) {
 		trace["spans"], _ = json.Marshal(selected)
 		trace["processes"], _ = json.Marshal(used)
 		trace["warnings"] = json.RawMessage("null")
+		if len(selected) < len(spans) {
+			trace["warnings"], _ = json.Marshal([]string{"Spans outside the retained 14-day history were omitted."})
+		}
 		// Pinned Jaeger trace has only traceID/spans/processes/warnings; project those owned fields.
 		kept = append(kept, map[string]json.RawMessage{"traceID": trace["traceID"], "spans": trace["spans"], "processes": trace["processes"], "warnings": trace["warnings"]})
 	}

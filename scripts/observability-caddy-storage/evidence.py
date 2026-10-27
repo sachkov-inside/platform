@@ -5,7 +5,7 @@ MAX_BYTES = 8192
 CASES = ('logging', 'identity', 'native_labels', 'http_get', 'http_post',
          'unauthorized', 'fallback', 'body_limit', 'upstream_error', 'privacy',
          'partition', 'mcp', 'gateway_unavailable', 'alloy_stale', 'counter_reset', 'inflight')
-OWNERSHIP_ROLES = ('metrics', 'logs', 'traces', 'alloy', 'vmauth', 'gateway', 'grafana')
+OWNERSHIP_ROLES = ('metrics', 'logs', 'traces', 'alloy', 'vmauth', 'gateway', 'grafana', 'horizon')
 OWNERSHIP_GATES = ('lookup_read', 'lookup_empty', 'lookup_id', 'lookup_duplicate',
     'inspect_read', 'inspect_decode', 'inspect_shape', 'inspect_id', 'inspect_image',
     'inspect_project', 'inspect_service', 'inspect_config', 'inspect_mount_plan',

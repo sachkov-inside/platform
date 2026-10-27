@@ -19,6 +19,9 @@ func TestMixedJaegerTraceDoesNotReturnExpiredSpanOrItsProcess(t *testing.T) {
 	if string(got["data"]) == "[]" || contains(result, "expired") || contains(result, "1111111111111111") {
 		t.Fatalf("mixed trace leaked or discarded retained span: %s", result)
 	}
+	if !contains(result, "Spans outside the retained 14-day history were omitted.") {
+		t.Fatal("windowed trace was not marked incomplete")
+	}
 	if !contains(result, "2222222222222222") {
 		t.Fatal("retained span missing")
 	}

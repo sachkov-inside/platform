@@ -13,7 +13,7 @@ class NativeHostBoundary(unittest.TestCase):
             output=Path(directory).resolve();output.chmod(0o700)
             (output/'owner.json').write_text('{}')
             cleanup={'diagnostics':'passed','down':'passed','residue':'passed',
-                     'source_freshness':{'outcome':'passed','containers':7,'volumes':4,'networks':2.0}}
+                     'source_freshness':{'outcome':'passed','containers':8,'volumes':4,'networks':2.0}}
             (output/'cleanup.json').write_text(json.dumps(cleanup))
             with self.assertRaises(RuntimeError):caddy_storage.verify_cleanup(output)
 

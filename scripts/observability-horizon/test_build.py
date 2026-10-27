@@ -18,15 +18,18 @@ class GuardAcquisition(unittest.TestCase):
             output=Path(root);horizon_build.prepare(output);calls=[]
             def run(args,**kwargs):
                 calls.append((args,kwargs))
+                if args[-2:]==['mod','download']:return b''
                 if args[-1]=='version':return f'go version go1.26.4 {platform.system().lower()}/{horizon_build.architecture()}\n'.encode()
                 self.assertIn('CGO_ENABLED=0',args);self.assertIn('GOOS=linux',args)
                 Path(args[args.index('-o')+1]).write_bytes(b'\x7fELFclosed-fixture')
                 return b''
-            with patch.object(horizon_build.shutil,'which',return_value='/fixed/go'):
+            with patch.object(horizon_build.shutil,'which',return_value='/fixed/go'), \
+                    patch.object(horizon_build,'parser_overlay',return_value=output/'horizon/overlay.json'):
                 result=horizon_build.build(output,lambda _:self.fail('unexpected download'),run=run)
             self.assertEqual(result['target_os'],'linux');self.assertEqual(len(result['binary_sha256']),64)
             self.assertEqual(horizon_build.verify(output),result)
             self.assertTrue(all(0<options['timeout']<=120 for _,options in calls))
+            self.assertTrue(any('-overlay='+str(output/'horizon/overlay.json') in args for args,_ in calls))
             self.assertFalse(any((output/'horizon'/name).exists() for name in ('mod','cache','tmp','home','sdk')))
             (output/'horizon/guard').chmod(0o700)
             with self.assertRaisesRegex(ValueError,'horizon_binary_changed'):horizon_build.verify(output)

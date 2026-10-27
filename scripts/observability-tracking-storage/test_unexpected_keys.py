@@ -494,7 +494,7 @@ class PersistenceContracts(unittest.TestCase):
                 def result(path,_value):
                     if path.name=='tracking-storage.json':events.append('result')
                 with ExitStack() as stack:
-                    for target,name,value in ((storage.pilot,'worker_storage_guard',guard),(storage.pilot,'install_plugin',lambda *_:None),
+                    for target,name,value in ((storage.pilot,'worker_storage_guard',guard),(storage.pilot,'install_horizon',lambda *_:None),(storage.pilot,'install_plugin',lambda *_:None),
                         (storage.pilot,'command',lambda *_args,**_kwargs:'none'),(storage.ownership,'plan',lambda *_:{}),
                         (storage.ownership,'TrackingTargets',lambda *_:SimpleNamespace(targets={'alloy':{'id':'a'},'postgres':{'id':'p'}})),
                         (storage.pilot,'verify_trace_store_logging',lambda *_:None),(storage.pilot,'await_otlp_ready',lambda **_:None),

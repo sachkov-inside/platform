@@ -284,7 +284,7 @@ class ScenarioTests(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, args, output='[]', stderr=message + '\n')
             result = scenario.verify_cleanup(output, PROJECT, read=gone, clock=lambda: 0)
             self.assertEqual(result, {'outcome': 'passed', 'containers': 8, 'volumes': 4, 'networks': 2})
-            self.assertEqual(len(calls), 13)
+            self.assertEqual(len(calls), 14)
             def ambiguous(args, **_):
                 raise subprocess.CalledProcessError(1, args, output='', stderr='daemon private-secret unavailable')
             result = scenario.verify_cleanup(output, PROJECT, read=ambiguous, clock=lambda: 0)
