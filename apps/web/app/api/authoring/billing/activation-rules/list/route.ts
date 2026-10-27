@@ -1,4 +1,4 @@
-import { handleListActivationRules } from "@/features/billing-admin.server";
+import { handleListCourseActivationRules } from "@/features/course-activation-rules.server";
 export function POST(request: Request): Promise<Response> {
-  return handleListActivationRules(request);
+  return handleListCourseActivationRules(request);
 }

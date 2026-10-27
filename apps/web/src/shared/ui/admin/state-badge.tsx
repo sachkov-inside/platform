@@ -27,6 +27,16 @@ export const adminStates = {
   "product.pinned": { label: "На главной", tone: "positive" },
   "submission.awaiting": { label: "Новая", tone: "attention" },
   "submission.commented": { label: "Прокомментирована", tone: "positive" },
+  // Продажа продукта (#1718): положительный тон только там, где продажа принимает оплату.
+  "sale.unpriced": { label: "Нет цены", tone: "neutral" },
+  "sale.closed": { label: "Продажи закрыты", tone: "neutral" },
+  "sale.announcement": { label: "Анонс", tone: "neutral" },
+  "sale.preorder": { label: "Предзаказ", tone: "positive" },
+  "sale.running": { label: "Поток идёт", tone: "positive" },
+  "sale.between": { label: "Между потоками", tone: "positive" },
+  "sale.archived": { label: "Продукт в архиве", tone: "muted" },
+  "activationRule.published": { label: "Опубликовано", tone: "positive" },
+  "activationRule.paused": { label: "Приостановлено", tone: "muted" },
 } as const satisfies Record<string, AdminStateDefinition>;
 
 export type AdminStateKey = keyof typeof adminStates;

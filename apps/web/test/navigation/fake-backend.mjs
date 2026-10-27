@@ -21,6 +21,7 @@ import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
 import { contentCollectionsRoute } from "./content-collections-backend.mjs";
+import { productSaleRoute } from "./product-sale-backend.mjs";
 import {
   holdNavigationTasks,
   navigationTaskRoute,
@@ -1103,6 +1104,8 @@ const server = createServer(async (request, response) => {
   if (materials !== null) return send(materials.status, materials.value);
   const collections = await contentCollectionsRoute(request, url, readBody);
   if (collections !== null) return send(collections.status, collections.value);
+  const sale = await productSaleRoute(request, url, readBody);
+  if (sale !== null) return send(sale.status, sale.value);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, productId } = homePinSchema.parse(

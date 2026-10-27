@@ -70,6 +70,9 @@ test.beforeEach(async ({ context, request, baseURL }) => {
   expect((await request.post(`${backend}/__collections/reset`)).ok()).toBe(
     true,
   );
+  expect((await request.post(`${backend}/__product-sale/reset`)).ok()).toBe(
+    true,
+  );
   await context.addCookies([await authorCookie(baseURL)]);
 });
 
@@ -105,15 +108,15 @@ test("products list opens a product whose tabs live in the address and keep the 
     page.getByRole("list", { name: "Материалы продукта" }),
   ).toContainText("Первый шаг программы");
 
-  await tab("Описание и обложка").click();
+  await tab("Описание и витрина").click();
   await expect(page).toHaveURL(
     `/authoring/products/${architectureId}?tab=description`,
   );
   const summary = page.getByRole("textbox", { name: "Краткое описание" });
   await summary.fill("Черновик описания продукта");
-  await tab("Настройки").click();
+  await tab("Сообщество и активация").click();
   await expect(page).toHaveURL(
-    `/authoring/products/${architectureId}?tab=settings`,
+    `/authoring/products/${architectureId}?tab=community`,
   );
   await expect(summary).toBeHidden();
 
@@ -121,7 +124,7 @@ test("products list opens a product whose tabs live in the address and keep the 
   await expect(page).toHaveURL(
     `/authoring/products/${architectureId}?tab=description`,
   );
-  await expect(tab("Описание и обложка")).toHaveAttribute(
+  await expect(tab("Описание и витрина")).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -132,7 +135,7 @@ test("products list opens a product whose tabs live in the address and keep the 
   await expect(page).toHaveURL(`/authoring/products/${architectureId}`);
   await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
   await page.goForward();
-  await expect(tab("Описание и обложка")).toHaveAttribute(
+  await expect(tab("Описание и витрина")).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -149,6 +152,90 @@ test("an unknown product tab falls back to the programme (#1720)", async ({
   await expect(
     page.getByRole("list", { name: "Материалы продукта" }),
   ).toBeVisible();
+});
+
+test("old product tab links open the programme and the description (#1718)", async ({
+  page,
+}) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=artifacts`);
+  await expect(
+    page.getByRole("tab", { name: "Программа", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Артефакты" })).toBeVisible();
+
+  await page.goto(`/authoring/products/${architectureId}?tab=settings`);
+  await expect(
+    page.getByRole("tab", { name: "Описание и витрина", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("button", { name: "Снять закреп с главной" }),
+  ).toBeVisible();
+});
+
+test("the sale tab saves the price and opens and closes sales with a confirmation (#1718)", async ({
+  page,
+}) => {
+  await page.goto(`/authoring/products/${architectureId}`);
+  const tab = (name: string) => page.getByRole("tab", { name, exact: true });
+  await tab("Продажа").click();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=sale`,
+  );
+  const panel = page.getByRole("tabpanel", { name: "Продажа" });
+  const badge = panel.locator(".admin-badge");
+  await expect(badge).toHaveText("Продажи закрыты");
+  await expectAccessibleWithoutOverflow(page);
+
+  const amount = panel.getByRole("textbox", { name: "Цена, ₽" });
+  await expect(amount).toHaveValue(/^29\s900$/u);
+  await amount.fill("34 900");
+  const saved = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname ===
+      "/api/authoring/billing/product-prices/save",
+  );
+  await panel.getByRole("button", { name: "Сохранить цену" }).click();
+  expect((await saved).status()).toBe(200);
+  await expect(panel.getByRole("status")).toHaveText("Цена сохранена.");
+  await expect(amount).toHaveValue(/^34\s900$/u);
+
+  await panel.getByRole("button", { name: "Открыть продажи" }).click();
+  const opening = page.getByRole("dialog", { name: "Открыть продажи?" });
+  await expect(opening).toContainText("34");
+  await expectAccessibleWithoutOverflow(page);
+  await opening.getByRole("button", { name: "Открыть продажи" }).click();
+  await expect(opening).toBeHidden();
+  await expect(panel.getByRole("status")).toHaveText("Продажи открыты.");
+  await expect(badge).toHaveText("Предзаказ");
+
+  await panel.getByRole("button", { name: "Закрыть продажи" }).click();
+  const closing = page.getByRole("dialog", { name: "Закрыть продажи?" });
+  await expect(closing).toContainText("Закрытие не отзывает полученный доступ");
+  await closing.getByRole("button", { name: "Отмена" }).click();
+  await expect(closing).toBeHidden();
+  await expect(badge).toHaveText("Предзаказ");
+  await panel.getByRole("button", { name: "Закрыть продажи" }).click();
+  await closing.getByRole("button", { name: "Закрыть продажи" }).click();
+  await expect(panel.getByRole("status")).toHaveText("Продажи закрыты.");
+  await expect(badge).toHaveText("Продажи закрыты");
+
+  // Вкладки живут в адресе: «назад» возвращает программу, а вкладка продажи открывается по ссылке.
+  await tab("Сообщество и активация").click();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=community`,
+  );
+  await expect(
+    page.getByText("У продукта пока нет правил активации."),
+  ).toBeVisible();
+  await expectAccessibleWithoutOverflow(page);
+  await page.goBack();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=sale`,
+  );
+  await expect(tab("Продажа")).toHaveAttribute("aria-selected", "true");
+  await page.goBack();
+  await expect(page).toHaveURL(`/authoring/products/${architectureId}`);
+  await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
 });
 
 test("home pin is the direct action of a product row (#1720)", async ({

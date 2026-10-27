@@ -25,6 +25,7 @@ import {
 } from "@/_pages/content-collections/model/collection-list";
 import {
   parseProductPageTab,
+  productPageTabIds,
   productPageTabSearch,
 } from "@/_pages/content-collections/model/product-page-tabs";
 import {
@@ -416,16 +417,29 @@ describe("Topics and Products list presentation", () => {
   });
 
   it("reads the Product page tab from the address and falls back to the programme", () => {
-    expect(parseProductPageTab("description")).toBe("description");
-    expect(parseProductPageTab("artifacts")).toBe("artifacts");
-    expect(parseProductPageTab("settings")).toBe("settings");
+    for (const tab of productPageTabIds)
+      expect(parseProductPageTab(tab)).toBe(tab);
     expect(parseProductPageTab("sales")).toBe("program");
+    expect(parseProductPageTab("constructor")).toBe("program");
     expect(parseProductPageTab(null)).toBe("program");
+    expect(productPageTabSearch("", "sale")).toBe("?tab=sale");
     expect(productPageTabSearch("", "description")).toBe("?tab=description");
     expect(productPageTabSearch("?tab=description&x=1", "program")).toBe(
       "?x=1",
     );
     expect(productPageTabSearch("?tab=settings", "program")).toBe("");
+  });
+
+  it("opens the old artifacts and settings links on their new tabs (#1718)", () => {
+    expect(productPageTabIds).toEqual([
+      "program",
+      "description",
+      "sale",
+      "learners",
+      "community",
+    ]);
+    expect(parseProductPageTab("artifacts")).toBe("program");
+    expect(parseProductPageTab("settings")).toBe("description");
   });
 });
 
