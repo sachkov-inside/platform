@@ -46,13 +46,15 @@ const stateSchema = z.strictObject({
  * @typedef {z.infer<typeof sourceSchema>} StandSource
  * @typedef {z.infer<typeof stateSchema>} StandState
  * @typedef {z.infer<typeof modeSchema>} StandMode
- * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean }} StandOperation
+ * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; recordIdentity: () => Promise<void> }} StandOperation
  * @typedef {{ command: "status" | "show" | "refresh" | "release"; worktree: string; replace?: string; mode?: "snapshot" | "live" | "production" }} StandRequest
  * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}> }} StandDependencies
  */
 
 /** @param {StandRequest} request @param {StandDependencies} dependencies */
 export async function controlStand(request, dependencies) {
+  if (request.replace !== undefined && request.command !== "show")
+    throw new Error("--replace applies to show only");
   if (request.command === "status") return status(dependencies);
   if (
     !dependencies.acquire ||
@@ -123,23 +125,35 @@ export async function controlStand(request, dependencies) {
       throw new Error(
         "Stand is unmanaged or its containers changed ownership; obtain an owner handoff before changing it",
       );
-    if (
-      snapshot.containers.length > 0 &&
-      previous?.health &&
-      previous.phase === "ready"
-    ) {
-      const health = await dependencies.ready(snapshot);
-      if (health.schema !== previous.health.schema)
-        throw new Error(
-          "The running database schema changed outside the controller",
-        );
-    }
     const mode =
       request.mode ??
       (request.command === "refresh" && previous?.source.root === source.root
         ? previous.mode
         : "snapshot");
+    const sameSource =
+      previous?.source.root === source.root &&
+      previous.mode === mode &&
+      (mode === "live"
+        ? previous.source.build === source.build
+        : previous.source.fingerprint === source.fingerprint);
+    let applicationReady = false;
+    if (snapshot.containers.length > 0 && previous?.health) {
+      let health;
+      try {
+        health = await dependencies.ready(snapshot);
+        applicationReady = true;
+      } catch (error) {
+        // Recreate the same code to repair an unavailable app. Unknown database health
+        // never authorizes introducing another source or changing preview modes.
+        if (request.command !== "refresh" || !sameSource) throw error;
+      }
+      if (health && health.schema !== previous.health.schema)
+        throw new Error(
+          "The running database schema changed outside the controller",
+        );
+    }
     if (
+      applicationReady &&
       previous?.phase === "ready" &&
       previous.source.root === source.root &&
       previous.mode === mode &&
@@ -157,6 +171,7 @@ export async function controlStand(request, dependencies) {
       await writeState(dependencies.directory, previous);
       return status(dependencies);
     }
+    const cold = snapshot.containers.length === 0 || previous?.health === null;
     /** @type {StandState} */
     const state = {
       version: 1,
@@ -169,7 +184,7 @@ export async function controlStand(request, dependencies) {
           : { id: randomUUID(), worktree: request.worktree },
       source,
       mode,
-      receipt: previous?.receipt ?? null,
+      receipt: snapshot,
       health: previous?.health ?? null,
     };
     await writeState(dependencies.directory, state);
@@ -178,14 +193,25 @@ export async function controlStand(request, dependencies) {
         source,
         mode: state.mode,
         generation: state.generation,
-        cold: snapshot.containers.length === 0,
+        cold,
+        resumeCold: cold && snapshot.containers.length > 0,
+        recordIdentity: async () => {
+          if (!cold)
+            throw new Error(
+              "Identity bootstrap checkpoint is restricted to cold startup",
+            );
+          const bootstrapped = sourceSchema.parse(
+            await dependencies.source?.(request.worktree),
+          );
+          state.source.identity = bootstrapped.identity;
+          await writeState(dependencies.directory, state);
+        },
       });
       const prepared = snapshotSchema.parse(await dependencies.inspect());
       if (
         prepared.daemon !== snapshot.daemon ||
         prepared.containers.some((container) =>
-          standApplicationServices.includes(container.service) ||
-          snapshot.containers.length === 0
+          standApplicationServices.includes(container.service) || cold
             ? container.generation !== state.generation
             : !snapshot.containers.some(
                 (old) =>
@@ -194,11 +220,12 @@ export async function controlStand(request, dependencies) {
                   old.service === container.service,
               ),
         ) ||
-        snapshot.containers.some(
-          (old) =>
-            !standApplicationServices.includes(old.service) &&
-            !prepared.containers.some((container) => container.id === old.id),
-        )
+        (!cold &&
+          snapshot.containers.some(
+            (old) =>
+              !standApplicationServices.includes(old.service) &&
+              !prepared.containers.some((container) => container.id === old.id),
+          ))
       )
         throw new Error(
           "Stand ownership or infrastructure changed during preparation",

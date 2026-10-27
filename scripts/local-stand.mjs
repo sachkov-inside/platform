@@ -21,16 +21,18 @@ import {
 /**
  * The caller holds the shared local-setup lock. Refresh only recreates application roles;
  * the stand controller verifies ownership and schema/configuration compatibility first.
- * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string}} options
+ * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: () => Promise<void>}} options
  */
 export async function launchLocalStand({
   repositoryRoot,
   pnpmPath,
   productionWeb = false,
   refresh = false,
+  resumeCold = false,
   composeOverride,
   logToStderr = false,
   dockerHost,
+  onIdentityReady,
 }) {
   const outputStream = logToStderr ? process.stderr : process.stdout;
   const standDiskPollIntervalMilliseconds = 250;
@@ -145,7 +147,7 @@ export async function launchLocalStand({
         ).origin,
       });
     }
-    if (!refresh && (await isComposeRunning())) {
+    if (!refresh && !resumeCold && (await isComposeRunning())) {
       throw new Error(
         "The Platform Compose stack is already running and belongs to the owner or another session. Ask the owner, or wait for the owning session's handoff, before it is stopped (docs/runbooks/local-stand.md).",
       );
@@ -212,6 +214,7 @@ export async function launchLocalStand({
       "logto",
     ]);
     await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
+    await onIdentityReady?.();
     // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
     await compose(["up", "--detach", "--no-build", "--wait"]);
     await runPnpm(["local:accounts:bootstrap"]);

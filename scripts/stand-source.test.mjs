@@ -52,3 +52,41 @@ test("Compose environment overrides invalidate infrastructure without storing se
   assert.notEqual(first.infrastructure, privateConfig.infrastructure);
   assert.ok(!JSON.stringify(privateConfig).includes("fixture-private-value"));
 });
+
+test("module-owned SQL migrations invalidate the schema compatibility guard", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stand-migrations-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const migration =
+    "apps/backend/src/modules/materials/infrastructure/postgres/migrations/0001_materials.ts";
+  await mkdir(join(root, migration, ".."), { recursive: true });
+  await writeFile(join(root, migration), "CREATE TABLE first");
+  const git = (/** @type {string[]} */ args) =>
+    args.includes("ls-files") ? migration + "\0" : "1".repeat(40);
+  const first = await readStandSource(root, { git, environment: {} });
+  await writeFile(join(root, migration), "CREATE TABLE changed");
+  const changed = await readStandSource(root, { git, environment: {} });
+  assert.notEqual(changed.schema, first.schema);
+});
+
+test("database dependency and migration engine changes require schema handoff", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stand-schema-inputs-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const files = [
+    "apps/backend/package.json",
+    "pnpm-lock.yaml",
+    "apps/backend/src/infrastructure/postgres/migrate-to-latest.ts",
+  ];
+  for (const file of files) {
+    await mkdir(join(root, file, ".."), { recursive: true });
+    await writeFile(join(root, file), "first");
+  }
+  const git = (/** @type {string[]} */ args) =>
+    args.includes("ls-files") ? files.join("\0") : "1".repeat(40);
+  let previous = await readStandSource(root, { git, environment: {} });
+  for (const file of files) {
+    await writeFile(join(root, file), "changed");
+    const current = await readStandSource(root, { git, environment: {} });
+    assert.notEqual(current.schema, previous.schema, file);
+    previous = current;
+  }
+});

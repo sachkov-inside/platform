@@ -8,6 +8,8 @@ import { standApplicationServices } from "./stand-services.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { liveWebDirectories } from "./stand-source.mjs";
 
+const apiReadinessBudgetMilliseconds = 5_000;
+const webReadinessBudgetMilliseconds = 10_000;
 const project = "inside-platform";
 const generationLabel = "inside.local-stand.generation";
 const containerSchema = z.object({
@@ -28,26 +30,27 @@ const portSchema = z.record(
 );
 
 /**
- * @param {{ root: string; directory: string; pnpmPath: string; run?: (args: string[]) => Promise<string>; probe?: typeof fetch }} options
+ * @param {{ directory: string; pnpmPath: string; run?: (args: string[]) => Promise<string>; probe?: typeof fetch; environment?: NodeJS.ProcessEnv; launch?: typeof launchLocalStand }} options
  */
 export function createStandRuntime({
-  root,
   directory,
   pnpmPath,
   run,
   probe = fetch,
+  environment = process.env,
+  launch = launchLocalStand,
 }) {
   /** @type {string | undefined} */
   let dockerHost;
   const execute = run ?? ((args) => runDocker(args, dockerHost));
-  const compose = [
+  const compose = (/** @type {string} */ sourceRoot) => [
     "compose",
     "--project-name",
     project,
     "--file",
-    join(root, "compose.yaml"),
+    join(sourceRoot, "compose.yaml"),
     "--file",
-    join(root, "config/compose/local/learner-setup.compose.yaml"),
+    join(sourceRoot, "config/compose/local/learner-setup.compose.yaml"),
     "--profile",
     "identity",
     "--profile",
@@ -68,9 +71,9 @@ export function createStandRuntime({
             ]),
           ),
         );
-      const selected = process.env["DOCKER_CONTEXT"]
+      const selected = environment["DOCKER_CONTEXT"]
         ? endpoint
-        : process.env["DOCKER_HOST"] || endpoint;
+        : environment["DOCKER_HOST"] || endpoint;
       if (!selected.startsWith("unix://"))
         throw new Error(
           "The stand controller requires a local Docker Unix socket",
@@ -135,7 +138,7 @@ export function createStandRuntime({
     const apiUrl = await publishedUrl(api.id, "3001/tcp");
     const url = await publishedUrl(gateway.id);
     const response = await probe(`${apiUrl}/health`, {
-      signal: AbortSignal.timeout(5_000),
+      signal: AbortSignal.timeout(apiReadinessBudgetMilliseconds),
       redirect: "error",
     });
     if (!response.ok) throw new Error("Stand API readiness failed");
@@ -151,7 +154,7 @@ export function createStandRuntime({
       })
       .parse(await response.json());
     const web = await probe(url, {
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(webReadinessBudgetMilliseconds),
       redirect: "manual",
     });
     if (web.status < 200 || web.status >= 400)
@@ -199,7 +202,7 @@ export function createStandRuntime({
       .parse(
         JSON.parse(
           await execute([
-            ...compose,
+            ...compose(operation.source.root),
             "config",
             "--no-env-resolution",
             "--format",
@@ -232,14 +235,16 @@ export function createStandRuntime({
       flag: "wx",
       mode: 0o600,
     });
-    await launchLocalStand({
+    await launch({
       repositoryRoot: operation.source.root,
       pnpmPath,
       productionWeb: operation.mode === "production",
       refresh: !operation.cold,
+      resumeCold: operation.resumeCold,
       composeOverride,
       logToStderr: true,
       dockerHost,
+      onIdentityReady: operation.recordIdentity,
     });
   }
 

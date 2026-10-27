@@ -129,7 +129,13 @@ export async function readStandSource(
         entries.filter(
           ({ path }) =>
             path.startsWith("apps/backend/src/migrations/") ||
-            path.startsWith("apps/backend/prisma/"),
+            path.startsWith("apps/backend/prisma/") ||
+            path === "apps/backend/package.json" ||
+            path === "pnpm-lock.yaml" ||
+            path ===
+              "apps/backend/src/infrastructure/postgres/migrate-to-latest.ts" ||
+            (path.startsWith("apps/backend/src/modules/") &&
+              path.includes("/infrastructure/postgres/migrations/")),
         ),
       ),
     ),

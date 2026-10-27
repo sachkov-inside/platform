@@ -56,7 +56,7 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean; resumeCold?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
@@ -70,6 +70,7 @@ async function launch({
   runningStand = false,
   diagnosticLog = false,
   refresh = false,
+  resumeCold = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "platform-stand-cli-"));
   try {
@@ -130,13 +131,14 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       "fixture",
     ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
-    if (refresh)
+    if (refresh || resumeCold)
       writeFileSync(
         join(root, "refresh-entry.mjs"),
         `import {launchLocalStand} from "./scripts/local-stand.mjs";
 import {acquireLocalSetupLock} from "./scripts/local-setup-lock.mjs";
+import {appendFile} from "node:fs/promises";
 const release = await acquireLocalSetupLock("busy");
-try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: true}); }
+try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: ${refresh}, resumeCold: ${resumeCold}, onIdentityReady: async () => appendFile(process.env.CALL_LOG, JSON.stringify({command:"checkpoint",args:[]})+"\\n")}); }
 finally { await release(); }`,
       );
     if (envFileStoragePort !== undefined)
@@ -158,7 +160,12 @@ finally { await release(); }`,
       [
         "--import",
         join(root, "capacity.mjs"),
-        join(root, refresh ? "refresh-entry.mjs" : "scripts/local-stand.mjs"),
+        join(
+          root,
+          refresh || resumeCold
+            ? "refresh-entry.mjs"
+            : "scripts/local-stand.mjs",
+        ),
         ...(productionWeb ? ["--production-web"] : []),
       ],
       {
@@ -389,4 +396,24 @@ test("another session's running stand is never built, restarted or stopped", asy
 test("production stand accepts an untracked diagnostic log outside its Docker context", async () => {
   const { result } = await launch({ productionWeb: true, diagnosticLog: true });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("owned cold recovery checkpoints bootstrap identity before a later startup failure (CLI adapter)", async () => {
+  const { result, calls } = await launch({
+    resumeCold: true,
+    runningStand: true,
+    failedStartup: true,
+  });
+  assert.notEqual(result.status, 0);
+  const bootstrap = calls.findIndex((call) =>
+    call.args.includes("identity:proof:bootstrap"),
+  );
+  const checkpoint = calls.findIndex((call) => call.command === "checkpoint");
+  const application = calls.findIndex(
+    (call) => call.args.includes("up") && !call.args.includes("logto-postgres"),
+  );
+  assert.ok(
+    bootstrap >= 0 && checkpoint > bootstrap && application > checkpoint,
+  );
+  assert.ok(!calls.some((call) => call.args.includes("--volumes")));
 });

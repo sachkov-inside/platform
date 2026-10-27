@@ -19,6 +19,7 @@ async function fixture(t) {
     build: "build-a",
     schema: "schema-a",
     infrastructure: "infra-a",
+    identity: "identity-a",
   };
   const dependencies = {
     directory,
@@ -29,14 +30,16 @@ async function fixture(t) {
       root,
       head: "1".repeat(40),
       ...inputs,
-      identity: "identity-a",
     }),
-    prepare: async (/** @type {{generation: string}} */ operation) => {
+    prepare: async (
+      /** @type {import("./stand-controller.mjs").StandOperation} */ operation,
+    ) => {
       preparations++;
-      const postgres = snapshot.containers.find(
-        (container) => container.service === "postgres",
-      ) ?? {
-        id: "persistent-postgres",
+      const postgres = (!operation.cold &&
+        snapshot.containers.find(
+          (container) => container.service === "postgres",
+        )) || {
+        id: `postgres-${operation.generation}`,
         service: "postgres",
         image: "postgres-image",
         generation: operation.generation,
@@ -384,4 +387,122 @@ test("refresh can repair unhealthy application processes without releasing their
   assert.equal(current.status, "ready");
   assert.deepEqual(current.reservation, original.reservation);
   assert.equal(preparations(), 2);
+});
+
+test("repeated preparation failures retain ownership of the last partial generation", async (t) => {
+  const { dependencies, inputs } = await fixture(t);
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  inputs.fingerprint = "next-source";
+  const prepare = dependencies.prepare;
+  let attempt = 0;
+  dependencies.prepare = async (operation) => {
+    attempt++;
+    if (attempt === 1) {
+      await prepare(operation);
+      throw new Error("partial replacement");
+    }
+    if (attempt === 2) throw new Error("build failed before replacement");
+    await prepare(operation);
+  };
+  const request = {
+    command: /** @type {const} */ ("refresh"),
+    worktree: "/fixture/a",
+  };
+  await assert.rejects(
+    controlStand(request, dependencies),
+    /partial replacement/u,
+  );
+  await assert.rejects(controlStand(request, dependencies), /build failed/u);
+  const result = await controlStand(request, dependencies);
+  assert.equal(result.status, "ready");
+});
+
+test("an unavailable application cannot authorize switching to edited source", async (t) => {
+  const { dependencies, inputs, preparations } = await fixture(t);
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  dependencies.ready = async () => {
+    throw new Error("application unavailable");
+  };
+  inputs.fingerprint = "changed";
+  await assert.rejects(
+    controlStand({ command: "refresh", worktree: "/fixture/a" }, dependencies),
+    /application unavailable/u,
+  );
+  assert.equal(preparations(), 1);
+});
+
+test("replacement is available only for an explicitly shown task", async (t) => {
+  const { dependencies } = await fixture(t);
+  const first = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.ok(first.reservation);
+  for (const command of /** @type {const} */ (["release", "refresh"])) {
+    await assert.rejects(
+      controlStand(
+        { command, worktree: "/fixture/b", replace: first.reservation.id },
+        dependencies,
+      ),
+      /replace.*show/u,
+    );
+  }
+});
+
+test("a failed cold start records its bootstrap identity but refuses unrelated identity changes", async (t) => {
+  const { dependencies, inputs } = await fixture(t);
+  const prepare = dependencies.prepare;
+  dependencies.prepare = async (
+    /** @type {import("./stand-controller.mjs").StandOperation} */ operation,
+  ) => {
+    inputs.identity = "controller-bootstrap";
+    await operation.recordIdentity();
+    throw new Error("startup failed after bootstrap");
+  };
+  await assert.rejects(
+    controlStand({ command: "show", worktree: "/fixture/a" }, dependencies),
+    /startup failed/u,
+  );
+  dependencies.prepare = prepare;
+  assert.equal(
+    (
+      await controlStand(
+        { command: "refresh", worktree: "/fixture/a" },
+        dependencies,
+      )
+    ).status,
+    "ready",
+  );
+  inputs.identity = "unrelated-keys";
+  await assert.rejects(
+    controlStand({ command: "refresh", worktree: "/fixture/a" }, dependencies),
+    /identity settings/u,
+  );
+});
+
+test("interrupted cold preparation resumes bootstrap instead of refreshing an incomplete stack", async (t) => {
+  const { dependencies } = await fixture(t);
+  const prepare = dependencies.prepare;
+  dependencies.prepare = async (operation) => {
+    await prepare(operation);
+    throw new Error("interrupted cold start");
+  };
+  await assert.rejects(
+    controlStand({ command: "show", worktree: "/fixture/a" }, dependencies),
+    /interrupted/u,
+  );
+  dependencies.prepare = async (operation) => {
+    assert.equal(operation.cold, true);
+    assert.equal(operation.resumeCold, true);
+    await prepare(operation);
+  };
+  assert.equal(
+    (
+      await controlStand(
+        { command: "refresh", worktree: "/fixture/a" },
+        dependencies,
+      )
+    ).status,
+    "ready",
+  );
 });

@@ -46,6 +46,8 @@ release  Release the reservation; keep the application running.
       (values.live || values["production-web"])
     )
       throw new Error("Preview mode applies to show and refresh only");
+    if (values.replace && command !== "show")
+      throw new Error("--replace applies to show only");
     for (const name of [
       "COMPOSE_FILE",
       "COMPOSE_PROFILES",
@@ -75,7 +77,6 @@ release  Release the reservation; keep the application running.
         "Run mutations through pnpm stand; use --worktree for another checkout",
       );
     const runtime = createStandRuntime({
-      root: controller,
       directory,
       pnpmPath: pnpmPath ?? "",
     });

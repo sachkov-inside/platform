@@ -50,17 +50,21 @@ Git common directory. State stores source fingerprints, modes, reservation and c
 not secret values. The same machine-wide lock protects controller and legacy launch operations.
 Snapshots are reconciled with actual container IDs, immutable images and live HTTP readiness.
 Failed preparation keeps the reservation and reports recovery; retry `refresh` after edits settle.
+An unavailable application can be repaired by refreshing the same source and mode; restore readiness
+before switching to other code. Interrupted initial bootstrap resumes the cold-start procedure,
+retaining its generated identity checkpoint.
 Preserve the state for diagnosis instead of deleting it to bypass a refusal.
 
 The first cold start requires the controller checkout's schema and infrastructure baseline and
 uses the existing stand bootstrap below. Switching an existing managed stand
 rebuilds the shared application image and recreates its application roles, including the local
 account gateway, without rerunning migrations, seed or identity bootstrap. Infrastructure stays up.
-The source migration files, infrastructure configuration and identity settings must match the
-recorded stand. Different versions require a separate owner-directed handoff; the controller does
-not migrate backwards, infer compatibility or erase volumes. Dependency changes use the existing
-image build and disk budget. Development mode and production-Web mode retain their existing
-runtime limits.
+The source migration files, migration engine, backend manifest, dependency lockfile, infrastructure
+configuration and identity settings must match the recorded stand. Different versions require a separate owner-directed handoff; the controller does
+not migrate backwards, infer compatibility or erase volumes. The initial version conservatively
+requires a handoff for dependency lockfile changes because database dependencies can change their
+own schema. Image builds retain the existing disk budget. Development mode and production-Web mode
+retain their existing runtime limits.
 
 An existing stack without a controller receipt is **unmanaged**. The controller reports it and
 refuses takeover. The owning session first hands it off and stops it without deleting volumes;
