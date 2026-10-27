@@ -278,7 +278,7 @@ describe("Authoring Materials filter choices", () => {
       kind: "ready",
       references: {
         formats: [{ archived: false, label: "Гайд", value: "guide" }],
-        series: [{ archived: false, label: "Продукт", value: materialId }],
+        products: [{ archived: false, label: "Продукт", value: materialId }],
         tags: [],
         topics: [{ archived: false, label: "Platform", value: topicId }],
       },

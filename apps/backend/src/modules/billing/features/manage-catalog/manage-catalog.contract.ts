@@ -1,12 +1,10 @@
 import { z } from "zod";
 import {
   idSchema,
-  revisionSchema,
-  offerSchema,
-  optionSchema,
   promotionSchema,
+  revisionSchema,
 } from "../../domain/pricing.js";
-import { cohortValueSchema } from "../../domain/product-cohort.js";
+import { productSalesValueSchema } from "../../domain/product-sales-state.js";
 
 const envelope = {
   operationId: idSchema,
@@ -17,39 +15,34 @@ const archive = {
   expectedRevision: revisionSchema,
   id: idSchema,
 };
+export const productPriceSchema = z.strictObject({
+  productId: idSchema,
+  name: z.string().trim().min(1).max(200),
+  priceKopecks: z.int().positive(),
+  published: z.boolean(),
+});
 export const manageCatalogSchema = z.discriminatedUnion("operation", [
   z.strictObject({
     ...envelope,
-    operation: z.literal("offers.save"),
-    value: offerSchema.omit({
-      revision: true,
-      archived: true,
-      published: true,
-    }),
+    operation: z.literal("productPrices.save"),
+    value: productPriceSchema,
   }),
-  z.strictObject({ ...archive, operation: z.literal("offers.archive") }),
-  z.strictObject({ ...archive, operation: z.literal("offers.publish") }),
-  z.strictObject({ ...archive, operation: z.literal("offers.unpublish") }),
-  z.strictObject({
-    ...envelope,
-    operation: z.literal("paymentOptions.save"),
-    value: optionSchema.omit({ revision: true, archived: true }),
-  }),
-  z.strictObject({
-    ...archive,
-    operation: z.literal("paymentOptions.archive"),
-  }),
+  z.strictObject({ ...archive, operation: z.literal("productPrices.archive") }),
   z.strictObject({
     ...envelope,
     operation: z.literal("promotions.save"),
     value: promotionSchema.omit({ revision: true, archived: true }),
   }),
   z.strictObject({ ...archive, operation: z.literal("promotions.archive") }),
-  // Текущий поток продукта (#814): одна запись на продукт, её адресует идентификатор продукта.
   z.strictObject({
     ...envelope,
     operation: z.literal("cohorts.save"),
-    value: cohortValueSchema,
+    value: productSalesValueSchema,
+  }),
+  z.strictObject({
+    ...envelope,
+    operation: z.literal("productSalesState.save"),
+    value: productSalesValueSchema,
   }),
 ]);
 export type ManageCatalogCommand = z.infer<typeof manageCatalogSchema>;

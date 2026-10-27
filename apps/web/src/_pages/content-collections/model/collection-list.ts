@@ -163,7 +163,7 @@ export function collectionStateFilterLabel(
 }
 
 const countForms: Record<ContentCollectionKind, RussianPluralForms> = {
-  series: ["продукт", "продукта", "продуктов"],
+  product: ["продукт", "продукта", "продуктов"],
   topic: ["тема", "темы", "тем"],
 };
 

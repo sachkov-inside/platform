@@ -5,7 +5,6 @@ import { expect, test } from "@playwright/test";
 import {
   fullStackBaseUrl,
   fullStackPageRequest,
-  fullStackBrowserJsonRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -79,44 +78,51 @@ test("owner creates a price and edits it twice without stale catalogue revisions
 }) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/billing");
-  const offerId = randomUUID();
-  const name = `Цена synthetic ${offerId}`;
-  const saved = await fullStackBrowserJsonRequest(
-    page,
-    "/api/authoring/billing/offers/save",
-    "POST",
-    {
-      operationId: randomUUID(),
-      value: { id: offerId, name, benefits: ["materials"] },
-    },
-  );
-  expect(await saved.json()).toMatchObject({ ok: true });
-  await page.reload();
-  await page.getByRole("tab", { name: "Предложения", exact: true }).click();
-  await page.getByRole("tab", { name: "Цены", exact: true }).click();
-  await page.getByRole("button", { name: "Новая цена", exact: true }).click();
-  const search = page.getByRole("searchbox", {
-    name: "Поиск: Предложение",
-    exact: true,
+  const productId = randomUUID();
+  const name = `Цена synthetic ${productId}`;
+  await page.goto("/authoring/products");
+  await page.getByRole("button", { name: "Создать продукт" }).click();
+  await page.getByRole("textbox", { name: "Название", exact: true }).fill(name);
+  await page
+    .getByRole("textbox", { name: "Адрес", exact: false })
+    .fill(`price-${productId}`);
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
+  const createdId = page.url().split("/").at(-1);
+  if (createdId === undefined)
+    throw new Error("Created Product has no URL identifier");
+  await page.goto("/authoring/billing");
+  const create = page.locator("form").filter({
+    has: page.getByRole("heading", {
+      name: "Добавить цену продукта",
+      exact: true,
+    }),
   });
-  if ((await search.count()) > 0) await search.fill(name);
-  await page
-    .getByRole("combobox", { name: "Предложение", exact: true })
-    .selectOption(offerId);
-  await page
-    .getByRole("combobox", { name: "Способ продажи", exact: true })
-    .selectOption("one_time");
-  await page.getByLabel("Месяцев", { exact: true }).fill("1");
-  const optionId = await page.locator('input[name="optionId"]').inputValue();
+  await create
+    .getByLabel("Идентификатор продукта", { exact: true })
+    .fill(createdId);
+  await create.getByLabel("Название", { exact: true }).fill(name);
+  await create.getByLabel("Цена в копейках", { exact: true }).fill("12000");
   for (const [index, price] of [12000, 13000, 14000].entries()) {
-    await page.getByLabel("Цена", { exact: true }).fill(String(price));
+    const form =
+      index === 0
+        ? create
+        : page.locator("form").filter({
+            has: page.getByRole("heading", { name: new RegExp(name, "u") }),
+          });
+    await form
+      .getByLabel("Цена в копейках", { exact: true })
+      .fill(String(price));
     const refreshed = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/authoring/billing/catalog") &&
         response.request().method() === "GET",
     );
-    await page
-      .getByRole("button", { name: "Сохранить вариант", exact: true })
+    await form
+      .getByRole("button", {
+        name: index === 0 ? "Сохранить без открытия продаж" : "Сохранить цену",
+        exact: true,
+      })
       .click();
     const response = await refreshed;
     expect(response.status()).toBe(200);
@@ -126,22 +132,21 @@ test("owner creates a price and edits it twice without stale catalogue revisions
         ? envelope.value
         : undefined,
     );
-    expect(
-      result.find((item) => item.paymentOption.id === optionId)?.paymentOption,
-    ).toMatchObject({
-      revision: index + 1,
-      priceKopecks: price,
-      mode: "one_time",
-    });
-    await expect(page.locator('input[name="optionRevision"]')).toHaveValue(
-      String(index + 1),
+    expect(result.find((item) => item.product?.id === createdId)).toMatchObject(
+      {
+        product: { id: createdId, priceRevision: index + 1 },
+        paymentOption: { priceKopecks: price, mode: "one_time" },
+        offer: { published: false },
+      },
     );
     await expect(
-      page.getByRole("button", { name: "Сохранить вариант", exact: true }),
+      page
+        .locator("form")
+        .filter({
+          has: page.getByRole("heading", { name: new RegExp(name, "u") }),
+        })
+        .getByRole("button", { name: "Сохранить цену", exact: true }),
     ).toBeEnabled();
-    await expect(
-      page.getByRole("combobox", { name: "Вариант оплаты", exact: true }),
-    ).toHaveValue(optionId);
   }
 });
 

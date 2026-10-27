@@ -312,7 +312,7 @@ function successfulOrder() {
       })),
       name: order.name,
       orderVersion: "a".repeat(64),
-      seriesId: productId,
+      productId: productId,
     },
     200,
   );

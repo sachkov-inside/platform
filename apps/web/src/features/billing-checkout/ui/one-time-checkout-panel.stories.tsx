@@ -61,10 +61,15 @@ export const Ready: Story = {
     ).toBeInTheDocument();
     await userEvent.click(canvas.getByText("Условия и документы покупки"));
     await expect(
-      canvas.getByText("Материалы — без ограничения срока."),
+      canvas.getByText(
+        /Материалы и сообщество продукта.*без ограничения срока/u,
+      ),
     ).toBeVisible();
     await expect(
-      canvas.queryByText(/Сообщество продукта/u),
+      canvas.getByText(/Сопровождение автора по условиям оферты:/u),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText(/Сопровождение[^.]*3 месяца/u),
     ).not.toBeInTheDocument();
     for (const name of [
       "Оферта разовой покупки",
@@ -92,10 +97,12 @@ export const FixedTermOffer: Story = {
     await userEvent.click(canvas.getByText("Условия и документы покупки"));
     await expect(
       canvas.getByText(
-        "Материалы — 2 года гарантированно, дальше без гарантии срока.",
+        /Материалы и сообщество продукта.*без ограничения срока/u,
       ),
     ).toBeVisible();
-    await expect(canvas.getByText(/^Сопровождение — 1 год:/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/^Сопровождение автора по условиям оферты:/u),
+    ).toBeVisible();
   },
 };
 

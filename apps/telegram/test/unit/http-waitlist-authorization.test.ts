@@ -18,7 +18,7 @@ test("waitlist authorization binds a service response to its request and refuses
       throw new Error("Invalid waitlist request envelope");
     return Promise.resolve(
       Response.json({
-        contractVersion: "inside-communications-v1",
+        contractVersion: "inside-communications-v2",
         requestId: request.requestId,
         status: "ok",
         saleOpen: true,
@@ -29,14 +29,14 @@ test("waitlist authorization binds a service response to its request and refuses
     );
   });
   const adapter = new HttpWaitlistAuthorizationAdapter(
-    "https://platform.test/integrations/telegram/v1/communications/authorize",
+    "https://platform.test/integrations/telegram/v2/communications/authorize",
     "synthetic-secret",
     fetcher,
   );
   expect(await adapter.read(query)).toMatchObject({ status: "ok", active: 1 });
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(fetcher.mock.calls[0]?.[0]).toBe(
-    "https://platform.test/integrations/telegram/v1/communications/waitlist",
+    "https://platform.test/integrations/telegram/v2/communications/waitlist",
   );
   const init = fetcher.mock.calls[0]?.[1];
   expect(init?.redirect).toBe("error");

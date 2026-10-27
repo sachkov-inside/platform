@@ -5,7 +5,7 @@ import {
   AvatarMutationError,
   mutateProfileAvatar,
 } from "@/_pages/account/api/profile-avatar-mutation.browser";
-import type { PrivateMemberProfile } from "@/entities/member-profile";
+import type { PrivateAccountProfile } from "@/entities/account-profile";
 import {
   MAX_PROFILE_AVATAR_FILE_BYTES,
   MAX_PROFILE_AVATAR_MUTATION_BYTES,
@@ -62,7 +62,7 @@ const profile = {
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 3,
-} as const satisfies PrivateMemberProfile;
+} as const satisfies PrivateAccountProfile;
 
 describe("Profile Avatar browser mutation", () => {
   beforeEach(() => {

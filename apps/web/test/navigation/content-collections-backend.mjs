@@ -23,7 +23,7 @@ const collectionWriteSchema = z
  *   cover: null;
  *   id: string;
  *   introduction: null | Record<string, string>;
- *   kind: "series" | "topic";
+ *   kind: "product" | "topic";
  *   materialCount: number;
  *   publishedMaterialCount: number;
  *   name: string;
@@ -49,7 +49,7 @@ function initialCollections() {
   return [
     collection({
       id: "c0110000-0000-4000-8000-000000000001",
-      kind: "series",
+      kind: "product",
       name: "Архитектура приложения",
       slug: "navigation-architecture",
       materialCount: 6,
@@ -63,13 +63,13 @@ function initialCollections() {
     }),
     collection({
       id: "c0110000-0000-4000-8000-000000000002",
-      kind: "series",
+      kind: "product",
       name: "Работа с базой данных",
       slug: "navigation-database",
     }),
     collection({
       id: "c0110000-0000-4000-8000-000000000003",
-      kind: "series",
+      kind: "product",
       name: "Прежнее руководство по развёртыванию",
       slug: "navigation-legacy",
       archived: true,
@@ -134,13 +134,13 @@ export async function contentCollectionsRoute(request, url, readBody) {
     };
   }
   if (url.pathname === "/authoring/home-pin")
-    return { status: 200, value: { seriesId: pinnedProductId, version: 1 } };
+    return { status: 200, value: { productId: pinnedProductId, version: 1 } };
 
   const order = /^\/authoring\/products\/([^/]+)\/order$/u.exec(url.pathname);
   if (order !== null && request.method === "GET") {
     const product = collections.find(({ id }) => id === order[1]);
     if (product === undefined)
-      return { status: 404, value: { code: "series_not_found", status: 404 } };
+      return { status: 404, value: { code: "product_not_found", status: 404 } };
     return {
       status: 200,
       value: {
@@ -162,7 +162,7 @@ export async function contentCollectionsRoute(request, url, readBody) {
         ],
         name: product.name,
         orderVersion: "a".repeat(64),
-        seriesId: product.id,
+        productId: product.id,
       },
     };
   }

@@ -49,8 +49,6 @@ import type {
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
-import { InitialMembershipCheckProcessor } from "../../src/modules/membership-evidence/initial-membership-check-processor.js";
-import { MembershipEvidenceProvider } from "../../src/modules/membership-evidence/membership-evidence-provider.js";
 import { CommunityProvider } from "../../src/modules/community/community-provider.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
@@ -107,7 +105,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`truncate membership_provider_state, membership_provider_observations, sign_in_requests, sign_in_subjects, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
+  await sql`truncate sign_in_requests, sign_in_subjects, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
     database,
   );
 });
@@ -138,7 +136,7 @@ describe("bot sign-in provider", () => {
   });
 
   it.each(["delivered", "uneditable"] as const)(
-    "keeps one bot message through sign-in and membership when the result is %s",
+    "keeps one bot message through confirmed account linking when the result is %s",
     async (outcome) => {
       const challenge = await register();
       const sent: TelegramTextMessage[] = [];
@@ -192,14 +190,6 @@ describe("bot sign-in provider", () => {
           ).json(),
         ).toMatchObject({ status: "linked" });
       }
-      const membership = await application
-        .get(InitialMembershipCheckProcessor)
-        .processNext();
-      expect(membership?.evidence).toMatchObject({
-        principalRef: accountRef,
-        decision: "unavailable",
-      });
-      expect(membership?.responsePlanned).toBe(false);
       expect(await worker.processAvailable()).toBe(1);
       expect(await worker.processAvailable()).toBe(0);
       expect(sent.map((message) => message.text)).toEqual([
@@ -813,7 +803,6 @@ describe("bot sign-in provider", () => {
         application.get(BotContacts),
         application.get(IdentityLinking),
         new RuntimeMetrics(),
-        application.get(MembershipEvidenceProvider),
         signIn,
         {
           answer() {
@@ -827,7 +816,6 @@ describe("bot sign-in provider", () => {
         application.get(CommunityProvider),
         application.get(StartResponseDeliveryQueue),
         new GrammyUpdateAdapter(),
-        { start: () => Promise.resolve(), retry: () => Promise.resolve() },
       );
       expect(await processor.processAvailable()).toBe(2);
       expect(claim.mock.calls[0]?.[0]).toEqual(current);

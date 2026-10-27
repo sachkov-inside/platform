@@ -29,11 +29,18 @@ export function assembleListAuthoringReferences(
     }
 
     try {
-      const [series, tags, topics] = await Promise.all([
-        dependencies.prisma.product.findMany({
-          orderBy: [{ name: "asc" }, { id: "asc" }],
-          select: { archivedAt: true, id: true, name: true },
-        }),
+      const [product, tags, topics] = await Promise.all([
+        dependencies.discovery
+          .metadata()
+          .then((products) =>
+            products
+              .sort((a, b) =>
+                a.name === b.name
+                  ? a.id.localeCompare(b.id)
+                  : a.name.localeCompare(b.name),
+              )
+              .map(({ id, name, archivedAt }) => ({ id, name, archivedAt })),
+          ),
         dependencies.prisma.tag.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
           select: { id: true, name: true },
@@ -51,7 +58,7 @@ export function assembleListAuthoringReferences(
             name,
             archived: false,
           })),
-          series: series.map(({ archivedAt, ...item }) => ({
+          products: product.map(({ archivedAt, ...item }) => ({
             ...item,
             archived: archivedAt !== null,
           })),

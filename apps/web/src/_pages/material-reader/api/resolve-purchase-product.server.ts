@@ -2,7 +2,7 @@ import "server-only";
 import { loadProductSaleAvailability } from "@/entities/subscription.availability.server";
 import type { MaterialReaderMetadata } from "../model/material-reader-view";
 import { soleSoldProduct } from "../model/purchase-product";
-import { readReaderSeries } from "./read-reader-series.server";
+import { readReaderProduct } from "./read-reader-product.server";
 
 export type PurchaseProductResult =
   | { readonly kind: "ready"; readonly product: PurchaseProduct | undefined }
@@ -15,20 +15,20 @@ export interface PurchaseProduct {
 
 /** Explicit programme context wins; otherwise invite only to one admitted Product. */
 export async function resolvePurchaseProduct(
-  material: Pick<MaterialReaderMetadata, "seriesMemberships">,
+  material: Pick<MaterialReaderMetadata, "productMemberships">,
   returnProductSlug: string | undefined,
   accessToken?: string,
 ): Promise<PurchaseProductResult> {
-  const memberships = material.seriesMemberships;
+  const memberships = material.productMemberships;
   if (returnProductSlug !== undefined) {
     const membership = memberships.find(
-      ({ series }) => series.slug === returnProductSlug,
+      ({ product }) => product.slug === returnProductSlug,
     );
-    let productId = membership?.series.id;
+    let productId = membership?.product.id;
     if (membership !== undefined && productId === undefined)
       return { kind: "unavailable" };
     if (membership === undefined) {
-      const product = await readReaderSeries(returnProductSlug, accessToken);
+      const product = await readReaderProduct(returnProductSlug, accessToken);
       if (product.kind === "unavailable") return { kind: "unavailable" };
       productId =
         product.kind === "ready" || product.kind === "empty"
@@ -54,14 +54,14 @@ export async function resolvePurchaseProduct(
     };
   }
   const availability = await loadProductSaleAvailability(
-    memberships.map(({ series }) => series.id),
+    memberships.map(({ product }) => product.id),
     accessToken,
   );
   if (availability.kind !== "ready") return { kind: "unavailable" };
   const slug = soleSoldProduct(
-    memberships.map(({ series }) => ({
-      slug: series.slug,
-      sold: availability.soldProductIds.has(series.id.toLowerCase()),
+    memberships.map(({ product }) => ({
+      slug: product.slug,
+      sold: availability.soldProductIds.has(product.id.toLowerCase()),
     })),
   );
   return {

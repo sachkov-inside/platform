@@ -11,7 +11,7 @@ import {
 } from "./collection-list";
 
 const listPaths: Record<ContentCollectionKind, readonly string[]> = {
-  series: ["/authoring/products", "/authoring/playlists"],
+  product: ["/authoring/products"],
   topic: ["/authoring/topics"],
 };
 

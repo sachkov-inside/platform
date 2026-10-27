@@ -20,7 +20,10 @@
   постоянную личную поддержку на всю жизнь. Для покупки срок идёт с подтверждения оплаты,
   для бесплатной активации и ручной выдачи с момента фактической выдачи доступа. Истечение
   этого срока ничего автоматически не отключает и не вызывает предложения продления.
-  Материалы и группа остаются доступны.
+  Материалы и группа остаются доступны. Срок сопровождения указывается в оферте и документах,
+  но не рекламируется на страницах продукта, Главной, оплаты и индивидуальной платёжной ссылки.
+  Эти страницы могут упоминать помощь автора и отсылать к оферте, не обещая бессрочного
+  сопровождения. Снимки условий и принятые редакции документов сохраняют исходные сроки.
 - Владелец подтвердил, что реальных получателей ещё не было. Предположение о сохранении ранее
   обещанных кому-то шести месяцев снято. Это факт со слов владельца, а не аудит production данных.
 - Возврат происходит по личному обращению: владелец обсуждает его, выполняет через Т-Банк
@@ -45,6 +48,19 @@
 Продуктовый код, реальные настройки продажи и банковские операции эта документальная работа
 не меняет. Расхождения исполнения перечислены в итоговом комментарии вопроса и войдут в
 спецификацию рефакторинга.
+
+Если прежняя запись доказывает только отзыв доступа, дата первой выдачи остаётся неизвестной.
+Явное восстановление не заменяет её датой отзыва или восстановления. Подтверждённая оплата
+даёт дату банковского факта, сохраняя запрет до явного восстановления. Отклонённая бесплатная
+активация не считается выдачей и не запускает обещание сопровождения.
+
+## Инвентарь доступа владельца
+
+Список Product Access владельца продолжает чтение в постоянном порядке Account, затем Product.
+Курсор принадлежит тем же фильтрам Account и Product и тому же порядку; смена, добавление или
+удаление фильтра требует нового первого запроса. Разный регистр записи UUID не меняет фильтр.
+Размер страницы можно менять без потери продолжения. Неверный или чужой для этих фильтров курсор
+отклоняется, а не возвращает ложный пустой список. Курсор не является историческим receipt.
 
 ## Прямая продажа продукта
 
@@ -152,10 +168,19 @@ Telegram определяет адресата, но не создаёт пра�
 Ручная форма без структурированного Review Report и повтор того же запроса не создают новую
 попытку. Изменение программы меняет текущий прогресс, а не переписывает факты чтения.
 
-Отзыв Product Access не удаляет эти личные факты и историю. Сохранение не открывает защищённый
+Отзыв Product Access не удаляет эти личные факты и историю. Account продолжает читать свои
+сохранённые сдачи, отчёты по их собственным версиям требований и отдельный ответ автора.
+История другого Account при этом не открывается. Сохранение не открывает защищённый
 контент: чтение, отметка «прочитано», новая сдача и запись позиции видео проверяют текущий доступ.
 Снять отметку прочтения или закладку можно и после отзыва. Положение видео связано с Video,
 поэтому замена записи не наследует прежнюю позицию.
+
+Архивирование Product не отзывает Product Access. Получивший продукт Account продолжает читать
+его опубликованные Tasks через HTTP и MCP, включая задания, перенесённые из Practice. Их файлы
+остаются доступны по авторизованным HTTP адресам.
+Программа архива, в том числе бесплатные Tasks, скрыта от гостей и Accounts без доступа к Product.
+Ссылки на Tasks в архиве следуют тому же правилу. Отзыв закрывает новое чтение и сдачу, сохраняя
+собственную историю. Видимость самостоятельных Materials по Content Access это правило не меняет.
 
 ## Аудитория и сообщения
 
@@ -651,3 +676,43 @@ Platform в одной поставке меняет спецификацию, �
   участника.
 - Мастерской нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Право `reviews` не выдаётся ни одним основанием.
 - Кто считается участником для профилей участников, не решено; это после релиза.
+
+### Historical payment review
+
+Only saved Product capabilities, or a saved materials benefit with explicit Product coverage,
+provide content authority for an already sent one-time payment. Support or community coverage,
+whole-platform coverage and Material membership never create new lifetime Product rights.
+Unmappable confirmed purchases retain their immutable financial facts and enter a durable
+`review_required` fulfillment disposition. Recovery does not repeatedly retry that disposition.
+Per-Product payment source identities preserve owner withdrawal across a partially completed replay.
+
+An authenticated `PARTIAL_REFUNDED` observation records the exact observed provider fields without
+interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
+payment reconciliation pauses for review. The observation never binds an unknown PaymentId,
+proves capture, issues rights or revokes access. An independently verified exact `CONFIRMED`
+can finish saved fulfillment; an exact full `REFUNDED` can resolve the financial amount.
+Late partial observations cannot erase an already proven full refund. Current provider evidence
+does not establish partial-notification Amount semantics, so no difference or zero is fabricated.
+See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/cancel_confirm/).
+
+Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
+same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime
+state prevent another sale. Already sent attempts continue their saved recovery without another Init.
+Unsent historical recurring attempts retire once, independently of current terminal configuration.
+
+### Lifetime access provenance and reader rollout
+
+A buyer's active Product grounds are a read projection of one lifetime Account/Product state.
+They list each distinct factual origin (`paid`, `manual`, `course_activation`, `legacy`, or
+`unknown`) without creating separate grants or choosing an origin by priority. Revocation hides
+all active grounds for that state. Migration provenance requires an exact original grant and its
+recorded Account/Product mapping; an orphan or unprovable origin remains `unknown`.
+The owner preview counts the unified state once even when it shows several factual origins.
+Owner action history exposes the persisted action UUID; source additions can share an access
+revision and must not use that revision as a UI identity.
+
+The retained activation-v1 own-access wire now permits `course_activation` and `unknown`, and
+its historical first-acquisition timestamp can be null. Deploy readers and strict decoders that
+accept these values before enabling the expanded writer. #1712 must prove mixed-version restore
+and old-reader behavior before rollout. Retaining the contract-version literal alone does not
+make an old strict decoder compatible; this branch does not claim production publication.

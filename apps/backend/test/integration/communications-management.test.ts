@@ -60,8 +60,8 @@ import {
   managementSchemas,
   type ProviderRequest,
 } from "../../src/modules/communications/communications-contract.js";
-import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
-import scenarios from "@inside/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v2/fixtures.json" with { type: "json" };
+import scenarios from "@inside/contracts/inside-communications-v2/scenarios.json" with { type: "json" };
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -128,7 +128,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
     };
     provider.get("/jwks", () => ({ keys: [jwk] }));
     provider.post(
-      "/integrations/platform/v1/communications",
+      "/integrations/platform/v2/communications",
       async (request, reply) => {
         if (request.headers.authorization !== `Bearer ${secret}`)
           return reply.status(401).send({ ...version, status: "unauthorized" });
@@ -139,7 +139,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
         captured.push(command);
         const authorization = await app.inject({
           method: "POST",
-          url: "/integrations/telegram/v1/communications/authorize",
+          url: "/integrations/telegram/v2/communications/authorize",
           headers: { authorization: `Bearer ${authorizationSecret}` },
           payload: {
             ...version,
@@ -230,7 +230,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
         LOGTO_ISSUER: issuer,
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `${providerUrl}/jwks`,
-        TELEGRAM_COMMUNICATIONS_ENDPOINT: `${providerUrl}/integrations/platform/v1/communications`,
+        TELEGRAM_COMMUNICATIONS_ENDPOINT: `${providerUrl}/integrations/platform/v2/communications`,
         TELEGRAM_COMMUNICATIONS_SECRET: secret,
         TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN: "https://inside.example",
         TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: authorizationSecret,
@@ -358,11 +358,11 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
         isError: true,
         structuredContent: { ok: false, error: { code: "not_implemented" } },
       });
-      if (["funnels.preview", "funnels.publish"].includes(operation)) {
+      if (["sequences.preview", "sequences.publish"].includes(operation)) {
         expect(captured.slice(-2)).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
-              operation: "funnels.read",
+              operation: "sequences.read",
               payload: input.payload,
               actor: { accountRef: "synthetic-author" },
             }),
@@ -377,7 +377,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
         );
     }
     expect(
-      tools.find((tool) => tool.name === "communications_funnels_preview")
+      tools.find((tool) => tool.name === "communications_sequences_preview")
         ?.annotations?.readOnlyHint,
     ).toBe(true);
     expect(
@@ -387,19 +387,19 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   test("publish and launch succeed over both transports without a second UI approval", async () => {
-    const funnelSave = sample("funnels.save");
+    const sequenceSave = sample("sequences.save");
     const broadcastSave = sample("broadcasts.save");
-    for (const operation of ["funnels.publish", "broadcasts.launch"]) {
+    for (const operation of ["sequences.publish", "broadcasts.launch"]) {
       const input = sample(operation);
       nextResponse = {
         status: 200,
         body:
-          operation === "funnels.publish"
+          operation === "sequences.publish"
             ? {
                 ...version,
                 status: "ok",
-                funnel: {
-                  ...funnelSave.payload,
+                sequence: {
+                  ...sequenceSave.payload,
                   revision: 1,
                   publishedRevision: 1,
                   lifecycle: "published",
@@ -436,14 +436,14 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   test("unavailable public targets block publication over HTTP and MCP before dispatch", async () => {
-    const input = sample("funnels.publish");
-    const draft = sample("funnels.save");
+    const input = sample("sequences.publish");
+    const draft = sample("sequences.save");
     nextResponse = {
       status: 200,
       body: {
         ...version,
         status: "ok",
-        funnel: {
+        sequence: {
           ...draft.payload,
           revision: input.expectedRevision,
           publishedRevision: null,
@@ -472,8 +472,8 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
       structuredContent: { ok: false, error: { code: "invalid_targets" } },
     });
     expect(captured.map((request) => request.operation)).toEqual([
-      "funnels.read",
-      "funnels.read",
+      "sequences.read",
+      "sequences.read",
     ]);
   });
 

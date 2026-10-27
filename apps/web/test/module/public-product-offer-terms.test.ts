@@ -8,7 +8,7 @@ const boundary = vi.hoisted(() => ({
 }));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestBillingOffers: boundary.offers,
-  requestProductCohorts: boundary.cohorts,
+  requestProductSalesStates: boundary.cohorts,
   requestProductAccess: boundary.access,
 }));
 vi.mock("@/shared/auth/index.server", () => ({
@@ -40,10 +40,10 @@ it("reads only the public cheapest-offer terms; cohort and private access cannot
   });
   await expect(readPublicProductOfferTerms(productId)).resolves.toEqual({
     kind: "ready",
-    terms: { materialsMonths: null, chatMonths: undefined, supportMonths: 3 },
+    terms: { materialsMonths: null, chatMonths: null, supportMonths: 3 },
   });
   expect(boundary.offers).toHaveBeenCalledExactlyOnceWith(
-    { capability: `product:${productId}`, limit: 50 },
+    { productId, limit: 50 },
     undefined,
   );
   expect(boundary.cohorts).not.toHaveBeenCalled();

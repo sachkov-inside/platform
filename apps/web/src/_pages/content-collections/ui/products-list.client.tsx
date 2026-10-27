@@ -1,7 +1,10 @@
 "use client";
 
 import { ContentCoverImage } from "@/entities/material";
-import { HomeSeriesPinButton, type useHomePin } from "@/features/series-order";
+import {
+  HomeProductPinButton,
+  type useHomePin,
+} from "@/features/product-order";
 import { internalRoute } from "@/shared/routing/internal-route";
 import {
   AdminRowMenu,
@@ -35,7 +38,7 @@ export function ProductsTable({
   readonly rows: readonly ProductListRow[];
   readonly homePin: HomePinState;
 }) {
-  const pinnedId = homePin.controls.pin?.seriesId ?? null;
+  const pinnedId = homePin.controls.pin?.productId ?? null;
   const columns = productListColumnIds.map(
     (id) => productColumns(pinnedId)[id],
   );
@@ -52,11 +55,11 @@ export function ProductsTable({
       })}
       rowActions={(row) => (
         <>
-          <HomeSeriesPinButton
+          <HomeProductPinButton
             archived={row.archived}
             controls={homePin.controls}
-            seriesId={row.id}
-            seriesName={row.name}
+            productId={row.id}
+            productName={row.name}
           />
           <AdminRowMenu
             items={productPageTabIds.map((tab) => ({

@@ -13,7 +13,7 @@ function proof() {
     contextVersion: version,
     terminalMarker: `END_CONTEXT:${version}`,
     payload: {
-      practice: { definition: { criteria: [{ id: "one" }] } },
+      task: { definition: { criteria: [{ id: "one" }] } },
       reviewProtocol: { version: "2" },
     },
   });
@@ -23,10 +23,10 @@ function proof() {
     type: "item.completed",
     item: {
       type: "mcp_tool_call",
-      tool: "learning_practice_read",
+      tool: "learning_task_read",
       status: "completed",
       arguments: {
-        practiceId: "synthetic:test",
+        code: "synthetic:test",
         part,
         expectedContextVersion: version,
         expectedContentSha256: digest,
@@ -38,7 +38,7 @@ function proof() {
             text: JSON.stringify({
               ok: true,
               value: {
-                practiceId: "synthetic:test",
+                code: "synthetic:test",
                 contextVersion: version,
                 contentSha256: digest,
                 contentBytes: Buffer.byteLength(body),
@@ -82,7 +82,7 @@ function proof() {
     client: "codex" as const,
     process,
     report,
-    practiceId: "synthetic:test",
+    code: "synthetic:test",
     files: [
       {
         path: "app.mjs",

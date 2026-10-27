@@ -28,10 +28,10 @@ const publishedProjection = {
     slug: "guide",
   },
   tags: [{ id: "72000000-0000-4000-8000-000000000004", name: "Architecture" }],
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: 3,
-      series: {
+      product: {
         id: "72000000-0000-4000-8000-000000000005",
         name: "Создание Platform Inside",
         slug: "platform-inside",
@@ -105,10 +105,10 @@ describe("Material Reader server adapter", () => {
         topic: { name: "Platform", slug: "platform" },
         format: { name: "Гайд", slug: "guide" },
         tags: [{ name: "Architecture" }],
-        seriesMemberships: [
+        productMemberships: [
           {
             ordinal: 3,
-            series: {
+            product: {
               id: "72000000-0000-4000-8000-000000000005",
               name: "Создание Platform Inside",
               slug: "platform-inside",
@@ -178,10 +178,10 @@ describe("Material Reader server adapter", () => {
         topic: { name: "Platform", slug: "platform" },
         format: { name: "Гайд", slug: "guide" },
         tags: [{ name: "Architecture" }],
-        seriesMemberships: [
+        productMemberships: [
           {
             ordinal: 3,
-            series: {
+            product: {
               id: "72000000-0000-4000-8000-000000000005",
               name: "Создание Platform Inside",
               slug: "platform-inside",

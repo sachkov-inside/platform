@@ -3,7 +3,7 @@ import { migrateToLatest } from "../../src/migrations/index.js";
 import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -50,7 +50,7 @@ test("a clean production database offers and saves the three domain formats with
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Содержимое материала"),
     });
@@ -72,7 +72,7 @@ test("a clean production database offers and saves the three domain formats with
           tagIds: [],
           difficulty: null,
           outcomes: [],
-          seriesIds: [],
+          productIds: [],
         },
         body: representativeDocument("Сохранённое содержимое"),
       }),
@@ -109,7 +109,7 @@ test.each(["podcast", "38900000-0000-4000-8000-000000000001"])(
           tagIds: [],
           difficulty: null,
           outcomes: [],
-          seriesIds: [],
+          productIds: [],
         },
         body: representativeDocument("Body"),
       }),

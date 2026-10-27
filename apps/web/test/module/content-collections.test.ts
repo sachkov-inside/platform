@@ -44,7 +44,7 @@ const collection = {
   name: "Platform",
   slug: "platform",
   summary: "Architecture and delivery.",
-  version: 2,
+  version: 2 as const,
 } as const;
 
 describe("Content collection web adapters", () => {
@@ -91,7 +91,7 @@ describe("Content collection web adapters", () => {
     // Since #672 each collection carries its page description, presentation and source key.
     const product = {
       ...collection,
-      kind: "series",
+      kind: "product",
       page: { heading: "Product" },
       pageRejected: false,
       presentation: "default",
@@ -103,13 +103,13 @@ describe("Content collection web adapters", () => {
       response: Response.json({}),
     });
     await expect(
-      getContentCollections("series", "token", list),
+      getContentCollections("product", "token", list),
     ).resolves.toMatchObject({
       collections: [{ id: collectionId, presentation: "default" }],
       kind: "ready",
     });
     const input = createContentCollectionOperation.input.parse({
-      kind: "series",
+      kind: "product",
       name: "Platform",
       slug: "platform",
       summary: "Architecture and delivery.",
@@ -264,7 +264,7 @@ describe("Topics and Products list presentation", () => {
     expect(
       parseCollectionListQuery(
         new URLSearchParams(`topic=${topicId}`),
-        "series",
+        "product",
       ),
     ).toEqual({ search: "", state: "all", page: 1 });
     // Незнакомые значения дают вид по умолчанию, а не ошибку.
@@ -279,7 +279,7 @@ describe("Topics and Products list presentation", () => {
     expect(
       parseCollectionListQuery(
         new URLSearchParams({ search: "x".repeat(400) }),
-        "series",
+        "product",
       ).search,
     ).toHaveLength(160);
   });
@@ -380,7 +380,7 @@ describe("Topics and Products list presentation", () => {
       presentProductRow({
         ...collection,
         cover,
-        kind: "series",
+        kind: "product",
         materialCount: 9,
         publishedMaterialCount: 7,
       }),
@@ -395,7 +395,7 @@ describe("Topics and Products list presentation", () => {
       href: `/authoring/products/${collectionId}`,
     });
     expect(
-      presentProductRow({ ...collection, archived: true, kind: "series" }),
+      presentProductRow({ ...collection, archived: true, kind: "product" }),
     ).toMatchObject({ cover: null, state: "product.archived" });
   });
 

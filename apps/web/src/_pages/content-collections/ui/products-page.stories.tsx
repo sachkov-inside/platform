@@ -38,7 +38,7 @@ const product = {
   },
   id: "97000000-0000-4000-8000-000000000003",
   introduction: null,
-  kind: "series",
+  kind: "product",
   materialCount: 4,
   publishedMaterialCount: 2,
   name: "Demo · От проекта до первого релиза",
@@ -108,7 +108,7 @@ const environment = authoringPageEnvironment("/authoring/products");
 
 const meta = {
   ...environment,
-  args: { initialCollections: products, kind: "series" },
+  args: { initialCollections: products, kind: "product" },
   component: ContentCollectionsPageClient,
   beforeEach: [
     environment.beforeEach,
@@ -129,21 +129,21 @@ const meta = {
       if (path === "/api/authoring/home-pin" && init?.method === "PUT") {
         const raw = init.body;
         const body: unknown = typeof raw === "string" ? JSON.parse(raw) : null;
-        const seriesId =
-          typeof body === "object" && body !== null && "seriesId" in body
-            ? body.seriesId
+        const productId =
+          typeof body === "object" && body !== null && "productId" in body
+            ? body.productId
             : null;
-        pinnedId = typeof seriesId === "string" ? seriesId : null;
+        pinnedId = typeof productId === "string" ? productId : null;
         pinVersion += 1;
         return Response.json({
           kind: "ready",
-          pin: { seriesId: pinnedId, version: pinVersion },
+          pin: { productId: pinnedId, version: pinVersion },
         });
       }
       if (path === "/api/authoring/home-pin")
         return Response.json({
           kind: "ready",
-          pin: { seriesId: pinnedId, version: pinVersion },
+          pin: { productId: pinnedId, version: pinVersion },
         });
       return Promise.resolve(
         Response.json({ kind: "saved", collection: product }),
@@ -459,7 +459,10 @@ export const SignedOut: Story = {
 export const Unavailable: Story = {
   globals: desktop.globals,
   render: () => (
-    <ContentCollectionsUnavailable kind="series" reference="collections-read" />
+    <ContentCollectionsUnavailable
+      kind="product"
+      reference="collections-read"
+    />
   ),
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
@@ -481,7 +484,10 @@ export const UnavailableMobile: Story = {
 function ArrivedProducts({ sequence }: { readonly sequence: StagedLoading }) {
   use(sequence.sharedPart);
   return (
-    <ContentCollectionsPageClient initialCollections={products} kind="series" />
+    <ContentCollectionsPageClient
+      initialCollections={products}
+      kind="product"
+    />
   );
 }
 
@@ -490,7 +496,7 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
     globals,
     loaders: stagedLoaders,
     render: (_args, { loaded }) => (
-      <Suspense fallback={<ContentCollectionsLoading kind="series" />}>
+      <Suspense fallback={<ContentCollectionsLoading kind="product" />}>
         <ArrivedProducts sequence={stagedLoadingOf(loaded)} />
       </Suspense>
     ),

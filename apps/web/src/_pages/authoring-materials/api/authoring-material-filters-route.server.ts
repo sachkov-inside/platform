@@ -22,7 +22,7 @@ const productionDependencies: AuthoringMaterialFiltersDependencies = {
 /**
  * `GET /api/authoring/materials/references`: the Topic and format choices of the Materials list
  * filters, read from the same authoring references as the Material editor. The answer carries only
- * these two lists; series and tags stay with the editor.
+ * these two lists; Products and tags stay with the editor.
  */
 export function handleAuthoringMaterialFiltersRequest(
   dependencies: AuthoringMaterialFiltersDependencies = productionDependencies,

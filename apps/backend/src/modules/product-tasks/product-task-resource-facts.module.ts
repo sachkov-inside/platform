@@ -1,3 +1,4 @@
+import { ProductsModule, ProductDiscovery } from "../products/index.js";
 import { Global, Module } from "@nestjs/common";
 
 import {
@@ -17,15 +18,16 @@ import { assembleProductTaskResourceFacts } from "./adapters/content-access/prod
  */
 @Global()
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ProductsModule],
   providers: [
     {
       provide: PRODUCT_TASK_RESOURCE_FACTS,
-      inject: [PrismaClientProvider],
+      inject: [PrismaClientProvider, ProductDiscovery],
       useFactory: (
         prisma: PrismaClientProvider,
+        products: ProductDiscovery,
       ): ProductTaskResourceFactsAdapter =>
-        assembleProductTaskResourceFacts(prisma),
+        assembleProductTaskResourceFacts(prisma, products),
     },
   ],
   exports: [PRODUCT_TASK_RESOURCE_FACTS],

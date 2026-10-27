@@ -61,10 +61,12 @@ const receipt = {
     {
       provide: MATERIAL_AUTHORING,
       useValue: stubMaterialAuthoring({
-        validateSourcePractice: () =>
-          Promise.resolve({ ok: true, value: { valid: true, current: null } }),
-        applySourcePractice: () =>
-          Promise.resolve({ ok: true, value: receipt }),
+        readHistoricalPracticeReceipt: ({ idempotencyKey }) =>
+          Promise.resolve(
+            idempotencyKey === "new-operation"
+              ? { ok: false, error: { code: "practice_definition_retired" } }
+              : { ok: true, value: receipt },
+          ),
       }),
     },
     {
@@ -114,17 +116,9 @@ test("practice import POST responses match their declared 200 schema", async () 
     authorization: "Bearer fixture",
     "idempotency-key": "fixture-request",
   };
-  const validation = await server.inject({
-    method: "POST",
-    url: "/authoring/import/practices/validate",
-    headers,
-    payload: source,
-  });
-  expect(validation.statusCode).toBe(200);
-  expect(validation.json()).toEqual({ valid: true, current: null });
   const applied = await server.inject({
     method: "POST",
-    url: "/authoring/import/practices/apply",
+    url: "/authoring/history/practice-receipts",
     headers,
     payload: {
       ...source,
@@ -140,13 +134,13 @@ test("practice import POST responses match their declared 200 schema", async () 
 test("anonymous and malformed import requests keep declared error boundaries", async () => {
   const missing = await server.inject({
     method: "POST",
-    url: "/authoring/import/practices/validate",
+    url: "/authoring/history/practice-receipts",
     payload: source,
   });
   expect(missing.statusCode).toBe(401);
   const invalid = await server.inject({
     method: "POST",
-    url: "/authoring/import/practices/apply",
+    url: "/authoring/history/practice-receipts",
     headers: {
       authorization: "Bearer fixture",
       "idempotency-key": "fixture-request",
@@ -154,4 +148,40 @@ test("anonymous and malformed import requests keep declared error boundaries", a
     payload: {},
   });
   expect(invalid.statusCode).toBe(400);
+});
+
+test("retired Practice writes return the declared private 409 with a Task migration instruction", async () => {
+  const response = await server.inject({
+    method: "POST",
+    url: "/authoring/history/practice-receipts",
+    headers: {
+      authorization: "Bearer fixture",
+      "idempotency-key": "new-operation",
+    },
+    payload: {
+      ...source,
+      materialId: receipt.materialId,
+      expectedContentVersion: 1,
+      expectedPracticeVersion: null,
+    },
+  });
+  expect(response.statusCode).toBe(409);
+  expect(response.json()).toMatchObject({
+    code: "practice_definition_retired",
+  });
+  expect(response.headers["cache-control"]).toBe("private, no-store");
+});
+
+test("retired Practice importer and validation paths cannot dispatch", async () => {
+  for (const path of ["apply", "validate"]) {
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: `/authoring/import/practices/${path}`,
+          payload: source,
+        })
+      ).statusCode,
+    ).toBe(404);
+  }
 });

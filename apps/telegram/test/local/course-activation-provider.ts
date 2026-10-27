@@ -7,7 +7,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
-import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
+import { SourceGroupProof } from "../../src/modules/course-activation/source-group-proof.js";
 import {
   TELEGRAM_MESSAGES,
   type TelegramTextMessage,

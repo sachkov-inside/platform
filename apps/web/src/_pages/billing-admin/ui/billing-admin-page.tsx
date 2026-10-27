@@ -1,11 +1,11 @@
-import { loadProductCohorts } from "@/entities/subscription.server";
+import { loadProductSalesStates } from "@/entities/subscription.server";
 import { loadBillingOffersForOwner } from "@/features/billing-admin.server";
 import { BillingAdminPanel } from "@/features/billing-admin";
 
 export async function BillingAdminPage() {
   const [offers, cohorts] = await Promise.all([
     loadBillingOffersForOwner(),
-    loadProductCohorts(),
+    loadProductSalesStates(),
   ]);
   return (
     <BillingAdminPanel

@@ -1,26 +1,26 @@
 import "server-only";
 
 import {
-  createMemberProfileOperation,
-  updateMemberProfileOperation,
-} from "@/features/member-profile-editor.operations";
+  createAccountProfileOperation,
+  updateAccountProfileOperation,
+} from "@/features/account-profile-editor.operations";
 import {
   handleAuthenticatedRead,
   handleMutationOperation,
 } from "@/shared/auth/index.server";
-import { getPrivateMemberProfile } from "./get-private-member-profile";
+import { getPrivateAccountProfile } from "./get-private-account-profile";
 import {
-  executeCreateMemberProfile,
+  executeCreateAccountProfile,
   invalidCreateProfileFields,
-} from "./create-member-profile";
+} from "./create-account-profile";
 import {
-  executeUpdateMemberProfile,
+  executeUpdateAccountProfile,
   invalidUpdateProfileFields,
-} from "./update-member-profile";
+} from "./update-account-profile";
 
 export async function handleAccountProfileRequest(): Promise<Response> {
   return handleAuthenticatedRead(async (accessToken) => {
-    const result = await getPrivateMemberProfile(accessToken);
+    const result = await getPrivateAccountProfile(accessToken);
     if (result.kind === "unauthorized") {
       return new Response(null, { status: 401 });
     }
@@ -36,22 +36,22 @@ export async function handleAccountProfileRequest(): Promise<Response> {
   });
 }
 
-export function handleCreateMemberProfileRequest(
+export function handleCreateAccountProfileRequest(
   request: Request,
 ): Promise<Response> {
-  return handleMutationOperation(request, createMemberProfileOperation, {
+  return handleMutationOperation(request, createAccountProfileOperation, {
     execute: (input, accessToken) =>
-      executeCreateMemberProfile(input, accessToken),
+      executeCreateAccountProfile(input, accessToken),
     invalidInput: invalidCreateProfileFields,
   });
 }
 
-export function handleUpdateMemberProfileRequest(
+export function handleUpdateAccountProfileRequest(
   request: Request,
 ): Promise<Response> {
-  return handleMutationOperation(request, updateMemberProfileOperation, {
+  return handleMutationOperation(request, updateAccountProfileOperation, {
     execute: (input, accessToken) =>
-      executeUpdateMemberProfile(input, accessToken),
+      executeUpdateAccountProfile(input, accessToken),
     invalidInput: invalidUpdateProfileFields,
   });
 }

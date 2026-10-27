@@ -1,10 +1,12 @@
-import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
+import { randomUUID } from "node:crypto";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
-import { accountId } from "../modules/accounts/index.js";
-import { assembleAccountRights } from "../modules/account-rights/index.js";
-
-const MEMBERSHIP_FIXTURE_LIFETIME_MS = 5 * 60_000;
+import {
+  assembleAccessGrants,
+  assembleAccountRights,
+} from "../modules/account-rights/index.js";
+import { accountId, assembleAccounts } from "../modules/accounts/index.js";
+import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 
 /** Test CLI only: drives the existing entitlement owner, never exposed as an HTTP capability. */
 async function main() {
@@ -29,30 +31,42 @@ async function main() {
       select: { id: true },
     });
     await enrollPriorParticipantsFixture(prisma, account.id);
-    const now = new Date();
-    const membership = assembleAccountRights({
+    const membership = assembleAccountRights({ prisma });
+    const admin = await prisma.accountPermission.findFirstOrThrow({
+      where: { permission: "platform:admin" },
+      select: { accountId: true },
+    });
+    const grants = assembleAccessGrants({
       prisma,
+      accounts: assembleAccounts({
+        prisma,
+        emailFingerprintKey: "fullstack-state-fixture-product-key",
+      }),
     });
-    const result = await membership.acceptEvidence({
-      accountId: accountId(account.id),
-      deliveryId: `full-stack-home-${now.toISOString()}`,
-      source: "link_time",
-      evidence: {
-        checkedAt: now.toISOString(),
-        contractVersion: "inside.membership-evidence.v1",
-        decision,
-        evidenceRef: "full-stack-home-evidence",
-        evidenceVersion: now.getTime(),
-        principalRef: "full-stack-principal",
-        reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-        telegramIdentityRef: "full-stack-telegram-identity",
-        validUntil: new Date(
-          now.getTime() + MEMBERSHIP_FIXTURE_LIFETIME_MS,
-        ).toISOString(),
-      },
+    const held = await grants.listProductAccess(admin.accountId, {
+      accountId: account.id,
+      limit: 100,
     });
-    if (!result.ok || result.outcome !== "applied")
-      throw new Error("Membership fixture was not applied");
+    if (!held.ok) throw new Error("Cannot read synthetic Product access");
+    for (const access of held.value) {
+      if (
+        (decision === "member" && access.access === "active") ||
+        (decision === "not_member" && access.access === "revoked")
+      )
+        continue;
+      const command = {
+        accountId: account.id,
+        productId: access.productId,
+        operationId: randomUUID(),
+        expectedRevision: access.revision,
+        reason: "Synthetic explicit Product access transition",
+      };
+      const result =
+        decision === "member"
+          ? await grants.restoreProductAccess(admin.accountId, command)
+          : await grants.revokeProductAccess(admin.accountId, command);
+      if (!result.ok) throw new Error("Cannot change synthetic Product access");
+    }
     const material = await prisma.material.findUniqueOrThrow({
       where: { slug: "developer-pipeline-bez-poteri-konteksta" },
       select: { id: true },

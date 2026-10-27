@@ -48,7 +48,7 @@ const problemSchema = z.object({
 @ApiTags("Communications")
 @ApiBearerAuth("telegram-communications")
 @PrivateNoStore()
-@Controller("integrations/telegram/v1/communications/validate-content")
+@Controller("integrations/telegram/v2/communications/validate-content")
 export class ValidateAuthorContentController {
   constructor(
     @Inject(ACCOUNTS) private readonly accounts: Accounts,
@@ -63,7 +63,7 @@ export class ValidateAuthorContentController {
   @ApiOperation({
     operationId: "validateTelegramAuthorContent",
     summary:
-      "Check public Material and Series targets in an immutable author content snapshot",
+      "Check public Material and Product targets in an immutable author content snapshot",
   })
   @ApiBody({ schema: toOpenApiSchema(contentValidationRequestSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(contentValidationResponseSchema) })

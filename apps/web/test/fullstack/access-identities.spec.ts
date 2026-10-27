@@ -6,8 +6,6 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
-import { tierSchema } from "@/entities/subscription";
-import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
   fullStackBaseUrl,
@@ -23,23 +21,21 @@ const test = baseTest.extend({ video: "retain-on-failure" });
 /**
  * Права через настоящий Web/BFF отдельными identities (#904). У каждой identity одно основание,
  * поэтому отказ доказывает границу права, а не отсутствие сессии. Каждый отказ стоит рядом с
- * разрешённой соседней возможностью того же Account, а запрещённый write — валидный запрос к
+ * разрешённой соседней возможностью того же Account, а запрещённый write, валидный запрос к
  * существующему ресурсу, после которого наблюдатель с правом читает то же состояние.
  */
 
-/** Product A — сидовый продукт «Создание Platform Inside» с закрытым материалом. */
+/** Product A, сидовый продукт «Создание Platform Inside» с закрытым материалом. */
 const productA = {
   id: "72000000-0000-4000-8000-000000000007",
   closedSlug: "developer-pipeline-bez-poteri-konteksta",
   closedBody: "Закрытое содержимое для участников.",
 } as const;
-/** Product B — изолированный «Synthetic practice», который запускатор создаёт для прогона. */
+/** Product B, изолированный «Synthetic practice», который запускатор создаёт для прогона. */
 const productB = {
   closedBody: "FULLSTACK_PRIVATE_PRACTICE_BODY",
 } as const;
-/** Сидовое разовое предложение продукта: существующий ресурс для запрещённой Billing mutation. */
-const seededOfferId = "72000000-0000-4000-8000-000000000503";
-/** Сидовый опубликованный бесплатный материал: существующий ресурс для Materials mutation. */
+/** Сидовый опубликованный бесплатный материал, существующий ресурс для Materials mutation. */
 const publishedMaterial = {
   slug: "kak-ustroen-inside-platform",
   title: "Как устроен Inside Platform",
@@ -48,18 +44,6 @@ const publishedMaterial = {
 const billingDenial = { ok: false, code: "forbidden" } as const;
 const materialsDenial = { kind: "forbidden" } as const;
 
-const tierItemsSchema = z.object({
-  ok: z.literal(true),
-  value: z.object({
-    result: z.object({
-      items: z.array(
-        z.object({
-          tier: tierSchema,
-        }),
-      ),
-    }),
-  }),
-});
 const authoringMaterialsSchema = z.object({
   kind: z.literal("ready"),
   items: z.array(
@@ -71,37 +55,21 @@ const authoringMaterialsSchema = z.object({
     }),
   ),
 });
-/** Успешная Billing-команда над одной записью: тариф или назначение с его ревизией. */
-const billingRecordSchema = z.object({
-  ok: z.literal(true),
-  value: z.object({
-    result: z.object({
-      value: z
-        .object({ id: z.string(), revision: z.number() })
-        .and(z.object({ state: z.string().optional() })),
-    }),
-  }),
+const priceSchema = z.object({
+  product: z.object({ id: z.uuid(), name: z.string(), priceRevision: z.int() }),
+  paymentOption: z.object({ priceKopecks: z.int() }),
 });
-const billingEnrollmentSchema = billingRecordSchema.and(
-  z.object({
-    value: z.object({
-      result: z.object({
-        value: z.object({
-          startsAt: z.iso.datetime(),
-          endsAt: z.iso.datetime().nullable(),
-          endPolicy: z.enum([
-            "fixed",
-            "confirmed_external",
-            "temporary_membership",
-          ]),
-        }),
-      }),
-    }),
-  }),
-);
-type BillingEnrollment = z.infer<
-  typeof billingEnrollmentSchema
->["value"]["result"]["value"];
+const accessSchema = z.object({
+  accountId: z.uuid(),
+  productId: z.uuid(),
+  access: z.enum(["active", "revoked"]),
+  revision: z.int(),
+  firstIssuedAt: z.iso.datetime().nullable(),
+});
+const accessResult = z.object({
+  ok: z.literal(true),
+  value: z.object({ value: accessSchema }),
+});
 const bookmarkStatesSchema = z.object({
   kind: z.literal("ready"),
   states: z.array(
@@ -163,42 +131,42 @@ async function billing(
   return response.json();
 }
 
-/** Явное назначение материалов только Product A для проверки границы доступа. */
-function productAOffer(id: string, name: string) {
-  return {
-    id,
-    name,
-    benefits: ["materials"],
-    availableForAssignment: true,
-    coverage: { productIds: [productA.id], materialIds: [] },
-  };
-}
-
 async function seededOffer(observer: Page) {
-  const listed = tierItemsSchema.parse(
-    await billing(observer, "tiers/list", { limit: 100 }),
+  const response = await fullStackBrowserRequest(
+    observer,
+    "/api/authoring/billing/catalog",
   );
-  const offer = listed.value.result.items.find(
-    ({ tier }) => tier.id === seededOfferId,
-  )?.tier;
-  if (offer === undefined) throw new Error("Seeded offer is missing");
-  return offer;
+  const prices = z
+    .object({ ok: z.literal(true), value: z.array(priceSchema) })
+    .parse(await response.json()).value;
+  const price = prices.find((item) => item.product.id === productA.id);
+  if (price === undefined) throw new Error("Seeded Product price is missing");
+  return price;
 }
-
-/** Валидное переименование существующего предложения с его текущей ревизией. */
-function renameSeededOffer(page: Page, offer: z.infer<typeof tierSchema>) {
-  return billing(page, "offers/save", {
-    expectedRevision: offer.revision,
+function renameSeededOffer(page: Page, price: z.infer<typeof priceSchema>) {
+  return billing(page, "product-prices/save", {
+    expectedRevision: price.product.priceRevision,
     value: {
-      id: offer.id,
+      productId: price.product.id,
       name: "Переименовано без права",
-      benefits: offer.benefits,
-      coverage: offer.coverage,
-      ...(offer.benefitPeriods === undefined
-        ? {}
-        : { benefitPeriods: offer.benefitPeriods }),
+      priceKopecks: price.paymentOption.priceKopecks,
+      published: true,
     },
   });
+}
+async function access(
+  page: Page,
+  operation: string,
+  input: Record<string, unknown>,
+) {
+  const response = await fullStackBrowserJsonRequest(
+    page,
+    `/api/authoring/access/products/${operation}`,
+    "POST",
+    input,
+  );
+  expect(response.status()).toBe(200);
+  return response.json();
 }
 
 async function authoringMaterial(observer: Page) {
@@ -293,7 +261,7 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
 
     const before = await seededOffer(observer.page);
     expect(await renameSeededOffer(author.page, before)).toEqual(billingDenial);
-    expect(await billing(author.page, "tiers/list", { limit: 100 })).toEqual(
+    expect(await access(author.page, "list", { limit: 100 })).toEqual(
       billingDenial,
     );
     expect(await seededOffer(observer.page)).toEqual(before);
@@ -311,26 +279,15 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
   const observer = await openAs(browser, "MATERIALS_ONLY");
   try {
     await billingManager.page.goto("/authoring/billing");
-    await billingManager.page
-      .getByRole("tab", { name: "Назначения и перенос", exact: true })
-      .click();
-    await billingManager.page
-      .getByRole("tab", { name: "Назначения", exact: true })
-      .click();
     await expect(
       billingManager.page.getByRole("heading", {
-        name: "Тарифы и назначения",
+        level: 1,
+        name: "Оплата",
         exact: true,
       }),
     ).toBeVisible();
-    await expect(
-      billingManager.page.getByRole("heading", {
-        name: "Назначить тариф",
-        exact: true,
-      }),
-    ).toBeVisible();
-    expect((await seededOffer(billingManager.page)).name).toBe(
-      "Руководство «Создание Platform Inside»",
+    expect((await seededOffer(billingManager.page)).product.id).toBe(
+      productA.id,
     );
 
     const before = await authoringMaterial(observer.page);
@@ -398,28 +355,18 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
     throw new Error("Missing Product B fixture (FULLSTACK_PRACTICE_SLUG)");
   const learner = await openAs(browser, "PRODUCT_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
-  const terms = {
-    startsAt: await backendFixtureInstant(billingManager.page.request),
-    endsAt: null,
-    endPolicy: "fixed",
-  };
-  const revoke = async (enrollment: BillingEnrollment) =>
-    billingEnrollmentSchema.parse(
-      await billing(billingManager.page, "enrollments/change", {
-        enrollmentId: enrollment.id,
-        expectedRevision: enrollment.revision,
-        action: "revoke",
-        terms: {
-          startsAt: enrollment.startsAt,
-          endsAt: enrollment.endsAt,
-          endPolicy: enrollment.endPolicy,
-        },
+  const recipient = await accountIdOf(learner.page);
+  const pair = { accountId: recipient, productId: productA.id };
+  const revoke = async (current: z.infer<typeof accessSchema>) =>
+    accessResult.parse(
+      await access(billingManager.page, "revoke", {
+        ...pair,
+        operationId: crypto.randomUUID(),
+        expectedRevision: current.revision,
         reason: "Scoped learner access check revoked",
       }),
-    ).value.result.value;
-  // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Product A
-  // для следующего прогона того же набора.
-  let activeEnrollment: BillingEnrollment | undefined;
+    ).value.value;
+  let activeAccess: z.infer<typeof accessSchema> | undefined;
   try {
     // Без назначения Product A закрыт, а бесплатный материал открыт: доступ к A даст только
     // назначение ниже, и отказ здесь не следствие сломанной сессии.
@@ -430,26 +377,26 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
       productA.closedBody,
     );
 
-    const tierId = crypto.randomUUID();
-    const tier = billingRecordSchema.parse(
-      await billing(billingManager.page, "offers/save", {
-        value: productAOffer(tierId, `Только Product A ${tierId}`),
-      }),
-    ).value.result.value;
-    const assigned = billingEnrollmentSchema.parse(
-      await billing(billingManager.page, "enrollments/assign", {
-        accountId: await accountIdOf(learner.page),
-        origin: "manual",
-        sourceRef: `access-identities-${tierId}`,
-        tierId,
-        tierRevision: tier.revision,
-        terms,
-        billingRef: null,
+    const issued = accessResult.parse(
+      await access(billingManager.page, "issue", {
+        ...pair,
+        sourceRef: `access-identities-${crypto.randomUUID()}`,
         reason: "Scoped learner access check",
       }),
-    ).value.result.value;
-    activeEnrollment = assigned;
-    expect(assigned.state).toBe("active");
+    ).value.value;
+    const assigned =
+      issued.access === "revoked"
+        ? accessResult.parse(
+            await access(billingManager.page, "restore", {
+              ...pair,
+              operationId: crypto.randomUUID(),
+              expectedRevision: issued.revision,
+              reason: "Explicit owner restoration for isolated synthetic run",
+            }),
+          ).value.value
+        : issued;
+    activeAccess = assigned;
+    expect(assigned.access).toBe("active");
 
     await openClosedBody(
       learner.page,
@@ -459,8 +406,8 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
     await openDeniedBody(learner.page, productBSlug, productB.closedBody);
 
     const revoked = await revoke(assigned);
-    expect(revoked.state).toBe("revoked");
-    activeEnrollment = undefined;
+    expect(revoked.access).toBe("revoked");
+    activeAccess = undefined;
 
     // Тело Product A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
     // ответ с телом не вернулся ни из HTTP-кэша браузера, ни из кэшей сервера.
@@ -472,8 +419,8 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
     await openMaterial(learner.page, publishedMaterial.slug, "available");
   } finally {
     try {
-      if (activeEnrollment !== undefined)
-        expect((await revoke(activeEnrollment)).state).toBe("revoked");
+      if (activeAccess !== undefined)
+        expect((await revoke(activeAccess)).access).toBe("revoked");
     } finally {
       await learner.context.close();
       await billingManager.context.close();
@@ -574,13 +521,15 @@ test("two separate Accounts cannot read or change each other's progress and book
     await setRead(stranger.page, false);
     // Account ID принимают только маршруты Billing, и они требуют `billing:manage`.
     expect(
-      await billing(stranger.page, "grants/read", {
+      await access(stranger.page, "read", {
         accountId: ownerAccountId,
+        productId: productA.id,
       }),
     ).toEqual(billingDenial);
     expect(
-      await billing(stranger.page, "enrollments/list", {
+      await access(stranger.page, "list", {
         accountId: ownerAccountId,
+        limit: 50,
       }),
     ).toEqual(billingDenial);
 

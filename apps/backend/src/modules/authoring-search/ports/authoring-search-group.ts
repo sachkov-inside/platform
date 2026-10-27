@@ -8,7 +8,7 @@
  * 1. The owning Module implements the search behind its own right and exports it from its
  *    `index.ts`; its answer needs no type from this Module, only the matching shape.
  * 2. Add the ready variant to `AuthoringSearchReadyGroup` below.
- * 3. Add an adapter beside `adapters/materials/materials-search-groups.ts` that maps the owner's
+ * 3. Add an adapter beside `adapters/products/products-search-group.ts` that maps the owner's
  *    hits field by field, and place it in the registry order of `authoring-search.module.ts`.
  * 4. Add the variant's HTTP schema to `readyGroupHttpSchema` in
  *    `features/search-authoring/search-authoring.controller.ts`, then run `pnpm api:generate`.

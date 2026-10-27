@@ -72,7 +72,7 @@ export type ReadTaskPageError =
   | SystemError;
 
 /**
- * One task of one Product for its page. A code of another Product, an archived Product and an
+ * One task of one Product for its page. A code of another Product, an archived Product without its holder and an
  * unpublished task the subject cannot open are not found, so the page answers 404 for them.
  */
 export async function readTaskPage(
@@ -94,7 +94,6 @@ export async function readTaskPage(
     );
     if (
       product === undefined ||
-      product.archived ||
       product.slug !== parsed.data.productSlug ||
       chapter === undefined
     )
@@ -117,10 +116,10 @@ export async function readTaskPage(
       chapter: { name: chapter.name, ordinal: chapter.ordinal },
     };
     if (access === "closed")
-      return task.publicationState === "published"
+      return !product.archived && task.publicationState === "published"
         ? { ok: true, value: { access: "closed", task: place } }
         : notFound();
-    const view = await taskPageView(dependencies, task, product.slug);
+    const view = await taskPageView(dependencies, task, product.slug, subject);
     if (!view.ok) return view;
     return {
       ok: true,

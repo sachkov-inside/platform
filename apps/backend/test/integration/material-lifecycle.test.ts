@@ -5,10 +5,8 @@ import {
   anonymousSubject,
   assembleContentAccess,
 } from "../../src/modules/content-access/index.js";
-import {
-  assembleMaterialResourceFacts,
-  assembleMaterials,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -31,7 +29,7 @@ function metadata(title: string) {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: [],
+    productIds: [],
   };
 }
 
@@ -597,7 +595,7 @@ describe("Material lifecycle", () => {
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
     };
     const created = await authoring.createDraft({
       actor: ownerId,

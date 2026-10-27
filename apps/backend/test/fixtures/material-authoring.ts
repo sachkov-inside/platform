@@ -9,8 +9,10 @@ export function stubMaterialAuthoring(
   overrides: Partial<MaterialAuthoring> = {},
 ): MaterialAuthoring {
   return {
-    applySourcePractice: () => Promise.resolve(forbiddenAuthoringResult),
-    validateSourcePractice: () => Promise.resolve(forbiddenAuthoringResult),
+    readHistoricalSourceMaterialReceipt: () =>
+      Promise.resolve(forbiddenAuthoringResult),
+    readHistoricalPracticeReceipt: () =>
+      Promise.resolve(forbiddenAuthoringResult),
     reserveSourceProduct: () => Promise.resolve(forbiddenAuthoringResult),
     validateSourceProduct: () => Promise.resolve(forbiddenAuthoringResult),
     updateSourceProduct: () => Promise.resolve(forbiddenAuthoringResult),
@@ -30,11 +32,10 @@ export function stubMaterialAuthoring(
     listReferences: () => Promise.resolve(forbiddenAuthoringResult),
     listMaterials: () => Promise.resolve(forbiddenAuthoringResult),
     loadMaterial: () => Promise.resolve(forbiddenAuthoringResult),
-    loadSeriesOrder: () => Promise.resolve(forbiddenAuthoringResult),
+    loadProductOrder: () => Promise.resolve(forbiddenAuthoringResult),
     previewMaterial: () => Promise.resolve(forbiddenAuthoringResult),
-    reorderSeries: () => Promise.resolve(forbiddenAuthoringResult),
+    reorderProduct: () => Promise.resolve(forbiddenAuthoringResult),
     searchMaterials: () => Promise.resolve(forbiddenAuthoringResult),
-    searchProducts: () => Promise.resolve(forbiddenAuthoringResult),
     updateChapterAttachments: () => Promise.resolve(forbiddenAuthoringResult),
     saveMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     setContentCollectionArchive: () =>

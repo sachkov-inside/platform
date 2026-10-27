@@ -125,7 +125,7 @@ export async function importTaskPage(pkg, task, context, request, links) {
     id: `inside-task-page:${pkg.manifest.sourceNamespace}:${task.sourceId}`,
     path: page.sourcePath,
     revision: checksum(canonical({ page, assets: pkg.manifest.assets })),
-    showInFeed: false,
+    version: /** @type {const} */ (2),
   };
   const reserved = await request("/authoring/import/materials/reserve", {
     source,
@@ -252,7 +252,7 @@ export async function importTaskPage(pkg, task, context, request, links) {
             topicId: null,
             formatId: page.kind,
             tagIds: [],
-            seriesIds: [],
+            productIds: [],
           },
           body: backingBody,
           primaryVideoId: null,

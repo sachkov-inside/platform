@@ -1,5 +1,4 @@
-import { ConfigureProductCommunityController } from "./features/configure-product-community/configure-product-community.controller.js";
-import { OwnCommunityAdmissionController } from "./features/activate-subscription/own-community-admission.controller.js";
+import { OwnCommunityAdmissionController } from "./features/activate-course/own-community-admission.controller.js";
 import { OwnCommunityEntryController } from "./features/enter-community/own-community-entry.controller.js";
 import { Module } from "@nestjs/common";
 
@@ -33,7 +32,6 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
     TelegramAccountLinksModule,
   ],
   controllers: [
-    ConfigureProductCommunityController,
     OwnCommunityAdmissionController,
     OwnCommunityEntryController,
     CommunityDispatchController,

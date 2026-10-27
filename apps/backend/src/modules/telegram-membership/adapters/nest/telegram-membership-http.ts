@@ -2,19 +2,8 @@ import { z } from "zod";
 
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
-import { membershipEvidenceSchema } from "../../../account-rights/index.js";
-import type {
-  TelegramEvidenceAcceptance,
-  TelegramLinkResult,
-} from "../../facets/telegram-membership/telegram-membership.interface.js";
+import type { TelegramLinkResult } from "../../facets/telegram-membership/telegram-membership.interface.js";
 
-export const evidenceDeliveryIdSchema = z.string().trim().min(1).max(256);
-export const evidenceSourceSchema = z.enum([
-  "link_time",
-  "member_status_event",
-  "reconciliation",
-]);
-export const telegramEvidenceBodySchema = membershipEvidenceSchema;
 export const telegramMembershipProblemSchema = z
   .object({
     type: z.string(),
@@ -141,55 +130,6 @@ export function throwTelegramAccountPresentationError(): never {
     "unavailable",
     "Account Membership presentation is unavailable",
   );
-}
-
-export function throwEvidenceError(
-  result: Extract<TelegramEvidenceAcceptance, { readonly ok: false }>,
-): never {
-  const status = evidenceFailureStatus(result.error.code);
-  throw problemException(
-    status,
-    result.error.code,
-    "Membership evidence was rejected",
-  );
-}
-
-export function throwInvalidEvidenceRequest(): never {
-  throw problemException(
-    400,
-    "invalid_evidence",
-    "Membership evidence request is invalid",
-  );
-}
-
-export function throwEvidenceAuthenticationRequired(): never {
-  throw problemException(
-    401,
-    "invalid_integration_credential",
-    "Integration authentication failed",
-  );
-}
-
-function evidenceFailureStatus(
-  code: Extract<
-    TelegramEvidenceAcceptance,
-    { readonly ok: false }
-  >["error"]["code"],
-): number {
-  switch (code) {
-    case "unsupported_contract":
-    case "invalid_evidence":
-      return 400;
-    case "link_expired":
-      return 410;
-    case "expired_evidence":
-      return 422;
-    case "principal_mismatch":
-    case "replayed_evidence":
-      return 409;
-    case "unavailable":
-      return 503;
-  }
 }
 
 function telegramLinkFailureStatus(

@@ -38,7 +38,7 @@ export function CollectionCreateForm({
       setSlug("");
       setSummary("");
       onCreated(result);
-      if (kind === "series")
+      if (kind === "product")
         router.push(authoringProductEditorHref(result.collection.id));
     },
   });

@@ -51,16 +51,6 @@ export function createApiOpenApiDocument(
       "Canonical REST contract for the Inside Platform web and agent adapters.",
     )
     .setVersion("1.0.0")
-    .addApiKey(
-      {
-        type: "apiKey",
-        in: "header",
-        name: "trbt-signature",
-        description:
-          "HMAC-SHA256 of original request body using the Tribute API key; configured encoding must be credentialed-verified.",
-      },
-      "tribute-signature",
-    )
     .addBearerAuth(
       {
         type: "http",
@@ -102,7 +92,7 @@ export function createApiOpenApiDocument(
         description:
           "Dedicated course-source activation authority; not the community dispatch credential.",
       },
-      "subscription-activation",
+      "course-activation",
     )
     .addBearerAuth(
       {

@@ -1,4 +1,4 @@
-// Product belongs to Materials, even when its delegate is carried by this transaction.
+// Product belongs to Products; callers pass an opaque handle instead of carrying foreign delegates.
 export async function readProductByHand(transaction: {
   product: { findUnique(input: unknown): Promise<unknown> };
 }): Promise<unknown> {

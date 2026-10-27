@@ -10,7 +10,7 @@ const command = {
   linkRevision: 1,
 };
 const config = {
-  endpoint: "https://telegram.test/integrations/platform/v1/communications",
+  endpoint: "https://telegram.test/integrations/platform/v2/communications",
   secret: "private-service-secret",
 };
 afterEach(() => vi.restoreAllMocks());

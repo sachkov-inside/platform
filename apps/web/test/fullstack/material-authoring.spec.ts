@@ -20,7 +20,6 @@ import {
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { z } from "zod";
-import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 declare global {
   interface Window {
@@ -138,46 +137,14 @@ for (const access of ["public", "closed"] as const) {
     ).toBeVisible({ timeout: 15_000 });
 
     if (access === "closed") {
-      // The member's bridge already opens every product; this all-products tier keeps the scenario independent
-      // of the short bridge evidence lifetime. It does not prove the tier path on its own.
-      const tierId = crypto.randomUUID();
-      const saved = await fullStackBrowserJsonRequest(
-        page,
-        "/api/authoring/billing/offers/save",
-        "POST",
-        {
-          operationId: crypto.randomUUID(),
-          value: {
-            id: tierId,
-            name: `Media acceptance ${suffix}`,
-            benefits: ["materials"],
-            availableForAssignment: true,
-            coverage: {
-              productIds: [],
-              materialIds: [],
-              wholePlatform: true,
-            },
-          },
-        },
-      );
-      expect(await saved.json()).toMatchObject({ ok: true });
       const assigned = await fullStackBrowserJsonRequest(
         page,
-        "/api/authoring/billing/enrollments/assign",
+        "/api/authoring/access/products/issue",
         "POST",
         {
-          operationId: crypto.randomUUID(),
           accountId: recipientAccountId,
-          origin: "manual",
+          productId: "72000000-0000-4000-8000-000000000007",
           sourceRef: `media-proof-${suffix}`,
-          tierId,
-          tierRevision: 1,
-          terms: {
-            startsAt: await backendFixtureInstant(request),
-            endsAt: null,
-            endPolicy: "fixed",
-          },
-          billingRef: null,
           reason: "Synthetic scoped media acceptance",
         },
       );
@@ -1745,12 +1712,12 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   ).toBeVisible();
 });
 
-test("author edits series metadata on a dedicated page and returns to the list after autosave", async ({
+test("author edits product metadata on a dedicated page and returns to the list after autosave", async ({
   context,
   page,
 }) => {
   await signInFullStack(context, "OWNER");
-  const title = `Full-stack series ${randomUUID()}`;
+  const title = `Full-stack product ${randomUUID()}`;
   await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
   await page
@@ -1758,7 +1725,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     .fill(title);
   await page
     .getByRole("textbox", { name: "Адрес", exact: false })
-    .fill(`series-${randomUUID()}`);
+    .fill(`product-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await expect(
@@ -1852,7 +1819,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
   ).toBeVisible();
 });
 
-test("trusted author reorders a PostgreSQL series with keyboard controls", async ({
+test("trusted author reorders a PostgreSQL product with keyboard controls", async ({
   context,
   page,
 }) => {
@@ -1910,9 +1877,50 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
   await expect(picker).toBeHidden();
 
+  // The Catalogue is unordered. This journey explicitly owns Programme occurrences before editing their order/group.
+  const productId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+  await expect
+    .poll(async () => (await readProductOrder(page, productId)).items.length)
+    .toBe(3);
+  const catalogue = await readProductOrder(page, productId);
+  const first = catalogue.items.find(
+    ({ title }) => title === "Как устроен Inside Platform",
+  );
+  const second = catalogue.items.find(
+    ({ title }) => title === "Demo #295 · Общий гайд",
+  );
+  const removed = catalogue.items.find(({ title }) =>
+    title.startsWith("Demo #295 · Самостоятельная заметка"),
+  );
+  if (first === undefined || second === undefined || removed === undefined)
+    throw new Error("Keyboard fixture requires its three distinct Materials");
+  const programmeItems = [first, second, removed];
+  expect(new Set(programmeItems.map(({ materialId }) => materialId)).size).toBe(
+    3,
+  );
+  const programme = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/products/order",
+    "PUT",
+    {
+      productId: productId,
+      expectedOrderVersion: catalogue.orderVersion,
+      orderedMaterialIds: programmeItems.map((item) => item.materialId),
+      programmePlacements: programmeItems.map((item) => ({
+        id: randomUUID(),
+        materialId: item.materialId,
+        chapterId: null,
+        stepGroup: null,
+      })),
+    },
+  );
+  expect(await programme.json()).toMatchObject({ kind: "saved" });
+  await page.reload();
+
   const items = page
     .getByRole("list", { name: "Материалы продукта" })
     .getByRole("listitem");
+  await expect(items).toHaveCount(catalogue.items.length);
   const countAfterAdd = await items.count();
   expect(countAfterAdd).toBeGreaterThan(2);
   const firstTitle = await items.first().locator("p").first().innerText();
@@ -2021,7 +2029,7 @@ test("trusted author walks a product chapter through Previews that stay closed t
       chapters: [{ id: chapterId, name: chapterName, summary: "" }],
       expectedOrderVersion: order.orderVersion,
       orderedMaterialIds,
-      seriesId: productId,
+      productId: productId,
     },
   );
   expect(await placed.json()).toMatchObject({ kind: "saved" });
@@ -2160,7 +2168,7 @@ test("trusted author walks a product chapter through Previews that stay closed t
         chapters: [],
         expectedOrderVersion: current.orderVersion,
         orderedMaterialIds,
-        seriesId: productId,
+        productId: productId,
       },
     );
     expect(await restored.json()).toMatchObject({ kind: "saved" });

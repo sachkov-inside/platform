@@ -1,8 +1,9 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import type { ProductMemberships } from "../../../products/index.js";
 import {
   recordedAuthoringSourceSchema,
   type RecordedAuthoringSource,
 } from "../../domain/authoring-source.js";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
@@ -21,8 +22,8 @@ import type {
   MaterialDto,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
-import { type ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
-import { loadContentCoverProjections } from "./content-cover-projections.js";
+import { type ContentCoverProjection } from "../../../content-covers/index.js";
+import { loadContentCoverProjections } from "../../../content-covers/index.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
@@ -40,6 +41,7 @@ export async function loadCurrentMaterial(
   prisma: MaterialsPrisma,
   bodyOperations: MaterialBodyOperations,
   materialId: MaterialId,
+  products: ProductMemberships,
 ): Promise<
   | { readonly ok: true; readonly value: CurrentMaterial }
   | { readonly ok: false; readonly error: InvalidContentError }
@@ -51,19 +53,15 @@ export async function loadCurrentMaterial(
   if (row === null) {
     return undefined;
   }
-  const [tags, seriesMemberships, covers] = await Promise.all([
+  const [tags, productMemberships, covers] = await Promise.all([
     prisma.materialTag.findMany({
       where: { materialId },
       select: { tagId: true },
       orderBy: { tagId: "asc" },
     }),
-    prisma.productMembership.findMany({
-      where: { materialId },
-      select: { seriesId: true, ordinal: true },
-      orderBy: { seriesId: "asc" },
-    }),
+    products.load(materialId, transactionHandle(prisma)),
     loadContentCoverProjections(
-      prisma,
+      transactionHandle(prisma),
       row.coverId === null ? [] : [row.coverId],
     ),
   ]);
@@ -77,7 +75,7 @@ export async function loadCurrentMaterial(
     topicId: row.topicId,
     formatId: row.formatId,
     tagIds: tags.map(({ tagId }) => tagId),
-    seriesMemberships,
+    productMemberships,
   });
   const body = bodyOperations.accept({
     schemaVersion: row.schemaVersion,
@@ -106,7 +104,7 @@ export async function loadCurrentMaterial(
               id: row.sourceId,
               path: row.sourcePath,
               revision: row.sourceRevision,
-              showInFeed: row.showInFeed,
+              version: 2 as const,
               commit: row.sourceCommit,
             }),
       lifecycle: Material.restore({
@@ -166,7 +164,7 @@ export function toMaterialDto(
             id: material.source.id,
             path: material.source.path,
             revision: material.source.revision,
-            showInFeed: material.source.showInFeed,
+            version: 2 as const,
             // Absent rather than null: clients that predate the commit read `source` strictly,
             // and only a newer client records a commit.
             ...(material.source.commit === null
@@ -194,6 +192,7 @@ export async function replaceCurrentRelations(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   metadata: MaterialMetadata,
+  products: ProductMemberships,
 ): Promise<void> {
   await transaction.materialTag.deleteMany({ where: { materialId } });
   if (metadata.tagIds.length > 0) {
@@ -201,81 +200,11 @@ export async function replaceCurrentRelations(
       data: metadata.tagIds.map((tagId) => ({ materialId, tagId })),
     });
   }
-  const previousMemberships = await transaction.productMembership.findMany({
-    where: { materialId },
-    select: { chapterId: true, seriesId: true, stepGroup: true },
-  });
-  // A full Material Save keeps the Product-owned placement of every retained membership.
-  const placements = new Map(
-    previousMemberships.map(({ chapterId, seriesId, stepGroup }) => [
-      seriesId,
-      { chapterId, stepGroup },
-    ]),
+  await products.replace(
+    materialId,
+    metadata.productMemberships,
+    transactionHandle(transaction),
   );
-  const retainedProducts = metadata.seriesMemberships.map(
-    (entry) => entry.seriesId,
-  );
-  const retainedProgramme =
-    await transaction.productProgrammePlacement.findMany({
-      where: { materialId, productId: { in: retainedProducts } },
-    });
-  const retainedSupplements =
-    await transaction.productChapterSupplementaryMaterial.findMany({
-      where: { materialId, productId: { in: retainedProducts } },
-    });
-  await transaction.productMembership.deleteMany({ where: { materialId } });
-  if (metadata.seriesMemberships.length > 0) {
-    await transaction.productMembership.createMany({
-      data: metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
-        materialId,
-        seriesId,
-        ordinal,
-        chapterId: placements.get(seriesId)?.chapterId ?? null,
-        stepGroup: placements.get(seriesId)?.stepGroup ?? null,
-      })),
-    });
-  }
-  if (retainedProgramme.length > 0)
-    await transaction.productProgrammePlacement.createMany({
-      data: retainedProgramme,
-    });
-  if (retainedSupplements.length > 0)
-    await transaction.productChapterSupplementaryMaterial.createMany({
-      data: retainedSupplements,
-    });
-  const previousProducts = new Set(
-    previousMemberships.map((entry) => entry.seriesId),
-  );
-  for (const productId of retainedProducts.filter(
-    (id) => !previousProducts.has(id),
-  )) {
-    const product = await transaction.product.findUnique({
-      where: { id: productId },
-      select: { programmeExplicit: true },
-    });
-    if (product?.programmeExplicit === true) continue;
-    if (
-      (await transaction.productChapter.findFirst({
-        where: { productId },
-        select: { id: true },
-      })) !== null
-    )
-      continue;
-    const maximum = await transaction.productProgrammePlacement.aggregate({
-      where: { productId },
-      _max: { ordinal: true },
-    });
-    await transaction.productProgrammePlacement.create({
-      data: {
-        id: randomUUID(),
-        productId,
-        materialId,
-        chapterId: null,
-        ordinal: (maximum._max.ordinal ?? 0) + 1,
-        stepGroup: null,
-      },
-    });
-  }
 }
 
 function invalidPersistedMaterial(): {

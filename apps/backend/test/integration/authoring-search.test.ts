@@ -7,9 +7,17 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { assembleMaterialsSearchGroups } from "../../src/modules/authoring-search/adapters/materials/materials-search-groups.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import { assembleMaterialsSearchGroup } from "../../src/modules/authoring-search/adapters/materials/materials-search-group.js";
+import { assembleProductsSearchGroup } from "../../src/modules/authoring-search/adapters/products/products-search-group.js";
 import { assembleAuthoringSearch } from "../../src/modules/authoring-search/features/search-authoring/search-authoring.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import type { AuthoringSearchGroup } from "../../src/modules/authoring-search/ports/authoring-search-group.js";
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
+import {
+  assembleProductAuthoring,
+  ProductDiscovery,
+} from "../../src/modules/products/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   declaredServer,
@@ -25,6 +33,25 @@ import {
 } from "./setup/test-database.js";
 
 registerFixedClock();
+
+/** The registry of the API process: Products from Products, Materials from Materials. */
+function searchGroups(
+  prisma: PlatformPrisma,
+  canManage: (actor: string) => boolean,
+): readonly [AuthoringSearchGroup, AuthoringSearchGroup] {
+  const authorPolicy = { canManage };
+  const products = assembleProductAuthoring({
+    prisma,
+    authorPolicy,
+    materials: assembleProductMaterials(prisma, new ProductDiscovery(prisma)),
+    loadCovers: () => Promise.resolve(new Map()),
+  });
+  const { authoring } = assembleMaterials({ prisma, authorPolicy });
+  return [
+    assembleProductsSearchGroup(products),
+    assembleMaterialsSearchGroup(authoring),
+  ];
+}
 
 const manager = "97000000-0000-4000-8000-000000000001";
 const topicId = "97000000-0000-4000-8000-000000000002";
@@ -87,7 +114,7 @@ describe("Authoring search", () => {
           tagIds: [],
           difficulty: null,
           outcomes: [],
-          seriesIds: [],
+          productIds: [],
         },
         body: representativeDocument(`Search corpus ${String(index)}`),
       });
@@ -140,12 +167,8 @@ describe("Authoring search", () => {
   ];
 
   test("a manager finds at most five Products by name or slug, archived ones flagged, and the newest matching Materials with their Topic", async () => {
-    const materials = assembleMaterials({
-      prisma: database.prisma,
-      authorPolicy: { canManage: (actor) => actor === manager },
-    });
     const search = assembleAuthoringSearch(
-      assembleMaterialsSearchGroups(materials.authoring),
+      searchGroups(database.prisma, (actor) => actor === manager),
     );
 
     expect(await search.search(manager, "  search   product ")).toEqual({
@@ -207,12 +230,8 @@ describe("Authoring search", () => {
   });
 
   test("an account without materials:manage is refused rather than answered with empty groups", async () => {
-    const materials = assembleMaterials({
-      prisma: database.prisma,
-      authorPolicy: { canManage: () => false },
-    });
     const search = assembleAuthoringSearch(
-      assembleMaterialsSearchGroups(materials.authoring),
+      searchGroups(database.prisma, () => false),
     );
     expect(await search.search(manager, "search product")).toEqual({
       ok: false,
@@ -221,12 +240,7 @@ describe("Authoring search", () => {
   });
 
   test("a failing group answers unavailable while the other group still answers", async () => {
-    const materials = assembleMaterials({
-      prisma: database.prisma,
-      authorPolicy: { canManage: () => true },
-    });
-    const [products] = assembleMaterialsSearchGroups(materials.authoring);
-    if (products === undefined) throw new Error("Expected the Products group");
+    const [products, materials] = searchGroups(database.prisma, () => true);
     const failing = assembleAuthoringSearch([
       products,
       {
@@ -252,7 +266,7 @@ describe("Authoring search", () => {
         kind: "products",
         search: () => Promise.reject(new Error("search index offline")),
       },
-      ...assembleMaterialsSearchGroups(materials.authoring).slice(1),
+      materials,
     ]);
     expect(await throwing.search(manager, "search corpus 1")).toMatchObject({
       ok: true,
@@ -274,7 +288,7 @@ describe("Authoring search", () => {
         search: () =>
           Promise.resolve({ ok: false, error: { code: "forbidden" } }),
       },
-      ...assembleMaterialsSearchGroups(materials.authoring).slice(1),
+      materials,
     ]);
     expect(await partial.search(manager, "search corpus 1")).toMatchObject({
       ok: true,
@@ -283,12 +297,8 @@ describe("Authoring search", () => {
   });
 
   test("an empty, blank or overlong query is malformed", async () => {
-    const materials = assembleMaterials({
-      prisma: database.prisma,
-      authorPolicy: { canManage: () => true },
-    });
     const search = assembleAuthoringSearch(
-      assembleMaterialsSearchGroups(materials.authoring),
+      searchGroups(database.prisma, () => true),
     );
     for (const query of ["", "   ", "x".repeat(161), undefined, ["a", "b"]])
       expect(await search.search(manager, query)).toEqual({

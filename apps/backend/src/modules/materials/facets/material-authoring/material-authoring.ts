@@ -1,8 +1,6 @@
+import type { ReadHistoricalSourceMaterialReceipt } from "../../features/read-historical-source-receipt/read-historical-source-receipt.js";
 import type { UpdateChapterAttachmentsOperation } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
-import type {
-  ApplySourcePracticeOperation,
-  ValidateSourcePracticeOperation,
-} from "../../features/import-source-practice/import-source-practice.contract.js";
+import type { ReadHistoricalPracticeReceiptOperation } from "../../features/import-source-practice/import-source-practice.contract.js";
 import type {
   ReserveSourceProductOperation,
   UpdateSourceProductOperation,
@@ -23,13 +21,10 @@ import type { DeleteDraftOperation } from "../../features/delete-draft/delete-dr
 import type { LoadMaterialOperation } from "../../features/load-material/load-material.contract.js";
 import type { ListAuthoringReferencesOperation } from "../../features/list-authoring-references/list-authoring-references.contract.js";
 import type { ListMaterialsOperation } from "../../features/list-materials/list-materials.contract.js";
-import type {
-  SearchAuthoringMaterialsOperation,
-  SearchAuthoringProductsOperation,
-} from "../../features/search-authoring-content/search-authoring-content.contract.js";
+import type { SearchAuthoringMaterialsOperation } from "../../features/search-authoring-content/search-authoring-content.contract.js";
 import type { PreviewMaterialOperation } from "../../features/preview-material/preview-material.contract.js";
-import type { LoadSeriesOrderOperation } from "../../features/load-series-order/load-series-order.contract.js";
-import type { ReorderSeriesOperation } from "../../features/reorder-series/reorder-series.contract.js";
+import type { LoadProductOrderOperation } from "../../features/load-product-order/load-product-order.contract.js";
+import type { ReorderProductOperation } from "../../features/reorder-product/reorder-product.contract.js";
 import type { SaveMaterialOperation } from "../../features/save-material/save-material.contract.js";
 import type { ValidateMaterialOperation } from "../../features/validate-material/validate-material.contract.js";
 import type { TransitionMaterialPublicationOperation } from "../../features/transition-material-publication/transition-material-publication.contract.js";
@@ -39,9 +34,9 @@ import type { SetContentCollectionArchiveOperation } from "../../features/set-co
 import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly readHistoricalSourceMaterialReceipt: ReadHistoricalSourceMaterialReceipt;
   readonly updateChapterAttachments: UpdateChapterAttachmentsOperation;
-  readonly applySourcePractice: ApplySourcePracticeOperation;
-  readonly validateSourcePractice: ValidateSourcePracticeOperation;
+  readonly readHistoricalPracticeReceipt: ReadHistoricalPracticeReceiptOperation;
   readonly reserveSourceProduct: ReserveSourceProductOperation;
   readonly validateSourceProduct: ValidateSourceProductOperation;
   readonly updateSourceProduct: UpdateSourceProductOperation;
@@ -57,16 +52,14 @@ export interface MaterialAuthoring {
   readonly createDraft: CreateDraftOperation;
   readonly deleteDraft: DeleteDraftOperation;
   readonly loadMaterial: LoadMaterialOperation;
-  readonly loadSeriesOrder: LoadSeriesOrderOperation;
+  readonly loadProductOrder: LoadProductOrderOperation;
   readonly listReferences: ListAuthoringReferencesOperation;
   readonly listMaterials: ListMaterialsOperation;
   readonly listContentCollections: ListContentCollectionsOperation;
-  /** The Products group of the authoring search (#1720). */
-  readonly searchProducts: SearchAuthoringProductsOperation;
   /** The Materials group of the authoring search (#1720). */
   readonly searchMaterials: SearchAuthoringMaterialsOperation;
   readonly previewMaterial: PreviewMaterialOperation;
-  readonly reorderSeries: ReorderSeriesOperation;
+  readonly reorderProduct: ReorderProductOperation;
   readonly saveMaterial: SaveMaterialOperation;
   readonly setContentCollectionArchive: SetContentCollectionArchiveOperation;
   readonly transitionPublication: TransitionMaterialPublicationOperation;

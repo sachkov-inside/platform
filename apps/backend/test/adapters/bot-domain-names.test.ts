@@ -6,7 +6,7 @@ import {
   botDomainResponse,
   BOT_DOMAIN_NAMES_VERSION,
 } from "../../src/modules/telegram-membership/domain/bot-domain-names.js";
-import { activationResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+import { activationResponseSchema } from "../../src/modules/telegram-membership/domain/course-activation-wire.js";
 
 const id = "10000000-0000-4000-8000-000000000001";
 const response = {

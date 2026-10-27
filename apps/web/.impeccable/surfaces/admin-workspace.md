@@ -2,7 +2,7 @@
 version: 1
 slug: "admin-workspace"
 primary_target: "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx"
-related_targets: ["apps/web/src/shared/ui/workspace-tabs.client.tsx", "apps/web/src/_pages/content-collections/ui/series-editor-page.client.tsx", "apps/web/src/widgets/material-authoring/ui/material-authoring-workspace.client.tsx", "apps/web/src/features/billing-admin/ui/billing-admin-view.client.tsx", "apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.tsx"]
+related_targets: ["apps/web/src/shared/ui/workspace-tabs.client.tsx", "apps/web/src/_pages/content-collections/ui/product-editor-page.client.tsx", "apps/web/src/widgets/material-authoring/ui/material-authoring-workspace.client.tsx", "apps/web/src/features/billing-admin/ui/billing-admin-view.client.tsx", "apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.tsx"]
 ---
 
 # Admin workspace

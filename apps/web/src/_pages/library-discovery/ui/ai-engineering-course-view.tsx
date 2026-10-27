@@ -34,7 +34,7 @@ import {
   CourseIcon,
   type CourseIconName,
 } from "@/features/ai-engineering-course";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
@@ -54,8 +54,8 @@ import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
 
-type ResolvedSeriesResult = Extract<
-  PublishedSeriesResult,
+type ResolvedProductResult = Extract<
+  PublishedProductResult,
   { kind: "ready" | "empty" }
 >;
 
@@ -77,7 +77,7 @@ export function AiEngineeringCourseView({
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
-  readonly result: ResolvedSeriesResult;
+  readonly result: ResolvedProductResult;
   readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
   /** Личное действие обучения или плашка набора вместо вступления нижнего блока. */

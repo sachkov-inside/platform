@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleVideos,
   type ProviderVideo,
@@ -47,7 +47,7 @@ describe("MaterialAuthoring", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body,
     });
@@ -93,7 +93,7 @@ describe("MaterialAuthoring", () => {
           topicId: null,
           formatId: null,
           tagIds: [],
-          seriesMemberships: [],
+          productMemberships: [],
         },
         body,
       },
@@ -192,7 +192,7 @@ describe("MaterialAuthoring", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Must stay private."),
     });
@@ -206,7 +206,7 @@ describe("MaterialAuthoring", () => {
     });
     const bodyRowRead = vi.spyOn(testDatabase.prisma.material, "findUnique");
     const tagRead = vi.spyOn(testDatabase.prisma.materialTag, "findMany");
-    const seriesRead = vi.spyOn(
+    const productRead = vi.spyOn(
       testDatabase.prisma.productMembership,
       "findMany",
     );
@@ -217,23 +217,12 @@ describe("MaterialAuthoring", () => {
         materialId: created.value.materialId,
       }),
     ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
-    expect(bodyRowRead).toHaveBeenCalledOnce();
-    expect(bodyRowRead).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: {
-          id: true,
-          publicationState: true,
-          access: true,
-          contentVersion: true,
-          primaryVideoId: true,
-        },
-      }),
-    );
+    expect(bodyRowRead).not.toHaveBeenCalled();
     expect(tagRead).not.toHaveBeenCalled();
-    expect(seriesRead).not.toHaveBeenCalled();
+    expect(productRead).not.toHaveBeenCalled();
     bodyRowRead.mockRestore();
     tagRead.mockRestore();
-    seriesRead.mockRestore();
+    productRead.mockRestore();
   });
 
   test("lists sorted authoring references only for a manager", async () => {
@@ -281,7 +270,7 @@ describe("MaterialAuthoring", () => {
           { archived: false, id: "guide", name: "Гайд" },
           { archived: false, id: "note", name: "Заметка" },
         ],
-        series: [
+        products: [
           {
             archived: false,
             id: "94000000-0000-4000-8000-000000000035",
@@ -348,7 +337,7 @@ describe("MaterialAuthoring", () => {
             tagIds: [],
             difficulty: null,
             outcomes: [],
-            seriesIds: [],
+            productIds: [],
           },
           body: representativeDocument(title),
         }),
@@ -370,7 +359,7 @@ describe("MaterialAuthoring", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Titleless"),
     });
@@ -387,7 +376,7 @@ describe("MaterialAuthoring", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Retired"),
     });
@@ -407,7 +396,7 @@ describe("MaterialAuthoring", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Retired"),
     });
@@ -427,7 +416,7 @@ describe("MaterialAuthoring", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Retired"),
     });
@@ -588,7 +577,7 @@ describe("MaterialAuthoring", () => {
           tagIds: [],
           difficulty: null,
           outcomes: [],
-          seriesIds: [],
+          productIds: [],
         },
         body: representativeDocument(title),
       });
@@ -689,7 +678,7 @@ describe("MaterialAuthoring", () => {
       formatId,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: "One primary Video outside the Material body.",
       tagIds: [],
       title: "Primary Video lifecycle",
@@ -916,7 +905,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "Owned Video deletion",
@@ -1095,7 +1084,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "Active upload deletion",
@@ -1179,7 +1168,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "Disposable draft",
@@ -1275,7 +1264,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "Interrupted upload recovery",
@@ -1431,7 +1420,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "Removed during processing",
@@ -1586,7 +1575,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "Forged removal",
@@ -1693,7 +1682,7 @@ describe("MaterialAuthoring", () => {
       formatId: null,
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
       summary: null,
       tagIds: [],
       title: "External Video deletion",

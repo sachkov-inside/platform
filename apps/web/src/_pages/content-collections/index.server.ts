@@ -8,4 +8,4 @@ export {
   ProductPageLoading,
 } from "./ui/content-collections-loading.client";
 export { ContentCollectionsPage } from "./ui/content-collections-page";
-export { SeriesEditorPage } from "./ui/series-editor-page";
+export { ProductEditorPage } from "./ui/product-editor-page";

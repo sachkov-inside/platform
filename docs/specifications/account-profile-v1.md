@@ -6,7 +6,7 @@ Account to attach its first email through a verification code.
 
 ## Profile
 
-The saved Member Profile `displayName` takes precedence over Telegram contact data. Before a name
+The saved Account Profile `displayName` takes precedence over Telegram contact data. Before a name
 is saved, the cabinet shows the current Telegram display name, or «Участник» when unavailable.
 The editor starts empty for a missing profile; the Telegram name is a suggestion, not a persisted
 profile. Names remain non-unique, 2–80 Unicode code points. Saving a name preserves existing bio
@@ -15,6 +15,14 @@ and avatar data. The cabinet does not render or accept edits to «О себе».
 Telegram name and optional username are read from the current confirmed Account link. Missing
 username, no link and provider failure remain distinct states. No raw provider/principal identifiers
 are returned by the account presentation endpoint. A username is presentation, never ownership proof.
+
+The backend capability is `account-profiles`. Its private `/account/profile` route preserves
+existing opaque moderation identifiers, disable/restore transitions and audit history. Historical
+`member_profiles` database mappings and applied migration contents remain unchanged.
+
+Author submission views use only the current active Account Profile display name and check the
+author's current permission. Telegram display names do not fill a missing or disabled profile name;
+biography, avatar and the private profile projection are never returned to the author.
 
 ## Sign-in email
 

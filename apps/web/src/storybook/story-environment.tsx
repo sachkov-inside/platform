@@ -7,10 +7,7 @@ import { currentLegalEdition } from "@inside/legal";
 
 import { PublicApplicationFrame } from "@/_app/ui/public-application-frame.client";
 import { PublicShellContent } from "@/_app/ui/public-shell-content";
-import {
-  type PriceSnapshot,
-  publicSubscriptionOffers,
-} from "@/entities/subscription";
+import { type PriceSnapshot } from "@/entities/subscription";
 import { storageNoticeKey } from "@/features/storage-notice";
 import { getQueryClient } from "@/shared/api/query-client";
 import { AccountCabinet } from "@/widgets/account-cabinet";
@@ -195,13 +192,9 @@ export function publicHeaderEnvironment(currentPath = "/"): StoryEnvironment {
  * Рамка личного кабинета: разделы слева, один раздел справа — как в `account/layout.tsx`. Каталог
  * вариантов подписки на маршруте читает сервер; здесь его подставляет story.
  */
-function accountSectionFrame(offers: readonly PriceSnapshot[]): PageFrame {
+function accountSectionFrame(_offers: readonly PriceSnapshot[]): PageFrame {
   return function AccountSectionFrame({ children }) {
-    return (
-      <AccountCabinet options={publicSubscriptionOffers(offers)}>
-        {children}
-      </AccountCabinet>
-    );
+    return <AccountCabinet>{children}</AccountCabinet>;
   };
 }
 

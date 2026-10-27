@@ -2,9 +2,9 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SeriesJourney } from "@/_pages/library-discovery/ui/series-journey";
+import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { seriesJourneyCorpus } from "@/storybook/series-journey-corpus.fixtures";
+import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
 
 const navigation = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", async (original) => ({
@@ -19,9 +19,9 @@ beforeEach(() => {
 
 function renderCatalogue() {
   return renderToString(
-    createElement(SeriesJourney, {
+    createElement(ProductJourney, {
       currentHref: productProgrammeHref("platform-inside"),
-      result: seriesJourneyCorpus(),
+      result: productJourneyCorpus(),
     }),
   );
 }

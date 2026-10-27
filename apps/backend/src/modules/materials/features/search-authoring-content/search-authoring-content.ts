@@ -10,10 +10,7 @@ import {
 } from "../../shared/authoring-material-search.js";
 import { accountId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import type {
-  SearchAuthoringMaterialsOperation,
-  SearchAuthoringProductsOperation,
-} from "./search-authoring-content.contract.js";
+import type { SearchAuthoringMaterialsOperation } from "./search-authoring-content.contract.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 const querySchema = z
@@ -23,51 +20,6 @@ const querySchema = z
     limit: z.number().int().min(1).max(20),
   })
   .strict();
-
-export function assembleSearchAuthoringProducts(
-  dependencies: MaterialAuthoringDependencies,
-): SearchAuthoringProductsOperation {
-  return async (input) => {
-    const parsed = parseCommand(querySchema, input);
-    if (!parsed.ok) return failure({ code: "forbidden" });
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      parsed.value.actor,
-    );
-    if (!authorization.ok) return failure(authorization.error);
-
-    const { limit, query } = parsed.value;
-    try {
-      const rows = await dependencies.prisma.product.findMany({
-        orderBy: [{ name: "asc" }, { id: "asc" }],
-        select: { archivedAt: true, id: true, name: true },
-        take: limit,
-        where: {
-          OR: [
-            { name: { contains: query, mode: "insensitive" } },
-            { slug: { contains: query, mode: "insensitive" } },
-          ],
-        },
-      });
-      return {
-        ok: true,
-        value: rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          archived: row.archivedAt !== null,
-        })),
-      };
-    } catch (error) {
-      return failure(
-        dependencyFailure(
-          { module: "materials", operation: "searchAuthoringProducts" },
-          error,
-          mapPostgresReadError(error),
-        ),
-      );
-    }
-  };
-}
 
 export function assembleSearchAuthoringMaterials(
   dependencies: MaterialAuthoringDependencies,

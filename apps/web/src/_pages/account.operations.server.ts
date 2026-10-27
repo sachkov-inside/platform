@@ -1,9 +1,9 @@
 /** Focused server interface for Account mutation contract tests. */
 export {
-  executeCreateMemberProfile,
+  executeCreateAccountProfile,
   invalidCreateProfileFields,
-} from "./account/api/create-member-profile";
-export { executeUpdateMemberProfile } from "./account/api/update-member-profile";
+} from "./account/api/create-account-profile";
+export { executeUpdateAccountProfile } from "./account/api/update-account-profile";
 export { executeBeginTelegramLink } from "./account/api/begin-telegram-link";
 export {
   executeConfirmTelegramLink,

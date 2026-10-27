@@ -792,7 +792,7 @@ test("returns the production not-found state for an unpublished slug", async ({
   ).toHaveAttribute("href", "/series/platform-inside");
 });
 
-test("navigates Library → Topic → ordered Series and exposes canonical Reader context", async ({
+test("navigates Library → Topic → ordered Product and exposes canonical Reader context", async ({
   page,
   request,
 }, testInfo) => {
@@ -830,20 +830,22 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(programme).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
   const programmeRows = programme.locator(
-    "[data-series-order] [data-series-ordinal]",
+    "[data-product-order] [data-product-ordinal]",
   );
-  const secondRow = programme.locator('[data-series-ordinal="2"]');
+  const secondRow = programme.locator('[data-product-ordinal="2"]');
   await expect(secondRow).toHaveCount(1);
   await expect(secondRow).toBeVisible();
   await expect(
     programmeRows.evaluateAll((items) =>
-      items.slice(0, 2).map((item) => item.getAttribute("data-series-ordinal")),
+      items
+        .slice(0, 2)
+        .map((item) => item.getAttribute("data-product-ordinal")),
     ),
   ).resolves.toEqual(["1", "2"]);
   // У руководства с главами каждый список назван своей главой, поэтому материал ищется в маршруте.
   await expect(
     programme
-      .locator("[data-series-order]")
+      .locator("[data-product-order]")
       .getByRole("link", { name: "Как устроен Inside Platform", exact: true }),
   ).toBeVisible();
   await expect(
@@ -851,29 +853,29 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
       .getByText("Developer Pipeline без потери контекста")
       .filter({ visible: true }),
   ).toBeVisible();
-  const representativeSeriesItem = programmeRows.filter({
+  const representativeProductItem = programmeRows.filter({
     hasText: "Как устроен Inside Platform",
   });
-  await expect(representativeSeriesItem).toHaveCount(1);
-  await expect(representativeSeriesItem).toHaveAttribute(
+  await expect(representativeProductItem).toHaveCount(1);
+  await expect(representativeProductItem).toHaveAttribute(
     "data-route-material",
     "kak-ustroen-inside-platform",
   );
-  const representativeOrdinal = await representativeSeriesItem.getAttribute(
-    "data-series-ordinal",
+  const representativeOrdinal = await representativeProductItem.getAttribute(
+    "data-product-ordinal",
   );
   expect(representativeOrdinal).not.toBeNull();
-  await expect(representativeSeriesItem).toHaveAttribute(
-    "data-series-ordinal",
+  await expect(representativeProductItem).toHaveAttribute(
+    "data-product-ordinal",
     "1",
   );
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
-  await captureIssue93Evidence(page, testInfo, "series");
+  await captureIssue93Evidence(page, testInfo, "product");
   await captureIssue195Evidence(page, testInfo, "playlist");
   await captureIssue271Evidence(page, testInfo, "playlist");
 
-  await representativeSeriesItem
+  await representativeProductItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
@@ -903,19 +905,19 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
   await expect(programme).toHaveCount(1);
-  await expect(representativeSeriesItem).toHaveCount(1);
-  await expect(representativeSeriesItem).toHaveAttribute(
-    "data-series-ordinal",
+  await expect(representativeProductItem).toHaveCount(1);
+  await expect(representativeProductItem).toHaveAttribute(
+    "data-product-ordinal",
     representativeOrdinal ?? "",
   );
-  await expect(representativeSeriesItem).toBeInViewport();
+  await expect(representativeProductItem).toBeInViewport();
 });
 
-test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
+test("uses the selected Product order for a shared Material and leaves standalone reading independent", async ({
   page,
 }) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
-  await page.goto("/products/demo-series-harness/programme");
+  await page.goto("/products/demo-product-harness/programme");
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
@@ -931,14 +933,14 @@ test("uses the selected Series order for a shared Material and leaves standalone
       (await harnessNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-    "/products/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
+    "/products/demo-product-harness/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await page.goBack();
-  await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
+  await expect(page).toHaveURL(/\/products\/demo-product-harness\/programme/u);
   await page.goForward();
   await expect(harnessNext).toBeVisible();
 
-  await page.goto("/products/demo-series-review/programme");
+  await page.goto("/products/demo-product-review/programme");
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
@@ -954,7 +956,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
       (await mixedNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-    "/products/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
+    "/products/demo-product-review/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await mixedNext.click();
   await expect(mixedNext).toBeVisible();
@@ -1118,7 +1120,7 @@ async function captureIssue271Evidence(
   });
 }
 
-test("renders missing Topic and Series as controlled noindex states", async ({
+test("renders missing Topic and Product as controlled noindex states", async ({
   page,
 }) => {
   for (const path of ["/series/not-published"] as const) {

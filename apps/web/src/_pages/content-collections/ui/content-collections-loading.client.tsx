@@ -13,7 +13,7 @@ import {
 import type { ContentCollectionKind } from "../model/content-collections";
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { productPageTabLabels } from "./product-page-tabs.client";
-import { SeriesEditorPageFrame } from "./series-editor-page-frame";
+import { ProductEditorPageFrame } from "./product-editor-page-frame";
 
 /**
  * Загрузка списка тем или продуктов в раскладке готовой страницы: тот же заголовок, скелеты строки
@@ -42,7 +42,7 @@ export function ContentCollectionsLoading({
         />
         <section aria-busy="true" className="grid gap-4">
           <AdminFilterBarSkeleton filters={1} />
-          {kind === "series" ? (
+          {kind === "product" ? (
             <div aria-hidden="true" className="min-h-28 sm:min-h-16" />
           ) : null}
           <AdminTableSkeleton
@@ -66,7 +66,7 @@ const panelSkeleton = (
 /** Загрузка страницы продукта: строка возврата, заголовок и вкладки на своих местах. */
 export function ProductPageLoading() {
   return (
-    <SeriesEditorPageFrame>
+    <ProductEditorPageFrame>
       <ProductPageNavigation>
         {/* Невидимая копия состояния и архива держит высоту строки готовой страницы. */}
         <div
@@ -117,6 +117,6 @@ export function ProductPageLoading() {
           ]}
         />
       </div>
-    </SeriesEditorPageFrame>
+    </ProductEditorPageFrame>
   );
 }

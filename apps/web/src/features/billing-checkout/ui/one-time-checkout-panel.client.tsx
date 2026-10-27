@@ -88,7 +88,7 @@ export function OneTimeCheckoutPanel({
   emailError,
   onEmailChange,
   emailInputRef,
-  acknowledgeExistingAccess,
+  acknowledgeExistingAccess: _acknowledgeExistingAccess,
   existingAccess = false,
   legacyBlocked = false,
   pending = false,
@@ -96,7 +96,7 @@ export function OneTimeCheckoutPanel({
   error,
   purchase,
   showInclusions = false,
-  onToggleAcknowledge,
+  onToggleAcknowledge: _onToggleAcknowledge,
   onPay,
   onRefreshStatus,
   onRetryQuote,
@@ -105,7 +105,6 @@ export function OneTimeCheckoutPanel({
 }: OneTimeCheckoutPanelProps) {
   const headingId = useId();
   const termsId = useId();
-  const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
   // Зачёркивать имеет смысл только большую цену: скидка по ссылке может опустить и её.
@@ -140,7 +139,7 @@ export function OneTimeCheckoutPanel({
     quote !== null &&
     missingRequired.length === 0 &&
     !legacyBlocked &&
-    (!existingAccess || acknowledgeExistingAccess);
+    !existingAccess;
 
   return (
     <form
@@ -250,17 +249,6 @@ export function OneTimeCheckoutPanel({
           <p className="mt-1 text-muted-foreground">
             Повторная покупка не удваивает право и не продлевает уже открытое.
           </p>
-          <label className="mt-3 flex max-sm:min-h-11 items-start gap-3">
-            <input
-              checked={acknowledgeExistingAccess}
-              className="mt-1 size-4 shrink-0 sm:size-5 rounded border-input accent-primary"
-              disabled={pending}
-              id={acknowledgeId}
-              onChange={onToggleAcknowledge}
-              type="checkbox"
-            />
-            <span>Понимаю и всё равно хочу оплатить</span>
-          </label>
         </div>
       ) : null}
 

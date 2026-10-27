@@ -1,5 +1,4 @@
 import { RevokeProductAccessController } from "./features/revoke-product-access/revoke-product-access.controller.js";
-import { TributeSources } from "./facets/tribute-sources/tribute-sources.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -26,15 +25,6 @@ import {
   imports: [PrismaModule, AccountsModule],
   controllers: [RevokeProductAccessController],
   providers: [
-    {
-      provide: TributeSources,
-      inject: [PrismaClientProvider, ACCOUNTS, RECIPIENT_LINKS],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        accounts: Accounts,
-        links: RecipientLinks,
-      ) => new TributeSources({ prisma, accounts, links }),
-    },
     {
       provide: ACCOUNT_RIGHTS,
       inject: [PrismaClientProvider, RECIPIENT_LINKS],
@@ -69,6 +59,6 @@ import {
         }),
     },
   ],
-  exports: [ACCOUNT_RIGHTS, ACCESS_GRANTS, TributeSources],
+  exports: [ACCOUNT_RIGHTS, ACCESS_GRANTS],
 })
 export class AccountRightsModule {}

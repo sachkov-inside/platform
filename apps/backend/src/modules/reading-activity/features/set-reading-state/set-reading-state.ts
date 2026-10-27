@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -115,7 +116,7 @@ export async function setReadingState(
             };
           const facts = await dependencies.materialContent.findAccessFacts(
             materialId(command.materialId),
-            transaction,
+            transactionHandle(transaction),
           );
           if (!facts.ok)
             return { ok: false, error: { code: "dependency_unavailable" } };

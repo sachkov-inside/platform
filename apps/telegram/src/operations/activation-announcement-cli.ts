@@ -6,11 +6,11 @@ import { GrammyMessagesAdapter } from "../adapters/telegram/grammy-messages.adap
 import { HttpActivationPlatform } from "../adapters/platform/http-activation-platform.adapter.js";
 import { loadApplicationConfig } from "../config/application-config.js";
 import { createDatabase } from "../database/create-database.js";
-import { PostgresAnnouncementDeliveries } from "../modules/subscription-activation/announcement-deliveries.js";
+import { PostgresAnnouncementDeliveries } from "../modules/course-activation/announcement-deliveries.js";
 import {
   announceActivation,
   type ActivationAnnouncementInput,
-} from "../modules/subscription-activation/activation-announcement.js";
+} from "../modules/course-activation/activation-announcement.js";
 
 const mode = process.argv[2];
 if (

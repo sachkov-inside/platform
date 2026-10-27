@@ -1,6 +1,7 @@
-import { createHash, randomInt, randomUUID } from "node:crypto";
 import { paymentModes } from "@inside/legal";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 import {
   dependencyFailure,
   reportDependencyFailure,
@@ -12,22 +13,21 @@ import {
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
 import { shownRenewalTermsSchema } from "../legal-acceptances/legal-acceptances.contract.js";
 import {
-  acceptConsentsSchema,
   acceptConsentsResultSchema,
-  confirmContactSchema,
-  confirmContactResultSchema,
-  contactFailure,
+  acceptConsentsSchema,
   acceptedLegalDocumentSchema,
+  confirmContactResultSchema,
+  confirmContactSchema,
+  contactFailure,
   legalDocumentSchema,
   startContactSchema,
-  type ReadConsentResult,
   type AcceptConsentsResult,
   type ConfirmContactResult,
   type LegalDocument,
+  type ReadConsentResult,
   type ReadContactResult,
   type StartContactResult,
 } from "./billing-contact.contract.js";
-import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const challengeLifetimeMs = 10 * 60 * 1_000;
 const resendCooldownMs = 60 * 1_000;
@@ -55,7 +55,14 @@ export interface BillingContactDependencies {
 export class BillingContact {
   private readonly documents: readonly LegalDocument[];
   constructor(private readonly dependencies: BillingContactDependencies) {
-    this.documents = z.array(legalDocumentSchema).parse(dependencies.documents);
+    this.documents = z
+      .array(legalDocumentSchema)
+      .parse(dependencies.documents)
+      .filter(
+        (document) =>
+          document.kind !== "recurring" &&
+          document.appliesTo.includes("one_time"),
+      );
     for (const document of this.documents) {
       if (
         document.digest !==
@@ -70,6 +77,14 @@ export class BillingContact {
       if (new Set(kinds).size !== kinds.length)
         throw new Error(`Duplicate legal document kind for ${mode}`);
     }
+  }
+
+  hasApprovedProductTerms(): boolean {
+    return this.documents.some(
+      (document) =>
+        document.kind === "terms" &&
+        document.commercialModel === "product-lifetime-v1",
+    );
   }
 
   async read(accountId: string): Promise<ReadContactResult> {
@@ -443,12 +458,7 @@ export class BillingContact {
     if (
       !parsed.success ||
       new Set(parsed.data.documents.map((document) => document.kind)).size !==
-        parsed.data.documents.length ||
-      // Renewal terms are shown exactly where recurring payments are accepted, and only there.
-      parsed.data.documents.some(
-        (document) => document.kind === "recurring",
-      ) !==
-        (parsed.data.shownTerms !== undefined)
+        parsed.data.documents.length
     )
       return contactFailure("invalid_input");
     if (!z.uuid().safeParse(accountId).success)
@@ -519,9 +529,6 @@ export class BillingContact {
               documentUrl: document.url,
               screen: command.screen,
               buttonLabel: command.buttonLabel,
-              ...(command.shownTerms === undefined
-                ? {}
-                : { shownTerms: command.shownTerms }),
               acceptedAt: instant,
             },
           });

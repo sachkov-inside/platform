@@ -17,7 +17,7 @@ export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
     formatSlug: z.string().optional(),
     publishedAt: z.iso.datetime({ offset: true }).optional(),
     primaryVideoDurationSeconds: z.number().int().positive().optional(),
-    seriesMemberships: z.array(
+    productMemberships: z.array(
       z
         .object({
           name: z.string(),
@@ -59,12 +59,12 @@ export const publishedMaterialProjectionSchema = z
     primaryVideoDurationSeconds: z.number().int().positive().optional(),
     primaryVideoId: z.string().nullable(),
     publishedAt: z.iso.datetime({ offset: true }),
-    seriesMemberships: z.array(
+    productMemberships: z.array(
       z
         .object({
           ordinal: z.number().int().positive(),
           stepGroup: z.string().nullable().optional(),
-          series: z
+          product: z
             .object({ id: z.string(), name: z.string(), slug: z.string() })
             .strict(),
         })
@@ -106,12 +106,12 @@ export function toMaterialPreview(
       : {
           primaryVideoDurationSeconds: projection.primaryVideoDurationSeconds,
         }),
-    seriesMemberships: projection.seriesMemberships.map(
-      ({ ordinal, series, stepGroup }) => ({
+    productMemberships: projection.productMemberships.map(
+      ({ ordinal, product, stepGroup }) => ({
         ...(stepGroup === undefined ? {} : { stepGroup }),
-        name: series.name,
+        name: product.name,
         ordinal,
-        slug: series.slug,
+        slug: product.slug,
       }),
     ),
     slug: projection.slug,

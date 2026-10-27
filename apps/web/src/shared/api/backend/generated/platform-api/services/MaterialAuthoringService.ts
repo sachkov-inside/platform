@@ -15,7 +15,7 @@ export class MaterialAuthoringService {
   public listAuthoringContentCollections({
     kind,
   }: {
-    kind: 'product' | 'series' | 'topic',
+    kind: 'product' | 'topic',
   }): CancelablePromise<Array<{
     archived: boolean;
     cover: {
@@ -32,7 +32,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'product' | 'series' | 'topic';
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -117,7 +117,7 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      kind: 'product' | 'series' | 'topic';
+      kind: 'product' | 'topic';
       name: string;
       slug: string;
       summary: string;
@@ -138,7 +138,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'product' | 'series' | 'topic';
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -231,7 +231,7 @@ export class MaterialAuthoringService {
         prerequisites: string;
         scope: string;
       };
-      kind: 'product' | 'series' | 'topic';
+      kind: 'product' | 'topic';
       name: string;
       summary: string;
     },
@@ -251,7 +251,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'product' | 'series' | 'topic';
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -342,7 +342,7 @@ export class MaterialAuthoringService {
     requestBody: {
       archived: boolean;
       expectedVersion: number;
-      kind: 'product' | 'series' | 'topic';
+      kind: 'product' | 'topic';
     },
   }): CancelablePromise<{
     archived: boolean;
@@ -360,7 +360,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'product' | 'series' | 'topic';
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -449,7 +449,7 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     ownerId: string,
-    ownerKind: 'material' | 'series' | 'topic',
+    ownerKind: 'material' | 'product' | 'topic',
     requestBody: {
       expectedCoverId: string | null;
     },
@@ -474,7 +474,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Upload or replace one author-owned Material, Topic, or Series cover
+   * Upload or replace one author-owned Material, Topic, or Product cover
    * @returns any
    * @throws ApiError
    */
@@ -484,7 +484,7 @@ export class MaterialAuthoringService {
     formData,
   }: {
     ownerId: string,
-    ownerKind: 'material' | 'series' | 'topic',
+    ownerKind: 'material' | 'product' | 'topic',
     formData: {
       checksumSha256: string;
       declaredSize: number;
@@ -512,12 +512,127 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Read the author's Home Series selection
+   * Read an exact historical source request receipt without writing Material state
+   * @returns any
+   * @throws ApiError
+   */
+  public readHistoricalSourceMaterialReceipt({
+    idempotencyKey,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    requestBody: {
+      body: {
+        doc: Record<string, any>;
+        schemaVersion: 1;
+      };
+      expectedContentVersion: number;
+      materialId: string;
+      metadata: {
+        access: 'free' | 'closed' | 'membership';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
+        outcomes: Array<string>;
+        seriesIds: Array<string>;
+        summary: string | null;
+        tagIds: Array<string>;
+        title: string | null;
+        topicId: string | null;
+      };
+      notifyTelegram?: boolean;
+      primaryVideoId: string | null;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      source: {
+        commit?: string | null;
+        id: string;
+        path: string;
+        revision: string;
+        showInFeed: boolean;
+      };
+      videoChapters?: Array<{
+        start: number;
+        title: string;
+      }>;
+    },
+  }): CancelablePromise<{
+    contentVersion: number;
+    materialId: string;
+    publicationState: 'draft' | 'published' | 'unpublished';
+    publishedAt: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/history/material-receipts',
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Replay an authorized historical Practice receipt; new writes are retired
+   * @returns any
+   * @throws ApiError
+   */
+  public readHistoricalPracticeReceipt({
+    idempotencyKey,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    requestBody: {
+      definition: {
+        allowedFreedom: string;
+        businessInputs: string;
+        criteria: Array<{
+          acceptableEvidence: Array<string>;
+          id: string;
+          requirement: string;
+        }>;
+        expectedOutcome: string;
+        schemaVersion: 1;
+        title: string;
+      };
+      expectedContentVersion: number;
+      expectedPracticeVersion: number | null;
+      materialId: string;
+      practiceId: string;
+      provenance: {
+        commit: string;
+        path: string;
+        repository: string;
+      };
+      publicationState: 'published' | 'unpublished';
+      sourceReference: {
+        materialSourceId: string;
+        materialSourceRevision: string;
+      };
+    },
+  }): CancelablePromise<{
+    boundContentVersion: number;
+    definitionDigest: string;
+    materialId: string;
+    practiceId: string;
+    practiceVersion: number;
+    publicationState: 'published' | 'unpublished';
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/history/practice-receipts',
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read the author's Home Product selection
    * @returns any
    * @throws ApiError
    */
   public loadAuthoringHomePin(): CancelablePromise<{
-    seriesId: string | null;
+    productId: string | null;
     version: number;
   }> {
     return this.httpRequest.request({
@@ -526,7 +641,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Replace or remove the author's Home Series selection
+   * Replace or remove the author's Home Product selection
    * @returns any
    * @throws ApiError
    */
@@ -535,10 +650,10 @@ export class MaterialAuthoringService {
   }: {
     requestBody: {
       expectedVersion: number;
-      seriesId: string | null;
+      productId: string | null;
     },
   }): CancelablePromise<{
-    seriesId: string | null;
+    productId: string | null;
     version: number;
   }> {
     return this.httpRequest.request({
@@ -559,7 +674,7 @@ export class MaterialAuthoringService {
     formData,
   }: {
     ownerId: string,
-    ownerKind: 'material' | 'series',
+    ownerKind: 'material' | 'product',
     formData: {
       checksumSha256: string;
       declaredSize: number;
@@ -609,7 +724,7 @@ export class MaterialAuthoringService {
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
-        seriesIds: Array<string>;
+        productIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
         title: string | null;
@@ -623,7 +738,7 @@ export class MaterialAuthoringService {
         id: string;
         path: string;
         revision: string;
-        showInFeed: boolean;
+        version: 2;
       };
       videoChapters?: Array<{
         start: number;
@@ -710,7 +825,7 @@ export class MaterialAuthoringService {
         id: string;
         path: string;
         revision: string;
-        showInFeed: boolean;
+        version: 2;
       };
     },
   }): CancelablePromise<{
@@ -751,7 +866,7 @@ export class MaterialAuthoringService {
         commit: string | null;
         path: string;
         revision: string;
-        showInFeed: boolean;
+        version: 2;
       };
       sourceId: string;
     }>;
@@ -783,7 +898,7 @@ export class MaterialAuthoringService {
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
-        seriesIds: Array<string>;
+        productIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
         title: string | null;
@@ -796,7 +911,7 @@ export class MaterialAuthoringService {
         id: string;
         path: string;
         revision: string;
-        showInFeed: boolean;
+        version: 2;
       };
       videoChapters?: Array<{
         start: number;
@@ -809,113 +924,6 @@ export class MaterialAuthoringService {
     return this.httpRequest.request({
       method: 'POST',
       url: '/authoring/import/materials/validate',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Import the current practice definition against explicit source and mutation versions
-   * @returns any
-   * @throws ApiError
-   */
-  public applySourcePractice({
-    idempotencyKey,
-    requestBody,
-  }: {
-    idempotencyKey: string,
-    requestBody: {
-      definition: {
-        allowedFreedom: string;
-        businessInputs: string;
-        criteria: Array<{
-          acceptableEvidence: Array<string>;
-          id: string;
-          requirement: string;
-        }>;
-        expectedOutcome: string;
-        schemaVersion: 1;
-        title: string;
-      };
-      expectedContentVersion: number;
-      expectedPracticeVersion: number | null;
-      materialId: string;
-      practiceId: string;
-      provenance: {
-        commit: string;
-        path: string;
-        repository: string;
-      };
-      publicationState: 'published' | 'unpublished';
-      sourceReference: {
-        materialSourceId: string;
-        materialSourceRevision: string;
-      };
-    },
-  }): CancelablePromise<{
-    boundContentVersion: number;
-    definitionDigest: string;
-    materialId: string;
-    practiceId: string;
-    practiceVersion: number;
-    publicationState: 'published' | 'unpublished';
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/practices/apply',
-      headers: {
-        'idempotency-key': idempotencyKey,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Validate authored practice data and inspect its current CAS version without writes
-   * @returns any
-   * @throws ApiError
-   */
-  public validateSourcePractice({
-    requestBody,
-  }: {
-    requestBody: {
-      definition: {
-        allowedFreedom: string;
-        businessInputs: string;
-        criteria: Array<{
-          acceptableEvidence: Array<string>;
-          id: string;
-          requirement: string;
-        }>;
-        expectedOutcome: string;
-        schemaVersion: 1;
-        title: string;
-      };
-      practiceId: string;
-      provenance: {
-        commit: string;
-        path: string;
-        repository: string;
-      };
-      publicationState: 'published' | 'unpublished';
-      sourceReference: {
-        materialSourceId: string;
-        materialSourceRevision: string;
-      };
-    },
-  }): CancelablePromise<{
-    current: {
-      boundContentVersion: number;
-      definitionDigest: string;
-      materialId: string;
-      practiceId: string;
-      practiceVersion: number;
-      publicationState: 'published' | 'unpublished';
-    } | null;
-    valid: boolean;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/practices/validate',
       body: requestBody,
       mediaType: 'application/json',
     });
@@ -1025,19 +1033,19 @@ export class MaterialAuthoringService {
       confirmedProductRemovals: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<any>;
+      productId: any;
       programmePlacements?: Array<{
         chapterId: any;
         id: any;
         materialId: any;
         stepGroup: string | null;
       }>;
-      seriesId: any;
       sourceId: string;
       stepGroups?: Record<string, string>;
     },
   }): CancelablePromise<{
     orderVersion: string;
-    seriesId: string;
+    productId: string;
   }> {
     return this.httpRequest.request({
       method: 'POST',
@@ -1076,7 +1084,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'product' | 'series' | 'topic';
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -1246,7 +1254,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'product' | 'series' | 'topic';
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -1483,7 +1491,7 @@ export class MaterialAuthoringService {
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
-        seriesIds: Array<string>;
+        productIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
         title: string | null;
@@ -1575,9 +1583,9 @@ export class MaterialAuthoringService {
       difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        seriesId: string;
+        productId: string;
       }>;
       slug: string | null;
       summary: string | null;
@@ -1602,7 +1610,7 @@ export class MaterialAuthoringService {
       id: string;
       path: string;
       revision: string;
-      showInFeed: boolean;
+      version: 2;
     };
     unselectedVideoUpload: {
       durationSeconds?: number;
@@ -1623,7 +1631,7 @@ export class MaterialAuthoringService {
   }
   /**
    * Atomically Save the complete current Material state
-   * Source-owned Materials return forbidden. Incompatible Product membership changes return invalid_reference with material_source_mismatch at /metadata/seriesIds/<index>; removing a membership uses /metadata/seriesIds.
+   * Source-owned Materials return forbidden. Incompatible Product membership changes return invalid_reference with material_source_mismatch at /metadata/productIds/<index>; removing a membership uses /metadata/productIds.
    * @returns any
    * @throws ApiError
    */
@@ -1648,7 +1656,7 @@ export class MaterialAuthoringService {
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
-        seriesIds: Array<string>;
+        productIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
         title: string | null;
@@ -1744,9 +1752,9 @@ export class MaterialAuthoringService {
       difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        seriesId: string;
+        productId: string;
       }>;
       slug: string | null;
       summary: string | null;
@@ -1855,7 +1863,7 @@ export class MaterialAuthoringService {
       id: 'video' | 'guide' | 'note';
       name: string;
     }>;
-    series: Array<{
+    products: Array<{
       archived: boolean;
       id: string;
       name: string;
@@ -2349,7 +2357,7 @@ export class MaterialAuthoringService {
     },
   }): CancelablePromise<{
     orderVersion: string;
-    seriesId: string;
+    productId: string;
   }> {
     return this.httpRequest.request({
       method: 'PUT',
@@ -2390,13 +2398,13 @@ export class MaterialAuthoringService {
     }>;
     name: string;
     orderVersion: string;
+    productId: string;
     programmePlacements: Array<{
       chapterId: any;
       id: any;
       materialId: any;
       stepGroup: string | null;
     }>;
-    seriesId: string;
   }> {
     return this.httpRequest.request({
       method: 'GET',
@@ -2437,102 +2445,13 @@ export class MaterialAuthoringService {
     },
   }): CancelablePromise<{
     orderVersion: string;
-    seriesId: string;
+    productId: string;
   }> {
     return this.httpRequest.request({
       method: 'PUT',
       url: '/authoring/products/{productId}/order',
       path: {
         'productId': productId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * @deprecated
-   * Load the current Material order for a Series
-   * @returns any
-   * @throws ApiError
-   */
-  public loadAuthoringSeriesOrder({
-    seriesId,
-  }: {
-    seriesId: string,
-  }): CancelablePromise<{
-    archived: boolean;
-    chapters: Array<{
-      id: string;
-      name: string;
-      ordinal: number;
-      summary: string;
-      supplementaryMaterialIds?: Array<string>;
-    }>;
-    items: Array<{
-      chapterId: string | null;
-      materialId: string;
-      ordinal: number;
-      publicationState: 'draft' | 'published' | 'unpublished';
-      stepGroup: string | null;
-      title: string | null;
-    }>;
-    name: string;
-    orderVersion: string;
-    programmePlacements: Array<{
-      chapterId: any;
-      id: any;
-      materialId: any;
-      stepGroup: string | null;
-    }>;
-    seriesId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/series/{seriesId}/order',
-      path: {
-        'seriesId': seriesId,
-      },
-    });
-  }
-  /**
-   * @deprecated
-   * Replace the Material order for a Series
-   * @returns any
-   * @throws ApiError
-   */
-  public reorderAuthoringSeries({
-    seriesId,
-    requestBody,
-  }: {
-    seriesId: string,
-    requestBody: {
-      chapterAssignments?: Record<string, any>;
-      chapters?: Array<{
-        id: any;
-        name: string;
-        summary: string;
-        supplementaryMaterialIds?: Array<any>;
-      }>;
-      confirmedProductRemovals?: Array<string>;
-      expectedOrderVersion: string;
-      orderedMaterialIds: Array<string>;
-      programmePlacements?: Array<{
-        chapterId: any;
-        id: any;
-        materialId: any;
-        stepGroup: string | null;
-      }>;
-      stepGroups?: Record<string, string>;
-    },
-  }): CancelablePromise<{
-    orderVersion: string;
-    seriesId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/series/{seriesId}/order',
-      path: {
-        'seriesId': seriesId,
       },
       body: requestBody,
       mediaType: 'application/json',

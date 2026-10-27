@@ -875,22 +875,14 @@ test("old bank return preserves every payment query parameter", async ({
   });
 });
 
-test("old offer checkout preserves the selected tariff and original page", async ({
+test("retired subscription checkout cannot be enabled by a tariff parameter", async ({
   request,
 }) => {
-  const offerId = "10000000-0000-4000-8000-000000001065";
   const response = await request.get(
-    `/subscription?offer=${offerId}&from=%2Fmaterials%2Flesson`,
+    "/subscription?offer=10000000-0000-4000-8000-000000001065&from=%2Fmaterials%2Flesson",
     { maxRedirects: 0 },
   );
-  expect(response.status()).toBe(308);
-  const destination = new URL(
-    response.headers()["location"] ?? "",
-    response.url(),
-  );
-  expect(destination.pathname).toBe("/payment/checkout");
-  expect(destination.searchParams.get("offer")).toBe(offerId);
-  expect(destination.searchParams.get("from")).toBe("/materials/lesson");
+  expect(response.status()).toBe(404);
 });
 
 test("release Web has no local account route and ignores local identity hints", async ({

@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from "react";
 
-import { useHomePin } from "@/features/series-order";
+import { useHomePin } from "@/features/product-order";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import {
   AdminEmptyState,
@@ -90,7 +90,7 @@ export function ContentCollectionsPageClient({
   return (
     <main className="authoring-page" id="authoring-content" tabIndex={-1}>
       <div className="authoring-page-body">
-        {kind === "series" ? (
+        {kind === "product" ? (
           <ProductsSection
             collections={collections}
             navigation={navigation}
@@ -129,7 +129,7 @@ function ProductsSection({
   return (
     <CollectionListFrame
       collections={collections}
-      kind="series"
+      kind="product"
       onSaved={onSaved}
       query={query}
       resultCount={found.length}
@@ -149,7 +149,7 @@ function ProductsSection({
             rows={shown.rows.map(presentProductRow)}
           />
           <CollectionPagination
-            kind="series"
+            kind="product"
             onPage={(page) => {
               navigation.replace({ ...query, page });
             }}

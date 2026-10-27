@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { productChapterPlacementIssues } from "../../src/modules/materials/features/reorder-series/product-chapter-placement.js";
+import { productChapterPlacementIssues } from "../../src/modules/materials/features/reorder-product/product-chapter-placement.js";
 
 const [alpha, beta, gamma] = ["alpha", "beta", "gamma"];
 const [one, two, three, four] = ["one", "two", "three", "four"];

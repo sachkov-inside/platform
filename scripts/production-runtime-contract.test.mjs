@@ -16,19 +16,18 @@ const productionTemplates = readdirSync(
   .join("\n");
 
 // The activation protocol has exactly these operations; a prefix would expose any future sub-route.
-const activationPaths = [
-  ...["binding", "own-access", "attempts", "evidence", "announcement"].map(
-    (operation) =>
-      `/integrations/telegram/v1/subscription-activation/${operation}`,
-  ),
-  "/integrations/telegram/v1/invitations/redeem",
-].join(" ");
+const activationPaths = ["course-activation"]
+  .flatMap((prefix) =>
+    ["binding", "own-access", "attempts", "evidence", "announcement"].map(
+      (operation) => `/integrations/telegram/v1/${prefix}/${operation}`,
+    ),
+  )
+  .join(" ");
 // The bank, Tribute and Telegram call exactly these API routes; each Caddy matcher allows one method.
 /** @type {[string, string, string][]} */
 const callbackRoutes = [
   ["tbank_notification", "POST", "/billing/tbank/notification"],
-  ["billing_cohorts", "GET", "/billing/cohorts"],
-  ["tribute_webhook", "POST", "/integrations/tribute/v1/webhook"],
+  ["billing_product_sales_states", "GET", "/billing/product-sales-states"],
   ["telegram_activation", "POST", activationPaths],
   ["community_dispatch", "POST", "/internal/billing-dispatch/authorize"],
   [
@@ -39,22 +38,22 @@ const callbackRoutes = [
   [
     "communications_authorize",
     "POST",
-    "/integrations/telegram/v1/communications/authorize",
+    "/integrations/telegram/v2/communications/authorize",
   ],
   [
     "communications_waitlist",
     "POST",
-    "/integrations/telegram/v1/communications/waitlist",
+    "/integrations/telegram/v2/communications/waitlist",
   ],
   [
     "communications_materials",
     "POST",
-    "/integrations/telegram/v1/communications/materials",
+    "/integrations/telegram/v2/communications/materials",
   ],
   [
     "communications_validate",
     "POST",
-    "/integrations/telegram/v1/communications/validate-content",
+    "/integrations/telegram/v2/communications/validate-content",
   ],
 ];
 
@@ -76,7 +75,10 @@ const httpMethods = new Set(["get", "put", "post", "delete", "head", "patch"]);
 // External callers also use these API operations outside the integration prefixes.
 const externalPublicRoutes = new Map([
   ["POST /billing/tbank/notification", "the bank's payment notification"],
-  ["GET /billing/cohorts", "the Telegram bot reads the cohort start date"],
+  [
+    "GET /billing/product-sales-states",
+    "the Telegram bot reads the cohort start date",
+  ],
 ]);
 // Integration operations that stay unpublished on purpose; the production smoke expects 404 for them.
 const unpublishedIntegrationRoutes = new Map([
@@ -99,6 +101,38 @@ const runtime = {
 };
 
 describe("production runtime architecture contract", () => {
+  it("rejects an extra retired activation callback even beside the canonical routes", () => {
+    const retired =
+      "@retired_activation {\n\t\t\tmethod POST\n\t\t\tpath /integrations/telegram/v1/subscription-activation/binding\n\t\t}\n\t\treverse_proxy @retired_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\t\t";
+    assert.throws(
+      () =>
+        assertRuntimeContract({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            "@telegram_activation {",
+            `${retired}@telegram_activation {`,
+          ),
+        }),
+      /retired activation route must not be published/u,
+    );
+  });
+
+  it("rejects an additional retired cohort route even when the canonical route remains published", () => {
+    const retired =
+      "@retired_cohorts {\n\t\t\tmethod GET\n\t\t\tpath /billing/cohorts\n\t\t}\n\t\treverse_proxy @retired_cohorts {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\t\t";
+    assert.throws(
+      () =>
+        assertRuntimeContract({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            "@billing_product_sales_states {",
+            `${retired}@billing_product_sales_states {`,
+          ),
+        }),
+      /retired cohort route must not be published/u,
+    );
+  });
+
   it("rejects a verifier marker that external peers can forward", () => {
     for (const caddy of [
       runtime.caddy.replace(
@@ -215,8 +249,8 @@ describe("production runtime architecture contract", () => {
   it("publishes every API route that external callers use", () => {
     const unpublished = /platform\.caddy does not publish external API route/u;
     for (const route of [
-      " /integrations/telegram/v1/invitations/redeem",
-      " /integrations/telegram/v1/subscription-activation/binding",
+      " /integrations/telegram/v1/course-activation/binding",
+      " /integrations/telegram/v1/course-activation/binding",
     ]) {
       assert.throws(
         () =>
@@ -245,7 +279,7 @@ describe("production runtime architecture contract", () => {
         assertExternalRoutesPublished({
           ...runtime,
           caddy: runtime.caddy.replace(
-            /\t\t@billing_cohorts \{[^}]+\}\n\t\treverse_proxy @billing_cohorts [^\n]+\n/u,
+            /\t\t@billing_product_sales_states \{[^}]+\}\n\t\treverse_proxy @billing_product_sales_states [^\n]+\n/u,
             "",
           ),
         }),
@@ -266,7 +300,7 @@ describe("production runtime architecture contract", () => {
   });
 
   it("rejects an API route that Caddy declares after the fail-closed integration 404", () => {
-    const redeem = " /integrations/telegram/v1/invitations/redeem";
+    const redeem = " /integrations/telegram/v1/course-activation/binding";
     assert.throws(
       () =>
         assertExternalRoutesPublished({
@@ -823,7 +857,6 @@ function assertRuntimeContract(files) {
   );
 
   for (const path of [
-    "/integrations/telegram/v1/membership-evidence",
     "/integrations/telegram/v1/sign-in/linked-identity",
     "/integrations/kinescope/v1/webhook",
     "/integrations/kinescope/v1/authorize",
@@ -862,6 +895,20 @@ function assertRuntimeContract(files) {
     if (!route.test(files.caddy))
       throw new Error(`${name} must publish only its exact method and path`);
   }
+  if (
+    caddyProxiedRoutes(files.caddy).some((route) =>
+      / \/billing\/cohorts(?:$|\/)/u.test(route),
+    )
+  ) {
+    throw new Error("retired cohort route must not be published");
+  }
+  if (
+    caddyProxiedRoutes(files.caddy).some((route) =>
+      route.includes(" /integrations/telegram/v1/subscription-activation/"),
+    )
+  )
+    throw new Error("retired activation route must not be published");
+
   if (
     caddyProxiedRoutes(files.caddy).some((route) =>
       / \/internal\/\*$| \/billing\/\*$|subscription-activation\/\*/u.test(

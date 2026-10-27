@@ -138,7 +138,7 @@ export async function authoringMaterialsRoute(request, url, readBody) {
           id,
           name,
         })),
-        series: [],
+        products: [],
         tags: [],
         topics: [
           { ...authoringMaterialTopics.ai, archived: false },

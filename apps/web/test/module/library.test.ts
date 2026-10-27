@@ -21,7 +21,7 @@ const facets = {
       summary: null,
     },
   ],
-  series: [
+  products: [
     {
       count: 1,
       cover: null,
@@ -88,10 +88,10 @@ describe("Library server adapter", () => {
                   name: "Architecture",
                 },
               ],
-              seriesMemberships: [
+              productMemberships: [
                 {
                   ordinal: 3,
-                  series: {
+                  product: {
                     id: "72000000-0000-4000-8000-000000000005",
                     name: "Создание Platform Inside",
                     slug: "platform-inside",
@@ -128,7 +128,7 @@ describe("Library server adapter", () => {
           publishedAt: "2026-08-25T05:00:00.000Z",
           materialId: "72000000-0000-4000-8000-000000000020",
           tags: ["Architecture"],
-          seriesMemberships: [
+          productMemberships: [
             {
               ordinal: 3,
               name: "Создание Platform Inside",
@@ -165,7 +165,7 @@ describe("Library server adapter", () => {
               topic: { id: "topic", name: "Platform", slug: "platform" },
               format: { id: "format", name: "Гайд", slug: "guide" },
               tags: [],
-              seriesMemberships: [],
+              productMemberships: [],
               body: { schemaVersion: 1, blocks: [] },
             },
           ],

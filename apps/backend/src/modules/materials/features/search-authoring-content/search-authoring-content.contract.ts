@@ -14,13 +14,6 @@ export interface SearchAuthoringContentQuery {
   readonly limit: number;
 }
 
-/** A Product found by its name or slug; an archived Product is found too and flagged. */
-export interface AuthoringProductHitDto {
-  readonly id: string;
-  readonly name: string;
-  readonly archived: boolean;
-}
-
 /** A Material found as the authoring list finds it: by title, summary or slug. */
 export interface AuthoringMaterialHitDto {
   readonly id: string;
@@ -31,13 +24,6 @@ export interface AuthoringMaterialHitDto {
 }
 
 export type SearchAuthoringContentError = ForbiddenError | SystemError;
-
-/** Products by name ascending, then id. Requires `materials:manage`. */
-export type SearchAuthoringProductsOperation = (
-  query: SearchAuthoringContentQuery,
-) => Promise<
-  Result<readonly AuthoringProductHitDto[], SearchAuthoringContentError>
->;
 
 /** Materials most recently changed first, then by id descending. Requires `materials:manage`. */
 export type SearchAuthoringMaterialsOperation = (

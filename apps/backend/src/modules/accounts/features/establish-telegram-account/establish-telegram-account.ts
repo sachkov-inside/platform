@@ -3,6 +3,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import {
   lockAccountRecords,
   type AccountsPrismaClient,
+  type AccountsPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId } from "../../domain/account-identifiers.js";
 import type { EstablishAccountResult } from "../../facets/accounts/accounts.interface.js";
@@ -11,9 +12,13 @@ import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-a
 import { validLogtoIdentity } from "../../shared/account-input.js";
 import { internalFailure } from "../../shared/internal-failure.js";
 
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { accountsTransaction } from "../../infrastructure/transaction.js";
+
 export async function establishTelegramAccount(
   prisma: AccountsPrismaClient,
   identity: VerifiedTelegramAccountSignIn,
+  handle?: TransactionHandle,
 ): Promise<EstablishAccountResult> {
   if (
     !validLogtoIdentity(identity) ||
@@ -22,7 +27,9 @@ export async function establishTelegramAccount(
     return { ok: false, error: { code: "invalid_input" } };
   }
   try {
-    return await prisma.$transaction(async (transaction) => {
+    const operation = async (
+      transaction: AccountsPrisma,
+    ): Promise<EstablishAccountResult> => {
       await lockAccountRecords(transaction, [
         `logto:${JSON.stringify([identity.issuer, identity.subject])}`,
         `telegram:${identity.telegram.subjectRef}`,
@@ -63,8 +70,12 @@ export async function establishTelegramAccount(
       });
       await appendAccountAuditEvent(transaction, "account_created", accountId);
       return { ok: true, account: { accountId } };
-    });
+    };
+    return await (handle === undefined
+      ? prisma.$transaction(operation)
+      : operation(accountsTransaction(handle)));
   } catch (error) {
+    if (handle !== undefined) throw error;
     return dependencyFailure(
       { module: "accounts", operation: "establishTelegramAccount" },
       error,

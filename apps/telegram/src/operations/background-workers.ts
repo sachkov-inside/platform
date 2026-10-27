@@ -1,9 +1,8 @@
 import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import { isTruthy } from "../shared/truthiness.js";
-import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";
-import { InvitationRedemption } from "../modules/subscription-activation/invitation-redemption.js";
+import { CourseActivation } from "../modules/course-activation/course-activation.js";
 import { AuthorDelivery } from "../modules/communications/author-delivery.js";
-import { FunnelScheduler } from "../modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../modules/communications/sequence-scheduler.js";
 import {
   Inject,
   Injectable,
@@ -18,9 +17,6 @@ import {
 import { DATABASE, type Database } from "../database/database.js";
 import { purgeExpiredRecords } from "../database/retention.js";
 import { CommunityProvider } from "../modules/community/community-provider.js";
-import { InitialMembershipCheckProcessor } from "../modules/membership-evidence/initial-membership-check-processor.js";
-import { MembershipEvidenceDeliveryProcessor } from "../modules/membership-evidence/membership-evidence-delivery-processor.js";
-import { MembershipEvidenceProvider } from "../modules/membership-evidence/membership-evidence-provider.js";
 import { CLOCK, type Clock } from "../shared/clock.js";
 import { telegramTurnPending } from "../modules/outbound/telegram-transport-slots.js";
 import { StartResponseDeliveryProcessor } from "../modules/outbound/start-response-delivery-processor.js";
@@ -47,7 +43,7 @@ const BACKGROUND: WorkerPacing = { busyMs: 500, idleMs: 5000 };
  * deployment waiting on `/ready` sees a fresh result soon, and a degraded provider is not
  * re-recorded every few seconds.
  */
-const PROVIDER_PROBE: WorkerPacing = { busyMs: 1500, idleMs: 60_000 };
+
 const RETENTION: WorkerPacing = { busyMs: 1000, idleMs: 3_600_000 };
 
 /**
@@ -62,8 +58,8 @@ export class BackgroundWorkers
   private loops: WorkerLoop[] = [];
 
   constructor(
-    @Inject(SubscriptionActivation)
-    private readonly activation: SubscriptionActivation,
+    @Inject(CourseActivation)
+    private readonly activation: CourseActivation,
     @Inject(APPLICATION_CONFIG)
     private readonly config: ApplicationConfig,
     @Inject(DATABASE) private readonly database: Database,
@@ -76,19 +72,11 @@ export class BackgroundWorkers
     @Inject(AuthorDelivery) private readonly authorDelivery: AuthorDelivery,
     @Inject(WaitlistConfirmations)
     private readonly waitlistConfirmations: WaitlistConfirmations,
-    @Inject(FunnelScheduler) private readonly funnels: FunnelScheduler,
-    @Inject(InitialMembershipCheckProcessor)
-    private readonly membershipChecks: InitialMembershipCheckProcessor,
-    @Inject(MembershipEvidenceDeliveryProcessor)
-    private readonly evidenceDeliveries: MembershipEvidenceDeliveryProcessor,
-    @Inject(MembershipEvidenceProvider)
-    private readonly membershipEvidence: MembershipEvidenceProvider,
+    @Inject(SequenceScheduler) private readonly funnels: SequenceScheduler,
     @Inject(CommunityProvider) private readonly community: CommunityProvider,
     @Inject(SalesFunnelDeliveryProcessor)
     private readonly salesFunnel: SalesFunnelDeliveryProcessor,
     @Inject(RuntimeMetrics) private readonly metrics: RuntimeMetrics,
-    @Inject(InvitationRedemption)
-    private readonly invitations: InvitationRedemption,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -114,11 +102,6 @@ export class BackgroundWorkers
         this.metrics.recordActivation(await this.activation.snapshot());
         return processed > 0;
       });
-      add(
-        "invitations",
-        BACKGROUND,
-        async () => (await this.invitations.processAvailable()) > 0,
-      );
     }
 
     const deliveries =
@@ -169,22 +152,6 @@ export class BackgroundWorkers
       );
     }
 
-    if (this.config.membershipMode === "live") {
-      add("membership", BACKGROUND, async () => {
-        const outcome = await this.membershipEvidence.reconcileDue(
-          { maxDurationMs: 2000, maxItems: 25 },
-          this.clock,
-        );
-        this.metrics.recordReconciliation(outcome);
-        const checks = await this.membershipChecks.processAvailable(1);
-        return outcome.processed + checks > 0;
-      });
-      add("membership.provider", PROVIDER_PROBE, async () => {
-        await this.membershipEvidence.probeProvider();
-        return false;
-      });
-    }
-
     if (this.config.communityMode === "live") {
       add("community", BACKGROUND, async () => {
         const effects = await this.community.processDueEffects();
@@ -192,14 +159,6 @@ export class BackgroundWorkers
         this.metrics.recordCommunity(await this.community.snapshot());
         return effects + states > 0;
       });
-    }
-
-    if (this.config.evidenceDeliveryMode === "live") {
-      add(
-        "evidence",
-        BACKGROUND,
-        async () => (await this.evidenceDeliveries.processAvailable()) > 0,
-      );
     }
 
     if (this.config.salesFunnel?.delivery) {

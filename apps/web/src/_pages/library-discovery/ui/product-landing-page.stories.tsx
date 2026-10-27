@@ -20,7 +20,7 @@ const materials = [
     access: "free",
     availability: "available",
     format: "Гайд",
-    seriesMemberships: [
+    productMemberships: [
       { name: "Создание Platform Inside", ordinal: 1, slug: "platform-inside" },
     ],
     slug: "inside-platform-overview",
@@ -34,7 +34,7 @@ const materials = [
     access: "closed",
     availability: "locked",
     format: "Заметка",
-    seriesMemberships: [
+    productMemberships: [
       { name: "Создание Platform Inside", ordinal: 2, slug: "platform-inside" },
     ],
     slug: "platform-membership",
@@ -63,7 +63,7 @@ const chapters = [
 
 const productResult = {
   chapters,
-  discoveryKind: "series",
+  discoveryKind: "product",
   hasNext: false,
   items: materials,
   kind: "ready",
@@ -76,11 +76,11 @@ const productResult = {
     slug: "platform-inside",
     summary: "Последовательный путь создания Platform.",
   },
-  relatedSeries: [],
+  relatedProduct: [],
   topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
 
-/** Страница продукта без особого оформления: `PublishedSeriesPage` рисует её через развилку открытия. */
+/** Страница продукта без особого оформления: `PublishedProductPage` рисует её через развилку открытия. */
 const meta = {
   ...publicPageEnvironment("/products/platform-inside"),
   component: LibraryDiscoveryView,
@@ -152,21 +152,21 @@ export const Empty: Story = {
   args: {
     result: {
       chapters: [],
-      discoveryKind: "series",
+      discoveryKind: "product",
       kind: "empty",
       reference: {
         name: "Новый продукт",
         slug: "platform-inside",
         summary: "",
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
     },
   },
   globals: desktop,
 };
 
-/** Каталог не ответил: `PublishedSeriesPage` показывает сбой подборки с повтором. */
+/** Каталог не ответил: `PublishedProductPage` показывает сбой подборки с повтором. */
 export const Unavailable: Story = {
   globals: mobile,
   render: () => <LibraryDiscoveryUnavailable />,

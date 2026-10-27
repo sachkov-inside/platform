@@ -1,5 +1,5 @@
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
-import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type { Result } from "../../result.js";
 
 export interface ListPublishedMaterialProjectionsQuery {
@@ -9,13 +9,13 @@ export interface ListPublishedMaterialProjectionsQuery {
   readonly formatSlugs?: readonly string[];
   readonly first: number;
   readonly q?: string;
-  readonly seriesSlugs?: readonly string[];
+  readonly productSlugs?: readonly string[];
   readonly sort?: PublishedMaterialProjectionSort;
   readonly topicSlugs?: readonly string[];
 }
 
 export type PublishedMaterialProjectionSort =
-  "newest" | "relevance" | "series" | "title";
+  "newest" | "relevance" | "product" | "title";
 
 export type PublishedMaterialProjectionCursor =
   | {
@@ -30,7 +30,7 @@ export type PublishedMaterialProjectionCursor =
       readonly rank: number;
     }
   | {
-      readonly kind: "series";
+      readonly kind: "product";
       readonly materialId: string;
       readonly ordinal: number;
     }
@@ -54,7 +54,7 @@ export interface PublishedMaterialProjectionPageDto {
   readonly continuation: PublishedMaterialProjectionCursor | null;
   readonly facets: {
     readonly formats: readonly PublishedMaterialFacetOptionDto[];
-    readonly series: readonly PublishedMaterialFacetOptionDto[];
+    readonly products: readonly PublishedMaterialFacetOptionDto[];
     readonly topics: readonly PublishedMaterialFacetOptionDto[];
   };
   readonly items: readonly PublishedMaterialProjectionDto[];

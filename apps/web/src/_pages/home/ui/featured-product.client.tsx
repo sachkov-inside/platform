@@ -10,8 +10,8 @@ import { CourseFilm } from "@/features/ai-engineering-course";
 import { AiFirstProcessArtwork } from "@/features/ai-first-product";
 import { formatMaterialCount } from "@/features/library-discovery";
 import {
-  loadSeriesContinuation,
-  seriesContinuationQueryKey,
+  loadProductContinuation,
+  productContinuationQueryKey,
 } from "@/features/reading-progress";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -23,7 +23,7 @@ import { hasText } from "@/shared/lib/text";
 const featuredCards: Record<
   ProductPresentation,
   (props: {
-    readonly series: HomePinnedCollection;
+    readonly product: HomePinnedCollection;
     readonly courseCall?: ReactNode;
   }) => ReactNode
 > = {
@@ -33,26 +33,27 @@ const featuredCards: Record<
 };
 
 export function FeaturedProduct({
-  series,
+  product,
   courseCall,
 }: {
-  readonly series: HomePinnedCollection;
+  readonly product: HomePinnedCollection;
   readonly courseCall?: ReactNode;
 }) {
-  const Card = featuredCards[series.presentation];
-  return <Card series={series} courseCall={courseCall} />;
+  const Card = featuredCards[product.presentation];
+  return <Card product={product} courseCall={courseCall} />;
 }
 
 /** Compact course introduction leaves the library feed visible on the first screen. */
 function AiEngineeringFeaturedProduct({
-  series,
+  product,
   courseCall,
 }: {
-  readonly series: HomePinnedCollection;
+  readonly product: HomePinnedCollection;
   readonly courseCall?: ReactNode;
 }) {
-  if (series.hero === null) return <DefaultFeaturedProduct series={series} />;
-  const href = collectionDiscoveryHref("series", series.slug, "/");
+  if (product.hero === null)
+    return <DefaultFeaturedProduct product={product} />;
+  const href = collectionDiscoveryHref("product", product.slug, "/");
   return (
     <section
       aria-labelledby="featured-title"
@@ -61,15 +62,15 @@ function AiEngineeringFeaturedProduct({
     >
       <div className="home-course-heading">
         <h2 id="featured-title">
-          <IntentPrefetchLink href={href}>{series.name}</IntentPrefetchLink>
+          <IntentPrefetchLink href={href}>{product.name}</IntentPrefetchLink>
         </h2>
-        <p className="home-course-description">{series.hero.lead}</p>
+        <p className="home-course-description">{product.hero.lead}</p>
       </div>
       <div className="home-course-visual">
         <IntentPrefetchLink
           href={href}
           className="home-course-film"
-          aria-label={`Открыть курс ${series.name}`}
+          aria-label={`Открыть курс ${product.name}`}
         >
           <CourseFilm />
         </IntentPrefetchLink>
@@ -86,12 +87,12 @@ function AiEngineeringFeaturedProduct({
 }
 
 function AiFirstFeaturedProduct({
-  series,
+  product,
 }: {
-  readonly series: HomePinnedCollection;
+  readonly product: HomePinnedCollection;
 }) {
   // Подписи карточки приходят из описания продукта; без них остаются название и краткое описание.
-  const card = series.card;
+  const card = product.card;
   const open =
     card === null || card.action === "" ? "Открыть продукт" : card.action;
   return (
@@ -104,22 +105,22 @@ function AiFirstFeaturedProduct({
         {card === null || card.eyebrow === "" ? null : (
           <p className="home-product-eyebrow">{card.eyebrow}</p>
         )}
-        <h2 id="featured-title">{series.name}</h2>
+        <h2 id="featured-title">{product.name}</h2>
         {card === null || card.subtitle === "" ? null : (
           <p className="home-product-subtitle">{card.subtitle}</p>
         )}
-        {hasText(series.summary) ? (
-          <p className="home-product-summary">{series.summary}</p>
+        {hasText(product.summary) ? (
+          <p className="home-product-summary">{product.summary}</p>
         ) : null}
         <div className="home-product-actions">
-          <span>{formatMaterialCount(series.count)}</span>
+          <span>{formatMaterialCount(product.count)}</span>
           <IntentPrefetchLink
             className="home-product-open"
-            href={collectionDiscoveryHref("series", series.slug, "/")}
+            href={collectionDiscoveryHref("product", product.slug, "/")}
           >
             {open} <ArrowRight aria-hidden="true" />
           </IntentPrefetchLink>
-          <ProductContinuation slug={series.slug} />
+          <ProductContinuation slug={product.slug} />
         </div>
       </div>
       <div className="home-product-visual">
@@ -127,10 +128,10 @@ function AiFirstFeaturedProduct({
           <AiFirstProcessArtwork />
         </div>
         <div className="home-product-mobile-footer">
-          <span>{formatMaterialCount(series.count)}</span>
+          <span>{formatMaterialCount(product.count)}</span>
           <ArrowRight aria-hidden="true" />
           <IntentPrefetchLink
-            href={collectionDiscoveryHref("series", series.slug, "/")}
+            href={collectionDiscoveryHref("product", product.slug, "/")}
           >
             Открыть
           </IntentPrefetchLink>
@@ -141,29 +142,29 @@ function AiFirstFeaturedProduct({
 }
 
 function DefaultFeaturedProduct({
-  series,
+  product,
 }: {
-  readonly series: HomePinnedCollection;
+  readonly product: HomePinnedCollection;
 }) {
   // Подпись действия приходит из описания продукта, если автор её написал.
   const open =
-    series.card === null || series.card.action === ""
+    product.card === null || product.card.action === ""
       ? "Открыть продукт"
-      : series.card.action;
+      : product.card.action;
   return (
     <section className="home-product" aria-labelledby="featured-title">
       <div className="home-product-copy">
-        <h2 id="featured-title">{series.name}</h2>
-        {hasText(series.summary) ? <p>{series.summary}</p> : null}
+        <h2 id="featured-title">{product.name}</h2>
+        {hasText(product.summary) ? <p>{product.summary}</p> : null}
         <div className="home-product-actions">
-          <span>{formatMaterialCount(series.count)}</span>
+          <span>{formatMaterialCount(product.count)}</span>
           <IntentPrefetchLink
             className="home-product-open"
-            href={collectionDiscoveryHref("series", series.slug, "/")}
+            href={collectionDiscoveryHref("product", product.slug, "/")}
           >
             {open} <ArrowRight aria-hidden="true" />
           </IntentPrefetchLink>
-          <ProductContinuation slug={series.slug} />
+          <ProductContinuation slug={product.slug} />
         </div>
       </div>
       <div className="home-product-animation">
@@ -260,8 +261,8 @@ function AccountProductContinuation({
   readonly slug: string;
 }) {
   const query = useQuery({
-    queryKey: seriesContinuationQueryKey(accountId, slug),
-    queryFn: () => loadSeriesContinuation(slug),
+    queryKey: productContinuationQueryKey(accountId, slug),
+    queryFn: () => loadProductContinuation(slug),
     retry: false,
   });
   const continuation =

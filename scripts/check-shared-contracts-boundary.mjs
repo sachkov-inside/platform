@@ -93,8 +93,8 @@ const openApiDocument = z.object({
 function providerDrift() {
   const contracts = [
     {
-      directory: "platform-billing-cohorts",
-      operationId: "billingProductCohorts",
+      directory: "platform-product-sales-states",
+      operationId: "billingProductSalesStates",
       response: "response",
       request: false,
     },

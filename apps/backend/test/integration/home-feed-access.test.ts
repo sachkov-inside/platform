@@ -7,32 +7,29 @@ import {
   assembleDeterministicAccountRights,
 } from "../../src/modules/content-access/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
-  createMigratedTestDatabase,
+  createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { migrateThrough, upgradeToLatest } from "./setup/historical-upgrade.js";
+
 let database: TestDatabase;
 beforeAll(async () => {
-  database = await createMigratedTestDatabase();
+  database = await createTestDatabase();
+  await migrateThrough(database, "0112_canonical_product_storage");
   await seedLocalDevelopment(database.prisma, { demo: "published" });
-  await database.prisma.material.updateMany({ data: { showInFeed: false } });
-  await database.prisma.material.updateMany({
-    where: {
-      slug: {
-        in: [
-          "kak-ustroen-inside-platform",
-          "developer-pipeline-bez-poteri-konteksta",
-        ],
-      },
-    },
-    data: { showInFeed: true },
-  });
+  await database.prisma.$executeRaw(
+    Prisma.sql`update materials.materials set show_in_feed=false`,
+  );
+  await database.prisma.$executeRaw(
+    Prisma.sql`update materials.materials set show_in_feed=true where slug in ('kak-ustroen-inside-platform','developer-pipeline-bez-poteri-konteksta')`,
+  );
+  await upgradeToLatest(database);
 });
 afterAll(async () => {
   await database.dispose();
@@ -90,7 +87,7 @@ for (const subject of [
       {},
       { q: "Developer Pipeline" },
       { topicSlugs: ["platform"] },
-      { seriesSlugs: ["platform-inside"] },
+      { productSlugs: ["platform-inside"] },
     ]) {
       const discovery = await listPublishedMaterials(
         materials.publishedMaterialReader,

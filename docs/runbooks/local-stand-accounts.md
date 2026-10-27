@@ -5,7 +5,7 @@ Which accounts the stand offers, how to pass the owner's purchase order, and whe
 ## Owner order
 
 The catalog is already on sale: the development seed publishes the product and both subscriptions, so
-no manual setup is needed before buying. See [Seeded offer catalog](local-acceptance-sale.md#seeded-offer-catalog).
+no manual setup is needed before buying. See [Seeded offer catalog](local-acceptance-sale.md#development-product-price).
 
 1. Run `pnpm local:stand` and wait for the addresses.
 2. Open <http://127.0.0.1:3000>. A fresh browser context immediately uses the local owner,

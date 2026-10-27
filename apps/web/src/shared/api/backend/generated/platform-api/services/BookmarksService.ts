@@ -112,16 +112,16 @@ export class BookmarksService {
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
+      productMemberships: Array<{
         ordinal: number;
-        series: {
+        product: {
           id: string;
           name: string;
           slug: string;
         };
         stepGroup?: string | null;
       }>;
+      publishedAt: string;
       slug: string;
       summary: string;
       tags: Array<{

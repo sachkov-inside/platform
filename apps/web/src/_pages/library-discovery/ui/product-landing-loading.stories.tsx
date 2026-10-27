@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, within } from "storybook/test";
 
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import {
   boxOf,
@@ -25,15 +25,15 @@ import {
 import { ProductLandingView } from "./product-landing-view";
 import { ProductLandingLoading } from "./library-discovery-loading";
 
-type ResolvedSeries = Extract<
-  PublishedSeriesResult,
+type ResolvedProduct = Extract<
+  PublishedProductResult,
   { readonly kind: "ready" | "empty" }
 >;
 
 const product = {
   kind: "empty",
-  discoveryKind: "series",
-  relatedSeries: [],
+  discoveryKind: "product",
+  relatedProduct: [],
   topics: [],
   chapters: aiEngineeringCourseChapters,
   reference: {
@@ -45,13 +45,13 @@ const product = {
       page: aiEngineeringCoursePage,
     },
   },
-} satisfies ResolvedSeries;
+} satisfies ResolvedProduct;
 /** Страница продукта целиком общая (ADR 0027), поэтому слоёв два: скелет маршрута и сама страница. */
 function StagedProduct({
   result,
   sequence,
 }: {
-  readonly result: ResolvedSeries;
+  readonly result: ResolvedProduct;
   readonly sequence: StagedLoading;
 }) {
   return (
@@ -65,7 +65,7 @@ function ProductPage({
   result,
   sequence,
 }: {
-  readonly result: ResolvedSeries;
+  readonly result: ResolvedProduct;
   readonly sequence: StagedLoading;
 }) {
   use(sequence.sharedPart);
@@ -104,7 +104,7 @@ type Story = StoryObj<typeof meta>;
 
 function loadsInPlace(
   { globals, width }: StoryViewport,
-  result: ResolvedSeries,
+  result: ResolvedProduct,
 ): Pick<Story, "beforeEach" | "globals" | "loaders" | "render" | "play"> {
   return {
     globals,

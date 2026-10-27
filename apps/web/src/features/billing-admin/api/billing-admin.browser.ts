@@ -1,25 +1,11 @@
 import {
-  readBillingPaymentOperation,
-  saveBillingOfferOperation,
-  archiveBillingOfferOperation,
-  publishBillingOfferOperation,
-  unpublishBillingOfferOperation,
-  saveBillingPaymentOptionOperation,
-  archiveBillingPaymentOptionOperation,
   saveBillingPromotionOperation,
   saveBillingCohortOperation,
   archiveBillingPromotionOperation,
   listBillingPaymentsOperation,
+  readBillingPaymentOperation,
   reconcileBillingPaymentOperation,
-  cancelOwnerSubscriptionOperation,
   readBillingRefundsOperation,
-  readAccessGrantsOperation,
-  readAccountClassificationOperation,
-  classifyAccountOperation,
-  previewAccessGrantBatchOperation,
-  applyAccessGrantBatchOperation,
-  extendAccessGrantOperation,
-  revokeAccessGrantOperation,
 } from "./billing-admin.operation";
 import {
   readBillingEndpoint,
@@ -31,28 +17,12 @@ import {
   type PaymentOutcome,
   type ReadPaymentInput,
 } from "../model/admin-operations";
-
-export const saveBillingOffer = saveBillingOfferOperation.send;
-
-export const archiveBillingOffer = archiveBillingOfferOperation.send;
-
-export const publishBillingOffer = publishBillingOfferOperation.send;
-
-export const unpublishBillingOffer = unpublishBillingOfferOperation.send;
-
-export const saveBillingPaymentOption = saveBillingPaymentOptionOperation.send;
-
-export const archiveBillingPaymentOption =
-  archiveBillingPaymentOptionOperation.send;
-
 export const saveBillingPromotion = saveBillingPromotionOperation.send;
-
 export const saveBillingCohort = saveBillingCohortOperation.send;
-
 export const archiveBillingPromotion = archiveBillingPromotionOperation.send;
-
 export const listBillingPayments = listBillingPaymentsOperation.send;
-
+export const reconcileBillingPayment = reconcileBillingPaymentOperation.send;
+export const readBillingRefunds = readBillingRefundsOperation.send;
 export async function readBillingPayment(
   input: ReadPaymentInput,
 ): Promise<BillingCommandResult<PaymentOutcome>> {
@@ -84,27 +54,6 @@ export async function readBillingPayment(
     },
   };
 }
-
-export const reconcileBillingPayment = reconcileBillingPaymentOperation.send;
-
-export const cancelOwnerSubscription = cancelOwnerSubscriptionOperation.send;
-
-export const readBillingRefunds = readBillingRefundsOperation.send;
-
-export const readAccessGrants = readAccessGrantsOperation.send;
-
-export const readAccountClassification =
-  readAccountClassificationOperation.send;
-
-export const classifyAccount = classifyAccountOperation.send;
-
-export const previewAccessGrantBatch = previewAccessGrantBatchOperation.send;
-
-export const applyAccessGrantBatch = applyAccessGrantBatchOperation.send;
-
-export const extendAccessGrant = extendAccessGrantOperation.send;
-
-export const revokeAccessGrant = revokeAccessGrantOperation.send;
 
 /** Re-read canonical prices and revisions after an acknowledged catalogue write. */
 export function readOwnerBillingCatalog(): Promise<

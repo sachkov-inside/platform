@@ -333,14 +333,14 @@ export const ProductRouteFirstMaterial: Story = {
 export const ProductRouteUnavailable: Story = {
   args: {
     preview: { ...materialPreview, video: { kind: "unavailable" } },
-    route: { kind: "unavailable", reference: "series-order-response" },
+    route: { kind: "unavailable", reference: "product-order-response" },
   },
   name: "Маршрут руководства недоступен",
   play: async ({ canvasElement }) => {
     await expect(
       canvasElement.querySelector('[data-preview-route="unavailable"]'),
     ).toHaveTextContent(
-      "Не удалось показать маршрут руководства. Сам материал показан ниже. Код обращения: series-order-response",
+      "Не удалось показать маршрут руководства. Сам материал показан ниже. Код обращения: product-order-response",
     );
     await expect(
       routeContent(canvasElement).getByRole("heading", {

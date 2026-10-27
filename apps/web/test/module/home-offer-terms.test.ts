@@ -32,11 +32,11 @@ const pinned: HomePinnedCollection = {
   hero: null,
 };
 
-function home(pinnedSeries: HomePinnedCollection): HomeResult {
+function home(pinnedProduct: HomePinnedCollection): HomeResult {
   return {
     kind: "ready",
     value: {
-      pinnedSeries,
+      pinnedProduct,
       membership: { kind: "notOffered" },
       guides: [],
       notes: [],
@@ -55,7 +55,7 @@ async function fill(result: HomeResult) {
 
 function cardOf(result: HomeResult) {
   if (result.kind !== "ready") throw new Error("Expected a ready home");
-  return result.value.pinnedSeries?.card;
+  return result.value.pinnedProduct?.card;
 }
 
 describe("pinned product texts on the home page", () => {
@@ -71,7 +71,7 @@ describe("pinned product texts on the home page", () => {
 
     expect(cardOf(await fill(home(pinned)))).toEqual({
       eyebrow: "Доступ без ограничения срока",
-      subtitle: "Поддержка 6 месяцев",
+      subtitle: "Поддержка по условиям оферты",
       action: "Открыть",
     });
     expect(fakes.readTerms).toHaveBeenCalledWith(pinned.id);

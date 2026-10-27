@@ -6,9 +6,9 @@ import {
 } from "@/entities/material.model";
 import {
   materialResumeSchema,
-  seriesContinuationProjectionSchema,
+  productContinuationProjectionSchema,
   continuationLabel,
-} from "../model/series-continuation-contract";
+} from "../model/product-continuation-contract";
 import { requestLearningHome } from "@/shared/api/backend/index.server";
 import type { PersonalHomeResult } from "../model/personal-home-contract";
 const projection = z
@@ -21,7 +21,7 @@ const projection = z
       })
       .strict()
       .nullable(),
-    series: seriesContinuationProjectionSchema.nullable(),
+    product: productContinuationProjectionSchema.nullable(),
   })
   .strict();
 export async function getPersonalHome(
@@ -35,7 +35,7 @@ export async function getPersonalHome(
       };
     const parsed = projection.safeParse(response.body);
     if (!parsed.success) return { kind: "unavailable" };
-    const { video, series } = parsed.data;
+    const { video, product } = parsed.data;
     if (
       video !== null &&
       (video.material.availability !== "available" ||
@@ -53,17 +53,17 @@ export async function getPersonalHome(
                 label: continuationLabel(video.resume),
               },
             }),
-        ...(series?.continuation == null
+        ...(product?.continuation == null
           ? {}
           : {
-              series: {
+              product: {
                 collection: {
-                  ...series.collection,
+                  ...product.collection,
                   previewItems:
-                    series.collection.previewItems.map(toMaterialPreview),
+                    product.collection.previewItems.map(toMaterialPreview),
                 },
-                read: series.read,
-                total: series.total,
+                read: product.read,
+                total: product.total,
               },
             }),
       },

@@ -24,7 +24,7 @@ import {
   productSaleAvailabilityQuerySchema,
   productSaleAvailabilitySchema,
 } from "../../../billing/index.js";
-import { ProductDirectory } from "../../../materials/index.js";
+import { ProductDirectory } from "../../../products/index.js";
 import {
   CONTENT_ACCESS,
   anonymousSubject,

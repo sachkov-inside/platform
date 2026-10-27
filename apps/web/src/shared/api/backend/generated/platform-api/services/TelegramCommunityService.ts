@@ -61,53 +61,6 @@ export class TelegramCommunityService {
     });
   }
   /**
-   * Read the Product association with the existing Telegram group
-   * @returns any
-   * @throws ApiError
-   */
-  public readProductCommunityConfiguration({
-    productId,
-  }: {
-    productId: string,
-  }): CancelablePromise<{
-    groupRef: 'primary' | null;
-    productId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/admin/products/{productId}/community',
-      path: {
-        'productId': productId,
-      },
-    });
-  }
-  /**
-   * Associate a Product with the existing Telegram group
-   * @returns any
-   * @throws ApiError
-   */
-  public configureProductCommunity({
-    productId,
-    requestBody,
-  }: {
-    productId: string,
-    requestBody: {
-      groupRef: 'primary' | null;
-    },
-  }): CancelablePromise<{
-    ok: boolean;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/admin/products/{productId}/community',
-      path: {
-        'productId': productId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
    * Read the desired, accepted and applied community states of one Account
    * @returns any
    * @throws ApiError

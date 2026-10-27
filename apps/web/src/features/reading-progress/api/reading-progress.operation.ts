@@ -15,7 +15,7 @@ import {
   readingResultSchema,
   readingStatesResultSchema,
 } from "../model/reading-contract";
-import { seriesContinuationResultSchema } from "../model/series-continuation-contract";
+import { productContinuationResultSchema } from "../model/product-continuation-contract";
 
 function readerFailure(failure: MutationTransportFailure) {
   return {
@@ -52,11 +52,11 @@ export const loadPersonalHomeOperation = defineMutationOperation({
 });
 
 /** Reads where the reader continues a Product. */
-export const loadSeriesContinuationOperation = defineMutationOperation({
+export const loadProductContinuationOperation = defineMutationOperation({
   input: z.object({ slug: z.string().min(1).max(120) }),
   method: "POST",
   path: "/api/reading-progress/product-continuation",
-  result: seriesContinuationResultSchema,
+  result: productContinuationResultSchema,
   transportFailure: (failure) =>
     ({
       kind:

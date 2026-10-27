@@ -6,7 +6,9 @@ import {
   MaterialsModule,
   type MaterialAuthoring,
 } from "../materials/index.js";
-import { assembleMaterialsSearchGroups } from "./adapters/materials/materials-search-groups.js";
+import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
+import { assembleMaterialsSearchGroup } from "./adapters/materials/materials-search-group.js";
+import { assembleProductsSearchGroup } from "./adapters/products/products-search-group.js";
 import {
   assembleAuthoringSearch,
   AUTHORING_SEARCH,
@@ -17,7 +19,8 @@ import { SearchAuthoringController } from "./features/search-authoring/search-au
 /**
  * The authoring search (#1720) over the groups of other Modules. This Module depends on each
  * group's owner, never the other way round. The order of the registry below is the order of the
- * groups in every answer. The API process imports it.
+ * groups in every answer. `PRODUCT_AUTHORING` comes from the global Product authoring composition.
+ * The API process imports it.
  */
 @Module({
   imports: [AccountsModule, MaterialsModule],
@@ -25,10 +28,14 @@ import { SearchAuthoringController } from "./features/search-authoring/search-au
   providers: [
     {
       provide: AUTHORING_SEARCH,
-      inject: [MATERIAL_AUTHORING],
-      useFactory: (materialAuthoring: MaterialAuthoring): AuthoringSearch =>
+      inject: [PRODUCT_AUTHORING, MATERIAL_AUTHORING],
+      useFactory: (
+        productAuthoring: ProductAuthoring,
+        materialAuthoring: MaterialAuthoring,
+      ): AuthoringSearch =>
         assembleAuthoringSearch([
-          ...assembleMaterialsSearchGroups(materialAuthoring),
+          assembleProductsSearchGroup(productAuthoring),
+          assembleMaterialsSearchGroup(materialAuthoring),
         ]),
     },
   ],

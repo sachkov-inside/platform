@@ -37,8 +37,8 @@ export const Create: Story = {
       canvas.getByRole("button", { name: "Создать ссылку" }),
     );
     await expect(args.onCreate).toHaveBeenCalledWith({
-      paymentOptionId: individualSnapshot.paymentOption.id,
-      optionRevision: individualSnapshot.paymentOption.revision,
+      productId: individualSnapshot.product?.id,
+      priceRevision: individualSnapshot.product?.priceRevision,
       price: { kind: "discount", percent: 10 },
       expiresAt: null,
     });

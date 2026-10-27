@@ -82,8 +82,8 @@ export interface SubmittedVersion {
 
 /**
  * The subject's own submissions of one task, newest first, with the author's feedback when it
- * exists and the criteria of every version they refer to. Another Account's submissions never appear. Submissions outlive a lost access: they
- * return once the task opens to the subject again.
+ * exists and the criteria of every version they refer to. Another Account's submissions never appear.
+ * An Account keeps its own saved history after losing current Task access.
  */
 export async function listTaskSubmissions(
   dependencies: LearningTaskDependencies,
@@ -119,19 +119,28 @@ export async function listTaskSubmissions(
         : decodeCursor(parsed.data.after, cursorScope);
     if (parsed.data.after !== undefined && cursor === undefined)
       return { ok: false, error: { code: "invalid_request_shape" } };
-    const access = await decideTaskAccess(
-      dependencies.contentAccess,
-      subject,
-      task.id,
-      "product_task_read",
-    );
-    if (access === "unavailable")
-      return {
-        ok: false,
-        error: { code: "dependency_unavailable", retryable: true },
-      };
-    if (access === "closed")
-      return { ok: false, error: { code: "task_not_available" } };
+    // Saved personal evidence is readable independently of today's entitlement. The existence
+    // check is Account-scoped, so a closed Task cannot expose its requirements to a stranger.
+    const ownHistory =
+      await dependencies.prisma.productTaskSubmission.findFirst({
+        where: { accountId: subject.accountId, taskId: task.id },
+        select: { id: true },
+      });
+    if (ownHistory === null) {
+      const access = await decideTaskAccess(
+        dependencies.contentAccess,
+        subject,
+        task.id,
+        "product_task_read",
+      );
+      if (access === "unavailable")
+        return {
+          ok: false,
+          error: { code: "dependency_unavailable", retryable: true },
+        };
+      if (access === "closed")
+        return { ok: false, error: { code: "task_not_available" } };
+    }
     const window = await dependencies.prisma.productTaskSubmission.findMany({
       where: {
         accountId: subject.accountId,

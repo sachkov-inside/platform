@@ -260,12 +260,7 @@ export class IdentityLinking {
           "confirmation_idempotent",
           this.clock.now(),
         );
-        await this.effects.initialCheck(
-          transaction,
-          linkTransaction.link_transaction_ref,
-          link.telegram_identity_ref,
-          this.clock.now(),
-        );
+
         return {
           ...base,
           status: "idempotent",
@@ -393,12 +388,7 @@ export class IdentityLinking {
         inserted ? "confirmed" : "confirmation_idempotent",
         this.clock.now(),
       );
-      await this.effects.initialCheck(
-        transaction,
-        linkTransaction.link_transaction_ref,
-        link.telegram_identity_ref,
-        this.clock.now(),
-      );
+
       const current = await findPlatformLink(transaction, {
         telegramIdentityRef: link.telegram_identity_ref,
       });

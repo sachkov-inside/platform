@@ -123,7 +123,7 @@ test("в программе и закрытом материале нет дей
 }) => {
   await page.goto("/products/navigation-proof/programme");
   await expect(
-    page.locator('[data-material-variant="series"]').first(),
+    page.locator('[data-material-variant="product"]').first(),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /^Поделиться материалом/ }),

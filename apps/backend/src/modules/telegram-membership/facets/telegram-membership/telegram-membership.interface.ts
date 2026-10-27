@@ -1,8 +1,4 @@
 import type { AccountId } from "../../../accounts/index.js";
-import type {
-  MembershipEvidenceAcceptance,
-  MembershipEvidenceSource,
-} from "../../../account-rights/index.js";
 
 export type TelegramLinkStatus =
   | "conflict"
@@ -65,16 +61,6 @@ export type AccountTelegramMembershipResult =
     }>
   | Readonly<{ ok: false; error: { readonly code: "unavailable" } }>;
 
-export interface AcceptTelegramEvidenceCommand {
-  readonly deliveryId: string;
-  readonly evidence: unknown;
-  readonly source: MembershipEvidenceSource;
-}
-
-export type TelegramEvidenceAcceptance =
-  | MembershipEvidenceAcceptance
-  | Readonly<{ ok: false; error: { readonly code: "link_expired" } }>;
-
 export interface TelegramMembership {
   readAccountPresentation(query: {
     readonly accountId: AccountId;
@@ -86,9 +72,6 @@ export interface TelegramMembership {
     readonly accountId: AccountId;
     readonly linkRef: string;
   }): Promise<TelegramLinkResult>;
-  acceptEvidence(
-    command: AcceptTelegramEvidenceCommand,
-  ): Promise<TelegramEvidenceAcceptance>;
   /**
    * Фоновый проход: завершает привязки, которые человек начал в боте, без его возврата на сайт.
    * Бросает исключение при сбое базы; сбой Telegram остаётся состоянием привязки.
