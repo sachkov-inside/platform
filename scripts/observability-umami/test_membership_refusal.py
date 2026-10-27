@@ -43,7 +43,7 @@ class MembershipRefusal(unittest.TestCase):
         def sql(*args,**kwargs):raise primary
         def progress(value):
             if value['outcome']=='failed':raise OSError('closed write failed')
-        try:native_maintenance.exercise(sql,lambda:None,Path('/unused'),progress=progress)
+        try:native_maintenance.exercise(sql,lambda:None,Path('/unused'),restore=lambda:None,progress=progress)
         except BaseException as error:
             self.assertIs(error,primary)
             frames=[];tb=error.__traceback__

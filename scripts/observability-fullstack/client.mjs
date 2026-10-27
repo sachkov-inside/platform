@@ -1,6 +1,7 @@
 // @ts-check
 /** Fixed synthetic full-stack client. No external hosts, raw response bodies or credentials in stdout. */
-import { request } from "node:http";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import { accountId, operationOk, readiness } from "./responses.mjs";
@@ -111,6 +112,10 @@ async function call(
       "umami-query",
       "gateway",
       "alloy",
+      "site.resource.test",
+      "api.resource.test",
+      "telegram",
+      "logto",
     ].includes(host)
   )
     throw new Error("private target only");
@@ -135,8 +140,13 @@ async function call(
           seconds: (performance.now() - started) / 1000,
         });
       };
+      const tls = host === "site.resource.test" || host === "api.resource.test";
+      const request = tls ? httpsRequest : httpRequest;
       const req = request(
         {
+          ...(tls
+            ? { ca: readFileSync("/private/caddy-root.pem"), servername: host }
+            : {}),
           hostname: host,
           port,
           path,
@@ -188,6 +198,24 @@ async function call(
   );
 }
 const key = () => readFileSync("/query/key", "utf8").trim();
+async function sourceCacheReady() {
+  const expression =
+    'count(count by(source) ((inside_production_source_available{job="platform-owner-cache",instance="production-host",source=~"postgresql|caddy"} == 1) and on(source,job,instance) ((time() - inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host"}) <= 10)))';
+  const result = await call(
+    "gateway",
+    8080,
+    "/metrics/api/v1/query?query=" +
+      encodeURIComponent(expression) +
+      "&nocache=1",
+    "GET",
+    undefined,
+    { authorization: "Bearer " + key() },
+  );
+  return {
+    ok: result.status === 200 && vector(result.value) === 2,
+    seconds: result.seconds,
+  };
+}
 async function readMonitoring() {
   const authorization = { authorization: "Bearer " + key() };
   const paths = [
@@ -238,7 +266,8 @@ async function readMonitoring() {
     stats.value["current"]["pageviews"] < 1
   )
     return null;
-  return Math.max(maximum, stats.seconds);
+  const sources = await sourceCacheReady();
+  return sources.ok ? Math.max(maximum, stats.seconds, sources.seconds) : null;
 }
 async function lag() {
   const result = await call(
@@ -255,17 +284,46 @@ async function lag() {
   const age = value === null ? NaN : Date.now() / 1000 - value;
   return Number.isFinite(age) && age >= 0 ? age : null;
 }
-/** @param {number} index @param {boolean} enabled */
-async function operation(index, enabled) {
-  const bearer = privateTokens()[index % profile.accounts];
-  const kind = index % 6;
+/** @param {number} actor @param {number} update */
+async function telegramUpdate(actor, update) {
+  const id = 1000001 + actor;
+  return await call(
+    "telegram",
+    3002,
+    "/webhooks/telegram",
+    "POST",
+    {
+      update_id: update,
+      message: {
+        message_id: update,
+        date: Math.floor(Date.now() / 1000),
+        from: { id, is_bot: false, first_name: "Synthetic" },
+        chat: { id, type: "private", first_name: "Synthetic" },
+        text: "/start",
+        entities: [{ offset: 0, length: 6, type: "bot_command" }],
+      },
+    },
+    {
+      "x-telegram-bot-api-secret-token":
+        "synthetic_webhook_secret_for_runtime_smoke",
+    },
+  );
+}
+/** @param {number} index @param {boolean} enabled @param {number} phase */
+async function operation(index, enabled, phase) {
+  const actor = (phase * 50 + Math.floor(index / 8)) % profile.accounts;
+  const bearer = privateTokens()[actor];
+  const kind = index % 8;
   if (kind === 0)
-    return { ...(await call("web", 3000, "/")), label: "web_home" };
+    return {
+      ...(await call("site.resource.test", 443, "/")),
+      label: "web_home",
+    };
   if (kind === 1)
     return {
       ...(await call(
-        "web",
-        3000,
+        "site.resource.test",
+        443,
         "/materials/resource-material-" +
           String((index % profile.materials) + 1),
       )),
@@ -273,14 +331,21 @@ async function operation(index, enabled) {
     };
   if (kind === 2)
     return {
-      ...(await call("api", 3001, "/library/site-index")),
+      ...(await call("api.resource.test", 443, "/library/site-index")),
       label: "api_catalog",
     };
   if (kind === 3)
     return {
-      ...(await call("api", 3001, "/accounts/current", "GET", undefined, {
-        authorization: "Bearer " + bearer,
-      })),
+      ...(await call(
+        "api.resource.test",
+        443,
+        "/accounts/current",
+        "GET",
+        undefined,
+        {
+          authorization: "Bearer " + bearer,
+        },
+      )),
       label: "api_account",
     };
   if (kind === 4)
@@ -307,6 +372,16 @@ async function operation(index, enabled) {
         },
       )),
       label: "mcp_discovery",
+    };
+  if (kind === 6)
+    return {
+      ...(await telegramUpdate(actor, 2000000 + phase * 1000 + index)),
+      label: "telegram_webhook",
+    };
+  if (kind === 7)
+    return {
+      ...(await call("logto", 3001, "/oidc/.well-known/openid-configuration")),
+      label: "logto_discovery",
     };
   if (!enabled)
     return {
@@ -411,7 +486,8 @@ async function load(definition, enabled, pair) {
     missed = 0,
     unexpected = 0,
     success = 0,
-    acknowledged = 0;
+    acknowledged = 0,
+    telegramAccepted = 0;
   const epoch = Date.now(),
     phase =
       pair * 6 +
@@ -456,23 +532,33 @@ async function load(definition, enabled, pair) {
           if (response.status === 200) acknowledged++;
           else unexpected++;
         }
-        return await operation(index, enabled);
+        return await operation(index, enabled, phase);
       })()
         .then((value) => {
           const expected =
             value.label === "api_account"
-              ? (privateAccounts()[index % profile.accounts] ?? "")
+              ? (privateAccounts()[
+                  (phase * 50 + Math.floor(index / 8)) % profile.accounts
+                ] ?? "")
               : value.label === "web_material"
                 ? "Synthetic " + String((index % profile.materials) + 1)
                 : value.label === "mcp_discovery"
                   ? String(index + 1)
                   : "";
           if (!operationOk(value, value.label, expected)) unexpected++;
-          else success++;
+          else {
+            success++;
+            if (value.label === "telegram_webhook") telegramAccepted++;
+          }
           if (
-            ["web_home", "web_material", "api_catalog", "api_account"].includes(
-              value.label,
-            )
+            [
+              "web_home",
+              "web_material",
+              "api_catalog",
+              "api_account",
+              "telegram_webhook",
+              "logto_discovery",
+            ].includes(value.label)
           )
             latency.push({
               label: value.label,
@@ -499,6 +585,7 @@ async function load(definition, enabled, pair) {
   }
   const age = enabled ? await lag() : null;
   return {
+    telegram_acknowledged: telegramAccepted,
     acknowledged_probe_points: acknowledged,
     stored_probe_points: stored,
     unexplained_probe_loss:
@@ -548,11 +635,22 @@ function argument(index) {
   if (value === undefined) throw new Error("fixed action arguments required");
   return value;
 }
-if (action === "ready") {
+if (action === "cache-ready") {
+  console.log(JSON.stringify({ ok: (await sourceCacheReady()).ok }));
+} else if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
   console.log(
     JSON.stringify({ ok: readiness(response, argument(0), argument(3)) }),
   );
+} else if (action === "telegram-establish") {
+  let accepted = 0;
+  for (let index = 0; index < 128; index++) {
+    const result = await telegramUpdate(index, 1000000 + index);
+    if (!operationOk(result, "telegram_webhook", ""))
+      throw new Error("synthetic Telegram contact creation failed");
+    accepted++;
+  }
+  console.log(JSON.stringify({ accepted }));
 } else if (action === "establish") {
   let created = 0;
   /** @type {string[]} */ const accounts = [];

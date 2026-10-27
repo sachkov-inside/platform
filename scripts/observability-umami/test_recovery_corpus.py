@@ -130,8 +130,10 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     if "'expired_event_rows'" in payload:
                         return json.dumps({'cutoff': '2025-10-19T12:00:00.000000Z', 'expired_event_rows': 502})
                     return ''  # Preparation writes are not a persistence proof in this contract.
-                if 'pg_dump' in args:
-                    return 'SELECT synthetic_restore_snapshot;'
+                if '--file=/tmp/inside-1566-native-snapshot.sql' in args and 'psql' in args:
+                    maintenance_restored=True
+                    return ''
+                if args[:5]==['exec','-T','db','sh','-ec'] and 'pg_dump' in args[-1]:return ''
                 if 'pg_isready' in args:
                     return ''
                 if 'pgbackrest' in args and args[-1] == 'version':

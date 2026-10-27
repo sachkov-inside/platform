@@ -153,3 +153,56 @@ test("material and home HTML cannot substitute an error shell or a different Mat
     false,
   );
 });
+
+test("native Telegram and Logto checks require their actual semantic responses", () => {
+  assert.equal(
+    readiness({ status: 200, value: { status: "ready" } }, "telegram", ""),
+    true,
+  );
+  assert.equal(
+    readiness({ status: 200, value: { status: "ok" } }, "telegram", ""),
+    false,
+  );
+  const discovery = {
+    issuer: "http://logto:3001/oidc",
+    jwks_uri: "http://logto:3001/oidc/jwks",
+    authorization_endpoint: "http://logto:3001/oidc/auth",
+    token_endpoint: "http://logto:3001/oidc/token",
+  };
+  assert.equal(
+    operationOk({ status: 200, value: discovery }, "logto_discovery", ""),
+    true,
+  );
+  assert.equal(readiness({ status: 200, value: discovery }, "logto", ""), true);
+  assert.equal(
+    operationOk(
+      {
+        status: 200,
+        value: { ...discovery, issuer: "https://foreign.invalid" },
+      },
+      "logto_discovery",
+      "",
+    ),
+    false,
+  );
+  assert.equal(
+    operationOk(
+      { status: 202, value: { accepted: true } },
+      "telegram_webhook",
+      "",
+    ),
+    true,
+  );
+  assert.equal(
+    operationOk({ status: 202, value: {} }, "telegram_webhook", ""),
+    false,
+  );
+  assert.equal(
+    operationOk(
+      { status: 200, value: { accepted: true } },
+      "telegram_webhook",
+      "",
+    ),
+    false,
+  );
+});

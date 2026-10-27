@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "services": ["platform-api", "platform-mcp"],
+  "services": ["platform-api", "platform-mcp", "inside-telegram"],
   "environments": ["test", "isolated-pilot", "production"],
   "quality_policy": {
     "minimum_duration_observations": 100,

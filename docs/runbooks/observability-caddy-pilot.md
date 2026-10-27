@@ -105,6 +105,19 @@ original-timestamp maps must agree. A bounded typed tool-error frame remains a q
 malformed protocol metadata cannot substitute for the gateway-outage fact. The existing 1 MiB
 framing and 15-second RPC limits remain unchanged.
 
+A task-owned reproduction with the digest-verified native v1.20.2 executable reproduced
+canonical-observed followed by MCP-stale on the same original samples: initialization alone
+took 5.57–7.15 seconds, crossing the ten-second source age. Both actual HTTP queries retained
+the same fixed evaluation time and `nocache=1`; no upstream cache/time rewrite was observed.
+The Caddy phase now completes native initialize/discovery before selecting its canonical
+acquisition and before opening the held-body request. Each phase owns one ready child and one
+values/timestamps pair. No process/session spans partition, held, outage or reset phases.
+The existing helper's sixty-second lifetime and cleanup are unchanged. The actual query pair,
+whole-vector validation and final oracle share one ten-second budget; completion freshness
+remains ten seconds and held-body lifetime remains eight. A ready session still rejects old
+samples and cannot be reused. The local HTTP/native-MCP reproduction is a timing/transport
+regression proof, not Linux Caddy/VictoriaMetrics acceptance.
+
 The pinned MCP v1.20.2 producer supplies optional initialize `instructions` metadata. The Caddy
 reader accepts only a string at that field, within the existing 1024 UTF-8 byte metadata limit
 and privacy checks. It does not execute, display or publish the contents. Unknown fields,
@@ -253,10 +266,10 @@ establish native acceptance. Fresh source-bound native evidence is still require
 
 ## Source test progress
 
-The source wrapper runs two separately owned contract groups: 77 pure/protocol methods and
+The source wrapper runs two separately owned contract groups: 81 pure/protocol methods and
 three process-lifecycle methods that acquire real launchers and listeners. Each invocation keeps
 the existing `15000ms` deadline and fixture/cleanup budgets. Complete discovery must match the
-unchanged 80-method inventory before selection in either process. The checked group union has
+84-method inventory, retaining all original methods, before selection in either process. The checked group union has
 no missing or repeated method; every method executes once across the two invocations.
 Best-effort start/completed markers identify only fixed inventoried source test IDs in
 its private captured stderr. The parent validates the complete ordered marker prefix before

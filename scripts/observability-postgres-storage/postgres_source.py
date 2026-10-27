@@ -22,7 +22,7 @@ import privacy
 
 SCOPE=record.SCOPE
 ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','recovery.json','postgres-source-cleanup.json',
-           'collector-logging.json','postgres-source-logging.json','postgres-upload.json')
+           'collector-logging.json','postgres-source-logging.json','postgres-upload.json','postgres-visibility.json')
 
 
 def source_inputs():
@@ -93,6 +93,7 @@ def worker(output):
         record.persist(output,result)
         if driver is not None and driver.upload_operation is not None:
             record.persist_upload(output,driver.upload_operation)
+        if driver is not None:record.persist_visibility(output,{'schema':1,'source':source,'rows':driver.visibility,'overflow':driver.visibility_overflow},source)
 
 
 def cleanup_proof(output):
@@ -109,6 +110,7 @@ def collect(output,metadata,destination):
     if source!=current:record.refuse()
     projected=record.read(output,source)
     if (output/'postgres-upload.json').exists():record.upload_operation(record._read(output,'postgres-upload.json',1024))
+    if (output/'postgres-visibility.json').exists():record.visibility(record._read(output,'postgres-visibility.json',16384),source)
     ci.collect(output,metadata,destination,artifacts=ARTIFACTS)
     record.write(destination,projected)
 

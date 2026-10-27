@@ -213,3 +213,146 @@ Linux CI запускает этот публичный путь с теми ж�
 host/container metrics, queue/dependency/export symptoms. Его production data и визуальная приёмка
 проверяются отдельно. NoData не заменяется нулём. Семь суток production-наблюдений и измерения
 Timeweb этим документом не объявляются выполненными.
+
+## Обзор владельца и наблюдения действующих владельцев
+
+Один `Platform production overview` содержит HTTP before/after для API, Platform MCP и
+Telegram, ресурсы, queue samples, closed cached business conditions и переходы к ограниченным
+отчётам Platform MCP/Umami. Общий HTTP quality mask не показывает скорость/доли при недостатке
+samples, reset, сбое collection или неразличимых SHA. Это оценка сохранённых наблюдений, не
+доказательство причинности или полноты всех запросов.
+
+Таблица ожидаемых источников сохраняет строку при отсутствии series: `1` означает наблюдаемый
+источник, `0` означает наблюдаемый отказ, `-1` означает UNKNOWN/stale/missing. Для SDK и core
+collection допускается возраст до 10 s, host scrape до 45 s, Watchdog до 180 s. Будущее время
+не принимается. Успешное чтение источника не заменяет проверку наличия нужных полей. Отсутствующий
+queue sample не становится нулём, а sample очереди не доказывает liveness worker.
+
+Действующий `inside-watchdog` атомарно сохраняет `/var/lib/inside/watchdog/metrics/owner.prom`.
+Это отдельный каталог с числовыми агрегатами, доступный host-agent только через точный read-only
+bind с `create_host_path: false`. Секреты, active/streak/outbox, SQL results, текст журналов,
+container names и идентификаторы людей туда не попадают. Сохраняются только уже выполненные reads,
+дополнительных запросов к БД, Telegram или журналам панель не делает. Панели требуют совпадения
+времени поля с последним completed-cycle timestamp, поэтому прежний sample из lookback окна
+не заменяет неизвестное поле нового цикла. Нулевые counts публикуются
+при реально прочитанном нуле. При ошибке источник получает `0`, а неизвестные значения исчезают.
+Пропущенный во время deploy или прерванный запуск не освежает timestamp. После reboot неизвестный
+last backup result остаётся UNKNOWN. Telegram counter decrease имеет отдельный reset marker;
+первое наблюдение не доказывает отсутствие пропуска.
+
+В production старый Watchdog сначала обновляется подготовленным пакетом по существующему
+процессу выпуска. До старта `host-metrics` выполнить один обычный завершённый цикл Watchdog и
+проверить наличие безопасного `metrics/owner.prom`. Compose отказывает при отсутствии каталога,
+не создаёт на хосте каталог автоматически. При выключенном/старом Watchdog источник UNKNOWN.
+Порядок уведомлений, пороги, подтверждение отказа и восстановление действующего Watchdog сохранены.
+
+| Наблюдение | Значение и граница |
+|---|---|
+| purchases | `unknown/authorized` старше 15 min или `sent/pending` старше 25 h. Это исключения, не все покупки. |
+| fulfillment | Не применённая выдача доступа старше 5 min. |
+| notification_outbox / email_effects | Существующие условия без итога старше 10 min. |
+| billing_queue_idle | `1`: нет completed `billing.payment-recovery` за 5 min. |
+| Telegram queues | Возраст pending/due, native webhook pending count; failed/unknown community operations за 10 min. |
+| backup timer / success | Наблюдаемые active/last-result состояния; latest success age по systemd. Это не restore proof. |
+| containers | Агрегированные down/unhealthy/OOM существующих проектов; неизвестны при ошибке inspect. Пустой listing не доказывает наличие ожидаемой службы. |
+
+Факты оплаты, paid grounds, effective access и sales funnel остаются у узких владельцев модулей.
+Переход в [существующий Platform MCP](production-diagnostics.md) использует прежний
+`platform:admin`, ограниченное окно, limit и continuation. Нельзя помещать приватные примеры
+в Grafana metrics или суммировать returned-page/cohort counts. Переход к
+[Umami native read-only](observability-umami-pilot.md) требует отдельного read key и ограниченного
+окна. Выключенная аналитика не означает нулевую активность. Tracker не включается этим обзором.
+
+При полном удалении отдельно включённого host-agent указывать профиль и для остановки:
+
+```bash
+docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
+  --profile host-metrics down
+```
+
+Проверить отсутствие контейнера host-agent именно этого monitoring project. Не использовать
+`--volumes` для остановки production. Disposable Linux measurement при явном `--host-metrics`
+снимает profile только в своём временном плане, чтобы общий supervisor/recover видел эту службу
+без повторного указания флага. Production default OFF при этом сохраняется.
+
+Native PostgreSQL/Caddy projection использует отдельный пятисекундный textfile scrape:
+`job="platform-owner-cache", instance="production-host"`. Старый host scrape раз в 15 s не
+читает эти файлы повторно. `inside_production_source_available{source="postgresql|caddy"}`
+и `inside_production_source_observed_at_seconds` различают наблюдаемый отказ и устаревший cache.
+Приёмка требует оба отдельных источника, значение `1` и возраст от 0 до 10 s; два ряда одного
+источника не заменяют второй. Нельзя использовать общий scraper `up` как доказательство чтения
+PostgreSQL или Caddy. Выключенный producer и отсутствующий mount остаются UNKNOWN.
+
+`source_cache.sample` принимает только два caller-owned read callback, получает фиксированный
+ordinary-role SQL из действующего `query.mjs` и проверяет ответ прежним `frame.decode`.
+Production scope изменён с disposable `tracking` на `inside`; остальные SQL/controls сохранены.
+В cache попадают только числовые `inside_postgresql_server_*` aliases approved native полей,
+включая sample/postmaster/statistics-reset epochs. Privilege flags, неизвестный/нулевой epoch,
+неподходящая версия или просроченный SQL ответ дают unavailable, не ложный ноль waiting locks.
+Не выдаются `pg_monitor`, `pg_read_all_stats`, SELECT прикладных таблиц или права Platform MCP.
+Повторный bootstrap reader принимает только собственный marker и отсутствие посторонней
+ownership/ACL authority, включая CREATE или grant option на базе; отказ имеет SQLSTATE `P1567`.
+
+Caddy public server выбирается по фактическому `caddy adapt` через общий
+`select_caddy_server`, а не по предположению `srv0`. Принимается один public `:443` server,
+включённые global metrics и выключенный либо loopback admin. Native source проверяет labels,
+типы, целостность histogram и excluded roles до удаления; точный vendor server
+`remaining_auto_https_redirects` проверяется и исключается из public counts. Cache сохраняет
+только public/subroute, закрытые method/code/bucket и process epoch. Это не покрывает
+pre-route parse, TCP/TLS/HTTP3 отказы и не означает непрерывность через reset.
+
+### Подготовленный host producer, OFF по умолчанию
+
+`native_sources.py` выполняет один bounded read cycle. У него нет сервера или credentials агента.
+Host PostgreSQL transport разрешает только `/var/run/docker.sock`, один running postgres container
+точного Compose project, проверяет ID/labels до и после exec и запускает только фиксированный
+ordinary-role `psql -X -qAt -w -U postgres_source_reader -d inside`. SQL идёт stdin, ответ ≤4096 B,
+общий Docker/read deadline 3 s. SQL statement timeout 2 s, lock 250 ms, idle transaction 3 s;
+role CONNECTION LIMIT 1 ограничивает зависшую сессию. Роль не получает пароль или application
+SELECT. Local authentication внутри действующей foundation должна позволять этот root-owned
+Docker exec; если она не позволяет, source unavailable. Нельзя выдавать sampler superuser или
+`pg_monitor` вместо устранения неверного transport/permission contract.
+
+Caddy reader делает только loopback GET `/metrics` и transient GET `/config/` на `127.0.0.1:2019`.
+Второй нужен для фактического public-server mapping и проверки неизменности selected role вокруг
+scrape. Raw config, hostnames, routes, tokens, SQL и error text не сохраняются и не публикуются.
+Proxy/redirect запрещены, каждый HTTP read ≤1 s/1 MiB. Admin URL не попадает в vmauth, Grafana,
+MCP или principal агента. Сам действующий Caddy admin остаётся loopback; источник не меняет его.
+Для native HTTP metrics оператор при разрешённом rollout добавляет `metrics` в существующий
+Caddy global block, проверяет `caddy adapt`/`caddy validate` текущего config и выполняет штатный
+reload. При выключенных metrics или неизвестной adaptation источник UNKNOWN/unavailable.
+
+До rollout подготовить immutable source checkout принятого COMMIT. Сначала выполнить optional
+Umami database setup, если он входит в этот rollout, затем dedicated source reader bootstrap:
+Umami setup сохраняет права существующих ролей при отзыве PUBLIC CONNECT, поэтому обратный порядок
+может расширить direct CONNECT reader и будет честно отклонён guard. Bootstrap не включён в timer:
+
+```bash
+INSIDE_PRODUCTION_SOURCE_SETUP_ENABLED=true python3 \
+  /srv/inside/observability/source/COMMIT/scripts/observability-production/native_sources.py \
+  setup-postgres --project inside-production-database
+```
+
+Уже существующая роль с чужими ownership/ACL/memberships или без собственного marker вызывает
+`P1567` до изменения роли. Не удалять эту роль и не ослаблять проверку ради успешного setup.
+Если Umami впервые подключают позже, перепроверить dedicated source grants после его provisioning;
+неожиданный direct CONNECT в другую базу требует отдельного разбора и не принимается за норму.
+Production statistics не сбрасываются для получения ненулевого reset epoch. Неизвестный epoch
+после старта БД остаётся UNKNOWN до настоящего наблюдаемого значения.
+
+Подготовлены `systemd/inside-monitoring-sources.service`, `.timer` и `sources.env.example`.
+Установка файлов сама по себе не включает timer; example содержит `INSIDE_PRODUCTION_SOURCES_ENABLED=false`.
+В разрешённом rollout оператор копирует env в `/etc/inside/observability/sources.env` (root:root0600),
+устанавливает immutable source path и только после проверки ставит флаг true. Unit работает от root
+ради существующего Docker daemon, отдельный docker-group account не создаётся. Это доверенная
+операторская capability, отличная от query key агента. Только root/code/config владельца имеет её.
+Unit имеет внешний timeout 8 s, MemoryMax64M, CPUQuota20%, Nice15, PrivateTmp/ProtectSystem и доступ
+по сети только к loopback. Эти значения являются пределами, не измеренной потребностью сервера.
+Timer просит цикл каждые 5 s; фактический возраст остаётся частью query acceptance и не скрывает
+задержки. При нормальном выполнении producer заменяет только свои два `.prom` файла атомарно.
+
+Проверить оба native источника, их epochs, source timestamp age0..10 и отсутствие raw fields в
+хранилище, затем включать host-agent. При disable сначала остановить/disable этот timer,
+оставить старые snapshots со старым timestamp (они станут UNKNOWN), затем выключать host-agent.
+Откат использует прежний immutable source/unit/config; не удаляет приложение или чужие данные.
+Готовность Linux fixture не подтверждает установку systemd или private Caddy config на production.

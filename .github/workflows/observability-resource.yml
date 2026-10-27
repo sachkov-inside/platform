@@ -10,7 +10,7 @@ on:
       - .github/actions/setup-platform/**
       - apps/backend/**
       - apps/web/**
-      - apps/telegram/package.json
+      - apps/telegram/**
       - packages/**
       - docs/contracts/**
       - docs/runbooks/observability-pilot.md
@@ -108,7 +108,7 @@ jobs:
       - name: Bind complete source and existing disk admission
         timeout-minutes: 1
         run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/fullstack-metadata"
-      - name: Build source-bound Web, backend and PostgreSQL images under existing storage guard
+      - name: Build five source-bound process images under existing storage guard
         timeout-minutes: 30
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py

@@ -296,7 +296,7 @@ def reduce(prepared, results):
               'causality': 'not_established', 'query_evidence': [], 'missing_query_ids': list(IDS),
               'sources': {key: {'state': 'unknown', 'sample_age_seconds': None}
                           for key in source_status.SOURCES},
-              'coverage': 'HTTP stored observations and two pilot collection sources only',
+              'coverage': 'HTTP API/MCP/Telegram stored observations and collector/trace-store source proof only',
               'cohorts': {cohort: {'state': 'unknown', 'values': {field: None
                   for fields in CATALOGUE['queries'].values() for field in fields},
                   'reason': 'missing_quality', 'historical_gap_count': None,
@@ -418,7 +418,7 @@ def dashboard():
 
     panels = [{'id': 1, 'type': 'text', 'title': 'Coverage and interpretation',
         'gridPos': {'x': 0, 'y': 0, 'w': 24, 'h': 5}, 'options': {'mode': 'markdown', 'content':
-        'HTTP stored observations for API/MCP; collector and trace-store freshness only. '
+        'HTTP stored observations for API/MCP/Telegram; collector and trace-store freshness only. '
         'Current sources are AS OF dashboard end E, not panel delivery. '
         'Before: E−2h..E−1h; after: E−1h..E. Full SHA values must differ. '
         'Historical gaps and exact request completeness: unknown. NoData is not healthy. '

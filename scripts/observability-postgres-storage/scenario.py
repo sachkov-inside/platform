@@ -31,7 +31,21 @@ class Scenario:
     def __init__(self,targets,compose,token,oracle):
         self.targets,self.compose,self.token,self.oracle=targets,compose,token,oracle
         self.phase='acquisition';self.clock_deadline=None;self.end=None;self.cleanup_end=None;self.last_attempt=None
-        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None;self.upload_operation=None
+        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None;self.upload_operation=None;self.visibility=[];self.visibility_overflow=False
+
+    def note_visibility(self,step,started,value,observed=None,previous=False,*,finished=None,completed_us=None):
+        # Closed built-in numbers only. No transport/provider content enters this witness.
+        if len(self.visibility)>=64:self.visibility_overflow=True;return
+        finished=time.monotonic() if finished is None else finished
+        completed_us=time.time_ns()//1000 if completed_us is None else completed_us
+        age=observed.get('age_seconds') if observed is not None else None
+        sample=value.get('sample_us') if type(value) is dict else None
+        expected_age=int((completed_us-sample)/1000) if type(sample) is int else None
+        if expected_age is not None and not -2000<=expected_age<=180000:expected_age=None
+        self.visibility.append({'phase':self.phase,'step':step,'elapsed_ms':max(0,int((finished-started)*1000)),
+            'expected_age_ms':expected_age,
+            'stored_age_ms':int(age*1000) if type(age) in (int,float) and math.isfinite(age) else None,
+            'freshness':observed['freshness'] if observed is not None else None,'previous_committed':previous})
 
     def remaining(self,cap=10):
         value=min(cap,self.end-time.monotonic())
@@ -158,11 +172,17 @@ class Scenario:
         while time.monotonic()<deadline:
             self.oracle_failure_reason=None
             if phases is not None:self.phase=phases['stored_read']
-            raw,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,deadline-time.monotonic()))
+            query_started=time.monotonic();query_deadline=min(deadline,query_started+10)
+            raw,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=query_deadline-time.monotonic())
             if phases is not None:self.phase=phases['stored_oracle']
             observed=self.oracle.evaluate(raw,stamps,evaluated_at=evaluated,completed_us=completed,expected=value,**({} if phases is None else {'diagnose':True}))
+            previous_pending=(observed['freshness']=='stale' and self.ledger.last is not None and type(self.oracle) is ModuleType
+                and self.oracle.previous_committed_pending(raw,stamps,evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value))
+            query_finished=time.monotonic()
+            if time.monotonic()>=query_deadline:raise TimeoutError()
+            if phases is not None:self.note_visibility('stored',query_started,value,observed,previous_pending,finished=query_finished,completed_us=completed)
             if observed['freshness']=='fresh':return observed
-            if observed['freshness'] not in ('missing',):
+            if observed['freshness'] not in ('missing',) and not previous_pending:
                 if phases is not None and type(self.oracle) is ModuleType:
                     try:
                         reason=self.oracle.diagnostic_reason(observed)
@@ -181,11 +201,15 @@ class Scenario:
         while True:
             if time.monotonic()>=deadline:raise TimeoutError()
             if phases is not None:self.phase=phases['acquire']
+            acquire_started=time.monotonic()
             value=self.acquire()
+            if phases is not None:self.note_visibility('acquired',acquire_started,value)
             if predicate(value):break
         if settle_before_publish is not None:settle_before_publish()
         if phases is not None:self.phase=phases['upload']
+        upload_started=time.monotonic()
         self.upload(frame.payload(value))
+        if phases is not None:self.note_visibility('uploaded',upload_started,value)
         observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
         if phases is not None:self.phase=phases['ledger']
         continuity=self.ledger.accept(value)
@@ -204,7 +228,7 @@ class Scenario:
         self.verify_pg(deadline);cid=self.targets.targets['postgres']['id']
         self.clock_deadline=deadline
         self.phase='restart_stop_command'
-        stopped=self.read(['docker','stop','--time','2',cid])
+        stopped=self.read(['docker','stop','--timeout','2',cid])
         if type(stopped) is not str or len(stopped.encode('utf-8'))>65 or stopped not in (cid,cid+'\n'):raise ValueError('ownership')
         pilot.assert_docker_identity(deadline=deadline)
         self.phase='restart_stopped_identity'

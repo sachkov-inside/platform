@@ -239,22 +239,26 @@ def downloaded_asset(asset):
     return archive
 
 
-def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=(), progress=None, decode_response=None):
-    """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
+@contextmanager
+def ready_stdio_probe(executable, environment, *, argv=None, progress=None, decode_response=None):
+    """Own initialization, discovery and exactly one subsequent fixed probe until context exit."""
     # The helper and native process stay in the externally supervised worker group.
     with native_cpu.measured_process(argv or [str(executable)], environment) as (process, measurement):
         buffered = b""
 
-        def rpc(identifier, method, params):
+        def rpc(identifier, method, params, query_deadline=None):
             nonlocal buffered
             message = {"jsonrpc": "2.0", "method": method, "params": params}
             if identifier is not None:
                 message["id"] = identifier
+            if query_deadline is not None and time.monotonic() >= query_deadline:
+                raise TimeoutError("native MCP query deadline exceeded")
             process.stdin.write((json.dumps(message) + "\n").encode())
             process.stdin.flush()
             if identifier is None:
                 return None
             deadline = time.monotonic() + MCP_RESPONSE_TIMEOUT_SECONDS
+            if query_deadline is not None:deadline = min(deadline, query_deadline)
             while time.monotonic() < deadline:
                 while b"\n" in buffered:
                     line, buffered = buffered.split(b"\n", 1)
@@ -264,6 +268,8 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
                     if response.get("id") == identifier:
                         if "error" in response:
                             raise RuntimeError("native MCP rejected request")
+                        if query_deadline is not None and time.monotonic() >= query_deadline:
+                            raise TimeoutError("native MCP query deadline exceeded")
                         return response.get("result")
                 readable, _, _ = select.select([process.stdout], [], [], max(0, deadline - time.monotonic()))
                 if readable:
@@ -273,6 +279,8 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
                     buffered += chunk
                     if len(buffered) > 1_048_576:
                         raise RuntimeError("native MCP response exceeds pilot budget")
+            if query_deadline is not None and time.monotonic() >= query_deadline:
+                raise TimeoutError("native MCP query deadline exceeded")
             raise RuntimeError("native MCP response deadline exceeded")
 
         def report(phase,outcome):
@@ -287,30 +295,47 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
         if not isinstance(discovery, dict) or not isinstance(discovery.get("tools"), list):
             raise RuntimeError("native MCP tool discovery failed")
         names = [entry.get("name") for entry in discovery["tools"] if isinstance(entry, dict)]
-        if tool not in names:
-            raise RuntimeError("required native MCP query tool unavailable")
-        report("primary","running")
-        result = rpc(3, "tools/call", {"name": tool, "arguments": arguments})
-        if not isinstance(result, dict) or result.get("isError") or marker not in json.dumps(result):
-            report("primary","invalid_result" if not isinstance(result,dict) else "tool_error" if result.get("isError") else "fixture_absent")
-            raise RuntimeError("native MCP failed to return known fixture")
-        if validate_result is not None:
-            validate_result(result)
-        collector_privacy.assert_clean(result)
-        proof = {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
-        for index,(extra_tool,extra_arguments,extra_marker,validate) in enumerate(additional):
-            if extra_tool not in names:
-                raise RuntimeError('required additional native MCP tool unavailable')
-            phase="additional_"+str(index+1)
-            report(phase,"running")
-            extra = rpc(index+4,'tools/call',{'name':extra_tool,'arguments':extra_arguments})
-            if not isinstance(extra,dict) or extra.get('isError') or extra_marker not in json.dumps(extra):
-                report(phase,'invalid_result' if not isinstance(extra,dict) else 'tool_error' if extra.get('isError') else 'fixture_absent')
-                raise RuntimeError('additional native MCP fixture unavailable')
-            validate(extra)
-            collector_privacy.assert_clean(extra)
-        if additional:
-            proof['additional_known_fixtures']=len(additional)
+        used=False
+        def probe(tool, arguments, marker, *, validate_result=None, additional=(), deadline=None):
+            nonlocal used
+            if used:raise RuntimeError('native MCP ready probe already used')
+            used=True
+            if deadline is not None and (type(deadline) not in (int,float) or not math.isfinite(deadline) or deadline <= time.monotonic()):
+                raise TimeoutError('native MCP query deadline exceeded')
+            if tool not in names:
+                raise RuntimeError("required native MCP query tool unavailable")
+            report("primary","running")
+            result = rpc(3, "tools/call", {"name": tool, "arguments": arguments}, deadline)
+            if not isinstance(result, dict) or result.get("isError") or marker not in json.dumps(result):
+                report("primary","invalid_result" if not isinstance(result,dict) else "tool_error" if result.get("isError") else "fixture_absent")
+                raise RuntimeError("native MCP failed to return known fixture")
+            if validate_result is not None:
+                validate_result(result)
+            collector_privacy.assert_clean(result)
+            proof = {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
+            for index,(extra_tool,extra_arguments,extra_marker,validate) in enumerate(additional):
+                if extra_tool not in names:
+                    raise RuntimeError('required additional native MCP tool unavailable')
+                phase="additional_"+str(index+1)
+                report(phase,"running")
+                extra = rpc(index+4,'tools/call',{'name':extra_tool,'arguments':extra_arguments}, deadline)
+                if not isinstance(extra,dict) or extra.get('isError') or extra_marker not in json.dumps(extra):
+                    report(phase,'invalid_result' if not isinstance(extra,dict) else 'tool_error' if extra.get('isError') else 'fixture_absent')
+                    raise RuntimeError('additional native MCP fixture unavailable')
+                validate(extra)
+                collector_privacy.assert_clean(extra)
+            if additional:
+                proof['additional_known_fixtures']=len(additional)
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError('native MCP query deadline exceeded')
+            return proof
+        yield probe, measurement
+
+
+def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=(), progress=None, decode_response=None):
+    """Exercise native MCP, keeping the existing one-shot API and complete accounting owner."""
+    with ready_stdio_probe(executable,environment,argv=argv,progress=progress,decode_response=decode_response) as (probe,measurement):
+        proof=probe(tool,arguments,marker,validate_result=validate_result,additional=additional)
     return {**proof, **measurement}
 
 
@@ -1108,6 +1133,25 @@ def container_states(raw, *, services=SERVICES):
     return result
 
 
+def native_host_state(raw, container, project):
+    """Docker native failure fields, with no raw State.Error, environment or command."""
+    if len(raw.encode()) > 4096:
+        raise ValueError('native_host_state_size')
+    row = json.loads(raw)
+    fields = {'actual_exit_code', 'oom_killed', 'restart_count', 'runtime_error_present', 'has_process'}
+    if type(row) is not dict or set(row) != fields | {'id', 'project', 'service'}:
+        raise ValueError('native_host_state_shape')
+    if row.pop('id') != container or row.pop('project') != project or row.pop('service') != 'host-agent':
+        raise ValueError('native_host_state_owner')
+    if type(row['actual_exit_code']) is not int or not 0 <= row['actual_exit_code'] <= 255:
+        raise ValueError('native_host_state_exit')
+    if type(row['restart_count']) is not int or not 0 <= row['restart_count'] <= 1_000_000:
+        raise ValueError('native_host_state_restarts')
+    if any(type(row[key]) is not bool for key in ('oom_killed', 'runtime_error_present', 'has_process')):
+        raise ValueError('native_host_state_flags')
+    return row
+
+
 def cleanup_project(compose, output, project, *, docker=("docker",), services=SERVICES):
     """Diagnostics may fail; down and both residue checks are independent obligations."""
     result = {}
@@ -1123,6 +1167,24 @@ def cleanup_project(compose, output, project, *, docker=("docker",), services=SE
         snapshot = checked_command(compose + ["ps", "--all", "--format", "json"])
         states = container_states(snapshot, services=services)
         if not (output / "container-states.json").exists():
+            for row in states:
+                if row['service'] != 'host-agent':
+                    continue
+                # Compose reports ExitCode=0 for restarting containers. Inspect the native
+                # failure fields while this exact registered owner still exists, before down.
+                try:
+                    deadline = time.monotonic() + 3
+                    identity = checked_command(list(docker) + ['ps', '-aq', '--no-trunc',
+                        '--filter', 'label=com.docker.compose.project=' + project,
+                        '--filter', 'label=com.docker.compose.service=host-agent'], deadline=deadline).strip()
+                    if re.fullmatch(r'[a-f0-9]{64}', identity) is None:
+                        raise ValueError('native_host_state_owner')
+                    projection = '{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"actual_exit_code":{{json .State.ExitCode}},"oom_killed":{{json .State.OOMKilled}},"restart_count":{{json .RestartCount}},"runtime_error_present":{{ne .State.Error ""}},"has_process":{{ne (json .State.Pid) "0"}}}'
+                    native = checked_command(list(docker) + ['inspect', identity, '--format', projection], deadline=deadline)
+                    row.update(native_host_state(native, identity, project))
+                    row['native_failure_state'] = 'observed'
+                except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                    row['native_failure_state'] = 'unavailable'
             write_json(output / "container-states.json", states)
         result["diagnostics"] = "passed"
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

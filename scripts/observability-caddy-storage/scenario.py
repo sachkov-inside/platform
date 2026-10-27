@@ -118,9 +118,11 @@ class Scenario:
             return True
         return self._until(lambda:self.snapshot(previous),check)
 
-    def matching(self,canonical,*,previous=None):
-        report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
-            previous=previous,progress=lambda phase:self.phase(phase))
+    def matching(self,canonical,*,previous=None,read=None):
+        if read is None:
+            report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
+                previous=previous,progress=lambda phase:self.phase(phase))
+        else:report,mcp=read(evaluated_at=canonical['evaluated_at'],previous=previous)
         self.phase('mcp_compare')
         if report['state']!='observed':
             phase='mcp_compare_'+report['state']
@@ -139,24 +141,26 @@ class Scenario:
 
     def partition(self,cut):
         self.phase('partition')
-        _,baseline=self.fresh_after(cut,_partition=True)
-        # Repeat every controlled response class inside a journaled interval, including recovery502s.
-        batch_cut=self.seed()
-        self.phase('partition')
-        self._partition_checkpoint('partition_compare_acquire')
-        def check(value):
-            report,acquired=value
-            if report['state']!='observed':
-                self._partition_checkpoint('partition_compare_state');return False
-            if self.journal.verify(baseline,acquired) is not True:
-                self._partition_checkpoint('partition_compare_journal');return False
-            return True
-        while True:
-            _,current=self._until(lambda:self.snapshot(baseline),check)
-            if self.stamp(current)>status.clock(batch_cut):break
-            self._partition_checkpoint('partition_compare_after_cut')
-            baseline=current
-        self.matching(current)
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            self.phase('partition')
+            _,baseline=self.fresh_after(cut,_partition=True)
+            # Warmup precedes both sides of the accounting interval, not only the final query.
+            batch_cut=self.seed()
+            self.phase('partition')
+            self._partition_checkpoint('partition_compare_acquire')
+            def check(value):
+                report,acquired=value
+                if report['state']!='observed':
+                    self._partition_checkpoint('partition_compare_state');return False
+                if self.journal.verify(baseline,acquired) is not True:
+                    self._partition_checkpoint('partition_compare_journal');return False
+                return True
+            while True:
+                _,current=self._until(lambda:self.snapshot(baseline),check)
+                if self.stamp(current)>status.clock(batch_cut):break
+                self._partition_checkpoint('partition_compare_after_cut')
+                baseline=current
+            self.matching(current,read=read)
         self.passed('partition');self.passed('mcp')
         source=self.targets.native_metrics()
         if source is None or source['request_errors_total']<1:status.refuse()
@@ -167,24 +171,26 @@ class Scenario:
         baseline=self.targets.native_raw()
         initial=native_source.parse(baseline)
         if initial is None or initial['in_flight']!=0:status.refuse()
-        with request_hold.Held(self.token) as held:
-            # These registry reads are srv1 only. No8080 observation is sent before this exact1 witness.
-            held.assert_holding()
-            raw=self.targets.native_raw()
-            independent=native_source.parse(raw)
-            held.assert_holding()
-            if independent is None or independent['in_flight']!=1:status.refuse()
-            while True:
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            self.phase('inflight')
+            with request_hold.Held(self.token) as held:
+                # These registry reads are srv1 only. No8080 observation is sent before this exact1 witness.
                 held.assert_holding()
-                report,canonical=self.snapshot()
-                if (report['state']=='observed' and report['observation']['in_flight']>=1
-                        and self.stamp(canonical)>status.clock(held.started_at)):
-                    mcp=self.matching(canonical)
-                    held.finish()
-                    inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
-                        r_received=held.started_at,f_sent=held.finished_at)
-                    break
-                time.sleep(min(.05,self.remaining()))
+                raw=self.targets.native_raw()
+                independent=native_source.parse(raw)
+                held.assert_holding()
+                if independent is None or independent['in_flight']!=1:status.refuse()
+                while True:
+                    held.assert_holding()
+                    report,canonical=self.snapshot()
+                    if (report['state']=='observed' and report['observation']['in_flight']>=1
+                            and self.stamp(canonical)>status.clock(held.started_at)):
+                        mcp=self.matching(canonical,read=read)
+                        held.finish()
+                        inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
+                            r_received=held.started_at,f_sent=held.finished_at)
+                        break
+                    time.sleep(min(.05,self.remaining()))
         self.passed('inflight')
 
     def outages(self):
@@ -224,9 +230,11 @@ class Scenario:
         self.ready()
         cut=self.seed()
         self.phase('reset')
-        report,current=self.fresh_after(cut,previous=old)
-        if report['comparison']['state']!='reset_observed':status.refuse()
-        self.matching(current,previous=old)
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            self.phase('reset')
+            report,current=self.fresh_after(cut,previous=old)
+            if report['comparison']['state']!='reset_observed':status.refuse()
+            self.matching(current,previous=old,read=read)
         self.passed('counter_reset')
 
     def run(self):
