@@ -24,7 +24,11 @@ def inputs():
     return {str(path.relative_to(ROOT)):hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted([*SOURCE.glob('*.go'), SOURCE/'go.mod', SOURCE/'go.sum',
                             SOURCE/'toolchain.lock.json', SOURCE/'metricsql-security.patch',
-                            SOURCE/'metricsql-security.lock.json', Path(__file__), ROOT/'scripts/heavy-check/bounded.py'])}
+                            SOURCE/'metricsql-security.lock.json', Path(__file__), ROOT/'scripts/heavy-check/bounded.py',
+                            ROOT/'scripts/observability-pilot/owner_overview.py',ROOT/'scripts/observability-pilot/source_status.py',
+                            ROOT/'scripts/observability-pilot/source_status_query.py',ROOT/'scripts/observability-caddy-storage/caddy_status.py',
+                            ROOT/'scripts/observability-caddy-storage/caddy_query.py',
+                            ROOT/'infra/observability/pilot/owner-overview.json',ROOT/'infra/observability/production/overview.json'])}
 
 
 def architecture():
@@ -73,7 +77,7 @@ def unpack_sdk(raw,destination):
                 path.chmod(0o700 if item.mode&0o111 else 0o600)
 
 
-def parser_overlay(directory):
+def parser_security_module(directory):
     """Apply only the recorded exact-source security patch, with no fuzzy hunks."""
     lock=json.loads((SOURCE/'metricsql-security.lock.json').read_text())
     if lock['module']!='github.com/VictoriaMetrics/metricsql' or lock['version']!='v0.87.5':
@@ -88,9 +92,9 @@ def parser_overlay(directory):
     if lines[:2]!=['--- parser.go\n','+++ parser.go\n']:raise ValueError('horizon_parser_patch')
     result=[];position=0;index=2
     while index<len(lines):
-        match=re.fullmatch(r'@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@\n',lines[index])
+        match=re.fullmatch(r'@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@\n',lines[index])
         if match is None:raise ValueError('horizon_parser_hunk')
-        beginning=int(match[1])-1
+        beginning=int(match[1])-(0 if match[2]=='0' else 1)
         if beginning<position:raise ValueError('horizon_parser_hunk')
         result.extend(original[position:beginning]);position=beginning;index+=1
         while index<len(lines) and not lines[index].startswith('@@ '):
@@ -101,10 +105,39 @@ def parser_overlay(directory):
             if line[0] in ' +':result.append(line[1:])
             elif line[0]!='-':raise ValueError('horizon_parser_patch')
     result.extend(original[position:])
-    patched=directory/'parser-security.go';patched.write_text(''.join(result));patched.chmod(0o600)
-    overlay=directory/'overlay.json'
-    overlay.write_text(json.dumps({'Replace':{str(upstream):str(patched)}})+'\n');overlay.chmod(0o600)
-    return overlay
+    if hashlib.sha256(''.join(result).encode()).hexdigest()!=lock['patched_sha256']:raise ValueError('horizon_parser_result')
+    module=directory/'metricsql-security'
+    entries=list(upstream.parent.rglob('*'))
+    if len(entries)>256 or sum(item.stat().st_size for item in entries if item.is_file())>8*1024**2:
+        raise ValueError('horizon_parser_module_size')
+    if any(item.is_symlink() or not (item.is_dir() or item.is_file()) for item in entries):
+        raise ValueError('horizon_parser_module_path')
+    module.mkdir(mode=0o700)
+    for item in entries:
+        target=module/item.relative_to(upstream.parent)
+        if item.is_dir():target.mkdir(mode=0o700,parents=True,exist_ok=True)
+        else:
+            target.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
+            target.write_bytes(item.read_bytes());target.chmod(0o600)
+    (module/'parser.go').write_text(''.join(result))
+    modfile=directory/'guard.mod'
+    modfile.write_text((SOURCE/'go.mod').read_text()+'\nreplace github.com/VictoriaMetrics/metricsql => '+json.dumps(str(module))+'\n');modfile.chmod(0o600)
+    (directory/'guard.sum').write_bytes((SOURCE/'go.sum').read_bytes());(directory/'guard.sum').chmod(0o600)
+    return modfile
+
+
+def query_catalogue(directory):
+    """Use the existing owners' public read-plan interfaces, without network acquisition."""
+    import owner_overview
+    sys.path.insert(0,str(ROOT/'scripts/observability-caddy-storage'))
+    import caddy_query
+    request={'service':'platform-api','environment':'production','before_sha':'a'*40,'after_sha':'b'*40,
+        'before_start':'2026-10-27T10:00:00Z','before_end':'2026-10-27T10:05:00Z',
+        'after_start':'2026-10-27T11:00:00Z','after_end':'2026-10-27T11:05:00Z','evaluated_at':'2026-10-27T12:00:00Z'}
+    queries=[entry['arguments']['query'] for entry in owner_overview.plan(request)['queries']]
+    queries.extend(entry['query'] for entry in caddy_query.query_plan(1793102400))
+    path=directory/'query-catalogue.json';path.write_text(json.dumps(queries)+'\n');path.chmod(0o600)
+    return path
 
 
 def build(output,download,*,run=execute,check=False):
@@ -133,12 +166,13 @@ def build(output,download,*,run=execute,check=False):
             'HOME':str(directory/'home'),'GOMAXPROCS':'2','GOMEMLIMIT':'256MiB'}
         prefix=['/usr/bin/env',*(key+'='+value for key,value in environment.items()),go,'-C',str(SOURCE)]
         run([*prefix,'mod','download'],timeout=BUILD_SECONDS)
-        overlay=parser_overlay(directory)
-        run([*prefix,'build','-overlay='+str(overlay),'-trimpath','-buildvcs=false','-ldflags=-s -w','-o',str(target),'.'],timeout=BUILD_SECONDS)
+        run([*prefix,'mod','verify'],timeout=BUILD_SECONDS)
+        modfile=parser_security_module(directory)
+        run([*prefix,'build','-modfile='+str(modfile),'-trimpath','-buildvcs=false','-ldflags=-s -w','-o',str(target),'.'],timeout=BUILD_SECONDS)
         if check:
-            test_environment={**environment,'GOOS':host}
+            test_environment={**environment,'GOOS':host,'INSIDE_HORIZON_QUERY_CATALOGUE':str(query_catalogue(directory))}
             run(['/usr/bin/env',*(key+'='+value for key,value in test_environment.items()),go,'-C',str(SOURCE),
-                 'test','-overlay='+str(overlay),'-count=1','-timeout=20s','./...'],timeout=BUILD_SECONDS)
+                 'test','-modfile='+str(modfile),'-count=1','-timeout=20s','./...'],timeout=BUILD_SECONDS)
         target.chmod(0o500)
         binding={**expected,'binary_sha256':hashlib.sha256(target.read_bytes()).hexdigest()}
         (directory/'binary.json').write_text(json.dumps(binding,sort_keys=True)+'\n');(directory/'binary.json').chmod(0o600)
@@ -148,7 +182,7 @@ def build(output,download,*,run=execute,check=False):
     finally:
         primary=sys.exc_info()[1]
         cleanup_failed=False
-        for name in ('cache','mod','tmp','home','sdk','parser-security.go','overlay.json'):
+        for name in ('cache','mod','tmp','home','sdk','metricsql-security','guard.mod','guard.sum','query-catalogue.json'):
             path=directory/name
             try:
                 if path.is_file() and not path.is_symlink():path.unlink()

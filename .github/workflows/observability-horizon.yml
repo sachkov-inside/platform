@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - infra/observability/horizon/**
+      - infra/observability/production/overview.json
+      - infra/observability/pilot/owner-overview.json
+      - scripts/observability-pilot/owner_overview.py
+      - scripts/observability-pilot/source_status*.py
+      - scripts/observability-caddy-storage/caddy_query.py
+      - scripts/observability-caddy-storage/caddy_status.py
       - scripts/observability-pilot/horizon_build.py
       - scripts/observability-horizon/**
       - scripts/heavy-check/bounded.py

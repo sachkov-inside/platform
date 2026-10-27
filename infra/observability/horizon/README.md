@@ -8,9 +8,9 @@ human/agent key and owns the finite external route map. Logs use their separate 
 
 Metrics use official `metricsql v0.87.5`, identical to VM `v1.154.0`'s module pin. The parser expands
 WITH. A checked-in Inside security patch adds mandatory `ParseBounded`; it is not upstream
-behavior. Acquisition verifies the exact upstream parser and patch digests before applying a Go
-source overlay. Both query and selector paths require that symbol, so an unpatched build fails.
-The official lexer admits at most64KiB/1,024 tokens/64 delimiter levels before recursive parsing.
+behavior. Acquisition verifies the exact upstream parser and patch digests before patching a finite private copy of that checksum-verified module. A temporary
+`-modfile` supplies one fixed local replacement; the copied module and build caches are removed. Both query and selector paths require that symbol, so an unpatched build fails.
+The official lexer admits at most64KiB/4,096 tokens/64 delimiter levels before recursive parsing.
 A per-call budget then stops expansion before allocation at4,096 work units,128 recursive levels
 and1MiB cumulative charged copies (strings, scopes, arguments and label-template merges).
 A separate bounded tree check precedes the vendor cleanup/constant/function passes. These are

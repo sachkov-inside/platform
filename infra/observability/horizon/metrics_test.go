@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/VictoriaMetrics/metricsql"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -43,7 +45,7 @@ func TestMetricsHistoryCannotCrossCutoffThroughExpressions(t *testing.T) {
 func TestBoundedVendorParserPreservesOrdinaryMacrosAndRefusesExpansionWork(t *testing.T) {
 	for _, query := range []string{
 		`WITH (f(x)=x+x, y=m) f(f(y))`,
-		`WITH (labels=(job,instance), filters={job="platform"}) sum by(labels)(m{filters})`,
+		`WITH (f(labels)=sum by(labels)(m), filters={job="platform"}) f(job)+m{filters}`,
 		`WITH (name="plat"+"form") m{job=name}`,
 		`ru(m,100)`, `ttf(m)`, `range_median(m)`, `alias(m,"named")`,
 		`increase_pure(inside_web_http_requests_total[5m])`,
@@ -65,12 +67,51 @@ func TestBoundedVendorParserPreservesOrdinaryMacrosAndRefusesExpansionWork(t *te
 		"WITH(" + strings.Join(expressionParts, ",") + ")f24(m)",
 		"WITH(" + strings.Join(labelParts, ",") + ")m{l24}",
 		strings.Repeat("(", 65) + "m" + strings.Repeat(")", 65),
-		strings.Repeat("m+", 600) + "m",
+		strings.Repeat("m+", 2100) + "m",
 	} {
 		start := time.Now()
 		_, err := metricsql.ParseBounded(query)
 		if err == nil || !strings.Contains(err.Error(), "complexity budget") || time.Since(start) > time.Second {
 			t.Fatalf("unbounded expansion: error=%v elapsed=%v", err, time.Since(start))
 		}
+	}
+}
+
+func TestAcceptedRepositoryQueryCatalogueRemainsProvable(t *testing.T) {
+	raw, err := os.ReadFile("../production/overview.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var overview struct {
+		Panels []struct{ Title, Query string }
+	}
+	if err = json.Unmarshal(raw, &overview); err != nil {
+		t.Fatal(err)
+	}
+	queries := []string{}
+	for _, panel := range overview.Panels {
+		if panel.Query != "" {
+			queries = append(queries, panel.Query)
+		}
+	}
+	if path := os.Getenv("INSIDE_HORIZON_QUERY_CATALOGUE"); path != "" {
+		raw, err = os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ownerQueries []string
+		if err = json.Unmarshal(raw, &ownerQueries); err != nil {
+			t.Fatal(err)
+		}
+		queries = append(queries, ownerQueries...)
+	}
+	now := time.Now().UnixMilli()
+	for i, query := range queries {
+		if err := proveMetrics(query, now-3600000, now-3600000, 300000, now-90*24*3600*1000); err != nil {
+			t.Errorf("accepted current catalogue query %d refused: %v", i, err)
+		}
+	}
+	if len(queries) < 20 {
+		t.Fatalf("production catalogue unexpectedly incomplete: %d", len(queries))
 	}
 }

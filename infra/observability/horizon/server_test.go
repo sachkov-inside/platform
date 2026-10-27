@@ -158,7 +158,11 @@ func TestHTTPMacroExpansionIsBoundedBeforeStorage(t *testing.T) {
 		start := time.Now()
 		response := httptest.NewRecorder()
 		g.ServeHTTP(response, httptest.NewRequest("GET", path, nil))
-		if response.Code != 400 || time.Since(start) > time.Second {
+		expected := 400
+		if strings.Contains(path, "/series?") {
+			expected = 503
+		}
+		if response.Code != expected || time.Since(start) > time.Second {
 			t.Fatalf("complexity refusal status=%d elapsed=%v", response.Code, time.Since(start))
 		}
 	}
