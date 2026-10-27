@@ -1785,10 +1785,53 @@ export const ModelComparison: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "GPT" }));
-    await expect(
-      canvas.getByRole("region", { name: "GPT-6.1 Sol / GPT-6 Luna" }),
-    ).toBeVisible();
+    const group = canvas.getByRole("group", { name: "Выбор модели" });
+    const buttons = within(group).getAllByRole("button");
+    await expect(buttons.map((button) => button.textContent)).toEqual([
+      "Claude",
+      "GPT",
+      "DeepSeek",
+      "GLM",
+      "Kimi",
+    ]);
+    const titles = [
+      "Claude Opus 5.5 / Sonnet 5.5",
+      "GPT-6.1 Sol / GPT-6.1 Terra / GPT-6 Luna",
+      "DeepSeek V4.1 Flash",
+      "GLM-5.3-Flash",
+      "Kimi K3.1 Pro",
+    ];
+    for (const [index, button] of buttons.entries()) {
+      await userEvent.click(button);
+      await expect(canvas.getAllByRole("region")).toHaveLength(1);
+      const panel = canvas.getByRole("region", { name: titles[index] });
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(button).toHaveAttribute("aria-controls", panel.id);
+      await expect(within(panel).getByText("Цена.")).toHaveProperty(
+        "tagName",
+        "STRONG",
+      );
+      await expect(
+        within(panel).getByRole("link", { name: "Ссылка на тарифы" }),
+      ).toHaveAttribute("href", "https://example.com/pricing");
+      await expect(
+        within(panel).getByText(/Личного опыта пока нет/),
+      ).toHaveProperty("tagName", "EM");
+      await expect(
+        within(panel).getByRole("link", { name: "Подробнее об опыте" }),
+      ).toHaveAttribute("href", "https://example.com/opinion");
+    }
+    await userEvent.click(buttons[0]);
+    for (const [index, button] of buttons.entries()) {
+      if (index > 0) await userEvent.tab();
+      await expect(button).toHaveFocus();
+      await userEvent.keyboard(index % 2 === 0 ? "{Enter}" : " ");
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(canvas.getAllByRole("region")).toHaveLength(1);
+      await expect(
+        canvas.getByRole("region", { name: titles[index] }),
+      ).toBeVisible();
+    }
   },
 };
 export const ModelComparisonMobile: Story = {
