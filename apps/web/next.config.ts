@@ -130,6 +130,12 @@ const nextConfig: NextConfig = {
         destination: "/authoring/products",
         permanent: false,
       },
+      // Прежняя вкладка «Люди и доступ» заменена списком людей и карточкой человека (#1721).
+      {
+        source: "/authoring/access",
+        destination: "/authoring/people",
+        permanent: false,
+      },
       // Темы живут в фильтре главной; прежние публичные страницы больше не обслуживаются.
       {
         source: "/topics/:slug",

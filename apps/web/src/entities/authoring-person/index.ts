@@ -10,6 +10,14 @@ export {
 } from "./model/person-identity";
 export type { NameSearchState, PeopleSearchState } from "./model/people-reads";
 export {
+  accessOriginLabels,
+  accessOriginSchema,
+  peopleAccessReadsQueryKey,
+  productAccessStateSchema,
+  type AccessOrigin,
+  type ProductAccessState,
+} from "./model/person-access";
+export {
   usePeopleSearch,
   usePersonIdentities,
   type PeopleSearchView,

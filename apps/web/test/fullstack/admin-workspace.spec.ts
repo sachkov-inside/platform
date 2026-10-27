@@ -22,7 +22,7 @@ test("admin workspace exposes every active task on desktop and phone through rea
     ["Материалы", "/authoring/materials", "more"],
     ["Темы", "/authoring/topics", "more"],
     ["Сдачи", "/authoring/submissions", "dock"],
-    ["Люди", "/authoring/access", "dock"],
+    ["Люди", "/authoring/people", "dock"],
     [phone ? "Продажи" : "Платежи", "/authoring/billing", "dock"],
     ["Воронка продаж", "/authoring/sales-funnel", "more"],
     ["Продукты", "/authoring/products", "more"],

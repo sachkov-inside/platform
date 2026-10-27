@@ -12,6 +12,14 @@ export function authoringProductEditorHref(productId: string): Route {
   return internalRoute(`${authoringProductsPrefix}${productId}`);
 }
 
+/** Список людей админки (#1721); прежний `/authoring/access` перенаправляется сюда. */
+export const authoringPeopleHref = internalRoute("/authoring/people");
+
+/** Карточка человека по ID аккаунта. */
+export function authoringPersonHref(accountId: string): Route {
+  return internalRoute(`/authoring/people/${accountId}`);
+}
+
 /**
  * Возврат из редактора и предпросмотра материала: список материалов со своим поиском или
  * редактор продукта, из которого автор открыл материал (#837). Всё остальное — корень списка.

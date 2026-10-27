@@ -1,9 +1,12 @@
 // @ts-check
 
+import { people } from "./people-backend.mjs";
+
 /**
  * The admin global search of the navigation suite: an isolated HTTP fixture in the shape of the
  * Nest contract (`GET /authoring/search`), not a permission test. Tokens select authored outcomes;
- * group permissions, matching and ordering are proven by the backend integration tests.
+ * group permissions, matching and ordering are proven by the backend integration tests. The
+ * «Люди» group comes first (#1721); a query `telegram-down` answers it as `partial`.
  */
 const products = [
   {
@@ -46,6 +49,19 @@ export function authoringSearchRoute(request, url) {
     status: 200,
     value: {
       groups: [
+        {
+          kind: "people",
+          state: "ready",
+          partial: query === "telegram-down",
+          items: people
+            .filter(
+              (person) =>
+                (person.displayName ?? "").toLowerCase().includes(query) ||
+                (person.username ?? "").toLowerCase().includes(query) ||
+                person.email === query,
+            )
+            .slice(0, 5),
+        },
         {
           kind: "products",
           state: "ready",
