@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepared isolated ordinary-role PG server source; native privacy completion prerequisite remains open."""
+"""Isolated ordinary-role PG source with scope-bound completion and cleanup evidence."""
 import argparse
 import importlib.util
 import json
@@ -21,6 +21,8 @@ import scenario
 import privacy
 
 SCOPE=record.SCOPE
+NATIVE_MISSING=('PG native role/reset/restart/freshness acceptance','pinned end-to-end processing/insertion privacy completion proof')
+PENDING_MISSING=('resource/cost acceptance','production and seven days')
 ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','recovery.json','postgres-source-cleanup.json',
            'collector-logging.json','postgres-source-logging.json','postgres-upload.json','postgres-visibility.json')
 
@@ -103,6 +105,24 @@ def cleanup_proof(output):
     proof=ownership.verify_pg_absence(output,owner['project'])
     pilot.write_json(output/'postgres-source-cleanup.json',proof)
     if proof!={'outcome':'passed','containers':9,'volumes':5,'networks':2}:raise ValueError('cleanup')
+    return proof
+
+
+def complete_evidence(output,evidence,cleanup):
+    """Only completed native PG facts and this run's successful cleanup resolve PG limits."""
+    source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
+    result=record.read(output,source)
+    if (result['state']!='passed' or type(evidence) is not dict or evidence.get('source')!=source
+            or evidence.get('scope')!=SCOPE or type(evidence.get('worker_exit_code')) is not int
+            or evidence['worker_exit_code']!=0 or cleanup!={'outcome':'passed','containers':9,'volumes':5,'networks':2}):record.refuse()
+    shared=evidence.get('cleanup');missing=evidence.get('missing')
+    if (type(shared) is not dict or any(shared.get(key)!='passed' for key in ('diagnostics','down','residue'))
+            or type(shared.get('source_freshness')) is not dict or shared['source_freshness'].get('outcome')!='passed'
+            or type(missing) is not list or any(type(item) is not str for item in missing)
+            or any(missing.count(item)!=1 for item in (*NATIVE_MISSING,*PENDING_MISSING))):record.refuse()
+    updated={**evidence,'status':'passed: isolated PostgreSQL source/privacy; resource/production acceptance pending',
+        'missing':[item for item in missing if item not in NATIVE_MISSING]}
+    pilot.write_json(output/'evidence.json',updated)
 
 
 def collect(output,metadata,destination):
@@ -140,20 +160,20 @@ def main():
     if args.action=='admission':return admission(args.metadata)
     if args.action=='run':
         if sys.platform!='linux':raise ValueError('ownership')
-        primary=None;tb=None
+        primary=None;tb=None;cleanup=None
         try:
-            pilot.run(output,prepare_inputs=ownership.prepare,worker_script=Path(__file__).resolve(),
+            evidence=pilot.run(output,prepare_inputs=ownership.prepare,worker_script=Path(__file__).resolve(),
                 ports=(18427,14318,13000,15432),services=ownership.SERVICES,scope=SCOPE,
-                missing=['PG native role/reset/restart/freshness acceptance','pinned end-to-end processing/insertion privacy completion proof',
-                         'resource/cost acceptance','production and seven days'])
+                missing=[*NATIVE_MISSING,*PENDING_MISSING])
         except BaseException as error:primary,tb=error,sys.exc_info()[2];raise
         finally:
             try:
-                if (output/'cleanup.json').exists():cleanup_proof(output)
+                if (output/'cleanup.json').exists():cleanup=cleanup_proof(output)
             except BaseException:
                 if primary is None:raise
             finally:
                 if primary is not None:BaseException.__traceback__.__set__(primary,tb)
+        complete_evidence(output,evidence,cleanup)
     elif args.action=='worker':worker(output)
     elif args.action=='recover':ci.recover(output,services=ownership.SERVICES);cleanup_proof(output)
     else:collect(output,args.metadata,args.public)

@@ -2055,10 +2055,19 @@ protocol-only three reads share one ten-second deadline and evaluation time. Fre
 HTTP200 and a single metric edge do not prove that every surviving series from the same request
 has completed processing and insertion. That pinned end-to-end proof is an explicit prerequisite.
 The source now implements the current-request export/flush barrier described in
-[PostgreSQL completion](#postgresql-завершение-текущей-проверки-приватности). Native verification
-remains pending. The latest pre-barrier native run stopped in baseline/query_refused with no
-completed cases; its exact failing step and cause are unknown. A successful native privacy verdict
-is not established by the source controls or this documentation.
+[PostgreSQL completion](#postgresql-завершение-текущей-проверки-приватности).
+Linux [run40535532281/job122299631080](https://github.com/sachkov-inside/platform/actions/runs/40535532281/job/122299631080)
+на source `629275ca2c14098e97e761cf1d36290646aeeee9` завершил все восемь проверок,
+включая privacy, за 119,489 секунды. Worker завершился с кодом 0; подтверждена очистка
+девяти контейнеров, пяти томов и двух сетей. Это подтверждение изолированного PG-сценария,
+а не приёмка ресурсов, стоимости, production или семи дней работы.
+
+После полного результата `postgres-source.json` с совпадающим source, нулевого exit code
+и успешной общей и PG-очистки `evidence.json` получает статус
+`passed: isolated PostgreSQL source/privacy; resource/production acceptance pending`.
+Из `missing` удаляются только два пункта о native PG и завершении проверки приватности.
+Ресурсы, production и остальные неподтверждённые ограничения сохраняются.
+Сбой, неполный результат, другой source или неподтверждённая очистка не разрешают этот статус.
 
 Baseline failures retain the existing reason projection and eight-field, schema1,4096-byte
 `postgres-source.json`. Its top-level phase now identifies the last entered fixed boundary:
