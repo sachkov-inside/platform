@@ -1,7 +1,10 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { NotificationsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
-/** How far back a failed or unknown Telegram delivery still needs the owner's attention. */
+/**
+ * How far back a failed Telegram delivery still needs the owner's attention. An unknown result has
+ * no such window: it stays a problem until resolved or skipped.
+ */
 export const TELEGRAM_DELIVERY_ATTENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The largest problem set one read answers; a larger set is refused, never cut. */
@@ -12,9 +15,9 @@ export type TelegramDeliveryProblemsResult =
   | { readonly ok: false };
 
 /**
- * Accounts with a Telegram delivery that failed or whose result is unknown, changed within the
- * last {@link TELEGRAM_DELIVERY_ATTENTION_DAYS} days before `now` and not skipped by the operator's
- * recovery, ascending (#1719). An unknown result is a problem, never «delivered».
+ * Accounts with a Telegram delivery not skipped by the operator's recovery whose result is unknown,
+ * whenever it changed, or that failed within the last {@link TELEGRAM_DELIVERY_ATTENTION_DAYS} days
+ * before `now`, ascending (#1719). An unknown result never ages into «no problem».
  */
 export async function listTelegramDeliveryProblems(
   prisma: NotificationsPrismaClient,
@@ -31,9 +34,11 @@ export async function listTelegramDeliveryProblems(
         deliveries: {
           some: {
             channel: "telegram",
-            state: { in: ["failed", "unknown"] },
             recoverySkipped: false,
-            updatedAt: { gte: since },
+            OR: [
+              { state: "unknown" },
+              { state: "failed", updatedAt: { gte: since } },
+            ],
           },
         },
       },
@@ -42,14 +47,14 @@ export async function listTelegramDeliveryProblems(
     });
     if (rows.length > TELEGRAM_DELIVERY_PROBLEM_ACCOUNTS_LIMIT)
       return dependencyFailure(
-        { module: "notifications", operation: "listTelegramDeliveryProblems" },
+        { module: "notifications", operation: "listTelegramProblemAccounts" },
         new RangeError("Telegram delivery problem set exceeds its bound"),
         { ok: false } as const,
       );
     return { ok: true, accountIds: rows.map((row) => row.accountId) };
   } catch (error) {
     return dependencyFailure(
-      { module: "notifications", operation: "listTelegramDeliveryProblems" },
+      { module: "notifications", operation: "listTelegramProblemAccounts" },
       error,
       { ok: false } as const,
     );

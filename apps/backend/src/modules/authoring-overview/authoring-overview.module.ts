@@ -45,7 +45,7 @@ import {
 } from "../telegram-membership/index.js";
 import { ReadAuthoringOverviewController } from "./features/read-authoring-overview/read-authoring-overview.controller.js";
 import { ReadProductOverviewController } from "./features/read-product-overview/read-product-overview.controller.js";
-import { AuthoringOverviewReads } from "./shared/overview-reads.js";
+import { OVERVIEW_DEPENDENCIES } from "./shared/overview-composition.js";
 
 /**
  * The admin Overview (#1719): reads composed over the owners of sales, access, people, waitlists,
@@ -70,7 +70,7 @@ import { AuthoringOverviewReads } from "./shared/overview-reads.js";
   controllers: [ReadAuthoringOverviewController, ReadProductOverviewController],
   providers: [
     {
-      provide: AuthoringOverviewReads,
+      provide: OVERVIEW_DEPENDENCIES,
       inject: [
         ACCOUNTS,
         AccountDirectory,
@@ -102,24 +102,23 @@ import { AuthoringOverviewReads } from "./shared/overview-reads.js";
         community: CommunityEntitlements,
         deliveries: Notifications,
         people: PeopleDirectory,
-      ) =>
-        new AuthoringOverviewReads({
-          accounts,
-          directory,
-          links,
-          sales,
-          access,
-          products,
-          outlines,
-          funnel,
-          waitlists,
-          learning,
-          submissions,
-          community,
-          deliveries,
-          people,
-          clock: () => new Date(),
-        }),
+      ) => ({
+        accounts,
+        directory,
+        links,
+        sales,
+        access,
+        products,
+        outlines,
+        funnel,
+        waitlists,
+        learning,
+        submissions,
+        community,
+        deliveries,
+        people,
+        clock: () => new Date(),
+      }),
     },
   ],
 })

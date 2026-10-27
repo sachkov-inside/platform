@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { Prisma } from "../prisma/index.js";
+
 /**
  * A half-open window of instants `[from, to)` counted by calendar days of `timeZone`. The Overview
  * (#1719) hands it to the owners of each fact; each owner groups its own rows by
- * `(instant AT TIME ZONE timeZone)::date`, so every owner draws the day boundary in one place.
+ * {@link calendarDay}, so the day boundary is drawn in one place.
  */
 export interface DailyWindow {
   readonly from: Date;
@@ -25,3 +27,14 @@ export const dayValueRowsSchema = z.array(
     value: z.coerce.number().int(),
   }),
 );
+
+/**
+ * The calendar day of the timestamptz `column` in `window.timeZone`, as `YYYY-MM-DD` text: the one
+ * day boundary of every daily aggregate. `column` is a fixed SQL fragment, never request input.
+ */
+export function calendarDay(
+  column: Prisma.Sql,
+  window: Pick<DailyWindow, "timeZone">,
+): Prisma.Sql {
+  return Prisma.sql`to_char((${column} at time zone ${window.timeZone})::date, 'YYYY-MM-DD')`;
+}

@@ -60,8 +60,8 @@ export type ListPeopleResult = PeopleDirectoryResult<{
 
 /**
  * `community_failed`: the latest community operation of the Account was rejected, failed or is
- * overdue. `delivery_failed`: a recent Telegram delivery to the Account failed or its result is
- * unknown. The same Account sets the Overview counts.
+ * overdue. `delivery_failed`: a Telegram delivery to the Account has an unknown result, or failed
+ * recently. The Overview counts the people of the same Account sets.
  */
 export const peopleTelegramFilterSchema = z.enum([
   "community_failed",
@@ -160,7 +160,7 @@ export async function listPeople(
         : restrictTo.filter((id) => held.has(id));
   }
   if (telegram !== undefined) {
-    const now = (dependencies.clock ?? (() => new Date()))();
+    const now = new Date();
     const problems =
       telegram === "community_failed"
         ? await dependencies.community.listProblemAccounts(now)

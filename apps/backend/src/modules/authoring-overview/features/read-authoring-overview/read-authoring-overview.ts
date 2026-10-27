@@ -21,7 +21,16 @@ import {
   type OverviewDependencies,
   type SourceRead,
 } from "../../shared/overview-composition.js";
-import type { ReadAuthoringOverviewResult } from "../../shared/overview-reads.js";
+
+export type ReadAuthoringOverviewResult =
+  | { readonly ok: true; readonly value: AuthoringOverview }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly code:
+          "invalid_request" | "forbidden" | "dependency_unavailable";
+      };
+    };
 
 const failure = (
   code: "invalid_request" | "forbidden" | "dependency_unavailable",
@@ -77,6 +86,8 @@ export async function readAuthoringOverview(
   const period = overviewPeriod(now, days);
   const window = spannedWindow(period);
   const sales = billing.allowed;
+  // One read of the current Telegram links serves new people and both Telegram attention items.
+  const links = sales ? dependencies.links.listLinkedAccountIds() : undefined;
 
   const [
     metrics,
@@ -90,15 +101,25 @@ export async function readAuthoringOverview(
     submissions,
     learning,
   ] = await Promise.all([
-    sales ? readMetrics(dependencies, actorId, period, window) : forbidden,
+    sales && links !== undefined
+      ? readMetrics(dependencies, actorId, period, window, links)
+      : forbidden,
     sales ? readFunnel(dependencies, actorId, period) : forbidden,
     sales ? readSalesAttention(dependencies) : undefined,
-    sales
-      ? countSet(dependencies.community.listProblemAccounts(now))
-      : forbidden,
-    sales
-      ? countSet(dependencies.deliveries.listTelegramProblemAccounts(now))
-      : forbidden,
+    links === undefined
+      ? forbidden
+      : countPeople(
+          dependencies,
+          links,
+          dependencies.community.listProblemAccounts(now),
+        ),
+    links === undefined
+      ? forbidden
+      : countPeople(
+          dependencies,
+          links,
+          dependencies.deliveries.listTelegramProblemAccounts(now),
+        ),
     materials.allowed
       ? countAwaitingFeedback(dependencies, actorId)
       : forbidden,
@@ -141,11 +162,12 @@ async function readMetrics(
   actorId: string,
   period: OverviewPeriod,
   window: Window,
+  links: Promise<AccountSet>,
 ): Promise<AuthoringOverview["metrics"]> {
   const [daily, newAccess, newAccounts, waitlistJoins] = await Promise.all([
     dependencies.sales.readDailySales(window),
     dependencies.access.readNewAccessByDay(actorId, window),
-    readNewPeople(dependencies, window),
+    readNewPeople(dependencies, window, links),
     dependencies.waitlists.countJoinsByDay(window),
   ]);
   const byOrigin = emptyOriginCounts();
@@ -180,12 +202,13 @@ async function readMetrics(
 async function readNewPeople(
   dependencies: OverviewDependencies,
   window: Window,
+  links: Promise<AccountSet>,
 ): Promise<Days | undefined> {
-  const links = await dependencies.links.listLinkedAccountIds();
-  if (!links.ok) return undefined;
+  const linked = await links;
+  if (!linked.ok) return undefined;
   const people = await dependencies.directory.countNewPeople({
     ...window,
-    linkedAccountIds: links.accountIds,
+    linkedAccountIds: linked.accountIds,
   });
   return people.ok ? people.days : undefined;
 }
@@ -243,18 +266,30 @@ async function readSalesAttention(dependencies: OverviewDependencies): Promise<{
 }
 
 /** The size of an owner's complete Account set; a refused or failed set is unavailable. */
-async function countSet(
-  read: Promise<
-    | { readonly ok: true; readonly accountIds: readonly string[] }
-    | {
-        readonly ok: false;
-      }
-  >,
+type AccountSet =
+  | { readonly ok: true; readonly accountIds: readonly string[] }
+  | { readonly ok: false };
+
+/**
+ * The people among an owner's complete problem set, by the people list's own read with the same
+ * restriction, so the count equals the total of the list the item opens. A refused or failed set
+ * is unavailable.
+ */
+async function countPeople(
+  dependencies: Pick<OverviewDependencies, "directory">,
+  links: Promise<AccountSet>,
+  problems: Promise<AccountSet>,
 ): Promise<OverviewAttentionItem> {
-  const set = await read;
-  return set.ok
-    ? { state: "ready", count: set.accountIds.length }
-    : unavailable;
+  const [linked, set] = await Promise.all([links, problems]);
+  if (!linked.ok || !set.ok) return unavailable;
+  if (set.accountIds.length === 0) return { state: "ready", count: 0 };
+  const linkedSet = new Set(linked.accountIds);
+  const page = await dependencies.directory.listDirectory({
+    limit: 1,
+    restrictTo: set.accountIds,
+    linkedAccountIds: set.accountIds.filter((id) => linkedSet.has(id)),
+  });
+  return page.ok ? { state: "ready", count: page.value.total } : unavailable;
 }
 
 async function countAwaitingFeedback(

@@ -17,7 +17,14 @@ function owners(
     accounts: {
       checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
     },
-    directory: { countNewPeople: () => Promise.resolve(empty) },
+    directory: {
+      countNewPeople: () => Promise.resolve(empty),
+      listDirectory: () =>
+        Promise.resolve({
+          ok: true,
+          value: { items: [], total: 0, next: null },
+        }),
+    },
     links: {
       listLinkedAccountIds: () => Promise.resolve({ ok: true, accountIds: [] }),
     },

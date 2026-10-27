@@ -278,18 +278,19 @@ export class CommunityEntitlements {
   }
 
   /**
-   * The person card's community facts: link, last observed membership and admission
-   * restriction. No actor and no right check: only a composing read that has already checked
-   * `billing:manage` calls it.
-   */
-  /**
    * Accounts whose latest community operation was rejected, failed or is overdue at `now`, at most
-   * 50 000 (#1719). No actor: the composing read checks its own right first.
+   * 50 000 (#1719). No actor and no right check: only a composing read that has already checked
+   * `billing:manage` calls it.
    */
   listProblemAccounts(now: Date) {
     return listCommunityProblemAccounts(this.dependencies.prisma, now);
   }
 
+  /**
+   * The person card's community facts: link, last observed membership and admission
+   * restriction. No actor and no right check: only a composing read that has already checked
+   * `billing:manage` calls it.
+   */
   readMemberState(accountId: string): Promise<ReadMemberStateResult> {
     return readMemberState(this.dependencies, accountId);
   }
