@@ -153,7 +153,7 @@ class WarmMatching(unittest.TestCase):
         report=scenario.status.evaluate(**canonical)
         def baseline_read(*args,**kwargs):
             self.assertEqual(events,['native_ready']);events.append('baseline');return report,baseline
-        def snapshot(previous):
+        def snapshot(previous,*,evaluated_at=None):
             self.assertEqual(events,['native_ready','baseline']);self.assertEqual(previous,baseline)
             events.append('canonical');return report,canonical
         def read(*,evaluated_at,previous=None):
@@ -237,12 +237,12 @@ class WarmMatching(unittest.TestCase):
         # Drive the actual partition caller, seed, journal and whole MCP oracle.
         from types import SimpleNamespace
         import math
-        now=[100.5];events=[];visibility_lag=[0]
+        now=[100.5];events=[];visibility_lag=[0];query_seconds=[.02];request_seconds=[.3];unauthorized_seconds=[.3];traffic_windows=[];stride=[5.01];comparison_seconds=[None]
         clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
             sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
         groups=(('GET',200),('GET',401),('GET',403),('GET',502),('POST',200),('POST',413))
         def frame(point,completed,previous=None):
-            stamp=.585+5.01*math.floor((point-visibility_lag[0]-.585)/5.01)
+            stamp=.585+stride[0]*math.floor((point-visibility_lag[0]-.585)/stride[0])
             counts={group:1 for group in groups}
             for end,method,code,count in events:
                 if end<stamp:counts[method,code]+=count
@@ -264,14 +264,15 @@ class WarmMatching(unittest.TestCase):
                      'evaluated_at':point,'completed_at':completed}
             return scenario.status.evaluate(**current,previous=previous),current
         def canonical(*args,previous=None,**kwargs):
-            point=math.floor(now[0]);now[0]+=.02
+            point=kwargs.get('evaluated_at',math.floor(now[0]))
+            now[0]+=comparison_seconds[0] if previous is not None and comparison_seconds[0] is not None else query_seconds[0]
             result,current=frame(point,now[0],previous)
             events.append((now[0],'GET',200,2));result['transport']['canonical']='passed'
             return result,current
         def perform(case,token):
-            started=now[0];now[0]+=.3;method,code=scenario.traffic.CASES[case]
+            started=now[0];now[0]+=unauthorized_seconds[0] if case=='unauthorized' else request_seconds[0];method,code=scenario.traffic.CASES[case]
             if type(code) is tuple:code=200
-            events.append((now[0],method,code,1))
+            events.append((now[0],method,code,1));traffic_windows.append((started,now[0]))
             return {'started':started,'completed':now[0],'method':method,'code':code}
         def mcp(*,evaluated_at,previous=None):
             result,current=frame(evaluated_at,now[0],previous);result['transport']['mcp']='passed'
@@ -300,6 +301,48 @@ class WarmMatching(unittest.TestCase):
         self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
         self.assertLess(now[0]-100.5,60)
         self.assertLess(experiment.acquisitions,32)
+
+        # The real invalid-token path lasts2-3s. Slow canonical reads must not
+        # cross the next accounting boundary or discard that business window.
+        now[0]=100.5;events.clear();traffic_windows.clear()
+        visibility_lag[0]=1.5;query_seconds[0]=2;request_seconds[0]=.02;unauthorized_seconds[0]=2.8
+        experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
+                                     'owned_token',Path('/unused'),lambda kind,value:None)
+        experiment.deadline=700;verified=[];original=experiment.journal.verify
+        def cover(previous,current):
+            result=original(previous,current)
+            if result is True:verified.append((float(experiment.stamp(previous)),float(experiment.stamp(current))))
+            return result
+        experiment.journal.verify=cover
+        with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                patch.object(scenario.traffic,'perform',side_effect=perform),patch.object(scenario.mcp_snapshot,'session',native):
+            experiment.partition(94)
+        self.assertEqual(len(traffic_windows),8)
+        self.assertGreaterEqual(len(verified),2)
+        self.assertTrue(all(0<right-left<=10 for left,right in verified))
+        self.assertTrue(all(any(left<start<=end<right for left,right in verified) for start,end in traffic_windows))
+        self.assertTrue(all(left[1]==right[0] for left,right in zip(verified,verified[1:])))
+        self.assertLess(experiment.acquisitions,32);self.assertLess(now[0]-100.5,60)
+        query_seconds[0]=.02;request_seconds[0]=.3;unauthorized_seconds[0]=.3
+
+        # Hints cannot admit a scrape inside the long request, a source gap
+        # beyond10s or a historical response whose completion age exceeds10s.
+        for fault in ('request_overlap','source_gap','slow_completion'):
+            with self.subTest(partition_timing=fault):
+                now[0]=100.5;events.clear();traffic_windows.clear();visibility_lag[0]=0
+                unauthorized_seconds[0]=6 if fault=='request_overlap' else 2.8
+                request_seconds[0]=.02;stride[0]=10.01 if fault=='source_gap' else 5.01
+                comparison_seconds[0]=6 if fault=='slow_completion' else None
+                experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
+                                             'owned_token',Path('/unused'),lambda kind,value:None)
+                experiment.deadline=700
+                with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                        patch.object(scenario.traffic,'perform',side_effect=perform),patch.object(scenario.mcp_snapshot,'session',native):
+                    with self.assertRaises(TimeoutError):experiment.partition(94)
+                self.assertNotEqual((experiment.last_report or {}).get('state'),'observed')
+                self.assertLess(experiment.acquisitions,128)
+                self.assertLessEqual(len(experiment.journal._windows),256)
+        stride[0]=5.01;comparison_seconds[0]=None;unauthorized_seconds[0]=.3;request_seconds[0]=.3
 
         # Stale publication cannot commit a predicted baseline and start seed.
         visibility_lag[0]=20;now[0]=100.5;events.clear()

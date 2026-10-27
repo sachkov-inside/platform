@@ -451,6 +451,29 @@ has not yet passed the batch cut. No new rollover across an unverified business 
 added; no request window, counter or cohort-gap rule is reset.
 
 
+For the partition comparison, the unchanged seed corpus starts at an integer wall clock after
+its baseline's projected next five-second scrape. This is a scheduling hint, not a new source
+admission rule. It keeps the long invalid-token request in a quiet interval: pinned vmauth1.154.0
+[intentionally delays invalid-token responses by2-3 seconds](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/app/vmauth/main.go#L914)
+as brute-force protection. That behavior and the original HTTP corpus/order remain unchanged.
+
+After seed, canonical reads use historical fixed evaluation times to verify consecutive source
+intervals. For a validated baseline stamp S, the next query uses E=floor(S+10) and starts no earlier
+than E+1. It can therefore select the real intermediate scrape around S+5 after publication,
+without placing its own read window over the following scrape. Each returned whole vector must
+still be observed, have actual completion age at most10 seconds, match the exact journal and
+retain a source gap at most10 seconds. Only a successful whole journal comparison advances the
+baseline. Adjacent verified intervals must continue until the source stamp passes the original
+whole seed cut; no request, invalid-token window or failed comparison is discarded.
+
+All partition comparison intervals share one existing60-second deadline. Query10 seconds,
+scenario600 seconds,128 acquisitions and256 journal windows remain bounded. A late read, scrape
+crossing a request, missing/reset frame or excessive source gap still refuses; a clock prediction
+never supplies a counter, sample or acceptance result. This preparation fixes a reproduced
+caller/native window failure. The exact source stamps behind an earlier hosted journal timeout
+remain unknown until a new exact-source Linux run confirms the complete scenario.
+
+
 ### Закрытая диагностика запуска native MCP
 
 В `caddy-run.json` запуск MCP различает `mcp_initialize_*` и `mcp_discovery_*`:
