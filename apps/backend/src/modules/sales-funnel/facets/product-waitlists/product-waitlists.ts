@@ -45,6 +45,8 @@ const fail = <
 >(
   code: Code,
 ) => ({ ok: false, error: { code } }) as const;
+/** Waitlist memberships of one Account; more is refused rather than cut. */
+const ACCOUNT_WAITLISTS_LIMIT = 200;
 export class ProductWaitlists {
   constructor(
     private readonly dependencies: {
@@ -247,6 +249,59 @@ export class ProductWaitlists {
     } catch (error) {
       return dependencyFailure(
         { module: "sales-funnel", operation: "readWaitlist" },
+        error,
+        fail("dependency_unavailable"),
+      );
+    }
+  }
+  /**
+   * Every Product Waitlist membership of one Account for the person card, newest first. `active`
+   * is the stored membership (joined and not withdrawn); notification eligibility (current
+   * access, discoverable Product) is not applied. No actor: the composing read checks its own
+   * right first.
+   */
+  async readForAccount(accountId: string) {
+    if (!z.uuid().safeParse(accountId).success) return fail("invalid_request");
+    try {
+      const memberships =
+        await this.dependencies.prisma.productWaitlistMembership.findMany({
+          where: { accountId },
+          orderBy: [{ joinedAt: "desc" }, { intakeId: "asc" }],
+          take: ACCOUNT_WAITLISTS_LIMIT + 1,
+        });
+      if (memberships.length > ACCOUNT_WAITLISTS_LIMIT)
+        return dependencyFailure(
+          { module: "sales-funnel", operation: "readForAccount" },
+          new RangeError("Account waitlist memberships exceed their bound"),
+          fail("dependency_unavailable"),
+        );
+      const intakes =
+        memberships.length === 0
+          ? []
+          : await this.dependencies.prisma.productWaitlistIntake.findMany({
+              where: { id: { in: memberships.map((row) => row.intakeId) } },
+            });
+      const byId = new Map(intakes.map((intake) => [intake.id, intake]));
+      return {
+        ok: true,
+        value: memberships.flatMap((membership) => {
+          const intake = byId.get(membership.intakeId);
+          // The membership references its intake; a missing one is not a membership to show.
+          return intake === undefined
+            ? []
+            : [
+                {
+                  productId: intake.productId,
+                  intakeName: intake.name,
+                  active: membership.active,
+                  joinedAt: membership.joinedAt.toISOString(),
+                },
+              ];
+        }),
+      } as const;
+    } catch (error) {
+      return dependencyFailure(
+        { module: "sales-funnel", operation: "readForAccount" },
         error,
         fail("dependency_unavailable"),
       );

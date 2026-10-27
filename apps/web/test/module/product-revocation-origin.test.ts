@@ -12,6 +12,7 @@ it.each(["paid", "manual", "legacy", "course_activation", "unknown"])(
         revision: 1,
         affectedCount: 1,
         affected: [{ source, capabilities: ["materials"], validUntil: null }],
+        community: "remains",
       },
     };
     expect(

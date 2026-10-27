@@ -154,6 +154,13 @@ function renameSeededOffer(page: Page, price: z.infer<typeof priceSchema>) {
     },
   });
 }
+/** An owner people read (#1721) answered to an Account without `billing:manage`. */
+async function peopleRead(page: Page, path: string) {
+  const response = await fullStackBrowserRequest(page, path);
+  return { status: response.status(), body: await response.json() };
+}
+const peopleDenial = { status: 403, body: { kind: "forbidden" } } as const;
+
 async function access(
   page: Page,
   operation: string,
@@ -261,8 +268,8 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
 
     const before = await seededOffer(observer.page);
     expect(await renameSeededOffer(author.page, before)).toEqual(billingDenial);
-    expect(await access(author.page, "list", { limit: 100 })).toEqual(
-      billingDenial,
+    expect(await peopleRead(author.page, "/api/authoring/people")).toEqual(
+      peopleDenial,
     );
     expect(await seededOffer(observer.page)).toEqual(before);
   } finally {
@@ -519,19 +526,19 @@ test("two separate Accounts cannot read or change each other's progress and book
     await setBookmark(stranger.page, false);
     await setRead(stranger.page, true);
     await setRead(stranger.page, false);
-    // Account ID принимают только маршруты Billing, и они требуют `billing:manage`.
+    // Account ID принимают только маршруты людей и Billing, и они требуют `billing:manage`.
     expect(
-      await access(stranger.page, "read", {
-        accountId: ownerAccountId,
-        productId: productA.id,
-      }),
-    ).toEqual(billingDenial);
+      await peopleRead(
+        stranger.page,
+        `/api/authoring/people/${ownerAccountId}`,
+      ),
+    ).toEqual(peopleDenial);
     expect(
-      await access(stranger.page, "list", {
-        accountId: ownerAccountId,
-        limit: 50,
-      }),
-    ).toEqual(billingDenial);
+      await peopleRead(
+        stranger.page,
+        `/api/authoring/people?query=${ownerAccountId}`,
+      ),
+    ).toEqual(peopleDenial);
 
     expect(await bookmarks(owner.page)).toEqual([
       expect.objectContaining({ materialId, bookmarked: true }),

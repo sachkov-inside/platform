@@ -39,6 +39,7 @@ import {
 } from "./search-authoring.js";
 
 const searchKinds = [
+  "people",
   "products",
   "materials",
 ] as const satisfies readonly AuthoringSearchKind[];
@@ -52,6 +53,33 @@ void everyKindListed;
 
 /** One variant per group kind: adding a group adds its variant here. */
 const readyGroupHttpSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("people"),
+      state: z.literal("ready"),
+      items: z
+        .array(
+          z
+            .object({
+              accountId: z.uuid(),
+              displayName: z.string().nullable(),
+              username: z.string().nullable(),
+              email: z.string().nullable(),
+              contactsState: z.enum(["complete", "partial"]),
+            })
+            .strict(),
+        )
+        .max(AUTHORING_SEARCH_GROUP_LIMIT),
+      partial: z
+        .boolean()
+        .describe("Name and @username search was unavailable"),
+      truncated: z
+        .boolean()
+        .describe(
+          "More people matched than the group shows; a more precise text finds the rest",
+        ),
+    })
+    .strict(),
   z
     .object({
       kind: z.literal("products"),
@@ -121,7 +149,7 @@ export class SearchAuthoringController {
   @ApiOperation({
     operationId: "searchAuthoring",
     summary:
-      "Search the authoring groups the account may read, in a fixed order: at most five hits per group; a group whose dependency failed answers unavailable; an account that may read no group is refused",
+      "Search the authoring groups the account may read, in a fixed order (people, products, materials): at most five hits per group; a group whose dependency failed answers unavailable; an account that may read no group is refused",
   })
   @ApiQuery({
     name: "query",
@@ -182,6 +210,20 @@ export class SearchAuthoringController {
         if (group.state === "unavailable")
           return { kind: group.kind, state: group.state };
         switch (group.kind) {
+          case "people":
+            return {
+              kind: group.kind,
+              state: group.state,
+              items: group.items.map((person) => ({
+                accountId: person.accountId,
+                displayName: person.displayName,
+                username: person.username,
+                email: person.email,
+                contactsState: person.contactsState,
+              })),
+              partial: group.partial,
+              truncated: group.truncated,
+            };
           case "products":
             return {
               kind: group.kind,

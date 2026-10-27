@@ -4,7 +4,7 @@ import { getQueryClient } from "@/shared/api/query-client";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 
 /**
- * Подмена владельческого BFF billing для историй страниц «Оплата и права» и «Доступ». Панели
+ * * Подмена владельческого BFF billing для историй страницы «Оплата и права». Панели
  * production читают и пишут через `/api/authoring/billing/<маршрут>` и сами разбирают ответ, поэтому
  * история задаёт только тела ответов: состояние на экране выбирает production-код.
  */

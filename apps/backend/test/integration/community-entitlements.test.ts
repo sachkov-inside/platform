@@ -79,6 +79,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
   groupUrl: string | undefined;
   updatedAt: string | undefined;
   answer: "accept" | "unavailable" | "operation_conflict" = "accept";
+  restriction: "none" | "moderation" | "external_unknown" = "none";
   private readonly observations = new Map<
     string,
     { status: CommunityDeliveryStatus; observed: ObservedMembership }
@@ -129,7 +130,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
       observation.observed === "member"
         ? { groupUrl: this.groupUrl }
         : {}),
-      admissionRestriction: "none" as const,
+      admissionRestriction: this.restriction,
       access: command.access,
       binding: command.binding,
       contractVersion: command.contractVersion,
@@ -1095,6 +1096,99 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(await app.readDelivery(account, account)).toEqual({
       ok: false,
       error: { code: "forbidden" },
+    });
+  });
+
+  test("the member state names the link and only the last observation of the current link", async () => {
+    now = new Date(start);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    const account = await member();
+    const unobserved = {
+      membership: "unknown",
+      restriction: "unknown",
+      observedAt: null,
+    };
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: { link: { state: "not_linked" }, ...unobserved },
+    });
+    expect(await app.readMemberState("not-an-account")).toEqual({
+      ok: false,
+      error: { code: "invalid_input" },
+    });
+
+    await grantCommunity(account, null);
+    const identityRef = `identity-${account}`;
+    await link(account, identityRef);
+    const linked = { state: "linked", telegramIdentityRef: identityRef };
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: { link: linked, ...unobserved },
+    });
+
+    // An unanswered command has observed nothing.
+    provider.answer = "unavailable";
+    await app.sweep();
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: { link: linked, ...unobserved },
+    });
+
+    provider.answer = "accept";
+    now = new Date(new Date(start).getTime() + 61_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: {
+        link: linked,
+        membership: "unknown",
+        restriction: "none",
+        observedAt: now.toISOString(),
+      },
+    });
+
+    const [queued] = await operations(account);
+    provider.restriction = "moderation";
+    provider.observe(queued?.operationId ?? "", "accepted", "not_member");
+    now = new Date(new Date(start).getTime() + 122_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: {
+        link: linked,
+        membership: "not_member",
+        restriction: "moderation",
+        observedAt: now.toISOString(),
+      },
+    });
+
+    provider.restriction = "none";
+    provider.observe(queued?.operationId ?? "", "applied", "member");
+    now = new Date(new Date(start).getTime() + 183_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: {
+        link: linked,
+        membership: "member",
+        restriction: "none",
+        observedAt: now.toISOString(),
+      },
+    });
+
+    // Another identity is not the one Telegram observed.
+    await unlink(account);
+    await link(account, `other-${account}`);
+    expect(await app.readMemberState(account)).toEqual({
+      ok: true,
+      value: {
+        link: { state: "linked", telegramIdentityRef: `other-${account}` },
+        ...unobserved,
+      },
     });
   });
 

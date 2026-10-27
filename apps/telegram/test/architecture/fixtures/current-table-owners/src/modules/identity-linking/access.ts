@@ -12,6 +12,10 @@ export async function access(database: any) {
   await database.insertInto("link_transactions").values({}).execute();
   await database.updateTable("link_transactions").set({}).execute();
   await database.deleteFrom("link_transactions").execute();
+  await database.selectFrom("platform_link_profiles").selectAll().execute();
+  await database.insertInto("platform_link_profiles").values({}).execute();
+  await database.updateTable("platform_link_profiles").set({}).execute();
+  await database.deleteFrom("platform_link_profiles").execute();
   await database.selectFrom("platform_links").selectAll().execute();
   await database.insertInto("platform_links").values({}).execute();
   await database.updateTable("platform_links").set({}).execute();

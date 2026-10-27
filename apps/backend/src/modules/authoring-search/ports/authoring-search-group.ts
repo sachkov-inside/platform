@@ -3,17 +3,27 @@
  * one actor. The owner decides the actor's right to the group: a refusal omits the group, a failed
  * dependency answers it as unavailable, and the other groups still answer.
  *
- * Adding a group, for example «Люди» or «Платежи»:
+ * The groups are «Люди» (People Directory, `billing:manage`), «Продукты» (Products) and
+ * «Материалы» (Materials), both `materials:manage`. Adding a group, for example «Платежи»:
  *
  * 1. The owning Module implements the search behind its own right and exports it from its
  *    `index.ts`; its answer needs no type from this Module, only the matching shape.
  * 2. Add the ready variant to `AuthoringSearchReadyGroup` below.
- * 3. Add an adapter beside `adapters/products/products-search-group.ts` that maps the owner's
- *    hits field by field, and place it in the registry order of `authoring-search.module.ts`.
- * 4. Add the variant's HTTP schema to `readyGroupHttpSchema` in
+ * 3. Add an adapter beside `adapters/people/people-search-group.ts` that maps the owner's hits
+ *    field by field, and place it in the registry order of `authoring-search.module.ts`.
+ * 4. Add the variant's HTTP schema to `readyGroupHttpSchema` and its kind to `searchKinds` in
  *    `features/search-authoring/search-authoring.controller.ts`, then run `pnpm api:generate`.
  */
 export type AuthoringSearchReadyGroup =
+  | {
+      readonly kind: "people";
+      readonly state: "ready";
+      readonly items: readonly AuthoringSearchPerson[];
+      /** Name and @username search was unavailable: a name may have found nobody for that reason. */
+      readonly partial: boolean;
+      /** More people matched than the group shows; a more precise text finds the rest. */
+      readonly truncated: boolean;
+    }
   | {
       readonly kind: "products";
       readonly state: "ready";
@@ -26,6 +36,18 @@ export type AuthoringSearchReadyGroup =
     };
 
 export type AuthoringSearchKind = AuthoringSearchReadyGroup["kind"];
+
+/**
+ * A person by Account ID, exact email or Telegram name and @username. `partial` contacts are
+ * unknown now rather than absent.
+ */
+export interface AuthoringSearchPerson {
+  readonly accountId: string;
+  readonly displayName: string | null;
+  readonly username: string | null;
+  readonly email: string | null;
+  readonly contactsState: "complete" | "partial";
+}
 
 /** A Product by name or slug; an archived Product is found too and flagged. */
 export interface AuthoringSearchProduct {

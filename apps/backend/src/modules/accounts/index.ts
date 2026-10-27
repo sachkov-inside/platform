@@ -20,6 +20,7 @@ export {
   type AccountId,
 } from "./domain/account-identifiers.js";
 export { bootstrapOwnerAccount } from "./features/bootstrap-owner-account/bootstrap-owner-account.js";
+export { backfillBillingContactFingerprints } from "./features/backfill-billing-contact-fingerprints/backfill-billing-contact-fingerprints.js";
 export {
   type Accounts,
   type AuthenticatedAccount,

@@ -9,6 +9,7 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import { assemblePeopleSearchGroup } from "../../src/modules/authoring-search/adapters/people/people-search-group.js";
 import { assembleMaterialsSearchGroup } from "../../src/modules/authoring-search/adapters/materials/materials-search-group.js";
 import { assembleProductsSearchGroup } from "../../src/modules/authoring-search/adapters/products/products-search-group.js";
 import { assembleAuthoringSearch } from "../../src/modules/authoring-search/features/search-authoring/search-authoring.js";
@@ -62,7 +63,10 @@ const productIds = Array.from(
     `97000000-0000-4000-8000-0000000001${String(index).padStart(2, "0")}`,
 );
 
-/** The authoring search over Products and Materials (#1720), as an operation and over HTTP. */
+/**
+ * The authoring search over People (#1721), Products and Materials (#1720), as an operation and
+ * over HTTP.
+ */
 describe("Authoring search", () => {
   let database: TestDatabase;
   let identity: TestIdentityIssuer;
@@ -296,6 +300,26 @@ describe("Authoring search", () => {
     });
   });
 
+  test("a People Directory refusal of a valid search text is a recorded defect: the group answers unavailable", async () => {
+    const [products] = searchGroups(database.prisma, () => true);
+    const search = assembleAuthoringSearch([
+      assemblePeopleSearchGroup({
+        searchPeople: () =>
+          Promise.resolve({ ok: false, error: { code: "invalid_request" } }),
+      }),
+      products,
+    ]);
+    expect(await search.search(manager, "search product")).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          { kind: "people", state: "unavailable" },
+          { kind: "products", state: "ready", items: expectedProducts },
+        ],
+      },
+    });
+  });
+
   test("an empty, blank or overlong query is malformed", async () => {
     const search = assembleAuthoringSearch(
       searchGroups(database.prisma, () => true),
@@ -330,10 +354,28 @@ describe("Authoring search", () => {
         { kind: "materials", state: "ready", items: [] },
       ],
     });
-    const denied = await server.inject({
+    // billing:manage reads only the People group; this API has no Telegram to search names.
+    const people = await server.inject({
       method: "GET",
       url: url("search product"),
       headers: billingHeaders,
+    });
+    expect(people.statusCode).toBe(200);
+    expect(people.json()).toEqual({
+      groups: [
+        {
+          kind: "people",
+          state: "ready",
+          items: [],
+          partial: true,
+          truncated: false,
+        },
+      ],
+    });
+    const denied = await server.inject({
+      method: "GET",
+      url: url("search product"),
+      headers: await signedIn(null),
     });
     expect(denied.statusCode).toBe(403);
     expect(denied.json()).toMatchObject({ code: "forbidden" });
@@ -350,6 +392,69 @@ describe("Authoring search", () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toMatchObject({ code: "invalid_request_shape" });
     }
+  });
+
+  test("over HTTP the People group comes first for billing:manage, finds a person by ID and exact email, and is omitted without the right", async () => {
+    const subject = `authoring-search-person-${randomUUID()}`;
+    await server.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: {
+        authorization: `Bearer ${await identity.sign(subject, {
+          inside_verified_email: "Searched.Person@example.test",
+        })}`,
+      },
+    });
+    const person = await database.prisma.account.findFirstOrThrow({
+      where: { logtoSubject: subject },
+    });
+    const both = await signedIn("billing:manage", "materials:manage");
+    const url = (query: string) =>
+      `/authoring/search?query=${encodeURIComponent(query)}`;
+    const expectedPerson = {
+      accountId: person.id,
+      displayName: null,
+      username: null,
+      email: null,
+      contactsState: "complete",
+    };
+    for (const query of [
+      person.id.toUpperCase(),
+      "searched.person@example.test",
+    ]) {
+      const found = await server.inject({
+        method: "GET",
+        url: url(query),
+        headers: both,
+      });
+      expect(found.statusCode).toBe(200);
+      expect(found.json()).toEqual({
+        groups: [
+          {
+            kind: "people",
+            state: "ready",
+            items: [expectedPerson],
+            partial: false,
+            truncated: false,
+          },
+          { kind: "products", state: "ready", items: [] },
+          { kind: "materials", state: "ready", items: [] },
+        ],
+      });
+    }
+    const manager = await server.inject({
+      method: "GET",
+      url: url("searched.person@example.test"),
+      headers: await signedIn("materials:manage"),
+    });
+    expect(manager.statusCode).toBe(200);
+    expect(manager.json()).toEqual({
+      groups: [
+        { kind: "products", state: "ready", items: [] },
+        { kind: "materials", state: "ready", items: [] },
+      ],
+    });
+    expect(manager.body).not.toContain(person.id);
   });
 
   test("over HTTP the Materials list accepts Topic and format filters and refuses malformed ones", async () => {
@@ -386,7 +491,7 @@ describe("Authoring search", () => {
   });
 
   async function signedIn(
-    permission: "materials:manage" | "billing:manage",
+    ...permissions: ("materials:manage" | "billing:manage" | null)[]
   ): Promise<Record<string, string>> {
     const subject = `authoring-search-${randomUUID()}`;
     const bearer = await identity.sign(subject, {
@@ -402,9 +507,11 @@ describe("Authoring search", () => {
     const account = await database.prisma.account.findFirstOrThrow({
       where: { logtoSubject: subject },
     });
-    await database.prisma.accountPermission.create({
-      data: { accountId: account.id, permission },
-    });
+    for (const permission of permissions)
+      if (permission !== null)
+        await database.prisma.accountPermission.create({
+          data: { accountId: account.id, permission },
+        });
     return headers;
   }
 });

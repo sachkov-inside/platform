@@ -1,5 +1,11 @@
 export type Contactability = "blocked" | "reachable";
 
+/** The sender's Telegram name and username, normalized by the transport adapter. */
+export interface TelegramUserProfile {
+  readonly displayName: string | null;
+  readonly username: string | null;
+}
+
 /** A human's private message to the bot, verified by the transport adapter. */
 export interface VerifiedPrivateStart {
   readonly botIdentity: string;
@@ -8,6 +14,8 @@ export interface VerifiedPrivateStart {
   readonly telegramUserId: string;
   readonly updateId: string;
   readonly messageId?: string;
+  /** Absent when the update carried no valid sender profile. */
+  readonly profile?: TelegramUserProfile;
 }
 
 /** Telegram's report that a private chat with the bot was blocked or reopened. */
@@ -17,4 +25,6 @@ export interface VerifiedPrivateContactability {
   readonly observedAt: Date;
   readonly telegramUserId: string;
   readonly updateId: string;
+  /** Absent when the update carried no valid sender profile. */
+  readonly profile?: TelegramUserProfile;
 }

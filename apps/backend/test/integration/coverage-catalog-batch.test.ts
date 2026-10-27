@@ -114,6 +114,7 @@ test("history reads its purchase window once and batches metadata, fulfillment a
   });
   const contact = new BillingContact({
     prisma,
+    emailFingerprintKey: "synthetic-fingerprint-key-000000000000",
     protection: undefined,
     sendCode: undefined,
     documents: [],

@@ -21,6 +21,11 @@ export const productRevocationPreviewSchema =
         validUntil: z.iso.datetime().nullable(),
       }),
     ),
+    /**
+     * `closes`: after this revocation no other active Product of the Account keeps the community
+     * group; `remains`: another Product keeps it, or nothing is revoked.
+     */
+    community: z.enum(["closes", "remains"]),
   });
 export const productRevocationPreviewResponseSchema = z.strictObject({
   ok: z.literal(true),

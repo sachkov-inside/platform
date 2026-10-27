@@ -217,6 +217,8 @@ function searchMessage(search: ReturnType<typeof usePeopleSearch>): string {
     case "ready":
       if (search.nameSearch === "unavailable")
         return "Поиск по имени временно недоступен. Найдите человека по email или ID.";
+      if (search.nameSearch === "truncated")
+        return "Показаны не все совпадения. Уточните запрос.";
       return search.items.length === 0 ? "Никого не нашли." : "";
     case "signed_out":
       return "Сессия закончилась. Войдите снова.";

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { telemetryRoute } from "@/features/client-telemetry/model/client-telemetry-wire";
 
 vi.mock("next/server", () => ({ after: () => undefined }));
 
@@ -336,5 +337,26 @@ it("does not log the bearer id of a private payment link", async () => {
   );
   expect(JSON.stringify(loggedLines(vi.mocked(console.info)))).not.toContain(
     "69000000-0000-4000-8000-000000001450",
+  );
+});
+
+it("groups a person card by its template, never by the Account ID", async () => {
+  const accountId = "d1210000-0000-4000-8000-000000000001";
+  expect(telemetryRoute(`/authoring/people/${accountId}`)).toBe(
+    "/authoring/people/[accountId]",
+  );
+  expect(telemetryRoute("/authoring/people")).toBe("/authoring/people");
+  const response = await handleWebVitalsReport(
+    report(
+      "/api/web-vitals",
+      JSON.stringify({
+        route: `/authoring/people/${accountId}`,
+        metrics: [lcp],
+      }),
+    ),
+  );
+  expect(response.status).toBe(204);
+  expect(JSON.stringify(loggedLines(vi.mocked(console.info)))).not.toContain(
+    accountId,
   );
 });

@@ -1,0 +1,137 @@
+{
+  "sourceSha": "86397ec3757f7646e5f8fd64998160ee8f0abc48",
+  "results": [
+    {
+      "story": "pages-authoring-люди--mobile",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--long-list",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--name-search-unavailable",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--empty",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--all-blocks",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--unavailable-blocks",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--revoke-product-mobile",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--revision-conflict-mobile",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "components-админка-действия-с-доступом--grant-active",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "components-админка-действия-с-доступом--restore",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "patterns-каркас-админки--search-people-mobile",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--mobile",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--long-list",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--name-search-unavailable",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-люди--empty",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--all-blocks",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--unavailable-blocks",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--revoke-product-mobile",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "pages-authoring-карточка-человека--revision-conflict-mobile",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "components-админка-действия-с-доступом--grant-active",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "components-админка-действия-с-доступом--restore",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "patterns-каркас-админки--search-people-mobile",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    }
+  ]
+}
