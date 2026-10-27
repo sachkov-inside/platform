@@ -258,7 +258,7 @@ describe("Material Authoring action workflow", () => {
       },
       kind: "ready",
       references: {
-        references: { product: [{ label: "Build", value: productId }] },
+        references: { products: [{ label: "Build", value: productId }] },
       },
     });
     expect(dependencies.load).toHaveBeenCalledWith(materialId, "access-token");
@@ -661,7 +661,7 @@ function successfulReferences() {
     ok: true,
     body: {
       formats: [{ archived: false, id: formatId, name: "Гайд" }],
-      product: [{ archived: false, id: productId, name: "Build" }],
+      products: [{ archived: false, id: productId, name: "Build" }],
       tags: [{ archived: false, id: tagId, name: "delivery" }],
       topics: [{ archived: false, id: topicId, name: "Platform" }],
     },

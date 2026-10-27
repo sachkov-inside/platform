@@ -12,7 +12,7 @@ import {
 
 describe("Material Reader navigation", () => {
   it("preserves Product and legacy contexts, page and selected Material", () => {
-    for (const prefix of ["products", "guides", "product"]) {
+    for (const prefix of ["products", "guides", "series"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
       expect(parseMaterialReaderReturnTarget(href)).toEqual({
         href,
@@ -109,6 +109,7 @@ describe("Material Reader navigation", () => {
       "/?q=one&q=two",
       "/materials/inside-platform-overview",
       "/admin",
+      "/product/platform-inside",
       ["/series/one", "/series/two"],
     ]) {
       expect(parseMaterialReaderReturnTarget(value)).toEqual({

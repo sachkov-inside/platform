@@ -21,7 +21,7 @@ const facets = {
       summary: null,
     },
   ],
-  product: [
+  products: [
     {
       count: 1,
       cover: null,

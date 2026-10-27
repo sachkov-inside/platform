@@ -147,7 +147,7 @@ describe("Product Reader context", () => {
           kind: "ready",
           reference: {
             name: "Review",
-            slug: "review-product",
+            slug: "review-series",
           },
           items: [
             { slug: "shared-material", title: "Общий материал" },
@@ -157,7 +157,7 @@ describe("Product Reader context", () => {
         },
       })?.next,
     ).toEqual({
-      href: "/materials/review-video?from=%2Fseries%2Freview-product",
+      href: "/materials/review-video?from=%2Fseries%2Freview-series",
       title: "Видео-разбор",
     });
   });
