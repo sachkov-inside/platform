@@ -142,3 +142,10 @@ export {
 } from "./model/payment-link";
 
 export { PaymentLinkSummary } from "./ui/payment-link-summary";
+
+export { readOwnerPriceCatalog } from "./api/owner-price-catalog.browser";
+export {
+  ownerPriceCatalogQueryKey,
+  productPriceChoices,
+  type ProductPriceChoice,
+} from "./model/owner-price-catalog";

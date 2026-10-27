@@ -1,7 +1,7 @@
 import { connection } from "next/server";
-import { handleOwnerCatalogRead } from "@/features/billing-admin.server";
+import { handleOwnerPriceCatalogRead } from "@/entities/subscription.server";
 
 export async function GET(): Promise<Response> {
   await connection();
-  return handleOwnerCatalogRead();
+  return handleOwnerPriceCatalogRead();
 }

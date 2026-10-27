@@ -877,6 +877,32 @@ button.admin-metric:focus-visible {
   font-size: 14px;
   line-height: 1.6;
 }
+.admin-dialog-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.admin-dialog-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -10px -10px 0 0;
+  border-radius: var(--radius-xl);
+  color: var(--muted-foreground);
+}
+.admin-dialog-close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.admin-dialog-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.admin-dialog-close:disabled {
+  opacity: 0.45;
+}
 .admin-dialog-banner {
   display: flex;
   gap: 8px;
@@ -961,6 +987,34 @@ button.admin-metric:focus-visible {
 }
 
 /* Поля формы. */
+
+.admin-checklist {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 2.75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.admin-checklist-item:hover {
+  background: var(--muted);
+}
+.admin-checklist-item input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
 
 .admin-field {
   display: grid;
