@@ -71,10 +71,14 @@ class Scenario:
 
     def verify_storage(self,deadline):
         self.clock_deadline=deadline;pilot.assert_docker_identity(deadline=deadline)
-        for role in ('alloy','metrics','gateway'):
+        # Batch only discovery; every fixed role still receives its complete identity inspection.
+        roles=('alloy','metrics','gateway')
+        current=self.read(self.compose+['ps','-q',*roles]).splitlines()
+        expected=[self.targets.targets[role]['id'] for role in roles]
+        if len(current)!=len(expected) or set(current)!=set(expected):raise ValueError('ownership')
+        for role in roles:
             target=self.targets.targets[role]
-            current=self.read(self.compose+['ps','-q',role]).strip()
-            if current!=target['id'] or self.targets.inspect(role,current)!=target:raise ValueError('ownership')
+            if self.targets.inspect(role,target['id'])!=target:raise ValueError('ownership')
         if time.monotonic()>=deadline:raise TimeoutError()
 
     def await_postgres(self,cid):

@@ -450,7 +450,9 @@ class Driver(unittest.TestCase):
             targets._ownership_observer=None;targets._ownership_callback_error=None;targets.targets={};driver.targets=targets
             def daemon(args,**kwargs):
                 self.assertLessEqual(kwargs['timeout'],10)
-                if args[:6]==driver.compose:return ids[args[-1]]
+                if args[:6]==driver.compose:
+                    self.assertEqual(args[6:8],['ps','-q'])
+                    return '\n'.join(ids[role] for role in args[8:])+'\n'
                 if args[:2]==['docker','stop']:
                     self.assertEqual(args,['docker','stop','--timeout','2',ids['postgres']]);stopped[0]=True;clock[0]=102;return ids['postgres']+'\n'
                 self.assertEqual(args[:3],['docker','inspect','--format'])
