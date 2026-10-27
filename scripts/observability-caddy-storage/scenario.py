@@ -65,15 +65,14 @@ class Scenario:
         periods=max(1,math.ceil((completed+5-stamp)/5))
         return float(max(5,math.floor(stamp+5*periods)+1-completed))
 
-    def _until(self,read,predicate,*,deadline=None,poll_seconds=.25,_cohort_hint=False):
+    def _until(self,read,predicate,*,deadline=None,poll_seconds=.25):
         if deadline is None:deadline=time.monotonic()+min(60,self.remaining())
         while time.monotonic()<deadline:
             self.remaining()
             value=read()
             if time.monotonic()>=deadline:raise TimeoutError()
             if predicate(value):return value
-            pause=self._cohort_pause(value) if _cohort_hint else poll_seconds
-            time.sleep(min(pause,self.remaining(),max(0,deadline-time.monotonic())))
+            time.sleep(min(poll_seconds,self.remaining(),max(0,deadline-time.monotonic())))
         raise TimeoutError()
 
     def _one(self,case):
@@ -148,8 +147,15 @@ class Scenario:
             return self._until(lambda:self.snapshot(previous),lambda value:value[0]['state']=='observed'
                 and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])),poll_seconds=5)
         self._partition_checkpoint('partition_initial_acquire')
+        deadline=time.monotonic()+min(60,self.remaining())
+        next_read=None;followup_end=None
+        def read():
+            if next_read is not None:
+                time.sleep(min(max(0,next_read-time.monotonic()),self.remaining(),max(0,deadline-time.monotonic())))
+            if time.monotonic()>=deadline:raise TimeoutError()
+            return self.snapshot(previous)
         def check(value):
-            nonlocal cut
+            nonlocal cut,next_read,followup_end
             if value[0]['state']!='observed':
                 self.last_report=value[0]
                 self._partition_checkpoint('partition_initial_state')
@@ -158,11 +164,18 @@ class Scenario:
             elif not self.journal.boundary_clear(self.stamp(value[1])):
                 self._partition_checkpoint('partition_initial_boundary')
             else:return True
-            # Preparation is still before the substantive seed. Confirm a real
-            # cohort after this quiet interval, never an aged predicted frame.
-            cut=max(status.clock(cut),status.clock(value[1]['completed_at'])+5)
+            now=time.monotonic()
+            if value[0]['state']=='observed' and followup_end is not None and now<followup_end:
+                # A valid old frame can precede publication by milliseconds. Keep
+                # this pre-seed cut fixed for at most one scrape interval.
+                next_read=now+.25
+            else:
+                pause=self._cohort_pause(value)
+                cut=max(status.clock(cut),status.clock(value[1]['completed_at'])+5)
+                next_read=now+pause
+                followup_end=next_read+5 if value[0]['state']=='observed' else None
             return False
-        return self._until(lambda:self.snapshot(previous),check,poll_seconds=5,_cohort_hint=True)
+        return self._until(read,check,deadline=deadline,poll_seconds=0)
 
     def matching(self,canonical,*,previous=None,read=None):
         if read is None:

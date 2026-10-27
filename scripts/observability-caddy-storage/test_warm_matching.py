@@ -288,8 +288,21 @@ class WarmMatching(unittest.TestCase):
         self.assertLess(experiment.acquisitions,16)
         self.assertLess(now[0]-100.5,60)
 
-        # Publication lag cannot commit an aged predicted baseline and start seed.
-        visibility_lag[0]=5;now[0]=100.5;events.clear()
+        # The projected frame can arrive after its first query. Confirm it through
+        # the unchanged full partition caller before seed, rather than moving the cut.
+        visibility_lag[0]=1.5;now[0]=100.5;events.clear()
+        experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
+                                     'owned_token',Path('/unused'),lambda kind,value:None)
+        experiment.deadline=700
+        with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                patch.object(scenario.traffic,'perform',side_effect=perform),patch.object(scenario.mcp_snapshot,'session',native):
+            experiment.partition(94)
+        self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
+        self.assertLess(now[0]-100.5,60)
+        self.assertLess(experiment.acquisitions,32)
+
+        # Stale publication cannot commit a predicted baseline and start seed.
+        visibility_lag[0]=20;now[0]=100.5;events.clear()
         experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
                                      'owned_token',Path('/unused'),lambda kind,value:None)
         experiment.deadline=700
