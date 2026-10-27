@@ -21,6 +21,17 @@ Runtime codec `@inside/contracts/telegram-contact` задаёт read-only
 Старый Telegram отвечает 404; Platform сохраняет список сдач и обозначает недоступный контакт.
 Обе стороны повторно читают текущую связь после внешнего запроса, чтобы исключить прежний контакт.
 
+Runtime codec `@inside/contracts/telegram-contact-v2` задаёт версию `inside.telegram-contact.v2`
+с тем же секретом: `POST /integrations/platform/v2/telegram-contacts/read` отвечает как v1 и
+добавляет состояние `/stop` (`enabled`, `stopped`, `unknown`), а
+`POST /integrations/platform/v2/telegram-contacts/search` ищет подстроку в имени или username
+(1–64 символа, ведущий `@` отбрасывается, до 50 совпадений и признак `truncated`). Telegram
+хранит имя и username только текущих привязок и удаляет их при переносе привязки; Platform
+принимает совпадение только для текущей однозначной привязки. Старый Telegram отвечает 404:
+чтение переходит на v1 с `unknown`, а поиск возвращает `not_supported`, а не пустой результат.
+[Протокол](runtime/telegram-contact.md) и [corpus](runtime/telegram-contact-v2.fixtures.json)
+описывают обе версии.
+
 Runtime codec `@inside/contracts/waitlist-confirmation` задаёт фиксированное сервисное
 подтверждение записи; [протокол](runtime/waitlist-confirmation.md) описывает два существующих
 service-authenticated направления, проверку текущего события/привязки и поведение при unknown.
