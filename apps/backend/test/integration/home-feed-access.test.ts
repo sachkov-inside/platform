@@ -112,26 +112,21 @@ beforeAll(async () => {
       ],
     },
   });
-  expect(
-    await listPublishedMaterials(
-      materials.publishedMaterialReader,
-      access,
-      emptyCatalogVideos,
-      { subject: anonymousSubject, first: 24 },
-    ),
-  ).toMatchObject({
-    ok: true,
-    value: {
-      totalCount: 2,
-      items: expect.arrayContaining([
-        expect.objectContaining({
-          slug: "historical-feed-closed",
-          access: "closed",
-          availability: "locked",
-        }),
-      ]),
-    },
-  });
+  const historicalDiscovery = await listPublishedMaterials(
+    materials.publishedMaterialReader,
+    access,
+    emptyCatalogVideos,
+    { subject: anonymousSubject, first: 24 },
+  );
+  if (!historicalDiscovery.ok) throw new Error(historicalDiscovery.error.code);
+  expect(historicalDiscovery.value.totalCount).toBe(2);
+  expect(historicalDiscovery.value.items).toContainEqual(
+    expect.objectContaining({
+      slug: "historical-feed-closed",
+      access: "closed",
+      availability: "locked",
+    }),
+  );
   await seedLocalDevelopment(database.prisma, { demo: "published" });
   expect(
     await database.prisma.publishedMaterial.findMany({
