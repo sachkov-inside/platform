@@ -9,6 +9,8 @@ import secrets
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LOCK = ROOT / 'infra/observability/umami/inputs.lock.json'
+BROWSER_INGEST_PORT = 13302
+BROWSER_INGEST_URL = f'http://127.0.0.1:{BROWSER_INGEST_PORT}/api/send'
 
 
 # The image's init-only server exposes a Unix socket but no TCP listener.
@@ -75,7 +77,8 @@ def unique_keys(pairs):
     return result
 
 
-def prepare(output, *, lock_path=LOCK):
+def prepare(output, *, lock_path=LOCK, browser=False):
+    if type(browser) is not bool:raise ValueError('browser_fixture_flag')
     with lock_path.open('rb') as source:
         encoded = source.read(LOCK_BYTES + 1)
     if len(encoded) > LOCK_BYTES:
@@ -99,6 +102,10 @@ REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
         'db': {'user':str(lock['postgres_runtime']['uid']) + ':' + str(lock['postgres_runtime']['gid']), 'cap_drop':['ALL'], 'security_opt':['no-new-privileges:true'], 'image': lock['images']['postgres'], 'environment': {'POSTGRES_USER': 'pilot_bootstrap', 'POSTGRES_PASSWORD': bootstrap}, 'volumes': ['database:/var/lib/postgresql/data'], 'networks': ['private'], 'mem_limit': '512m', 'cpus': '0.5', 'healthcheck': {'test': ['CMD', *DATABASE_READY_COMMAND], 'interval': '2s', 'timeout': '2s', 'retries': 30}},
         'umami': {'image': lock['images']['umami'], 'environment': app_env, 'depends_on': {'db': {'condition': 'service_healthy'}}, 'networks': ['private'], 'mem_limit': '1g', 'cpus': '1', 'init': True},
         'query': {'user':str(key_owner.st_uid) + ':' + str(key_owner.st_gid), 'init': True, 'image': lock['images']['python'], 'command': ['python', '/pilot/gateway.py', '--key-file', '/private/reader.key'], 'volumes': [str(ROOT / 'scripts/observability-umami') + ':/pilot:ro', str(output / 'reader.key') + ':/private/reader.key:ro'], 'ports': ['127.0.0.1:13301:3001'], 'networks': ['private', 'ingress'], 'mem_limit': '64m', 'cpus': '0.25', 'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'], 'environment': {'PYTHONDONTWRITEBYTECODE': '1'}}}, 'networks': {'private': {'internal': True}, 'ingress': {}}, 'volumes': {'database': {}}}
+    if browser:
+        # Only the synthetic browser fixture publishes this existing native service.
+        plan['services']['umami']['ports']=[f'127.0.0.1:{BROWSER_INGEST_PORT}:3000']
+        plan['services']['umami']['networks'].append('ingress')
     for service in plan['services'].values():
         service.setdefault('cap_drop', ['ALL'])
         service.setdefault('security_opt', ['no-new-privileges:true'])

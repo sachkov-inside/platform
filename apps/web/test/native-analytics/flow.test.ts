@@ -1,7 +1,6 @@
 /** Owned Chromium -> production Web operation -> pinned native Umami -> read-only gateway. */
 import { readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { chromium, expect as browserExpect } from "@playwright/test";
@@ -53,8 +52,7 @@ const inputSchema = z.strictObject({
   site: z.uuid(),
   key: z.string().min(32).max(128),
   project: z.string().regex(/^inside-observability-umami-[a-f0-9]{12}$/),
-  endpoint: z.string().startsWith("unix:///"),
-  compose: z.string().startsWith("/"),
+  endpoint: z.literal("http://127.0.0.1:13302/api/send"),
 });
 // Response fields: pinned v3.4.0 src/queries/sql/events/getWebsiteEvents.ts, relationalQuery.
 const eventsSchema = z.object({
@@ -112,7 +110,7 @@ test("two Product and Material observations retain native source codes and remai
   mark("started");
   const originalFetch = globalThis.fetch;
   let nativeCalls = 0;
-  vi.stubGlobal("fetch", ((
+  vi.stubGlobal("fetch", (async (
     target: Parameters<typeof fetch>[0],
     options?: RequestInit,
   ) => {
@@ -120,45 +118,21 @@ test("two Product and Material observations retain native source codes and remai
       return originalFetch(target, options);
     if (typeof options?.body !== "string")
       throw new Error("Native JSON payload required");
-    // No acquisition: this exec uses only the source-bound query service owned by the outer pilot.
+    // The outer supervisor owns this fixture-only loopback port on its existing Umami.
+    // Preserve the production handler's signal and bound response; no CLI runs per capture.
     mark("native_export_started");
     const started = performance.now();
-    let output: string;
     try {
-      output = execFileSync(
-        "docker",
-        [
-          "--host",
-          input.endpoint,
-          "compose",
-          "-p",
-          input.project,
-          "-f",
-          input.compose,
-          "exec",
-          "-T",
-          "query",
-          "python",
-          "/pilot/browser_ingest.py",
-        ],
-        {
-          input: options.body,
-          encoding: "utf8",
-          timeout: 5_000,
-          maxBuffer: 1024,
-          env: { PATH: process.env["PATH"], NODE_ENV: process.env.NODE_ENV },
-        },
-      );
-      z.strictObject({ accepted: z.literal(true) }).parse(JSON.parse(output));
+      const result = await originalFetch(input.endpoint, options);
+      nativeExportMilliseconds = Math.ceil(performance.now() - started);
+      mark(result.ok ? "native_export_accepted" : "native_export_failed");
+      if (result.ok) nativeCalls++;
+      return result;
     } catch (error) {
       nativeExportMilliseconds = Math.ceil(performance.now() - started);
       mark("native_export_failed");
       throw error;
     }
-    nativeExportMilliseconds = Math.ceil(performance.now() - started);
-    mark("native_export_accepted");
-    nativeCalls++;
-    return Promise.resolve(Response.json({}));
   }) satisfies typeof fetch);
   for (const [key, value] of Object.entries({
     INSIDE_ANALYTICS_ENABLED: "true",
