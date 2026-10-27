@@ -1,3 +1,4 @@
+import type { ConfirmedTelegramAction } from "./telegram-user-activity.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
@@ -123,9 +124,15 @@ export class TelegramUpdateProcessor {
           : "admitted";
         if (request && admission !== "admitted")
           await this.refuse(update, request, admission);
-        else await this.handle(command);
+        else await this.handle(command, update.updateId);
 
-        if (!(await this.inbox.markProcessed(update, now ?? new Date())))
+        const activity =
+          admission === "admitted"
+            ? await this.confirmedActivity(command, update.updateId)
+            : undefined;
+        if (
+          !(await this.inbox.markProcessed(update, now ?? new Date(), activity))
+        )
           reportCondition("update-inbox.process", "lease_lost", {
             update_id: update.updateId,
           });
@@ -154,6 +161,53 @@ export class TelegramUpdateProcessor {
     return processed;
   }
 
+  /** Recognized input alone is insufficient: every admitted kind needs its owner's durable success. */
+  private async confirmedActivity(
+    command: TelegramUpdateCommand,
+    updateId: string,
+  ): Promise<ConfirmedTelegramAction | undefined> {
+    switch (command.kind) {
+      case "marketing_preference":
+      case "start": {
+        const contact = command.value.contact;
+        const kind = await this.marketing.confirmedActivity(
+          contact.botIdentity,
+          contact.updateId,
+          contact.telegramUserId,
+        );
+        return kind === undefined
+          ? undefined
+          : { telegramUserId: contact.telegramUserId, kind };
+      }
+      case "template-intake":
+      case "author-input": {
+        const contact = command.value;
+        return (await this.communications.confirmedTemplateActivity(
+          contact.botIdentity,
+          contact.updateId,
+        ))
+          ? { telegramUserId: contact.telegramUserId, kind: "template_saved" }
+          : undefined;
+      }
+      case "sign-in-decision":
+        return (await this.signIn.confirmedDecision(command.value, updateId))
+          ? {
+              telegramUserId: command.value.telegramUserId,
+              kind: "sign_in_decision",
+            }
+          : undefined;
+      case "access-action":
+      case "community-request":
+      case "contactability":
+      case "membership":
+      case "join-request":
+      case "ignored":
+        return undefined;
+      default:
+        return unhandled(command, "Telegram activity command");
+    }
+  }
+
   /** A refused press still stops its button spinner; one notice per window explains the silence. */
   private async refuse(
     update: ClaimedTelegramUpdate,
@@ -174,7 +228,10 @@ export class TelegramUpdateProcessor {
       });
   }
 
-  private async handle(command: TelegramUpdateCommand): Promise<void> {
+  private async handle(
+    command: TelegramUpdateCommand,
+    updateId: string,
+  ): Promise<void> {
     switch (command.kind) {
       case "access-action":
         await this.botContacts.observeStart(command.value, "none");
@@ -202,7 +259,7 @@ export class TelegramUpdateProcessor {
       case "start":
         return this.start(command.value);
       case "sign-in-decision":
-        await this.signIn.decide(command.value);
+        await this.signIn.decide(command.value, updateId);
         await this.callbackAnswers.answer(command.callbackQueryId);
         return;
       case "contactability":

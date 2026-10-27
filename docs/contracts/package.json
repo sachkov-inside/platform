@@ -40,6 +40,10 @@
     "./internal-waitlist-parent": {
       "types": "./dist/runtime/internal-waitlist-parent.d.ts",
       "default": "./dist/runtime/internal-waitlist-parent.js"
+    },
+    "./telegram-activity": {
+      "types": "./dist/runtime/telegram-activity.d.ts",
+      "default": "./dist/runtime/telegram-activity.js"
     }
   },
   "files": [

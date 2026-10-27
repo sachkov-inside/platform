@@ -64,9 +64,9 @@ it("counts the union of Account identities across owners and normalizes the one 
     ok: true,
     value: {
       membership: { status: "observed", count: 2, coverage: "partial" },
-      telegram: { status: "not_collected", count: null },
-      combined: { status: "not_collected", count: null },
-      unlinkedTelegramContacts: { status: "not_collected", count: null },
+      telegram: { status: "unknown", count: null },
+      combined: { status: "unknown", count: null },
+      unlinkedTelegramContacts: { status: "unknown", count: null },
     },
   });
   for (const read of [reading, bookmarks, submissions])
@@ -103,6 +103,7 @@ it("distinguishes source observation from incomplete historical coverage", async
         },
         { source: "bookmarks", status: "observed" },
         { source: "submissions", status: "observed" },
+        { source: "telegram", status: "unknown" },
       ],
     },
   });
@@ -135,6 +136,7 @@ it.each([
           { source: "reading", status: "observed" },
           { source: "bookmarks", status: "unknown", error: { code } },
           { source: "submissions", status: "observed" },
+          { source: "telegram", status: "unknown" },
         ],
       },
     });
@@ -218,6 +220,7 @@ it("returns unknown instead of a union when a source throws, without returning i
         },
         { status: "observed" },
         { status: "observed" },
+        { source: "telegram", status: "unknown" },
       ],
     },
   });

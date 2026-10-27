@@ -7,7 +7,7 @@ import unittest
 import privacy_config
 
 SERVICE = 'resource.attributes["service.name"] == "inside-telegram"'
-ROUTES = ['/health', '/ready', '/metrics', '/webhooks/telegram', '/integrations/platform/v1/telegram-contacts', '/integrations/platform/v1/community-entitlements', '/integrations/platform/v1/identity-links', '/integrations/platform/v1/identity-links/:linkTransactionRef/confirm', '/integrations/identity/v1/sign-in', '/integrations/identity/v1/sign-in/:requestRef/status', '/integrations/identity/v1/sign-in/:requestRef/consume', '/integrations/identity/v1/sign-in/:requestRef/account-link', '/integrations/platform/v1/communications']
+ROUTES = ['/health', '/ready', '/metrics', '/webhooks/telegram', '/integrations/platform/v1/telegram-contacts', '/integrations/platform/v1/participant-activity', '/integrations/platform/v1/community-entitlements', '/integrations/platform/v1/identity-links', '/integrations/platform/v1/identity-links/:linkTransactionRef/confirm', '/integrations/identity/v1/sign-in', '/integrations/identity/v1/sign-in/:requestRef/status', '/integrations/identity/v1/sign-in/:requestRef/consume', '/integrations/identity/v1/sign-in/:requestRef/account-link', '/integrations/platform/v1/communications']
 METRICS = ['inside.telegram.operations', 'inside.telegram.duration', 'http.server.request.count', 'http.server.request.duration', 'http.server.active_requests', 'telemetry.trace.dropped', 'telemetry.trace.export.failures', 'telemetry.metric.export.failures', 'telemetry.trace.sampling.ratio']
 
 def generated_metric_drops(service, name):
@@ -90,6 +90,8 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
         route = '/authoring/import/materials/publication'
         queue = 'membership-activity.retention'
         projected_policy = copy.deepcopy(policy)
+        self.assertEqual(projected_policy['dependencies']['operations'].count('activity.read'), 1)
+        projected_policy['dependencies']['operations'].remove('activity.read')
         for key, addition in (('routes', route), ('routes', '/authoring/import/materials/state'),
                               ('routes', '/authoring/import/tasks/state'),
                               ('routes', '/library/materials/by-id/:id/reference'),
@@ -116,6 +118,11 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
             return re.findall(r'`([^`]+)`', body)
 
         normalized = actual
+        current_operations = privacy_config.literal(privacy_config.pattern(policy['dependencies']['operations']))
+        previous_operations = privacy_config.literal(privacy_config.pattern(projected_policy['dependencies']['operations']))
+        self.assertNotEqual(current_operations, previous_operations)
+        self.assertIn(current_operations, normalized)
+        normalized = normalized.replace(current_operations, previous_operations)
         for key, catalogue in (('http.route', 'routes'), ('messaging.destination.name', 'queues')):
             current = 'IsMatch(attributes['+privacy_config.literal(key)+'], '+privacy_config.literal(privacy_config.pattern(policy[catalogue]))+')'
             previous = 'IsMatch(attributes['+privacy_config.literal(key)+'], '+privacy_config.literal(privacy_config.pattern(projected_policy[catalogue]))+')'

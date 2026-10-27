@@ -332,7 +332,8 @@
       "link.register",
       "link.confirm",
       "contacts.read",
-      "signin.bindAccount"
+      "signin.bindAccount",
+      "activity.read"
     ],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.dependency.operations", "inside.dependency.duration"]
@@ -398,6 +399,7 @@
       "/metrics",
       "/webhooks/telegram",
       "/integrations/platform/v1/telegram-contacts",
+      "/integrations/platform/v1/participant-activity",
       "/integrations/platform/v1/community-entitlements",
       "/integrations/platform/v1/identity-links",
       "/integrations/platform/v1/identity-links/:linkTransactionRef/confirm",

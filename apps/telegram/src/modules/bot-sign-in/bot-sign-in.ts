@@ -168,7 +168,10 @@ export class BotSignIn {
     });
   }
 
-  async decide(decision: VerifiedSignInDecision): Promise<void> {
+  async decide(
+    decision: VerifiedSignInDecision,
+    updateId?: string,
+  ): Promise<void> {
     if (
       !isTruthy(this.config.signInEnabled) ||
       !isRequestRef(decision.requestRef) ||
@@ -198,6 +201,7 @@ export class BotSignIn {
           state: decision.decision === "approve" ? "approved" : "denied",
           approved_at: decision.decision === "approve" ? now : null,
           confirmation_message_id: decision.messageId,
+          decision_update_id: updateId ?? null,
         })
         .where("request_ref", "=", decision.requestRef)
         .execute();
@@ -223,6 +227,29 @@ export class BotSignIn {
         });
       }
     });
+  }
+
+  /** A decision counted only when this exact private sender/message changed the durable request. */
+  async confirmedDecision(
+    decision: VerifiedSignInDecision,
+    updateId: string,
+  ): Promise<boolean> {
+    const request = await this.database
+      .selectFrom("sign_in_requests")
+      .select("state")
+      .where("request_ref", "=", decision.requestRef)
+      .where("bot_identity", "=", decision.botIdentity)
+      .where("telegram_user_id", "=", decision.telegramUserId)
+      .where("private_chat_id", "=", decision.privateChatId)
+      .where("confirmation_message_id", "=", decision.messageId)
+      .where("decision_update_id", "=", updateId)
+      .where(
+        "state",
+        "in",
+        decision.decision === "approve" ? ["approved", "consumed"] : ["denied"],
+      )
+      .executeTakeFirst();
+    return request !== undefined;
   }
 
   async inspect(

@@ -228,3 +228,16 @@ export function linkedEvidenceRevisions(database: Executor) {
     .selectFrom("platform_links")
     .select(["telegram_identity_ref", "evidence_version"]);
 }
+
+/** Owner-built scalar projection of the current confirmed binding, inside the caller's snapshot. */
+export function currentActivityAccount(
+  database: Executor,
+  botReference: string,
+  userReference: string,
+) {
+  return sql<string | null>`(${database
+    .selectFrom("platform_links")
+    .select("account_ref")
+    .where("bot_identity", "=", sql<string>`${sql.ref(botReference)}`)
+    .where("telegram_user_id", "=", sql<string>`${sql.ref(userReference)}`)})`;
+}

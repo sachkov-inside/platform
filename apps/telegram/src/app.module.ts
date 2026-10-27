@@ -1,3 +1,5 @@
+import { TelegramUserActivity } from "./modules/update-inbox/telegram-user-activity.js";
+import { TelegramUserActivityController } from "./modules/update-inbox/telegram-user-activity.controller.js";
 import {
   TELEGRAM_OBSERVABILITY,
   disabledTelegramObservability,
@@ -183,6 +185,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        TelegramUserActivityController,
         TelegramContactsController,
         BotSignInController,
         CommunityController,
@@ -551,6 +554,7 @@ export class AppModule {
         RuntimeMetrics,
         { provide: RUNTIME_COUNTERS, useExisting: RuntimeMetrics },
         TelegramUpdateInbox,
+        TelegramUserActivity,
         TelegramUpdateProcessor,
         {
           provide: TELEGRAM_UPDATE_TRANSLATOR,

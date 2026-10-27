@@ -2267,7 +2267,7 @@ is still required. The stronger withdrawn owner/guardian proposals and their ope
 Application CI activation is a separate reviewed change to the existing tooling step only; it
 must not opt in the direct functional workflow or widen any source or native gate.
 
-## Confirmed active Membership Accounts
+## Confirmed active Membership and Telegram participants
 
 Platform MCP registers `active_participant_diagnostics` for a trusted delegated Account. Each call
 checks current `platform:admin` before reading private activity. Input is exactly `from` and `to`,
@@ -2289,11 +2289,16 @@ cross-owner snapshot. Each source exposes its own `asOf` and `retentionFrom`. Hi
 observed zero under that incomplete coverage. Any failed or overflowing owner makes the Membership
 count `null`/`unknown`, even if another owner returned rows. The output does not publish a partial sum.
 
-Telegram, combined cross-surface Accounts and unlinked Telegram contacts are explicitly
-`not_collected` with `count:null`. They are not zero and the combined count is not copied from
-Membership. This report therefore does not complete the cross-surface active-participant criterion.
-It also does not implement physical deletion of activity history. Existing domain records remain
-owned by their capabilities; the read horizon is not evidence of physical retention cleanup.
+Telegram contributes its own persisted successful private-action facts through the authenticated
+`participant-activity` runtime contract. The [source protocol](../contracts/runtime/telegram-activity.md)
+is the authority for its finite outcome catalog, successful inbox settlement, native collection clock,
+365-day retention, limits and current-link semantics. The report returns Telegram distinct Accounts,
+the distinct Account union with Membership, and currently unlinked Telegram contacts separately.
+These are source snapshots, not browser analytics or reconstructed first/last history. Its source entry
+includes the actual collection start and partial/not-proven coverage. A failed or overflowing Telegram
+source makes Telegram, combined and unlinked counts unknown while preserving observed Membership.
+The combined count is unknown if any Membership owner fails. A successful report never exposes
+Account IDs, Telegram IDs, provider payload or command text.
 
 ## Membership analytics-copy retention
 

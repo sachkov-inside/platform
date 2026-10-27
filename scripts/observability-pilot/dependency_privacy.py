@@ -10,7 +10,7 @@ TRACE_IDS = {'json':'d'*31+'3','protobuf':'d'*31+'4'}
 COMMUNICATIONS_TRACE_IDS = {'json':'d'*31+'5','protobuf':'d'*31+'6'}
 COMMUNICATIONS = (('telegram','communications.execute','completed'),('telegram','communications.execute','failed'))
 TELEGRAM_HTTP_TRACE_IDS = {'json':'e'*30+'71','protobuf':'e'*30+'72'}
-TELEGRAM_HTTP = tuple(('telegram',op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount') for out in OUTCOMES)
+TELEGRAM_HTTP = tuple(('telegram',op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount','activity.read') for out in OUTCOMES)
 RELEASES = {'json':'a'*40,'protobuf':'b'*40}
 CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUTCOMES)
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
@@ -304,6 +304,6 @@ def stored_metrics(response):
             seen.add(key)
         if seen!=expected or pool_seen!={(release,name) for release in RELEASES.values() for name in POOL}:
             return None
-        return {'stored_series':440,'metric_labelsets':86,'pool_series':10,'privacy':'passed'}
+        return {'stored_series':len(expected)+len(pool_seen),'metric_labelsets':len(expected)//5,'pool_series':10,'privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency metric contract failed; raw response withheld') from None

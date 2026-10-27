@@ -18,7 +18,7 @@ def _stored_rows(rows, transport, now_ns):
     from dependency_privacy import TELEGRAM_HTTP, TELEGRAM_HTTP_TRACE_IDS, RELEASES
     if transport not in RELEASES or type(now_ns) is not int or now_ns <= 0:
         raise ValueError('unknown fixed source')
-    if len(rows) > 8:
+    if len(rows) > len(TELEGRAM_HTTP):
         raise ValueError('extra rows')
     optional = {'scope_version':'', 'trace_state':'', 'status_message':'', 'flags':'0',
                 'dropped_attributes_count':'0', 'dropped_events_count':'0', 'dropped_links_count':'0'}
@@ -30,7 +30,7 @@ def _stored_rows(rows, transport, now_ns):
         if type(span) is not str or re.fullmatch(r'[0-9a-f]{16}', span) is None:
             raise ValueError('invalid native span')
         index = int(span, 16)-1
-        if index not in range(8) or span in seen:
+        if index not in range(len(TELEGRAM_HTTP)) or span in seen:
             raise ValueError('unknown or duplicate native span')
         seen.add(span)
         dependency, operation, outcome = TELEGRAM_HTTP[index]
@@ -56,9 +56,9 @@ def _stored_rows(rows, transport, now_ns):
         if name in streams and streams[name] != stream or stream in names and names[stream] != name:
             raise ValueError('contradictory stream')
         streams[name], names[stream] = stream, name
-    if len(seen) != 8:
+    if len(seen) != len(TELEGRAM_HTTP):
         return None
-    return {'transport':transport, 'stored_spans':8, 'registered_completions':8,
+    return {'transport':transport, 'stored_spans':len(TELEGRAM_HTTP), 'registered_completions':len(TELEGRAM_HTTP),
             'causality':'passed', 'fallback':'not_applicable', 'privacy':'passed'}
 
 
