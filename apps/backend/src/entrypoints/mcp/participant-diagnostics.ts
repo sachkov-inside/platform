@@ -1,3 +1,4 @@
+import type { TelegramActivitySource } from "@inside/contracts/telegram-activity";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { Accounts } from "../../modules/accounts/index.js";
@@ -13,6 +14,7 @@ export class ParticipantDiagnostics {
     private readonly reading: Pick<ReadingActivityFacts, "read">,
     private readonly bookmarks: Pick<BookmarkActivityFacts, "read">,
     private readonly submissions: Pick<TaskSubmissionFacts, "read">,
+    private readonly telegram?: TelegramActivitySource,
   ) {}
 
   async read(accountId: string, input: unknown) {
@@ -56,7 +58,8 @@ export class ParticipantDiagnostics {
           };
         }
         if (result.ok) {
-          for (const row of result.value.rows) accounts.add(row.accountId);
+          for (const row of result.value.rows)
+            accounts.add(row.accountId.toLowerCase());
           sources.push({
             source,
             status: "observed" as const,
@@ -79,7 +82,44 @@ export class ParticipantDiagnostics {
           });
         }
       }
-      const notCollected = { status: "not_collected" as const, count: null };
+      let telegram;
+      try {
+        telegram = await this.telegram?.read(window);
+      } catch {
+        telegram = undefined;
+      }
+      const unknown = { status: "unknown" as const, count: null };
+      const telegramAccounts = new Set(
+        telegram?.ok === true
+          ? telegram.value.accountIds.map((id) => id.toLowerCase())
+          : [],
+      );
+      const combinedAccounts = new Set([...accounts, ...telegramAccounts]);
+      const telegramSource =
+        telegram?.ok === true
+          ? {
+              source: "telegram" as const,
+              status: "observed" as const,
+              asOf: telegram.value.asOf,
+              coverage: telegram.value.coverage,
+            }
+          : {
+              source: "telegram" as const,
+              status: "unknown" as const,
+              asOf: null,
+              error: {
+                code:
+                  telegram?.ok === false
+                    ? telegram.error.code
+                    : "source_unavailable",
+              },
+              coverage: {
+                status: "unknown" as const,
+                retentionFrom: null,
+                collectionStartedAt: null,
+                continuity: "not_proven" as const,
+              },
+            };
       return {
         ok: true as const,
         value: {
@@ -91,10 +131,23 @@ export class ParticipantDiagnostics {
             count: observed ? accounts.size : null,
             coverage: "partial" as const,
           },
-          sources,
-          telegram: notCollected,
-          combined: notCollected,
-          unlinkedTelegramContacts: notCollected,
+          sources: [...sources, telegramSource],
+          attribution: "current_confirmed_link" as const,
+          telegram:
+            telegram?.ok === true
+              ? { status: "observed" as const, count: telegramAccounts.size }
+              : unknown,
+          combined:
+            telegram?.ok === true && observed
+              ? { status: "observed" as const, count: combinedAccounts.size }
+              : unknown,
+          unlinkedTelegramContacts:
+            telegram?.ok === true
+              ? {
+                  status: "observed" as const,
+                  count: telegram.value.unlinkedContacts,
+                }
+              : unknown,
         },
       };
     } catch (error) {
@@ -120,9 +173,9 @@ export function registerParticipantDiagnosticsTool(
   server.registerTool(
     "active_participant_diagnostics",
     {
-      title: "Read confirmed active Membership Account counts",
+      title: "Read confirmed active Membership and Telegram participants",
       description:
-        "Requires current platform:admin. Distinct Membership Accounts with confirmed learning, reading transitions, bookmarks or submissions in one explicit [from,to) interval, at most 31 days. Input accepts UTC instants or offsets; calendar is Europe/Moscow. Three independent bounded read-only database snapshots enforce a 365-day horizon. Aggregate only, no identities or events. Coverage is partial and continuity is not proven; zero is only observed zero. Any failed or overflowing source makes Membership unknown. Telegram, combined Accounts and unlinked Telegram contacts are not collected and remain unknown. No permission changes, providers or mutations.",
+        "Requires current platform:admin. Distinct Membership Accounts with confirmed learning, reading transitions, bookmarks or submissions in one explicit [from,to) interval, at most 31 days. Input accepts UTC instants or offsets; calendar is Europe/Moscow. Three independent bounded read-only database snapshots enforce a 365-day horizon. Aggregate only, no identities or events. Coverage is partial and continuity is not proven; zero is only observed zero. Any failed or overflowing source makes Membership unknown. Telegram reads its own confirmed private-action facts through an authenticated bounded runtime interface. Current confirmed IdentityLinking maps linked Accounts; their distinct union with Membership and currently unlinked contacts are reported separately. Telegram coverage starts at collection, remains partial, and excludes commands without confirmed catalog outcomes. A failed Telegram source makes Telegram and combined counts unknown. No permission changes, external provider calls or mutations.",
       inputSchema: z.strictObject({
         from: z.iso.datetime({ offset: true }),
         to: z.iso.datetime({ offset: true }),

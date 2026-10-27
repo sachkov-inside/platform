@@ -147,7 +147,7 @@ it.each(["communications-first", "sign-in-first"] as const)(
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("38");
+    expect(ledger.rows[0]?.count).toBe("39");
     const receipt = await sql<{
       name: string;
     }>`select name from kysely_migration where name = '037-waitlist-receipt-tracing'`.execute(

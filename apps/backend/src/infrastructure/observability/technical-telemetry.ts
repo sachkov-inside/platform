@@ -418,7 +418,11 @@ export async function observeWaitlistConfirmationRequest<Value>(
 }
 
 type TelegramHttpOperation =
-  "link.register" | "link.confirm" | "contacts.read" | "signin.bindAccount";
+  | "link.register"
+  | "link.confirm"
+  | "activity.read"
+  | "contacts.read"
+  | "signin.bindAccount";
 
 export interface TelegramHttpObservation {
   admit(): void;

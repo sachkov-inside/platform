@@ -17,6 +17,7 @@ const routes = new Set([
   "/metrics",
   "/webhooks/telegram",
   "/integrations/platform/v1/telegram-contacts",
+  "/integrations/platform/v1/participant-activity",
   "/integrations/platform/v1/community-entitlements",
   "/integrations/platform/v1/identity-links",
   "/integrations/platform/v1/identity-links/:linkTransactionRef/confirm",
