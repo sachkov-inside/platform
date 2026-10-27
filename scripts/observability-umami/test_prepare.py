@@ -11,6 +11,21 @@ spec.loader.exec_module(prepare)
 
 
 class IsolatedInputs(unittest.TestCase):
+    def test_browser_fixture_reuses_native_service_with_one_explicit_loopback_port(self):
+        with tempfile.TemporaryDirectory() as parent:
+            output=pathlib.Path(parent)/'browser-private'
+            prepare.prepare(output,browser=True)
+            plan=json.loads((output/'compose.json').read_text())
+            self.assertEqual(set(plan['services']),{'db','umami','query'})
+            self.assertEqual(plan['services']['umami']['ports'],['127.0.0.1:13302:3000'])
+            self.assertEqual(plan['services']['umami']['networks'],['private','ingress'])
+            self.assertEqual(plan['services']['query']['ports'],['127.0.0.1:13301:3001'])
+            self.assertNotIn('ports',plan['services']['db'])
+            self.assertTrue(all(service['dns']==['127.0.0.1'] for service in plan['services'].values()))
+            invalid=pathlib.Path(parent)/'invalid'
+            with self.assertRaises(ValueError):prepare.prepare(invalid,browser='true')
+            self.assertFalse(invalid.exists())
+
     def test_only_query_is_published_and_has_no_database_credentials_mount(self):
         with tempfile.TemporaryDirectory() as parent:
             output = pathlib.Path(parent) / 'new-private'

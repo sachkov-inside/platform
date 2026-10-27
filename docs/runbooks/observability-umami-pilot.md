@@ -62,10 +62,11 @@ visitor не равен человеку. Переход часа сам по с
 Первые три значения дополнительно проверяются через native `/api/config`. Проверены
 [config](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/config/route.ts)
 и [telemetry handler](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/scripts/telemetry/route.ts).
-Umami/PostgreSQL подключены только к internal network; query gateway дополнительно имеет
+По умолчанию Umami/PostgreSQL подключены только к internal network; query gateway дополнительно имеет
 ingress bridge, чтобы loopback published port работал с Docker internal networks. У gateway
 поэтому есть сетевой egress: это не обещание его сетевой изоляции. Upstream остаётся фиксированным,
-redirect и proxy environment в HTTP-клиентах запрещены. У Umami/PostgreSQL нет published ports.
+redirect и proxy environment в HTTP-клиентах запрещены. По умолчанию у Umami/PostgreSQL нет
+published ports. Отдельный synthetic browser proof ниже имеет явное исключение только для Umami.
 Проверка фактического сетевого поведения входит в runtime. Replay/heatmap не вызываются.
 
 ## Граница чтения
@@ -76,8 +77,13 @@ Native API key наследует полномочия пользователя.
 отдельного `view-only` пользователя и членство `team-view-only` в команде; сайт принадлежит
 команде. Кроме того, `/api/send` вообще не требует аутентификации.
 
-Поэтому наружу публикуется только `127.0.0.1:13301` query gateway. Umami и PostgreSQL не имеют
-published ports. Gateway допускает только GET `/api/websites` и GET
+В обычном пилоте публикуется только `127.0.0.1:13301` query gateway. Umami и PostgreSQL не имеют
+published ports. Только при `INSIDE_UMAMI_BROWSER_PROOF=true` существующий synthetic Umami
+получает `127.0.0.1:13302:3000` и существующий ingress bridge; новый порт входит в общий runtime
+registry и предварительную проверку занятости. Это fixture-only native API с private credentials,
+без нового контейнера; production topology не меняется. [Browser proof](browser-analytics.md)
+использует только фиксированный POST `/api/send` через обычный асинхронный fetch с теми же budgets.
+Gateway допускает только GET `/api/websites` и GET
 `/api/websites/{uuid}/stats|events`. Нет generic proxy, redirect, произвольного upstream,
 передачи Host или query credentials. Ключ должен совпасть с локальным reader key и затем
 каждый раз проверяется native API: кеша авторизации нет. Отзыв проверяется настоящим

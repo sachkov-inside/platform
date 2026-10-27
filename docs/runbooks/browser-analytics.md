@@ -88,7 +88,13 @@ Focused module, Chromium и Storybook сценарии проверяют вык
 Workflow `observability-browser-analytics.yml` запускает отдельный synthetic native proof на Linux.
 Он использует существующий внешний Umami supervisor, его приватный query service и отдельный
 синтетический сайт той же reader team. Chromium проходит реальный выбор и общий Web handler;
-каталог и сессии представлены явно синтетическими портами, а native transport теста направлен через owned query service к настоящему pinned Umami.
+каталог и сессии представлены явно синтетическими портами. Native transport использует
+обычный асинхронный fetch к тому же pinned Umami, сохраняя production signal и status.
+Только при `INSIDE_UMAMI_BROWSER_PROOF=true` существующий synthetic Umami публикуется на
+`127.0.0.1:13302`; порт входит в общий registry и проверку занятости до acquisition.
+Новых контейнеров или процессов нет. Этот native API loopback принадлежит только синтетическому
+пилоту с его private credentials и удаляется вместе с ним. Production Compose и read-only
+gateway на `127.0.0.1:13301` сохраняют свои границы.
 Сессия и принятая редакция в этом synthetic корпусе подменены явно, production gate не обходится.
 Существующий read-only gateway должен вернуть по одному PageView двух Product и двух Material
 с разными проверенными UUID в адресах и закрытыми native UTM-кодами, без sentinel URL/PII. Затем
@@ -96,8 +102,8 @@ Workflow `observability-browser-analytics.yml` запускает отдельн
 проверяется до следующего browser наблюдения. Старый native MCP/count corpus использует другой
 сайт, поэтому его ожидаемое количество не меняется.
 
-Этот proof не создаёт отдельные Docker resources или ingest ports: все контейнеры принадлежат
-внешнему pilot lifecycle. Приватные входы и Vitest log остаются внутри private directory;
+Все контейнеры и оба fixture-порта принадлежат внешнему pilot lifecycle.
+Приватные входы и Vitest log остаются внутри private directory;
 публикуется только `browser-analytics-proof.json` вместе с source/cleanup evidence. Поле
 `last_completed` содержит только последний завершённый этап из закрытого перечня: запуск теста,
 готовность listener, видимый выбор, отправку наблюдений, проверку native событий, смену сессии

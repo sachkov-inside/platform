@@ -198,7 +198,7 @@ def browser_proof(output, compose, state):
     with private.open('x') as stream:
         os.chmod(private,0o600)
         json.dump({'schema':1,'site':site,'key':state['key'],'project':compose[3],
-                   'endpoint':pilot.FROZEN_DOCKER_IDENTITY['endpoint'],'compose':str(Path(compose[5]).resolve())},stream)
+                   'endpoint':prepare.BROWSER_INGEST_URL},stream)
     try:
         progress=output/'browser-proof.progress.json'
         result=subprocess.run(['pnpm','--filter','@inside/web','exec','vitest','run','--config','vitest.native-analytics.config.mts'],
@@ -291,8 +291,10 @@ def main():
     elif args.action == 'recover':
         core_ci.recover(output, project_prefix=PROJECT_PREFIX, services=SERVICES)
     else:
+        browser=os.environ.get('INSIDE_UMAMI_BROWSER_PROOF')=='true'
         try:
-            pilot.run(output, prepare_inputs=prepare.prepare, worker_script=Path(__file__).resolve(), ports=(13301,),
+            pilot.run(output, prepare_inputs=lambda path:prepare.prepare(path,browser=browser), worker_script=Path(__file__).resolve(),
+                      ports=(13301,prepare.BROWSER_INGEST_PORT) if browser else (13301,),
                       project_prefix=PROJECT_PREFIX, services=SERVICES, scope='synthetic Umami API/MCP and retention compatibility only',
                       missing=['PostgreSQL retention scheduling/isolated restore/deletion replay/pgBackRest', 'browser consent/identity integration',
                                'complete analytics catalog', 'resource acceptance', 'production and seven days'])

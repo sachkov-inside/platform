@@ -9,6 +9,19 @@ from unittest.mock import patch
 import runtime
 
 class BrowserProof(unittest.TestCase):
+    def test_browser_only_native_port_has_the_same_runtime_registry_and_preparation_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            for enabled in (False,True):
+                environment={'INSIDE_UMAMI_BROWSER_PROOF':'true'} if enabled else {}
+                with patch.dict(os.environ,environment,clear=True),patch.object(runtime.sys,'argv',['runtime.py','run','--output',str(output)]),patch.object(runtime.pilot,'run') as run:
+                    runtime.main()
+                options=run.call_args.kwargs
+                self.assertEqual(options['ports'],(13301,13302) if enabled else (13301,))
+                with patch.object(runtime.prepare,'prepare') as prepare:
+                    options['prepare_inputs'](output)
+                prepare.assert_called_once_with(output,browser=enabled)
+
     def test_disabled_proof_acquires_nothing_and_enabled_proof_removes_private_input(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory);compose=['docker','compose','-p',runtime.PROJECT_PREFIX+'a'*12,'-f',str(output/'compose.json')]
@@ -19,6 +32,8 @@ class BrowserProof(unittest.TestCase):
                 source=Path(options['env']['INSIDE_UMAMI_BROWSER_PROOF_INPUT'])
                 self.assertEqual(source.stat().st_mode&0o777,0o600)
                 self.assertEqual(json.loads(source.read_text())['key'],state['key'])
+                self.assertEqual(json.loads(source.read_text())['endpoint'],'http://127.0.0.1:13302/api/send')
+                self.assertNotIn('compose',json.loads(source.read_text()))
                 Path(options['env']['INSIDE_UMAMI_BROWSER_PROOF_PROGRESS']).write_text('{"phase":"revocation_verified"}')
                 return SimpleNamespace(returncode=0,stdout='passed',stderr='')
             with patch.dict(os.environ,{'INSIDE_UMAMI_BROWSER_PROOF':'true'},clear=True),patch.object(runtime,'invoke'), \
