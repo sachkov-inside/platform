@@ -22,11 +22,9 @@ export interface WelcomeScreenProps {
 const messages: Readonly<
   Record<Exclude<AcceptTermsResult["kind"], "accepted">, string>
 > = {
-  document_changed:
-    "Условия только что обновились. Прочитайте действующую редакцию и нажмите кнопку снова.",
+  document_changed: "Условия обновились. Прочитайте их и нажмите кнопку снова.",
   unauthorized: "Сессия завершилась. Войдите снова.",
-  unavailable:
-    "Не получилось принять условия. Повторите — повторное нажатие безопасно.",
+  unavailable: "Не удалось принять условия. Попробуйте ещё раз.",
 };
 
 export function WelcomeScreen({

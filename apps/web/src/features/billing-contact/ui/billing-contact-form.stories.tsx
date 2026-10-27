@@ -53,7 +53,7 @@ export const Empty: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.type(
-      canvas.getByLabelText("Email", { exact: true }),
+      canvas.getByLabelText("Почта", { exact: true }),
       "buyer@example.test",
     );
     await userEvent.click(canvas.getByRole("button", { name: "Получить код" }));
@@ -74,10 +74,8 @@ export const ChangeAddress: Story = {
   args: { contact, editing: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByLabelText("Новый email")).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: "Оставить прежний" }),
-    ).toBeEnabled();
+    await expect(canvas.getByLabelText("Новая почта")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Отмена" })).toBeEnabled();
   },
 };
 export const Code: Story = {
@@ -86,7 +84,7 @@ export const Code: Story = {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("Код из письма"), "123456");
     await userEvent.click(
-      canvas.getByRole("button", { name: "Подтвердить email" }),
+      canvas.getByRole("button", { name: "Подтвердить почту" }),
     );
     await expect(args.onConfirm).toHaveBeenCalledWith("123456");
   },
@@ -109,7 +107,7 @@ export const SessionExpired: Story = { args: { sessionExpired: true } };
 export const Unavailable: Story = {
   args: {
     unavailable: true,
-    error: "Подтверждение email сейчас недоступно. Попробуйте позже.",
+    error: "Не удалось подтвердить почту. Попробуйте позже.",
   },
 };
 export const LegalDocuments: Story = {

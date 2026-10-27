@@ -380,7 +380,7 @@ export function LibraryDiscoveryNotFound() {
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или выберите другую тему или продукт в Базе знаний."
+      message="Проверьте адрес или выберите тему или продукт на главной."
       state="not-found"
       title="Подборка не найдена"
     />

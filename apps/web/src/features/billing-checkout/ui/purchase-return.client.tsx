@@ -54,11 +54,11 @@ export function PurchaseReturnView({
   return (
     <section className="mx-auto grid max-w-2xl gap-5" aria-live="polite">
       <h1 className="text-balance text-4xl font-bold tracking-[-0.04em]">
-        Возвращаемся из банка
+        Статус оплаты
       </h1>
       <p className="text-sm leading-6 text-muted-foreground">
-        Переход обратно не подтверждает оплату. Ниже — состояние, которое
-        сохранил наш сервер.
+        Возврат из банка ещё не означает, что оплата прошла. Проверяем её
+        статус.
       </p>
 
       {unknownReference ? (
@@ -67,18 +67,18 @@ export function PurchaseReturnView({
             Не нашли начатую оплату в этом браузере.
           </p>
           <p className="mt-1 text-muted-foreground">
-            Откройте платёжный кабинет: там видны ваши покупки, действующие
-            права доступа и их сроки.
+            Откройте «Покупки» в личном кабинете, чтобы проверить оплаты и сроки
+            доступа.
           </p>
           <Link
             className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
             href={accountHref}
           >
-            Платёжный кабинет
+            Мои покупки
           </Link>
         </div>
       ) : loading && purchase === null ? (
-        <p role="status">Проверяем состояние оплаты…</p>
+        <p role="status">Проверяем оплату…</p>
       ) : purchase === null ? null : (
         <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
           <p className="text-lg font-semibold">
@@ -125,7 +125,7 @@ export function PurchaseReturnView({
                 {purchase.fiscalization === "confirmed"
                   ? "Отправлен"
                   : purchase.fiscalization === "failed"
-                    ? "Не сформирован — разбираем"
+                    ? "Не удалось сформировать. Разбираемся"
                     : purchase.fiscalization === "pending"
                       ? "Формируется"
                       : "Касса не подключена"}
@@ -140,10 +140,10 @@ export function PurchaseReturnView({
               type="button"
               variant="outline"
             >
-              Обновить состояние
+              Проверить статус
             </Button>
             <Button asChild className={billingActionClass} variant="ghost">
-              <Link href={accountHref}>Платёжный кабинет</Link>
+              <Link href={accountHref}>Мои покупки</Link>
             </Button>
           </div>
         </div>

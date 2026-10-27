@@ -534,7 +534,7 @@ function AvatarStatusNotice({ status }: { readonly status: AvatarStatus }) {
     status.kind === "hashing"
       ? "Проверяем файл…"
       : status.kind === "processing"
-        ? "Файл загружен. Сервер создаёт безопасные размеры…"
+        ? "Фото загружено. Обрабатываем…"
         : `Загружаем… ${String(Math.round(status.progress * 100))}%`;
   return (
     <div className="mt-4" role="status">
@@ -577,7 +577,7 @@ function avatarErrorMessage(error: unknown): string {
     if (error.code === "conflict")
       return "Профиль изменился в другой вкладке. Обновите страницу и повторите.";
     if (error.reason === "crop_out_of_bounds")
-      return "Кадр вышел за границы изображения. Поправьте положение и повторите.";
+      return "Кадр выходит за края фото. Измените его положение и попробуйте ещё раз.";
     if (error.reason === "image_too_large")
       return "Изображение слишком большое. Выберите файл до 10 МБ.";
     if (error.code === "invalid_avatar")

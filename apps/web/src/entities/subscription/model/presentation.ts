@@ -305,11 +305,11 @@ export function promotionLabel(snapshot: PriceSnapshot): string | undefined {
 export function billingErrorMessage(code: BillingFailureCode): string {
   switch (code) {
     case "contact_required":
-      return "Сначала подтвердите email для чеков: без него оплату принять нельзя.";
+      return "Подтвердите почту для чеков, чтобы перейти к оплате.";
     case "consent_required":
       return "Условия покупки не приняты. Обновите страницу и нажмите кнопку оплаты снова.";
     case "document_changed":
-      return "Условия покупки обновились. Прочитайте действующую редакцию и нажмите кнопку оплаты снова.";
+      return "Условия покупки обновились. Прочитайте их и нажмите кнопку оплаты снова.";
     case "existing_access":
       return "Вы уже получили этот продукт. Повторная покупка недоступна.";
     case "legacy_review_required":
@@ -317,19 +317,19 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "not_eligible":
       return "Это предложение недоступно.";
     case "quote_expired":
-      return "Расчёт устарел. Обновите условия и повторите.";
+      return "Условия оплаты устарели. Обновите их и попробуйте ещё раз.";
     case "quote_changed":
       return "Цена или состав изменились. Проверьте новые условия перед оплатой.";
     case "payment_in_progress":
-      return "Оплата уже прошла или ещё выполняется. Откройте в кабинете раздел «Покупки» — новую покупку начинать не нужно.";
+      return "Оплата уже прошла или ещё выполняется. Проверьте раздел «Покупки» в кабинете. Не начинайте новую покупку.";
     case "refund_in_progress":
       return "Возврат по этому платежу ещё выполняется.";
     case "revision_conflict":
-      return "Подписка изменилась в другом месте. Обновите данные и повторите действие.";
+      return "Подписка изменилась. Обновите страницу и попробуйте ещё раз.";
     case "operation_conflict":
-      return "Эта операция уже выполнена с другими данными. Обновите страницу и повторите.";
+      return "Данные этого действия изменились. Обновите страницу и попробуйте ещё раз.";
     case "state_conflict":
-      return "Текущее состояние не допускает эту операцию.";
+      return "Сейчас это действие недоступно. Обновите страницу.";
     case "reservation_conflict":
       return "Скидка уже занята другой покупкой. Обновите условия.";
     case "preview_expired":
@@ -337,11 +337,11 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "identity_changed":
       return "Сопоставление изменилось после предпросмотра. Соберите его заново.";
     case "unsupported_amount":
-      return "Сумма вне подтверждённых границ терминала.";
+      return "Эту сумму нельзя оплатить через банк.";
     case "method_unavailable":
       return "Способ оплаты сейчас недоступен.";
     case "provider_unavailable":
-      return "Банк сейчас не отвечает. Повторите позже — повторный запрос безопасен.";
+      return "Банк не отвечает. Попробуйте позже.";
     case "dependency_unavailable":
     case "unavailable":
       return "Данные оплаты сейчас недоступны. Повторите позже.";
@@ -350,7 +350,7 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "forbidden":
       return "У вас нет права на это действие.";
     case "not_found":
-      return "Мы не нашли эту операцию.";
+      return "Операция не найдена. Проверьте раздел «Покупки» в кабинете.";
     case "invalid_request":
       return "Проверьте выбранные условия и повторите.";
   }

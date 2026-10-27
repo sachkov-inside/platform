@@ -103,7 +103,7 @@ export const LinkTelegram: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByRole("heading", { name: "Привяжите Telegram" }),
+      await page.findByRole("heading", { name: "Подключите Telegram" }),
     ).toBeInTheDocument();
     await expect(
       page.getAllByRole("button", { name: "Онбординг" })[0],
@@ -122,7 +122,7 @@ export const LinkTelegramEnlarged: Story = {
     try {
       root.style.fontSize = "200%";
       const action = await routeContent(canvasElement).findByRole("button", {
-        name: "Привязать Telegram",
+        name: "Подключить Telegram",
       });
       await waitFor(async () => {
         window.scrollTo(0, root.scrollHeight);

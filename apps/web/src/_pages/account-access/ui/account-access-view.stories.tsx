@@ -148,7 +148,7 @@ export const AcceptedDocumentsUnavailable: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByText("Документы", { exact: true }));
     await expect(canvas.getByRole("alert")).toHaveTextContent(
-      "Список принятых документов сейчас недоступен.",
+      "Не удалось загрузить список документов.",
     );
   },
 };
@@ -171,7 +171,7 @@ export const Unavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("alert")).toHaveTextContent(
-      "Состояние аккаунта сейчас недоступно.",
+      "Не удалось загрузить аккаунт.",
     );
   },
 };

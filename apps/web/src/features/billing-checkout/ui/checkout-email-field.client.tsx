@@ -22,7 +22,7 @@ export function CheckoutEmailField({
   return (
     <div className="mt-5">
       <label className="text-sm font-semibold" htmlFor={id}>
-        Email
+        Почта для чека
       </label>
       <input
         aria-describedby={error === undefined ? undefined : errorId}
