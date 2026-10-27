@@ -25,7 +25,7 @@ OTLP и stdout Alloy конфигурации генерируются одно�
 
 Сети разделены:
 
-- `storage`: хранилища, vmauth, Grafana и collector. Приложения к ней не подключаются.
+- `storage`: хранилища, vmauth, horizon guard, Grafana и collector. Приложения к ней не подключаются.
 - `<project>-telemetry`: private internal network. Приложения отправляют только OTLP на
   `http://inside-telemetry:4318`. У HTTP-сервера Alloy только loopback listener внутри контейнера.
 - `hostsource`: отдельный Linux host-agent и приёмник метрик VictoriaMetrics.
@@ -42,6 +42,22 @@ VictoriaMetrics запускается с `-search.latencyOffset=1ms`: instant-q
 20-секундной нагрузочной фазы и сдвигал проверку свежести owner cache. Настройка
 не ускоряет приём, flush или export: их фактическое запаздывание продолжает измеряться,
 а пустой ответ не считается нулём. Запрос с явным историческим `time` сохраняет этот срез.
+Чтение метрик и Jaeger проходит через обязательный private `horizon` после vmauth.
+Он использует официальный MetricsQL parser закреплённой VM и проверяет фактическое окно
+сырых samples, включая rollup, subquery, `WITH`, `offset` и `@`. Непроверяемый запрос либо
+запрос через границу 90 дней получает отказ целиком; rollup не заменяется sampled значениями.
+Фиксированный исторический `time` сохраняется. Параметр `nocache=1` исключает возврат ранее
+вычисленного агрегата с уже истёкшими samples. Перед ответом граница проверяется снова.
+Labels/series перечисляются по timestamps сырых samples, не по приближённому storage index;
+metadata descriptors возвращаются только для семейств с подтверждёнными действующими samples.
+Запросы discovery представляют ограниченное окно, максимум 10 000 series. Переполнение
+обязательного набора даёт отказ, а не правдоподобную усечённую коллекцию.
+Jaeger list/dependencies ограничиваются окном 14 дней до запроса; из trace-by-ID и mixed trace
+дополнительно исключаются просроченные span и неиспользуемые process metadata. Это оконный
+вид trace, а не обещание полного дерева. При истечении данных во время чтения итоговый
+агрегат отклоняется целиком либо проверяется каждый возвращаемый исходный timestamp.
+Лимиты `horizon` 128 MiB / 0.1 CPU являются предохранителями, не измеренным потреблением.
+Компонент включён в общий учёт процессов, Linux measurement и cleanup.
 Для всех LogsQL routes vmauth принудительно добавляет `extra_filters=_time:14d`.
 Это глобальный фильтр хранилища, включая subqueries, с текущим временем самого VictoriaLogs,
 а не с переданными клиентом `time` или `end`. Совпавший URL query argument клиента
@@ -65,8 +81,15 @@ python3 scripts/observability-production/production.py install-plugin \
   --output /srv/inside/observability/releases/COMMIT
 ```
 
-`COMMIT` заменяется полным SHA принятого выпуска. `install-plugin` загружает только закреплённый
-официальный ZIP, проверяет digest, размер и пути. Private directory имеет mode 0700, keys,
+`COMMIT` заменяется полным SHA принятого выпуска. `install-plugin` приобретает runtime assets:
+официальный ZIP плагина и статический query guard из исходников проверяемого commit. Go1.26.4
+проверяется по версии; если его нет, SDK скачивается по закреплённым SHA256/размерам из
+[toolchain.lock.json](../../infra/observability/horizon/toolchain.lock.json). CGO выключен,
+цель Linux и native architecture записываются вместе с hash каждого source input и бинарника.
+Сборка ограничена временем, stdout/stderr и отдельными временными каталогами; после сборки
+они удаляются. Запуск требует совпадения source/binary manifest. Исполняемый файл имеет mode0500;
+компонент переиспользует закреплённый образ metrics с отдельным entrypoint, без нового mutable image.
+Подробности и ограничения запросов: [контракт guard](../../infra/observability/horizon/README.md). Private directory имеет mode 0700, keys,
 пароль Grafana и datasources имеют mode 0600. Сервисы запускаются от UID/GID подготовившего
 пользователя; data directories создаёт preflight от того же пользователя. Не передавать весь
 private directory в issue, журнал CI или артефакты.

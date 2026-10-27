@@ -52,6 +52,7 @@ if role == 'worker':
             return fake.command(args, **kwargs)
         pilot.command = command
         pilot.assert_docker_identity = fake.identity
+        pilot.install_horizon = lambda *_: None
         pilot.install_plugin = lambda *_: None
         pilot.worker_storage_guard = lambda *_: nullcontext()
         # This fixture owns real CLI failure privacy and lifecycle, not optional profiling I/O.

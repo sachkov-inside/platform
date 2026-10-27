@@ -54,7 +54,7 @@ prometheus.relabel "containers" {
   forward_to = [prometheus.remote_write.host.receiver]
   rule {
     source_labels = ["__name__", "container_label_com_docker_compose_service", "container_label_com_docker_compose_project"]
-    regex = "up;;|container_.+;(api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|pgbackrest|logto|logto-migrations|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent|umami|query|umami-query|umami-ingest);[a-z][a-z0-9-]{0,63}"
+    regex = "up;;|container_.+;(api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|pgbackrest|logto|logto-migrations|app|metrics|logs|traces|alloy|vmauth|horizon|gateway|grafana|host-agent|umami|query|umami-query|umami-ingest);[a-z][a-z0-9-]{0,63}"
     action = "keep"
   }
   rule {

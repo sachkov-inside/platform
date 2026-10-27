@@ -1,0 +1,29 @@
+name: Observability event-time horizon guard
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - infra/observability/horizon/**
+      - scripts/observability-pilot/horizon_build.py
+      - scripts/observability-horizon/**
+      - scripts/heavy-check/bounded.py
+      - .github/workflows/observability-horizon.yml
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify source and artifact admission
+        run: bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-horizon -p 'test_*.py'
+      - name: Verify pinned parser and bounded HTTP behavior using the production build recipe
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-pilot/horizon_build.py test
+          --output "${{ runner.temp }}/event-time-guard-private"

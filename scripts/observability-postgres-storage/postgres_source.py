@@ -56,6 +56,7 @@ def worker(output):
     result=record.report(source);started=time.monotonic();driver=None
     try:
         with pilot.worker_storage_guard(owner,compose,output):
+            pilot.install_horizon(output)
             pilot.install_plugin(output);pilot.command(compose+['config','--quiet'])
             pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
             expected=ownership.plan(output)

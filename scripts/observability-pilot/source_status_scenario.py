@@ -25,7 +25,7 @@ INSPECT = ('{"id":{{json .Id}},"image":{{json .Config.Image}},'
            '"service":{{json (index .Config.Labels "com.docker.compose.service")}},'
            '"config_files":{{json (index .Config.Labels "com.docker.compose.project.config_files")}},'
            '"mounts":{{json .Mounts}},"networks":{{json .NetworkSettings.Networks}}}')
-CORE_ROLES = ('metrics', 'logs', 'traces', 'alloy', 'vmauth', 'gateway', 'grafana')
+CORE_ROLES = ('metrics', 'logs', 'traces', 'alloy', 'vmauth', 'gateway', 'grafana', 'horizon')
 
 
 class OwnedTargets:
@@ -278,7 +278,7 @@ def verify_cleanup(output, project, *, read, clock=None):
                 or witness['project'] != project
                 or not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', project)):
             return failed
-        for key, count in (('containers', 7), ('volumes', 4), ('networks', 2)):
+        for key, count in (('containers', len(CORE_ROLES)), ('volumes', 4), ('networks', 2)):
             values = witness[key]
             if not isinstance(values, list) or len(values) != count or len(set(values)) != count:
                 return failed
@@ -308,6 +308,6 @@ def verify_cleanup(output, project, *, read, clock=None):
         now = clock()
         if not math.isfinite(now) or now < previous or now >= deadline:
             return failed
-        return {'outcome': 'passed', 'containers': 7, 'volumes': 4, 'networks': 2}
+        return {'outcome': 'passed', 'containers': len(CORE_ROLES), 'volumes': 4, 'networks': 2}
     except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError):
         return failed
