@@ -48,11 +48,17 @@ class ContainerOwnership(unittest.TestCase):
         for key in ('person@example.invalid', 'account_123', 'unrecognized', ''):
             self.assertIsNone(re.fullmatch(expression, 'inside_watchdog_value;' + key + ';;;'))
 
-    def test_native_cache_has_one_five_second_stream_and_closed_source_identity(self):
+    def test_native_cache_delivery_has_one_bounded_stream_and_closed_source_identity(self):
         config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
         self.assertNotIn('textfile', config.split('prometheus.exporter.cadvisor', 1)[0])
         cache = config.split('prometheus.scrape "owner_cache" {', 1)[1].split('\n}', 1)[0]
-        self.assertIn('scrape_interval = "5s"', cache)
+        self.assertIn('scrape_interval = "1s"', cache)
+        self.assertIn('scrape_timeout = "1s"', cache)
+        queue=config.split('prometheus.remote_write "host" {',1)[1]
+        self.assertIn('batch_send_deadline = "1s"',queue)
+        self.assertIn('capacity = 1000',queue)
+        self.assertIn('max_shards = 1',queue)
+        self.assertIn('max_samples_per_send = 200',queue)
         rule = config.split('prometheus.relabel "owner_cache" {', 1)[1].split('rule {', 1)[1].split('\n  }', 1)[0]
         expression = json.loads(re.search(r'regex = ("[^\n]+")', rule).group(1))
         for value, accepted in (

@@ -213,3 +213,38 @@ class Preparation(unittest.TestCase):
                 try:fullstack.worker(output)
                 except RuntimeError as caught:self.assertIs(caught,primary)
                 else:self.fail('original failure was lost')
+
+    def test_both_modes_prefill_once_and_only_on_requires_fresh_stored_sources(self):
+        observed={'postgresql':'observed','caddy':'observed'}
+        for enabled in (False,True):
+            def available(read,predicate,**options):
+                self.assertEqual(options,{'budget':10,'probe':'source_cache_stored_ready'})
+                self.assertTrue(predicate(read()))
+            with patch.object(fullstack,'sample_sources',return_value=observed) as sample,patch.object(fullstack,'invoke',return_value='{"ok":true}') as invoke,patch.object(fullstack.pilot,'await_fact',side_effect=available) as wait:
+                fullstack.await_sources(['owned'],Path('/owned'),enabled=enabled)
+                sample.assert_called_once_with(['owned'],Path('/owned'))
+                self.assertEqual(wait.call_count,int(enabled));self.assertEqual(invoke.call_count,int(enabled))
+        for value in ({},{'postgresql':'observed','caddy':'unavailable'},{'postgresql':'unavailable','caddy':'observed'}):
+            for enabled in (False,True):
+                with patch.object(fullstack,'sample_sources',return_value=value),patch.object(fullstack,'invoke') as invoke,patch.object(fullstack.pilot,'await_fact') as wait:
+                    with self.assertRaisesRegex(ValueError,'source_cache_native_unavailable'):
+                        fullstack.await_sources([],Path('/owned'),enabled=enabled)
+                    invoke.assert_not_called();wait.assert_not_called()
+
+    def test_stored_source_deadline_caps_last_child_and_rejects_late_success(self):
+        now=[0.0]
+        def wait(read,predicate,**options):
+            now[0]=9.0
+            self.assertTrue(predicate(read()))
+        def response(*args,**options):
+            self.assertEqual(options['timeout'],1.0)
+            return '{"ok":true}'
+        with patch.object(fullstack,'sample_sources',return_value={'postgresql':'observed','caddy':'observed'}),patch.object(fullstack.time,'monotonic',side_effect=lambda:now[0]),patch.object(fullstack.pilot,'await_fact',side_effect=wait),patch.object(fullstack,'invoke',side_effect=response):
+            fullstack.await_sources([],Path('/owned'))
+        def late(*args,**options):
+            now[0]=10.01
+            return '{"ok":true}'
+        now[0]=0.0
+        with patch.object(fullstack,'sample_sources',return_value={'postgresql':'observed','caddy':'observed'}),patch.object(fullstack.time,'monotonic',side_effect=lambda:now[0]),patch.object(fullstack.pilot,'await_fact',side_effect=wait),patch.object(fullstack,'invoke',side_effect=late):
+            with self.assertRaisesRegex(TimeoutError,'source_cache_stored_deadline'):
+                fullstack.await_sources([],Path('/owned'))

@@ -326,8 +326,14 @@ docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
 снимает profile только в своём временном плане, чтобы общий supervisor/recover видел эту службу
 без повторного указания флага. Production default OFF при этом сохраняется.
 
-Native PostgreSQL/Caddy projection использует отдельный пятисекундный textfile scrape:
-`job="platform-owner-cache", instance="production-host"`. Старый host scrape раз в 15 s не
+Native PostgreSQL/Caddy projection использует отдельный textfile scrape:
+`job="platform-owner-cache", instance="production-host"`. Единственный dedicated scrape этого кэша
+выполняется раз в 1 s с timeout 1 s; существующая очередь `prometheus.remote_write.host`
+имеет `batch_send_deadline = "1s"`. Producer PG/Caddy по-прежнему обновляет native наблюдения
+раз в 5 s. Более частое чтение уже подготовленных файлов и короткий batch уменьшают суммарную
+задержку до хранилища; timestamps наблюдений и требование свежести 0..10 s не меняются.
+Это подготовленная конфигурация, её применение на production требует отдельного запуска.
+Старый host scrape раз в 15 s не
 читает эти файлы повторно. `inside_production_source_available{source="postgresql|caddy"}`
 и `inside_production_source_observed_at_seconds` различают наблюдаемый отказ и устаревший cache.
 Приёмка требует оба отдельных источника, значение `1` и возраст от 0 до 10 s; два ряда одного
