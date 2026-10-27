@@ -148,6 +148,8 @@ OTLP metrics/logs/traces, читает известный
 log и trace через query API, выполняет обязательный read POST, отрицательные проверки
 auth/method/mutation/encoded traversal, перезапускает Alloy, дожидается сохранения нового
 уникального trace через защищённый Jaeger API и отзывает временный ключ.
+Native Jaeger discovery читает сервисы через `/select/jaeger/api/services`, а операции
+одного сервиса через `/select/jaeger/api/services/{service}/operations`.
 Пять spans HTTP → publish → attempt → retry → dependency **сгенерированы fixture**;
 это не доказательство передачи контекста SDK/настоящей очередью/worker.
 

@@ -31,7 +31,6 @@
     "backend": "http://traces:10428/",
     "paths": [
       "/select/jaeger/api/services",
-      "/select/jaeger/api/operations",
       "/select/jaeger/api/services/[^/]+/operations",
       "/select/jaeger/api/traces",
       "/select/jaeger/api/traces/[0-9a-fA-F]{32}",
