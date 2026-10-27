@@ -131,6 +131,22 @@ export function requestManageBilling(
   );
 }
 
+/**
+ * Email заказа для владельца billing: отдельное личное чтение страницы платежа, вне owner-операций
+ * и MCP. Ответ не кешируется и не пишется в журнал.
+ */
+export function requestOwnerOrderEmail(
+  purchaseRef: string,
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new BillingService(request).readOwnerOrderEmail({ purchaseRef }),
+    200,
+    { accessToken },
+  );
+}
+
 export function requestCurrentCommunityAdmission(accessToken: string) {
   return executeGeneratedRequest(
     (request) =>

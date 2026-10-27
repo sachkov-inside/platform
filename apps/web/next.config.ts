@@ -130,6 +130,18 @@ const nextConfig: NextConfig = {
         destination: "/authoring/products",
         permanent: false,
       },
+      // Продажи админки живут под `/authoring/sales` (#1718). Прежние адреса ведут в «Платежи» и
+      // «Воронку продаж»; запрос адреса Next переносит сам. Временные, пока адреса не устоялись.
+      {
+        source: "/authoring/billing",
+        destination: "/authoring/sales/payments",
+        permanent: false,
+      },
+      {
+        source: "/authoring/sales-funnel",
+        destination: "/authoring/sales/funnel",
+        permanent: false,
+      },
       // Темы живут в фильтре главной; прежние публичные страницы больше не обслуживаются.
       {
         source: "/topics/:slug",

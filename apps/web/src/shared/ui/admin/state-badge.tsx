@@ -37,6 +37,25 @@ export const adminStates = {
   "sale.archived": { label: "Продукт в архиве", tone: "muted" },
   "activationRule.published": { label: "Опубликовано", tone: "positive" },
   "activationRule.paused": { label: "Приостановлено", tone: "muted" },
+  // Платёж (#1718): банковское состояние попытки и отдельно готовность доступа. Неизвестное
+  // банку состояние остаётся неизвестным и требует сверки, а не читается как «всё в порядке».
+  "payment.prepared": { label: "Подготовлен", tone: "neutral" },
+  "payment.sent": { label: "Отправлен в банк", tone: "neutral" },
+  "payment.pending": { label: "Ждёт оплаты", tone: "neutral" },
+  "payment.authorized": { label: "Деньги заблокированы", tone: "neutral" },
+  "payment.confirmed": { label: "Оплачен", tone: "positive" },
+  "payment.failed": { label: "Не прошёл", tone: "critical" },
+  "payment.unknown": { label: "Неизвестно, нужна сверка", tone: "attention" },
+  "payment.access.awaiting_payment": {
+    label: "Доступ после оплаты",
+    tone: "muted",
+  },
+  "payment.access.preparing": { label: "Доступ готовится", tone: "neutral" },
+  "payment.access.review_required": {
+    label: "Доступ ждёт проверки",
+    tone: "attention",
+  },
+  "payment.access.ready": { label: "Доступ открыт", tone: "positive" },
 } as const satisfies Record<string, AdminStateDefinition>;
 
 export type AdminStateKey = keyof typeof adminStates;

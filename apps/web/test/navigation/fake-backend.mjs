@@ -32,6 +32,7 @@ import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
 import { authoringSearchRoute } from "./authoring-search-backend.mjs";
+import { salesPaymentsRoute } from "./sales-payments-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1106,6 +1107,9 @@ const server = createServer(async (request, response) => {
   if (collections !== null) return send(collections.status, collections.value);
   const sale = await productSaleRoute(request, url, readBody);
   if (sale !== null) return send(sale.status, sale.value);
+  const salesPayments = await salesPaymentsRoute(request, url, readBody);
+  if (salesPayments !== null)
+    return send(salesPayments.status, salesPayments.value);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, productId } = homePinSchema.parse(

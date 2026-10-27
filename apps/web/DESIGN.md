@@ -260,7 +260,7 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
   tone also has its own mark shape. Tones map to existing tokens only: `neutral` is `secondary`
   with a ring, `positive` a `primary` tint with a dot, `attention` an `accent` tint with `action`
   ink (a queue waiting for the author, such as «Новая» submission: orange as the next-action
-  signal), `critical` a `destructive` tint (failures only; unused so far) and `muted` a bordered,
+  signal), `critical` a `destructive` tint (failures only, such as a failed payment) and `muted` a bordered,
   dashed mark for archived or withdrawn states. No green and no callout tones.
 - **Task tabs:** `WorkspaceTabs` wraps labels onto additional lines on narrow screens, keeps a
   visible orange underline for the current task, and provides 44px minimum tab height. Arrow keys,
@@ -269,9 +269,14 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Content:** product and topic lists show real covers when assigned and omit automatic empty-cover
   artwork. Product and Material editors separate document work, metadata and media into named
   tasks; imported content retains its source-owned restrictions.
-- **Payments:** narrow screens use payment rows with state, amount, kind, access and an opening
-  action. Desktop retains the table. The state filter stays visible; Account, kind and limit
-  remain in a native «Дополнительные фильтры» disclosure whose values survive collapse.
+- **Payments (#1718):** `/authoring/sales/payments` follows the shared list pattern: product by
+  name, a Moscow-day period and the bank state are filters in the address; columns are buyer,
+  product, amount (right-aligned tabular rubles), state and time. The bank state badge and the
+  access-readiness badge are separate; an unknown bank result reads «Неизвестно, нужна сверка» in
+  the attention tone, never as success. Below a 40rem column a row becomes a list item with the
+  buyer, the state badge and the amount. The payment page shows amounts, refunds, bank events and
+  the owner journal, puts «Сверить с банком» behind a confirmation and reveals the order email
+  only on «Показать email».
 - **Evidence:** the [surface brief](.impeccable/surfaces/admin-workspace.md) records implemented
   task groups and the bounded 18-image review set. Captures establish named states, not unseen
   controls or owner acceptance.
