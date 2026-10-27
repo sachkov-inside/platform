@@ -8,7 +8,7 @@ import { z } from "zod";
 import {
   parseWebHttpMetricsConfig,
   webHttpMetricsSchema,
-} from "../../../runtime/http-metrics-config";
+} from "../../../server/http-metrics-config";
 
 const localDefaults = {
   BACKEND_BASE_URL: "http://127.0.0.1:3001",

@@ -6,7 +6,7 @@ import { expect, it, vi } from "vitest";
 import {
   startWebHttpMetrics,
   webHttpRoutes,
-} from "../../runtime/web-http-metrics";
+} from "../../server/web-http-metrics";
 
 it("uses the exact Next build regex without changing its supported escape semantics", () => {
   const routes = webHttpRoutes({

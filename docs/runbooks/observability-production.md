@@ -440,7 +440,9 @@ initial component construction с exit 1. Изолированный запус�
 ### HTTP-наблюдения Web
 
 Web имеет отдельный источник `platform-web-http`, независимо от выборки трасс и browser
-analytics. Node `--import ./apps/web/web-http-preload.mjs` до запуска generated standalone server
+analytics. Собственные Node HTTP observer и config находятся в `apps/web/server`;
+они принадлежат Web и не копируют общий wire-корпус `docs/contracts/runtime`.
+Node `--import ./apps/web/web-http-preload.mjs` до запуска generated standalone server
 подписывается на публичный `http.server.request.start`. `instrumentation.register` проверяет,
 что включённый источник уже готов. В pinned Next запрос может прийти во время asynchronous
 startup до register, поэтому поздняя подписка теряла бы первый ответ. Источник считает начало, активные ответы и ровно одно окончание:

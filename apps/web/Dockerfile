@@ -76,7 +76,7 @@ COPY --from=production-build --chown=node:node /workspace/apps/web/.next/static 
 COPY --from=production-build --chown=node:node /workspace/apps/web/public ./apps/web/public
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./apps/web/release-identity.json
 COPY --chown=node:node apps/web/web-http-preload.mjs ./apps/web/
-COPY --chown=node:node apps/web/runtime ./apps/web/runtime
+COPY --chown=node:node apps/web/server ./apps/web/server
 # The Node preload runs outside Next's traced module graph, including when metrics are disabled.
 COPY --chown=node:node packages/runtime-identity/package.json packages/runtime-identity/index.mjs ./apps/web/node_modules/@inside/runtime-identity/
 
