@@ -453,6 +453,16 @@ Alloy читает источник каждые 5 секунд. В обзоре
 на loopback в отдельном fixture; Next, его generated server и Node HTTP остаются настоящими.
 Модульные HTTP contracts отдельно проверяют 500 и обрыв удерживаемого потока при sampling=0.
 
+Пять quality-gated Web queries имеют отдельный native regression. При уже подготовленном
+закреплённом VictoriaMetrics binary запустить
+`node scripts/owned-node.mjs --command python3 -B scripts/observability-production/prove_web_http_queries.py --vm-binary /absolute/path/victoria-metrics-prod`.
+Proof владеет временными storage и loopback process, проверяет настоящие dashboard expressions
+на healthy/58-sample cohort и на missing/57-sample/down/stale/reset/epoch-change/99-observation
+cohorts, затем закрывает listener. Fixture-only force flush публикует синтетические исторические
+samples, он не доказывает runtime ingest latency. Healthy gate сохраняет слева значение
+`min_over_time(up[5m]) == 1`; число samples справа только фильтрует его. Иначе PromQL `and`
+сохранил бы sample count 58..60, который финальное `== 1` ошибочно скрывало.
+
 Fullstack corpus переключает Web source вместе с ON/OFF. В ON он делает настоящие Web 200/404
 с секретным query sentinel, проверяет его отсутствие в private metrics body, затем требует
 те же SHA-bound counts в VictoriaMetrics через обычные Alloy и read gateway в пределах 10 секунд.
