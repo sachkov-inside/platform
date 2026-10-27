@@ -61,8 +61,9 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   and materials. The course landing keeps its existing action text and button without a bottom bar.
   Keep the compact pill styling of the programme: the current section has a dark surface and
   visible label, other sections use named icons. The lesson bar reuses this styling for previous/next,
-  programme disclosure and a separate link to the course learning page, never the landing page.
-  Supplementary materials keep programme disclosure and the learning-page link without step arrows.
+  and programme disclosure. The return link to the course learning page lives at the top of the
+  expanded programme, never in the dock; its target is the learning page, not the landing page.
+  Supplementary materials keep programme disclosure without step arrows.
   Keep all text within the surface; reflow at enlarged text sizes and reserve the bar's actual height
   after programme content so its final action remains reachable. Its bottom sheet leaves
   a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide

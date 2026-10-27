@@ -499,11 +499,6 @@ export function ProgrammeDialog({
         <List size={18} aria-hidden="true" /> Вся программа
       </button>
       <CourseNavigationBar label="Навигация по урокам">
-        <CourseNavigationItem
-          icon={BookOpen}
-          label="К прохождению курса"
-          href={context.href}
-        />
         {supplementary ? null : context.previous === null ? (
           <button type="button" disabled aria-label="Предыдущий шаг">
             <ArrowLeft size={16} aria-hidden="true" />
@@ -584,6 +579,13 @@ export function ProgrammeDialog({
           >
             <X size={20} />
           </button>
+          <IntentPrefetchLink
+            className={styles["dialogCourseLink"]}
+            href={context.href}
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>К прохождению курса</span>
+          </IntentPrefetchLink>
         </div>
         <nav aria-label="Вся программа">
           {context.chapters.map((chapter) => (

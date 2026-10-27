@@ -291,8 +291,8 @@ export const PhoneProgramme: Story = {
       canvas.getByRole("navigation", { name: "Навигация по урокам" }),
     );
     await expect(
-      dock.getByRole("link", { name: "К прохождению курса" }),
-    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+      dock.queryByRole("link", { name: "К прохождению курса" }),
+    ).toBeNull();
     await userEvent.click(
       canvas.getByRole("button", { name: "Вся программа" }),
     );
@@ -300,6 +300,9 @@ export const PhoneProgramme: Story = {
       name: "Программа: AI Engineering",
     });
     await expect(dialog).toBeVisible();
+    await expect(
+      within(dialog).getByRole("link", { name: "К прохождению курса" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Закрыть программу" }),
     );
@@ -316,8 +319,8 @@ export const NarrowSupplementaryProgramme: Story = {
       name: "Навигация по урокам",
     });
     await expect(
-      within(navigation).getByRole("link", { name: "К прохождению курса" }),
-    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+      within(navigation).queryByRole("link", { name: "К прохождению курса" }),
+    ).toBeNull();
     await expect(
       within(navigation).queryByRole("link", { name: "Следующий шаг" }),
     ).toBeNull();
@@ -338,6 +341,9 @@ export const NarrowSupplementaryProgramme: Story = {
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",
     });
+    await expect(
+      within(dialog).getByRole("link", { name: "К прохождению курса" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(
       within(dialog).getByRole("link", { current: "step" }),
     ).toBeVisible();

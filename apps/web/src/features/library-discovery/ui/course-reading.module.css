@@ -370,14 +370,43 @@
   background: color-mix(in srgb, var(--foreground) 25%, transparent);
 }
 .dialogHead {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
 }
 .dialogHead h2 {
   font-size: 1.125rem;
   font-weight: 600;
+}
+.dialogCourseLink {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.dialogCourseLink > svg {
+  flex-shrink: 0;
+}
+.dialogCourseLink > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dialogCourseLink:hover {
+  background: var(--muted);
+}
+.dialogCourseLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 .dialogHead button,
 .mobileProgramme > button {

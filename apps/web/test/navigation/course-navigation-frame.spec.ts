@@ -12,10 +12,9 @@ test("mobile course navigation opens the programme and returns from lessons and 
       name: "Навигация по урокам",
     });
     await expect(navigation).toBeVisible();
-    const overview = navigation.getByRole("link", {
-      name: "К прохождению курса",
-    });
-    await expect(overview).toHaveAttribute("href", programme);
+    await expect(
+      navigation.getByRole("link", { name: "К прохождению курса" }),
+    ).toHaveCount(0);
     const trigger = navigation.getByRole("button", { name: "Вся программа" });
     await trigger.click();
     const dialog = page.getByRole("dialog", {
@@ -25,7 +24,13 @@ test("mobile course navigation opens the programme and returns from lessons and 
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     await expect(trigger).toBeFocused();
-    await overview.click();
+    await trigger.click();
+    const returnToCourse = dialog.getByRole("link", {
+      name: "К прохождению курса",
+    });
+    await expect(returnToCourse).toHaveAttribute("href", programme);
+    await returnToCourse.click();
+    await expect(dialog).not.toBeVisible();
     await expect(page).toHaveURL(programme);
   }
 });
