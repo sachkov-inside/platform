@@ -1,13 +1,5 @@
-import {
-  listActivationRulesOperation,
-  saveActivationRuleOperation,
-  readContentCatalogOperation,
-  lookupSubscriptionRecipientOperation,
-} from "./enrollments.operation";
-export const listActivationRules = listActivationRulesOperation.send;
-export const saveActivationRule = saveActivationRuleOperation.send;
-export const lookupSubscriptionRecipient =
-  lookupSubscriptionRecipientOperation.send;
+import { readContentCatalogOperation } from "./enrollments.operation";
+
 export function readContentCatalog() {
   return readContentCatalogOperation.send({ operationId: crypto.randomUUID() });
 }

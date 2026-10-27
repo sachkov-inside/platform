@@ -16,6 +16,7 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 }));
 
 import { handleOwnerPriceCatalogRead } from "@/entities/subscription.server";
+import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.server";
 import {
   handleCreatePaymentLink,
   handleListPaymentLinks,
@@ -123,6 +124,24 @@ it("creates a link with the price revision and revokes with the expected revisio
       expectedRevision: 2,
     },
   ]);
+});
+
+it("refuses a payment link command that chooses its own billing operation", async () => {
+  const response = await handleCreatePaymentLink(
+    command("/api/authoring/billing/payment-links/create", {
+      operationId,
+      productId,
+      priceRevision: 3,
+      price: { kind: "discount", percent: 15 },
+      expiresAt: null,
+      operation: "offers.publish",
+    }),
+  );
+  expect(await response.json()).toMatchObject({
+    ok: false,
+    code: "invalid_request",
+  });
+  expect(fakes.manage).not.toHaveBeenCalled();
 });
 
 it("lists owner promotions without questionnaire ones unless asked", async () => {
@@ -238,4 +257,36 @@ it("reads every page of the owner price catalog and refuses for another role", a
   const refused = await handleOwnerPriceCatalogRead();
   expect(refused.status).toBe(403);
   expect(await refused.json()).toEqual({ ok: false, code: "forbidden" });
+});
+
+it("does not report an empty owner price catalog when a continuation fails", async () => {
+  fakes.manage
+    .mockResolvedValueOnce(
+      ok({
+        operationRef: operationId,
+        result: { outcome: "catalogOffers", items: [], nextCursor: cursor },
+      }),
+    )
+    .mockResolvedValueOnce(problem("dependency_unavailable", 503));
+  const response = await handleOwnerPriceCatalogRead();
+  expect(response.status).toBe(503);
+  expect(await response.json()).not.toHaveProperty("value");
+});
+
+it("keeps the owner price catalog private and unread without a session", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: { outcome: "catalogOffers", items: [], nextCursor: null },
+    }),
+  );
+  const response = await handleOwnerPriceCatalogRead();
+  expect(response.headers.get("cache-control")).toBe("no-store, private");
+  expect(response.headers.get("vary")).toBe("cookie");
+
+  fakes.manage.mockClear();
+  fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+  const signedOut = await handleOwnerPriceCatalogRead();
+  expect(signedOut.status).toBe(401);
+  expect(fakes.manage).not.toHaveBeenCalled();
 });

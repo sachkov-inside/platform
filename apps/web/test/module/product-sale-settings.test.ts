@@ -37,6 +37,7 @@ import {
   salesStateCommand,
   salesStateDraftOf,
   salesStateErrors,
+  saveProductSalesStateInputSchema,
   type OwnerProductPrice,
 } from "@/features/product-sale-settings/model/product-sale";
 import { readProductSale } from "@/features/product-sale-settings/model/use-product-sale.client";
@@ -44,7 +45,11 @@ import {
   readCatalogPrices,
   readCatalogSalesStates,
 } from "@/features/product-sale-settings/model/use-catalog-sale.client";
-import type { PriceSnapshot, ProductSalesState } from "@/entities/subscription";
+import {
+  productSalesStatesSchema,
+  type PriceSnapshot,
+  type ProductSalesState,
+} from "@/entities/subscription";
 
 import { routeBrowserMutations } from "../support/mutation-operation-route";
 
@@ -266,6 +271,39 @@ describe("форма состояния продажи", () => {
         priceAfterStartInvalid: true,
       }).priceAfterStart,
     ).toMatch(/^Цена после старта/u);
+  });
+
+  it("читает поток прежнего backend без цены после старта как поток без неё", () => {
+    const { priceAfterStartKopecks: _price, ...legacy } = salesState;
+    const read = (state: object) =>
+      productSalesStatesSchema.safeParse({ items: [state], nextCursor: null });
+    expect(read(legacy).data?.items[0]?.priceAfterStartKopecks).toBeNull();
+    expect(read(salesState).data?.items[0]?.priceAfterStartKopecks).toBe(
+      5_990_000,
+    );
+    expect(read({ ...salesState, priceAfterStartKopecks: -1 }).success).toBe(
+      false,
+    );
+  });
+
+  it("отправляет поток только с явной ценой после старта или null", () => {
+    const { revision: _revision, ...value } = salesState;
+    const command = (priceAfterStartKopecks?: unknown) => ({
+      operationId,
+      expectedRevision: 2,
+      value:
+        priceAfterStartKopecks === undefined
+          ? { ...value, priceAfterStartKopecks: undefined }
+          : { ...value, priceAfterStartKopecks },
+    });
+    const accepts = (priceAfterStartKopecks?: unknown) =>
+      saveProductSalesStateInputSchema.safeParse(
+        command(priceAfterStartKopecks),
+      ).success;
+    expect(accepts(null)).toBe(true);
+    expect(accepts(3_990_000)).toBe(true);
+    for (const invalid of [undefined, 0, -100, 399.5])
+      expect(accepts(invalid)).toBe(false);
   });
 
   it("сохраняет пустую дату как её отсутствие и ревизию текущего состояния", () => {
