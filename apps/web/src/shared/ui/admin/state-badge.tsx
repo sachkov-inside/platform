@@ -25,6 +25,9 @@ export const adminStates = {
   "product.active": { label: "Активен", tone: "positive" },
   "product.archived": { label: "Архив", tone: "muted" },
   "product.pinned": { label: "На главной", tone: "positive" },
+  // Доступ ученика к продукту на вкладке «Ученики» (#1718).
+  "holder.active": { label: "Доступ есть", tone: "positive" },
+  "holder.revoked": { label: "Доступ отозван", tone: "muted" },
   "submission.awaiting": { label: "Новая", tone: "attention" },
   "submission.commented": { label: "Прокомментирована", tone: "positive" },
   // Продажа продукта (#1718): положительный тон только там, где продажа принимает оплату.
