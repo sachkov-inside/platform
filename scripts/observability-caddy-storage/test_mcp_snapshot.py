@@ -29,3 +29,36 @@ class MCPObservation(unittest.TestCase):
             with self.assertRaises(ValueError):
                 mcp_snapshot.read_snapshot(Path('/unused-native-fixture'),'a'*32,evaluated_at=100,
                     wall_clock=lambda:101,_fixture=fixture)
+
+    def test_ready_session_is_one_pair_only_and_original_stale_frames_remain_stale(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);values,stamps=acquisition()
+            value_file=root/'values';stamp_file=root/'stamps'
+            value_file.write_text(json.dumps(values));stamp_file.write_text(json.dumps(stamps))
+            fixture=([sys.executable,'-B',str(Path(__file__).with_name('fixtures')/'mcp.py')],
+                     {'PATH':os.environ.get('PATH',''),'HOME':directory,'CADDY_TEST_REPORT':str(root/'owner'),
+                      'CADDY_TEST_BODY_FILE':str(value_file),'CADDY_TEST_TIMESTAMP_FILE':str(stamp_file)})
+            with mcp_snapshot.session(Path('/unused-native-fixture'),'a'*32,_fixture=fixture) as read:
+                report,private=read(evaluated_at=100,wall_clock=lambda:112)
+                self.assertEqual(report['state'],'stale');self.assertEqual(report['sample_age_seconds'],13)
+                self.assertEqual(private['evaluated_at'],100)
+                with self.assertRaisesRegex(RuntimeError,'ready probe already used'):
+                    read(evaluated_at=100,wall_clock=lambda:101)
+
+    def test_shared_ten_second_query_budget_includes_final_oracle_validation(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);values,stamps=acquisition()
+            value_file=root/'values';stamp_file=root/'stamps'
+            value_file.write_text(json.dumps(values));stamp_file.write_text(json.dumps(stamps))
+            fixture=([sys.executable,'-B',str(Path(__file__).with_name('fixtures')/'mcp.py')],
+                     {'PATH':os.environ.get('PATH',''),'HOME':directory,'CADDY_TEST_REPORT':str(root/'owner'),
+                      'CADDY_TEST_BODY_FILE':str(value_file),'CADDY_TEST_TIMESTAMP_FILE':str(stamp_file)})
+            now=[time.monotonic()];evaluate=mcp_snapshot.caddy_status.evaluate
+            def delayed(*args,**kwargs):
+                value=evaluate(*args,**kwargs);now[0]+=10;return value
+            with mcp_snapshot.session(Path('/unused-native-fixture'),'a'*32,_fixture=fixture) as read,patch.object(mcp_snapshot,'time',SimpleNamespace(monotonic=lambda:now[0])),patch.object(mcp_snapshot.caddy_status,'evaluate',side_effect=delayed):
+                with self.assertRaisesRegex(TimeoutError,'closed Caddy MCP query deadline'):
+                    read(evaluated_at=100,wall_clock=lambda:101)
