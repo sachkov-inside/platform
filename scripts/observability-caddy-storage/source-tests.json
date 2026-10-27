@@ -81,6 +81,7 @@
   "test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success",
   "test_traffic.FixedTraffic.test_controlled_recovery_retains_each_actual_502_for_partition_accounting",
   "test_traffic.FixedTraffic.test_fixed_post_records_only_a_validated_successful_whole_response",
+  "test_warm_matching.WarmMatching.test_held_waits_for_next_scraped_frame_without_spending_snapshot_cap",
   "test_warm_matching.WarmMatching.test_partition_prepares_native_before_selecting_current_canonical_sample",
   "test_warm_matching.WarmMatching.test_ready_native_session_precedes_held_body_and_exact_canonical_acquisition"
 ]
