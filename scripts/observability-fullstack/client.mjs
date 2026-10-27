@@ -216,6 +216,62 @@ async function sourceCacheReady() {
     seconds: result.seconds,
   };
 }
+/** Actual Web requests and raw private source; never prints a URL or source body. */
+async function webHttpWitness() {
+  const positive = await call(
+    "web",
+    3000,
+    "/_health/live?token=private-http-sentinel",
+  );
+  const absent = await call(
+    "web",
+    3000,
+    "/missing-private-http-sentinel?email=private-http-sentinel",
+  );
+  const metrics = await call("inside-web-http", 9420, "/metrics");
+  return {
+    ok:
+      positive.status === 200 &&
+      absent.status === 404 &&
+      metrics.status === 200 &&
+      typeof metrics.value === "string" &&
+      !metrics.value.includes("private-http-sentinel") &&
+      metrics.value.includes(
+        'route="/_health/live",method="GET",code="200",outcome="completed"',
+      ) &&
+      metrics.value.includes(
+        'route="_unmatched",method="GET",code="404",outcome="completed"',
+      ),
+  };
+}
+/** @param {string} source */
+async function webHttpStored(source) {
+  if (!/^[a-f0-9]{40}$/u.test(source)) throw new Error("fixed source required");
+  const common =
+    'job="platform-web-http",instance="web",source_sha="' + source + '"';
+  const expression =
+    "((sum(inside_web_http_requests_total{" +
+    common +
+    ',route="/_health/live",code="200",outcome="completed"}) >= 1) and on() (sum(inside_web_http_requests_total{' +
+    common +
+    ',route="_unmatched",code="404",outcome="completed"}) >= 1) and on() (up{job="platform-web-http",instance="web"} == 1) and on() ((time() - inside_web_http_observed_at_seconds{' +
+    common +
+    "}) >= 0 and (time() - inside_web_http_observed_at_seconds{" +
+    common +
+    "}) <= 10))";
+  const result = await call(
+    "gateway",
+    8080,
+    "/metrics/api/v1/query?query=" +
+      encodeURIComponent(expression) +
+      "&nocache=1",
+    "GET",
+    undefined,
+    { authorization: "Bearer " + key() },
+  );
+  const count = vector(result.value);
+  return { ok: result.status === 200 && count !== null && count >= 1 };
+}
 async function readMonitoring() {
   const authorization = { authorization: "Bearer " + key() };
   const paths = [
@@ -637,6 +693,10 @@ function argument(index) {
 }
 if (action === "cache-ready") {
   console.log(JSON.stringify({ ok: (await sourceCacheReady()).ok }));
+} else if (action === "web-http-witness") {
+  console.log(JSON.stringify(await webHttpWitness()));
+} else if (action === "web-http-ready") {
+  console.log(JSON.stringify(await webHttpStored(argument(0))));
 } else if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
   console.log(

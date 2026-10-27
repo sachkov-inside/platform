@@ -38,7 +38,8 @@ def logging(service):
 def overlay(services, *, network, sdk=()):
     return {'services': {service: {
         'logging': logging('platform-' + service if service in APPLICATIONS else service),
-        'networks': ['telemetry'],
+        'networks': {'telemetry': {'aliases': ['inside-web-http']}} if service == 'web' else ['telemetry'],
+        **({'environment': {'INSIDE_WEB_HTTP_METRICS_ENABLED': '${INSIDE_OTEL_ENABLED:-false}'}} if service == 'web' else {}),
         **({'environment': {'INSIDE_OTEL_ENABLED': '${INSIDE_OTEL_ENABLED:-false}',
                            'INSIDE_OTEL_ENDPOINT': 'http://inside-telemetry:4318',
                            'INSIDE_OTEL_SAMPLE_RATIO': '${INSIDE_OTEL_SAMPLE_RATIO:-1}'}}
@@ -188,7 +189,8 @@ def prepare(output, *, data, project='inside-observability-production'):
     write(output / 'reader.key', token + '\n', private=True)
     write(output / 'grafana.password', secrets.token_urlsafe(32) + '\n', private=True)
     # Privacy policy has one owner. Production appends the stdout boundary after its OTLP filter.
-    write(output / 'config.alloy', privacy_config.render() + '\n' + (CONFIG / 'stdout.alloy').read_text())
+    write(output / 'config.alloy', privacy_config.render() + '\n' + (CONFIG / 'stdout.alloy').read_text()
+          + '\n' + (CONFIG / 'web-http.alloy').read_text())
     write(output / 'compose.json', compose(output, data, project))
     network = project + '-telemetry'
     write(output / 'platform.compose.json', overlay(APPLICATIONS, network=network, sdk=BACKENDS))

@@ -41,6 +41,8 @@ class Preparation(unittest.TestCase):
             self.assertEqual(plan['services']['bot-provider']['networks'],{'pilot':{'aliases':['api.telegram.org']}})
             self.assertEqual(plan['services']['telegram']['image'],pins['telegram'])
             self.assertIn('logto',plan['services'])
+            self.assertEqual(plan['services']['web']['networks']['telemetry']['aliases'],['inside-web-http'])
+            self.assertEqual(plan['services']['web']['environment']['INSIDE_WEB_HTTP_METRICS_ENABLED'],'false')
             seeder=plan['services']['migrations']
             self.assertIn('/app/dist/development:size=1m,mode=1777',seeder['tmpfs'])
             self.assertEqual(len(seeder['volumes']),3)
@@ -53,6 +55,7 @@ class Preparation(unittest.TestCase):
             for enabled in (False,True):
                 fullstack.mode(output,enabled)
                 observed=json.loads((output/'compose.json').read_text())
+                self.assertEqual(observed['services']['web']['environment']['INSIDE_WEB_HTTP_METRICS_ENABLED'],str(enabled).lower())
                 self.assertTrue(all(observed['services'][name]['environment']['INSIDE_OTEL_ENABLED']==str(enabled).lower() for name in fullstack.BACKENDS))
 
     def test_web_iid_is_owned_only_when_registered_before_acquisition(self):
