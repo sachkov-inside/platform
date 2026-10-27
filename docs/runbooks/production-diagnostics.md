@@ -177,6 +177,11 @@ Canonical `main` `346c8f2f` сохраняет все 114 registry entries, вк
 [migrations.test.ts](../../apps/backend/test/integration/migrations.test.ts) отдельно проверяет
 переход current main через 0113 к 0127, неизменный prefix, повторный запуск и отказ короткой registry.
 
+Product checkout/paid в диагностике учитывает сохранённый `product:<id>` benefit либо
+`materials` вместе с сохранённым `coverage.productIds`. Coverage, относящийся только к
+community/support, не считается покупкой контента. Подтверждённая покупка остаётся фактом оплаты,
+а текущая выдача или отзыв ProductAccess проверяются отдельным отчётом платёжной диагностики.
+
 Индексы поставляются append-only migrations 0114–0118: journal account/identity/receipt,
 платёжные кандидаты, первые чтения, verified Telegram identity и текущий Products catalog.
 Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;

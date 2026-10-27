@@ -26,8 +26,10 @@ bootstrap требует явного тестового переключате�
 Небольшой fixture entry вызывает прежний `seedLocalDevelopment` с `demo=published`,
 используя production `parsePlatformConfig` и `createPrismaClient`. Development CLI с
 его отдельным `load-platform-config` не входит в production compile closure и не запускается.
-Новый образ или контейнер вне существующего supervisor не создаётся; production payload
-и набор зависимостей приложения не расширяются. Сам seed работает только с изолированной базой корпуса.
+Fixture выполняется в существующем migration service под тем же supervisor.
+Production compilation явно включает публичный
+`entrypoints/composition/assemble-materials.ts`, который использует текущий seed owner.
+Сам seed работает только с изолированной базой корпуса.
 
 В одном изолированном Compose project работают Web, API, Platform MCP, пять workers,
 RabbitMQ с теми же TLS/definitions, PostgreSQL 18 foundation и отдельная база Umami в том же
