@@ -3,11 +3,18 @@ import type {
   TelegramContact,
   TelegramContactQuery,
 } from "@inside/contracts/telegram-contact";
+import type { TelegramContactMarketing } from "@inside/contracts/telegram-contact-v2";
 import {
   APPLICATION_CONFIG,
   type ApplicationConfig,
 } from "../../config/application-config.js";
 import { DATABASE, type Database } from "../../database/database.js";
+import { CLOCK, type Clock } from "../../shared/clock.js";
+import {
+  CONTACT_MARKETING,
+  type ContactMarketing,
+} from "./contact-marketing.js";
+import { observeLinkProfiles } from "./link-profiles.js";
 import { findPlatformContactLinks } from "./platform-links.js";
 import {
   TELEGRAM_CONTACT_PROFILE,
@@ -22,10 +29,35 @@ export class TelegramContacts {
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(TELEGRAM_CONTACT_PROFILE)
     private readonly profile: TelegramContactProfile,
+    @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(CONTACT_MARKETING) private readonly marketing: ContactMarketing,
   ) {}
+
   async read(
     queries: readonly TelegramContactQuery[],
   ): Promise<readonly TelegramContact[]> {
+    return (await this.readContacts(queries, false)).map(
+      ({ marketing: _unread, ...contact }) => contact,
+    );
+  }
+
+  /** The v1 projection plus the `/stop` state of each current link. */
+  readWithMarketing(queries: readonly TelegramContactQuery[]): Promise<
+    readonly (TelegramContact & {
+      readonly marketing: TelegramContactMarketing;
+    })[]
+  > {
+    return this.readContacts(queries, true);
+  }
+
+  private async readContacts(
+    queries: readonly TelegramContactQuery[],
+    withMarketing: boolean,
+  ): Promise<
+    readonly (TelegramContact & {
+      readonly marketing: TelegramContactMarketing;
+    })[]
+  > {
     const signal = AbortSignal.timeout(3_500);
     const links = await findPlatformContactLinks(
       this.database,
@@ -47,13 +79,20 @@ export class TelegramContacts {
         )),
       );
     }
+    const preferences = withMarketing
+      ? await this.marketing.read(
+          this.database,
+          this.config.botIdentity,
+          links.flatMap((link) => (link ? [link.telegramUserId] : [])),
+        )
+      : new Map<string, boolean>();
     // Revalidate after all provider reads, so a transfer/unlink never exposes an old profile.
     const current = await findPlatformContactLinks(
       this.database,
       this.config.botIdentity,
       queries,
     );
-    return queries.map((query, index) => {
+    const contacts = queries.map((query, index) => {
       const empty = { ...query, displayName: null, username: null };
       const link = links[index];
       const binding = current[index];
@@ -63,16 +102,50 @@ export class TelegramContacts {
         binding.telegramUserId !== link.telegramUserId ||
         binding.linkTransactionRef !== link.linkTransactionRef
       )
-        return { ...empty, status: "not_found" };
+        return {
+          contact: { ...empty, status: "not_found" as const },
+          marketing: "unknown" as const,
+        };
+      const preference = preferences.get(link.telegramUserId);
+      const marketing =
+        preference === undefined
+          ? ("unknown" as const)
+          : preference
+            ? ("enabled" as const)
+            : ("stopped" as const);
       const profile = profiles[index];
       return profile?.kind === "available"
         ? {
-            ...query,
-            status: "available",
-            displayName: profile.displayName,
-            username: profile.username,
+            contact: {
+              ...query,
+              status: "available" as const,
+              displayName: profile.displayName,
+              username: profile.username,
+            },
+            marketing,
+            observation: {
+              telegramUserId: link.telegramUserId,
+              linkTransactionRef: link.linkTransactionRef,
+              displayName: profile.displayName,
+              username: profile.username,
+            },
           }
-        : { ...empty, status: "unavailable" };
+        : {
+            contact: { ...empty, status: "unavailable" as const },
+            marketing,
+          };
     });
+    await observeLinkProfiles(
+      this.database,
+      this.config.botIdentity,
+      this.clock.now(),
+      contacts.flatMap((item) =>
+        "observation" in item ? [item.observation] : [],
+      ),
+    );
+    return contacts.map(({ contact, marketing }) => ({
+      ...contact,
+      marketing,
+    }));
   }
 }
