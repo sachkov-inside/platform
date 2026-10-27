@@ -3,6 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import {
   AccountDirectory,
@@ -392,6 +393,65 @@ describe("People list", () => {
         api.telegram.mode = "v2";
       }
     }
+  });
+
+  test("more matches than one answer holds are reported as truncated, never cut silently", async () => {
+    // 50 more stored profiles match «Анна», none of them a current link here: Telegram answers
+    // its first 50 of 51 matches and reports the rest.
+    const doubles = Array.from({ length: 50 }, (_, index) => ({
+      accountRef: `principal:elsewhere-${String(index)}`,
+      telegramIdentityRef: `identity:elsewhere-${String(index)}`,
+      displayName: `Анна Двойник ${String(index)}`,
+      username: null,
+      marketing: "unknown" as const,
+    }));
+    for (const profile of doubles)
+      api.telegram.profiles.set(profile.telegramIdentityRef, profile);
+    try {
+      expect(await list({ query: "Анна" })).toMatchObject({
+        items: [{ accountId: people.telegram }],
+        total: 1,
+        nextCursor: null,
+        nameSearch: "truncated",
+      });
+      const search = await api.server.inject({
+        method: "GET",
+        url: `/authoring/search?query=${encodeURIComponent("Анна")}`,
+        headers: owner,
+      });
+      expect(search.statusCode).toBe(200);
+      expect(search.json()).toEqual({
+        groups: [
+          {
+            kind: "people",
+            state: "ready",
+            items: [expect.objectContaining({ accountId: people.telegram })],
+            partial: false,
+            truncated: true,
+          },
+        ],
+      });
+    } finally {
+      for (const profile of doubles)
+        api.telegram.profiles.delete(profile.telegramIdentityRef);
+    }
+    // Two Accounts share one address; a search of one person reports the other as cut.
+    const one = await api.server.inject({
+      method: "GET",
+      url: `/authoring/people/search?query=${encodeURIComponent("shared.person@example.test")}&limit=1`,
+      headers: owner,
+    });
+    expect(one.statusCode).toBe(200);
+    // Billing Contact matches are ordered by Account ID, which the fixtures draw at random.
+    const cut = z
+      .object({
+        items: z.array(z.object({ accountId: z.string() })).length(1),
+        nameSearch: z.literal("truncated"),
+      })
+      .parse(one.json());
+    expect([people.billing, people.billingTwin]).toContain(
+      cut.items[0]?.accountId,
+    );
   });
 
   test("names stay unknown, not absent, when Telegram cannot read them", async () => {

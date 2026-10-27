@@ -293,7 +293,7 @@ export class TelegramAccountLinks {
       return { ok: true, hits };
     } catch (error) {
       return dependencyFailure(
-        { module: "telegram-membership", operation: "resolveContactMatches" },
+        { module: "telegram-membership", operation: "searchContacts" },
         error,
         { ok: false } as const,
       );

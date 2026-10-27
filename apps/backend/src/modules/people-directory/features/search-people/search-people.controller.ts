@@ -42,7 +42,11 @@ import {
 const searchPeopleHttpSchema = z
   .object({
     items: z.array(personIdentityHttpSchema).max(PEOPLE_SEARCH_LIMIT),
-    nameSearch: z.enum(["available", "unavailable"]),
+    nameSearch: z
+      .enum(["available", "unavailable", "truncated"])
+      .describe(
+        "unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more people matched the text than `limit`; the items are only the first matches",
+      ),
   })
   .strict();
 

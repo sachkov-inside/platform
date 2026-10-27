@@ -62,7 +62,8 @@ export async function readLearningSummary(
   ];
   try {
     const compositions = new Map<string, readonly string[] | null>();
-    // One owner call per Product, in sequence: a card holds few Products.
+    // The composition owner has no set read: one call per Product, in sequence, at most
+    // LEARNING_SUMMARY_PRODUCTS_LIMIT (50) calls per summary.
     for (const productId of productIds) {
       const composition = await dependencies.composition.read(productId);
       if (composition.ok) compositions.set(productId, composition.value);

@@ -9,6 +9,7 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import { assemblePeopleSearchGroup } from "../../src/modules/authoring-search/adapters/people/people-search-group.js";
 import { assembleMaterialsSearchGroup } from "../../src/modules/authoring-search/adapters/materials/materials-search-group.js";
 import { assembleProductsSearchGroup } from "../../src/modules/authoring-search/adapters/products/products-search-group.js";
 import { assembleAuthoringSearch } from "../../src/modules/authoring-search/features/search-authoring/search-authoring.js";
@@ -299,6 +300,26 @@ describe("Authoring search", () => {
     });
   });
 
+  test("a People Directory refusal of a valid search text is a recorded defect: the group answers unavailable", async () => {
+    const [products] = searchGroups(database.prisma, () => true);
+    const search = assembleAuthoringSearch([
+      assemblePeopleSearchGroup({
+        searchPeople: () =>
+          Promise.resolve({ ok: false, error: { code: "invalid_request" } }),
+      }),
+      products,
+    ]);
+    expect(await search.search(manager, "search product")).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          { kind: "people", state: "unavailable" },
+          { kind: "products", state: "ready", items: expectedProducts },
+        ],
+      },
+    });
+  });
+
   test("an empty, blank or overlong query is malformed", async () => {
     const search = assembleAuthoringSearch(
       searchGroups(database.prisma, () => true),
@@ -341,7 +362,15 @@ describe("Authoring search", () => {
     });
     expect(people.statusCode).toBe(200);
     expect(people.json()).toEqual({
-      groups: [{ kind: "people", state: "ready", items: [], partial: true }],
+      groups: [
+        {
+          kind: "people",
+          state: "ready",
+          items: [],
+          partial: true,
+          truncated: false,
+        },
+      ],
     });
     const denied = await server.inject({
       method: "GET",
@@ -406,6 +435,7 @@ describe("Authoring search", () => {
             state: "ready",
             items: [expectedPerson],
             partial: false,
+            truncated: false,
           },
           { kind: "products", state: "ready", items: [] },
           { kind: "materials", state: "ready", items: [] },

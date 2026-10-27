@@ -28,8 +28,15 @@ export class AuthoringSearchService {
         username: string | null;
       }>;
       kind: 'people';
+      /**
+       * Name and @username search was unavailable
+       */
       partial: boolean;
       state: 'ready';
+      /**
+       * More people matched than the group shows; a more precise text finds the rest
+       */
+      truncated: boolean;
     } | {
       items: Array<{
         archived: boolean;

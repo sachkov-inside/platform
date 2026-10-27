@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import type { ProductAccessOrigin } from "../../../account-rights/index.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -21,9 +22,6 @@ export const PERSON_PAYMENTS_LIMIT = 20;
 const LEARNING_CHUNK = 50;
 /** Accounts per identities read, the bound of the directory facts read. */
 const ACTOR_CHUNK = 100;
-
-type ProductOrigin =
-  "paid" | "manual" | "course_activation" | "legacy" | "unknown";
 
 /** Who recorded an event: Billing, Course Activation and the migration record no Account. */
 export type PersonHistoryActor =
@@ -58,7 +56,7 @@ export interface PersonProduct {
   /** The Product Access revision a revocation or restore must name. */
   readonly revision: number;
   readonly firstIssuedAt: string | null;
-  readonly origin: ProductOrigin;
+  readonly origin: ProductAccessOrigin;
   /** Newest first. */
   readonly history: readonly PersonHistoryEvent[];
 }
@@ -173,14 +171,14 @@ export async function readPerson(
   const [contacts, access, payments, submissions, member, waitlists] =
     await Promise.all([
       linked
-        ? guarded("readContacts", () =>
+        ? guarded(() =>
             dependencies.telegram.readContactsWithMarketing([accountId]),
           )
         : undefined,
-      guarded("readProducts", () =>
+      guarded(() =>
         dependencies.access.readAccountProductAccess(actorId, accountId),
       ),
-      guarded("readPayments", () =>
+      guarded(() =>
         dependencies.payments.execute(actorId, {
           operation: "payments.list",
           operationId: randomUUID(),
@@ -188,15 +186,11 @@ export async function readPerson(
           limit: PERSON_PAYMENTS_LIMIT,
         }),
       ),
-      guarded("readSubmissions", () =>
+      guarded(() =>
         dependencies.submissions.summarizeAccount(actorId, accountId),
       ),
-      guarded("readTelegram", () =>
-        dependencies.community.readMemberState(accountId),
-      ),
-      guarded("readWaitlists", () =>
-        dependencies.waitlists.readForAccount(accountId),
-      ),
+      guarded(() => dependencies.community.readMemberState(accountId)),
+      guarded(() => dependencies.waitlists.readForAccount(accountId)),
     ]);
 
   const products = access?.ok === true ? access.value.products : undefined;
@@ -205,14 +199,18 @@ export async function readPerson(
     products === undefined
       ? undefined
       : readLearning(dependencies, accountId, productIds),
-    readProductNames(dependencies, [
-      ...new Set([
-        ...productIds,
-        ...(waitlists?.ok === true
-          ? waitlists.value.map((item) => item.productId)
-          : []),
-      ]),
-    ]),
+    readProductNames(
+      dependencies,
+      [
+        ...new Set([
+          ...productIds,
+          ...(waitlists?.ok === true
+            ? waitlists.value.map((item) => item.productId)
+            : []),
+        ]),
+      ],
+      "readPerson",
+    ),
     products === undefined
       ? new Map<string, string | null>()
       : readActorLabels(
@@ -366,14 +364,13 @@ export async function readPerson(
  * turn into a result, is recorded here and leaves only this block unavailable.
  */
 async function guarded<Value>(
-  operation: string,
   read: () => Promise<Value>,
 ): Promise<Value | undefined> {
   try {
     return await read();
   } catch (error) {
     reportDependencyFailure(
-      { module: "people-directory", operation: `readPerson.${operation}` },
+      { module: "people-directory", operation: "readPerson" },
       error,
     );
     return undefined;
@@ -387,7 +384,7 @@ async function readLearning(
 ) {
   const items = [];
   for (let offset = 0; offset < productIds.length; offset += LEARNING_CHUNK) {
-    const read = await guarded("readLearning", () =>
+    const read = await guarded(() =>
       dependencies.learning.readLearningSummary(
         accountId,
         productIds.slice(offset, offset + LEARNING_CHUNK),
@@ -410,7 +407,7 @@ async function readActorLabels(
   const ids = [...new Set(actorIds.map((id) => id.toLowerCase()))];
   const labels = new Map<string, string | null>();
   for (let offset = 0; offset < ids.length; offset += ACTOR_CHUNK) {
-    const read = await guarded("readActorLabels", () =>
+    const read = await guarded(() =>
       readPeople(dependencies, ids.slice(offset, offset + ACTOR_CHUNK)),
     );
     if (read?.ok !== true) continue;

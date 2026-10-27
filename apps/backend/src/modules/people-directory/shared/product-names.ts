@@ -11,6 +11,8 @@ import type { PeopleDirectoryDependencies } from "./people-composition.js";
 export async function readProductNames(
   dependencies: Pick<PeopleDirectoryDependencies, "products">,
   productIds: readonly string[],
+  /** The directory operation the caller invoked, which names any failure. */
+  operation: "listPeople" | "readPerson",
 ): Promise<ReadonlyMap<string, string> | undefined> {
   if (productIds.length === 0) return new Map();
   try {
@@ -22,7 +24,7 @@ export async function readProductNames(
     );
     if (productIds.some((id) => !names.has(id))) {
       reportDependencyFailure(
-        { module: "people-directory", operation: "readProductNames" },
+        { module: "people-directory", operation },
         new RangeError("Product Access names a Product the catalogue lacks"),
       );
       return undefined;
@@ -30,7 +32,7 @@ export async function readProductNames(
     return names;
   } catch (error) {
     return dependencyFailure(
-      { module: "people-directory", operation: "readProductNames" },
+      { module: "people-directory", operation },
       error,
       undefined,
     );

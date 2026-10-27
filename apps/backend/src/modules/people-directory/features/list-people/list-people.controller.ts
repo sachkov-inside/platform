@@ -29,6 +29,7 @@ import {
   CurrentAccount,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
+import { productAccessOriginSchema } from "../../../account-rights/index.js";
 import { PERSON_SEARCH_QUERY_MAX_CHARACTERS } from "../../domain/person-search-term.js";
 import { PeopleDirectory } from "../../facets/people-directory/people-directory.js";
 import {
@@ -39,7 +40,6 @@ import {
   PEOPLE_CURSOR_MAX_CHARACTERS,
   PEOPLE_PAGE_DEFAULT_LIMIT,
   PEOPLE_PAGE_LIMIT,
-  peopleOrigins,
 } from "./list-people.js";
 
 const peopleListHttpSchema = z
@@ -57,7 +57,7 @@ const peopleListHttpSchema = z
                   productId: z.uuid(),
                   name: z.string(),
                   access: z.enum(["active", "revoked"]),
-                  origin: z.enum(peopleOrigins),
+                  origin: productAccessOriginSchema,
                 })
                 .strict(),
             ),
@@ -67,7 +67,11 @@ const peopleListHttpSchema = z
       .max(PEOPLE_PAGE_LIMIT),
     total: z.int().min(0),
     nextCursor: z.string().max(PEOPLE_CURSOR_MAX_CHARACTERS).nullable(),
-    nameSearch: z.enum(["available", "unavailable"]),
+    nameSearch: z
+      .enum(["available", "unavailable", "truncated"])
+      .describe(
+        "unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more than 50 people matched the text; the items, the total and the cursor cover only the first 50 matches",
+      ),
   })
   .strict();
 
@@ -108,7 +112,7 @@ export class ListPeopleController {
     required: false,
     description:
       "Only people with a Product Access first acquired this way (of `productId` when given, otherwise of any Product)",
-    schema: toOpenApiSchema(z.enum(peopleOrigins)),
+    schema: toOpenApiSchema(productAccessOriginSchema),
   })
   @ApiQuery({
     name: "state",
