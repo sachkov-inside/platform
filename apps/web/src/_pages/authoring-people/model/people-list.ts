@@ -57,23 +57,36 @@ export const personRowSchema = personIdentitySchema
 
 export type PersonRow = z.infer<typeof personRowSchema>;
 
+/** Больше совпадений по имени сервер не отдаёт (`nameSearch: "truncated"`). */
+export const PEOPLE_NAME_MATCH_LIMIT = 50;
+
 export const peopleListResponseSchema = z
   .object({
     items: z.array(personRowSchema),
     total: z.int().nonnegative(),
     nextCursor: cursorSchema.nullable(),
-    nameSearch: z.enum(["available", "unavailable"]),
+    /**
+     * `unavailable`: запрос был именем, а Telegram не ответил. `truncated`: совпадений по имени
+     * больше `PEOPLE_NAME_MATCH_LIMIT`, сервер вернул первые из них, и `total` считает только их.
+     */
+    nameSearch: z.enum(["available", "unavailable", "truncated"]),
   })
   .strict();
 
 export type PeopleListState =
   | ({ readonly kind: "ready" } & z.infer<typeof peopleListResponseSchema>)
+  /**
+   * Nest отказал запросу (400): обычно курсор устарел или пришёл из чужого набора фильтров.
+   * Повтор того же запроса не поможет, список предлагает начать с первой страницы.
+   */
+  | { readonly kind: "invalid_query" }
   | { readonly kind: "signed_out" }
   | { readonly kind: "forbidden" }
   | { readonly kind: "unavailable"; readonly reference: string };
 
 export const peopleListStateSchema: z.ZodType<PeopleListState> = z.union([
   peopleListResponseSchema.extend({ kind: z.literal("ready") }),
+  z.object({ kind: z.literal("invalid_query") }).strict(),
   z.object({ kind: z.literal("signed_out") }).strict(),
   z.object({ kind: z.literal("forbidden") }).strict(),
   z.object({ kind: z.literal("unavailable"), reference: z.string() }).strict(),

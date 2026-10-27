@@ -3,14 +3,10 @@ const fakes = vi.hoisted(() => ({
   token: vi.fn(),
   issue: vi.fn(),
   restore: vi.fn(),
-  read: vi.fn(),
-  list: vi.fn(),
 }));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestIssueProductAccess: fakes.issue,
   requestRestoreProductAccess: fakes.restore,
-  requestReadProductAccess: fakes.read,
-  requestListProductAccess: fakes.list,
 }));
 vi.mock("@/shared/auth/session-adapter.server", () => ({
   sessionAdapter: {
@@ -22,7 +18,6 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 import {
   handleIssueProductAccess,
   handleRestoreProductAccess,
-  handleReadProductAccess,
 } from "@/entities/subscription/api/product-access.server";
 const accountId = "00000000-0000-4000-8000-000000000001",
   productId = "00000000-0000-4000-8000-000000000002";
@@ -87,46 +82,28 @@ it("requires revision and reason for an explicit restoration", async () => {
   expect(fakes.restore).not.toHaveBeenCalled();
 });
 it("keeps authentication, Origin and backend owner permission on the actual access boundary", async () => {
-  const pair = { accountId, productId };
+  const input = {
+    accountId,
+    productId,
+    sourceRef: "owner-dialog-1",
+    reason: "Подарок",
+  };
   expect(
-    (await handleReadProductAccess(command(pair, "https://other.example")))
+    (await handleIssueProductAccess(command(input, "https://other.example")))
       .status,
   ).toBe(403);
-  expect(fakes.read).not.toHaveBeenCalled();
-  fakes.read.mockResolvedValue({
+  expect(fakes.issue).not.toHaveBeenCalled();
+  fakes.issue.mockResolvedValue({
     ok: false,
     problem: { code: "forbidden" },
     response: new Response(null, { status: 403 }),
   });
-  const denial = await handleReadProductAccess(command(pair));
+  const denial = await handleIssueProductAccess(command(input));
   expect(await denial.json()).toMatchObject({ ok: false, code: "forbidden" });
   const { LogtoSessionUnavailableError } =
     await import("@/shared/auth/session-adapter.server");
   fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
-  const response = await handleReadProductAccess(command(pair));
+  const response = await handleIssueProductAccess(command(input));
   expect(response.status).toBe(401);
-  expect(fakes.read).toHaveBeenCalledTimes(1);
-});
-it("preserves an unknown historical issuance date through the owner read boundary", async () => {
-  fakes.read.mockResolvedValue({
-    ok: true,
-    body: {
-      ok: true,
-      value: {
-        accountId,
-        productId,
-        access: "revoked",
-        firstIssuedAt: null,
-        revision: 1,
-        sources: [],
-        actions: [],
-      },
-    },
-    response: new Response(),
-  });
-  expect(
-    await (
-      await handleReadProductAccess(command({ accountId, productId }))
-    ).json(),
-  ).toMatchObject({ ok: true, value: { value: { firstIssuedAt: null } } });
+  expect(fakes.issue).toHaveBeenCalledTimes(1);
 });

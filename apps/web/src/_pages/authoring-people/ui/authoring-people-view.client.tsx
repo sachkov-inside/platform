@@ -31,6 +31,7 @@ import { Button } from "@/shared/ui/button";
 import {
   accessStateFilterLabels,
   hasPeopleListFilters,
+  PEOPLE_NAME_MATCH_LIMIT,
   peopleFilterChips,
   peopleListHref,
   resetPeopleListQuery,
@@ -69,17 +70,21 @@ export function AuthoringPeopleView({
   query,
   state,
 }: AuthoringPeopleViewProps) {
+  if (state.kind === "invalid_query")
+    return <PeopleQueryRefused onQueryChange={onQueryChange} query={query} />;
   if (state.kind !== "ready")
     return <AuthoringPeopleFailure onRetry={onRetry} state={state} />;
   const filtered = hasPeopleListFilters(query);
   const firstUse = state.total === 0 && !filtered && query.cursor === undefined;
+  const truncated = state.nameSearch === "truncated";
+  // При обрезанном поиске по имени `total` считает только показанные совпадения: число
+  // называется как нижняя граница, а не как итог.
+  const count = truncated
+    ? `Больше ${formatCountRu(PEOPLE_NAME_MATCH_LIMIT, peopleForms)}`
+    : formatCountRu(state.total, peopleForms);
   return (
     <AuthoringPeopleFrame busy={isRefreshing} labelledBy={headingId}>
-      <AdminListHeader
-        count={formatCountRu(state.total, peopleForms)}
-        headingId={headingId}
-        title="Люди"
-      />
+      <AdminListHeader count={count} headingId={headingId} title="Люди" />
       <section
         aria-label="Список людей"
         className="grid grid-cols-[minmax(0,1fr)] gap-4"
@@ -94,13 +99,14 @@ export function AuthoringPeopleView({
           <>
             <PeopleFilters
               catalog={catalog}
+              count={count}
               onQueryChange={onQueryChange}
               query={query}
-              total={state.total}
             />
             {state.nameSearch === "unavailable" ? (
               <NameSearchUnavailable />
             ) : null}
+            {truncated ? <NameSearchTruncated /> : null}
             <PeopleRows
               isRefreshing={isRefreshing}
               onQueryChange={onQueryChange}
@@ -126,14 +132,15 @@ function catalogName(catalog: AccessProductCatalogView, productId: string) {
 
 function PeopleFilters({
   catalog,
+  count,
   onQueryChange,
   query,
-  total,
 }: {
   readonly catalog: AccessProductCatalogView;
+  /** «12 человек» или «Больше 50 человек», если поиск по имени обрезан. */
+  readonly count: string;
   readonly onQueryChange: (query: PeopleListQuery) => void;
   readonly query: PeopleListQuery;
-  readonly total: number;
 }) {
   const filtered = hasPeopleListFilters(query);
   const products =
@@ -236,9 +243,7 @@ function PeopleFilters({
             }
           : undefined
       }
-      resultLabel={
-        filtered ? `Найдено: ${formatCountRu(total, peopleForms)}` : undefined
-      }
+      resultLabel={filtered ? `Найдено: ${count}` : undefined}
       search={{
         label: "Поиск по имени, @username, email или ID",
         maxLength: 160,
@@ -249,6 +254,20 @@ function PeopleFilters({
         value: query.search ?? "",
       }}
     />
+  );
+}
+
+/** Совпадений по имени больше предела: показаны первые, запрос стоит уточнить. */
+function NameSearchTruncated() {
+  return (
+    <p
+      className="flex gap-2 rounded-xl border border-border bg-secondary p-3 text-sm"
+      role="status"
+    >
+      <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      Совпадений по имени больше {PEOPLE_NAME_MATCH_LIMIT}, показаны первые.
+      Уточните запрос.
+    </p>
   );
 }
 
@@ -453,12 +472,47 @@ function menuItems(row: PersonRow): AdminRowMenuItem[] {
   ];
 }
 
+/**
+ * Nest отказал запросу списка (400). С курсором это устаревшая страница: список начинается
+ * заново с теми же фильтрами. Без курсора не так сам запрос, и сбрасываются фильтры.
+ */
+function PeopleQueryRefused({
+  onQueryChange,
+  query,
+}: {
+  readonly onQueryChange: (query: PeopleListQuery) => void;
+  readonly query: PeopleListQuery;
+}) {
+  const { cursor, ...firstPage } = query;
+  const stalePage = cursor !== undefined;
+  return (
+    <AuthoringPeopleFrame labelledBy={headingId}>
+      <AdminListHeader headingId={headingId} title="Люди" />
+      <AdminNoResults
+        description={
+          stalePage
+            ? "Список изменился или ссылка неполная, поэтому эту страницу уже не показать. Откройте список с первой страницы: фильтры сохранятся."
+            : "Сервер не принял этот запрос. Сбросьте поиск и фильтры, чтобы увидеть всех людей."
+        }
+        onReset={() => {
+          onQueryChange(stalePage ? firstPage : resetPeopleListQuery);
+        }}
+        resetLabel={stalePage ? "К началу списка" : "Сбросить фильтры"}
+        title={stalePage ? "Страница списка устарела" : "Запрос не принят"}
+      />
+    </AuthoringPeopleFrame>
+  );
+}
+
 function AuthoringPeopleFailure({
   onRetry,
   state,
 }: {
   readonly onRetry: () => void;
-  readonly state: Exclude<PeopleListState, { readonly kind: "ready" }>;
+  readonly state: Exclude<
+    PeopleListState,
+    { readonly kind: "ready" | "invalid_query" }
+  >;
 }) {
   const view =
     state.kind === "signed_out"

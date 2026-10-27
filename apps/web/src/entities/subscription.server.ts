@@ -19,8 +19,6 @@ export {
 } from "./subscription/api/billing-catalog.server";
 export {
   handleIssueProductAccess,
-  handleListProductAccess,
-  handleReadProductAccess,
   handleRestoreProductAccess,
 } from "./subscription/api/product-access.server";
 export {

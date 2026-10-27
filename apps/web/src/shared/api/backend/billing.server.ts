@@ -206,28 +206,6 @@ export function requestBillingPaymentLink(id: string) {
   );
 }
 
-export function requestListProductAccess(
-  requestBody: Parameters<AccessService["listProductAccess"]>[0]["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) => new AccessService(request).listProductAccess({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-
-export function requestReadProductAccess(
-  requestBody: Parameters<AccessService["readProductAccess"]>[0]["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) => new AccessService(request).readProductAccess({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-
 export function requestIssueProductAccess(
   requestBody: Parameters<
     AccessService["issueProductAccess"]

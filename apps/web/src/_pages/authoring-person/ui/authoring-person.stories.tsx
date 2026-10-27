@@ -251,9 +251,7 @@ export const GrantProduct: Story = {
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Выдать продукт" }),
     );
-    await expect(
-      await page.findByText(`Продукт «${practice.name}» выдан.`),
-    ).toBeVisible();
+    await expect(await page.findByText("Доступ выдан.")).toBeVisible();
     await expect(written).toHaveBeenCalledTimes(1);
   },
 };

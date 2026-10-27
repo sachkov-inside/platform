@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
 import {
-  fullStackBrowserJsonRequest,
+  fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -23,27 +23,36 @@ test("owner issues, withdraws and explicitly restores one Product right through 
   )
     throw new Error("Missing Product access owner fixture");
   const pair = { accountId: owner, productId };
-  const stateSchema = z.object({
-    ok: z.literal(true),
-    value: z.object({
-      value: z.object({
-        access: z.enum(["active", "revoked"]),
-        revision: z.int(),
-        firstIssuedAt: z.iso.datetime().nullable(),
-        sources: z.array(z.object({ sourceRef: z.string() })),
-        actions: z.array(z.object({ kind: z.string() })),
+  // The person card BFF is the owner's read of Product Access (#1721); the list and read
+  // commands of the former access tab are gone.
+  const cardSchema = z.object({
+    kind: z.literal("ready"),
+    card: z.object({
+      products: z.object({
+        state: z.literal("ready"),
+        items: z.array(
+          z.object({
+            productId: z.string(),
+            access: z.enum(["active", "revoked"]),
+            revision: z.int(),
+            firstIssuedAt: z.iso.datetime({ offset: true }).nullable(),
+            history: z.array(z.object({ kind: z.string() })),
+          }),
+        ),
       }),
     }),
   });
   async function read() {
-    const response = await fullStackBrowserJsonRequest(
+    const response = await fullStackBrowserRequest(
       page,
-      "/api/authoring/access/products/read",
-      "POST",
-      pair,
+      `/api/authoring/people/${pair.accountId}`,
     );
     expect(response.status()).toBe(200);
-    return stateSchema.parse(await response.json()).value.value;
+    const product = cardSchema
+      .parse(await response.json())
+      .card.products.items.find((item) => item.productId === pair.productId);
+    if (product === undefined) throw new Error("The card has no such Product");
+    return product;
   }
   await page.goto(`/authoring/people/${owner}`);
   const card = page.getByRole("main");
@@ -64,7 +73,7 @@ test("owner issues, withdraws and explicitly restores one Product right through 
   await issueDialog
     .getByRole("button", { name: "Выдать продукт", exact: true })
     .click();
-  await expect(card.getByText(/выдан\.$|уже был/u)).toBeVisible();
+  await expect(card.getByText(/^Доступ выдан\.$|уже был/u)).toBeVisible();
   const issued = await read();
   expect(issued.access).toBe("active");
   const cabinet = await context.newPage();
@@ -122,7 +131,7 @@ test("owner issues, withdraws and explicitly restores one Product right through 
   const restored = await read();
   expect(restored.access).toBe("active");
   expect(restored.firstIssuedAt).toBe(issued.firstIssuedAt);
-  expect(restored.actions.map((action) => action.kind)).toEqual(
+  expect(restored.history.map((entry) => entry.kind)).toEqual(
     expect.arrayContaining(["revoke", "restore"]),
   );
   await cabinet.reload();

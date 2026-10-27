@@ -37,16 +37,10 @@ export function requestPeopleIdentities(
   );
 }
 
-/** Filters of the people list; every key is optional and the cursor keeps them. */
-export interface PeopleListQuery {
-  readonly query?: string;
-  readonly productId?: string;
-  readonly origin?:
-    "paid" | "manual" | "course_activation" | "legacy" | "unknown";
-  readonly state?: "active" | "revoked";
-  readonly cursor?: string;
-  readonly limit?: number;
-}
+/** Filters of the people list as the generated client declares them; the cursor keeps them. */
+export type PeopleListQuery = NonNullable<
+  Parameters<PeopleService["listPeople"]>[0]
+>;
 
 /** The owner's people list with filters, total and a keyset cursor; `billing:manage` only. */
 export function requestPeopleList(
@@ -54,17 +48,7 @@ export function requestPeopleList(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) =>
-      new PeopleService(request).listPeople({
-        ...(query.query === undefined ? {} : { query: query.query }),
-        ...(query.productId === undefined
-          ? {}
-          : { productId: query.productId }),
-        ...(query.origin === undefined ? {} : { origin: query.origin }),
-        ...(query.state === undefined ? {} : { state: query.state }),
-        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
-        ...(query.limit === undefined ? {} : { limit: query.limit }),
-      }),
+    (request) => new PeopleService(request).listPeople(query),
     200,
     { accessToken },
   );
