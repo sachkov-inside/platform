@@ -20,6 +20,10 @@ import {
 } from "./modules/communications/waitlist-authorization.js";
 import { TelegramContacts } from "./modules/identity-linking/telegram-contacts.js";
 import { TelegramContactsController } from "./modules/identity-linking/telegram-contacts.controller.js";
+import { TelegramContactsV2Controller } from "./modules/identity-linking/telegram-contacts-v2.controller.js";
+import { LinkProfiles } from "./modules/identity-linking/link-profiles.js";
+import { CONTACT_MARKETING } from "./modules/identity-linking/contact-marketing.js";
+import { contactMarketing } from "./application/contact-marketing.js";
 import {
   TELEGRAM_CONTACT_PROFILE,
   DisabledTelegramContactProfile,
@@ -145,6 +149,7 @@ export class AppModule {
       module: AppModule,
       controllers: [
         TelegramContactsController,
+        TelegramContactsV2Controller,
         BotSignInController,
         CommunityController,
         CommunicationsController,
@@ -189,6 +194,8 @@ export class AppModule {
         },
 
         TelegramContacts,
+        LinkProfiles,
+        { provide: CONTACT_MARKETING, useValue: contactMarketing },
         {
           provide: TELEGRAM_CONTACT_PROFILE,
           useFactory: () =>

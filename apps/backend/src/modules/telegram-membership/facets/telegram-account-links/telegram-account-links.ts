@@ -2,10 +2,21 @@ import { telegramTransaction } from "../../infrastructure/transaction.js";
 import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   telegramContactsResponseSchema,
-  type TelegramContact,
+  type TelegramContactQuery,
 } from "@inside/contracts/telegram-contact";
+import {
+  normalizeTelegramContactSearchQuery,
+  TELEGRAM_CONTACT_SEARCH_LIMIT_MAX,
+  telegramContactsV2ResponseSchema,
+  type TelegramContactMarketing,
+  type TelegramContactMatch,
+  type TelegramContactV2,
+} from "@inside/contracts/telegram-contact-v2";
 import type { TelegramContactsProvider } from "../../ports/telegram-contacts-provider.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  writeLog,
+} from "../../../../infrastructure/observability/index.js";
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
@@ -16,6 +27,25 @@ export type ConfirmedTelegramAccountLink = Readonly<{
   telegramIdentityRef: string;
 }>;
 const IDENTITY_CHUNK = 5_000;
+const LINKED_ACCOUNTS_CHUNK = 5_000;
+/** Largest linked set handed to another owner in one composition; the measured bound of #1721. */
+const LINKED_ACCOUNTS_BOUND = 50_000;
+
+interface ContactProjection {
+  readonly telegramIdentityRef: string | null;
+  readonly displayName: string | null;
+  readonly telegramUsername: string | null;
+  readonly telegramUrl: string | null;
+  readonly telegramContactState: "available" | "not_linked" | "unavailable";
+  /** `/stop` state; `unknown` when not linked, unreadable or read through v1. */
+  readonly marketing: TelegramContactMarketing;
+}
+
+interface ContactSearchHit {
+  readonly accountId: string;
+  readonly displayName: string | null;
+  readonly username: string | null;
+}
 
 export type CurrentAccountsResult =
   | { readonly ok: true; readonly accounts: ReadonlyMap<string, string> }
@@ -39,16 +69,33 @@ export class TelegramAccountLinks {
 
   /** Current contact for author support; no previous binding or name from an agent report is used. */
   async readContacts(accountIds: readonly string[]) {
-    const contacts = new Map<
-      string,
-      {
-        telegramIdentityRef: string | null;
-        displayName: string | null;
-        telegramUsername: string | null;
-        telegramUrl: string | null;
-        telegramContactState: "available" | "not_linked" | "unavailable";
-      }
-    >();
+    const reading = await this.readContactProjection(accountIds, false);
+    if (!reading.ok) return reading;
+    const contacts = new Map<string, Omit<ContactProjection, "marketing">>();
+    for (const [
+      accountId,
+      { marketing: _marketing, ...contact },
+    ] of reading.contacts)
+      contacts.set(accountId, contact);
+    return { ok: true, contacts } as const;
+  }
+
+  /**
+   * `readContacts` plus the `/stop` state of each linked Telegram contact. A Telegram release
+   * without the v2 contract answers through v1, and every `marketing` is then `unknown`.
+   */
+  readContactsWithMarketing(accountIds: readonly string[]) {
+    return this.readContactProjection(accountIds, true);
+  }
+
+  private async readContactProjection(
+    accountIds: readonly string[],
+    withMarketing: boolean,
+  ): Promise<
+    | { readonly ok: true; readonly contacts: Map<string, ContactProjection> }
+    | { readonly ok: false }
+  > {
+    const contacts = new Map<string, ContactProjection>();
     if (!z.array(z.uuid()).max(100).safeParse(accountIds).success)
       return { ok: false } as const;
     const accounts = [...new Set(accountIds)];
@@ -68,29 +115,25 @@ export class TelegramAccountLinks {
           ]
         : [],
     );
-    const response =
+    const answered =
       queries.length === 0 || this.contactsProvider === undefined
-        ? ({ ok: false } as const)
-        : await this.contactsProvider.read(queries);
-    const parsed = response.ok
-      ? telegramContactsResponseSchema.safeParse({
-          contractVersion: "inside.telegram-contact.v1",
-          contacts: response.contacts,
-        })
-      : null;
-    const profiles = new Map<string, Map<string, TelegramContact | null>>();
-    if (parsed?.success === true) {
-      for (const contact of parsed.data.contacts) {
-        const identities =
-          profiles.get(contact.accountRef) ??
-          new Map<string, TelegramContact | null>();
-        // Duplicate pairs stay ambiguous; opaque keys never share an encoded separator.
-        identities.set(
-          contact.telegramIdentityRef,
-          identities.has(contact.telegramIdentityRef) ? null : contact,
-        );
-        profiles.set(contact.accountRef, identities);
-      }
+        ? undefined
+        : await this.fetchContacts(
+            this.contactsProvider,
+            queries,
+            withMarketing,
+          );
+    const profiles = new Map<string, Map<string, TelegramContactV2 | null>>();
+    for (const contact of answered ?? []) {
+      const identities =
+        profiles.get(contact.accountRef) ??
+        new Map<string, TelegramContactV2 | null>();
+      // Duplicate pairs stay ambiguous; opaque keys never share an encoded separator.
+      identities.set(
+        contact.telegramIdentityRef,
+        identities.has(contact.telegramIdentityRef) ? null : contact,
+      );
+      profiles.set(contact.accountRef, identities);
     }
     const current = await Promise.all(
       accounts.map((accountId) => this.readBinding({ accountId })),
@@ -122,9 +165,183 @@ export class TelegramAccountLinks {
             : contact === undefined
               ? "unavailable"
               : "available",
+        marketing:
+          matched == null || matched.status === "not_found"
+            ? "unknown"
+            : matched.marketing,
       });
     }
     return { ok: true, contacts } as const;
+  }
+
+  /** The provider's answer revalidated at this owner; `undefined` leaves every contact unavailable. */
+  private async fetchContacts(
+    provider: TelegramContactsProvider,
+    queries: readonly TelegramContactQuery[],
+    withMarketing: boolean,
+  ): Promise<readonly TelegramContactV2[] | undefined> {
+    if (withMarketing) {
+      const response = await provider.readWithMarketing(queries);
+      if (response.ok) {
+        const parsed = telegramContactsV2ResponseSchema.safeParse({
+          contractVersion: "inside.telegram-contact.v2",
+          contacts: response.contacts,
+        });
+        return parsed.success ? parsed.data.contacts : undefined;
+      }
+      if (response.reason === "unavailable") return undefined;
+    }
+    const response = await provider.read(queries);
+    const parsed = response.ok
+      ? telegramContactsResponseSchema.safeParse({
+          contractVersion: "inside.telegram-contact.v1",
+          contacts: response.contacts,
+        })
+      : undefined;
+    return parsed?.success === true
+      ? parsed.data.contacts.map((contact) => ({
+          ...contact,
+          marketing: "unknown" as const,
+        }))
+      : undefined;
+  }
+
+  /**
+   * Accounts whose current link carries a Telegram name or username containing `query`. Each
+   * Telegram match is accepted only for the Account that holds exactly that link now. The text
+   * is personal data and never logged.
+   */
+  async searchContacts(
+    query: string,
+    limit: number,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly hits: readonly ContactSearchHit[];
+        readonly truncated: boolean;
+      }
+    | {
+        readonly ok: false;
+        readonly reason: "invalid_query" | "not_supported" | "unavailable";
+      }
+  > {
+    if (
+      normalizeTelegramContactSearchQuery(query) === undefined ||
+      !z
+        .number()
+        .int()
+        .min(1)
+        .max(TELEGRAM_CONTACT_SEARCH_LIMIT_MAX)
+        .safeParse(limit).success
+    )
+      return { ok: false, reason: "invalid_query" };
+    if (this.contactsProvider === undefined)
+      return { ok: false, reason: "unavailable" };
+    const found = await this.contactsProvider.search(query, limit);
+    if (!found.ok) return found;
+    const resolved = await this.resolveContactMatches(found.matches);
+    return resolved.ok
+      ? { ok: true, hits: resolved.hits, truncated: found.truncated }
+      : { ok: false, reason: "unavailable" };
+  }
+
+  /**
+   * Keeps a Telegram match only when its pair is the current confirmed link of one Account here:
+   * a transferred, unlinked or ambiguous identity resolves to nothing. Order follows the matches.
+   */
+  private async resolveContactMatches(
+    matches: readonly TelegramContactMatch[],
+  ): Promise<
+    | { readonly ok: true; readonly hits: readonly ContactSearchHit[] }
+    | { readonly ok: false }
+  > {
+    if (matches.length === 0) return { ok: true, hits: [] };
+    try {
+      const rows = await this.prisma.telegramAccountLinkState.findMany({
+        where: {
+          identityRef: {
+            in: [...new Set(matches.map((match) => match.telegramIdentityRef))],
+          },
+          principalRef: { not: null },
+        },
+        select: { accountId: true, principalRef: true, identityRef: true },
+      });
+      const holders = new Map<string, (typeof rows)[number][]>();
+      for (const row of rows)
+        if (row.identityRef !== null)
+          holders.set(row.identityRef, [
+            ...(holders.get(row.identityRef) ?? []),
+            row,
+          ]);
+      const hits: ContactSearchHit[] = [];
+      const seen = new Set<string>();
+      for (const match of matches) {
+        const current = holders.get(match.telegramIdentityRef);
+        const holder = current?.length === 1 ? current[0] : undefined;
+        if (
+          holder?.principalRef !== match.accountRef ||
+          seen.has(holder.accountId)
+        )
+          continue;
+        seen.add(holder.accountId);
+        hits.push({
+          accountId: holder.accountId,
+          displayName: match.displayName,
+          username: match.username,
+        });
+      }
+      return { ok: true, hits };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "resolveContactMatches" },
+        error,
+        { ok: false } as const,
+      );
+    }
+  }
+
+  /**
+   * Every Account with a current confirmed link, read in keyset chunks. The set is complete or
+   * refused: beyond `LINKED_ACCOUNTS_BOUND` the caller gets `ok: false`, never a silent prefix.
+   */
+  async listLinkedAccountIds(): Promise<
+    | { readonly ok: true; readonly accountIds: readonly string[] }
+    | { readonly ok: false }
+  > {
+    try {
+      const accountIds: string[] = [];
+      let after: string | undefined;
+      for (;;) {
+        const rows = await this.prisma.telegramAccountLinkState.findMany({
+          where: {
+            principalRef: { not: null },
+            identityRef: { not: null },
+            ...(after === undefined ? {} : { accountId: { gt: after } }),
+          },
+          orderBy: { accountId: "asc" },
+          take: LINKED_ACCOUNTS_CHUNK,
+          select: { accountId: true },
+        });
+        accountIds.push(...rows.map((row) => row.accountId));
+        if (accountIds.length > LINKED_ACCOUNTS_BOUND) {
+          writeLog("error", "linked_accounts_bound_exceeded", {
+            module: "telegram-membership",
+            operation: "listLinkedAccountIds",
+            bound: LINKED_ACCOUNTS_BOUND,
+          });
+          return { ok: false };
+        }
+        if (rows.length < LINKED_ACCOUNTS_CHUNK)
+          return { ok: true, accountIds };
+        after = rows.at(-1)?.accountId;
+      }
+    } catch (error) {
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "listLinkedAccountIds" },
+        error,
+        { ok: false } as const,
+      );
+    }
   }
 
   /** Exact current verified identity only; historical links and usernames are never recipients. */

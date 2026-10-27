@@ -11,6 +11,7 @@ import { CLOCK, type Clock } from "../../shared/clock.js";
 import { LINK_EFFECTS, type LinkEffects } from "./link-effects.js";
 import { lockIdentityLinkAccount } from "./identity-link-account-lock.js";
 import { isOpaqueRef } from "./identity-linking-validation.js";
+import { deleteLinkProfile } from "./link-profiles.js";
 
 export interface IdentityLinkRecoveryCommand {
   readonly confirmedSourceAccountRef: string;
@@ -112,6 +113,8 @@ export class IdentityLinkRecovery {
         .where("telegram_identity_ref", "=", ready.transfer.telegramIdentityRef)
         .where("account_ref", "=", ready.transfer.sourceAccountRef)
         .executeTakeFirstOrThrow();
+      // The name observed under the source Account never becomes searchable under the target.
+      await deleteLinkProfile(transaction, ready.transfer.telegramIdentityRef);
       await transaction
         .updateTable("link_transactions")
         .set({ confirmed_at: targetLinkedAt, state: "linked" })

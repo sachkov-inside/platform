@@ -1,0 +1,381 @@
+{
+  "contractVersion": "inside.telegram-contact.v2",
+  "search": {
+    "path": "/integrations/platform/v2/telegram-contacts/search",
+    "validRequests": [
+      {
+        "case": "name fragment",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "анна",
+          "limit": 20
+        },
+        "normalizedQuery": "анна"
+      },
+      {
+        "case": "username with a leading at sign and surrounding spaces",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "  @anna_example ",
+          "limit": 1
+        },
+        "normalizedQuery": "anna_example"
+      },
+      {
+        "case": "LIKE metacharacters are literal text",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "50%_off\\",
+          "limit": 50
+        },
+        "normalizedQuery": "50%_off\\"
+      },
+      {
+        "case": "longest query",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "limit": 1
+        },
+        "normalizedQuery": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "invalidRequests": [
+      {
+        "case": "v1 contract version",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v1",
+          "query": "анна",
+          "limit": 20
+        }
+      },
+      {
+        "case": "unknown contract version",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v3",
+          "query": "анна",
+          "limit": 20
+        }
+      },
+      {
+        "case": "empty after trimming",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "   ",
+          "limit": 20
+        }
+      },
+      {
+        "case": "only an at sign",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "@",
+          "limit": 20
+        }
+      },
+      {
+        "case": "longer than 64 characters",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "limit": 20
+        }
+      },
+      {
+        "case": "control character",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "анна\nanna",
+          "limit": 20
+        }
+      },
+      {
+        "case": "zero limit",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "анна",
+          "limit": 0
+        }
+      },
+      {
+        "case": "limit above 50",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "анна",
+          "limit": 51
+        }
+      },
+      {
+        "case": "fractional limit",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "анна",
+          "limit": 1.5
+        }
+      },
+      {
+        "case": "unknown field",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "query": "анна",
+          "limit": 20,
+          "botIdentity": "other"
+        }
+      }
+    ],
+    "validResponses": [
+      {
+        "case": "matches with optional username",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "matches": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "displayName": "Анна Смирнова",
+              "username": "anna_example"
+            },
+            {
+              "accountRef": "synthetic-account-2",
+              "telegramIdentityRef": "synthetic-identity-2",
+              "displayName": "Анна",
+              "username": null
+            }
+          ],
+          "truncated": false
+        }
+      },
+      {
+        "case": "username without a name",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "matches": [
+            {
+              "accountRef": "synthetic-account-3",
+              "telegramIdentityRef": "synthetic-identity-3",
+              "displayName": null,
+              "username": "anna_example"
+            }
+          ],
+          "truncated": true
+        }
+      },
+      {
+        "case": "no matches",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "matches": [],
+          "truncated": false
+        }
+      }
+    ],
+    "invalidResponses": [
+      {
+        "case": "missing truncated flag",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "matches": []
+        }
+      },
+      {
+        "case": "v1 contract version",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v1",
+          "matches": [],
+          "truncated": false
+        }
+      },
+      {
+        "case": "username with an at sign",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "matches": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "displayName": "Анна",
+              "username": "@anna_example"
+            }
+          ],
+          "truncated": false
+        }
+      },
+      {
+        "case": "extra Telegram user id",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "matches": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "displayName": "Анна",
+              "username": null,
+              "telegramUserId": "42"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    ]
+  },
+  "read": {
+    "path": "/integrations/platform/v2/telegram-contacts/read",
+    "validRequests": [
+      {
+        "case": "exact pairs",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1"
+            }
+          ]
+        }
+      },
+      {
+        "case": "empty batch",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": []
+        }
+      }
+    ],
+    "invalidRequests": [
+      {
+        "case": "v1 contract version on the v2 path",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v1",
+          "contacts": []
+        }
+      },
+      {
+        "case": "empty account reference",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "",
+              "telegramIdentityRef": "synthetic-identity-1"
+            }
+          ]
+        }
+      },
+      {
+        "case": "unknown field",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [],
+          "marketing": true
+        }
+      }
+    ],
+    "validResponses": [
+      {
+        "case": "available, stopped, unavailable and not found",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "status": "available",
+              "displayName": "Анна Смирнова",
+              "username": "anna_example",
+              "marketing": "enabled"
+            },
+            {
+              "accountRef": "synthetic-account-2",
+              "telegramIdentityRef": "synthetic-identity-2",
+              "status": "available",
+              "displayName": "Анна",
+              "username": null,
+              "marketing": "stopped"
+            },
+            {
+              "accountRef": "synthetic-account-3",
+              "telegramIdentityRef": "synthetic-identity-3",
+              "status": "unavailable",
+              "displayName": null,
+              "username": null,
+              "marketing": "stopped"
+            },
+            {
+              "accountRef": "synthetic-account-4",
+              "telegramIdentityRef": "synthetic-identity-4",
+              "status": "not_found",
+              "displayName": null,
+              "username": null,
+              "marketing": "unknown"
+            }
+          ]
+        }
+      }
+    ],
+    "invalidResponses": [
+      {
+        "case": "missing marketing state",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "status": "available",
+              "displayName": "Анна",
+              "username": null
+            }
+          ]
+        }
+      },
+      {
+        "case": "not found with a marketing state",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "status": "not_found",
+              "displayName": null,
+              "username": null,
+              "marketing": "stopped"
+            }
+          ]
+        }
+      },
+      {
+        "case": "unavailable with a name",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "status": "unavailable",
+              "displayName": "Анна",
+              "username": null,
+              "marketing": "unknown"
+            }
+          ]
+        }
+      },
+      {
+        "case": "unknown marketing value",
+        "body": {
+          "contractVersion": "inside.telegram-contact.v2",
+          "contacts": [
+            {
+              "accountRef": "synthetic-account-1",
+              "telegramIdentityRef": "synthetic-identity-1",
+              "status": "available",
+              "displayName": "Анна",
+              "username": null,
+              "marketing": "paused"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

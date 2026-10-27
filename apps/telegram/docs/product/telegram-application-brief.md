@@ -105,6 +105,11 @@ token с Telegram identity, но не завершает перенос дост
 же пары идемпотентно; conflict не делает silent merge или transfer. Exceptional transfer выполняет
 только владелец через отдельную audited CLI/runbook процедуру.
 
+Для поиска людей авторами (решение владельца 27.10.2026, #1721) бот хранит имя и username
+только текущей привязки. Запись обновляется, когда привязанный человек пишет боту или
+нажимает его кнопки и когда Platform читает контакт; перенос привязки её удаляет. Поиск и
+чтение идут по [контракту `inside.telegram-contact.v2`](../../../../docs/contracts/runtime/telegram-contact.md).
+
 ### Membership observation
 
 Канонический закрытый Telegram chat является единственным Membership Signal. Tribute или другой
