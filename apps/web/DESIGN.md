@@ -277,6 +277,14 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
   buyer, the state badge and the amount. The payment page shows amounts, refunds, bank events and
   the owner journal, puts «Сверить с банком» behind a confirmation and reveals the order email
   only on «Показать email».
+- **Overview (#1719):** `/authoring` opens with the period switch (7, 30, 90 days, in the address)
+  and a row of `MetricCard` toggles; the pressed card picks the one `TrendChart` below, where the
+  previous period is dashed and an all-zero period shows an empty state instead of a flat line.
+  Change is a signed number in words («+2 продажи»), never a percentage, and «нет данных» when the
+  previous period is empty. «Требует внимания» lists only rows with work, each a link into an
+  already filtered list; an unchecked source reads as such and never as «Всё в порядке». A block
+  the viewer has no right to names the missing right instead of rendering empty. The product page
+  opens on its «Обзор» tab with the same cards and event rows.
 - **Evidence:** the [surface brief](.impeccable/surfaces/admin-workspace.md) records implemented
   task groups and the bounded 18-image review set. Captures establish named states, not unseen
   controls or owner acceptance.
