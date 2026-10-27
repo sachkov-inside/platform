@@ -14,18 +14,28 @@ const minimumStartingFreeBytes = 20 * gib;
 
 /** @param {string} openFiles lsof file metadata, never file contents */
 export function dockerDesktopStoragePath(openFiles) {
+  return storagePath(openFiles, "Docker.raw", "Docker Desktop");
+}
+
+/** @param {string} openFiles lsof metadata from the active OrbStack process. */
+export function orbstackStoragePath(openFiles) {
+  return storagePath(openFiles, "data.img.raw", "OrbStack");
+}
+
+/** @param {string} openFiles @param {string} filename @param {string} runtime */
+function storagePath(openFiles, filename, runtime) {
   const disks = [
     ...new Set(
       openFiles
         .split("\n")
-        .filter((line) => line.startsWith("n") && line.endsWith("/Docker.raw"))
+        .filter((line) => line.startsWith("n") && line.endsWith(`/${filename}`))
         .map((line) => line.slice(1)),
     ),
   ];
   const [disk] = disks;
   if (disks.length !== 1 || disk === undefined || !isAbsolute(disk)) {
     throw new Error(
-      "Cannot identify the active Docker Desktop data disk; refusing an unmeasured build budget.",
+      `Cannot identify the active ${runtime} data disk; refusing an unmeasured build budget.`,
     );
   }
   return disk;
