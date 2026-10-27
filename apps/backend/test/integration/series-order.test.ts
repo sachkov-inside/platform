@@ -66,6 +66,8 @@ describe("Product order", () => {
     expect(legacy.value.find(({ id }) => id === created.value.id)).toEqual({
       ...created.value,
       kind: "product",
+      // The list row adds the holder count; this assembly has no holder reads.
+      holderCount: null,
     });
     const archived = await authoring.setContentCollectionArchive({
       actor,

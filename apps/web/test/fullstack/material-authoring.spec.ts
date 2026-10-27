@@ -1742,7 +1742,7 @@ test("author edits product metadata on a dedicated page and returns to the list 
   await page
     .getByRole("textbox", { name: "Краткое описание" })
     .fill("Описание сохраняется перед возвратом к списку.");
-  await page.getByRole("button", { name: "Все продукты", exact: true }).click();
+  await page.getByRole("link", { name: "Все продукты", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products$/u);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
   await page
@@ -2041,13 +2041,7 @@ test("trusted author walks a product chapter through Previews that stay closed t
     await page.goto(
       `/authoring/materials?${new URLSearchParams({ search: inChapter.title }).toString()}`,
     );
-    await page
-      .getByRole("listitem")
-      .filter({
-        has: page.getByRole("link", { name: inChapter.title, exact: true }),
-      })
-      .getByRole("link", { name: "Предпросмотр" })
-      .click();
+    await chooseRowAction(page, inChapter.title, "Предпросмотр");
 
     await expect(page).toHaveURL(
       (url) =>

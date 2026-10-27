@@ -587,8 +587,8 @@ export const Imported: Story = {
     ])
       await expect(canvas.queryByRole("button", { name })).toBeNull();
     await expect(
-      canvas.getByRole("button", { name: "Все продукты" }),
-    ).toBeEnabled();
+      canvas.getByRole("link", { name: "Все продукты" }),
+    ).toHaveAttribute("href", "/authoring/products");
   },
 };
 export const ImportedMobile: Story = {
