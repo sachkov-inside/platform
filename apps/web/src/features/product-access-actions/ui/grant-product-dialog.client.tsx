@@ -339,9 +339,12 @@ function CatalogChoices({
         <span className="min-w-0">
           {accessProductLabel(product)}
           {access === undefined ? null : (
-            <span className="text-muted-foreground">
-              {access === "active" ? " · уже выдан" : " · отозван"}
-            </span>
+            <>
+              {" "}
+              <span className="text-muted-foreground">
+                {access === "active" ? "· уже выдан" : "· отозван"}
+              </span>
+            </>
           )}
         </span>
       </label>
