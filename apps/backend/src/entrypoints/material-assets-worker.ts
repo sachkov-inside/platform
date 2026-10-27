@@ -1,3 +1,5 @@
+import { PgBossWorkObservation } from "../infrastructure/pg-boss-work-observation.js";
+import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
 import { jobQueues } from "../infrastructure/job-queues.js";
 import "reflect-metadata";
 
@@ -56,6 +58,11 @@ async function bootstrap(): Promise<void> {
     identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
   try {
+    const work = new PgBossWorkObservation(
+      application.get(PrismaClientProvider),
+      application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+      "material-assets-worker",
+    );
     const jobs = new PgBoss({
       openTelemetry: telemetry.pgBoss([CLEANUP_QUEUE]),
       connectionString: config.database.url,
@@ -100,6 +107,7 @@ async function bootstrap(): Promise<void> {
               return result;
             },
             telemetry,
+            work,
           ),
         );
       },

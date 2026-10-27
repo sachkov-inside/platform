@@ -1,3 +1,5 @@
+import { PgBossWorkObservation } from "../infrastructure/pg-boss-work-observation.js";
+import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
 import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
 import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
 import { jobQueues } from "../infrastructure/job-queues.js";
@@ -88,6 +90,11 @@ async function bootstrap(): Promise<void> {
     identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
   try {
+    const work = new PgBossWorkObservation(
+      application.get(PrismaClientProvider),
+      application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+      "billing-worker",
+    );
     const jobs = new PgBoss({
       openTelemetry: technicalTelemetry.pgBoss([
         activityRetentionQueue,
@@ -144,6 +151,7 @@ async function bootstrap(): Promise<void> {
                 return result;
               },
               technicalTelemetry,
+              work,
             ),
           );
         } catch (error) {
@@ -176,6 +184,7 @@ async function bootstrap(): Promise<void> {
               return result;
             },
             technicalTelemetry,
+            work,
           ),
         );
         await jobs.createQueue(recoveryQueue, {
@@ -198,6 +207,7 @@ async function bootstrap(): Promise<void> {
               return runRecoveryJob(payments, operations);
             },
             technicalTelemetry,
+            work,
           ),
         );
         await jobs.createQueue(renewalQueue, {
@@ -220,6 +230,7 @@ async function bootstrap(): Promise<void> {
               return runRenewalJob(payments, subscriptions);
             },
             technicalTelemetry,
+            work,
           ),
         );
         await jobs.createQueue(noticeQueue, {
@@ -243,6 +254,7 @@ async function bootstrap(): Promise<void> {
               return runNoticeJob(notices);
             },
             technicalTelemetry,
+            work,
           ),
         );
         // Community delivery only runs where the provider direction is actually configured.
@@ -271,6 +283,7 @@ async function bootstrap(): Promise<void> {
                 });
             },
             technicalTelemetry,
+            work,
           ),
         );
         if (!config.communityEntitlements) return;
@@ -306,6 +319,7 @@ async function bootstrap(): Promise<void> {
               return report;
             },
             technicalTelemetry,
+            work,
           ),
         );
       },

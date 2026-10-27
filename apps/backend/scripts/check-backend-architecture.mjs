@@ -381,6 +381,15 @@ function databaseReferenceViolations(sourceFile, program) {
       ) {
         return [];
       }
+      // The work-observation owner fences native attempts and owns only its latest receipt.
+      if (
+        sourcePath === "src/infrastructure/pg-boss-work-observation.ts" &&
+        ["pgboss.job", "queue_observation.last_successful_handler"].includes(
+          reference,
+        )
+      ) {
+        return [];
+      }
       // The infrastructure reader owns only these fixed pg-boss metadata tables.
       if (
         sourcePath === "src/infrastructure/pg-boss-queue-diagnostics.ts" &&

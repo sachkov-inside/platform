@@ -240,14 +240,14 @@ Account. Вход принимает строго `{}`: нельзя перед�
 бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
 Отчёт читает только инфраструктурные `pgboss.version`, `pgboss.queue`, `pgboss.job` через
 [owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
-Девять известных имён имеют один
+Десять известных имён имеют один
 [contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
 не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
 retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
 
 Один `RepeatableRead READ ONLY`-снимок имеет UTC `asOf`, проверяет точную schema version установленного
 pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
-1 s. Объём ответа ограничен девятью очередями и шестью известными states; история не обрезается до
+1 s. Объём ответа ограничен десятью очередями и шестью известными states; история не обрезается до
 произвольного числа jobs. Агрегация может сканировать всю сохранённую историю выбранных очередей;
 при превышении бюджета или недоступности источника ответ содержит `coverage: unknown` и
 `source_unavailable`, при несовместимой версии содержит `schema_mismatch`. Это не нулевые счётчики.
@@ -263,12 +263,34 @@ scheduled/blocked. `retrying` означает незавершённые `creat
 значения не являются пожизненными totals. Повторная попытка задания не равна повторному внешнему
 платежу. `failed` не доказывает денежную ошибку, а `completed` не доказывает успешный внешний эффект.
 
-`workerFreshness: not_proven` и `lastSuccessfulWorkAt: null` остаются даже после успешного запроса:
-текущего durable owner-факта, подтверждающего последнее успешное выполнение/доставку, здесь нет.
-Отчёт не заменяет worker liveness, readiness или source freshness. RabbitMQ, доменные outbox и
-email delivery в этом bounded этапе ещё не покрыты; их отсутствие в отчёте не означает отсутствие
-backlog или ошибок. Настройки сбора, entitlement/business semantics и production-конфигурация этим
-инструментом не меняются.
+`workerFreshness: per_queue` показывает отдельный `lastSuccessfulWork` для каждой фиксированной
+очереди. После успешного возврата обработчика worker записывает в собственную
+`queue_observation.last_successful_handler` время PostgreSQL, worker и точную release/source identity.
+Проверяются одновременно имя очереди, её worker и исходные `id/retryCount` всё ещё активной попытки
+pg-boss; payload, output, job ID и attempt key в отчёт не попадают. Повтор той же последней попытки не
+обновляет время. Остаётся не более одной записи на очередь, десять записей всего. Это последняя
+наблюдавшаяся успешная работа, а не журнал событий: запись заменяется следующим результатом и
+сохраняется после удаления native job history и перезапуска worker. Миграция не создаёт прошлых фактов.
+
+`meaning: handler_result_committed` означает возврат обработчика после его собственных ожидаемых
+операций и успешный commit записи наблюдения. Она выполняется **до** native ACK, поэтому
+`nativeAck: not_proven` и `externalEffect: not_proven` остаются всегда. Потеря ACK или восстановление
+задания может вызвать retry, а идемпотентность платежей и доставки остаётся обязанностью их владельцев.
+Ошибочное задание, healthcheck и polling не записывают успех. Новая запись ждёт соединение не более
+1 s, statement не более 1 s, lock не более 250 ms, transaction не более 2 s внутри существующего срока
+обработчика. Отказ записи диагностируется, но не меняет успешный business result и не вызывает retry;
+предыдущий факт или `unknown / no_history` сохраняется. Существующий generation lease и native
+settlement, concurrency и retry policy не меняются.
+
+`lastSuccessfulWorkAt` содержит самое позднее подтверждённое время среди очередей или `null`, если
+истории нет. В каждой очереди `ageSeconds` считается от UTC `asOf` того же read-only snapshot;
+`freshness: recent` означает возраст до 300 s включительно, затем `stale`. Этот порог описывает возраст
+факта и не является обещанием частоты выполнения: hourly/daily job может быть штатно stale.
+Отсутствие истории остаётся UNKNOWN, не нулём. Неполный, будущий, переполненный или повреждённый
+источник делает весь query `source_unavailable`, без частичного PASS. Отчёт не заменяет worker liveness,
+readiness или source freshness. RabbitMQ, доменные outbox и email delivery в этом bounded этапе ещё
+не покрыты; их отсутствие в отчёте не означает отсутствие backlog или ошибок. Настройки сбора,
+entitlement/business semantics и production-конфигурация этим инструментом не меняются.
 
 ### Provenance подтверждённой Membership activity
 

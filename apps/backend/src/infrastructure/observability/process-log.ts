@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { TechnicalTelemetry } from "./technical-telemetry.js";
 import type { BackendProcess } from "../../config/platform-config.js";
+import type { PgBossWorkObserver } from "../pg-boss-work-observation.js";
+import { dependencyFailure } from "./dependency-failure.js";
 import { describeError, runWithLogContext, writeLog } from "./log.js";
 
 // Уборка после отказа запуска обычно успевает; дольше процесс не держит открытое соединение.
@@ -52,13 +54,25 @@ export function observeJob<
   queue: string,
   handler: (jobs: Jobs) => Promise<Result>,
   telemetry?: Pick<TechnicalTelemetry, "runJob">,
+  work?: PgBossWorkObserver,
 ): (jobs: Jobs) => Promise<Result> {
   const observed = (jobs: Jobs) =>
     runWithLogContext(
       { process: processName, queue, requestId: jobs[0]?.id ?? randomUUID() },
       async () => {
         try {
-          return await handler(jobs);
+          const result = await handler(jobs);
+          try {
+            await work?.completed(queue, jobs);
+          } catch (error) {
+            // Observation loss must not retry an already successful business handler.
+            dependencyFailure(
+              { module: "PgBossWorkObservation", operation: "completed" },
+              error,
+              undefined,
+            );
+          }
+          return result;
         } catch (error) {
           writeLog("error", "job_failed", { error: describeError(error) });
           throw error;

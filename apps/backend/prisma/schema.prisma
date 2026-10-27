@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "queue_observation"]
 }
 
 model Account {
@@ -2045,4 +2045,16 @@ model ProductWaitlistConfirmation {
  createdAt DateTime @map("created_at") @db.Timestamptz
  @@map("product_waitlist_confirmations")
  @@schema("sales_funnel")
+}
+
+model QueueWorkObservation {
+  queue      String   @id @map("queue_name")
+  worker     String   @map("worker_name")
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz(6)
+  release    String   @db.VarChar(18)
+  sourceSha  String   @map("source_sha") @db.VarChar(40)
+  attemptKey String   @map("attempt_key") @db.VarChar(64)
+
+  @@map("last_successful_handler")
+  @@schema("queue_observation")
 }
