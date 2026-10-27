@@ -13,6 +13,7 @@ import {
 } from "../people-directory/index.js";
 import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
 import { assemblePaymentsSearchGroup } from "./adapters/billing/payments-search-group.js";
+import { assemblePeopleSearchGroup } from "./adapters/people/people-search-group.js";
 import { assembleMaterialsSearchGroup } from "./adapters/materials/materials-search-group.js";
 import { assembleProductsSearchGroup } from "./adapters/products/products-search-group.js";
 import {
@@ -40,18 +41,19 @@ import { SearchAuthoringController } from "./features/search-authoring/search-au
     {
       provide: AUTHORING_SEARCH,
       inject: [
+        PeopleDirectory,
         PRODUCT_AUTHORING,
         MATERIAL_AUTHORING,
         BillingPaymentSearch,
-        PeopleDirectory,
       ],
       useFactory: (
+        people: PeopleDirectory,
         productAuthoring: ProductAuthoring,
         materialAuthoring: MaterialAuthoring,
         paymentSearch: BillingPaymentSearch,
-        people: PeopleDirectory,
       ): AuthoringSearch =>
         assembleAuthoringSearch([
+          assemblePeopleSearchGroup(people),
           assembleProductsSearchGroup(productAuthoring),
           assembleMaterialsSearchGroup(materialAuthoring),
           assemblePaymentsSearchGroup(paymentSearch, people),

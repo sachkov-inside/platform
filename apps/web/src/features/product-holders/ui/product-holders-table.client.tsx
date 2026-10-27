@@ -52,12 +52,12 @@ export interface ProductHoldersTableProps {
 
 const accessOptions = [
   { value: "all", label: "Любой доступ" },
-  { value: "active", label: "Доступ есть" },
+  { value: "active", label: "Доступ открыт" },
   { value: "revoked", label: "Доступ отозван" },
 ] as const;
 
 const accessLabels: Record<HolderAccess, string> = {
-  active: "Доступ есть",
+  active: "Доступ открыт",
   revoked: "Доступ отозван",
 };
 
@@ -273,7 +273,7 @@ function HoldersList({
         mobileItem={(holder) => ({
           title: person.title(holder.accountId),
           caption: receivedText(holder),
-          badge: <StateBadge state={`holder.${holder.access}`} />,
+          badge: <StateBadge state={`access.${holder.access}`} />,
           metric: progressText(holder),
         })}
         rowHref={(holder) => holderPersonHref(holder.accountId)}
@@ -309,7 +309,7 @@ function holderColumns(
       id: "access",
       header: "Доступ",
       width: "10rem",
-      cell: (holder) => <StateBadge state={`holder.${holder.access}`} />,
+      cell: (holder) => <StateBadge state={`access.${holder.access}`} />,
     },
     {
       id: "received",

@@ -25,9 +25,6 @@ export const adminStates = {
   "product.active": { label: "Активен", tone: "positive" },
   "product.archived": { label: "Архив", tone: "muted" },
   "product.pinned": { label: "На главной", tone: "positive" },
-  // Доступ ученика к продукту на вкладке «Ученики» (#1718).
-  "holder.active": { label: "Доступ есть", tone: "positive" },
-  "holder.revoked": { label: "Доступ отозван", tone: "muted" },
   "submission.awaiting": { label: "Новая", tone: "attention" },
   "submission.commented": { label: "Прокомментирована", tone: "positive" },
   // Продажа продукта (#1718): положительный тон только там, где продажа принимает оплату.
@@ -72,6 +69,24 @@ export const adminStates = {
   "promotion.ended": { label: "Завершилась", tone: "muted" },
   "promotion.exhausted": { label: "Лимит исчерпан", tone: "muted" },
   "promotion.archived": { label: "Архивная", tone: "muted" },
+  // Доступ человека к продукту: карточка человека (#1721) и вкладка «Ученики» продукта (#1718).
+  "access.active": { label: "Доступ открыт", tone: "positive" },
+  "access.revoked": { label: "Доступ отозван", tone: "muted" },
+  "telegram.linked": { label: "Связан", tone: "positive" },
+  "telegram.not_linked": { label: "Не связан", tone: "muted" },
+  "telegram.member": { label: "В группе", tone: "positive" },
+  "telegram.not_member": { label: "Не в группе", tone: "muted" },
+  "telegram.unrestricted": { label: "Без ограничений", tone: "neutral" },
+  "telegram.moderated": { label: "Ограничен модерацией", tone: "attention" },
+  "telegram.restricted_outside": {
+    label: "Ограничен вне платформы",
+    tone: "attention",
+  },
+  "telegram.subscribed": { label: "Получает рассылку", tone: "neutral" },
+  "telegram.stopped": { label: "Отказался через /stop", tone: "muted" },
+  "telegram.unknown": { label: "Неизвестно", tone: "neutral" },
+  "waitlist.active": { label: "В списке", tone: "positive" },
+  "waitlist.inactive": { label: "Вышел из списка", tone: "muted" },
 } as const satisfies Record<string, AdminStateDefinition>;
 
 export type AdminStateKey = keyof typeof adminStates;

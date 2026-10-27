@@ -57,7 +57,11 @@ use a 44px minimum target, and support ArrowLeft/ArrowRight, Home and End with r
   (`?tab=`). ImportedProduct source-owned restrictions remain in force.
 - Material editor: «Содержимое», «Параметры», «Обложка и видео», «Карточка ссылки».
   Save, publication and Preview retain their application contracts.
-- People/access: «Люди и доступ», «Тарифы», «Приглашения», «Сводка».
+- People (#1721): no tabs. `/authoring/people` is the shared list pattern, and
+  `/authoring/people/[accountId]` is one person card with anchors «Продукты и история», «Оплаты и
+  ссылки», «Обучение», «Telegram», «Списки ожидания». «Выдать продукт», «Отозвать» and
+  «Восстановить» open modal dialogs. The former tabbed `/authoring/access` («Люди и доступ»,
+  «Тарифы», «Приглашения», «Сводка») is removed and redirects to `/authoring/people`.
 - Sales (#1718): separate pages under `/authoring/sales` rather than tabs. «Платежи» lists
   payments and opens one payment at `/authoring/sales/payments/[purchaseRef]`; «Ссылки на оплату»
   and «Скидки» are lists with a create dialog, and questionnaire discounts are a read-only

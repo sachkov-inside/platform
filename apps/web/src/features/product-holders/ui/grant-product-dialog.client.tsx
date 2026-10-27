@@ -744,7 +744,7 @@ function RowOutcome({
         </span>
       );
     case "already_active":
-      return <StateBadge state="holder.active" />;
+      return <StateBadge state="access.active" />;
     case "revoked":
       return (
         <span className="text-muted-foreground">

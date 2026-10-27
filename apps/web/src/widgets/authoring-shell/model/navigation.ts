@@ -6,10 +6,11 @@ import { internalRoute } from "@/shared/routing/internal-route";
  * Разделы админки по решению 2 спецификации #1717. Один источник для боковой панели, нижней
  * панели телефона, листа «Ещё», вкладок подразделов и Storybook.
  *
- * Пункты, чьи экраны строят следующие задачи (#1721 «Люди», #1719 «Обзор»), пока ведут на нынешние
- * страницы. Задача, которая заменяет страницу, меняет здесь `href` и `paths`. Продажи (#1718) живут
- * под `/authoring/sales/*`; прежние `/authoring/billing` и `/authoring/sales-funnel` перенаправляет
- * `next.config.ts`. «Сообщений» нет, пока в силе решение #396.
+ * Пункт, чей экран строит следующая задача (#1719 «Обзор»), пока ведёт на нынешнюю страницу.
+ * Задача, которая заменяет страницу, меняет здесь `href` и `paths`. «Люди» ведут в список людей
+ * #1721, продажи (#1718) живут под `/authoring/sales/*`; прежние `/authoring/access`,
+ * `/authoring/billing` и `/authoring/sales-funnel` перенаправляет `next.config.ts`. «Сообщений» нет,
+ * пока в силе решение #396.
  */
 export type AuthoringNavigationItemId =
   | "overview"
@@ -82,9 +83,9 @@ const overview = {
 const people = {
   id: "people",
   label: "Люди",
-  href: "/authoring/access",
+  href: "/authoring/people",
   icon: "people",
-  paths: ["/authoring/access"],
+  paths: ["/authoring/people"],
 } as const satisfies AuthoringNavigationItem;
 
 const submissions = {

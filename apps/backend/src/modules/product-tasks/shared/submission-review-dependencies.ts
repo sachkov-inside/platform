@@ -9,7 +9,7 @@ export interface SubmissionReviewDependencies {
   readonly prisma: ProductTasksPrismaClient;
   readonly directory: Pick<ProductDirectory, "products">;
   readonly authorPolicy: AuthorPolicy;
-  /** The person behind a submission, as «Люди и доступ» shows them: Account and Telegram. */
+  /** The person behind a submission: the Account's current Telegram binding and contact. */
   readonly identities: Pick<
     TelegramAccountLinks,
     "readBinding" | "readContacts"

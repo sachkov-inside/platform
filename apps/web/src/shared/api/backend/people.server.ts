@@ -36,3 +36,43 @@ export function requestPeopleIdentities(
     { accessToken },
   );
 }
+
+/** Filters of the people list as the generated client declares them; the cursor keeps them. */
+export type PeopleListQuery = NonNullable<
+  Parameters<PeopleService["listPeople"]>[0]
+>;
+
+/** The owner's people list with filters, total and a keyset cursor; `billing:manage` only. */
+export function requestPeopleList(
+  query: PeopleListQuery,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new PeopleService(request).listPeople(query),
+    200,
+    { accessToken },
+  );
+}
+
+/** The person card; each block answers on its own. `billing:manage` only. */
+export function requestPersonCard(
+  accountId: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new PeopleService(request).readPerson({ accountId }),
+    200,
+    { accessToken },
+  );
+}
+
+/** Products the owner may grant or filter people by, archived ones included; `billing:manage` only. */
+export function requestPeopleProductChoices(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new PeopleService(request).listPeopleProductChoices(),
+    200,
+    { accessToken },
+  );
+}

@@ -9,6 +9,7 @@ import { AuthoringMaterialsView } from "@/_pages/authoring-materials/ui/authorin
 import { getQueryClient } from "@/shared/api/query-client";
 import {
   authoringMaterialsRootHref,
+  authoringPersonHref,
   authoringProductEditorHref,
 } from "@/shared/routing/authoring";
 import {
@@ -69,7 +70,40 @@ const productId = "96000000-0000-4000-8000-000000000210";
 const searchRequests = fn();
 
 /** Ответ BFF общего поиска; `kind` выбирает состояние, которое показывает окно. */
-function searchResponse(kind: "ready" | "forbidden" | "partly_unavailable") {
+type SearchKind =
+  "ready" | "forbidden" | "partly_unavailable" | "people" | "people_partial";
+
+const annaId = "d1210000-0000-4000-8000-000000000001";
+
+/** Группа «Люди» (#1721): у владельца она первая; `partial` значит, что имя не искалось. */
+function peopleGroup(partial: boolean) {
+  return {
+    kind: "people",
+    partial,
+    truncated: false,
+    state: "ready",
+    items: partial
+      ? []
+      : [
+          {
+            accountId: annaId,
+            contactsState: "complete",
+            displayName: "Анна Петрова",
+            email: "anna.petrova@example.test",
+            username: "anna_petrova",
+          },
+          {
+            accountId: "d1210000-0000-4000-8000-000000000002",
+            contactsState: "complete",
+            displayName: "Анна Константинопольская-Задунайская",
+            email: null,
+            username: null,
+          },
+        ],
+  };
+}
+
+function searchResponse(kind: SearchKind) {
   return (input: RequestInfo | URL): Promise<Response> => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
@@ -86,6 +120,9 @@ function searchResponse(kind: "ready" | "forbidden" | "partly_unavailable") {
       Response.json({
         kind: "ready",
         groups: [
+          ...(kind === "people" || kind === "people_partial"
+            ? [peopleGroup(kind === "people_partial")]
+            : []),
           {
             kind: "products",
             state: "ready",
@@ -134,7 +171,7 @@ function shellEnvironment({
   search,
 }: {
   readonly awaitingFeedbackCount?: number | null;
-  readonly search?: "ready" | "forbidden" | "partly_unavailable";
+  readonly search?: SearchKind;
 } = {}): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
   const environment = authoringPageEnvironment(authoringMaterialsRootHref, {
     awaitingFeedbackCount,
@@ -372,6 +409,93 @@ export const SearchDesktop: Story = {
   },
 };
 
+/** «Люди» первой группой: строка называет человека по решению 5 и открывает его карточку. */
+export const SearchPeople: Story = {
+  ...desktop,
+  ...shellEnvironment({ search: "people" }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Поиск по админке" }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: "Поиск по админке",
+    });
+    await userEvent.type(
+      within(dialog).getByRole("combobox", { name: "Что найти" }),
+      "анна",
+    );
+    const people = await within(dialog).findByRole("group", { name: "Люди" });
+    await expect(
+      within(people)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual([
+      "Анна Петрова@anna_petrova · anna.petrova@example.test",
+      "Анна Константинопольская-Задунайская",
+    ]);
+    await expect(within(people).getAllByRole("option")[0]).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.keyboard("{Enter}");
+    await expect(storyRouterPush).toHaveBeenCalledWith(
+      authoringPersonHref(annaId),
+    );
+  },
+};
+
+/** Телефон: длинное имя переносится, ширина окна не растёт. */
+export const SearchPeopleMobile: Story = {
+  ...mobile,
+  ...shellEnvironment({ search: "people" }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Поиск по админке" }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: "Поиск по админке",
+    });
+    await userEvent.type(
+      within(dialog).getByRole("combobox", { name: "Что найти" }),
+      "анна",
+    );
+    await expect(
+      await within(dialog).findByRole("group", { name: "Люди" }),
+    ).toBeVisible();
+    const document = canvasElement.ownerDocument.documentElement;
+    await expect(document.scrollWidth).toBe(document.clientWidth);
+  },
+};
+
+/** Поиск по имени не ответил: группа говорит об этом, а не «никого не нашли». */
+export const SearchPeopleNameUnavailable: Story = {
+  ...desktop,
+  ...shellEnvironment({ search: "people_partial" }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Поиск по админке" }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: "Поиск по админке",
+    });
+    await userEvent.type(
+      within(dialog).getByRole("combobox", { name: "Что найти" }),
+      "анна",
+    );
+    await expect(
+      await within(dialog).findByText(
+        "Люди: Поиск по имени и @username временно недоступен; поиск по email и ID работает.",
+      ),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole("group", { name: "Продукты" }),
+    ).toBeVisible();
+  },
+};
+
 /** Одна группа не ответила: она названа, остальные результаты остаются. */
 export const SearchPartlyUnavailable: Story = {
   ...desktop,
@@ -415,7 +539,7 @@ export const SearchForbiddenMobile: Story = {
     );
     await expect(
       await within(dialog).findByText(
-        "Поиск открыт аккаунту с правом управлять материалами.",
+        "Поиск открыт аккаунту с правом управлять материалами или доступом.",
       ),
     ).toBeVisible();
     await expect(within(dialog).queryAllByRole("option")).toHaveLength(0);

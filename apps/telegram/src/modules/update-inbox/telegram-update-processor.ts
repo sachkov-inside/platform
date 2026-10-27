@@ -10,13 +10,17 @@ import { Inject, Injectable } from "@nestjs/common";
 import { CommunityProvider } from "../community/community-provider.js";
 import { StartResponseDeliveryQueue } from "../outbound/start-response-delivery-queue.js";
 import { BotContacts } from "../bot-contacts/bot-contacts.js";
-import type { VerifiedPrivateStart } from "../../shared/telegram-contact.js";
+import type {
+  VerifiedPrivateContactability,
+  VerifiedPrivateStart,
+} from "../../shared/telegram-contact.js";
 import { BotSignIn } from "../bot-sign-in/bot-sign-in.js";
 import {
   TELEGRAM_CALLBACK_ANSWERS,
   type TelegramCallbackAnswers,
 } from "../bot-sign-in/telegram-callback-answers.js";
 import { IdentityLinking } from "../identity-linking/identity-linking.js";
+import { LinkProfiles } from "../identity-linking/link-profiles.js";
 import {
   reportCondition,
   reportFailure,
@@ -78,6 +82,8 @@ export class TelegramUpdateProcessor {
     private readonly replies: StartResponseDeliveryQueue,
     @Inject(TELEGRAM_UPDATE_TRANSLATOR)
     private readonly translator: TelegramUpdateTranslator,
+    @Inject(LinkProfiles)
+    private readonly linkProfiles: Pick<LinkProfiles, "observe">,
   ) {
     // Counted by webhook arrival, so a backlog after a processing delay is not refused.
     this.senderLimit = new SenderRateLimit(
@@ -166,6 +172,9 @@ export class TelegramUpdateProcessor {
   }
 
   private async handle(command: TelegramUpdateCommand): Promise<void> {
+    // Before any effect: a failed write retries the update instead of losing later effects.
+    const sender = senderOf(command);
+    if (sender) await this.linkProfiles.observe(sender);
     switch (command.kind) {
       case "access-action":
         await this.botContacts.observeStart(command.value, "none");
@@ -309,6 +318,30 @@ export class TelegramUpdateProcessor {
       triggerUpdateId: contact.updateId,
       now: contact.observedAt,
     });
+  }
+}
+
+/** The verified private sender whose profile a linked user's update refreshes. */
+function senderOf(
+  command: TelegramUpdateCommand,
+): VerifiedPrivateStart | VerifiedPrivateContactability | undefined {
+  switch (command.kind) {
+    case "access-action":
+    case "community-request":
+    case "contactability":
+      return command.value;
+    case "marketing_preference":
+    case "start":
+      return command.value.contact;
+    case "sign-in-decision":
+    case "author-input":
+    case "template-intake":
+    case "membership":
+    case "join-request":
+    case "ignored":
+      return undefined;
+    default:
+      return unhandled(command, "Telegram update command");
   }
 }
 

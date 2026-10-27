@@ -1,9 +1,11 @@
 import type { Route } from "next";
 import { z } from "zod";
 
+import { personIdentitySchema, personLabel } from "@/entities/authoring-person";
 import { attemptStateSchema } from "@/entities/subscription";
 import { formatMoscowDate, formatRubles } from "@/shared/lib/moscow-format";
 import {
+  authoringPersonHref,
   authoringProductEditorHref,
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
@@ -14,8 +16,9 @@ import { internalRoute } from "@/shared/routing/internal-route";
  * Общий поиск админки (#1717): одна строка запроса, ответ сервера по группам. Каждая группа
  * приходит только к аккаунту с правом на неё; аккаунт без права ни на одну группу получает отказ.
  *
- * Как добавить группу (#1721 «Люди»): вариант в `searchGroupSchema` с тем же
- * `kind`, что у группы сервера, и запись в `searchGroupPresentation`. Порядок групп задаёт сервер.
+ * Как добавить группу: вариант в `searchGroupSchema` с тем же `kind`, что у группы сервера, и
+ * запись в `searchGroupPresentation`. Порядок групп задаёт сервер: люди, продукты, материалы,
+ * платежи. Группы «Люди» (#1721) и «Платежи» (#1718) приходят только аккаунту с `billing:manage`.
  */
 export const authoringSearchQuerySchema = z
   .string()
@@ -51,12 +54,26 @@ const paymentHitSchema = z
 
 const unavailableGroupSchema = z
   .object({
-    kind: z.enum(["products", "materials", "payments"]),
+    kind: z.enum(["people", "products", "materials", "payments"]),
     state: z.literal("unavailable"),
   })
   .strict();
 
 export const searchGroupSchema = z.union([
+  z
+    .object({
+      items: z.array(personIdentitySchema),
+      kind: z.literal("people"),
+      /**
+       * Поиск по имени и @username не ответил (Telegram недоступен). Поиск по email и ID при этом
+       * работает: `items` содержат только его совпадения, если они есть.
+       */
+      partial: z.boolean(),
+      /** Совпало больше людей, чем вмещает группа: показаны первые, запрос стоит уточнить. */
+      truncated: z.boolean(),
+      state: z.literal("ready"),
+    })
+    .strict(),
   z
     .object({
       items: z.array(productHitSchema),
@@ -131,6 +148,20 @@ export const searchGroupPresentation: {
     ) => readonly AuthoringSearchEntry[];
   };
 } = {
+  people: {
+    heading: "Люди",
+    entries: (group) =>
+      group.items.map((item) => {
+        const label = personLabel(item);
+        return {
+          id: `people-${item.accountId}`,
+          href: authoringPersonHref(item.accountId),
+          title: label.title ?? label.missing,
+          caption:
+            label.context.length === 0 ? null : label.context.join(" · "),
+        };
+      }),
+  },
   products: {
     heading: "Продукты",
     entries: (group) =>
@@ -168,28 +199,14 @@ export const searchGroupPresentation: {
   },
 };
 
-/**
- * Чего группа сейчас не искала, чтобы пустой список не выглядел ответом. Платежи по номеру заказа
- * и сумме ищутся всегда; по человеку сервер мог не искать.
- */
-export function searchGroupNote(group: AuthoringSearchGroup): string | null {
-  if (group.state !== "ready" || group.kind !== "payments") return null;
-  switch (group.personSearch) {
-    case "available":
-      return null;
-    case "name_unavailable":
-      return "Поиск по имени временно недоступен. Найдите платежи человека по email или ID.";
-    case "unavailable":
-      return "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.";
-  }
-}
-
 /** Строки группы, готовой к показу, в порядке сервера. */
 export function searchGroupEntries(
   group: AuthoringSearchGroup,
 ): readonly AuthoringSearchEntry[] {
   if (group.state !== "ready") return [];
   switch (group.kind) {
+    case "people":
+      return searchGroupPresentation.people.entries(group);
     case "products":
       return searchGroupPresentation.products.entries(group);
     case "materials":
@@ -198,6 +215,42 @@ export function searchGroupEntries(
       return searchGroupPresentation.payments.entries(group);
   }
 }
+
+/**
+ * Пояснение к группе, чтобы пустой или неполный список не выглядел полным ответом. У «Людей» без
+ * поиска по имени работают только email и ID. Платежи по номеру заказа и сумме ищутся всегда; по
+ * человеку сервер мог не искать.
+ */
+export function searchGroupNote(group: AuthoringSearchGroup): string | null {
+  if (group.state !== "ready") return null;
+  switch (group.kind) {
+    case "people":
+      if (group.partial)
+        return "Поиск по имени и @username временно недоступен; поиск по email и ID работает.";
+      return group.truncated
+        ? "Показаны не все совпадения. Уточните запрос."
+        : null;
+    case "payments":
+      return paymentsNote[group.personSearch];
+    case "products":
+    case "materials":
+      return null;
+  }
+}
+
+const paymentsNote = {
+  available: null,
+  name_unavailable:
+    "Поиск по имени временно недоступен. Найдите платежи человека по email или ID.",
+  unavailable:
+    "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.",
+} as const satisfies Record<
+  Extract<
+    AuthoringSearchGroup,
+    { kind: "payments"; state: "ready" }
+  >["personSearch"],
+  string | null
+>;
 
 export function authoringSearchQueryKey(query: string) {
   return ["authoring", "search", query] as const;

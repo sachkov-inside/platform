@@ -1093,6 +1093,8 @@ model BillingContact {
  emailCiphertext String? @map("email_ciphertext")
  verifiedAt DateTime? @map("verified_at") @db.Timestamptz
  challengeRef String? @map("challenge_ref") @db.Uuid
+ emailFingerprint String? @map("email_fingerprint") @db.VarChar(67)
+ emailFingerprintRevision Int? @map("email_fingerprint_revision")
  @@map("billing_contacts")
  @@schema("accounts")
 }

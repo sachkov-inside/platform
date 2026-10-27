@@ -88,7 +88,7 @@ test("retired commerce routes remain absent for a signed-in owner", async ({
   page,
 }) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/access");
+  await page.goto("/authoring/people");
   for (const path of [
     "/api/authoring/billing/offers/save",
     "/api/authoring/billing/payment-options/save",

@@ -125,7 +125,7 @@ export const OneLearnerDesktop: Story = {
     await expect(
       within(table).getByText(`ID ${storyAccountId(0).slice(0, 8)}`),
     ).toBeVisible();
-    await expect(within(table).getByText("Доступ есть")).toBeVisible();
+    await expect(within(table).getByText("Доступ открыт")).toBeVisible();
     await expect(within(table).getByText("0 из 40")).toBeVisible();
     // Получен и начал обучение в один день.
     await expect(within(table).getAllByText("24 окт. 2026")).toHaveLength(2);
@@ -347,7 +347,7 @@ export const PeopleUnavailableDesktop: Story = {
       }),
     ).toHaveLength(3);
     // Строки остаются: прогресс и доступ видны, ID копируется.
-    await expect(within(table).getAllByText("Доступ есть")).toHaveLength(3);
+    await expect(within(table).getAllByText("Доступ открыт")).toHaveLength(3);
     await expect(within(table).queryByText(storyAccountId(0))).toBeNull();
   },
 };

@@ -242,7 +242,9 @@ test("global search refuses an account without the right instead of answering em
   const dialog = page.getByRole("dialog", { name: "Поиск по админке" });
   await dialog.getByRole("combobox", { name: "Что найти" }).fill("архитектура");
   await expect(
-    dialog.getByText("Поиск открыт аккаунту с правом управлять материалами."),
+    dialog.getByText(
+      "Поиск открыт аккаунту с правом управлять материалами или доступом.",
+    ),
   ).toBeVisible();
   await expect(dialog.getByRole("option")).toHaveCount(0);
 });

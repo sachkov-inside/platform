@@ -85,6 +85,7 @@ describe("Notifications persistence and delivery (real PostgreSQL; synthetic sou
     let sentCode = "";
     const billing = new BillingContact({
       prisma: database.prisma,
+      emailFingerprintKey: "notification-test-key-long-enough",
       protection,
       now,
       documents: [],

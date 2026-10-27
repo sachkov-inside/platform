@@ -26,6 +26,7 @@ import { assembleMaterials } from "../../src/entrypoints/composition/assemble-ma
 import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { telegramWithoutContactsV2 } from "../support/telegram-contacts-v1.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import {
   createMigratedTestDatabase,
@@ -503,6 +504,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     );
     let unlink = false;
     const identities = new TelegramAccountLinks(db.prisma, {
+      ...telegramWithoutContactsV2,
       read: async (queries) => {
         expect(queries).toEqual([
           { accountRef: principalRef, telegramIdentityRef: identityRef },
@@ -650,6 +652,78 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         error: { code: "forbidden" },
       },
     );
+  });
+
+  test("the person card summary counts one Account's submissions per Product without person data", async () => {
+    const [summaryProduct, secondProduct] = [randomUUID(), randomUUID()];
+    const [summaryChapter, cardChapter] = [randomUUID(), randomUUID()];
+    for (const [id, chapterId] of [
+      [summaryProduct, summaryChapter],
+      [secondProduct, cardChapter],
+    ] as const) {
+      await db.prisma.product.create({
+        data: { id, slug: `card-${id}`, name: "Card" },
+      });
+      await db.prisma.productChapter.create({
+        data: { id: chapterId, productId: id, name: "Card", ordinal: 1 },
+      });
+    }
+    const task = await imported({
+      productId: summaryProduct,
+      chapterId: summaryChapter,
+      title: "Сводка",
+    });
+    const foreign = await imported({
+      productId: secondProduct,
+      chapterId: cardChapter,
+      title: "Сводка в другом продукте",
+    });
+    const carla = await learner();
+    const someoneElse = await learner();
+    await submitted(carla, task.code, "Первая.");
+    const latest = await submitted(carla, task.code, "Вторая.");
+    const only = await submitted(carla, foreign.code, "Единственная.");
+    await submitted(someoneElse, task.code, "Чужая.");
+    const rows = await db.prisma.productTaskSubmission.findMany({
+      where: { id: { in: [latest, only] } },
+    });
+    const at = (id: string) =>
+      rows.find((row) => row.id === id)?.submittedAt.toISOString();
+    const expected = [
+      {
+        productId: summaryProduct,
+        count: 2,
+        lastSubmission: {
+          submissionId: latest,
+          submittedAt: at(latest),
+          taskCode: task.code,
+        },
+      },
+      {
+        productId: secondProduct,
+        count: 1,
+        lastSubmission: {
+          submissionId: only,
+          submittedAt: at(only),
+          taskCode: foreign.code,
+        },
+      },
+    ].sort((left, right) => (left.productId < right.productId ? -1 : 1));
+    expect(
+      await review().summarizeAccount(owner, carla.accountId.toUpperCase()),
+    ).toEqual({ ok: true, value: expected });
+    expect(await review().summarizeAccount(owner, randomUUID())).toEqual({
+      ok: true,
+      value: [],
+    });
+    expect(await review().summarizeAccount(outsider, carla.accountId)).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(await review().summarizeAccount(owner, "x")).toEqual({
+      ok: false,
+      error: { code: "invalid_request_shape" },
+    });
   });
 
   test("only materials:manage reads submissions and writes feedback", async () => {

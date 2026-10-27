@@ -147,18 +147,12 @@ export {
 export { PaymentLinkSummary } from "./ui/payment-link-summary";
 export {
   issueProductAccessOperation,
-  listProductAccessOperation,
-  readProductAccessOperation,
   restoreProductAccessOperation,
 } from "./api/product-access.operation";
 export {
   previewProductRevocation,
   revokeProductAccess,
 } from "./api/product-revocation.browser";
-export type {
-  accessPairSchema,
-  listProductAccessSchema,
-} from "./model/product-access";
 export {
   issueOutcomeMessage,
   type ProductAccessIssueOutcome,

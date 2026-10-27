@@ -40,6 +40,7 @@ import {
   type SignInResult,
 } from "../../src/modules/bot-sign-in/bot-sign-in.js";
 import { IdentityLinking } from "../../src/modules/identity-linking/identity-linking.js";
+import { LinkProfiles } from "../../src/modules/identity-linking/link-profiles.js";
 import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import type {
@@ -816,6 +817,7 @@ describe("bot sign-in provider", () => {
         application.get(CommunityProvider),
         application.get(StartResponseDeliveryQueue),
         new GrammyUpdateAdapter(),
+        application.get(LinkProfiles),
       );
       expect(await processor.processAvailable()).toBe(2);
       expect(claim.mock.calls[0]?.[0]).toEqual(current);

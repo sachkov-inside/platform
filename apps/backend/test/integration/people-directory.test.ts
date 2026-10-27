@@ -11,12 +11,14 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { AccountDirectory } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { PeopleDirectory } from "../../src/modules/people-directory/facets/people-directory/people-directory.js";
+import { fingerprintEmail } from "../../src/modules/accounts/shared/account-input.js";
+import { PeopleDirectory } from "../../src/modules/people-directory/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   declaredServer,
   type DeclaredServer,
 } from "../support/declared-api.js";
+import { unreadPeopleOwners } from "./setup/people-owners.js";
 import {
   startTestIdentityIssuer,
   type TestIdentityIssuer,
@@ -30,6 +32,7 @@ registerFixedClock();
 
 const encryptionKey = randomBytes(32).toString("base64");
 const linkingSecret = "people-directory-linking-secret";
+const fingerprintKey = "people-directory-email-fingerprint";
 const contactsRequestSchema = z.object({
   contacts: z.array(
     z.object({ accountRef: z.string(), telegramIdentityRef: z.string() }),
@@ -74,6 +77,9 @@ describe("People directory", () => {
       let body = "";
       request.on("data", (chunk: Buffer) => (body += chunk.toString()));
       request.on("end", () => {
+        // A Telegram release before `inside.telegram-contact.v2` answers 404 on its paths.
+        if (request.url?.startsWith("/integrations/platform/v2/") === true)
+          return void response.writeHead(404).end();
         if (
           !telegramAvailable ||
           request.url !== "/integrations/platform/v1/telegram-contacts" ||
@@ -108,7 +114,7 @@ describe("People directory", () => {
         LOGTO_ISSUER: identity.issuer,
         LOGTO_AUDIENCE: identity.audience,
         LOGTO_JWKS_URL: identity.jwksUrl,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "people-directory-email-fingerprint",
+        IDENTITY_EMAIL_FINGERPRINT_KEY: fingerprintKey,
         BILLING_CONTACT_ENCRYPTION_KEY: encryptionKey,
         BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
         BILLING_CONTACT_SMTP_PORT: "2525",
@@ -148,6 +154,10 @@ describe("People directory", () => {
             "billing.person@example.test",
           ),
           verifiedAt: new Date("2030-01-01T00:00:00.000Z"),
+          emailFingerprint:
+            fingerprintEmail("billing.person@example.test", fingerprintKey) ??
+            null,
+          emailFingerprintRevision: 1,
         },
         // A started confirmation is no contact: this Account stays a visitor.
         { accountId: people.unverified, revision: 0 },
@@ -280,6 +290,19 @@ describe("People directory", () => {
       ],
       nameSearch: "available",
     });
+    // A verified Billing Contact is found by its own fingerprint, exactly as typed or not.
+    expect(await search(headers, "Billing.Person@example.test")).toEqual({
+      items: [
+        {
+          accountId: people.billing,
+          displayName: null,
+          username: null,
+          email: "billing.person@example.test",
+          contactsState: "complete",
+        },
+      ],
+      nameSearch: "available",
+    });
     expect(await search(headers, "other.sign-in@example.test")).toEqual({
       items: [],
       nameSearch: "available",
@@ -291,7 +314,7 @@ describe("People directory", () => {
     });
   });
 
-  test("a name or @username reports that name search is unavailable instead of an empty answer", async () => {
+  test("a name or @username reports that name search is unavailable instead of an empty answer when Telegram predates its search", async () => {
     const headers = await signedIn("billing:manage");
     for (const query of ["Анна", "@anna_tg"])
       expect(await search(headers, query)).toEqual({
@@ -303,6 +326,7 @@ describe("People directory", () => {
   test("the Account IDs for another owner's search report name search the same way", async () => {
     const owner = randomUUID();
     const directory = new PeopleDirectory({
+      ...unreadPeopleOwners,
       accounts: {
         checkPermission: ({ accountId }) =>
           Promise.resolve({ ok: true, allowed: accountId === owner }),
@@ -387,13 +411,14 @@ describe("People directory", () => {
 
   test("a verified Billing Contact that cannot be opened keeps the person, with the address unknown", async () => {
     const directory = new PeopleDirectory({
+      ...unreadPeopleOwners,
       accounts: {
         checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
       },
       directory: new AccountDirectory({
         prisma: database.prisma,
         protection: undefined,
-        emailFingerprintKey: "people-directory-email-fingerprint",
+        emailFingerprintKey: fingerprintKey,
       }),
       telegram: new TelegramAccountLinks(database.prisma),
     });

@@ -22,6 +22,7 @@ test("public offers respect the owning legal sale admission while owner prices r
   const s = await world.scenario();
   const contact = new BillingContact({
     prisma: world.db.prisma,
+    emailFingerprintKey: "public-sale-admission-test-fingerprint-key",
     protection: undefined,
     sendCode: undefined,
     now: () => new Date("2030-01-31T10:00:00Z"),

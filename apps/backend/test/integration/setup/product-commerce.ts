@@ -77,6 +77,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     };
     const contact = new BillingContact({
       prisma: db.prisma,
+      emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
       protection: billingContactProtection(
         Buffer.alloc(32, 42).toString("base64"),
       ),

@@ -1080,6 +1080,7 @@ async function recover(
       grants,
       contact: new BillingContact({
         prisma,
+        emailFingerprintKey: "synthetic-restore-fingerprint-000000000000",
         protection: billingContactProtection(
           Buffer.alloc(32, 42).toString("base64"),
         ),

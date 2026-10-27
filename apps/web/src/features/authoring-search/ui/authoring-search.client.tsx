@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -104,7 +105,7 @@ export function AuthoringSearchTrigger() {
     >
       <Search aria-hidden="true" className="authoring-search-trigger-icon" />
       <span className="authoring-search-trigger-text">
-        Поиск по продуктам и материалам
+        Поиск по людям, продуктам, материалам и платежам
       </span>
       <kbd aria-hidden="true" className="authoring-search-trigger-kbd">
         {shortcut}
@@ -219,7 +220,7 @@ function SearchPanel({
   }
 
   const status = !query.success
-    ? "Найдите продукт или материал по названию."
+    ? "Найдите человека, продукт, материал или платёж."
     : search.isPending || stale
       ? "Ищем…"
       : state === undefined
@@ -227,11 +228,15 @@ function SearchPanel({
         : state.kind === "signed_out"
           ? "Сессия завершилась. Войдите снова, чтобы искать."
           : state.kind === "forbidden"
-            ? "Поиск открыт аккаунту с правом управлять материалами."
+            ? "Поиск открыт аккаунту с правом управлять материалами или доступом."
             : state.kind === "unavailable"
               ? `Поиск временно недоступен. Код: ${state.reference}`
               : entries.length === 0 &&
-                  groups.every(({ group }) => group.state === "ready")
+                  groups.every(
+                    ({ group }) =>
+                      group.state === "ready" &&
+                      searchGroupNote(group) === null,
+                  )
                 ? `По запросу «${query.data}» ничего не найдено.`
                 : null;
 
@@ -271,7 +276,7 @@ function SearchPanel({
               openEntry(active);
             }
           }}
-          placeholder="Название продукта или материала"
+          placeholder="Имя, email, продукт или материал"
           role="combobox"
           type="search"
           value={text}
@@ -285,9 +290,14 @@ function SearchPanel({
           <X aria-hidden="true" />
         </button>
       </div>
+      {/* Длинный ответ (люди, продукты, материалы и платежи сразу) прокручивается: область получает фокус,
+          чтобы её можно было прокрутить с клавиатуры, а не только стрелками по вариантам. */}
       <div
         aria-busy={search.isFetching || stale || undefined}
+        aria-label="Найденное"
         className="authoring-search-results"
+        role="region"
+        tabIndex={0}
       >
         <p aria-live="polite" className="authoring-search-status">
           {status ?? `Найдено: ${String(entries.length)}`}
@@ -321,43 +331,46 @@ function SearchPanel({
                 </p>
               );
             return (
-              <div
-                aria-labelledby={headingId}
-                className="authoring-search-group"
-                key={group.kind}
-                role="group"
-              >
-                <p className="authoring-search-group-heading" id={headingId}>
-                  {heading}
-                </p>
+              <Fragment key={group.kind}>
                 {note === null ? null : (
-                  <p className="authoring-search-group-note">{note}</p>
+                  <p className="authoring-search-group-note">
+                    {heading}: {note}
+                  </p>
                 )}
-                {groupEntries.map((entry) => (
-                  <div
-                    aria-selected={entry.id === active?.id}
-                    className="authoring-search-option"
-                    id={`${id}-${entry.id}`}
-                    key={entry.id}
-                    onClick={() => {
-                      openEntry(entry);
-                    }}
-                    onMouseMove={() => {
-                      if (entry.id !== active?.id) setActiveId(entry.id);
-                    }}
-                    role="option"
-                  >
-                    <span className="authoring-search-option-title">
-                      {entry.title}
-                    </span>
-                    {entry.caption === null || entry.caption === "" ? null : (
-                      <span className="authoring-search-option-caption">
-                        {entry.caption}
+                <div
+                  aria-labelledby={headingId}
+                  className="authoring-search-group"
+                  role="group"
+                >
+                  <p className="authoring-search-group-heading" id={headingId}>
+                    {heading}
+                  </p>
+                  {groupEntries.map((entry) => (
+                    <div
+                      aria-selected={entry.id === active?.id}
+                      className="authoring-search-option"
+                      id={`${id}-${entry.id}`}
+                      key={entry.id}
+                      onClick={() => {
+                        openEntry(entry);
+                      }}
+                      onMouseMove={() => {
+                        if (entry.id !== active?.id) setActiveId(entry.id);
+                      }}
+                      role="option"
+                    >
+                      <span className="authoring-search-option-title">
+                        {entry.title}
                       </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {entry.caption === null || entry.caption === "" ? null : (
+                        <span className="authoring-search-option-caption">
+                          {entry.caption}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Fragment>
             );
           })}
         </div>

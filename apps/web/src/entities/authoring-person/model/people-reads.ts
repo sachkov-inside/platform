@@ -30,8 +30,9 @@ export const peopleIdentitiesQuerySchema = z
 /**
  * `unavailable`: запрос был именем или @username, а Telegram не ответил. Пустой список тогда не
  * ответ, и экран говорит «поиск по имени временно недоступен», а не «никого не нашли».
+ * `truncated`: совпало больше людей, чем вмещает ответ; экран просит уточнить запрос.
  */
-export type NameSearchState = "available" | "unavailable";
+export type NameSearchState = "available" | "unavailable" | "truncated";
 
 type ReadFailure =
   | { readonly kind: "signed_out" }
@@ -59,7 +60,7 @@ const failureSchemas = [
 export const peopleSearchResponseSchema = z
   .object({
     items: z.array(personIdentitySchema).max(PEOPLE_SEARCH_LIMIT),
-    nameSearch: z.enum(["available", "unavailable"]),
+    nameSearch: z.enum(["available", "unavailable", "truncated"]),
   })
   .strict();
 
