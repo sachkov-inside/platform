@@ -396,7 +396,7 @@ test("changing account identity clears remembered tabs and the previous account 
         ...catalog,
         facets: {
           ...catalog.facets,
-          product: Array.from({ length: 5 }, (_, index) => ({
+          products: Array.from({ length: 5 }, (_, index) => ({
             id: `product-${String(index)}`,
             slug: `product-${String(index)}`,
             name: `Продукт ${String(index)}`,
