@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { ReactNode } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { getQueryClient } from "@/shared/api/query-client";
@@ -24,7 +25,21 @@ import {
 } from "./product-holders.fixtures";
 import { ProductHoldersTable } from "./product-holders-table.client";
 
-const environment = authoringPageEnvironment(storyProductPath);
+/**
+ * Вкладка стоит в рамке страницы продукта, как на маршруте: `main` с `#authoring-content`
+ * прокручивает длинный список под каркасом с 48rem, без неё конец списка обрезан.
+ */
+function ProductPageFrame({ children }: { readonly children: ReactNode }) {
+  return (
+    <main className="authoring-page" id="authoring-content" tabIndex={-1}>
+      <div className="authoring-page-body">{children}</div>
+    </main>
+  );
+}
+
+const environment = authoringPageEnvironment(storyProductPath, {
+  frame: ProductPageFrame,
+});
 const addressChanged = fn();
 const retried = fn();
 const grantOpened = fn();
