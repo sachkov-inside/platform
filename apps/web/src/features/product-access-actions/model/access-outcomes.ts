@@ -3,7 +3,7 @@ import type { BillingFailureCode } from "@/entities/subscription";
 /**
  * Что владелец видит после действия с доступом (#1721). Правила решает Product Access; здесь
  * только подписи его ответов для карточки человека. Итог выдачи называет общий
- * `issueOutcomeMessage` из `@/entities/subscription`, тот же, что у выдачи на странице продукта.
+ * `issueOutcomeMessage` из `@/entities/subscription`; его же берёт массовая выдача #1718.
  */
 
 export function revokedMessage(productName: string): string {

@@ -57,17 +57,14 @@ export const personRowSchema = personIdentitySchema
 
 export type PersonRow = z.infer<typeof personRowSchema>;
 
-/** Больше совпадений по имени сервер не отдаёт (`nameSearch: "truncated"`). */
-export const PEOPLE_NAME_MATCH_LIMIT = 50;
-
 export const peopleListResponseSchema = z
   .object({
     items: z.array(personRowSchema),
     total: z.int().nonnegative(),
     nextCursor: cursorSchema.nullable(),
     /**
-     * `unavailable`: запрос был именем, а Telegram не ответил. `truncated`: совпадений по имени
-     * больше `PEOPLE_NAME_MATCH_LIMIT`, сервер вернул первые из них, и `total` считает только их.
+     * `unavailable`: запрос был именем, а Telegram не ответил. `truncated`: совпадений поиска
+     * (по имени или по адресу) больше, чем вмещает ответ; `total` считает людей только среди первых.
      */
     nameSearch: z.enum(["available", "unavailable", "truncated"]),
   })

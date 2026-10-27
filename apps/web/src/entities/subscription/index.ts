@@ -150,7 +150,6 @@ export {
   previewProductRevocation,
   revokeProductAccess,
 } from "./api/product-revocation.browser";
-export type { accessPairSchema } from "./model/product-access";
 export {
   issueOutcomeMessage,
   type ProductAccessIssueOutcome,

@@ -31,7 +31,6 @@ import { Button } from "@/shared/ui/button";
 import {
   accessStateFilterLabels,
   hasPeopleListFilters,
-  PEOPLE_NAME_MATCH_LIMIT,
   peopleFilterChips,
   peopleListHref,
   resetPeopleListQuery,
@@ -77,11 +76,9 @@ export function AuthoringPeopleView({
   const filtered = hasPeopleListFilters(query);
   const firstUse = state.total === 0 && !filtered && query.cursor === undefined;
   const truncated = state.nameSearch === "truncated";
-  // При обрезанном поиске по имени `total` считает только показанные совпадения: число
-  // называется как нижняя граница, а не как итог.
-  const count = truncated
-    ? `Больше ${formatCountRu(PEOPLE_NAME_MATCH_LIMIT, peopleForms)}`
-    : formatCountRu(state.total, peopleForms);
+  // При обрезанном поиске `total` считает людей среди первых совпадений, а не все совпадения:
+  // число остаётся точным для показанного, а замечание рядом говорит, что показаны не все.
+  const count = formatCountRu(state.total, peopleForms);
   return (
     <AuthoringPeopleFrame busy={isRefreshing} labelledBy={headingId}>
       <AdminListHeader count={count} headingId={headingId} title="Люди" />
@@ -137,7 +134,7 @@ function PeopleFilters({
   query,
 }: {
   readonly catalog: AccessProductCatalogView;
-  /** «12 человек» или «Больше 50 человек», если поиск по имени обрезан. */
+  /** «12 человек»: люди среди показанных совпадений поиска. */
   readonly count: string;
   readonly onQueryChange: (query: PeopleListQuery) => void;
   readonly query: PeopleListQuery;
@@ -257,7 +254,7 @@ function PeopleFilters({
   );
 }
 
-/** Совпадений по имени больше предела: показаны первые, запрос стоит уточнить. */
+/** Совпадений поиска больше, чем вмещает ответ: показаны первые, запрос стоит уточнить. */
 function NameSearchTruncated() {
   return (
     <p
@@ -265,8 +262,7 @@ function NameSearchTruncated() {
       role="status"
     >
       <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-      Совпадений по имени больше {PEOPLE_NAME_MATCH_LIMIT}, показаны первые.
-      Уточните запрос.
+      Показаны не все совпадения поиска. Уточните запрос.
     </p>
   );
 }
