@@ -407,3 +407,31 @@ active failure, including when the callback raises an operator interrupt. Withou
 failure, an operator interrupt still propagates; the mandatory restart runs in either case.
 These phases do not prove a historical unknown failure's cause. Collection requires the current source-bound
 reader; no positive case, query oracle, freshness tolerance or acquisition budget is changed.
+
+Source-cohort polling leaves five quiet seconds after an unsuccessful fresh/partition/stale
+acquisition completes, before starting its next query. This matches the native five-second
+scrape interval. A shorter pause can repeatedly acquire the same frame or align slow query
+windows with every new sample, consuming the shared128 cap. The pause is outside the recorded
+query window; it does not invent request traffic. The first acquisition remains immediate;
+initial baseline publication confirmation has the bounded follow-up described below.
+Readiness and the frozen held-frame publication keep their existing quarter-second cadence.
+The sixty-second wait, ten-second query,600-second scenario,128 acquisitions and all whole
+source/privacy, freshness, accounting and reset/MCP comparisons remain unchanged. A rejected
+sample is never promoted; exhaustion or expiry still fails before acceptance.
+
+Partition prepares its initial baseline after native MCP is ready, using the later of the
+original cut and that preparation's current clock. Its source timestamp must actually pass
+that cut and the unchanged clear-boundary test. A new quiet preparation advances the cut past
+the preceding read's completion and quiet interval, while the substantive seed has not started.
+The last whole observed frame's clock may schedule the next query at an integer evaluation time
+strictly after a projected five-second frame. A valid older frame can still arrive before the
+projected frame is published. For at most one five-second interval after that scheduled query,
+quarter-second follow-ups keep the same preparation cut and confirm the actual published frame.
+No follow-up query starts at or after expiry, including after an OS sleep overrun; expiry
+starts a new quiet preparation. A query started before expiry may finish under its existing
+ten-second request and sixty-second stage deadlines. The128 global cap still bounds every attempt. The hint never supplies evidence: the returned whole vector, actual
+source timestamp, freshness and journal checks still decide. Missing/stale/incomplete frames
+use the ordinary quiet wait. The existing
+rollover remains available only after the whole journal comparison passes and the source stamp
+has not yet passed the batch cut. No new rollover across an unverified business interval is
+added; no request window, counter or cohort-gap rule is reset.

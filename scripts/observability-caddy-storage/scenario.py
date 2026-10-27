@@ -57,14 +57,22 @@ class Scenario:
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
-    def _until(self,read,predicate,*,deadline=None):
+    def _cohort_pause(self,value):
+        if value[0]['state']!='observed':return 5
+        stamp=self.stamp(value[1]);completed=status.clock(value[1]['completed_at'])
+        # A validated source clock is only a scheduling hint. Query after the next
+        # predicted frame's clock at a strictly later integer E, leaving at least5 quiet seconds after completion.
+        periods=max(1,math.ceil((completed+5-stamp)/5))
+        return float(max(5,math.floor(stamp+5*periods)+1-completed))
+
+    def _until(self,read,predicate,*,deadline=None,poll_seconds=.25):
         if deadline is None:deadline=time.monotonic()+min(60,self.remaining())
         while time.monotonic()<deadline:
             self.remaining()
             value=read()
             if time.monotonic()>=deadline:raise TimeoutError()
             if predicate(value):return value
-            time.sleep(min(.25,self.remaining(),max(0,deadline-time.monotonic())))
+            time.sleep(min(poll_seconds,self.remaining(),max(0,deadline-time.monotonic())))
         raise TimeoutError()
 
     def _one(self,case):
@@ -133,20 +141,49 @@ class Scenario:
         return next(iter(stamps.values()))
 
     def fresh_after(self,cut,previous=None,*,_partition=False):
+        # Leave a full scrape interval quiet after a completed query, outside its
+        # journal window. A start-to-start cadence can lock samples inside slow reads.
         if not _partition:
             return self._until(lambda:self.snapshot(previous),lambda value:value[0]['state']=='observed'
-                and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])))
+                and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])),poll_seconds=5)
         self._partition_checkpoint('partition_initial_acquire')
+        deadline=time.monotonic()+min(60,self.remaining())
+        next_read=None;followup_end=None
+        def read():
+            nonlocal cut,next_read,followup_end
+            while next_read is not None:
+                time.sleep(min(max(0,next_read-time.monotonic()),self.remaining(),max(0,deadline-time.monotonic())))
+                now=time.monotonic()
+                if now>=deadline:raise TimeoutError()
+                if followup_end is None or now<followup_end:break
+                # Expiry bounds query start, even if the OS overslept. No request
+                # has begun; prepare a fresh quiet interval before another read.
+                cut=max(status.clock(cut),status.clock(time.time())+5)
+                next_read=now+5;followup_end=None
+            if time.monotonic()>=deadline:raise TimeoutError()
+            return self.snapshot(previous)
         def check(value):
+            nonlocal cut,next_read,followup_end
             if value[0]['state']!='observed':
                 self.last_report=value[0]
-                self._partition_checkpoint('partition_initial_state');return False
-            if not self.stamp(value[1])>status.clock(cut):
-                self._partition_checkpoint('partition_initial_after_cut');return False
-            if not self.journal.boundary_clear(self.stamp(value[1])):
-                self._partition_checkpoint('partition_initial_boundary');return False
-            return True
-        return self._until(lambda:self.snapshot(previous),check)
+                self._partition_checkpoint('partition_initial_state')
+            elif not self.stamp(value[1])>status.clock(cut):
+                self._partition_checkpoint('partition_initial_after_cut')
+            elif not self.journal.boundary_clear(self.stamp(value[1])):
+                self._partition_checkpoint('partition_initial_boundary')
+            else:return True
+            now=time.monotonic()
+            if value[0]['state']=='observed' and followup_end is not None and now<followup_end:
+                # A valid old frame can precede publication by milliseconds. Keep
+                # this pre-seed cut fixed for at most one scrape interval.
+                next_read=now+.25
+            else:
+                pause=self._cohort_pause(value)
+                cut=max(status.clock(cut),status.clock(value[1]['completed_at'])+5)
+                next_read=now+pause
+                followup_end=next_read+5 if value[0]['state']=='observed' else None
+            return False
+        return self._until(read,check,deadline=deadline,poll_seconds=0)
 
     def matching(self,canonical,*,previous=None,read=None):
         if read is None:
@@ -173,7 +210,7 @@ class Scenario:
         self.phase('partition')
         with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
             self.phase('partition')
-            _,baseline=self.fresh_after(cut,_partition=True)
+            _,baseline=self.fresh_after(max(cut,time.time()),_partition=True)
             # Warmup precedes both sides of the accounting interval, not only the final query.
             batch_cut=self.seed()
             self.phase('partition')
@@ -186,7 +223,7 @@ class Scenario:
                     self._partition_checkpoint('partition_compare_journal');return False
                 return True
             while True:
-                _,current=self._until(lambda:self.snapshot(baseline),check)
+                _,current=self._until(lambda:self.snapshot(baseline),check,poll_seconds=5)
                 if self.stamp(current)>status.clock(batch_cut):break
                 self._partition_checkpoint('partition_compare_after_cut')
                 baseline=current
@@ -278,7 +315,7 @@ class Scenario:
         self.phase('alloy_stale')
         self.targets.change('alloy','stop')
         try:
-            self._until(self.snapshot,lambda value:value[0]['state'] in ('stale','missing'))
+            self._until(self.snapshot,lambda value:value[0]['state'] in ('stale','missing'),poll_seconds=5)
             self.passed('alloy_stale')
         except BaseException as error:
             self.failed(error);raise

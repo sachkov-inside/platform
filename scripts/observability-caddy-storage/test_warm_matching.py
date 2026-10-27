@@ -231,3 +231,84 @@ class WarmMatching(unittest.TestCase):
                     with self.assertRaises(BaseException) as caught:startup.outages()
                 self.assertIs(caught.exception,primary if active else interrupt)
                 self.assertEqual(changes,[('gateway','stop'),('gateway','start')])
+
+        # A baseline accepted just before the next scrape cannot contain the seed
+        # and a clean later frame within the strict10s source-cohort comparison.
+        # Drive the actual partition caller, seed, journal and whole MCP oracle.
+        from types import SimpleNamespace
+        import math
+        now=[100.5];events=[];visibility_lag=[0]
+        clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
+            sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
+        groups=(('GET',200),('GET',401),('GET',403),('GET',502),('POST',200),('POST',413))
+        def frame(point,completed,previous=None):
+            stamp=.585+5.01*math.floor((point-visibility_lag[0]-.585)/5.01)
+            counts={group:1 for group in groups}
+            for end,method,code,count in events:
+                if end<stamp:counts[method,code]+=count
+            values,stamps=acquisition(point=point,stamp=stamp)
+            rows=values['data']['result'];labels={'server':'srv0','handler':'subroute'}
+            rows[:]=rows[:4]
+            rows[1]['value'][1]=str(sum(counts.values()));rows[2]['value'][1]=str(counts['GET',502]);rows[3]['value'][1]='0'
+            def add(name,value,**extra):
+                rows.append({'metric':{'__name__':name,'job':'platform-caddy','instance':'pilot',**labels,**extra},'value':[point,str(value)]})
+            for (method,code),count in counts.items():
+                for bound in scenario.status.BUCKETS:add(scenario.status.DURATION+'bucket',count,method=method,code=str(code),le=bound)
+                add(scenario.status.DURATION+'sum',count/1000,method=method,code=str(code))
+                add(scenario.status.DURATION+'count',count,method=method,code=str(code))
+            import copy
+            stamps=copy.deepcopy(values)
+            for row in stamps['data']['result']:
+                row['metric']['source_metric']=row['metric']['__name__'];row['value'][1]=str(stamp)
+            current={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),
+                     'evaluated_at':point,'completed_at':completed}
+            return scenario.status.evaluate(**current,previous=previous),current
+        def canonical(*args,previous=None,**kwargs):
+            point=math.floor(now[0]);now[0]+=.02
+            result,current=frame(point,now[0],previous)
+            events.append((now[0],'GET',200,2));result['transport']['canonical']='passed'
+            return result,current
+        def perform(case,token):
+            started=now[0];now[0]+=.3;method,code=scenario.traffic.CASES[case]
+            if type(code) is tuple:code=200
+            events.append((now[0],method,code,1))
+            return {'started':started,'completed':now[0],'method':method,'code':code}
+        def mcp(*,evaluated_at,previous=None):
+            result,current=frame(evaluated_at,now[0],previous);result['transport']['mcp']='passed'
+            return result,current
+        @contextmanager
+        def native(*args,**kwargs):yield mcp
+        experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
+                                     'owned_token',Path('/unused'),lambda kind,value:None)
+        experiment.deadline=700
+        with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                patch.object(scenario.traffic,'perform',side_effect=perform),patch.object(scenario.mcp_snapshot,'session',native):
+            experiment.partition(94)
+        self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
+        self.assertLess(experiment.acquisitions,16)
+        self.assertLess(now[0]-100.5,60)
+
+        # The projected frame can arrive after its first query. Confirm it through
+        # the unchanged full partition caller before seed, rather than moving the cut.
+        visibility_lag[0]=1.5;now[0]=100.5;events.clear()
+        experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
+                                     'owned_token',Path('/unused'),lambda kind,value:None)
+        experiment.deadline=700
+        with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                patch.object(scenario.traffic,'perform',side_effect=perform),patch.object(scenario.mcp_snapshot,'session',native):
+            experiment.partition(94)
+        self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
+        self.assertLess(now[0]-100.5,60)
+        self.assertLess(experiment.acquisitions,32)
+
+        # Stale publication cannot commit a predicted baseline and start seed.
+        visibility_lag[0]=20;now[0]=100.5;events.clear()
+        experiment=scenario.Scenario(SimpleNamespace(change=lambda *_:None,native_metrics=lambda:{'request_errors_total':1}),
+                                     'owned_token',Path('/unused'),lambda kind,value:None)
+        experiment.deadline=700
+        with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=canonical), \
+                patch.object(scenario.traffic,'perform',side_effect=perform),patch.object(scenario.mcp_snapshot,'session',native):
+            with self.assertRaises(TimeoutError):experiment.partition(94)
+        self.assertEqual(now[0],160.5)
+        self.assertTrue(all(count==2 for _,_,_,count in events))
+        self.assertLess(experiment.acquisitions,128)
