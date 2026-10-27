@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import type { ReactNode } from "react";
 
 import "./admin.css";
 
@@ -19,9 +20,20 @@ export interface MetricCardProps {
   readonly label: string;
   /** Уже отформатированное значение. */
   readonly value: string;
-  /** «за 30 дней». */
-  readonly period: string;
-  readonly change: MetricChange;
+  /**
+   * Значение не посчитано: источник не ответил. Слово вместо числа стоит мельче и приглушённо,
+   * чтобы не читаться как показатель и не рваться посреди слова в узкой карточке.
+   */
+  readonly unavailable?: boolean;
+  /** «за 30 дней»; у состояния на сейчас, например числа обладателей, периода нет. */
+  readonly period?: string;
+  /** Без сравнения карточка показывает только значение: число на сейчас или недоступный показатель. */
+  readonly change?: MetricChange | undefined;
+  /**
+   * Короткое уточнение под значением, например разбивка по способам получения. Карточка бывает
+   * кнопкой, поэтому внутри только строчные элементы (`span`).
+   */
+  readonly detail?: ReactNode;
   readonly selected?: boolean;
   /** С обработчиком карточка становится переключателем графика (`aria-pressed`). */
   readonly onSelect?: () => void;
@@ -40,19 +52,33 @@ const meaningText = {
 export function MetricCard({
   label,
   value,
+  unavailable = false,
   period,
   change,
+  detail,
   selected = false,
   onSelect,
 }: MetricCardProps) {
   const content = (
     <>
       <span className="admin-metric-label">{label}</span>
-      <span className="admin-metric-value">{value}</span>
-      <span className="admin-metric-footer">
-        <MetricChangeLabel change={change} />
-        <span className="admin-metric-period">{period}</span>
+      <span
+        className="admin-metric-value"
+        data-unavailable={unavailable || undefined}
+      >
+        {value}
       </span>
+      {detail === undefined ? null : (
+        <span className="admin-metric-detail">{detail}</span>
+      )}
+      {change === undefined && period === undefined ? null : (
+        <span className="admin-metric-footer">
+          {change === undefined ? null : <MetricChangeLabel change={change} />}
+          {period === undefined ? null : (
+            <span className="admin-metric-period">{period}</span>
+          )}
+        </span>
+      )}
     </>
   );
   if (onSelect === undefined)

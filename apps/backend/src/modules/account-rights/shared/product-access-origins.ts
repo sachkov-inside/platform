@@ -52,14 +52,15 @@ function originRows(where: Prisma.Sql): Prisma.Sql {
  * of the source that first acquired it, so its origin is the origin of the sources issued at that
  * instant. No such source, or sources of different origins at that instant, is `unknown`.
  */
-function firstAcquisitionRows(where: Prisma.Sql): Prisma.Sql {
+export function firstAcquisitionRows(where: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`
     SELECT o.account_id, o.product_id, (o.revoked_at IS NULL) AS active,
+      o.first_issued_at,
       CASE WHEN count(DISTINCT o.origin) FILTER (WHERE o.issued_at = o.first_issued_at) = 1
         THEN min(o.origin) FILTER (WHERE o.issued_at = o.first_issued_at)
         ELSE 'unknown' END AS origin
     FROM (${originRows(where)}) o
-    GROUP BY o.account_id, o.product_id, o.revoked_at`;
+    GROUP BY o.account_id, o.product_id, o.revoked_at, o.first_issued_at`;
 }
 
 function uuidList(ids: readonly string[]): Prisma.Sql {

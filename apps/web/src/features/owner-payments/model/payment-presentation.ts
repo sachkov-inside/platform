@@ -2,6 +2,7 @@ import type { Route } from "next";
 
 import type { AdminStateKey } from "@/shared/ui/admin";
 import { formatRubles } from "@/shared/lib/moscow-format";
+import { authoringPaymentHref } from "@/shared/routing/authoring";
 import { internalRoute } from "@/shared/routing/internal-route";
 
 import type {
@@ -9,7 +10,7 @@ import type {
   PaymentView,
   RefundDecisionView,
 } from "./payment-contract";
-import { salesPaymentsHref, type PaymentState } from "./payment-filters";
+import type { PaymentState } from "./payment-filters";
 
 /** Плашка банковского состояния: неизвестное банку остаётся «нужна сверка», а не успехом. */
 export function paymentStateBadge(state: PaymentState): AdminStateKey {
@@ -39,9 +40,7 @@ export const paymentStateLabels: Readonly<Record<PaymentState, string>> = {
 export const paymentLinksHref: Route = internalRoute("/authoring/sales/links");
 
 /** Адрес страницы платежа. */
-export function salesPaymentHref(purchaseRef: string): Route {
-  return internalRoute(`${salesPaymentsHref}/${purchaseRef}`);
-}
+export const salesPaymentHref = authoringPaymentHref;
 
 /**
  * Название продукта из оплаченных условий. Прежние покупки без продукта в снимке называются

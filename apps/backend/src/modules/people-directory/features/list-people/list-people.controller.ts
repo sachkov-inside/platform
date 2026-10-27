@@ -37,6 +37,7 @@ import {
   personIdentityHttpSchema,
 } from "../../shared/people-http.js";
 import {
+  peopleTelegramFilterSchema,
   PEOPLE_CURSOR_MAX_CHARACTERS,
   PEOPLE_PAGE_DEFAULT_LIMIT,
   PEOPLE_PAGE_LIMIT,
@@ -122,6 +123,13 @@ export class ListPeopleController {
     schema: toOpenApiSchema(z.enum(["active", "revoked"])),
   })
   @ApiQuery({
+    name: "telegram",
+    required: false,
+    description:
+      "Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery's result is unknown or it failed in the last 30 days",
+    schema: toOpenApiSchema(peopleTelegramFilterSchema),
+  })
+  @ApiQuery({
     name: "cursor",
     required: false,
     description:
@@ -167,10 +175,19 @@ export class ListPeopleController {
     @Query("productId") productId: unknown,
     @Query("origin") origin: unknown,
     @Query("state") state: unknown,
+    @Query("telegram") telegram: unknown,
     @Query("cursor") cursor: unknown,
     @Query("limit") limit: unknown,
   ): Promise<z.infer<typeof peopleListHttpSchema>> {
-    const given = { query, productId, origin, state, cursor, limit };
+    const given = {
+      query,
+      productId,
+      origin,
+      state,
+      telegram,
+      cursor,
+      limit,
+    };
     const result = await this.directory.listPeople(
       account.accountId,
       Object.fromEntries(

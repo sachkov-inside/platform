@@ -147,3 +147,33 @@ export const StaticMobile: Story = {
   ...mobile,
   args: { change: { kind: "no_data" } },
 };
+
+/** Число на сейчас с уточнением под значением: без периода и сравнения (#1719). */
+export const WithDetailDesktop: Story = {
+  ...desktop,
+  args: {
+    label: "Обладатели",
+    value: "148",
+    period: "сейчас",
+    change: undefined,
+    detail: "Покупка: 121 · Активация курса: 19 · Выдача владельцем: 6",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/^Покупка: 121/u)).toBeVisible();
+    await expect(canvas.queryByText("нет данных")).toBeNull();
+  },
+};
+
+/** Источник не ответил: карточка говорит об этом, а не показывает ноль. */
+export const UnavailableMobile: Story = {
+  ...mobile,
+  args: {
+    label: "Выручка за вычетом возвратов",
+    value: "Недоступно",
+    unavailable: true,
+    period: "за 30 дней",
+    change: undefined,
+    detail: "Не удалось посчитать, источник не ответил",
+  },
+};

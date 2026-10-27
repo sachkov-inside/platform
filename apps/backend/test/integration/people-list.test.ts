@@ -717,6 +717,7 @@ describe("People list", () => {
         payments: unreadPeopleOwners.payments,
         submissions: unreadPeopleOwners.submissions,
         community: unreadPeopleOwners.community,
+        deliveries: unreadPeopleOwners.deliveries,
         waitlists: unreadPeopleOwners.waitlists,
       };
       const directory = new PeopleDirectory(dependencies);

@@ -5,6 +5,7 @@ import type {
   Accounts,
 } from "../../accounts/index.js";
 import type { BillingOperations } from "../../billing/index.js";
+import type { Notifications } from "../../notifications/index.js";
 import type { SubmissionReview } from "../../product-tasks/index.js";
 import type { ProductDiscovery } from "../../products/index.js";
 import type { ReadingActivity } from "../../reading-activity/index.js";
@@ -90,7 +91,11 @@ export interface PeopleDirectoryDependencies {
   >;
   readonly payments: Pick<BillingOperations, "execute">;
   readonly submissions: Pick<SubmissionReview, "summarizeAccount">;
-  readonly community: Pick<CommunityEntitlements, "readMemberState">;
+  readonly community: Pick<
+    CommunityEntitlements,
+    "readMemberState" | "listProblemAccounts"
+  >;
+  readonly deliveries: Pick<Notifications, "listTelegramProblemAccounts">;
   readonly waitlists: Pick<ProductWaitlists, "readForAccount">;
 }
 

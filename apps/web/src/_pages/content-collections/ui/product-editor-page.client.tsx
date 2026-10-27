@@ -1,4 +1,5 @@
 "use client";
+import { ProductOverviewTab } from "@/features/admin-overview";
 import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
@@ -97,10 +98,11 @@ function AuthoredProductEditor({
       </ProductPageNavigation>
       <header className="authoring-page-heading">
         <h1>{name}</h1>
-        <p>Программа, витрина, продажа и ученики продукта.</p>
+        <p>Обзор, программа, витрина, продажа и ученики продукта.</p>
       </header>
       <ProductPageTabs
         panels={{
+          overview: <ProductOverviewTab productId={collection.id} />,
           program: (
             <>
               <ProductOrderPanel

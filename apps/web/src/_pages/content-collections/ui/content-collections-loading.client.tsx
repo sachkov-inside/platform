@@ -92,7 +92,7 @@ export function ProductPageLoading() {
         >
           <span className="admin-skeleton-bar h-6 w-2/3 max-w-md" />
         </span>
-        <p>Программа, витрина, продажа и ученики продукта.</p>
+        <p>Обзор, программа, витрина, продажа и ученики продукта.</p>
       </header>
       <div aria-hidden="true" inert>
         <WorkspaceTabs

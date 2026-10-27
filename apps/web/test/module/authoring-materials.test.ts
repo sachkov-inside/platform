@@ -365,6 +365,14 @@ describe("Authoring Materials server adapter", () => {
     const editorHref = authoringProductEditorHref(productId);
     expect(editorHref).toBe(`/authoring/products/${productId}`);
     expect(parseAuthoringReturnHref(editorHref)).toBe(editorHref);
+    // Возврат из программы ведёт обратно в «Программу», а не на первую вкладку «Обзор» (#1719).
+    const programHref = authoringProductEditorHref(productId, "program");
+    expect(programHref).toBe(`/authoring/products/${productId}?tab=program`);
+    expect(parseAuthoringReturnHref(programHref)).toBe(programHref);
+    expect(authoringReturnLabel(programHref)).toBe("К продукту");
+    expect(authoringMaterialPreviewHref(materialId, programHref)).toBe(
+      `/authoring/materials/${materialId}/preview?from=%2Fauthoring%2Fproducts%2F${productId}%3Ftab%3Dprogram&product=${productId}`,
+    );
     expect(authoringReturnLabel(editorHref)).toBe("К продукту");
     expect(authoringReturnLabel("/authoring/materials?page=2")).toBe(
       "К материалам",
@@ -374,6 +382,7 @@ describe("Authoring Materials server adapter", () => {
       "/authoring/products/not-a-product",
       `/authoring/products/${productId}/preview`,
       `/authoring/products/${productId}?tab=order`,
+      `/authoring/products/${productId}?tab=program&x=1`,
       `https://attacker.example/authoring/products/${productId}`,
     ]) {
       expect(parseAuthoringReturnHref(rejected)).toBe("/authoring/materials");

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { attemptStateSchema } from "@/entities/subscription";
 import { addMoscowDays, moscowDayStart } from "@/shared/lib/moscow-day";
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
+import { authoringPaymentsHref } from "@/shared/routing/authoring";
 
 /** Банковское состояние попытки оплаты: закрытый список владельца billing. */
 export type PaymentState = z.infer<typeof attemptStateSchema>;
@@ -23,12 +24,21 @@ export interface PaymentsQuery {
   readonly from?: string;
   /** «YYYY-MM-DD», последний день периода. */
   readonly to?: string;
+  /**
+   * `incomplete`: подтверждённые оплаты, выдача которых ещё не завершена. Список открывается с ним
+   * из «Требует внимания» Обзора (#1719).
+   */
+  readonly fulfillment?: PaymentFulfillmentFilter;
   /** Позиция продолжения из ответа backend, а не номер страницы. */
   readonly cursor?: string;
 }
 
 export const emptyPaymentsQuery: PaymentsQuery = { states: [] };
-export const salesPaymentsHref = "/authoring/sales/payments" satisfies Route;
+
+const fulfillmentSchema = z.literal("incomplete");
+export type PaymentFulfillmentFilter = z.infer<typeof fulfillmentSchema>;
+export const fulfillmentFilterLabel = "Выдача не завершена";
+export const salesPaymentsHref = authoringPaymentsHref;
 
 /** Сколько строк просит одна страница списка. */
 export const paymentsPageSize = 50;
@@ -54,11 +64,15 @@ export function parsePaymentsSearchParams(
       ? undefined
       : parsedTo;
   const cursor = uuidSchema.safeParse(params.get("cursor")).data;
+  const fulfillment = fulfillmentSchema.safeParse(
+    params.get("fulfillment"),
+  ).data;
   return {
     states: paymentStates.filter((state) => requested.has(state)),
     ...(productId === undefined ? {} : { productId }),
     ...(from === undefined ? {} : { from }),
     ...(to === undefined ? {} : { to }),
+    ...(fulfillment === undefined ? {} : { fulfillment }),
     ...(cursor === undefined ? {} : { cursor }),
   };
 }
@@ -69,6 +83,8 @@ export function serializePaymentsQuery(query: PaymentsQuery): string {
   if (query.productId !== undefined) params.set("product", query.productId);
   if (query.from !== undefined) params.set("from", query.from);
   if (query.to !== undefined) params.set("to", query.to);
+  if (query.fulfillment !== undefined)
+    params.set("fulfillment", query.fulfillment);
   if (query.cursor !== undefined) params.set("cursor", query.cursor);
   return params.toString();
 }
@@ -79,13 +95,14 @@ export function salesPaymentsQueryHref(query: PaymentsQuery): Route {
   return search === "" ? salesPaymentsHref : `${salesPaymentsHref}?${search}`;
 }
 
-/** Состояние, продукт или период сужают список; позиция продолжения сама по себе нет. */
+/** Состояние, продукт, период или выдача сужают список; позиция продолжения сама по себе нет. */
 export function hasPaymentsFilters(query: PaymentsQuery): boolean {
   return (
     query.states.length > 0 ||
     query.productId !== undefined ||
     query.from !== undefined ||
-    query.to !== undefined
+    query.to !== undefined ||
+    query.fulfillment !== undefined
   );
 }
 
@@ -94,7 +111,8 @@ export type PaymentsFilterChange =
   | { readonly key: "productId"; readonly value: string | undefined }
   | { readonly key: "from"; readonly value: string | undefined }
   | { readonly key: "to"; readonly value: string | undefined }
-  | { readonly key: "period"; readonly value: undefined };
+  | { readonly key: "period"; readonly value: undefined }
+  | { readonly key: "fulfillment"; readonly value: undefined };
 
 /**
  * Выбор после одного изменения фильтра. Любое изменение возвращает к началу списка: прежняя
@@ -132,6 +150,10 @@ export function withPaymentsFilter(
       const { from: _from, to: _to, ...withoutPeriod } = rest;
       return withoutPeriod;
     }
+    case "fulfillment": {
+      const { fulfillment: _fulfillment, ...withoutFulfillment } = rest;
+      return withoutFulfillment;
+    }
   }
 }
 
@@ -159,6 +181,7 @@ export interface PaymentsListRequest {
   readonly from?: string;
   /** Мгновение ISO, исключительно. */
   readonly to?: string;
+  readonly fulfillment?: PaymentFulfillmentFilter;
   readonly cursor?: string;
 }
 
@@ -176,6 +199,9 @@ export function paymentsListRequest(
       ? {}
       : { from: moscowDayStart(query.from).toISOString() }),
     ...(query.to === undefined ? {} : { to: moscowDayAfter(query.to) }),
+    ...(query.fulfillment === undefined
+      ? {}
+      : { fulfillment: query.fulfillment }),
     ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
   };
 }
@@ -193,6 +219,8 @@ export function serializePaymentsListRequest(
     params.set("productId", request.productId);
   if (request.from !== undefined) params.set("from", request.from);
   if (request.to !== undefined) params.set("to", request.to);
+  if (request.fulfillment !== undefined)
+    params.set("fulfillment", request.fulfillment);
   if (request.cursor !== undefined) params.set("cursor", request.cursor);
   return params.toString();
 }
@@ -227,6 +255,7 @@ export function parsePaymentsListRequest(
   const productId = optional("productId", uuidSchema);
   const from = optional("from", instantSchema);
   const to = optional("to", instantSchema);
+  const fulfillment = optional("fulfillment", fulfillmentSchema);
   const cursor = optional("cursor", uuidSchema);
   if (
     !limit.success ||
@@ -235,6 +264,7 @@ export function parsePaymentsListRequest(
     !productId.ok ||
     !from.ok ||
     !to.ok ||
+    !fulfillment.ok ||
     !cursor.ok
   )
     return null;
@@ -248,6 +278,9 @@ export function parsePaymentsListRequest(
     ...(productId.value === undefined ? {} : { productId: productId.value }),
     ...(from.value === undefined ? {} : { from: from.value }),
     ...(to.value === undefined ? {} : { to: to.value }),
+    ...(fulfillment.value === undefined
+      ? {}
+      : { fulfillment: fulfillment.value }),
     ...(cursor.value === undefined ? {} : { cursor: cursor.value }),
   };
 }

@@ -85,8 +85,7 @@ test("the admin shell reaches every section on desktop and through the phone pan
 }, info) => {
   if (baseURL === undefined) throw new Error("baseURL required");
   await context.addCookies([await authorCookie(baseURL)]);
-  await page.goto("/authoring");
-  await expect(page).toHaveURL(/\/authoring\/products$/u);
+  await page.goto("/authoring/products");
   await expect(
     page.getByRole("heading", { level: 1, name: "Продукты" }),
   ).toBeVisible();
@@ -97,6 +96,10 @@ test("the admin shell reaches every section on desktop and through the phone pan
     await expect(
       sections.getByRole("link", { name: "Продукты" }),
     ).toHaveAttribute("aria-current", "page");
+    // «Обзор» текущий только на самом `/authoring`, а не во всех разделах под ним (#1719).
+    await expect(
+      sections.getByRole("link", { name: "Обзор" }),
+    ).not.toHaveAttribute("aria-current");
     await expect(sections.getByRole("link", { name: counter })).toBeVisible();
     // Продажи живут под `/authoring/sales` (#1718).
     await expect(

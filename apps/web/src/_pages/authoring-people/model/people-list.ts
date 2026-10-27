@@ -10,21 +10,36 @@ import {
   type AccessOrigin,
   type ProductAccessState,
 } from "@/entities/authoring-person";
-import { authoringPeopleHref } from "@/shared/routing/authoring";
+import {
+  authoringPeopleHref,
+  authoringPeopleTelegramProblems,
+} from "@/shared/routing/authoring";
 import { internalRoute } from "@/shared/routing/internal-route";
 
 /**
  * Список людей (#1721), `GET /authoring/people`. Адрес страницы хранит `q, product, origin, state,
- * cursor`; BFF принимает `query, product, origin, state, cursor` и передаёт их Nest как `query,
- * productId, origin, state, cursor`. Курсор хранит фильтры, поэтому при смене фильтра он уходит.
+ * telegram, cursor`; BFF принимает `query, product, origin, state, telegram, cursor` и передаёт их
+ * Nest как `query, productId, origin, state, telegram, cursor`. Курсор хранит фильтры, поэтому при
+ * смене фильтра он уходит.
  */
 export interface PeopleListQuery {
   readonly search?: string;
   readonly productId?: string;
   readonly origin?: AccessOrigin;
   readonly state?: ProductAccessState;
+  /** Проблема Telegram, которую считает Обзор (#1719): из «Требует внимания» список открыт с ней. */
+  readonly telegram?: TelegramProblem;
   readonly cursor?: string;
 }
+
+export const telegramProblemSchema = z.enum(authoringPeopleTelegramProblems);
+export type TelegramProblem = z.infer<typeof telegramProblemSchema>;
+
+export const telegramProblemLabels: Readonly<Record<TelegramProblem, string>> =
+  {
+    community_failed: "Сбой доступа к группе Telegram",
+    delivery_failed: "Доставка в Telegram не подтверждена",
+  };
 
 const instant = z.iso.datetime({ offset: true });
 /** Курсор непрозрачен; ограничение длины только не пускает в запрос мусор из адреса. */
@@ -106,12 +121,14 @@ export function parsePeopleListQuery(
   const productId = z.uuid().safeParse(single(params["product"]));
   const origin = accessOriginSchema.safeParse(single(params["origin"]));
   const state = productAccessStateSchema.safeParse(single(params["state"]));
+  const telegram = telegramProblemSchema.safeParse(single(params["telegram"]));
   const cursor = cursorSchema.safeParse(single(params["cursor"]));
   return {
     ...(search.success ? { search: search.data } : {}),
     ...(productId.success ? { productId: productId.data } : {}),
     ...(origin.success ? { origin: origin.data } : {}),
     ...(state.success ? { state: state.data } : {}),
+    ...(telegram.success ? { telegram: telegram.data } : {}),
     ...(cursor.success ? { cursor: cursor.data } : {}),
   };
 }
@@ -135,6 +152,7 @@ export function serializePeopleListQuery(
   if (query.productId !== undefined) params.set("product", query.productId);
   if (query.origin !== undefined) params.set("origin", query.origin);
   if (query.state !== undefined) params.set("state", query.state);
+  if (query.telegram !== undefined) params.set("telegram", query.telegram);
   if (query.cursor !== undefined) params.set("cursor", query.cursor);
   return params.toString();
 }
@@ -146,17 +164,18 @@ export function peopleListHref(query: PeopleListQuery): Route {
     : internalRoute(`${authoringPeopleHref}?${serialized}`);
 }
 
-/** Поиск, продукт, способ или состояние сужают список; курсор сам по себе нет. */
+/** Поиск, продукт, способ, состояние или проблема Telegram сужают список; курсор сам по себе нет. */
 export function hasPeopleListFilters(query: PeopleListQuery): boolean {
   return (
     query.search !== undefined ||
     query.productId !== undefined ||
     query.origin !== undefined ||
-    query.state !== undefined
+    query.state !== undefined ||
+    query.telegram !== undefined
   );
 }
 
-type FilterKey = "search" | "productId" | "origin" | "state";
+type FilterKey = "search" | "productId" | "origin" | "state" | "telegram";
 
 /** Запрос после смены одного фильтра: пустое значение снимает его, курсор всегда уходит. */
 export function withPeopleListFilter(
@@ -182,6 +201,10 @@ export function withPeopleListFilter(
       const parsed = productAccessStateSchema.safeParse(value);
       return parsed.success ? { ...rest, state: parsed.data } : rest;
     }
+    case "telegram": {
+      const parsed = telegramProblemSchema.safeParse(value);
+      return parsed.success ? { ...rest, telegram: parsed.data } : rest;
+    }
   }
 }
 
@@ -192,7 +215,7 @@ export const accessStateFilterLabels: Readonly<
 > = { active: "Доступ открыт", revoked: "Доступ отозван" };
 
 export interface PeopleFilterChip {
-  readonly id: "productId" | "origin" | "state";
+  readonly id: "productId" | "origin" | "state" | "telegram";
   readonly label: string;
   readonly next: PeopleListQuery;
 }
@@ -220,6 +243,12 @@ export function peopleFilterChips(
       id: "state",
       label: accessStateFilterLabels[query.state],
       next: withPeopleListFilter(query, "state", undefined),
+    });
+  if (query.telegram !== undefined)
+    chips.push({
+      id: "telegram",
+      label: telegramProblemLabels[query.telegram],
+      next: withPeopleListFilter(query, "telegram", undefined),
     });
   return chips;
 }

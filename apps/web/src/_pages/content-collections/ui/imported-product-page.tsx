@@ -1,3 +1,4 @@
+import { ProductOverviewTab } from "@/features/admin-overview";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { HomeProductPin, ProductOrderPanel } from "@/features/product-order";
@@ -38,10 +39,11 @@ export function ImportedProductPage({
       </ProductPageNavigation>
       <header className="authoring-page-heading">
         <h1>{collection.name}</h1>
-        <p>Программа, витрина, продажа и ученики продукта.</p>
+        <p>Обзор, программа, витрина, продажа и ученики продукта.</p>
       </header>
       <ProductPageTabs
         panels={{
+          overview: <ProductOverviewTab productId={collection.id} />,
           program: (
             <>
               <ProductOrderPanel

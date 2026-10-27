@@ -46,8 +46,16 @@ function PeopleQueryView({
         product: query.productId,
         q: debouncedSearch,
         state: query.state,
+        telegram: query.telegram,
       }),
-    [debouncedSearch, query.cursor, query.origin, query.productId, query.state],
+    [
+      debouncedSearch,
+      query.cursor,
+      query.origin,
+      query.productId,
+      query.state,
+      query.telegram,
+    ],
   );
   const people = useQuery({
     ...peopleListQueryOptions(requestQuery),
@@ -96,7 +104,8 @@ function writePeopleUrl(next: PeopleListQuery, current: PeopleListQuery): void {
     next.search !== current.search &&
     next.productId === current.productId &&
     next.origin === current.origin &&
-    next.state === current.state;
+    next.state === current.state &&
+    next.telegram === current.telegram;
   if (onlySearchChanged) window.history.replaceState(null, "", href);
   else window.history.pushState(null, "", href);
 }

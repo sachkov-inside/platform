@@ -21,6 +21,7 @@ export { tbankToken } from "./infrastructure/tbank/tbank.js";
 export { CourseActivation } from "./facets/course-activation/course-activation.js";
 
 export { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
+export { BillingSalesOverview } from "./facets/billing-sales-overview/billing-sales-overview.js";
 export { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 
 export {

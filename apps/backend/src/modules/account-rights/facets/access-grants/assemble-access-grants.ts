@@ -36,6 +36,12 @@ import {
 import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
 import { listAccessAccounts } from "../../features/list-access-accounts/list-access-accounts.js";
 import { readAccessSummaries } from "../../features/read-access-summaries/read-access-summaries.js";
+import {
+  countActiveHolders,
+  listRecentAccessActions,
+  readNewAccessByDay,
+} from "../../features/read-access-overview/read-access-overview.js";
+import type { DailyWindow } from "../../../../infrastructure/contracts/daily-window.js";
 import { readAccountProductAccess } from "../../features/read-account-product-access/read-account-product-access.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
@@ -449,6 +455,38 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         "billing:manage",
         () => listAccessAccounts(prisma, filter),
         "listAccessAccounts",
+      ),
+    /** The admin Overview (#1719): Product Access first issued per day, by origin. */
+    readNewAccessByDay: (
+      actorId: string,
+      window: DailyWindow,
+      productId?: string,
+    ) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => readNewAccessByDay(prisma, window, productId),
+        "readNewAccessByDay",
+      ),
+    /** The admin Overview (#1719): the latest issues, revocations and restorations. */
+    listRecentAccessActions: (
+      actorId: string,
+      limit: number,
+      productId?: string,
+    ) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => listRecentAccessActions(prisma, limit, productId),
+        "listRecentAccessActions",
+      ),
+    /** The admin Overview (#1719): active Product Access per Product and origin. */
+    countActiveHolders: (actorId: string, productId?: string) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => countActiveHolders(prisma, productId),
+        "countActiveHolders",
       ),
     /** Product, state and first acquisition origin per Account for one page of at most 50. */
     readAccessSummaries: (actorId: string, accountIds: readonly string[]) =>

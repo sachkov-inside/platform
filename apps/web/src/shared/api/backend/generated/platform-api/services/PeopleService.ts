@@ -14,6 +14,7 @@ export class PeopleService {
   public listPeople({
     limit,
     cursor,
+    telegram,
     state,
     origin,
     productId,
@@ -27,6 +28,10 @@ export class PeopleService {
      * Opaque `nextCursor` of the previous page; valid only with the same query and filters
      */
     cursor?: string,
+    /**
+     * Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery's result is unknown or it failed in the last 30 days
+     */
+    telegram?: 'community_failed' | 'delivery_failed',
     /**
      * Only people with a Product Access in this state (of `productId` when given, otherwise of any Product)
      */
@@ -73,6 +78,7 @@ export class PeopleService {
       query: {
         'limit': limit,
         'cursor': cursor,
+        'telegram': telegram,
         'state': state,
         'origin': origin,
         'productId': productId,

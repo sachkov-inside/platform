@@ -58,12 +58,24 @@ export type ListPeopleResult = PeopleDirectoryResult<{
   readonly nameSearch: NameSearchState;
 }>;
 
+/**
+ * `community_failed`: the latest community operation of the Account was rejected, failed or is
+ * overdue. `delivery_failed`: a Telegram delivery to the Account has an unknown result, or failed
+ * recently. The Overview counts the people of the same Account sets.
+ */
+export const peopleTelegramFilterSchema = z.enum([
+  "community_failed",
+  "delivery_failed",
+]);
+
 const listInputSchema = z.strictObject({
   query: z.string().optional(),
   productId: z.uuid().toLowerCase().optional(),
   /** The origin of the first acquisition of a Product Access. */
   origin: productAccessOriginSchema.optional(),
   state: z.enum(["active", "revoked"]).optional(),
+  /** The Accounts behind one Telegram attention item of the Overview (#1719). */
+  telegram: peopleTelegramFilterSchema.optional(),
   cursor: z.string().min(1).max(PEOPLE_CURSOR_MAX_CHARACTERS).optional(),
   limit: z.coerce.number().int().min(1).max(PEOPLE_PAGE_LIMIT).optional(),
 });
@@ -81,17 +93,19 @@ interface ListScope {
   readonly productId: string | undefined;
   readonly origin: ProductAccessOrigin | undefined;
   readonly state: "active" | "revoked" | undefined;
+  readonly telegram: z.infer<typeof peopleTelegramFilterSchema> | undefined;
 }
 
 /**
  * One page of people for the owner (#1721), newest registration first. A search term narrows the
  * list to its candidates; `productId`, `origin` and `state` together narrow it to Accounts holding
- * one Product Access that matches all of them (without `productId`, any Product). The total and
- * the cursor keep the same search and filters.
+ * one Product Access that matches all of them (without `productId`, any Product). `telegram`
+ * narrows it to the Accounts behind one Telegram attention item of the Overview (#1719). The
+ * total and the cursor keep the same search and filters.
  *
- * Every ID set handed between owners is complete or refused: Telegram Membership and Account
- * Rights answer at most 50 000 Accounts each and refuse a larger set, which this read reports as
- * `dependency_unavailable`.
+ * Every ID set handed between owners is complete or refused: Telegram Membership, Notifications
+ * and Account Rights answer at most 50 000 Accounts each and refuse a larger set, which this read
+ * reports as `dependency_unavailable`.
  */
 export async function listPeople(
   dependencies: PeopleDirectoryDependencies,
@@ -103,11 +117,11 @@ export async function listPeople(
   if (refused !== undefined) return refused;
   const parsed = listInputSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
-  const { query, productId, origin, state, cursor } = parsed.data;
+  const { query, productId, origin, state, telegram, cursor } = parsed.data;
   const term = query === undefined ? undefined : parsePersonSearchTerm(query);
   if (query !== undefined && term === undefined)
     return failure("invalid_request");
-  const scope = scopeDigest({ term, productId, origin, state });
+  const scope = scopeDigest({ term, productId, origin, state, telegram });
   const after = cursor === undefined ? undefined : decodeCursor(cursor);
   if (after === null || (after !== undefined && after.scope !== scope))
     return failure("invalid_request");
@@ -144,6 +158,19 @@ export async function listPeople(
       restrictTo === undefined
         ? holders.accountIds
         : restrictTo.filter((id) => held.has(id));
+  }
+  if (telegram !== undefined) {
+    const now = new Date();
+    const problems =
+      telegram === "community_failed"
+        ? await dependencies.community.listProblemAccounts(now)
+        : await dependencies.deliveries.listTelegramProblemAccounts(now);
+    if (!problems.ok) return failure("dependency_unavailable");
+    const problemSet = new Set(problems.accountIds);
+    restrictTo =
+      restrictTo === undefined
+        ? problems.accountIds
+        : restrictTo.filter((id) => problemSet.has(id));
   }
   const empty = {
     ok: true,
@@ -260,6 +287,7 @@ function scopeDigest(scope: ListScope): string {
         scope.productId ?? null,
         scope.origin ?? null,
         scope.state ?? null,
+        scope.telegram ?? null,
       ]),
     )
     .digest("hex")

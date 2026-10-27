@@ -13,16 +13,30 @@ export function xLabelIndices(count: number): readonly number[] {
 }
 
 /**
- * Верх шкалы: ближайшее «круглое» число не меньше максимума. Средняя линия ставится, только если
- * она не дробная для целых данных: «2,5 продажи» на оси не нужны.
+ * Шкала графика: верх — ближайшее «круглое» число не меньше максимума. Средняя линия ставится,
+ * только если она не дробная для целых данных: «2,5 продажи» на оси не нужны. Отрицательный день
+ * (например, выручка дня, где были только возвраты) опускает низ шкалы до «круглого» числа ниже
+ * минимума, и нулевая линия остаётся на оси.
  */
 export function niceScale(
   max: number,
   integers: boolean,
-): { readonly max: number; readonly ticks: readonly number[] } {
+  min = 0,
+): {
+  readonly min: number;
+  readonly max: number;
+  readonly ticks: readonly number[];
+} {
+  if (min < 0) {
+    const bottom = -niceCeil(-min, integers);
+    if (max <= 0) return { min: bottom, max: 0, ticks: [bottom, 0] };
+    const top = niceCeil(max, integers);
+    return { min: bottom, max: top, ticks: [bottom, 0, top] };
+  }
   const top = niceCeil(max <= 0 ? 1 : max, integers);
   const half = top / 2;
   return {
+    min: 0,
     max: top,
     ticks: !integers || Number.isInteger(half) ? [0, half, top] : [0, top],
   };
