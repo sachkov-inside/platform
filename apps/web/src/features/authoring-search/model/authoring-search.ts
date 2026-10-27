@@ -113,7 +113,7 @@ export const searchGroupPresentation: {
     heading: "Продукты",
     entries: (group) =>
       group.items.map((item) => ({
-        id: `product:${item.id}`,
+        id: `products-${item.id}`,
         href: authoringProductEditorHref(item.id),
         title: item.name,
         caption: item.archived ? "Архив" : null,
@@ -123,7 +123,7 @@ export const searchGroupPresentation: {
     heading: "Материалы",
     entries: (group) =>
       group.items.map((item) => ({
-        id: `material:${item.id}`,
+        id: `materials-${item.id}`,
         href: withAuthoringReturnHref(
           `/authoring/materials/${item.id}`,
           authoringMaterialsRootHref,
