@@ -1,6 +1,7 @@
 import { countSubmissionsAwaitingFeedback } from "../../features/count-awaiting-feedback/count-awaiting-feedback.js";
 import { listAuthorSubmissions } from "../../features/list-author-submissions/list-author-submissions.js";
 import { saveAuthorFeedback } from "../../features/save-author-feedback/save-author-feedback.js";
+import { summarizeAccountSubmissions } from "../../features/summarize-account-submissions/summarize-account-submissions.js";
 import type { SubmissionReviewDependencies } from "../../shared/submission-review-dependencies.js";
 
 export const SUBMISSION_REVIEW = Symbol("SUBMISSION_REVIEW");
@@ -22,6 +23,11 @@ export interface SubmissionReview {
     actorId: string,
     input: unknown,
   ) => ReturnType<typeof saveAuthorFeedback>;
+  /** Per Product the count and latest submission of one Account, for the person card. */
+  readonly summarizeAccount: (
+    actorId: string,
+    accountId: string,
+  ) => ReturnType<typeof summarizeAccountSubmissions>;
 }
 
 export function assembleSubmissionReview(
@@ -34,5 +40,7 @@ export function assembleSubmissionReview(
       countSubmissionsAwaitingFeedback(dependencies, actorId),
     saveFeedback: (actorId, input) =>
       saveAuthorFeedback(dependencies, actorId, input),
+    summarizeAccount: (actorId, accountId) =>
+      summarizeAccountSubmissions(dependencies, actorId, accountId),
   });
 }
