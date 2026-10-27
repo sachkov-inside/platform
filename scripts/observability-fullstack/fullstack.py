@@ -95,6 +95,9 @@ def inputs(output, images):
         'environment':{'INSIDE_WEB_HTTP_METRICS_ENABLED':'false','INSIDE_WEB_HTTP_METRICS_ENVIRONMENT':'isolated-pilot'},
         'env_file':[str(output/'runtime/runtime.env'),str(output/'runtime/web.env')],'logging':{'driver':'none'}}
     plan['services']['provider']['environment']={'INSIDE_RESOURCE_ACCOUNT_COUNT':str(settings['accounts'])}
+    # Whole-process TLS + OTLP/query client needs an unthrottled measurement clock.
+    # This is a finite fixture budget, not product/monitoring capacity evidence.
+    plan['services']['loadgen']['cpus']=1
     (output/'query/key').write_text((monitor/'reader.key').read_text())
     broker=output/'runtime/rabbitmq';broker.mkdir(mode=0o755)
     pilot.command(['bash',str(ROOT/'infra/production/broker/issue-broker-tls.sh'),str(broker/'tls'),'2','2'],timeout=15)
@@ -343,6 +346,18 @@ def prove_web_http(compose):
     return {'state':'observed','source_sha':source,'positive_status':200,'not_found_status':404,'url_sentinel':'absent','stored_source_age_seconds_maximum':10,'minimum_completed_counts':{'health':witness['positive_count'],'not_found':witness['not_found_count']},'raw_process_start_seconds':witness['process_start_seconds'],'post_witness_source_cut_seconds':witness['observed_at_seconds'],'stored_elapsed_seconds':time.monotonic()-(deadline-10)}
 
 
+def loadgen_cpu_pressure(samples):
+    """Preserve counter resets/unsupported values as UNKNOWN, never zero pressure."""
+    keys=('cpu_periods','cpu_throttled_periods','cpu_throttled_ns')
+    rows=[sample['counters']['services'].get('loadgen',{}) for sample in samples]
+    if len(rows)<2 or any(type(row.get(key)) is not int or not 0<=row[key]<=2**63-1 for row in rows for key in keys):
+        return {'state':'unavailable'}
+    if any(row['cpu_throttled_periods']>row['cpu_periods'] for row in rows):return {'state':'unavailable'}
+    if any(b[key]<a[key] for a,b in zip(rows,rows[1:]) for key in keys):return {'state':'unavailable'}
+    delta={key:rows[-1][key]-rows[0][key] for key in keys}
+    return {'state':'throttled' if delta['cpu_throttled_periods'] or delta['cpu_throttled_ns'] else 'unthrottled',**delta}
+
+
 def phase(compose,project,definition,active,enabled,pair,output):
     states=technical.owned(compose,project,active)
     samples=[];stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
@@ -372,7 +387,9 @@ def phase(compose,project,definition,active,enabled,pair,output):
     samples.append({'counters':technical.capture(states),'host':host()})
     current=technical.owned(compose,project,active)
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
-    return {'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'errors':errors}
+    pressure=loadgen_cpu_pressure(samples)
+    if pressure['state']!='unthrottled':errors.append('fixture_loadgen_cpu_'+pressure['state'])
+    return {'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'errors':errors}
 
 
 def await_collector(output):
@@ -484,7 +501,7 @@ def evaluate(report):
         return sum(values)/len(values) if values else None
     off,on=cpu('off'),cpu('on')
     hosts=[sample for row in phases for sample in row['host_samples']]
-    return acceptance.assess({'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
+    return acceptance.assess({'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(row.get('loadgen_cpu_pressure',{}).get('state')=='unthrottled' for row in phases) and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
         'oom':any('process_replaced_or_oom' in row['errors'] for row in phases),
         'enospc':any(row['disk_free_fraction']==0 or row['free_inodes']==0 for row in hosts),
         'unexplained_loss':sum(row['unexpected_failures']+(row['unexplained_probe_loss'] or 0) for row in loads),

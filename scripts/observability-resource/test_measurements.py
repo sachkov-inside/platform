@@ -15,6 +15,8 @@ class Counters(unittest.TestCase):
         self.assertEqual(value['memory_working_set_bytes'], 700)
         self.assertEqual(value['cpu_total_ns'], 800)
         self.assertIsNone(value['io_read_operations'])
+        pressure=measurements.engine({'cpu_stats':{'throttling_data':{'periods':10,'throttled_periods':2,'throttled_time':123456}}})
+        self.assertEqual([pressure[key] for key in ('cpu_periods','cpu_throttled_periods','cpu_throttled_ns')],[10,2,123456])
 
     def test_missing_nonfinite_boolean_negative_counters_remain_unknown(self):
         for value in (None, True, -1, math.nan, math.inf, '0'):
@@ -22,6 +24,8 @@ class Counters(unittest.TestCase):
                 result = measurements.engine({'memory_stats': {'usage': value}, 'cpu_stats': {'cpu_usage': {'total_usage': value}}})
                 self.assertIsNone(result['memory_charged_bytes'])
                 self.assertIsNone(result['cpu_total_ns'])
+                pressure=measurements.engine({'cpu_stats':{'throttling_data':{'periods':value,'throttled_periods':value,'throttled_time':value}}})
+                self.assertTrue(all(pressure[key] is None for key in ('cpu_periods','cpu_throttled_periods','cpu_throttled_ns')))
         self.assertIsNone(measurements.engine({})['cpu_online_count'])
 
     def test_operation_counts_are_not_bytes_empty_is_unknown(self):

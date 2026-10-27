@@ -118,6 +118,9 @@ class Preparation(unittest.TestCase):
             self.assertEqual(plan['services']['grafana']['user'],f'{secret.st_uid}:{secret.st_gid}')
             self.assertEqual(secret.st_mode&0o777,0o600)
             self.assertIn('storage',plan['services']['loadgen']['networks'])
+            self.assertEqual(plan['services']['loadgen']['cpus'],1)
+            self.assertEqual(plan['services']['loadgen']['mem_limit'],'96m')
+            self.assertEqual(plan['services']['provider']['cpus'],'0.25')
             self.assertNotIn('profiles',plan['services']['host-agent'])
             for name in fullstack.APPS:
                 self.assertNotIn('ports',plan['services'][name])
@@ -140,6 +143,9 @@ class Preparation(unittest.TestCase):
                 fullstack.mode(output,enabled)
                 observed=json.loads((output/'compose.json').read_text())
                 self.assertEqual(observed['services']['web']['environment']['INSIDE_WEB_HTTP_METRICS_ENABLED'],str(enabled).lower())
+                self.assertEqual(observed['services']['loadgen']['cpus'],1)
+                self.assertEqual(observed['services']['loadgen']['mem_limit'],'96m')
+                self.assertEqual(observed['services']['provider']['cpus'],'0.25')
                 self.assertTrue(all(observed['services'][name]['environment']['INSIDE_OTEL_ENABLED']==str(enabled).lower() for name in fullstack.BACKENDS))
 
     def test_web_iid_is_owned_only_when_registered_before_acquisition(self):
