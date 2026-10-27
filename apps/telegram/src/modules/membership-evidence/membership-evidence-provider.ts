@@ -56,6 +56,7 @@ const TELEGRAM_READ_TIMEOUT_MILLISECONDS = 5_000;
 const TELEGRAM_OBSERVATION_TIMEOUT_MILLISECONDS = 10_000;
 
 export interface LinkMembershipCheck {
+  readonly planResponse?: boolean;
   readonly checkRef: string;
   readonly telegramIdentityRef: string;
 }
@@ -305,7 +306,7 @@ export class MembershipEvidenceProvider {
   async observe(check: LinkMembershipCheck): Promise<EvidenceOutcome> {
     return this.observeMembership({
       ...check,
-      planResponse: true,
+      planResponse: check.planResponse ?? true,
       source: "link_time",
       timeoutMilliseconds: TELEGRAM_OBSERVATION_TIMEOUT_MILLISECONDS,
     });

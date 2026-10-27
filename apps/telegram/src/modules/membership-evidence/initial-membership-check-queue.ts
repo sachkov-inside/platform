@@ -1,3 +1,4 @@
+import { isSignInLinkSource } from "../bot-sign-in/link-approval.js";
 import { Inject, Injectable } from "@nestjs/common";
 
 import { DATABASE, type Database } from "../../database/database.js";
@@ -26,6 +27,7 @@ export interface ClaimedInitialMembershipCheck {
   readonly attemptNumber: number;
   readonly checkRef: string;
   readonly id: string;
+  readonly planResponse: boolean;
   readonly lease: Lease<"membership_checks">;
   readonly telegramIdentityRef: string;
 }
@@ -48,7 +50,7 @@ export class InitialMembershipCheckQueue {
         state: "pending",
       },
       {
-        select: ["id", "telegram_identity_ref"],
+        select: ["id", "telegram_identity_ref", "source_ref"],
         prepare: () => Promise.resolve({ diagnostic_code: null }),
       },
     );
@@ -59,6 +61,10 @@ export class InitialMembershipCheckQueue {
       attemptNumber: claimed.attempt,
       checkRef: `initial-link:${claimed.row.id}`,
       id: claimed.row.id,
+      planResponse: !(await isSignInLinkSource(
+        this.database,
+        claimed.row.source_ref,
+      )),
       lease: claimed,
       telegramIdentityRef: claimed.row.telegram_identity_ref,
     };
