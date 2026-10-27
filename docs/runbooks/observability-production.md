@@ -540,3 +540,25 @@ counter sample и `observed_at` должны быть не раньше raw post
 Proof сохраняет только закрытые числовые поля counts/cut/epoch/elapsed, без metrics body или URL.
 Это исполняемый proof, не утверждение, что Linux-прогон уже завершился. Изменение не включает
 production monitoring или browser analytics.
+
+### Когорты synthetic fullstack proof
+
+Каждая из двенадцати фаз сохраняет прежние длительность, нагрузку и concurrency 8.
+Синтетические OTLP probes используют уже разрешённый `http.route=/pilot` и один из
+14 фиксированных `service.version`: отдельные когорты фаз, outage и recovery. Эти
+40-hex значения являются тегами синтетического опыта, а не SHA исходников приложения.
+Настоящий checkout SHA и image identity остаются в отдельном source evidence. Запрос
+хранения выбирает точную когорту, поэтому соседняя фаза или recovery не покрывает потерю.
+Каталог privacy, пределы 600 секунд на worker и 60 секунд на ingestion не меняются.
+
+Параллельное чтение monitoring использует native HTTP stats Umami: положительный целый
+`pageviews` находится в корне ответа. Оболочка `current` принадлежит MCP tool и не является
+форматом native endpoint. Проверки metrics, logs, traces и свежих PG/Caddy source-cache
+наблюдений остаются обязательными. ACK collector сам по себе не подтверждает сохранение
+probe; требуется точное совпадение числа принятых и сохранённых точек своей когорты.
+
+После controlled outage готовность query store не означает готовность остановленного
+collector. Существующий recovery barrier в том же общем пределе 60 секунд сначала
+проверяет native OTLP listener пустым `resourceSpans: []`, затем прежний query `1`.
+Пустой readiness read не создаёт span или metric point. Единственный учтённый recovery
+probe отправляется после обеих проверок; HTTP admin Alloy остаётся на loopback контейнера.

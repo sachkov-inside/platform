@@ -250,3 +250,24 @@ export function webHttpExpected(value) {
       Number(value["observed_at_seconds"])
   );
 }
+
+/** Closed synthetic cohorts, not application source SHAs. The unchanged privacy
+ * contract already admits this version shape and the fixed /pilot route.
+ * @param {number} phase
+ */
+export function probeVersion(phase) {
+  if (!Number.isInteger(phase) || phase < 0 || phase > 13)
+    throw new Error("fixed probe cohort required");
+  return "1566".repeat(9) + phase.toString(16).padStart(4, "0");
+}
+
+/** Native HTTP stats are direct; the MCP tool's `current` wrapper is different.
+ * @param {unknown} value
+ */
+export function nativeStats(value) {
+  return (
+    record(value) &&
+    Number.isSafeInteger(value["pageviews"]) &&
+    Number(value["pageviews"]) >= 1
+  );
+}

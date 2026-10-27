@@ -712,3 +712,35 @@ test("fullstack load keeps exactly 400 operations and validates native MCP SSE",
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// deterministic-test-allow unit-io: external owner closes the complete load worker/CLI group on failure, timeout and signals; caller owns temporary files.
+test("fullstack ON load reads native stats and reconciles the admitted privacy cohort", async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-fullstack-load-contract-"),
+  );
+  try {
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL(
+            "./observability-fullstack/load-contract.mjs",
+            import.meta.url,
+          ),
+        ),
+        directory,
+        "on",
+      ],
+      { timeoutMs: 15000 },
+    );
+    assert.equal(result.reason, "exit", result.stderr);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      ok: true,
+      scheduled: 400,
+      mcp_sse: 50,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
