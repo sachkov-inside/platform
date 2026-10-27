@@ -113,6 +113,7 @@ export function ProductOverviewPanel({
       <div className="admin-overview-metrics" data-columns="4">
         <MetricCard
           label="Обладатели"
+          unavailable={state.holders.state !== "ready"}
           value={
             state.holders.state === "ready"
               ? formatCount(state.holders.active)
@@ -146,6 +147,7 @@ export function ProductOverviewPanel({
         />
         <MetricCard
           label="Список ожидания"
+          unavailable={state.waitlist.state === "unavailable"}
           value={
             state.waitlist.state === "unavailable"
               ? unavailableValue
@@ -232,6 +234,7 @@ function PeriodMetric({
         detail={unavailableDetail}
         label={label}
         period={span}
+        unavailable
         value={unavailableValue}
       />
     );

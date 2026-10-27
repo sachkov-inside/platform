@@ -194,6 +194,7 @@ function MetricsRow({
               key={id}
               {...common}
               detail="Не удалось посчитать, источник не ответил"
+              unavailable
               value="Недоступно"
             />
           );

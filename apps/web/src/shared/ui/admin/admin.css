@@ -639,6 +639,13 @@ button.admin-metric:focus-visible {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+.admin-metric-value[data-unavailable] {
+  color: var(--muted-foreground);
+  font-size: 17px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  overflow-wrap: normal;
+}
 .admin-metric-detail {
   display: flex;
   flex-wrap: wrap;
