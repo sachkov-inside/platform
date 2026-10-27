@@ -123,6 +123,7 @@ describe("правила активации на странице продукт
     expect(fakes.manage).toHaveBeenLastCalledWith(
       { operation: "activationRules.list", operationId },
       "owner-token",
+      {},
     );
 
     fakes.manage.mockResolvedValueOnce({
@@ -148,6 +149,7 @@ describe("правила активации на странице продукт
         reason: "Изменение публикации владельцем",
       },
       "owner-token",
+      {},
     );
     expect(fakes.manage).toHaveBeenCalledTimes(2);
   });

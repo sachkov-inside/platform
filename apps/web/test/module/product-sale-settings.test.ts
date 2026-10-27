@@ -413,6 +413,7 @@ describe("маршруты продажи", () => {
         value: command.value,
       },
       "owner-token",
+      {},
     );
     expect(saleFailureMessage("revision_conflict")).toContain(
       "Обновите данные",
@@ -446,6 +447,7 @@ describe("маршруты продажи", () => {
         expectedRevision: 3,
       },
       "owner-token",
+      {},
     );
 
     const state = salesStateCommand(
@@ -459,6 +461,7 @@ describe("маршруты продажи", () => {
     expect(fakes.manage).toHaveBeenLastCalledWith(
       { operation: "productSalesState.save", operationId, ...state },
       "owner-token",
+      {},
     );
   });
 });
@@ -534,6 +537,7 @@ describe("продажи каталога в списке продуктов", (
         limit: 100,
       },
       "owner-token",
+      {},
     );
     expect(fakes.manage).toHaveBeenNthCalledWith(
       2,
@@ -543,6 +547,7 @@ describe("продажи каталога в списке продуктов", (
         limit: 100,
       }),
       "owner-token",
+      {},
     );
   });
 

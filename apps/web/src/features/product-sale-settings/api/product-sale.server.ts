@@ -1,19 +1,14 @@
 import "server-only";
 
-import type { z } from "zod";
-
 import {
   billingInvalidInput,
   executeBillingOperation,
+  ownerBillingCommand,
 } from "@/entities/subscription.server";
-import {
-  productSalesStatesSchema,
-  type BillingOperation,
-} from "@/entities/subscription";
+import { productSalesStatesSchema } from "@/entities/subscription";
 import {
   requestManageBilling,
   requestProductSalesStates,
-  type ManageBillingCommand,
 } from "@/shared/api/backend/index.server";
 import { handleMutationOperation } from "@/shared/auth/index.server";
 
@@ -25,21 +20,6 @@ import { readOwnerProductPriceOperation } from "./read-owner-product-price.opera
 import { readProductSalesStateOperation } from "./read-product-sales-state.operation";
 import { saveProductPriceOperation } from "./save-product-price.operation";
 import { saveProductSalesStateOperation } from "./save-product-sales-state.operation";
-
-/** Одна владельческая команда billing за маршрут: дискриминатор не становится общим прокси. */
-function ownerCommand<Input extends z.ZodType, Value extends z.ZodType>(
-  request: Request,
-  operation: BillingOperation<Input, Value>,
-  toCommand: (input: z.output<Input>) => ManageBillingCommand,
-): Promise<Response> {
-  return handleMutationOperation(request, operation, {
-    invalidInput: billingInvalidInput,
-    execute: (command, accessToken) =>
-      executeBillingOperation(operation, command, (input) =>
-        requestManageBilling(toCommand(input), accessToken),
-      ),
-  });
-}
 
 /**
  * Цена одного продукта: каталог владельца с отбором по продукту. У продукта одна действующая цена,
@@ -106,12 +86,16 @@ export function handleReadProductSalesState(
 export function handleListOwnerProductPrices(
   request: Request,
 ): Promise<Response> {
-  return ownerCommand(request, listOwnerProductPricesOperation, (input) => ({
-    operation: "productPrices.list",
-    operationId: input.operationId,
-    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-    limit: CATALOG_PRICES_PAGE_SIZE,
-  }));
+  return ownerBillingCommand(
+    request,
+    listOwnerProductPricesOperation,
+    (input) => ({
+      operation: "productPrices.list",
+      operationId: input.operationId,
+      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+      limit: CATALOG_PRICES_PAGE_SIZE,
+    }),
+  );
 }
 
 /** Страница публичных состояний продажи всех продуктов: чтение backend без кеша, для владельца. */
@@ -136,7 +120,7 @@ export function handleListProductSalesStates(
 }
 
 export function handleSaveProductPrice(request: Request): Promise<Response> {
-  return ownerCommand(request, saveProductPriceOperation, (input) => ({
+  return ownerBillingCommand(request, saveProductPriceOperation, (input) => ({
     operation: "productPrices.save",
     operationId: input.operationId,
     ...(input.expectedRevision === undefined
@@ -147,21 +131,29 @@ export function handleSaveProductPrice(request: Request): Promise<Response> {
 }
 
 export function handleArchiveProductPrice(request: Request): Promise<Response> {
-  return ownerCommand(request, archiveProductPriceOperation, (input) => ({
-    ...input,
-    operation: "productPrices.archive",
-  }));
+  return ownerBillingCommand(
+    request,
+    archiveProductPriceOperation,
+    (input) => ({
+      ...input,
+      operation: "productPrices.archive",
+    }),
+  );
 }
 
 export function handleSaveProductSalesState(
   request: Request,
 ): Promise<Response> {
-  return ownerCommand(request, saveProductSalesStateOperation, (input) => ({
-    operation: "productSalesState.save",
-    operationId: input.operationId,
-    ...(input.expectedRevision === undefined
-      ? {}
-      : { expectedRevision: input.expectedRevision }),
-    value: input.value,
-  }));
+  return ownerBillingCommand(
+    request,
+    saveProductSalesStateOperation,
+    (input) => ({
+      operation: "productSalesState.save",
+      operationId: input.operationId,
+      ...(input.expectedRevision === undefined
+        ? {}
+        : { expectedRevision: input.expectedRevision }),
+      value: input.value,
+    }),
+  );
 }
