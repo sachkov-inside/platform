@@ -104,6 +104,7 @@ export function MaterialPrimaryVideo({
     // A call is not narrowed, so each check reads the value the cleanup may have changed.
     const isActive = () => active;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
+    let cancelMetadataWait: (() => void) | undefined;
     let requestedHref = window.location.href;
     let seekToReadyFragment: ((href: string) => void) | undefined;
     const captureFragment = (event: HashChangeEvent) => {
@@ -190,23 +191,40 @@ export function MaterialPrimaryVideo({
         iframe?.setAttribute("title", video.title);
         let metadataDuration = await player.getDuration();
         if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
-          let resolveLoaded: (() => void) | undefined;
-          const metadataLoaded = new Promise<void>((resolve) => {
-            resolveLoaded = resolve;
+          await new Promise<void>((resolve, reject) => {
+            let settled = false;
+            const finish = (error?: Error) => {
+              if (settled) return;
+              settled = true;
+              player.off(player.Events.Loaded, readDuration);
+              player.off(player.Events.DurationChange, readDuration);
+              player.off(player.Events.Error, onError);
+              cancelMetadataWait = undefined;
+              if (error === undefined) resolve();
+              else reject(error);
+            };
+            const onError = () => {
+              finish(new Error("Video metadata failed"));
+            };
+            const readDuration = () => {
+              void player.getDuration().then((value) => {
+                if (Number.isFinite(value) && value > 0) {
+                  metadataDuration = value;
+                  finish();
+                }
+              }, onError);
+            };
+            player.on(player.Events.Loaded, readDuration);
+            player.on(player.Events.DurationChange, readDuration);
+            player.on(player.Events.Error, onError);
+            cancelMetadataWait = () => {
+              finish();
+            };
+            // Recheck after subscribing: Loaded can precede a positive duration.
+            readDuration();
           });
-          const onLoaded = () => resolveLoaded?.();
-          player.on(player.Events.Loaded, onLoaded);
-          try {
-            // Metadata may arrive between the first read and subscribing to Loaded.
-            metadataDuration = await player.getDuration();
-            if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
-              await metadataLoaded;
-              metadataDuration = await player.getDuration();
-            }
-          } finally {
-            player.off(player.Events.Loaded, onLoaded);
-          }
         }
+        if (!isActive()) return;
         if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
           throw new Error("Video duration is unavailable");
         }
@@ -313,6 +331,7 @@ export function MaterialPrimaryVideo({
     void loadPlayer();
     return () => {
       active = false;
+      cancelMetadataWait?.();
       removeTimeListener();
       void mountedPlayer?.destroy();
     };

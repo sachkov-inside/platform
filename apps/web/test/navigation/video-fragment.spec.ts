@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 declare global {
   interface Window {
-    __releaseVideoMetadata(): void;
+    __releaseVideoMetadata(phase: "loaded" | "duration" | "error"): void;
     __fragmentProbe: {
       arm(): void;
       waitForWrite(): Promise<undefined>;
@@ -248,95 +248,119 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
   }
 });
 
-test("chapters wait for video metadata when the iframe initially reports zero duration", async ({
-  page,
-}) => {
-  await page.route("**/api/reading-progress/open", (route) =>
-    route.fulfill({
-      json: {
-        kind: "saved",
-        openedAt: "2030-01-01T00:00:00.000Z",
-        replayed: false,
-      },
-    }),
-  );
-  await page.route("**/api/material-video-playback-sessions", (route) =>
-    route.fulfill({
-      json: {
-        drmAuthToken: null,
-        embedLocator: "https://kinescope.io/embed/fragment-video",
-        progressScope: "anonymous",
-        resumeSeconds: null,
-        videoId: "44444444-4444-4444-8444-444444444444",
-      },
-    }),
-  );
-  await page.route("https://kinescope.io/**", (route) =>
-    route.fulfill({
-      contentType: "text/html",
-      body: "<title>Test video</title>",
-    }),
-  );
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "Kinescope", {
-      value: {
-        IframePlayer: {
-          version: "1.0.0",
-          create: (mount: HTMLElement, options: { url: string }) => {
-            const iframe = document.createElement("iframe");
-            iframe.src = options.url;
-            mount.append(iframe);
-            let duration = 0;
-            const listeners = new Map<string, () => void>();
-            const player = {
-              Events: {
-                Loaded: "loaded",
-                TimeUpdate: "time",
-                Pause: "pause",
-                Ended: "ended",
-              },
-              destroy: () => {
-                iframe.remove();
-                return Promise.resolve();
-              },
-              getDuration: () => {
-                iframe.dataset["durationRequested"] = "true";
-                return Promise.resolve(duration);
-              },
-              on: (event: string, listener: () => void) => {
-                listeners.set(event, listener);
-              },
-              off: (event: string) => {
-                listeners.delete(event);
-              },
-              seekTo: (seconds: number) => {
-                iframe.dataset["seekSeconds"] = String(seconds);
-                return Promise.resolve();
-              },
-            };
-            // This is the provider boundary: metadata arrives after create()/getDuration().
-            Object.defineProperty(window, "__releaseVideoMetadata", {
-              configurable: true,
-              value: () => {
-                duration = 600;
-                listeners.get("loaded")?.();
-              },
-            });
-            return Promise.resolve(player);
+for (const failed of [false, true]) {
+  test(
+    failed
+      ? "metadata failure offers a playback retry"
+      : "chapters wait for a positive duration after provider load",
+    async ({ page }) => {
+      await page.route("**/api/reading-progress/open", (route) =>
+        route.fulfill({
+          json: {
+            kind: "saved",
+            openedAt: "2030-01-01T00:00:00.000Z",
+            replayed: false,
           },
-        },
-      },
-    });
-  });
-  await page.goto("/materials/navigation-video-fragment#t=3");
-  const frame = page.locator("[data-video-player-mount] iframe");
-  await expect(frame).toHaveAttribute("data-duration-requested", "true");
-  await page.getByRole("link", { name: "4:21 Later chapter" }).click();
-  await page.evaluate(() => {
-    window.__releaseVideoMetadata();
-  });
-  await expect(frame).toHaveAttribute("data-seek-seconds", "261");
-  await expect(
-    page.getByRole("link", { name: "4:21 Later chapter" }),
-  ).toHaveAttribute("aria-current", "true");
-});
+        }),
+      );
+      await page.route("**/api/material-video-playback-sessions", (route) =>
+        route.fulfill({
+          json: {
+            drmAuthToken: null,
+            embedLocator: "https://kinescope.io/embed/fragment-video",
+            progressScope: "anonymous",
+            resumeSeconds: null,
+            videoId: "44444444-4444-4444-8444-444444444444",
+          },
+        }),
+      );
+      await page.route("https://kinescope.io/**", (route) =>
+        route.fulfill({
+          contentType: "text/html",
+          body: "<title>Test video</title>",
+        }),
+      );
+      await page.addInitScript(() => {
+        Object.defineProperty(window, "Kinescope", {
+          value: {
+            IframePlayer: {
+              version: "1.0.0",
+              create: (mount: HTMLElement, options: { url: string }) => {
+                const iframe = document.createElement("iframe");
+                iframe.src = options.url;
+                mount.append(iframe);
+                let duration = 0;
+                let durationReads = 0;
+                const listeners = new Map<string, () => void>();
+                const player = {
+                  Events: {
+                    Loaded: "loaded",
+                    DurationChange: "duration",
+                    Error: "error",
+                    TimeUpdate: "time",
+                    Pause: "pause",
+                    Ended: "ended",
+                  },
+                  destroy: () => {
+                    iframe.remove();
+                    return Promise.resolve();
+                  },
+                  getDuration: () => {
+                    iframe.dataset["durationRequested"] = "true";
+                    iframe.dataset["durationReads"] = String(++durationReads);
+                    return Promise.resolve(duration);
+                  },
+                  on: (event: string, listener: () => void) => {
+                    listeners.set(event, listener);
+                  },
+                  off: (event: string) => {
+                    listeners.delete(event);
+                  },
+                  seekTo: (seconds: number) => {
+                    iframe.dataset["seekSeconds"] = String(seconds);
+                    return Promise.resolve();
+                  },
+                };
+                // This is the provider boundary: metadata arrives after create()/getDuration().
+                Object.defineProperty(window, "__releaseVideoMetadata", {
+                  configurable: true,
+                  value: (phase: "loaded" | "duration" | "error") => {
+                    if (phase === "duration") duration = 600;
+                    listeners.get(phase)?.();
+                  },
+                });
+                return Promise.resolve(player);
+              },
+            },
+          },
+        });
+      });
+      await page.goto("/materials/navigation-video-fragment#t=3");
+      const frame = page.locator("[data-video-player-mount] iframe");
+      await expect(frame).toHaveAttribute("data-duration-requested", "true");
+      await page.getByRole("link", { name: "4:21 Later chapter" }).click();
+      if (!failed) {
+        await page.evaluate(() => {
+          window.__releaseVideoMetadata("loaded");
+        });
+        await expect(frame).toHaveAttribute("data-duration-reads", "3");
+      }
+      await page.evaluate((failed) => {
+        window.__releaseVideoMetadata(failed ? "error" : "duration");
+      }, failed);
+      if (failed) {
+        await expect(
+          page.getByRole("button", { name: "Повторить", exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByText("Загружаем видео…", { exact: true }),
+        ).not.toBeVisible();
+        return;
+      }
+      await expect(frame).toHaveAttribute("data-seek-seconds", "261");
+      await expect(
+        page.getByRole("link", { name: "4:21 Later chapter" }),
+      ).toHaveAttribute("aria-current", "true");
+    },
+  );
+}
