@@ -151,6 +151,20 @@
   text-align: start;
   cursor: pointer;
 }
+/* На телефоне касание всей строки попадает в кнопку названия; «⋯» остаётся над ней. */
+.admin-list-item:has(> .admin-list-item-main .admin-row-button) {
+  position: relative;
+}
+.admin-list-item .admin-row-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.admin-list-item:has(> .admin-list-item-main .admin-row-button)
+  > .admin-row-actions {
+  position: relative;
+  z-index: 1;
+}
 .admin-row-link:hover {
   text-decoration: underline;
   text-underline-offset: 3px;

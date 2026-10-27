@@ -276,6 +276,22 @@ test("фильтры ссылок живут в адресе, а отзыв ид
   await page.goto("/authoring/sales/links");
   await expect(row(page, "Агентная разработка")).toBeVisible();
 
+  // Строка открывает подробности ссылки: лист на телефоне, диалог на компьютере.
+  // Щелчок по середине строки, а не по её названию: открывает вся строка.
+  await row(page, "Агентная разработка").first().click();
+  const details = page.getByRole("dialog", { name: "Ссылка на оплату" });
+  await expect(details).toBeVisible();
+  await expect(
+    details.getByRole("textbox", { name: "Ссылка для покупателя" }),
+  ).toHaveValue(/\/payment\/links\//u);
+  await expect(
+    details.getByRole("link", { name: "Открыть оформление" }),
+  ).toBeVisible();
+  if (isPhone(info)) await expectTouchTargets(details);
+  await details.getByRole("button", { name: "Готово" }).click();
+  await expect(details).toBeHidden();
+  await expect(page).toHaveURL("/authoring/sales/links");
+
   await choose(page, "Состояние", "Отозвана");
   await expect(page).toHaveURL("/authoring/sales/links?state=revoked");
   await expect(row(page, "Агентная разработка")).toHaveCount(0);
@@ -364,11 +380,10 @@ test("скидки: создание, изменение и архив без в
   ).toBeVisible();
   await expect(row(page, "Чёрная пятница")).toContainText("Архитектура систем");
 
-  await page
-    .getByRole("main")
-    .getByRole("button", { name: "Действия со скидкой «Скидка выпускникам»" })
+  // Строка действующей скидки открывает её форму изменения.
+  await row(page, "Скидка выпускникам")
+    .getByRole("button", { name: "Скидка выпускникам", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Изменить" }).click();
   const edit = page.getByRole("dialog", { name: "Изменить скидку" });
   await expect(edit.getByLabel("Скидка, %")).toHaveValue("10");
   await edit.getByLabel("Скидка, %").fill("15");
@@ -449,6 +464,17 @@ test("архив скидок и анкетные скидки открываю�
     .click();
   await expect(page.getByRole("menuitem", { name: "Изменить" })).toBeDisabled();
   await page.keyboard.press("Escape");
+  // Строка архивной скидки открывает подробности только для чтения, а не форму.
+  await legacy
+    .getByRole("button", { name: "Скидка подписчикам Tribute", exact: true })
+    .click();
+  const details = page.getByRole("dialog", {
+    name: "Скидка подписчикам Tribute",
+  });
+  await expect(details).toContainText("Прежние предложения");
+  await expect(details.getByRole("textbox")).toHaveCount(0);
+  await details.getByRole("button", { name: "Закрыть" }).last().click();
+  await expect(details).toBeHidden();
 
   await page
     .getByRole("navigation", { name: "Подразделы скидок" })
