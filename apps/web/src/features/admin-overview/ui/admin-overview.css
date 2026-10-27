@@ -12,7 +12,7 @@
 }
 
 /* Повторное чтение за другой период: данные тускнеют, разметка стоит. */
-.admin-overview[aria-busy="true"] > :not(:first-child) {
+.admin-overview[data-refreshing] > :not(:first-child) {
   opacity: 0.55;
   transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
 }
@@ -125,7 +125,10 @@
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.admin-period-switch button:hover {
+.admin-period-switch button:disabled {
+  cursor: default;
+}
+.admin-period-switch button:not(:disabled):hover {
   color: var(--foreground);
 }
 .admin-period-switch button[aria-pressed="true"] {

@@ -180,7 +180,13 @@ export const attentionDefinitions: Readonly<
   },
 };
 
-const attentionIds = Object.keys(attentionDefinitions) as AttentionId[];
+const attentionIds: readonly AttentionId[] = [
+  "undeterminedPayments",
+  "fulfillmentIncomplete",
+  "communityFailures",
+  "telegramDeliveryFailures",
+  "submissionsAwaitingFeedback",
+];
 
 /** Кого считает строка: оплаты, люди или сдачи. */
 const attentionUnits: Readonly<
@@ -293,7 +299,12 @@ export interface FunnelStepRow {
 export function funnelStepRows(
   steps: Readonly<Record<FunnelStepId, number | null>>,
 ): readonly FunnelStepRow[] {
-  const ids = Object.keys(funnelStepLabels) as FunnelStepId[];
+  const ids: readonly FunnelStepId[] = [
+    "entered",
+    "openedChapter",
+    "checkout",
+    "paid",
+  ];
   const top = Math.max(0, ...ids.map((id) => steps[id] ?? 0));
   return ids.map((id) => {
     const count = steps[id];

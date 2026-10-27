@@ -104,6 +104,7 @@ export function ProductOverviewPanel({
   return (
     <section
       aria-busy={refreshing || undefined}
+      data-refreshing={refreshing || undefined}
       aria-labelledby={headingId}
       className="admin-overview"
       data-product-overview

@@ -113,6 +113,9 @@ function initialPayments() {
   );
 }
 
+/** Подтверждённый платёж (индекс 3), выдача которого ещё не завершена. */
+const fulfillmentIncompleteRef = ref(203);
+
 let payments = initialPayments();
 /** @type {unknown[]} */
 let commands = [];
@@ -141,6 +144,8 @@ function listPayments(command) {
     typeof command["from"] === "string" ? Date.parse(command["from"]) : null;
   const to =
     typeof command["to"] === "string" ? Date.parse(command["to"]) : null;
+  // Выдача не завершена (#1719) у одного подтверждённого платежа набора.
+  const incomplete = command["fulfillment"] === "incomplete";
   const rows = payments
     .filter(
       (row) =>
@@ -150,7 +155,8 @@ function listPayments(command) {
         (command["accountId"] === undefined ||
           row.accountId === command["accountId"]) &&
         (from === null || Date.parse(row.createdAt) >= from) &&
-        (to === null || Date.parse(row.createdAt) < to),
+        (to === null || Date.parse(row.createdAt) < to) &&
+        (!incomplete || row.purchaseRef === fulfillmentIncompleteRef),
     )
     .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
   const start =

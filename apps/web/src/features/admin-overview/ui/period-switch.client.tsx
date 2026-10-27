@@ -15,15 +15,16 @@ const labels: Readonly<Record<OverviewPeriodDays, string>> = {
 
 /**
  * Период Обзора: 7, 30 или 90 дней. Выбор хранит адрес страницы; модуль только показывает его и
- * сообщает о новом выборе.
+ * сообщает о новом выборе. Без `onChange` это место переключателя в скелете загрузки: та же
+ * геометрия, кнопки недоступны и ничего не выбрано.
  */
 export function PeriodSwitch({
   value,
   onChange,
   label = "Период",
 }: {
-  readonly value: OverviewPeriodDays;
-  readonly onChange: (period: OverviewPeriodDays) => void;
+  readonly value?: OverviewPeriodDays;
+  readonly onChange?: (period: OverviewPeriodDays) => void;
   readonly label?: string;
 }) {
   return (
@@ -31,9 +32,10 @@ export function PeriodSwitch({
       {overviewPeriodDays.map((days) => (
         <button
           aria-pressed={days === value}
+          disabled={onChange === undefined}
           key={days}
           onClick={() => {
-            if (days !== value) onChange(days);
+            if (days !== value) onChange?.(days);
           }}
           type="button"
         >

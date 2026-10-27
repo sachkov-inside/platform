@@ -1,4 +1,4 @@
-import { overviewMetricIds } from "@/features/admin-overview";
+import { PeriodSwitch, overviewMetricIds } from "@/features/admin-overview";
 import { AdminListHeader } from "@/shared/ui/admin";
 
 import { AuthoringOverviewFrame } from "./authoring-overview-frame";
@@ -11,7 +11,7 @@ export function AuthoringOverviewLoading() {
   return (
     <AuthoringOverviewFrame busy label="Загрузка обзора">
       <div className="admin-overview" data-authoring-overview>
-        <AdminListHeader count="Загрузка…" title="Обзор" />
+        <AdminListHeader action={<PeriodSwitch />} title="Обзор" />
         <div aria-hidden="true" className="admin-overview-metrics">
           {overviewMetricIds.map((slot) => (
             <div className="admin-metric min-h-28" key={slot}>

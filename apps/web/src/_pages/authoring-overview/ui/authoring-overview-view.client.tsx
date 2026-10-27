@@ -84,6 +84,7 @@ export function AuthoringOverviewView({
         aria-busy={refreshing || undefined}
         className="admin-overview"
         data-authoring-overview
+        data-refreshing={refreshing || undefined}
       >
         <AdminListHeader
           action={
@@ -94,7 +95,6 @@ export function AuthoringOverviewView({
               value={query.period}
             />
           }
-          count={periodRangeText(period)}
           headingId={headingId}
           title="Обзор"
         />
@@ -113,6 +113,7 @@ export function AuthoringOverviewView({
             selected={query.metric}
           />
         )}
+        <p className="admin-overview-quiet">{periodRangeText(period)}</p>
         <div className="admin-overview-grid">
           {state.metrics.state === "ready" ? (
             <ChartBlock
@@ -131,9 +132,9 @@ export function AuthoringOverviewView({
   );
 }
 
-/** «С 25 сент. 2026 по 24 окт. 2026 по Москве». */
+/** «Период с 25 сент. 2026 по 24 окт. 2026 по Москве, сравнение с прошлыми 30 днями». */
 function periodRangeText(period: OverviewPeriod): string {
-  return `С ${formatMoscowDate(period.current.firstDay)} по ${formatMoscowDate(period.current.lastDay)}, сравнение с прошлыми ${String(period.days)} днями`;
+  return `Период с ${formatMoscowDate(period.current.firstDay)} по ${formatMoscowDate(period.current.lastDay)} по Москве, сравнение с прошлыми ${formatCountRu(period.days, ["днём", "днями", "днями"])}.`;
 }
 
 type ReadyMetrics = Extract<
