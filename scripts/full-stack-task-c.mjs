@@ -1,5 +1,5 @@
 // @ts-check
-// Synthetic package v2 import for the isolated full-stack check, never the owner's stand.
+// Synthetic package v3 import for the isolated full-stack check, never the owner's stand.
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
@@ -71,7 +71,6 @@ export async function seedFullStackTaskC(origin, accessToken) {
       stage: "published",
       topicId: "software-engineering",
       access: "free",
-      version: 2,
       difficulty: null,
       outcomes: null,
       markdown: `![Схема вариантов](assets/схема%20один.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}\n\n${advice}`,
@@ -140,8 +139,9 @@ export async function seedFullStackTaskC(origin, accessToken) {
       },
     });
     const manifest = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       requiredFeatures: [
+        "canonical-product-source-v2",
         "task-c-v2",
         "github-anchors-v1",
         "image-variants-v1",
