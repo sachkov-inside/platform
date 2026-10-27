@@ -199,6 +199,14 @@ def feedback(public):
                 rows.append({'service': row['service'], 'state': row.get('state') if row.get('state') in (
                     'created','restarting','running','removing','paused','exited','dead','unknown') else 'unknown',
                     'exit_code': row.get('exit_code') if type(row.get('exit_code')) is int and 0 <= row['exit_code'] <= 255 else None})
+            for original, row in zip(value, rows):
+                if row['service'] == 'host-agent' and 'native_failure_state' in original:
+                    state = original.get('native_failure_state')
+                    if state == 'observed':
+                        native = {key: original.get(key) for key in ('actual_exit_code', 'oom_killed', 'restart_count', 'runtime_error_present', 'has_process')}
+                        # Apply the same finite schema as the original owning capture.
+                        row.update(pilot.native_host_state(json.dumps({'id': 'feedback', 'project': 'feedback', 'service': 'host-agent', **native}), 'feedback', 'feedback'))
+                    row['native_failure_state'] = state if state in ('observed', 'unavailable') else 'unavailable'
             print(json.dumps({'container_states': rows}))
         elif name == 'readiness.json':
             if type(value) is not list or len(value) > 32:

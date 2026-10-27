@@ -28,11 +28,14 @@ class QueryReadiness(unittest.TestCase):
             (path / 'readiness.json').write_text(json.dumps([{'probe': 'measured_platform-host',
                 'outcome': 'timed_out', 'last_http_status': None, 'body': 'private-sentinel'}]))
             (path / 'container-states.json').write_text(json.dumps([{'service': 'host-agent',
-                'state': 'running', 'exit_code': 0, 'Error': 'private-sentinel'}]))
+                'state': 'restarting', 'exit_code': 0, 'Error': 'private-sentinel',
+                'native_failure_state': 'observed', 'actual_exit_code': 137, 'oom_killed': True,
+                'restart_count': 4, 'runtime_error_present': False, 'has_process': False}]))
             captured = io.StringIO()
             with redirect_stdout(captured): check.feedback(path)
             self.assertNotIn('private-sentinel', captured.getvalue())
             self.assertIn('host-agent', captured.getvalue())
+            self.assertIn('\"actual_exit_code\": 137', captured.getvalue())
             (path / 'readiness.json').write_text(json.dumps([{'probe': 'private-sentinel'}]))
             with self.assertRaises(ValueError), redirect_stdout(io.StringIO()): check.feedback(path)
 
