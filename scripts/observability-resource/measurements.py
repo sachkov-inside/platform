@@ -17,6 +17,9 @@ def engine(raw):
     inactive = at('memory_stats', 'stats', 'inactive_file')
     return {'cpu_total_ns': at('cpu_stats', 'cpu_usage', 'total_usage'),
             'cpu_online_count': at('cpu_stats', 'online_cpus') or None,
+            'cpu_periods': at('cpu_stats', 'throttling_data', 'periods'),
+            'cpu_throttled_periods': at('cpu_stats', 'throttling_data', 'throttled_periods'),
+            'cpu_throttled_ns': at('cpu_stats', 'throttling_data', 'throttled_time'),
             'memory_charged_bytes': charged, 'memory_limit_bytes': at('memory_stats', 'limit'),
             'memory_file_bytes': at('memory_stats', 'stats', 'file'),
             'memory_active_file_bytes': at('memory_stats', 'stats', 'active_file'),
