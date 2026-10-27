@@ -12,7 +12,10 @@ import {
   assertSaleConfigured,
   type SalePaymentConfiguration,
 } from "../../features/assert-sale-configured/assert-sale-configured.js";
-import { listOffers } from "../../features/list-offers/list-offers.js";
+import {
+  listOffers,
+  listOwnerCatalog,
+} from "../../features/list-offers/list-offers.js";
 import { listProductSalesStates } from "../../features/list-product-sales-states/list-product-sales-states.js";
 import { manageCatalog } from "../../features/manage-catalog/manage-catalog.js";
 import {
@@ -70,9 +73,7 @@ export class BillingPricing {
     return listProductSalesStates(this.dependencies.prisma, productId, cursor);
   }
   ownerCatalog(input: unknown) {
-    return listOffers(this.dependencies.prisma, input, this.clock, {
-      publishedOnly: false,
-    });
+    return listOwnerCatalog(this.dependencies.prisma, input, this.clock);
   }
   assertSaleConfigured(configuration: SalePaymentConfiguration): Promise<void> {
     return assertSaleConfigured(this.dependencies.prisma, configuration);

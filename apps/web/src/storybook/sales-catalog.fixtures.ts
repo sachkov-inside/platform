@@ -332,7 +332,10 @@ export function salesCatalogFetch(fixture: SalesCatalogFixture): MutationFetch {
             ? Response.json({ ok: false, code: "unavailable" }, { status: 503 })
             : Response.json({
                 ok: true,
-                value: fixture.catalog ?? storyCatalog,
+                value: {
+                  items: fixture.catalog ?? storyCatalog,
+                  archivedProductIds: [],
+                },
               });
       case "/api/authoring/billing/payment-links/list":
         return read(() =>

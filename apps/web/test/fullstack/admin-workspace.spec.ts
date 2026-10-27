@@ -113,13 +113,13 @@ test("owner creates a price and edits it twice without stale catalogue revisions
         ? envelope.value
         : undefined,
     );
-    expect(result.find((item) => item.product?.id === createdId)).toMatchObject(
-      {
-        product: { id: createdId, priceRevision: index + 1 },
-        paymentOption: { priceKopecks: rubles * 100, mode: "one_time" },
-        offer: { published: false },
-      },
-    );
+    expect(
+      result.items.find((item) => item.product?.id === createdId),
+    ).toMatchObject({
+      product: { id: createdId, priceRevision: index + 1 },
+      paymentOption: { priceKopecks: rubles * 100, mode: "one_time" },
+      offer: { published: false },
+    });
     // Сообщение продажи стоит первым: у блока ссылок ниже своя строка состояния фильтров.
     await expect(panel.getByRole("status").first()).toHaveText(
       "Цена сохранена.",

@@ -26,6 +26,7 @@ import {
   OWNER_PRICE_CATALOG_PAGE_BUDGET,
   OWNER_PRICE_CATALOG_PAGE_SIZE,
   ownerPriceCatalogPageSchema,
+  type OwnerPriceCatalog,
 } from "../model/owner-price-catalog";
 
 /**
@@ -52,7 +53,7 @@ export function ownerBillingCommand<
 
 /**
  * Полный каталог цен продуктов для владельца: все страницы `productPrices.list`, включая снятые с
- * продажи цены. Список ограничен числом продуктов, поэтому читается целиком; выбор продукта
+ * продажи цены, и продукты с ценой в архиве. Список ограничен числом продуктов, поэтому читается целиком; выбор продукта
  * ограничивает отрисовку сам. Каталог длиннее `OWNER_PRICE_CATALOG_PAGE_BUDGET` страниц отвечает
  * недоступностью, а не обрезанным списком.
  */
@@ -60,13 +61,13 @@ export function handleOwnerPriceCatalogRead(): Promise<Response> {
   return handleAuthenticatedRead(async (accessToken) => {
     const result = await readOwnerPriceCatalog(accessToken);
     return result.ok
-      ? Response.json({ ok: true, value: result.items })
+      ? Response.json({ ok: true, value: result.catalog })
       : billingFailureResponse(result.code, result.status);
   });
 }
 
 async function readOwnerPriceCatalog(accessToken: string): Promise<
-  | { readonly ok: true; readonly items: readonly PriceSnapshot[] }
+  | { readonly ok: true; readonly catalog: OwnerPriceCatalog }
   | {
       readonly ok: false;
       readonly code: BillingFailureCode;
@@ -74,6 +75,7 @@ async function readOwnerPriceCatalog(accessToken: string): Promise<
     }
 > {
   const items: PriceSnapshot[] = [];
+  const archivedProductIds: string[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < OWNER_PRICE_CATALOG_PAGE_BUDGET; page += 1) {
     const result = await requestManageBilling(
@@ -94,8 +96,10 @@ async function readOwnerPriceCatalog(accessToken: string): Promise<
     const parsed = ownerPriceCatalogPageSchema.safeParse(result.body);
     if (!parsed.success) return { ok: false, code: "unavailable", status: 502 };
     items.push(...parsed.data.result.items);
+    archivedProductIds.push(...parsed.data.result.archivedProductIds);
     const nextCursor = parsed.data.result.nextCursor;
-    if (nextCursor === null) return { ok: true, items };
+    if (nextCursor === null)
+      return { ok: true, catalog: { items, archivedProductIds } };
     cursor = nextCursor;
   }
   return { ok: false, code: "unavailable", status: 502 };

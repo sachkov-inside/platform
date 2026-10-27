@@ -1,16 +1,18 @@
 import { z } from "zod";
 import { idSchema, promotionSchema } from "../../domain/pricing.js";
+import { listCursorSchema } from "../../shared/list-cursor.js";
 
 /**
  * Фильтр списка скидок. `archived` и `questionnaire` выбирают одну сторону: по умолчанию видны
  * действующие записи владельца без анкетных скидок. `productId` выбирает скидки, которые
- * применяются к продукту: названные с ним и скидки на все продукты.
+ * применяются к продукту: названные с ним и скидки на все продукты. `cursor` продолжает только
+ * список с тем же фильтром.
  */
 export const promotionsListShape = {
   archived: z.boolean().default(false),
   productId: idSchema.optional(),
   questionnaire: z.boolean().default(false),
-  cursor: idSchema.optional(),
+  cursor: listCursorSchema.optional(),
   limit: z.int().min(1).max(100).default(50),
 };
 

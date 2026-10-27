@@ -29,6 +29,8 @@ export const ownerProductPriceOutcomeSchema = z.object({
   result: z.object({
     outcome: z.literal("catalogOffers"),
     items: z.array(priceSnapshotSchema),
+    /** Продукты страницы с ценой в архиве; прежний backend поля не присылает. */
+    archivedProductIds: z.array(z.uuid()).default([]),
     nextCursor: z.uuid().nullable(),
   }),
 });
@@ -105,48 +107,68 @@ export interface OwnerProductPrice {
 
 export interface ProductSaleSnapshot {
   readonly price: OwnerProductPrice | null;
+  /**
+   * Цена продукта в архиве. Billing не возвращает архивную цену и не принимает новую, поэтому
+   * продукт больше не продаётся; `price` тогда `null`.
+   */
+  readonly priceArchived: boolean;
   readonly salesState: ProductSalesState | null;
 }
 
 /**
  * Состояние продажи продукта для плашки. Архив продукта закрывает новые покупки (#1693), поэтому
- * он важнее цены. Без цены продавать нечего; цена без открытых продаж оплату не принимает. При
- * открытых продажах плашка называет этап состояния продажи. Этап меняет только страницу продукта
- * (на анонсе нет кнопки оплаты): billing его не читает и при открытых продажах принимает оплату
- * на любом этапе, по ссылке на оплату и по адресу оформления. Открытая продажа без состояния
- * продажи страница показывает без этапа, поэтому она читается как идущая.
+ * он важнее цены. Цена в архиве окончательна: billing её не возвращает и новую не принимает. Без
+ * цены продавать нечего; цена без открытых продаж оплату не принимает. При открытых продажах
+ * плашка называет этап состояния продажи. Этап меняет только страницу продукта (на анонсе нет
+ * кнопки оплаты): billing его не читает и при открытых продажах принимает оплату на любом этапе,
+ * по ссылке на оплату и по адресу оформления. Открытая продажа без состояния продажи страница
+ * показывает без этапа, поэтому она читается как идущая.
  */
-export type SaleStatus = "unpriced" | "closed" | CohortStage | "archived";
+export type SaleStatus =
+  "unpriced" | "priceArchived" | "closed" | CohortStage | "archived";
 
 export function deriveSaleStatus(input: {
   readonly productArchived: boolean;
   readonly price: OwnerProductPrice | null;
+  readonly priceArchived?: boolean;
   readonly salesState: ProductSalesState | null;
 }): SaleStatus {
   if (input.productArchived) return "archived";
+  if (input.priceArchived === true) return "priceArchived";
   if (input.price === null) return "unpriced";
   if (!input.price.published) return "closed";
   return input.salesState?.stage ?? "running";
 }
 
 /**
- * Цена продукта из владельческого каталога. Каталог отдаёт действующие цены; чужой продукт в
- * ответе означает нарушенный контракт, а не отсутствие цены.
+ * Цена продукта из владельческого каталога. Каталог отдаёт действующие цены и отдельно продукты с
+ * ценой в архиве; чужой продукт в ответе означает нарушенный контракт, а не отсутствие цены.
  */
 export function ownerPriceOf(
   items: readonly PriceSnapshot[],
   productId: string,
+  archivedProductIds: readonly string[] = [],
 ):
-  | { readonly ok: true; readonly price: OwnerProductPrice | null }
+  | {
+      readonly ok: true;
+      readonly price: OwnerProductPrice | null;
+      readonly archived: boolean;
+    }
   | {
       readonly ok: false;
     } {
-  if (items.some((item) => item.product?.id !== productId))
+  if (
+    items.some((item) => item.product?.id !== productId) ||
+    archivedProductIds.some((id) => id !== productId)
+  )
     return { ok: false };
   const snapshot = items[0];
+  const archived = archivedProductIds.length > 0;
+  if (archived && snapshot !== undefined) return { ok: false };
   return {
     ok: true,
     price: snapshot === undefined ? null : ownerPrice(snapshot),
+    archived,
   };
 }
 
@@ -161,6 +183,17 @@ export function ownerPricesByProduct(
       prices.set(snapshot.product.id, price);
   }
   return prices;
+}
+
+/** Цены и архивные цены списка продуктов из полного каталога владельца. */
+export function catalogPriceReads(catalog: {
+  readonly items: readonly PriceSnapshot[];
+  readonly archivedProductIds: readonly string[];
+}): Required<Pick<CatalogSaleReads, "prices" | "archivedPrices">> {
+  return {
+    prices: ownerPricesByProduct(catalog.items),
+    archivedPrices: new Set(catalog.archivedProductIds),
+  };
 }
 
 function ownerPrice(snapshot: PriceSnapshot): OwnerProductPrice | null {
@@ -178,6 +211,8 @@ function ownerPrice(snapshot: PriceSnapshot): OwnerProductPrice | null {
  */
 export interface CatalogSaleReads {
   readonly prices: ReadonlyMap<string, OwnerProductPrice> | null;
+  /** Продукты с ценой в архиве из того же чтения цен; без поля таких продуктов нет. */
+  readonly archivedPrices?: ReadonlySet<string>;
   readonly salesStates: ReadonlyMap<string, ProductSalesState> | null;
 }
 
@@ -195,8 +230,14 @@ export function catalogSaleStatus(
   const salesState = reads.salesStates?.get(productId) ?? null;
   if (reads.prices === null) return salesState?.stage ?? null;
   const price = reads.prices.get(productId) ?? null;
+  const priceArchived = reads.archivedPrices?.has(productId) === true;
   if (reads.salesStates === null && price?.published === true) return null;
-  return deriveSaleStatus({ productArchived, price, salesState });
+  return deriveSaleStatus({
+    productArchived,
+    price,
+    priceArchived,
+    salesState,
+  });
 }
 
 /** Команда цены: название и продажи остаются прежними, у первой цены название продукта. */

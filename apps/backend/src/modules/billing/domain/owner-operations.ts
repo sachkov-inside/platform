@@ -34,6 +34,7 @@ import {
   priceSnapshotSchema,
   revisionSchema,
 } from "./pricing.js";
+import { listCursorSchema } from "../shared/list-cursor.js";
 
 export const reasonSchema = z.string().trim().min(1).max(1000);
 const command = { operationId: idSchema };
@@ -259,12 +260,17 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("catalogOffers"),
     items: z.array(priceSnapshotSchema),
+    /**
+     * Продукты страницы, чья цена в архиве. Архивную цену нельзя вернуть или заменить, поэтому
+     * продукт больше не продаётся.
+     */
+    archivedProductIds: z.array(idSchema),
     nextCursor: idSchema.nullable(),
   }),
   z.strictObject({
     outcome: z.literal("promotions"),
     items: z.array(promotionListItemSchema),
-    nextCursor: idSchema.nullable(),
+    nextCursor: listCursorSchema.nullable(),
   }),
   z.strictObject({
     outcome: z.literal("payments"),

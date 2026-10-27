@@ -215,7 +215,10 @@ function Fixture({
         priceAfterStartKopecks: 1_990_000,
       },
     });
-    queryClient.setQueryData(["owner-price-catalog"], [salePrice]);
+    queryClient.setQueryData(["owner-price-catalog"], {
+      items: [salePrice],
+      archivedProductIds: [],
+    });
     queryClient.setQueryData(["owner-payment-links", collection.id, null], {
       pages: [
         {

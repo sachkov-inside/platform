@@ -293,6 +293,44 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
 });
 
+test("an archived price leaves the sale tab and the list saying so, with nothing to save or open (#1718)", async ({
+  page,
+}, info) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=sale`);
+  const panel = page.getByRole("tabpanel", { name: "Продажа" });
+  await panel
+    .getByRole("button", { name: "Действия с ценой «Архитектура приложения»" })
+    .click();
+  await page.getByRole("menuitem", { name: "Архивировать цену" }).click();
+  const archiving = page.getByRole("dialog", { name: "Архивировать цену?" });
+  await expect(archiving).toContainText("Архив необратим");
+  await archiving.getByRole("button", { name: "Архивировать цену" }).click();
+  await expect(archiving).toBeHidden();
+  await expect(panel.getByRole("status").first()).toHaveText(
+    "Цена отправлена в архив.",
+  );
+
+  // Billing не возвращает архивную цену и не принимает новую: формы цены нет, продажи не открыть.
+  await expect(panel.locator(".admin-badge")).toHaveText("Цена в архиве");
+  await expect(panel).toContainText("Вернуть её или задать новую нельзя");
+  await expect(panel.getByRole("textbox", { name: "Цена, ₽" })).toHaveCount(0);
+  await expect(
+    panel.getByRole("button", { name: "Сохранить цену" }),
+  ).toHaveCount(0);
+  await expect(
+    panel.getByRole("button", { name: "Открыть продажи" }),
+  ).toBeDisabled();
+  await expect(panel).toContainText("Цена в архиве: открыть продажи нельзя.");
+  await expectAccessibleWithoutOverflow(page);
+
+  await page.goto("/authoring/products");
+  await expect(
+    rows(page, info, "Все продукты").filter({
+      hasText: "Архитектура приложения",
+    }),
+  ).toContainText("Цена в архиве");
+});
+
 test("home pin is the direct action of a product row (#1720)", async ({
   page,
 }, info) => {

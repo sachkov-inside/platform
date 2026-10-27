@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -14,13 +15,19 @@ import { assembleMaterialsSearchGroup } from "../../src/modules/authoring-search
 import { assembleProductsSearchGroup } from "../../src/modules/authoring-search/adapters/products/products-search-group.js";
 import { assembleAuthoringSearch } from "../../src/modules/authoring-search/features/search-authoring/search-authoring.js";
 import type { AuthoringSearchGroup } from "../../src/modules/authoring-search/ports/authoring-search-group.js";
-import { assembleAccounts } from "../../src/modules/accounts/index.js";
+import {
+  AccountDirectory,
+  assembleAccounts,
+} from "../../src/modules/accounts/index.js";
+import { fingerprintEmail } from "../../src/modules/accounts/shared/account-input.js";
 import { BillingPaymentSearch } from "../../src/modules/billing/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
+import { PeopleDirectory } from "../../src/modules/people-directory/index.js";
 import {
   assembleProductAuthoring,
   ProductDiscovery,
 } from "../../src/modules/products/index.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   declaredServer,
@@ -38,6 +45,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { createQueryEventClient } from "./setup/query-events.js";
 
 registerFixedClock();
 
@@ -58,6 +66,24 @@ function searchGroups(
     assembleProductsSearchGroup(products),
     assembleMaterialsSearchGroup(authoring),
   ];
+}
+
+const emailFingerprintKey = "product-buyer-test-fingerprint-key-000000";
+
+/** The people directory of the API process, over the same Accounts as the Payments group. */
+function peopleDirectory(
+  prisma: PlatformPrisma,
+  accounts: ReturnType<typeof assembleAccounts>,
+): PeopleDirectory {
+  return new PeopleDirectory({
+    accounts,
+    directory: new AccountDirectory({
+      prisma,
+      protection: undefined,
+      emailFingerprintKey,
+    }),
+    telegram: new TelegramAccountLinks(prisma),
+  });
 }
 
 const manager = "97000000-0000-4000-8000-000000000001";
@@ -463,6 +489,17 @@ describe("Authoring search", () => {
         query,
       ).toEqual({ ok: true, value: [] });
 
+    // A malformed request is invalid, not a refusal of the actor.
+    for (const request of [
+      { actor: owner, query: " ", limit: 5 },
+      { actor: owner, query: "1260", limit: 0 },
+      { actor: "not-an-account", query: "1260", limit: 5 },
+    ])
+      expect(await payments.search(request)).toEqual({
+        ok: false,
+        error: { code: "invalid_request" },
+      });
+
     for (const permission of ["materials:manage", null] as const) {
       const actor = randomUUID();
       await database.prisma.account.create({
@@ -487,8 +524,9 @@ describe("Authoring search", () => {
 
     const materialsOnly = assembleAccounts({
       prisma: database.prisma,
-      emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
+      emailFingerprintKey,
     });
+    await createAccount(manager, "materials:manage");
     const registry = assembleAuthoringSearch([
       ...searchGroups(database.prisma, (actor) => actor === manager),
       assemblePaymentsSearchGroup(
@@ -496,6 +534,7 @@ describe("Authoring search", () => {
           prisma: database.prisma,
           accounts: materialsOnly,
         }),
+        peopleDirectory(database.prisma, materialsOnly),
       ),
     ]);
     // The manager has no billing:manage: the Payments group is omitted, not answered empty.
@@ -516,6 +555,153 @@ describe("Authoring search", () => {
     expect(JSON.stringify(found)).not.toContain(s.buyer);
     expect(JSON.stringify(found)).not.toContain("order@example.test");
   });
+
+  test("the Payments group also finds the payments of the people the query names, still without the buyer", async () => {
+    const owner = randomUUID();
+    await createAccount(owner, "billing:manage");
+    const commerce = createProductCommerceFixture(database, owner);
+    const person = await commerce.scenario();
+    const personPurchase = commerceValue(
+      await person.payments.purchase(person.buyer, person.command),
+    );
+    // A Sign-in Email makes the buyer a person; the other buyer is an unregistered visitor.
+    const email = `buyer-${randomUUID()}@example.test`;
+    await database.prisma.account.update({
+      where: { id: person.buyer },
+      data: {
+        emailFingerprint: z
+          .string()
+          .parse(fingerprintEmail(email, emailFingerprintKey)),
+      },
+    });
+    const visitor = await commerce.scenario();
+    commerceValue(
+      await visitor.payments.purchase(visitor.buyer, visitor.command),
+    );
+    const row = await database.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: personPurchase.purchaseRef },
+    });
+    const hit = {
+      purchaseRef: personPurchase.purchaseRef,
+      productName: "Курс",
+      amountKopecks: 200000,
+      state: row.state,
+      createdAt: row.createdAt.toISOString(),
+    };
+    const accounts = person.accounts;
+    const payments = new BillingPaymentSearch({
+      prisma: database.prisma,
+      accounts,
+    });
+    const registry = assembleAuthoringSearch([
+      ...searchGroups(database.prisma, (actor) => actor === manager),
+      assemblePaymentsSearchGroup(
+        payments,
+        peopleDirectory(database.prisma, accounts),
+      ),
+    ]);
+    const paymentsOf = async (actor: string, query: string) =>
+      await registry.search(actor, query);
+
+    for (const query of [email, email.toUpperCase(), person.buyer]) {
+      const found = await paymentsOf(owner, query);
+      expect(found, query).toEqual({
+        ok: true,
+        value: { groups: [{ kind: "payments", state: "ready", items: [hit] }] },
+      });
+      expect(JSON.stringify(found)).not.toContain(person.buyer);
+      expect(JSON.stringify(found)).not.toContain(email);
+    }
+    // A visitor is no person: the people directory does not find them, so neither do payments.
+    expect(await paymentsOf(owner, visitor.buyer)).toEqual({
+      ok: true,
+      value: { groups: [{ kind: "payments", state: "ready", items: [] }] },
+    });
+
+    // platform:admin holds every right; another role never reads the group, a stranger is refused.
+    const admin = randomUUID();
+    await createAccount(admin, "platform:admin");
+    expect(await paymentsOf(admin, email)).toMatchObject({
+      ok: true,
+      value: { groups: [{ kind: "payments", items: [hit] }] },
+    });
+    await createAccount(manager, "materials:manage");
+    expect(await paymentsOf(manager, email)).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          { kind: "products", state: "ready", items: [] },
+          { kind: "materials", state: "ready", items: [] },
+        ],
+      },
+    });
+    const stranger = randomUUID();
+    await createAccount(stranger, null);
+    expect(await paymentsOf(stranger, email)).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+
+    // The buyer set is bounded and read in one statement, however many buyers it holds.
+    const many = Array.from({ length: 20 }, (_, index) =>
+      index === 0 ? person.buyer : randomUUID(),
+    );
+    expect(
+      await payments.search({
+        actor: owner,
+        query: "nobody",
+        limit: 5,
+        accountIds: [...many, randomUUID()],
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+    const observer = createQueryEventClient(database.url);
+    try {
+      const observed = new BillingPaymentSearch({
+        prisma: observer.prisma,
+        accounts,
+      });
+      const one = await observer.measure(() =>
+        observed.search({
+          actor: owner,
+          query: "nobody",
+          limit: 5,
+          accountIds: [person.buyer],
+        }),
+      );
+      const twenty = await observer.measure(() =>
+        observed.search({
+          actor: owner,
+          query: "nobody",
+          limit: 5,
+          accountIds: many,
+        }),
+      );
+      expect(one.result).toEqual({ ok: true, value: [hit] });
+      expect(twenty.result).toEqual({ ok: true, value: [hit] });
+      expect(twenty.statements).toHaveLength(1);
+      expect(one.statements).toHaveLength(twenty.statements.length);
+    } finally {
+      await observer.prisma.$disconnect();
+    }
+  });
+
+  /** An Account with one permission, or none; a second call for the same Account changes nothing. */
+  async function createAccount(
+    id: string,
+    permission: "materials:manage" | "billing:manage" | "platform:admin" | null,
+  ): Promise<void> {
+    await database.prisma.account.upsert({
+      where: { id },
+      create: { id, logtoIssuer: "https://identity.invalid", logtoSubject: id },
+      update: {},
+    });
+    if (permission !== null)
+      await database.prisma.accountPermission.upsert({
+        where: { accountId_permission: { accountId: id, permission } },
+        create: { accountId: id, permission },
+        update: {},
+      });
+  }
 
   async function signedIn(
     permission: "materials:manage" | "billing:manage" | null,

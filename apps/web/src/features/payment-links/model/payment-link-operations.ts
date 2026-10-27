@@ -38,7 +38,7 @@ export const listPaymentLinksInputSchema = z.strictObject({
   operationId: z.uuid(),
   productId: z.uuid().optional(),
   state: paymentLinkStateSchema.optional(),
-  cursor: z.uuid().optional(),
+  cursor: z.string().min(1).max(1024).optional(),
   limit: z.int().min(1).max(100),
 });
 export const paymentLinkOutcomeSchema = z.object({

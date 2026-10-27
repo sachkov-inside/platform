@@ -48,7 +48,11 @@ export function handleReadOwnerProductPrice(
       );
       if (
         result.ok &&
-        !ownerPriceOf(result.value.result.items, command.productId).ok
+        !ownerPriceOf(
+          result.value.result.items,
+          command.productId,
+          result.value.result.archivedProductIds,
+        ).ok
       )
         return { ok: false, code: "unavailable" };
       return result;

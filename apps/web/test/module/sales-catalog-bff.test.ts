@@ -233,11 +233,17 @@ it("keeps a refusal of the questionnaire archive a refusal, not an empty archive
 });
 
 it("reads every page of the owner price catalog and refuses for another role", async () => {
+  const archivedProductId = "00000000-0000-4000-8000-000000001720";
   fakes.manage
     .mockResolvedValueOnce(
       ok({
         operationRef: operationId,
-        result: { outcome: "catalogOffers", items: [], nextCursor: cursor },
+        result: {
+          outcome: "catalogOffers",
+          items: [],
+          archivedProductIds: [archivedProductId],
+          nextCursor: cursor,
+        },
       }),
     )
     .mockResolvedValueOnce(
@@ -247,7 +253,11 @@ it("reads every page of the owner price catalog and refuses for another role", a
       }),
     );
   const response = await handleOwnerPriceCatalogRead();
-  expect(await response.json()).toEqual({ ok: true, value: [] });
+  // Архивные цены каждой страницы собираются в один каталог: архив окончателен, и экраны его видят.
+  expect(await response.json()).toEqual({
+    ok: true,
+    value: { items: [], archivedProductIds: [archivedProductId] },
+  });
   expect(fakes.manage.mock.calls.map((call): unknown => call[0])).toEqual([
     expect.objectContaining({ operation: "productPrices.list", limit: 100 }),
     expect.objectContaining({ operation: "productPrices.list", cursor }),

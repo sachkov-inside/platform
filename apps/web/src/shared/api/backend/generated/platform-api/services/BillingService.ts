@@ -826,6 +826,7 @@ export class BillingService {
         revision: number;
       };
     } | {
+      archivedProductIds: Array<string>;
       items: Array<{
         communityPolicy?: 'explicit';
         currency: 'RUB';

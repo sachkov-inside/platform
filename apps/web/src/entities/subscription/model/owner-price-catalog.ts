@@ -8,10 +8,20 @@ export const ownerPriceCatalogPageSchema = z.object({
   result: z.object({
     outcome: z.literal("catalogOffers"),
     items: z.array(priceSnapshotSchema),
+    /** Продукты страницы с ценой в архиве; прежний backend поля не присылает. */
+    archivedProductIds: z.array(z.uuid()).default([]),
     nextCursor: z.uuid().nullable(),
   }),
 });
-export const ownerPriceCatalogSchema = z.array(priceSnapshotSchema);
+/**
+ * Полный каталог цен владельца: действующие цены и отдельно продукты, чья цена в архиве. Архив
+ * окончателен: billing архивную цену не возвращает и новую для продукта не принимает.
+ */
+export const ownerPriceCatalogSchema = z.object({
+  items: z.array(priceSnapshotSchema),
+  archivedProductIds: z.array(z.uuid()),
+});
+export type OwnerPriceCatalog = z.infer<typeof ownerPriceCatalogSchema>;
 
 /** Ключ полного каталога цен владельца в TanStack Query: один на все поверхности админки. */
 export const ownerPriceCatalogQueryKey = ["owner-price-catalog"] as const;

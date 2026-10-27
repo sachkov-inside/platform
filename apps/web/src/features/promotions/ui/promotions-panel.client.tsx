@@ -102,7 +102,7 @@ export function PromotionsPanel({
 
   const catalog = useOwnerPriceCatalog();
   const choices =
-    catalog.data === undefined ? [] : productPriceChoices(catalog.data);
+    catalog.data === undefined ? [] : productPriceChoices(catalog.data.items);
   const productName = (id: string) =>
     choices.find((choice) => choice.productId === id)?.name;
 

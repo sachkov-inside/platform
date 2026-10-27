@@ -109,7 +109,7 @@ export function PaymentLinksPanel({
 
   const catalog = useOwnerPriceCatalog();
   const choices: readonly ProductPriceChoice[] =
-    catalog.data === undefined ? [] : productPriceChoices(catalog.data);
+    catalog.data === undefined ? [] : productPriceChoices(catalog.data.items);
   const products: ProductChoicesState = catalog.isSuccess
     ? { kind: "ready", choices }
     : catalog.isError

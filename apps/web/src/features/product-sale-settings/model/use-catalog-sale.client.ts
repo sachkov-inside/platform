@@ -10,8 +10,8 @@ import {
 import { readProductSalesStates } from "../api/product-sales-states.browser";
 import { useProductSaleAnnouncements } from "./use-product-sale.client";
 import {
+  catalogPriceReads,
   catalogSalesStatesQueryKey,
-  ownerPricesByProduct,
   type CatalogSaleReads,
 } from "./product-sale";
 
@@ -46,7 +46,7 @@ export function useCatalogSale():
   return {
     kind: "ready",
     reads: {
-      prices: prices.isSuccess ? ownerPricesByProduct(prices.data) : null,
+      ...(prices.isSuccess ? catalogPriceReads(prices.data) : { prices: null }),
       salesStates: salesStates.data ?? null,
     },
   };

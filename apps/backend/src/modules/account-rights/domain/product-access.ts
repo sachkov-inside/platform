@@ -53,12 +53,7 @@ export const productAccessListQuerySchema = z.strictObject({
     .min(1)
     .max(PRODUCT_ACCESS_LIST_ACCOUNT_LIMIT)
     .optional(),
-  cursor: z
-    .string()
-    .min(1)
-    .max(1024)
-    .regex(/^[A-Za-z0-9_-]+$/)
-    .optional(),
+  cursor: z.base64url().min(1).max(1024).optional(),
   limit: z.int().min(1).max(100).default(50),
 });
 export const productAccessListSchema = z.strictObject({
@@ -93,11 +88,7 @@ const productAccessCursorScopeSchema = z.strictObject({
   productId: z.uuid().nullable(),
   // Cursors issued before these filters existed carry neither field and mean "no filter".
   access: z.enum(["active", "revoked"]).nullable().default(null),
-  accountIds: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{43}$/)
-    .nullable()
-    .default(null),
+  accountIds: z.hash("sha256", { enc: "base64url" }).nullable().default(null),
 });
 const productAccessCursorSchema = z.discriminatedUnion("sort", [
   z.strictObject({

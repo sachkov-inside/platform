@@ -8,6 +8,11 @@ import type {
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { parsePersonSearchTerm } from "../../domain/person-search-term.js";
 
+type TelegramBindings = Extract<
+  Awaited<ReturnType<TelegramAccountLinks["readBindings"]>>,
+  { readonly ok: true }
+>["bindings"];
+
 /** The most people one search returns. */
 export const PEOPLE_SEARCH_LIMIT = 20;
 
@@ -106,6 +111,40 @@ export class PeopleDirectory {
     actorId: string,
     input: { readonly query: unknown; readonly limit?: unknown },
   ): Promise<SearchPeopleResult> {
+    const found = await this.findCandidates(actorId, input);
+    if (!found.ok) return found;
+    const people = await this.readPeople(found.value.candidates);
+    if (!people.ok) return people;
+    return {
+      ok: true,
+      value: { items: people.value, nameSearch: found.value.nameSearch },
+    };
+  }
+
+  /**
+   * The Account IDs of the people the same search finds, without their names or contacts: another
+   * owner's search by person, such as payments, joins its own facts by them.
+   */
+  async searchPersonAccounts(
+    actorId: string,
+    input: { readonly query: unknown; readonly limit?: unknown },
+  ): Promise<PeopleDirectoryResult<readonly string[]>> {
+    const found = await this.findCandidates(actorId, input);
+    if (!found.ok) return found;
+    const people = await this.selectPeople(found.value.candidates);
+    return people.ok ? { ok: true, value: people.value.ids } : people;
+  }
+
+  /** The Accounts a search text names, at most `limit`, after the right is checked. */
+  private async findCandidates(
+    actorId: string,
+    input: { readonly query: unknown; readonly limit?: unknown },
+  ): Promise<
+    PeopleDirectoryResult<{
+      readonly candidates: readonly string[];
+      readonly nameSearch: NameSearchState;
+    }>
+  > {
     // The right comes first: another role is refused whatever it sends.
     const allowed = await this.authorize(actorId);
     if (allowed !== undefined) return allowed;
@@ -138,9 +177,10 @@ export class PeopleDirectory {
         break;
       }
     }
-    const people = await this.readPeople(candidates.slice(0, limit));
-    if (!people.ok) return people;
-    return { ok: true, value: { items: people.value, nameSearch } };
+    return {
+      ok: true,
+      value: { candidates: candidates.slice(0, limit), nameSearch },
+    };
   }
 
   /**
@@ -175,24 +215,11 @@ export class PeopleDirectory {
   private async readPeople(
     candidates: readonly string[],
   ): Promise<PeopleDirectoryResult<readonly PersonIdentity[]>> {
-    const ids = [...new Set(candidates.map((id) => id.toLowerCase()))];
-    if (ids.length === 0) return { ok: true, value: [] };
-    const [facts, bindings] = await Promise.all([
-      this.dependencies.directory.readDirectoryFacts(ids),
-      this.dependencies.telegram.readBindings(ids),
-    ]);
-    if (!facts.ok || !bindings.ok) return failure("dependency_unavailable");
-    const people = ids.filter((id) => {
-      const fact = facts.facts.get(id);
-      const binding = bindings.bindings.get(id);
-      return (
-        fact !== undefined &&
-        (qualifiesByAccount(fact) ||
-          (binding?.accountRef != null && binding.telegramIdentityRef !== null))
-      );
-    });
+    const selected = await this.selectPeople(candidates);
+    if (!selected.ok) return selected;
+    const { ids: people, facts, bindings } = selected.value;
     const linked = people.filter(
-      (id) => bindings.bindings.get(id)?.telegramIdentityRef != null,
+      (id) => bindings.get(id)?.telegramIdentityRef != null,
     );
     // Names are optional facts of the label: a failed read, already recorded by its owner, leaves
     // the people listed without them.
@@ -205,7 +232,7 @@ export class PeopleDirectory {
       value: people.map((id) => {
         const contact =
           contacts?.ok === true ? contacts.contacts.get(id) : undefined;
-        const fact = facts.facts.get(id);
+        const fact = facts.get(id);
         const namesUnknown =
           linked.includes(id) && contact?.telegramContactState !== "available";
         return {
@@ -219,6 +246,44 @@ export class PeopleDirectory {
               : "complete",
         };
       }),
+    };
+  }
+
+  /** The candidates that are people, with the facts that decided it; Telegram is not asked. */
+  private async selectPeople(candidates: readonly string[]): Promise<
+    PeopleDirectoryResult<{
+      readonly ids: readonly string[];
+      readonly facts: ReadonlyMap<string, AccountDirectoryFacts>;
+      readonly bindings: TelegramBindings;
+    }>
+  > {
+    const ids = [...new Set(candidates.map((id) => id.toLowerCase()))];
+    if (ids.length === 0)
+      return {
+        ok: true,
+        value: { ids: [], facts: new Map(), bindings: new Map() },
+      };
+    const [facts, bindings] = await Promise.all([
+      this.dependencies.directory.readDirectoryFacts(ids),
+      this.dependencies.telegram.readBindings(ids),
+    ]);
+    if (!facts.ok || !bindings.ok) return failure("dependency_unavailable");
+    return {
+      ok: true,
+      value: {
+        ids: ids.filter((id) => {
+          const fact = facts.facts.get(id);
+          const binding = bindings.bindings.get(id);
+          return (
+            fact !== undefined &&
+            (qualifiesByAccount(fact) ||
+              (binding?.accountRef != null &&
+                binding.telegramIdentityRef !== null))
+          );
+        }),
+        facts: facts.facts,
+        bindings: bindings.bindings,
+      },
     };
   }
 }

@@ -241,7 +241,7 @@ export const ConflictDesktop: Story = {
 };
 export const ConflictMobile: Story = { ...ConflictDesktop, ...mobile };
 
-/** Архив цены живёт в «⋯» и спрашивает подтверждение. */
+/** Архив цены живёт в «⋯», спрашивает подтверждение и оставляет вкладку в состоянии архива. */
 export const ArchivePriceDesktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -259,10 +259,51 @@ export const ArchivePriceDesktop: Story = {
       name: "Архивировать цену?",
     });
     await expect(dialog).toHaveTextContent("Полученный доступ");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Архивировать цену" }),
+    );
+    await expect(
+      await page.findByText("Цена в архиве", { selector: ".admin-badge" }),
+    ).toBeVisible();
   },
 };
 export const ArchivePriceMobile: Story = {
   ...ArchivePriceDesktop,
+  ...mobile,
+};
+
+/**
+ * Цена в архиве: billing её не возвращает и новую не принимает, поэтому формы цены нет, а продажи
+ * не открыть. Состояние продажи остаётся редактируемым.
+ */
+export const PriceArchivedDesktop: Story = {
+  ...desktop,
+  beforeEach: [
+    environment.beforeEach,
+    replies({ priceArchived: true, salesState: runningState }),
+  ],
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      await page.findByText("Цена в архиве", { selector: ".admin-badge" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Вернуть её или задать новую нельзя/u),
+    ).toBeVisible();
+    await expect(page.queryByRole("textbox", { name: "Цена, ₽" })).toBeNull();
+    await expect(
+      page.queryByRole("button", { name: /^Действия с ценой/u }),
+    ).toBeNull();
+    await expect(
+      page.getByRole("button", { name: "Открыть продажи" }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Сохранить состояние продажи" }),
+    ).toBeEnabled();
+  },
+};
+export const PriceArchivedMobile: Story = {
+  ...PriceArchivedDesktop,
   ...mobile,
 };
 

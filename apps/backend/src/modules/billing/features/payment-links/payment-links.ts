@@ -23,6 +23,10 @@ import {
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import {
+  decodeListCursor,
+  encodeListCursor,
+} from "../../shared/list-cursor.js";
+import {
   selectPrice,
   selectPricesForOptions,
 } from "../../shared/select-price.js";
@@ -346,18 +350,17 @@ export async function listPaymentLinks(
     return await dependencies.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const { limit, cursor, productId, state } = parsed.data;
-      // Продукт ссылки неизменен, поэтому cursor обязан лежать в нём; состояние меняется со временем.
       const scope: Prisma.BillingPaymentLinkWhereInput =
         productId === undefined
           ? {}
           : { snapshot: { path: ["product", "id"], equals: productId } };
+      // Состояние ссылки меняется со временем: cursor связан с фильтром, а не со строкой.
+      const cursorScope = {
+        productId: productId ?? null,
+        state: state ?? null,
+      };
       const after =
-        cursor === undefined
-          ? null
-          : await tx.billingPaymentLink.findFirst({
-              where: { AND: [{ id: cursor }, scope] },
-              select: { id: true, createdAt: true },
-            });
+        cursor === undefined ? null : decodeListCursor(cursor, cursorScope);
       if (cursor !== undefined && after === null)
         return failure("invalid_request");
       const rows = await tx.billingPaymentLink.findMany({
@@ -369,8 +372,8 @@ export async function listPaymentLinks(
               ? {}
               : {
                   OR: [
-                    { createdAt: { lt: after.createdAt } },
-                    { createdAt: after.createdAt, id: { lt: after.id } },
+                    { createdAt: { lt: after.at } },
+                    { createdAt: after.at, id: { lt: after.id } },
                   ],
                 },
           ],
@@ -379,6 +382,7 @@ export async function listPaymentLinks(
         take: limit + 1,
       });
       const page = rows.slice(0, limit);
+      const last = page.at(-1);
       const snapshots = new Map(
         page.map((row) => [row.id, priceSnapshotSchema.parse(row.snapshot)]),
       );
@@ -425,7 +429,13 @@ export async function listPaymentLinks(
             state === undefined
               ? items
               : items.filter((item) => item.state === state),
-          nextCursor: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
+          nextCursor:
+            rows.length > limit && last !== undefined
+              ? encodeListCursor(cursorScope, {
+                  at: last.createdAt,
+                  id: last.id,
+                })
+              : null,
         },
       };
     });
