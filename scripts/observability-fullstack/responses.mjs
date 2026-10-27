@@ -150,3 +150,21 @@ export function operationOk(response, label, expected) {
     uuid(body["visitId"])
   );
 }
+
+/** Fixed initialize response only; no stream aggregation or partial-message acceptance.
+ * @param {string} text @param {string | undefined} contentType @returns {unknown} */
+export function mcpInitializeResponse(text, contentType) {
+  if (Buffer.byteLength(text) > 1_048_576) return null;
+  const type = contentType?.split(";")[0]?.trim().toLowerCase();
+  let encoded = text;
+  if (type === "text/event-stream") {
+    const frame = /^event: message\r?\ndata: ([^\r\n]+)\r?\n\r?\n$/u.exec(text);
+    if (!frame?.[1]) return null;
+    encoded = frame[1];
+  } else if (type !== "application/json") return null;
+  try {
+    return JSON.parse(encoded);
+  } catch {
+    return null;
+  }
+}
