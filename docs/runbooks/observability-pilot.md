@@ -2137,8 +2137,13 @@ production rollout, server changes, capacity conclusions, provider messages or #
 Это касается всех семи семейств и точного sample, не произвольного более старого результата.
 Старый frame остаётся `stale` в обычном oracle. Он не проходит приёмку и не продлевает
 порог свежести нового frame: новый frame обязан появиться с возрастом не более 10 секунд.
-Изменённый counter, чужая метка, неизвестный sample, unavailable и новый stale frame
-не получают такого ожидания. Query и decode используют один срок не более 10 секунд.
+Изменённый counter, чужая метка, неизвестный sample и новый stale frame
+не получают такого ожидания. Только после собственного controlled stop и подтверждённого
+чтением unavailable проверка публикации restart может дождаться замены этого точного frame.
+Все шесть retained значений, labels и source timestamps, включая timestamp availability=0,
+должны совпасть с уже прочитанным down frame; новый sample должен иметь другой postmaster epoch.
+Иной unavailable не допускается. Обычный oracle продолжает возвращать unavailable,
+а новый полный frame обязан пройти прежнюю свежесть. Query и decode используют один срок не более 10 секунд.
 Вычисление `ceil` и проверки frozen ownership сохранены.
 
 `postgres-visibility.json` отдельно сохраняет до 64 закрытых baseline timing rows:

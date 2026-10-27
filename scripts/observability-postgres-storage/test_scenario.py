@@ -61,6 +61,57 @@ def baseline_ports(test, fault=None, primary=None, secondary=None, waiting=False
 
 
 class Driver(unittest.TestCase):
+    def test_restart_publication_waits_only_for_the_exact_observed_controlled_down_frame(self):
+        import copy
+        import oracle
+        from test_oracle import vectors, raw, EXPECTED, NOW
+        previous=EXPECTED.copy()
+        current={**previous,'sample_us':NOW+2_000_000,'postmaster_us':NOW+1_000_000}
+        rows,stamps=vectors();rows[-1]['value'][1]='0';stamps[-1]['value'][1]='1790000001'
+        for row in (*rows,*stamps):row['value'][0]=1790000001
+        down=(raw(rows),raw(stamps),1790000001,NOW+1_000_000)
+        fresh_rows,fresh_stamps=vectors()
+        for row in fresh_rows:
+            suffix=row['metric']['__name__'].split('.')[-1]
+            if suffix=='sample_time_microseconds':row['value'][1]=str(current['sample_us'])
+            if suffix=='postmaster_start_time_microseconds':row['value'][1]=str(current['postmaster_us'])
+            row['value'][0]=1790000002
+        for row in fresh_stamps:row['value']=[1790000002,'1790000002']
+        fresh=(raw(fresh_rows),raw(fresh_stamps),1790000002,current['sample_us'])
+        driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.phase='restart_observe'
+        driver.ledger.accept(previous);driver.restart_down=down
+        pending=(*down[:2],1790000002,current['sample_us'])
+        # Query evaluation times change; stored source values and timestamps do not.
+        def reevaluate(observation):
+            import json
+            result=[]
+            for body in observation[:2]:
+                value=json.loads(body)
+                for row in value['data']['result']:row['value'][0]=observation[2]
+                result.append(json.dumps(value))
+            return (*result,*observation[2:])
+        pending=reevaluate(pending)
+        with patch.object(scenario.time,'monotonic',return_value=100),patch.object(scenario.time,'sleep') as pause, \
+                patch.object(scenario.queries,'read',side_effect=[pending,fresh]) as read:
+            self.assertEqual(driver.stored(current)['freshness'],'fresh')
+        self.assertEqual(read.call_count,2);pause.assert_called_once()
+        self.assertEqual(oracle.evaluate(*pending[:2],evaluated_at=pending[2],completed_us=pending[3],expected=current)['freshness'],'unavailable')
+        for fault in ('no_witness','foreign_zero','counter','stamp','scope','no_restart','ordinary_phase'):
+            driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.phase='restart_observe'
+            driver.ledger.accept(previous);driver.restart_down=None if fault=='no_witness' else down
+            left,right=copy.deepcopy(rows),copy.deepcopy(stamps)
+            if fault=='foreign_zero':right[-1]['value'][1]='1790000001.001'
+            if fault=='counter':left[0]['value'][1]='4'
+            if fault=='stamp':right[0]['value'][1]='1789999999'
+            if fault=='scope':left[-1]['metric']['private']='not-exported'
+            if fault=='ordinary_phase':driver.phase='connections'
+            bad=reevaluate((raw(left),raw(right),1790000002,current['sample_us']))
+            expected=previous if fault=='no_restart' else current
+            with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',return_value=100), \
+                    patch.object(scenario.queries,'read',return_value=bad) as read:
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(expected)
+                read.assert_called_once()
+
     def test_only_terminal_owned_baseline_oracle_adopts_reason_and_each_attempt_clears_it(self):
         import json
         import oracle
