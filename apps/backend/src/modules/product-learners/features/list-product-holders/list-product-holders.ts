@@ -8,12 +8,7 @@ export const PRODUCT_HOLDERS_PAGE_LIMIT = 50;
 
 export const productHoldersQuerySchema = z.strictObject({
   productId: z.uuid(),
-  cursor: z
-    .string()
-    .min(1)
-    .max(1024)
-    .regex(/^[A-Za-z0-9_-]+$/)
-    .optional(),
+  cursor: z.base64url().min(1).max(1024).optional(),
   limit: z.int().min(1).max(PRODUCT_HOLDERS_PAGE_LIMIT).default(20),
   access: z.enum(["active", "revoked"]).optional(),
   accountIds: z
