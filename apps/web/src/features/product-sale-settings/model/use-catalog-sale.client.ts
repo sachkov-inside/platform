@@ -8,6 +8,7 @@ import {
 } from "@/entities/subscription";
 
 import { readProductSalesStates } from "../api/product-sales-states.browser";
+import { useProductSaleAnnouncements } from "./use-product-sale.client";
 import {
   catalogSalesStatesQueryKey,
   ownerPricesByProduct,
@@ -35,6 +36,7 @@ export function useCatalogSale():
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly reads: CatalogSaleReads } {
   const prices = useOwnerPriceCatalog();
+  useProductSaleAnnouncements();
   const salesStates = useQuery({
     queryKey: catalogSalesStatesQueryKey,
     queryFn: readCatalogSalesStates,

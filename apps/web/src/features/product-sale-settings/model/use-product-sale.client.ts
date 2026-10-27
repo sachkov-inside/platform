@@ -1,11 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import type { BillingFailureCode } from "@/entities/subscription";
 
 import { readOwnerProductPriceOperation } from "../api/read-owner-product-price.operation";
 import { readProductSalesStates } from "../api/product-sales-states.browser";
+import {
+  productSaleChanged,
+  productSaleQueryRoot,
+} from "./product-sale-events";
 import {
   ownerPriceOf,
   productSaleQueryKey,
@@ -41,10 +46,30 @@ export async function readProductSale(
   };
 }
 
+/**
+ * Продажа одного продукта. Запись продажи в любой поверхности браузера объявляет
+ * `productSaleChanged`, и открытая вкладка «Продажа» перечитывает её.
+ */
 export function useProductSale(productId: string) {
+  useProductSaleAnnouncements();
   return useQuery({
     queryKey: productSaleQueryKey(productId),
     queryFn: () => readProductSale(productId),
     retry: false,
   });
+}
+
+/** Подписка поверхности на записи продажи: сбрасывает все ключи `["product-sale", …]`. */
+export function useProductSaleAnnouncements() {
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      productSaleChanged.subscribe(() => {
+        void queryClient.invalidateQueries(
+          { queryKey: productSaleQueryRoot },
+          { cancelRefetch: false },
+        );
+      }),
+    [queryClient],
+  );
 }

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert } from "lucide-react";
-import { useId, useState, type SubmitEvent } from "react";
+import { useEffect, useId, useState, type SubmitEvent } from "react";
 
 import type { BillingFailureCode } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
@@ -11,6 +11,7 @@ import { Button } from "@/shared/ui/button";
 
 import { listCourseActivationRulesOperation } from "../api/list-course-activation-rules.operation";
 import { saveCourseActivationRuleOperation } from "../api/save-course-activation-rule.operation";
+import { activationRulesChanged } from "../model/activation-rule-events";
 import {
   activationRuleFailureMessage,
   newActivationRuleErrors,
@@ -75,6 +76,16 @@ export function CourseActivationRulesPanel({
     // Отказ закрытым кодом не исправится повтором; повтор остаётся кнопкой.
     retry: false,
   });
+  useEffect(
+    () =>
+      activationRulesChanged.subscribe(() => {
+        void cache.invalidateQueries(
+          { queryKey: rulesQueryKey },
+          { cancelRefetch: false },
+        );
+      }),
+    [cache],
+  );
   const save = useMutation({
     mutationFn: (input: {
       readonly slot: string;
@@ -100,6 +111,7 @@ export function CourseActivationRulesPanel({
             : "Правило приостановлено.",
         );
       void cache.invalidateQueries({ queryKey: rulesQueryKey });
+      activationRulesChanged.announce();
     },
     onError: () => {
       setFailure("lost");

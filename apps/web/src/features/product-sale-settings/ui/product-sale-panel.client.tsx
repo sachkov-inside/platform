@@ -6,8 +6,7 @@ import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 
 import {
   cohortStageSchema,
-  ownerPriceCatalogQueryKey,
-  paymentLinksQueryKey,
+  ownerPriceCatalogChanged,
   type BillingFailureCode,
   type ProductSalesState,
 } from "@/entities/subscription";
@@ -25,7 +24,6 @@ import { archiveProductPriceOperation } from "../api/archive-product-price.opera
 import { saveProductPriceOperation } from "../api/save-product-price.operation";
 import { saveProductSalesStateOperation } from "../api/save-product-sales-state.operation";
 import {
-  catalogSalesStatesQueryKey,
   deriveSaleStatus,
   priceBounds,
   priceCommand,
@@ -39,6 +37,7 @@ import {
   type SalesStateDraft,
   type SalesStateErrors,
 } from "../model/product-sale";
+import { productSaleChanged } from "../model/product-sale-events";
 import {
   ProductSaleReadError,
   useProductSale,
@@ -96,10 +95,10 @@ export function ProductSalePanel({
     setNotice(done);
     setDialog(null);
     void cache.invalidateQueries({ queryKey: productSaleQueryKey(productId) });
-    void cache.invalidateQueries({ queryKey: catalogSalesStatesQueryKey });
-    // Новая ревизия цены меняет выбор цены для ссылки и состояние уже созданных ссылок.
-    void cache.invalidateQueries({ queryKey: ownerPriceCatalogQueryKey });
-    void cache.invalidateQueries({ queryKey: paymentLinksQueryKey });
+    // Остальные поверхности браузера перечитывают продажу по объявлению. Новая ревизия цены
+    // меняет каталог цен: выбор цены для ссылки и скидки, колонку продажи и состояние ссылок.
+    productSaleChanged.announce();
+    if (slot !== "state") ownerPriceCatalogChanged.announce();
     return true;
   };
   const lost = () => {

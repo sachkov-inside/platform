@@ -21,12 +21,7 @@ export class OwnerPriceCatalogReadError extends Error {
  * `ownerPriceCatalogChanged`, и каждая открытая поверхность перечитывает каталог. Отказ и
  * недоступность видны сразу: чтение не повторяется молча.
  */
-export function useOwnerPriceCatalog({
-  enabled = true,
-}: {
-  /** `false`, пока поверхность скрыта и каталог ей не нужен. */
-  readonly enabled?: boolean;
-} = {}) {
+export function useOwnerPriceCatalog() {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ownerPriceCatalogQueryKey,
@@ -36,7 +31,6 @@ export function useOwnerPriceCatalog({
       return result.value;
     },
     retry: false,
-    enabled,
   });
 
   useEffect(

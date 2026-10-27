@@ -9,6 +9,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  ownerPriceCatalogChanged,
   paymentLinkHref,
   paymentLinksQueryKey,
   productPriceChoices,
@@ -146,6 +147,17 @@ export function PaymentLinksPanel({
       subscribePaymentLinkChange((announcementId) => {
         if (announcementId === ownAnnouncement.current) return;
         void cache.invalidateQueries({ queryKey: paymentLinksQueryKey });
+      }),
+    [cache],
+  );
+  // Новая ревизия цены продукта меняет состояние его ссылок («Цена изменилась»).
+  useEffect(
+    () =>
+      ownerPriceCatalogChanged.subscribe(() => {
+        void cache.invalidateQueries(
+          { queryKey: paymentLinksQueryKey },
+          { cancelRefetch: false },
+        );
       }),
     [cache],
   );

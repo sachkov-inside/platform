@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   productPriceChoices,
@@ -29,6 +29,7 @@ import {
 import { Button } from "@/shared/ui/button";
 
 import { archivePromotion, listPromotions } from "../api/promotions.browser";
+import { promotionsChanged } from "../model/promotion-events";
 import {
   emptyPromotionForm,
   promotionFormFromItem,
@@ -120,6 +121,21 @@ export function PromotionsPanel({
   const refresh = () => {
     void cache.invalidateQueries({ queryKey: promotionsQueryKey });
   };
+  /** Успешная запись: эта поверхность перечитывает список сразу, остальные по объявлению. */
+  const announce = () => {
+    refresh();
+    promotionsChanged.announce();
+  };
+  useEffect(
+    () =>
+      promotionsChanged.subscribe(() => {
+        void cache.invalidateQueries(
+          { queryKey: promotionsQueryKey },
+          { cancelRefetch: false },
+        );
+      }),
+    [cache],
+  );
 
   const archive = useMutation({
     mutationFn: archivePromotion,
@@ -144,7 +160,7 @@ export function PromotionsPanel({
         `Скидка «${archiving?.name ?? ""}» в архиве. Сохранённые расчёты и оплаты не изменились.`,
       );
       setArchiving(null);
-      refresh();
+      announce();
     },
   });
 
@@ -420,7 +436,7 @@ export function PromotionsPanel({
               ? `Скидка «${name}» создана.`
               : `Скидка «${name}» сохранена.`,
           );
-          refresh();
+          announce();
         }}
         products={choices}
       />

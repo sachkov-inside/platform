@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { ProductSalePanel } from "@/features/product-sale-settings";
+import { factAnnouncement } from "@/shared/api/fact-announcement";
 import { getQueryClient } from "@/shared/api/query-client";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import {
@@ -31,6 +32,27 @@ function replies(options: SaleBffOptions) {
   return () => {
     getQueryClient().clear();
     return fetchBeforeRender(productSaleBff(options))();
+  };
+}
+
+/** Сколько объявлений о записи услышали каналы фактов продажи за время проверки. */
+function listenToSaleFacts() {
+  const names = [
+    "inside.owner.price-catalog.changed",
+    "inside.owner.product-sale.changed",
+  ] as const;
+  const heard: Record<string, number> = {};
+  const unsubscribe = names.map((name) => {
+    heard[name] = 0;
+    return factAnnouncement(name).subscribe(() => {
+      heard[name] = (heard[name] ?? 0) + 1;
+    });
+  });
+  return {
+    heard: () => ({ ...heard }),
+    close: () => {
+      for (const stop of unsubscribe) stop();
+    },
   };
 }
 
@@ -78,8 +100,17 @@ export const UnpricedDesktop: Story = {
       page.getByRole("textbox", { name: "Цена, ₽" }),
       "9 900",
     );
+    const facts = listenToSaleFacts();
     await userEvent.click(page.getByRole("button", { name: "Сохранить цену" }));
     await expect(await page.findByText("Цена сохранена.")).toBeVisible();
+    // Запись цены объявлена: другие вкладки и поверхности перечитают каталог цен и продажу.
+    await waitFor(async () => {
+      await expect(facts.heard()).toEqual({
+        "inside.owner.price-catalog.changed": 1,
+        "inside.owner.product-sale.changed": 1,
+      });
+    });
+    facts.close();
     await expect(
       await page.findByText("Продажи закрыты", { selector: ".admin-badge" }),
     ).toBeVisible();
