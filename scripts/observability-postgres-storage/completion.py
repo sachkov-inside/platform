@@ -58,7 +58,9 @@ def _ingest(source,body,deadline):
             connection.request('POST','/v1/metrics',body=body,headers={'Content-Type':'application/json'})
             response=connection.getresponse();resources.append(response)
             raw=_body(response,1024,json_type=True)
-            if record.decode(raw)!={}:raise ValueError('storage')
+            # Pinned Alloy emits the canonical empty partialSuccess object on full success.
+            # Rejections, messages, unknown fields and duplicate JSON keys remain failures.
+            if record.decode(raw) not in ({},{'partialSuccess':{}}):raise ValueError('storage')
             source.verify_storage(deadline);source.targets.metrics_private(deadline);remaining(deadline)
         finally:_close(resources)
     remaining(deadline)

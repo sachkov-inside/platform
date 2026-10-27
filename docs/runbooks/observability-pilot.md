@@ -2146,6 +2146,14 @@ production rollout, server changes, capacity conclusions, provider messages or #
 а новый полный frame обязан пройти прежнюю свежесть. Query и decode используют один срок не более 10 секунд.
 Вычисление `ceil` и проверки frozen ownership сохранены.
 
+Внутри той же проверки публикации values и source timestamps читаются отдельными native запросами.
+Если searchable parts обновились между ними, обычный oracle возвращает malformed для смешанного cohort.
+Только при уже подтверждённой HTTP 200 публикации проверка может продолжить ожидание,
+когда каждое значение и source timestamp точно принадлежат предыдущему committed frame или новому ACKed frame.
+Availability=0 допускается лишь как фрагмент точного собственного down frame в restart.
+Новая метка, неизвестное значение или промежуточный timestamp сразу отклоняются.
+Смешанный ответ не считается здоровым: завершение по-прежнему требует полного нового свежего frame.
+
 `postgres-visibility.json` отдельно сохраняет до 64 закрытых baseline timing rows:
 длительности acquire/upload/stored-read, возраст ожидаемого и прочитанного sample,
 исходную freshness и признак точного предыдущего committed frame. Публикуются только
@@ -2165,7 +2173,8 @@ async visibility с прежним stale frame, а фактическое native
 Каждая из шести фиксированных проверок приватности отправляет текущий SQL-снимок
 и свой контрольный пакет одним JSON-запросом размером не более 4096 байт.
 До чтения хранилища нужны два последовательных подтверждения: полный успешный ответ
-на этот запрос от синхронного конвейера Alloy, затем пустой успешный ответ на
+на этот запрос от синхронного конвейера Alloy (`{}` либо штатный для закреплённой
+версии `{"partialSuccess":{}}`), затем пустой успешный ответ на
 аутентифицированный `/internal/force_flush` того же принадлежащего стенду VictoriaMetrics.
 После этого полностью проверяются три исходных вектора S, T и G. G охватывает семь
 фиксированных семейств метрик без ограничения по service. Свежие положительные строки
@@ -2174,7 +2183,8 @@ async visibility с прежним stale frame, а фактическое native
 Вся последовательность, включая проверки принадлежности ресурсов, укладывается в один
 убывающий срок 10 секунд и оставшееся время работы сценария 150 секунд. Отправка получает
 не более четырёх секунд, flush не более двух. Дополнительные попытки и увеличение сроков
-не предусмотрены. Ответ с partial success, перенаправление, неизвестное содержимое,
+не предусмотрены. Непустой `partialSuccess` (отказ, сообщение или неизвестное поле),
+перенаправление, неизвестное содержимое,
 несовпадение ресурсов, неуспешное закрытие транспорта или превышение срока останавливают
 проверку. Таймаут не означает отмену операции внутри VictoriaMetrics. Перед продолжением
 нужна существующая полная очистка принадлежащего прогону стенда.
@@ -2257,7 +2267,7 @@ is still required. The stronger withdrawn owner/guardian proposals and their ope
 Application CI activation is a separate reviewed change to the existing tooling step only; it
 must not opt in the direct functional workflow or widen any source or native gate.
 
-## Confirmed active Membership Accounts
+## Confirmed active Membership and Telegram participants
 
 Platform MCP registers `active_participant_diagnostics` for a trusted delegated Account. Each call
 checks current `platform:admin` before reading private activity. Input is exactly `from` and `to`,
@@ -2279,11 +2289,16 @@ cross-owner snapshot. Each source exposes its own `asOf` and `retentionFrom`. Hi
 observed zero under that incomplete coverage. Any failed or overflowing owner makes the Membership
 count `null`/`unknown`, even if another owner returned rows. The output does not publish a partial sum.
 
-Telegram, combined cross-surface Accounts and unlinked Telegram contacts are explicitly
-`not_collected` with `count:null`. They are not zero and the combined count is not copied from
-Membership. This report therefore does not complete the cross-surface active-participant criterion.
-It also does not implement physical deletion of activity history. Existing domain records remain
-owned by their capabilities; the read horizon is not evidence of physical retention cleanup.
+Telegram contributes its own persisted successful private-action facts through the authenticated
+`participant-activity` runtime contract. The [source protocol](../contracts/runtime/telegram-activity.md)
+is the authority for its finite outcome catalog, successful inbox settlement, native collection clock,
+365-day retention, limits and current-link semantics. The report returns Telegram distinct Accounts,
+the distinct Account union with Membership, and currently unlinked Telegram contacts separately.
+These are source snapshots, not browser analytics or reconstructed first/last history. Its source entry
+includes the actual collection start and partial/not-proven coverage. A failed or overflowing Telegram
+source makes Telegram, combined and unlinked counts unknown while preserving observed Membership.
+The combined count is unknown if any Membership owner fails. A successful report never exposes
+Account IDs, Telegram IDs, provider payload or command text.
 
 ## Membership analytics-copy retention
 

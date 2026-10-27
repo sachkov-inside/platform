@@ -53,6 +53,21 @@ class Preparation(unittest.TestCase):
         self.assertIn('Native Umami read-only', content)
         self.assertEqual(len({p['id'] for p in view['panels']}), len(view['panels']))
 
+    def test_dependency_failure_panel_selects_the_actual_sdk_failure_outcome(self):
+        import re
+        root = Path(__file__).resolve().parents[2]
+        sdk = (root / 'apps/backend/src/infrastructure/observability/technical-telemetry.ts').read_text()
+        emitted = re.search(r'outcome: failed \? "([^"]+)" : "([^"]+)"', sdk)
+        self.assertIsNotNone(emitted)
+        panel = next(panel for panel in production.dashboard()['dashboard']['panels']
+                     if panel['title'] == 'Dependency failures (observed)')
+        selector = re.search(r'outcome(=~|=)"([^"]+)"', panel['targets'][0]['expr'])
+        self.assertIsNotNone(selector)
+        matches = lambda value: (re.fullmatch(selector[2], value) is not None
+                                 if selector[1] == '=~' else value == selector[2])
+        self.assertTrue(matches(emitted[1]), 'actual failed SDK operations must be visible')
+        self.assertFalse(matches(emitted[2]), 'completed operations are not failures')
+
     def test_refuses_replacing_existing_configuration_or_following_a_symlink(self):
         with tempfile.TemporaryDirectory() as parent:
             base = Path(parent).resolve()

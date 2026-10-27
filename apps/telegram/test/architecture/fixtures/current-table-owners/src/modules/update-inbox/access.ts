@@ -4,4 +4,6 @@ export async function access(database: any) {
   await database.insertInto("telegram_updates").values({}).execute();
   await database.updateTable("telegram_updates").set({}).execute();
   await database.deleteFrom("telegram_updates").execute();
+  await database.selectFrom("telegram_user_activity").selectAll().execute();
+  await database.selectFrom("telegram_activity_collection").selectAll().execute();
 }

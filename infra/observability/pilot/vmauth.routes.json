@@ -12,7 +12,7 @@
     ]
   },
   "logs": {
-    "backend": "http://logs:9428/",
+    "backend": "http://logs:9428/?extra_filters=_time%3A14d",
     "paths": [
       "/select/logsql/query",
       "/select/logsql/hits",

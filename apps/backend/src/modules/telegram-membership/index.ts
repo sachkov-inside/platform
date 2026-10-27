@@ -10,3 +10,5 @@ export {
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
   type CommunitySetCommand,
 } from "./domain/community-entitlement.js";
+
+export { HttpTelegramActivity } from "./infrastructure/http/http-telegram-activity.js";

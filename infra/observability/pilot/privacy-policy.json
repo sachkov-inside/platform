@@ -332,7 +332,8 @@
       "link.register",
       "link.confirm",
       "contacts.read",
-      "signin.bindAccount"
+      "signin.bindAccount",
+      "activity.read"
     ],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.dependency.operations", "inside.dependency.duration"]
@@ -398,6 +399,7 @@
       "/metrics",
       "/webhooks/telegram",
       "/integrations/platform/v1/telegram-contacts",
+      "/integrations/platform/v1/participant-activity",
       "/integrations/platform/v1/community-entitlements",
       "/integrations/platform/v1/identity-links",
       "/integrations/platform/v1/identity-links/:linkTransactionRef/confirm",
@@ -429,6 +431,63 @@
       "inside.postgresql.server.statistics_reset_time_microseconds",
       "inside.postgresql.server.sample_time_microseconds",
       "inside.postgresql.server.available"
+    ]
+  },
+  "failure_causes": {
+    "categories": [
+      "authorization",
+      "cancelled",
+      "capacity",
+      "conflict",
+      "connection",
+      "constraint",
+      "timeout",
+      "unknown"
+    ],
+    "codes": [
+      "08000",
+      "08001",
+      "08003",
+      "08004",
+      "08006",
+      "08007",
+      "08P01",
+      "23502",
+      "23503",
+      "23505",
+      "23514",
+      "28000",
+      "28P01",
+      "40001",
+      "40P01",
+      "42501",
+      "53100",
+      "53200",
+      "53300",
+      "53400",
+      "55P03",
+      "57014",
+      "57P01",
+      "57P02",
+      "57P03",
+      "AbortError",
+      "EAI_AGAIN",
+      "ECONNREFUSED",
+      "ECONNRESET",
+      "ENOTFOUND",
+      "EPIPE",
+      "ETIMEDOUT",
+      "P1000",
+      "P1001",
+      "P1002",
+      "P1008",
+      "P1017",
+      "P2002",
+      "P2003",
+      "P2024",
+      "P2034",
+      "TimeoutError",
+      "unknown"
     ]
   }
 }

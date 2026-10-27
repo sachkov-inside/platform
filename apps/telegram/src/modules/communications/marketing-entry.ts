@@ -108,6 +108,43 @@ export class MarketingEntry {
       });
     });
   }
+  /** A committed domain receipt, including retries after a worker crash. */
+  async confirmedActivity(
+    bot: string,
+    update: string,
+    user: string,
+  ): Promise<"marketing_preference" | "marketing_entry" | undefined> {
+    const preference = await this.database
+      .selectFrom("communication_preferences")
+      .innerJoin(
+        "communication_contacts",
+        "communication_contacts.contact_id",
+        "communication_preferences.contact_id",
+      )
+      .select("communication_preferences.update_id")
+      .where("communication_preferences.bot_identity", "=", bot)
+      .where("communication_preferences.update_id", "=", update)
+      .where("communication_contacts.bot_identity", "=", bot)
+      .where("communication_contacts.telegram_user_id", "=", user)
+      .executeTakeFirst();
+    if (preference) return "marketing_preference";
+    const entry = await this.database
+      .selectFrom("communication_entries")
+      .innerJoin(
+        "communication_contacts",
+        "communication_contacts.contact_id",
+        "communication_entries.contact_id",
+      )
+      .select("communication_entries.update_id")
+      .where("communication_entries.bot_identity", "=", bot)
+      .where("communication_entries.update_id", "=", update)
+      .where("communication_entries.outcome", "=", "entered")
+      .where("communication_contacts.bot_identity", "=", bot)
+      .where("communication_contacts.telegram_user_id", "=", user)
+      .executeTakeFirst();
+    return entry ? "marketing_entry" : undefined;
+  }
+
   async enter(start: VerifiedPrivateStart, source?: string): Promise<void> {
     await this.database.transaction().execute(async (tx) => {
       await contactLock(tx, this.config.botIdentity, start.telegramUserId);

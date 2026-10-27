@@ -40,7 +40,7 @@
     },
     {
       "title": "Dependency failures (observed)",
-      "query": "{__name__=~\"inside[.]dependency[.]operations(_total)?\",outcome=~\"error|timeout|unavailable\"}"
+      "query": "{__name__=~\"inside[.]dependency[.]operations(_total)?\",outcome=\"failed\"}"
     },
     {
       "title": "Trace drops (increase)",

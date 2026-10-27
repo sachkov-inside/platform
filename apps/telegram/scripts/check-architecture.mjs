@@ -99,6 +99,8 @@ const tableOwners = {
   telegram_transport_fairness: "modules/outbound",
   telegram_transport_slots: "modules/outbound",
   telegram_updates: "modules/update-inbox",
+  telegram_user_activity: "modules/update-inbox",
+  telegram_activity_collection: "modules/update-inbox",
 };
 
 // The author dialog decides every transition from its arguments alone; author-admin.ts runs

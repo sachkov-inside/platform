@@ -14,6 +14,15 @@ VictoriaMetrics хранит метрики 90 суток, VictoriaLogs и Victo
 [каталога](../../infra/observability/pilot/privacy-policy.json). Версия image не заменяет проверку
 всего deployment на точном commit.
 
+Сохранённая причина ошибки имеет закрытые `failure.category`/`failure.code` в PostgreSQL
+spans и `failureCategory`/`failureCode` в structured stdout. Они различают constraint, timeout
+и connection failures даже при одной операции. Каталог разрешает только зарегистрированные
+SQLSTATE, Prisma и Node codes; неизвестная причина остаётся `unknown`. Сообщения, SQL,
+произвольные классы ошибок и `module`/`operation` из stdout в хранилище не проходят.
+Контекст расследования дают service, trace/span/request/release и шаблон HTTP route либо очередь.
+OTLP и stdout Alloy конфигурации генерируются одной командой `privacy_config.py`;
+источник stdout: `infra/observability/production/stdout.alloy.tmpl`.
+
 Сети разделены:
 
 - `storage`: хранилища, vmauth, Grafana и collector. Приложения к ней не подключаются.
@@ -27,6 +36,20 @@ Query gateway ограничивает HTTP methods/body; vmauth проверя�
 и [закрытые маршруты чтения](../../infra/observability/pilot/vmauth.routes.json), включая read POST.
 Ingest/delete/admin не разрешены. Ключ Grafana отличается от ключа агента. Anonymous Grafana и
 signup выключены. Loopback сам по себе не защищает от root/пользователей сервера с Docker access.
+VictoriaMetrics запускается с `-search.latencyOffset=1ms`: instant-query по умолчанию
+оценивается у текущего времени, с настроенным сдвигом 1 мс.
+Штатный сдвиг версии v1.154.0 равен 30 секундам. Он скрывал все samples первой
+20-секундной нагрузочной фазы и сдвигал проверку свежести owner cache. Настройка
+не ускоряет приём, flush или export: их фактическое запаздывание продолжает измеряться,
+а пустой ответ не считается нулём. Запрос с явным историческим `time` сохраняет этот срез.
+Для всех LogsQL routes vmauth принудительно добавляет `extra_filters=_time:14d`.
+Это глобальный фильтр хранилища, включая subqueries, с текущим временем самого VictoriaLogs,
+а не с переданными клиентом `time` или `end`. Совпавший URL query argument клиента
+не заменяет доверенное значение; дополнительные form filters применяются только через AND.
+Поэтому ещё физически существующий крайний дневной partition не расширяет доступную историю.
+Основание: [vmauth query args](https://docs.victoriametrics.com/vmauth/#query-args-handling),
+[VictoriaLogs extra filters](https://docs.victoriametrics.com/victorialogs/querying/#extra-filters),
+закреплённые `logsql.parseExtraFilters` и `logstorage.ParseFilter` в VictoriaLogs v1.53.0.
 Доступ агента из другой среды дают только к query port, не ко всем портам или Docker socket.
 
 ## Подготовка

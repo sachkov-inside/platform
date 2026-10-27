@@ -1,3 +1,5 @@
+import { HttpTelegramActivity } from "../modules/telegram-membership/index.js";
+import { PLATFORM_CONFIG } from "../config/platform-config.js";
 import { ActivityRetentionDiagnostics } from "./mcp/activity-retention-diagnostics.js";
 import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
 import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
@@ -69,14 +71,25 @@ import {
         ReadingActivityFacts,
         BookmarkActivityFacts,
         TaskSubmissionFacts,
+        PLATFORM_CONFIG,
       ],
       useFactory: (
         accounts: Accounts,
         reading: ReadingActivityFacts,
         bookmarks: BookmarkActivityFacts,
         submissions: TaskSubmissionFacts,
+        config: PlatformConfig,
       ) =>
-        new ParticipantDiagnostics(accounts, reading, bookmarks, submissions),
+        new ParticipantDiagnostics(
+          accounts,
+          reading,
+          bookmarks,
+          submissions,
+          new HttpTelegramActivity(
+            config.telegramMembership.linkingEndpoint,
+            config.telegramMembership.linkingSecret,
+          ),
+        ),
     },
   ],
 })

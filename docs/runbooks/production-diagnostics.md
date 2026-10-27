@@ -270,12 +270,14 @@ email delivery в этом bounded этапе ещё не покрыты; их �
 backlog или ошибок. Настройки сбора, entitlement/business semantics и production-конфигурация этим
 инструментом не меняются.
 
-### Provenance подтверждённой Membership activity
+### Подтверждённая активность Membership и distinct отчёт
 
-Подготовлены внутренние owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read`
-и `TaskSubmissionFacts.read` для следующего distinct Account report. Новый MCP/REST-инструмент
-или permission в этом этапе не добавлены. Эти trusted owner-интерфейсы возвращают Account ID;
-потребитель обязан проверить право до их вызова. Их результат не является публичной аналитикой.
+Owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read` и
+`TaskSubmissionFacts.read` используются в Platform MCP `active_participant_diagnostics`.
+Инструмент проверяет актуальное `platform:admin` до вызова owners, принимает явное окно
+`{from,to}` и возвращает aggregate distinct Accounts без идентификаторов или исходных событий.
+Внутренние trusted интерфейсы возвращают Account ID только авторизованному составителю отчёта;
+их результат не является публичной аналитикой. Новое permission не вводится.
 
 Источники фактов:
 
@@ -304,9 +306,10 @@ UTC `asOf`, Account/kind, точное число сохранённых фак�
 из mutable visit/state. До 2000 релевантных Account/kind групп возвращаются целиком;
 2001-я означает `source_budget_exceeded / unknown`, без выдачи усечённых distinct totals.
 Потребитель может сузить окно. Cursor и стабильное продолжение между снимками не реализованы;
-объединение результатов разных окон/owners и политика distinct остаются следующим report slice.
-Unread/removal сохранены отдельно; решение об их включении в active participant показатель здесь
-не вводится. Checkout и технические события источниками этих интерфейсов не являются.
+distinct Accounts одного окна объединяются через Set по Account ID, а не сложением чисел
+owners. Неуспешный либо переполненный источник делает соответствующий итог `unknown`,
+не нулём. Реальные ручные unread/removal являются подтверждёнными действиями участника.
+Checkout и технические события источниками этих интерфейсов не являются.
 
 `coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
 нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
@@ -317,11 +320,28 @@ Unread/removal сохранены отдельно; решение об их в�
 
 Read horizon охватывает последние 365 дней относительно DB snapshot clock; более раннее начало запроса
 получает `outside_retention / unknown`. Исходные учебные receipts/manual journals и Product state
-не удаляются ради аналитики. Физическая очистка двух новых activity journals **ещё не реализована**:
-365-дневная retention полностью не принята. Для следующего retention slice подготовлен owner index
-`(occurred_at,event_id,...)`: bounded cleanup должен удалять только новые analytics events раньше
-cutoff, страницами по этому ключу, с конечным batch/work budget; отдельно показывать earliest retained
-expired event и cleanup lag, проверять повтор, остановку и restore. Не удалять исходные task receipts
-или читать чужую schema для этого cleanup. Ни cleanup job, ни новые внешние collector/Umami вызовы
-в бизнес-транзакции этим этапом не добавлены. Production migration/rollout требует отдельного допуска;
-новые period indexes существующих journals могут блокировать запись при обычном `CREATE INDEX`.
+не удаляются ради аналитики. `ReadingActivityRetention` и `BookmarkActivityRetention` физически
+удаляют только новые аналитические копии `learning_started_events` и `bookmarks.activity_events`
+раньше DB cutoff. Один проход владельца удаляет до 1000 строк по индексированному устойчивому
+ключу. Повторный проход безопасен; незавершённая очистка возвращает `hasMore` и фактический
+старейший просроченный event. Исходные manual journals, task receipts и Product state сохраняются.
+
+Billing worker запускает `membership-activity.retention` каждую минуту и при старте через
+`runActivityRetentionJob`. Оба владельца возвращают отдельный результат; отказ одного не скрывает
+результат другого. В очереди сохраняется ограниченный aggregate отчёт последнего завершённого
+прохода, включая частичный отказ. Это не доказательство непрерывной работы worker или физического
+возврата дискового места.
+
+Platform MCP `activity_retention_diagnostics` принимает строго `{}` и проверяет актуальное
+`platform:admin`. Два независимых owner snapshots показывают UTC `asOf`/`cutoff`,
+`oldestExpiredAt`, `lagSeconds` и `hasMore`, без полного подсчёта backlog и идентификаторов.
+Третий ограниченный запрос читает проверенный aggregate последнего прохода. После проверки
+права независимые чтения выполняются параллельно. Statement имеет бюджет 2 s, transaction 5 s,
+ожидание соединения 1 s; фактическая полная HTTP/MCP latency проверяется отдельно. Потерянный,
+некорректный или недоступный источник остаётся `unknown`, без отката к более старому успешному
+отчёту. Возраст receipt больше 600 секунд означает stale. Требование очистки в следующих
+сутках проверяется по измеренному lag, а не только по наличию job или его state.
+
+Production migration/rollout требует отдельного допуска. Новые period indexes существующих
+journals могут блокировать запись при обычном `CREATE INDEX`. Compatible rollback сохраняет
+полную применённую registry и её checksums; короткая registry старого image не подходит.

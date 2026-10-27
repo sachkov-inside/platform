@@ -252,4 +252,6 @@ export async function access(database: any) {
   await database.insertInto("waitlist_confirmations").values({}).execute();
   await database.updateTable("waitlist_confirmations").set({}).execute();
   await database.deleteFrom("waitlist_confirmations").execute();
+  await database.selectFrom("telegram_user_activity").selectAll().execute();
+  await database.selectFrom("telegram_activity_collection").selectAll().execute();
 }
