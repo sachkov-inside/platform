@@ -72,6 +72,12 @@ function initialCatalog() {
 }
 
 let catalog = initialCatalog();
+/** Продукты подставной страницы «Продукты» (`content-collections-backend.mjs`). */
+const catalogProductIds = new Set([
+  "c0110000-0000-4000-8000-000000000001",
+  "c0110000-0000-4000-8000-000000000002",
+  "c0110000-0000-4000-8000-000000000003",
+]);
 
 /** @param {Price} price */
 function snapshot(price) {
@@ -127,12 +133,12 @@ export async function productSaleRoute(request, url, readBody) {
     request.method === "GET"
   ) {
     const productId = url.searchParams.get("productId");
+    // Чужие продукты других проверок остаются их двойникам: здесь отвечают только продукты страниц.
+    if (productId === null || !catalogProductIds.has(productId)) return null;
     return {
       status: 200,
       value: {
-        items: catalog.states.filter(
-          (state) => productId === null || state.productId === productId,
-        ),
+        items: catalog.states.filter((state) => state.productId === productId),
         nextCursor: null,
       },
     };
