@@ -59,7 +59,7 @@ export function IndividualPurchaseView({
               </h2>
               <p>
                 {link.state === "pending" || link.state === "unknown"
-                  ? "Банк ещё не подтвердил результат. Не начинайте новую оплату. Ссылка зарезервирована за текущей попыткой."
+                  ? "Банк ещё не подтвердил оплату. Дождитесь результата: ссылка занята этой покупкой."
                   : link.state === "paid"
                     ? "По этой ссылке уже совершена покупка. Повторная покупка недоступна."
                     : "Оплатить по этой ссылке нельзя. Запросите у владельца новую ссылку."}
@@ -74,7 +74,7 @@ export function IndividualPurchaseView({
               </p>
               <p className="mb-6 text-sm text-muted-foreground">
                 {link.expiresAt === null
-                  ? "Без ограничения срока действия ссылки."
+                  ? "Ссылка действует без ограничения срока."
                   : `Действует до ${new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" }).format(new Date(link.expiresAt))} (Москва).`}
               </p>
               {viewer === "guest" ? (

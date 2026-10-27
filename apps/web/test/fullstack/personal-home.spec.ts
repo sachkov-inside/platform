@@ -308,6 +308,7 @@ test("profile resumes real Video progress and excludes playback end", async ({
               },
               getDuration: () => Promise.resolve(628),
               on: () => undefined,
+              off: () => undefined,
               seekTo: (seconds: number) => {
                 iframe.dataset["seekSeconds"] = String(seconds);
                 return Promise.resolve();

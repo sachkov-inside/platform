@@ -47,6 +47,95 @@ function documentNode(
 }
 
 describe("MaterialBodyOperations", () => {
+  test("keeps an inline primary video, description and chapters between paragraphs", () => {
+    const accepted = materialBodyOperations.accept({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { nodeId: testNodeId(1) },
+            content: [{ type: "text", text: "Before" }],
+          },
+          {
+            type: "video",
+            attrs: {
+              nodeId: testNodeId(2),
+              description: "Watch the example",
+              chapters: [
+                { start: 0, title: "Introduction" },
+                { start: 37, title: "Example" },
+              ],
+            },
+          },
+          {
+            type: "paragraph",
+            attrs: { nodeId: testNodeId(3) },
+            content: [{ type: "text", text: "After" }],
+          },
+        ],
+      },
+    });
+    if (!accepted.ok) throw new Error(JSON.stringify(accepted.error));
+    const rendered = materialBodyOperations.render(accepted.value);
+    if (!rendered.ok) throw new Error(JSON.stringify(rendered.error));
+    expect(rendered.value.blocks.map((block) => block.kind)).toEqual([
+      "paragraph",
+      "video",
+      "paragraph",
+    ]);
+    expect(rendered.value.blocks[1]).toEqual({
+      kind: "video",
+      description: "Watch the example",
+      chapters: [
+        { start: 0, title: "Introduction" },
+        { start: 37, title: "Example" },
+      ],
+    });
+    expect(renderedMaterialBodySchema.parse(rendered.value)).toEqual(
+      rendered.value,
+    );
+  });
+
+  test("rejects duplicate video blocks and malformed chapters", () => {
+    for (const chapters of [
+      [{ start: -1, title: "Bad" }],
+      [
+        { start: 3, title: "Later" },
+        { start: 0, title: "Earlier" },
+      ],
+      [{ start: 0, title: "" }],
+    ]) {
+      expect(
+        materialBodyOperations.accept({
+          schemaVersion: 1,
+          doc: {
+            type: "doc",
+            content: [
+              { type: "video", attrs: { nodeId: testNodeId(1), chapters } },
+            ],
+          },
+        }).ok,
+      ).toBe(false);
+    }
+    expect(
+      materialBodyOperations.accept({
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [1, 2].map((index) => ({
+            type: "video",
+            attrs: { nodeId: testNodeId(index) },
+          })),
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { issues: [{ code: "duplicate_video_block" }] },
+    });
+  });
+
   test("rejects malformed list attributes without throwing during acceptance", () => {
     for (const type of ["orderedList", "bulletList"]) {
       for (const attrs of [null, "invalid", []]) {

@@ -282,10 +282,7 @@ test("sign-in screen links the policy and defers terms to the Platform first sig
   assert.equal(phrases.path, "/custom-phrases/ru");
   assert.equal(phrases.method, "PUT");
   assert.match(agreement, /<link><\/link>/u);
-  assert.match(
-    agreement,
-    /Условия использования вы примете сразу после входа\./u,
-  );
+  assert.match(agreement, /Условия использования вы примете после входа\./u);
   assert.doesNotMatch(agreement, /соглаша/u);
 });
 

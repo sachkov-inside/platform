@@ -2,6 +2,7 @@ import { Extension } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { materialDocumentExtensions } from "@inside/material-blocks/schema";
+import { MaterialVideoNodeView } from "../ui/material-video-node-view.client";
 import { MaterialQuizNodeView } from "../ui/material-quiz-node-view.client";
 import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
 import {
@@ -51,6 +52,7 @@ const assetNodeView = () => ReactNodeViewRenderer(MaterialAssetNodeView);
 export const materialEditorExtensions = [
   ...materialDocumentExtensions({
     nodeViews: {
+      video: () => ReactNodeViewRenderer(MaterialVideoNodeView),
       quiz: () => ReactNodeViewRenderer(MaterialQuizNodeView),
       assetFile: assetNodeView,
       assetImage: assetNodeView,

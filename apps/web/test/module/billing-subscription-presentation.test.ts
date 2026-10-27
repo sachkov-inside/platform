@@ -184,12 +184,12 @@ describe("состояния и ошибки", () => {
   });
 
   it("объясняет ожидаемые исходы billing словами покупателя", () => {
-    expect(billingErrorMessage("contact_required")).toContain("email");
+    expect(billingErrorMessage("contact_required")).toContain("почту");
     expect(billingErrorMessage("legacy_review_required")).toContain(
       "заказ требует проверки",
     );
     expect(billingErrorMessage("payment_in_progress")).toContain(
-      "новую покупку начинать не нужно",
+      "Не начинайте новую покупку",
     );
     // Незавершённая оплата бывает и у разовой покупки, поэтому ведём в «Покупки»,
     // где видны все платежи, а не только расписание подписки.
@@ -201,7 +201,7 @@ describe("состояния и ошибки", () => {
     );
     // Прежняя редакция не принимается: покупатель читает действующую и нажимает кнопку снова.
     expect(billingErrorMessage("document_changed")).toBe(
-      "Условия покупки обновились. Прочитайте действующую редакцию и нажмите кнопку оплаты снова.",
+      "Условия покупки обновились. Прочитайте их и нажмите кнопку оплаты снова.",
     );
   });
 });

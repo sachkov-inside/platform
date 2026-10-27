@@ -188,17 +188,17 @@ export const EmailWithoutCode: Story = {
     const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
     await waitFor(() => expect(pay).toBeEnabled());
     await userEvent.click(pay);
-    const email = canvas.getByRole("textbox", { name: "Email" });
+    const email = canvas.getByRole("textbox", { name: "Почта для чека" });
     await expect(email).toHaveFocus();
     await expect(email).toHaveAttribute("aria-invalid", "true");
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Введите email");
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Введите почту");
     await expect(requestPath).not.toHaveBeenCalledWith(
       "/api/account/billing/consents",
     );
     await userEvent.type(email, "broken");
     await userEvent.click(pay);
     await expect(canvas.getByRole("alert")).toHaveTextContent(
-      "Проверьте email",
+      "Проверьте адрес почты",
     );
     await userEvent.clear(email);
     await userEvent.type(email, "Order@Example.test{Enter}");
@@ -223,7 +223,7 @@ export const AccountEmailPrefilled: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.queryByRole("textbox", { name: "Email" }),
+      canvas.queryByRole("textbox", { name: "Почта для чека" }),
     ).not.toBeInTheDocument();
     const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
     await waitFor(() => expect(pay).toBeEnabled());

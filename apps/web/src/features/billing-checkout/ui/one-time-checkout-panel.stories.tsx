@@ -126,7 +126,7 @@ export const EmailRequired: Story = {
   args: { email: "" },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const email = canvas.getByRole("textbox", { name: "Email" });
+    const email = canvas.getByRole("textbox", { name: "Почта для чека" });
     await expect(email).toHaveValue("");
     await expect(
       canvas.queryByRole("link", { name: /Подтвердить/u }),
@@ -141,7 +141,7 @@ export const QuotePending: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Готовим точные условия",
+      "Загружаем условия покупки",
     );
   },
 };

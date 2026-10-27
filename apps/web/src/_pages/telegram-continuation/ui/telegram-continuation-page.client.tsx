@@ -123,7 +123,7 @@ export function TelegramContinuationPage({
                 ? "Проверяем доступ к выбранному курсу…"
                 : state?.state === "link_required"
                   ? "Подключите Telegram, которым пользуетесь в группе курса."
-                  : "Проверяем состояние аккаунта…"}
+                  : "Проверяем аккаунт…"}
           </p>
           {state?.state === "link_required" &&
           presentation?.telegramMembership.link.kind === "retryable" &&

@@ -47,7 +47,7 @@ export function BillingHistory({
       <h3 className="mt-4 text-base font-semibold">Оплаты и чеки</h3>
       {payments.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Списаний по этому Account ещё не было.
+          В этом аккаунте ещё не было списаний.
         </p>
       ) : (
         <ol className="mt-3 grid gap-3">

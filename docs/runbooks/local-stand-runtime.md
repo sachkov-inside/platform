@@ -2,6 +2,11 @@
 
 Build, capacity and troubleshooting details of `pnpm local:stand`. Start, stop and ownership rules live in the [local stand runbook](local-stand.md).
 
+The shared stand controller reuses this launcher. Its live preview mounts only Web app/src/public;
+other source changes use the same workspace-image build. A managed refresh builds application images
+and recreates their consumers without the cold-start identity, migration and seed sequence. Controller
+reservations, compatibility refusals and recovery are owned by the [stand runbook](local-stand.md).
+
 ## Production web build
 
 Web on the stand runs in development mode by default. Development mode does not prefetch links and
@@ -212,3 +217,11 @@ Record primary exit and cleanup exit separately, plus actual owned PID/kernel ab
 resource inventory. A successful CLI exit or an EXIT trap alone does not prove complete closure.
 If admission, deadline, storage or cleanup fails, retain the failure and request a new scope;
 do not retry, enlarge budgets or prune shared cache to obtain green.
+
+## macOS Docker storage
+
+The stand measures free space on the active Docker runtime's data filesystem. Docker Desktop uses
+its open `Docker.raw`; OrbStack uses the open `data.img.raw` of its running process, selected by
+`docker info` reporting `OrbStack`. Missing or ambiguous images refuse the build. The existing
+build allowance, host reserve and stop margin apply to both runtimes. Switching the Docker context
+does not transfer stand volumes; the controller uses the already selected context.

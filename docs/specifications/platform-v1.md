@@ -1123,6 +1123,18 @@ Backend хранит receipt операции: повтор завершённо
    Неоднозначный outage во время provider registration сохраняет ту же current attempt до expiry и
    не повторяет registration автоматически.
 
+### Video placement within a Material
+
+A Material keeps one primary Video, independently of its format. A top-level `video` body block
+places that recording between any two text blocks and may carry a description and ordered chapters.
+The reader and author preview render exactly one player at that position. A document containing only
+that block is a video lesson; ordinary surrounding blocks form a mixed lesson. Without the block,
+existing Materials keep the player above the text. Block removal does not detach or delete the Video.
+The block accepts no provider address or Video identity: attachment, access, readiness and progress
+remain owned by the existing primary-Video path. Explicit block chapters override imported chapters;
+omitting them retains the imported list. The [authoring runbook](../runbooks/video-authoring.md#position-within-a-material-1741)
+owns editor and source-authoring instructions.
+
 ### Assets, downloads и video
 
 1. `Assets` принимает non-video bytes через quarantine, проверяет ownership, actual size,

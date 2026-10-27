@@ -1785,10 +1785,57 @@ export const ModelComparison: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "GPT" }));
-    await expect(
-      canvas.getByRole("region", { name: "GPT-6.1 Sol / GPT-6 Luna" }),
-    ).toBeVisible();
+    const group = canvas.getByRole("group", { name: "Выбор модели" });
+    const buttons = within(group).getAllByRole("button");
+    await expect(buttons.map((button) => button.textContent)).toEqual([
+      "Claude",
+      "GPT",
+      "DeepSeek",
+      "GLM",
+      "Kimi",
+    ]);
+    const models = [
+      { label: "Claude", title: "Claude Opus 5.5 / Sonnet 5.5" },
+      { label: "GPT", title: "GPT-6.1 Sol / GPT-6.1 Terra / GPT-6 Luna" },
+      { label: "DeepSeek", title: "DeepSeek V4.1 Flash" },
+      { label: "GLM", title: "GLM-5.3-Flash" },
+      { label: "Kimi", title: "Kimi K3.1 Pro" },
+    ];
+    for (const model of models) {
+      const button = within(group).getByRole("button", { name: model.label });
+      await userEvent.click(button);
+      await expect(canvas.getAllByRole("region")).toHaveLength(1);
+      const panel = canvas.getByRole("region", { name: model.title });
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(button).toHaveAttribute("aria-controls", panel.id);
+      await expect(within(panel).getByText("Цена.")).toHaveProperty(
+        "tagName",
+        "STRONG",
+      );
+      await expect(
+        within(panel).getByRole("link", { name: "Ссылка на тарифы" }),
+      ).toHaveAttribute("href", "https://example.com/pricing");
+      await expect(
+        within(panel).getByText(/Личного опыта пока нет/),
+      ).toHaveProperty("tagName", "EM");
+      await expect(
+        within(panel).getByRole("link", { name: "Подробнее об опыте" }),
+      ).toHaveAttribute("href", "https://example.com/opinion");
+    }
+    await userEvent.click(
+      within(group).getByRole("button", { name: "Claude" }),
+    );
+    for (const [index, model] of models.entries()) {
+      const button = within(group).getByRole("button", { name: model.label });
+      if (index > 0) await userEvent.tab();
+      await expect(button).toHaveFocus();
+      await userEvent.keyboard(index % 2 === 0 ? "{Enter}" : " ");
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(canvas.getAllByRole("region")).toHaveLength(1);
+      await expect(
+        canvas.getByRole("region", { name: model.title }),
+      ).toBeVisible();
+    }
   },
 };
 export const ModelComparisonMobile: Story = {
@@ -2198,5 +2245,102 @@ export const ClosedPendingWithoutSharing: Story = {
         name: /Поделиться материалом/,
       }),
     ).not.toBeInTheDocument();
+  },
+};
+
+export const InlineVideo: Story = {
+  args: {
+    primaryVideo: readyVideo,
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Перед просмотром запишите свой вопрос к уроку.",
+            marks: [],
+          },
+        ],
+      },
+      {
+        kind: "video",
+        description:
+          "Демонстрационная запись. После просмотра продолжите читать урок.",
+        chapters: [
+          { start: 0, title: "Начало урока" },
+          { start: 37, title: "Разбор примера" },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "После видео попробуйте повторить пример самостоятельно.",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const player = canvasElement.querySelector("[data-video-id]");
+    if (player === null) throw new Error("Video is missing");
+    await expect(
+      canvasElement.querySelectorAll("[data-video-id]"),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getByText(
+        "Демонстрационная запись. После просмотра продолжите читать урок.",
+      ),
+    ).toBeVisible();
+    await expect(
+      Boolean(
+        canvas
+          .getByText("Перед просмотром запишите свой вопрос к уроку.")
+          .compareDocumentPosition(player) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    await expect(
+      Boolean(
+        player.compareDocumentPosition(
+          canvas.getByText(
+            "После видео попробуйте повторить пример самостоятельно.",
+          ),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    await expect(
+      canvas.getByRole("link", { name: /Разбор примера/u }),
+    ).toHaveAttribute("href", "#t=37");
+  },
+};
+export const InlineVideoMobile: Story = {
+  ...InlineVideo,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+export const VideoOnly: Story = {
+  args: {
+    primaryVideo: readyVideo,
+    body: [
+      {
+        kind: "video",
+        description: "Урок в формате видео.",
+        chapters: [{ start: 0, title: "Начало" }],
+      },
+    ],
+  },
+};
+export const InlineVideoMissing: Story = {
+  ...InlineVideo,
+  args: { ...InlineVideo.args, primaryVideo: null },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Видео к материалу не прикреплено."),
+    ).toHaveTextContent("Видео к материалу не прикреплено.");
+    await expect(
+      canvasElement.querySelectorAll("[data-video-id]"),
+    ).toHaveLength(0);
   },
 };

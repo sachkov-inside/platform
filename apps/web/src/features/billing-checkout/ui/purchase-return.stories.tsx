@@ -36,10 +36,10 @@ export const Checking: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText(/Переход обратно не подтверждает оплату/u),
+      canvas.getByText(/Возврат из банка ещё не означает, что оплата прошла/u),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Проверяем состояние оплаты…",
+      "Проверяем оплату…",
     );
   },
 };

@@ -78,7 +78,7 @@ export function AccountTelegramPanel({
               </p>
             ) : contact?.state === "unavailable" ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                Не удалось загрузить имя и username из Telegram.
+                Не удалось загрузить имя и имя пользователя Telegram.
               </p>
             ) : null}
             {link.kind === "unlinked" || link.kind === "linked" ? null : (
@@ -238,7 +238,7 @@ function MutationNotice({
       <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       {result.kind === "unauthorized"
         ? "Сессия завершилась. Войдите снова, чтобы продолжить."
-        : `Не удалось выполнить действие. Текущее состояние не изменилось. Код: ${result.reference}`}
+        : `Не удалось изменить подключение. Попробуйте ещё раз. Код: ${result.reference}`}
     </p>
   );
 }

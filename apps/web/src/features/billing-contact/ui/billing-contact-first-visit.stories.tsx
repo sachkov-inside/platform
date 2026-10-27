@@ -25,7 +25,7 @@ const meta = {
       await canvas.findByRole("region", { name: "Хранение в браузере" }),
     ).toBeInTheDocument();
     await userEvent.type(canvas.getByLabelText("Код из письма"), "123456");
-    const confirm = canvas.getByRole("button", { name: "Подтвердить email" });
+    const confirm = canvas.getByRole("button", { name: "Подтвердить почту" });
     confirm.scrollIntoView({ block: "nearest" });
     await userEvent.click(confirm);
     await expect(args.onConfirm).toHaveBeenCalledWith("123456");

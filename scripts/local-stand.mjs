@@ -2,353 +2,484 @@
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец сразу открывает приложение, выбирает проверочный Account и покупает в том же окружении.
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { execFileSync } from "node:child_process";
 import { commandExit } from "./diagnostic-command.mjs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
+import { finished } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
-import { statfsSync } from "node:fs";
+import { realpathSync, statfsSync } from "node:fs";
 import { z } from "zod";
+import { standIdentityReceiptPrefix } from "./stand-identity-receipt.mjs";
+import { standApplicationServices } from "./stand-services.mjs";
+import { requireUnmanagedStand } from "./stand-controller.mjs";
 import {
   createStandBuildBudget,
   dockerDesktopStoragePath,
+  orbstackStoragePath,
 } from "./local-stand-budget.mjs";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const pnpmExecutable = process.env["npm_execpath"];
+/**
+ * The caller holds the shared local-setup lock. Refresh only recreates application roles;
+ * the stand controller verifies ownership and schema/configuration compatibility first.
+ * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
+ */
+export async function launchLocalStand({
+  repositoryRoot,
+  pnpmPath,
+  productionWeb = false,
+  refresh = false,
+  resumeCold = false,
+  composeOverride,
+  logToStderr = false,
+  dockerHost,
+  onIdentityReady,
+}) {
+  const outputStream = logToStderr ? process.stderr : process.stdout;
+  const standDiskPollIntervalMilliseconds = 250;
 
-if (pnpmExecutable === undefined) {
-  throw new Error("Run the local stand through the pinned pnpm CLI");
-}
-const pnpmPath = pnpmExecutable;
-const standDiskPollIntervalMilliseconds = 250;
+  // Порт входа не настраивается: OIDC сверяет issuer точным совпадением строки, поэтому адрес
+  // должен быть один и тот же и для браузера, и для приложения внутри сети Compose.
+  const logtoPort = "3301";
+  const logtoAdminPort = "3302";
+  // Bootstrap описывает вход теми же адресами, по которым стенд опубликован наружу.
+  const standPorts = {
+    IDENTITY_PROOF_LOGTO_PORT: logtoPort,
+    IDENTITY_PROOF_LOGTO_ADMIN_PORT: logtoAdminPort,
+    IDENTITY_PROOF_API_PORT: process.env["API_HOST_PORT"] ?? "3001",
+    IDENTITY_PROOF_WEB_PORT: process.env["WEB_HOST_PORT"] ?? "3000",
+    IDENTITY_PROOF_MAILPIT_PORT:
+      process.env["MAIL_CAPTURE_HOST_PORT"] ?? "8025",
+  };
+  // `--production-web` поднимает web production-сборкой: только в ней работают предзагрузка ссылок и
+  // кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
+  // остаётся в режиме разработки с горячей перезагрузкой.
+  const learnerComposeFiles = [
+    "--file",
+    "compose.yaml",
+    "--file",
+    "config/compose/local/learner-setup.compose.yaml",
+  ];
+  const composeFiles = [
+    ...learnerComposeFiles,
+    ...(productionWeb
+      ? ["--file", "config/compose/local/production-web.compose.yaml"]
+      : []),
+    ...(composeOverride ? ["--file", composeOverride] : []),
+  ];
+  // The stand is always the shared project, even when a shell still names the disposable smoke one.
+  const environment = {
+    ...process.env,
+    ...(dockerHost ? { DOCKER_HOST: dockerHost, DOCKER_CONTEXT: "" } : {}),
+    ...standPorts,
+    COMPOSE_PROJECT_NAME: "inside-platform",
+  };
+  const smokeProject = "inside-platform-smoke";
 
-// Порт входа не настраивается: OIDC сверяет issuer точным совпадением строки, поэтому адрес
-// должен быть один и тот же и для браузера, и для приложения внутри сети Compose.
-const logtoPort = "3301";
-const logtoAdminPort = "3302";
-// Bootstrap описывает вход теми же адресами, по которым стенд опубликован наружу.
-const standPorts = {
-  IDENTITY_PROOF_LOGTO_PORT: logtoPort,
-  IDENTITY_PROOF_LOGTO_ADMIN_PORT: logtoAdminPort,
-  IDENTITY_PROOF_API_PORT: process.env["API_HOST_PORT"] ?? "3001",
-  IDENTITY_PROOF_WEB_PORT: process.env["WEB_HOST_PORT"] ?? "3000",
-  IDENTITY_PROOF_MAILPIT_PORT: process.env["MAIL_CAPTURE_HOST_PORT"] ?? "8025",
-};
-// `--production-web` поднимает web production-сборкой: только в ней работают предзагрузка ссылок и
-// кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
-// остаётся в режиме разработки с горячей перезагрузкой.
-const productionWeb = process.argv.slice(2).includes("--production-web");
-const learnerComposeFiles = [
-  "--file",
-  "compose.yaml",
-  "--file",
-  "config/compose/local/learner-setup.compose.yaml",
-];
-const composeFiles = [
-  ...learnerComposeFiles,
-  ...(productionWeb
-    ? ["--file", "config/compose/local/production-web.compose.yaml"]
-    : []),
-];
-// The stand is always the shared project, even when a shell still names the disposable smoke one.
-const environment = {
-  ...process.env,
-  ...standPorts,
-  COMPOSE_PROJECT_NAME: "inside-platform",
-};
-const smokeProject = "inside-platform-smoke";
+  ensureSharedIdentityDirectory(repositoryRoot);
+  let shouldCleanupCompose = false;
+  /** @type {NodeJS.Signals | undefined} */
+  let interruptedSignal;
+  /** @type {Promise<void> | undefined} */
+  let shutdownPromise;
+  /** @type {Set<import("node:child_process").ChildProcess>} */
+  const activeProcesses = new Set();
+  /** @type {ReturnType<typeof createStandBuildBudget> | undefined} */
+  let buildBudget;
+  const onInterrupt = () => {
+    void handleSignal("SIGINT");
+  };
+  const onTerminate = () => {
+    void handleSignal("SIGTERM");
+  };
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onTerminate);
 
-ensureSharedIdentityDirectory(repositoryRoot);
-const releaseStandLock = await acquireLocalSetupLock(
-  "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
-);
-let shouldCleanupCompose = false;
-/** @type {NodeJS.Signals | undefined} */
-let interruptedSignal;
-/** @type {Promise<void> | undefined} */
-let shutdownPromise;
-/** @type {Set<import("node:child_process").ChildProcess>} */
-const activeProcesses = new Set();
-/** @type {ReturnType<typeof createStandBuildBudget> | undefined} */
-let buildBudget;
-for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
-  process.once(signal, () => {
-    void handleSignal(signal);
-  });
-}
-
-try {
-  // Предпосылки проверяются первыми: без Docker занятость стека не узнать, и отказ должен
-  // объяснять причину, а не падать на первом же вызове.
-  await runPnpm(["platform:doctor"]);
-  if (productionWeb) {
-    const status = await run(
-      "git",
-      ["status", "--porcelain", "--untracked-files=all"],
-      { capture: true },
-    );
-    if (status.output.trim().length > 0) {
+  try {
+    // Предпосылки проверяются первыми: без Docker занятость стека не узнать, и отказ должен
+    // объяснять причину, а не падать на первом же вызове.
+    if (!refresh) await runPnpm(["platform:doctor"]);
+    if (productionWeb) {
+      const status = await run(
+        "git",
+        ["status", "--porcelain", "--untracked-files=all"],
+        { capture: true },
+      );
+      if (status.output.trim().length > 0) {
+        throw new Error(
+          "Commit source changes before starting the production web stand so its release identity names the exact source revision.",
+        );
+      }
+      const revision = await run("git", ["rev-parse", "HEAD"], {
+        capture: true,
+      });
+      Object.assign(environment, {
+        STAND_WEB_SOURCE_SHA: z.hash("sha1").parse(revision.output.trim()),
+      });
+      // Compose owns interpolation, including .env/shell precedence. Do not load private env_files.
+      const resolved = await run(
+        "docker",
+        [
+          "compose",
+          ...learnerComposeFiles,
+          "--profile",
+          "identity",
+          "config",
+          "--no-env-resolution",
+          "--format",
+          "json",
+        ],
+        { capture: true },
+      );
+      const storage = z
+        .object({
+          services: z.object({
+            api: z.object({
+              environment: z.object({
+                OBJECT_STORAGE_SIGNED_GET_ENDPOINT: z.url(),
+              }),
+            }),
+          }),
+        })
+        .parse(JSON.parse(resolved.output));
+      Object.assign(environment, {
+        STAND_WEB_OBJECT_STORAGE_ORIGIN: new URL(
+          storage.services.api.environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT,
+        ).origin,
+      });
+    }
+    if (!refresh && !resumeCold && (await isComposeRunning())) {
       throw new Error(
-        "Commit source changes before starting the production web stand so its release identity names the exact source revision.",
+        "The Platform Compose stack is already running and belongs to the owner or another session. Ask the owner, or wait for the owning session's handoff, before it is stopped (docs/runbooks/local-stand.md).",
       );
     }
-    const revision = await run("git", ["rev-parse", "HEAD"], { capture: true });
-    Object.assign(environment, {
-      STAND_WEB_SOURCE_SHA: z.hash("sha1").parse(revision.output.trim()),
+    let storage;
+    if (process.platform === "darwin") {
+      const operatingSystem = (
+        await run("docker", ["info", "--format", "{{.OperatingSystem}}"], {
+          capture: true,
+        })
+      ).output.trim();
+      const orbstack = operatingSystem === "OrbStack";
+      const openFiles = (
+        await run(
+          "lsof",
+          orbstack
+            ? ["-n", "-F", "n", "-c", "/OrbStack/"]
+            : ["-n", "-F", "n", "-c", "/com\\.dock/", "-c", "/Virtual/"],
+          { capture: true },
+        )
+      ).output;
+      storage = orbstack
+        ? orbstackStoragePath(openFiles)
+        : dockerDesktopStoragePath(openFiles);
+    } else {
+      storage = (
+        await run("docker", ["info", "--format", "{{.DockerRootDir}}"], {
+          capture: true,
+        })
+      ).output.trim();
+    }
+    buildBudget = createStandBuildBudget(() => {
+      const disk = statfsSync(storage);
+      return disk.bavail * disk.bsize;
     });
-    // Compose owns interpolation, including .env/shell precedence. Do not load private env_files.
-    const resolved = await run(
+    outputStream.write(
+      `Local stand disk: ${(buildBudget.initialFreeBytes / 1024 ** 3).toFixed(2)} GiB available on Docker storage.\n`,
+    );
+    // BuildKit checks source inputs even on cache hits. API builds the development workspace for
+    // all backend roles and Web; only production Web needs its separate build and image.
+    for (const service of refresh
+      ? productionWeb
+        ? ["api", "web"]
+        : ["api"]
+      : productionWeb
+        ? ["api", "web", "rabbitmq", "logto"]
+        : ["api", "rabbitmq", "logto"]) {
+      await compose(["build", service]);
+    }
+    if (refresh) {
+      await compose([
+        "--profile",
+        "local-accounts",
+        "up",
+        "--detach",
+        "--no-build",
+        "--no-deps",
+        "--force-recreate",
+        "--wait",
+        ...standApplicationServices,
+      ]);
+      return;
+    }
+    await runPnpm(["identity:proof:certs"]);
+    shouldCleanupCompose = true;
+    // Сначала поднимается вход: bootstrap настраивает уже работающий Logto, а не наоборот.
+    await compose([
+      "up",
+      "--detach",
+      "--no-build",
+      "--wait",
+      "logto-postgres",
+      "logto",
+    ]);
+    await run(process.execPath, [pnpmPath, "identity:proof:bootstrap"], {
+      extraEnvironment: {
+        LOGTO_ON_STAND: "true",
+        ...(onIdentityReady ? { LOCAL_STAND_IDENTITY_RECEIPT: "true" } : {}),
+      },
+      ...(onIdentityReady
+        ? {
+            onLine: async (line) => {
+              if (line.startsWith(standIdentityReceiptPrefix))
+                await onIdentityReady(
+                  z
+                    .hash("sha256")
+                    .parse(line.slice(standIdentityReceiptPrefix.length)),
+                );
+            },
+          }
+        : {}),
+    });
+    // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
+    await compose(["up", "--detach", "--no-build", "--wait"]);
+    await runPnpm(["local:accounts:bootstrap"]);
+    await compose(["up", "--detach", "--no-build", "--wait", "local-accounts"]);
+    shouldCleanupCompose = false;
+    outputStream.write(
+      [
+        "",
+        "Стенд поднят одной командой. Дальше всё в одном окружении:",
+        `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
+        "  аккаунт           владелец по умолчанию; «Сменить» в приложении выбирает ученика или гостя",
+        `  вход              https://identity.inside.localhost:${logtoPort}`,
+        `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
+        `  двойник банка     http://127.0.0.1:${process.env["BANK_DOUBLE_HOST_PORT"] ?? "8090"}`,
+        "",
+        "Остановить: docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml --profile identity --profile local-accounts down (для --production-web добавьте его Compose override)",
+        "",
+      ].join("\n"),
+    );
+  } catch (error) {
+    if (shouldCleanupCompose && interruptedSignal === undefined) {
+      // Compose's wait error omits failed job output; read it before shutdown removes containers.
+      try {
+        const diagnostics = await compose(
+          ["logs", "--no-color", "--tail", "80", "migrations", "seed"],
+          { capture: true, cleanup: true },
+        );
+        process.stderr.write(diagnostics.output);
+      } catch {
+        process.stderr.write(
+          "Startup job diagnostics unavailable; keeping the original failure.\n",
+        );
+      }
+    }
+    await shutdown();
+    if (interruptedSignal === undefined) {
+      throw error;
+    }
+  } finally {
+    await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
+    process.removeListener("SIGINT", onInterrupt);
+    process.removeListener("SIGTERM", onTerminate);
+  }
+
+  if (interruptedSignal !== undefined) {
+    process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
+  }
+
+  async function isComposeRunning() {
+    const stand = await compose(["ps", "--services", "--status", "running"], {
+      capture: true,
+    });
+    // The disposable smoke project holds the same ports.
+    const smoke = await run(
       "docker",
       [
         "compose",
-        ...learnerComposeFiles,
-        "--profile",
-        "identity",
-        "config",
-        "--no-env-resolution",
-        "--format",
-        "json",
+        "--project-name",
+        smokeProject,
+        "ps",
+        "--services",
+        "--status",
+        "running",
       ],
       { capture: true },
     );
-    const storage = z
-      .object({
-        services: z.object({
-          api: z.object({
-            environment: z.object({
-              OBJECT_STORAGE_SIGNED_GET_ENDPOINT: z.url(),
-            }),
-          }),
-        }),
-      })
-      .parse(JSON.parse(resolved.output));
-    Object.assign(environment, {
-      STAND_WEB_OBJECT_STORAGE_ORIGIN: new URL(
-        storage.services.api.environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT,
-      ).origin,
-    });
+    return `${stand.output}${smoke.output}`.trim().length > 0;
   }
-  if (await isComposeRunning()) {
-    throw new Error(
-      "The Platform Compose stack is already running and belongs to the owner or another session. Ask the owner, or wait for the owning session's handoff, before it is stopped (docs/runbooks/local-stand.md).",
+
+  /**
+   * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string>; cleanup?: boolean; onLine?: (line: string) => Promise<void> }} RunOptions
+   */
+
+  /**
+   * @param {string[]} arguments_
+   * @param {RunOptions} [options]
+   */
+  function compose(arguments_, options = {}) {
+    return run(
+      "docker",
+      ["compose", ...composeFiles, "--profile", "identity", ...arguments_],
+      options,
     );
   }
-  const storage =
-    process.platform === "darwin"
-      ? dockerDesktopStoragePath(
-          (
-            await run(
-              "lsof",
-              ["-n", "-F", "n", "-c", "/com\\.dock/", "-c", "/Virtual/"],
-              {
-                capture: true,
-              },
-            )
-          ).output,
-        )
-      : (
-          await run("docker", ["info", "--format", "{{.DockerRootDir}}"], {
-            capture: true,
-          })
-        ).output.trim();
-  buildBudget = createStandBuildBudget(() => {
-    const disk = statfsSync(storage);
-    return disk.bavail * disk.bsize;
-  });
-  process.stdout.write(
-    `Local stand disk: ${(buildBudget.initialFreeBytes / 1024 ** 3).toFixed(2)} GiB available on Docker storage.\n`,
-  );
-  // BuildKit checks source inputs even on cache hits. API builds the development workspace for
-  // all backend roles and Web; only production Web needs its separate build and image.
-  for (const service of productionWeb
-    ? ["api", "web", "rabbitmq", "logto"]
-    : ["api", "rabbitmq", "logto"]) {
-    await compose(["build", service]);
+
+  /**
+   * @param {string[]} arguments_
+   * @param {Record<string, string>} [extraEnvironment]
+   */
+  function runPnpm(arguments_, extraEnvironment = {}) {
+    return run(process.execPath, [pnpmPath, ...arguments_], {
+      extraEnvironment,
+    });
   }
-  await runPnpm(["identity:proof:certs"]);
-  shouldCleanupCompose = true;
-  // Сначала поднимается вход: bootstrap настраивает уже работающий Logto, а не наоборот.
-  await compose([
-    "up",
-    "--detach",
-    "--no-build",
-    "--wait",
-    "logto-postgres",
-    "logto",
-  ]);
-  await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
-  // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
-  await compose(["up", "--detach", "--no-build", "--wait"]);
-  await runPnpm(["local:accounts:bootstrap"]);
-  await compose(["up", "--detach", "--no-build", "--wait", "local-accounts"]);
-  shouldCleanupCompose = false;
-  process.stdout.write(
-    [
-      "",
-      "Стенд поднят одной командой. Дальше всё в одном окружении:",
-      `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
-      "  аккаунт           владелец по умолчанию; «Сменить» в приложении выбирает ученика или гостя",
-      `  вход              https://identity.inside.localhost:${logtoPort}`,
-      `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
-      `  двойник банка     http://127.0.0.1:${process.env["BANK_DOUBLE_HOST_PORT"] ?? "8090"}`,
-      "",
-      "Остановить: docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml --profile identity --profile local-accounts down (для --production-web добавьте его Compose override)",
-      "",
-    ].join("\n"),
-  );
-} catch (error) {
-  if (shouldCleanupCompose && interruptedSignal === undefined) {
-    // Compose's wait error omits failed job output; read it before shutdown removes containers.
+
+  /**
+   * @param {string} command
+   * @param {string[]} arguments_
+   * @param {RunOptions} [options]
+   */
+  async function run(
+    command,
+    arguments_,
+    { capture = false, extraEnvironment = {}, cleanup = false, onLine } = {},
+  ) {
+    const label = `${command === process.execPath ? "pnpm" : command} ${arguments_.join(" ")}`;
+    if (interruptedSignal !== undefined && !cleanup)
+      throw new Error("Local session interrupted");
+    const child = spawnOwned(command, arguments_, {
+      cwd: repositoryRoot,
+      env: { ...environment, ...extraEnvironment },
+      stdio:
+        capture || onLine
+          ? ["ignore", "pipe", "pipe"]
+          : logToStderr
+            ? ["inherit", 2, 2]
+            : "inherit",
+      ...(capture ? { timeout: 20_000 } : cleanup ? { timeout: 60_000 } : {}),
+    });
+    activeProcesses.add(child);
+    /** @type {unknown} */
+    let budgetFailure;
+    const budgetMonitor =
+      cleanup || buildBudget === undefined
+        ? undefined
+        : setInterval(() => {
+            try {
+              buildBudget?.assertAvailable();
+            } catch (error) {
+              budgetFailure = error;
+              void stopOwned(child);
+            }
+          }, standDiskPollIntervalMilliseconds);
+    let output = "";
+    let diagnostic = "";
+    let pendingLines = "";
+    let lineEffects = Promise.resolve();
+    /** @type {unknown} */
+    let lineFailure;
+    if (onLine) {
+      child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
+        outputStream.write(chunk);
+        pendingLines += chunk.toString();
+        let newline;
+        while ((newline = pendingLines.indexOf("\n")) !== -1) {
+          const line = pendingLines.slice(0, newline).trimEnd();
+          pendingLines = pendingLines.slice(newline + 1);
+          lineEffects = lineEffects
+            .then(() => onLine(line))
+            .catch((error) => {
+              lineFailure ??= error;
+            });
+        }
+      });
+      child.stderr?.on("data", (/** @type {Buffer} */ chunk) =>
+        process.stderr.write(chunk),
+      );
+    }
+    if (capture) {
+      child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
+        output += chunk.toString();
+      });
+      child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
+        diagnostic += chunk.toString();
+      });
+    }
     try {
-      const diagnostics = await compose(
-        ["logs", "--no-color", "--tail", "80", "migrations", "seed"],
-        { capture: true, cleanup: true },
-      );
-      process.stderr.write(diagnostics.output);
-    } catch {
-      process.stderr.write(
-        "Startup job diagnostics unavailable; keeping the original failure.\n",
-      );
+      const exitCode = await commandExit(child);
+      if (onLine && child.stdout)
+        await finished(child.stdout, { cleanup: true });
+      await lineEffects;
+      if (lineFailure !== undefined) throw lineFailure;
+      if (budgetFailure !== undefined) throw budgetFailure;
+      if (!cleanup) buildBudget?.assertAvailable();
+      if (exitCode !== 0) {
+        throw new Error(
+          `${label} failed${capture ? `:\n${diagnostic}${output}` : ""}`,
+        );
+      }
+      if (capture && diagnostic.length > 0) process.stderr.write(diagnostic);
+    } finally {
+      clearInterval(budgetMonitor);
+      await stopOwned(child);
+      activeProcesses.delete(child);
     }
+    return { output };
   }
-  await shutdown();
-  if (interruptedSignal === undefined) {
-    throw error;
+
+  function shutdown() {
+    shutdownPromise ??= (async () => {
+      await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
+      if (shouldCleanupCompose) {
+        shouldCleanupCompose = false;
+        // Недоведённый стенд не оставляем поднятым: следующий запуск должен начинать с чистого места.
+        await compose(["--profile", "local-accounts", "down"], {
+          cleanup: true,
+        }).catch(() => undefined);
+      }
+    })();
+    return shutdownPromise;
   }
-} finally {
-  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
-  await releaseStandLock();
-}
 
-if (interruptedSignal !== undefined) {
-  process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
-}
-
-async function isComposeRunning() {
-  const stand = await compose(["ps", "--services", "--status", "running"], {
-    capture: true,
-  });
-  // The disposable smoke project holds the same ports.
-  const smoke = await run(
-    "docker",
-    [
-      "compose",
-      "--project-name",
-      smokeProject,
-      "ps",
-      "--services",
-      "--status",
-      "running",
-    ],
-    { capture: true },
-  );
-  return `${stand.output}${smoke.output}`.trim().length > 0;
-}
-
-/**
- * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string>; cleanup?: boolean }} RunOptions
- */
-
-/**
- * @param {string[]} arguments_
- * @param {RunOptions} [options]
- */
-function compose(arguments_, options = {}) {
-  return run(
-    "docker",
-    ["compose", ...composeFiles, "--profile", "identity", ...arguments_],
-    options,
-  );
-}
-
-/**
- * @param {string[]} arguments_
- * @param {Record<string, string>} [extraEnvironment]
- */
-function runPnpm(arguments_, extraEnvironment = {}) {
-  return run(process.execPath, [pnpmPath, ...arguments_], { extraEnvironment });
-}
-
-/**
- * @param {string} command
- * @param {string[]} arguments_
- * @param {RunOptions} [options]
- */
-async function run(
-  command,
-  arguments_,
-  { capture = false, extraEnvironment = {}, cleanup = false } = {},
-) {
-  const label = `${command === process.execPath ? "pnpm" : command} ${arguments_.join(" ")}`;
-  if (interruptedSignal !== undefined && !cleanup)
-    throw new Error("Local session interrupted");
-  const child = spawnOwned(command, arguments_, {
-    cwd: repositoryRoot,
-    env: { ...environment, ...extraEnvironment },
-    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    ...(capture ? { timeout: 20_000 } : cleanup ? { timeout: 60_000 } : {}),
-  });
-  activeProcesses.add(child);
-  /** @type {unknown} */
-  let budgetFailure;
-  const budgetMonitor =
-    cleanup || buildBudget === undefined
-      ? undefined
-      : setInterval(() => {
-          try {
-            buildBudget?.assertAvailable();
-          } catch (error) {
-            budgetFailure = error;
-            void stopOwned(child);
-          }
-        }, standDiskPollIntervalMilliseconds);
-  let output = "";
-  let diagnostic = "";
-  if (capture) {
-    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
-      output += chunk.toString();
-    });
-    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
-      diagnostic += chunk.toString();
-    });
-  }
-  try {
-    const exitCode = await commandExit(child);
-    if (budgetFailure !== undefined) throw budgetFailure;
-    if (!cleanup) buildBudget?.assertAvailable();
-    if (exitCode !== 0) {
-      throw new Error(
-        `${label} failed${capture ? `:\n${diagnostic}${output}` : ""}`,
-      );
-    }
-    if (capture && diagnostic.length > 0) process.stderr.write(diagnostic);
-  } finally {
-    clearInterval(budgetMonitor);
-    await stopOwned(child);
-    activeProcesses.delete(child);
-  }
-  return { output };
-}
-
-function shutdown() {
-  shutdownPromise ??= (async () => {
+  /** @param {NodeJS.Signals} signal */
+  async function handleSignal(signal) {
+    interruptedSignal ??= signal;
     await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
-    if (shouldCleanupCompose) {
-      shouldCleanupCompose = false;
-      // Недоведённый стенд не оставляем поднятым: следующий запуск должен начинать с чистого места.
-      await compose(["--profile", "local-accounts", "down"], {
-        cleanup: true,
-      }).catch(() => undefined);
-    }
-  })();
-  return shutdownPromise;
+    await shutdown();
+  }
 }
 
-/** @param {NodeJS.Signals} signal */
-async function handleSignal(signal) {
-  interruptedSignal ??= signal;
-  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
-  await shutdown();
+if (
+  process.argv[1] !== undefined &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+) {
+  const pnpmPath = process.env["npm_execpath"];
+  if (pnpmPath === undefined)
+    throw new Error("Run the local stand through the pinned pnpm CLI");
+  const release = await acquireLocalSetupLock(
+    "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
+  );
+  try {
+    const repositoryRoot = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+    );
+    const common = execFileSync(
+      "git",
+      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+      { cwd: repositoryRoot, encoding: "utf8", timeout: 10_000 },
+    ).trim();
+    await requireUnmanagedStand(join(common, "inside-platform-stand"));
+    await launchLocalStand({
+      repositoryRoot,
+      pnpmPath,
+      productionWeb: process.argv.slice(2).includes("--production-web"),
+    });
+  } finally {
+    await release();
+  }
 }

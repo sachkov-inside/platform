@@ -14,6 +14,7 @@ import { paragraphBlock } from "./blocks/paragraph.js";
 import { resourceCardBlock } from "./blocks/resource-card.js";
 import { tableBlock } from "./blocks/table.js";
 import { takeawaysBlock } from "./blocks/takeaways.js";
+import { videoBlock } from "./blocks/video.js";
 import { variantBlock } from "./blocks/variant.js";
 import type { RenderedBlockKind } from "./rendered-block.js";
 
@@ -43,6 +44,7 @@ export const materialBlockDefinitions: readonly [
   assetImageBlock,
   assetFileBlock,
   quizBlock,
+  videoBlock,
 ];
 
 const definitionsByType = new Map(

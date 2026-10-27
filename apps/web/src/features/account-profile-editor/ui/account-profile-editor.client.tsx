@@ -76,7 +76,7 @@ export function AccountProfileEditor({
         }}
       >
         <label className="text-sm font-medium" htmlFor={id}>
-          Отображаемое имя
+          Имя
         </label>
         <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:items-start">
           <input

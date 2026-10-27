@@ -53,7 +53,7 @@ export function ProductTaskUnavailable() {
     <StatusPanel
       action={<RetryPageButton />}
       icon={<ShieldAlert aria-hidden="true" />}
-      message="Сервис заданий не отвечает. Попробуйте ещё раз через несколько минут."
+      message="Не удалось загрузить задание. Попробуйте через несколько минут."
       state={{ "data-product-task-state": "unavailable" }}
       title="Задание временно недоступно"
     />
@@ -72,7 +72,7 @@ export function ProductTaskNotFound() {
           </Button>
         }
         icon={<SearchX aria-hidden="true" />}
-        message="Такого задания нет или оно снято с публикации. Откройте программу продукта, чтобы найти задания глав."
+        message="Задание не найдено или больше не опубликовано. Другие задания есть в программе продукта."
         state={{ "data-product-task-state": "not-found" }}
         title="Задание не найдено"
       />

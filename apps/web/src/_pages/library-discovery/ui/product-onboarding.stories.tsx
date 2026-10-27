@@ -1,6 +1,6 @@
 import { productCapability } from "@inside/access-capabilities";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import {
   accessGrounds,
   currentBillingResponse,
@@ -103,7 +103,7 @@ export const LinkTelegram: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByRole("heading", { name: "Привяжите Telegram" }),
+      await page.findByRole("heading", { name: "Подключите Telegram" }),
     ).toBeInTheDocument();
     await expect(
       page.getAllByRole("button", { name: "Онбординг" })[0],
@@ -113,6 +113,30 @@ export const LinkTelegram: Story = {
 export const LinkTelegramMobile: Story = {
   ...LinkTelegram,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const LinkTelegramEnlarged: Story = {
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const initial = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      const action = await routeContent(canvasElement).findByRole("button", {
+        name: "Подключить Telegram",
+      });
+      await waitFor(async () => {
+        window.scrollTo(0, root.scrollHeight);
+        const bounds = action.getBoundingClientRect();
+        const hit = canvasElement.ownerDocument.elementFromPoint(
+          bounds.left + bounds.width / 2,
+          bounds.top + bounds.height / 2,
+        );
+        await expect(action.contains(hit)).toBe(true);
+      });
+    } finally {
+      root.style.fontSize = initial;
+    }
+  },
 };
 export const JoinCommunity: Story = {
   beforeEach: entryState({

@@ -37,7 +37,7 @@ export const FirstVisit: Story = {
       name: "Хранение в браузере",
     });
     await expect(
-      within(notice).getByRole("link", { name: "Подробнее" }),
+      within(notice).getByRole("link", { name: "О cookies" }),
     ).toHaveAttribute("href", "/legal/cookies");
     await expect(
       within(notice).queryByRole("checkbox"),

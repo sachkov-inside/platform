@@ -146,6 +146,156 @@ describe("Material reference change", () => {
   });
 });
 
+describe("Inline material video", () => {
+  test("saves and reloads context and rejects chapters outside the attached recording", async () => {
+    const actor = randomUUID();
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+      prisma: database.prisma,
+      videos: assembleVideos({
+        canManage: () => Promise.resolve(true),
+        prisma: database.prisma,
+        projects: { free: "public-project", closed: "member-project" },
+        provider: unusedVideoProvider,
+      }),
+    });
+    const created = await materials.authoring.createDraft({
+      actor,
+      body: paragraphBody("Before"),
+      metadata,
+      idempotencyKey: "inline-video-create",
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const materialId = created.value.materialId;
+    const videoId = await insertReadyVideo(materialId, actor);
+    const videoBody = (start: number) => ({
+      schemaVersion: 1 as const,
+      doc: {
+        type: "doc",
+        content: [
+          ...paragraphBody("Before").doc.content,
+          {
+            type: "video",
+            attrs: {
+              nodeId: randomUUID(),
+              description: "Example recording",
+              chapters: [{ start, title: "Example" }],
+            },
+          },
+          ...paragraphBody("After").doc.content,
+        ],
+      },
+    });
+    const invalid = await materials.authoring.saveMaterial({
+      actor,
+      materialId,
+      expectedContentVersion: 1,
+      idempotencyKey: "inline-video-invalid",
+      metadata,
+      body: videoBody(999999),
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    });
+    expect(invalid).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_chapter_outside_duration" }],
+      },
+    });
+    const saved = await materials.authoring.saveMaterial({
+      actor,
+      materialId,
+      expectedContentVersion: 1,
+      idempotencyKey: "inline-video-save",
+      metadata,
+      body: videoBody(0),
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    });
+    expect(saved).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    const preview = await materials.authoring.previewMaterial({
+      actor,
+      materialId,
+    });
+    expect(preview).toMatchObject({
+      ok: true,
+      value: {
+        body: {
+          blocks: [
+            { kind: "paragraph" },
+            {
+              kind: "video",
+              description: "Example recording",
+              chapters: [{ start: 0, title: "Example" }],
+            },
+            { kind: "paragraph" },
+          ],
+        },
+      },
+    });
+    const inheritedBody = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [{ type: "video", attrs: { nodeId: randomUUID() } }],
+      },
+    };
+    const inherited = await materials.authoring.saveMaterial({
+      actor,
+      materialId,
+      expectedContentVersion: 2,
+      idempotencyKey: "inline-video-inherit",
+      metadata,
+      body: inheritedBody,
+      videoChapters: [{ start: 0, title: "Imported introduction" }],
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    });
+    expect(inherited).toMatchObject({ ok: true });
+    expect(
+      await materials.authoring.previewMaterial({ actor, materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        body: {
+          blocks: [
+            {
+              kind: "video",
+              chapters: [{ start: 0, title: "Imported introduction" }],
+            },
+          ],
+        },
+      },
+    });
+    const cleared = await materials.authoring.saveMaterial({
+      actor,
+      materialId,
+      expectedContentVersion: 3,
+      idempotencyKey: "inline-video-clear-chapters",
+      metadata,
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            { type: "video", attrs: { nodeId: randomUUID(), chapters: [] } },
+          ],
+        },
+      },
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    });
+    expect(cleared).toMatchObject({ ok: true });
+    expect(
+      await materials.authoring.previewMaterial({ actor, materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: { body: { blocks: [{ kind: "video", chapters: [] }] } },
+    });
+  });
+});
+
 describe("Reference reads on an exhausted pool", () => {
   test("reads Assets and Videos in its own transaction", async () => {
     const actor = randomUUID();

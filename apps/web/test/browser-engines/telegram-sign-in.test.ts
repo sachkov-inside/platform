@@ -147,7 +147,7 @@ async function open(
     page.waitForFunction(
       () =>
         document.querySelector('[role="status"]')?.textContent !==
-        "Готовим вход…",
+        "Подключаемся к Telegram…",
     ),
   );
   await step("fonts-ready", () => page.evaluate(() => document.fonts.ready));
@@ -393,7 +393,7 @@ it("expires locally while the provider remains unavailable", async () => {
     await page.clock.runFor(clockStepMs);
     await page
       .getByRole("status")
-      .filter({ hasText: "Время ожидания вышло" })
+      .filter({ hasText: "Время подтверждения истекло" })
       .waitFor();
     const stoppedAt = requests;
     await page.clock.runFor(severalPollsMs);

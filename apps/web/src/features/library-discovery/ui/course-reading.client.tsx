@@ -3,6 +3,10 @@
 import { usePathname } from "next/navigation";
 import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 import { CourseReferenceNavigation } from "./course-reference-navigation";
+import {
+  CourseNavigationBar,
+  CourseNavigationItem,
+} from "./course-navigation-bar.client";
 
 import {
   ArrowLeft,
@@ -494,33 +498,26 @@ export function ProgrammeDialog({
       >
         <List size={18} aria-hidden="true" /> Вся программа
       </button>
-      <nav
-        className={styles["dock"]}
-        aria-label="Навигация по урокам"
-        data-supplementary={supplementary ? "" : undefined}
-      >
+      <CourseNavigationBar label="Навигация по урокам">
         {supplementary ? null : context.previous === null ? (
-          <button disabled aria-label="Предыдущий шаг">
-            <ArrowLeft size={20} />
+          <button type="button" disabled aria-label="Предыдущий шаг">
+            <ArrowLeft size={16} aria-hidden="true" />
           </button>
         ) : (
-          <IntentPrefetchLink
-            aria-label="Предыдущий шаг"
+          <CourseNavigationItem
+            icon={ArrowLeft}
+            label="Предыдущий шаг"
             title={context.previous.title}
             href={context.previous.href}
-          >
-            <ArrowLeft size={20} aria-hidden="true" />
-          </IntentPrefetchLink>
+          />
         )}
-        <button
-          type="button"
-          className={styles["dockProgramme"]}
+        <CourseNavigationItem
+          label="Программа"
           onClick={openProgramme}
-          aria-haspopup="dialog"
-          aria-label="Вся программа"
-        >
-          <span>
-            {supplementary ? (
+          opensProgramme
+          current
+          caption={
+            supplementary ? (
               context.currentPosition === 0 ? (
                 "Дополнительный материал"
               ) : (
@@ -528,29 +525,25 @@ export function ProgrammeDialog({
               )
             ) : (
               <>
-                Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
+                Глава {chapter?.ordinal ?? 1} · {chapterStep}/
                 {chapter?.steps.length ?? 0}
               </>
-            )}
-          </span>
-          <strong>
-            <List size={16} aria-hidden="true" /> Программа
-          </strong>
-        </button>
+            )
+          }
+        />
         {supplementary ? null : context.next === null ? (
-          <button disabled aria-label="Следующий шаг">
-            <ArrowRight size={20} />
+          <button type="button" disabled aria-label="Следующий шаг">
+            <ArrowRight size={16} aria-hidden="true" />
           </button>
         ) : (
-          <IntentPrefetchLink
-            aria-label="Следующий шаг"
+          <CourseNavigationItem
+            icon={ArrowRight}
+            label="Следующий шаг"
             title={context.next.title}
             href={context.next.href}
-          >
-            <ArrowRight size={20} aria-hidden="true" />
-          </IntentPrefetchLink>
+          />
         )}
-      </nav>
+      </CourseNavigationBar>
       <dialog
         className={styles["dialog"]}
         ref={dialog}
@@ -585,6 +578,13 @@ export function ProgrammeDialog({
           >
             <X size={20} />
           </button>
+          <IntentPrefetchLink
+            className={styles["dialogCourseLink"]}
+            href={context.href}
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>К прохождению курса</span>
+          </IntentPrefetchLink>
         </div>
         <nav aria-label="Вся программа">
           {context.chapters.map((chapter) => (

@@ -56,25 +56,8 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
           ))}
         </ul>
       </header>
-      {preview.video?.kind === "attached" && preview.video.ready ? (
-        <MaterialPrimaryVideo
-          key={preview.video.videoId}
-          materialId={preview.materialId}
-          preview
-          video={{
-            durationSeconds: preview.video.durationSeconds,
-            state: "ready",
-            title: preview.video.title,
-            videoId: preview.video.videoId,
-          }}
-        />
-      ) : preview.video === undefined ? null : (
-        <p
-          className="mt-8 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
-          data-preview-video={preview.video.kind}
-        >
-          {previewVideoNote(preview.video)}
-        </p>
+      {preview.blocks.some((block) => block.kind === "video") ? null : (
+        <PreviewVideo materialId={preview.materialId} video={preview.video} />
       )}
       <div className="mt-12 space-y-6 text-pretty text-[1rem] leading-[1.75] sm:text-[1.0625rem]">
         {preview.blocks.map((block, index) => (
@@ -82,11 +65,44 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
             block={block}
             contentVersion={preview.contentVersion}
             key={`${block.kind}-${String(index)}`}
+            video={preview.video}
             materialId={preview.materialId}
           />
         ))}
       </div>
     </article>
+  );
+}
+
+function PreviewVideo({
+  materialId,
+  video,
+  block,
+}: {
+  readonly materialId: string;
+  readonly video?: MaterialPreviewVideo | undefined;
+  readonly block?: Extract<MaterialPreviewBlock, { kind: "video" }>;
+}) {
+  return video?.kind === "attached" && video.ready ? (
+    <MaterialPrimaryVideo
+      key={video.videoId}
+      materialId={materialId}
+      preview
+      video={{
+        durationSeconds: video.durationSeconds,
+        state: "ready",
+        title: video.title,
+        videoId: video.videoId,
+        ...block,
+      }}
+    />
+  ) : video === undefined && block === undefined ? null : (
+    <p
+      className="mt-8 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
+      data-preview-video={video?.kind ?? "none"}
+    >
+      {previewVideoNote(video ?? { kind: "none" })}
+    </p>
   );
 }
 
@@ -106,10 +122,12 @@ function PreviewBlock({
   block,
   contentVersion,
   materialId,
+  video,
 }: {
   readonly block: MaterialPreviewBlock;
   readonly contentVersion: number;
   readonly materialId: string;
+  readonly video?: MaterialPreviewVideo | undefined;
 }) {
   switch (block.kind) {
     case "paragraph":
@@ -147,6 +165,7 @@ function PreviewBlock({
                   block={child}
                   contentVersion={contentVersion}
                   key={`${child.kind}-${String(childIndex)}`}
+                  video={video}
                   materialId={materialId}
                 />
               ))}
@@ -163,6 +182,7 @@ function PreviewBlock({
               block={child}
               contentVersion={contentVersion}
               key={`${child.kind}-${String(index)}`}
+              video={video}
               materialId={materialId}
             />
           ))}
@@ -184,6 +204,7 @@ function PreviewBlock({
         <PreviewTable
           block={block}
           contentVersion={contentVersion}
+          video={video}
           materialId={materialId}
         />
       );
@@ -204,6 +225,7 @@ function PreviewBlock({
                 block={child}
                 contentVersion={contentVersion}
                 key={`${child.kind}-${String(index)}`}
+                video={video}
                 materialId={materialId}
               />
             ),
@@ -214,6 +236,7 @@ function PreviewBlock({
                     block={child}
                     contentVersion={contentVersion}
                     key={`${child.kind}-${String(index)}`}
+                    video={video}
                     materialId={materialId}
                   />
                 ))}
@@ -222,6 +245,10 @@ function PreviewBlock({
             renderInline: (content) => renderInline(content),
           }}
         />
+      );
+    case "video":
+      return (
+        <PreviewVideo materialId={materialId} video={video} block={block} />
       );
     case "image":
       return (
@@ -259,10 +286,12 @@ function PreviewTable({
   block,
   contentVersion,
   materialId,
+  video,
 }: {
   readonly block: Extract<MaterialPreviewBlock, { readonly kind: "table" }>;
   readonly contentVersion: number;
   readonly materialId: string;
+  readonly video?: MaterialPreviewVideo | undefined;
 }) {
   return (
     <div
@@ -294,6 +323,7 @@ function PreviewTable({
                           block={child}
                           contentVersion={contentVersion}
                           key={`${child.kind}-${String(childIndex)}`}
+                          video={video}
                           materialId={materialId}
                         />
                       ))}

@@ -76,7 +76,9 @@ export const LinkConflict: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Обнаружен конфликт")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Telegram занят другим аккаунтом"),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Написать в поддержку" }),
     ).toHaveAttribute("href", "https://t.me/inside_support");
@@ -88,7 +90,9 @@ export const ExpiredAttempt: Story = {
   name: "Expired attempt · safe restart",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Срок попытки истёк")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Время подключения истекло"),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Попробовать снова" }),
     ).toBeInTheDocument();

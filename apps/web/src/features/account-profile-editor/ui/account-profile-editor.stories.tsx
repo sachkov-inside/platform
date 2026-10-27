@@ -54,7 +54,7 @@ export const SaveName: Story = {
   }),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const name = canvas.getByRole("textbox", { name: "Отображаемое имя" });
+    const name = canvas.getByRole("textbox", { name: "Имя" });
     await userEvent.clear(name);
     await userEvent.type(name, "Новое имя");
     await userEvent.click(

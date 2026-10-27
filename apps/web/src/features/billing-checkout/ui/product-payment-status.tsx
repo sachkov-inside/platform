@@ -46,15 +46,15 @@ export function ProductPaymentStatus({
           <>
             <p className="mt-3 text-sm text-muted-foreground">
               {(purchase.refundedKopecks ?? 0) > 0
-                ? "Деньги возвращены. Состояние доступа проверяется отдельно."
+                ? "Деньги возвращены. Доступ проверяем отдельно."
                 : "Действующего доступа к продукту нет."}
             </p>
           </>
         ) : purchase.paymentUrl === null ? (
           <p className="mt-3 text-sm text-muted-foreground" role="status">
             {purchase.access === "preparing"
-              ? "Оплата подтверждена. Подготавливаем продукт."
-              : "Проверяем сохранённую оплату."}
+              ? "Оплата подтверждена. Открываем доступ."
+              : "Проверяем оплату."}
           </p>
         ) : (
           <Button asChild className="mt-5 min-h-12 w-full">
@@ -62,9 +62,7 @@ export function ProductPaymentStatus({
           </Button>
         )}
         <details className="mt-4 text-sm leading-6">
-          <summary className="min-h-11 cursor-pointer">
-            Состояние оплаты и чека
-          </summary>
+          <summary className="min-h-11 cursor-pointer">Оплата и чек</summary>
           <p>{attemptStateLabel(purchase.state)}</p>
           <p>
             Чек:{" "}
@@ -84,7 +82,7 @@ export function ProductPaymentStatus({
             variant="outline"
             className="mt-3"
           >
-            Обновить состояние
+            Проверить статус
           </Button>
         </details>
       </div>

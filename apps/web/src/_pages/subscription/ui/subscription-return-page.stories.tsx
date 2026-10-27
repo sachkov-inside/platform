@@ -130,7 +130,7 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
       await settleStoryFrame(width);
       const canvas = routeContent(canvasElement);
       await expect(canvas.getByRole("status")).toHaveTextContent(
-        "Проверяем состояние оплаты",
+        "Проверяем оплату",
       );
       const heading = originOf(boxOf(canvasElement, "h1"));
       stagedLoadingOf(loaded).deliverSharedPart();

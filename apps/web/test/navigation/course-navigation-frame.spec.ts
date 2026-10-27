@@ -2,6 +2,39 @@ import { expect, test } from "@playwright/test";
 
 const programme = "/products/reference-course/programme";
 
+test("mobile course navigation opens the programme and returns from lessons and references to the course programme", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const slug of ["reference-lesson-5", "aie-project"]) {
+    await page.goto(`/materials/${slug}?from=${encodeURIComponent(programme)}`);
+    const navigation = page.getByRole("navigation", {
+      name: "Навигация по урокам",
+    });
+    await expect(navigation).toBeVisible();
+    await expect(
+      navigation.getByRole("link", { name: "К прохождению курса" }),
+    ).toHaveCount(0);
+    const trigger = navigation.getByRole("button", { name: "Вся программа" });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", {
+      name: "Программа: Курс со справочными документами",
+    });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    const returnToCourse = dialog.getByRole("link", {
+      name: "К прохождению курса",
+    });
+    await expect(returnToCourse).toHaveAttribute("href", programme);
+    await returnToCourse.click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page).toHaveURL(programme);
+  }
+});
+
 test("the course sidebar stays mounted while only the material changes", async ({
   page,
   request,
@@ -113,7 +146,11 @@ test("mobile material actions and breadcrumbs fit one row", async ({
         element.append(probe);
         const expected = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return getComputedStyle(element).backgroundColor === expected;
+        const surface = getComputedStyle(element, "::before");
+        return (
+          surface.backgroundColor === expected &&
+          parseFloat(surface.height) === 36
+        );
       }),
     ).toBe(true);
     const breadcrumbs = page

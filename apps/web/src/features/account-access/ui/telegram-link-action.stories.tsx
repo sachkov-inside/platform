@@ -88,7 +88,7 @@ export const OpensBot: Story = {
       );
       await waitFor(() => expect(opened).toHaveBeenCalledWith(deepLink));
       await expect(await canvas.findByRole("status")).toHaveTextContent(
-        "сам пришлёт личную ссылку в группу",
+        "пришлёт личную ссылку в группу",
       );
       await expect(
         canvas.getByRole("link", { name: "Открыть Telegram" }),

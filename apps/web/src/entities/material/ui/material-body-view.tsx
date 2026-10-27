@@ -19,6 +19,9 @@ export interface MaterialBodyComparison {
 
 /** Content owns the document; each surface owns asset authorization and addresses. */
 export interface MaterialBodyRendering {
+  readonly video?: (
+    block: Extract<RenderedBlock, { kind: "video" }>,
+  ) => ReactNode;
   readonly image: (
     block: Extract<RenderedBlock, { kind: "image" }>,
   ) => ReactNode;
@@ -288,6 +291,12 @@ function BodyBlockView({
             ),
           }}
         />
+      );
+    case "video":
+      return (
+        <div className="mt-8 first:mt-0" data-reader-block="video">
+          {rendering.video?.(block)}
+        </div>
       );
     case "image":
       return (

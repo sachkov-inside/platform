@@ -1,0 +1,120 @@
+.bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(
+    max(0.75rem, env(safe-area-inset-bottom)) + var(--storage-notice-space, 0px)
+  );
+  z-index: 40;
+  width: min(calc(100% - 1.5rem), 13rem);
+  margin-inline: auto;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--shadow-floating-nav);
+  font-size: 0.875rem;
+  container-type: inline-size;
+}
+.bar:has(.items > :nth-child(4)) {
+  width: min(calc(100% - 1.5rem), 17rem);
+}
+.items {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.item {
+  -webkit-tap-highlight-color: transparent;
+}
+.items > :is(a, button) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: inherit;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.items > :is(a, button) > svg {
+  flex-shrink: 0;
+}
+.label {
+  display: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.label small {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.items > :is(a, button):hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.items > [aria-current] {
+  flex: 1 1 0;
+  gap: 4px;
+  padding-inline: 0;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.items > [aria-current] .label {
+  display: block;
+}
+.items > [aria-current]:not(:has(> svg)) {
+  padding-inline: 12px;
+}
+.items > [aria-current] > svg {
+  color: var(--accent-bright);
+}
+.items > :is(a, button):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.items > button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.space {
+  flex-shrink: 0;
+}
+@container (width < 14em) {
+  .items {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .items:has(> :nth-child(4)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .items > [aria-current] {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+}
+@media (width >= 48rem) {
+  .bar,
+  .space {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .items > :is(a, button) {
+    transition: none;
+  }
+}

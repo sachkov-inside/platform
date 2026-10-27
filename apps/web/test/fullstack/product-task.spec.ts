@@ -61,7 +61,7 @@ test("a learner without Membership reads a free task from the programme, submits
   await form.getByLabel(/Заметка для автора/u).fill(note);
   await form.getByRole("button", { name: "Отправить сдачу" }).click();
   await expect(
-    form.getByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
+    form.getByText("Сдача отправлена. Откройте её в «Моих сдачах»."),
   ).toBeVisible();
   const mine = page
     .getByRole("region", { name: "Мои сдачи", exact: true })

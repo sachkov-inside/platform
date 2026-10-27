@@ -190,6 +190,11 @@ export const OptionalFields: Story = {
 
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('nav[aria-label="Навигация курса"]'),
+    ).toBeNull();
+  },
 };
 
 /** Планшет: темы идут по порядку, по две равные карточки в каждом ряду. */
@@ -640,7 +645,7 @@ function ExistingWaitlistCourseFixture({
   const membership = (
     <WaitlistMembership
       state={state}
-      notice={state === "idle" ? "Вы отказались от ожидания." : ""}
+      notice={state === "idle" ? "Вы вышли из списка ожидания." : ""}
       onBegin={() => {
         setState("success");
       }}

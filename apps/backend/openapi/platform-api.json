@@ -1171,6 +1171,48 @@
                 "type": "object"
               }
             ]
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "chapters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "maxLength": 200,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "video"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -2344,6 +2386,48 @@
                 "type": "object"
               }
             ]
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "chapters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "maxLength": 200,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "video"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -3517,6 +3601,48 @@
                 "type": "object"
               }
             ]
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "chapters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "maxLength": 200,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "video"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -4690,6 +4816,48 @@
                 "type": "object"
               }
             ]
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "chapters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "maxLength": 200,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "title"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "video"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
           }
         ]
       }

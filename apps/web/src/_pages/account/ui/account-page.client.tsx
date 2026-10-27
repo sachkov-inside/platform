@@ -97,7 +97,7 @@ export function AccountPageClient({
         <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm">
           <p className="font-semibold">Профиль скрыт модерацией</p>
           <p className="mt-1 text-muted-foreground">
-            Поля можно исправить; восстановление выполняет владелец платформы.
+            Исправьте данные профиля. Восстановить его может владелец платформы.
           </p>
         </div>
       ) : null}
@@ -172,7 +172,7 @@ export function AccountPageClient({
               />
               <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
                 <p id={nameHelpId}>
-                  От 2 до 80 символов, уникальность не требуется.
+                  От 2 до 80 символов. Имя может совпадать с чужим.
                 </p>
                 <span
                   aria-label={`${String(nameLength)} из 80 символов`}
@@ -321,7 +321,7 @@ function MutationNotice({
           type="button"
         >
           <RotateCcw aria-hidden="true" className="size-4" />
-          Загрузить актуальную версию
+          Обновить профиль
         </button>
       </div>
     );
@@ -334,7 +334,7 @@ function MutationNotice({
     >
       {result.kind === "unauthorized"
         ? "Сессия завершилась. Войдите снова, чтобы продолжить."
-        : `Не удалось выполнить действие. Повторите попытку. Код: ${result.reference}`}
+        : `Не удалось сохранить профиль. Попробуйте ещё раз. Код: ${result.reference}`}
     </p>
   );
 }

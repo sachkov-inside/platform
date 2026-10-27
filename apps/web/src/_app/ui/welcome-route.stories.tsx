@@ -102,7 +102,7 @@ export const FirstSignIn: Story = {
       canvas.getByRole("link", { name: "условия использования" }),
     ).toHaveAttribute("href", termsHref);
     await expect(
-      canvas.getByText(/пользоваться Sachkov Dev можно с 14 лет/u),
+      canvas.getByText(/Сайтом можно пользоваться с 14 лет/u),
     ).toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Принять условия и продолжить" }),
@@ -164,7 +164,7 @@ function failedAcceptance(
 
 export const EditionChanged: Story = failedAcceptance(
   () => acceptResponse(200, { kind: "document_changed" }),
-  "Условия только что обновились. Прочитайте действующую редакцию и нажмите кнопку снова.",
+  "Условия обновились. Прочитайте их и нажмите кнопку снова.",
 );
 
 export const SessionEnded: Story = failedAcceptance(
@@ -174,7 +174,7 @@ export const SessionEnded: Story = failedAcceptance(
 
 export const AcceptFailed: Story = failedAcceptance(
   () => acceptResponse(503),
-  "Не получилось принять условия. Повторите — повторное нажатие безопасно.",
+  "Не удалось принять условия. Попробуйте ещё раз.",
 );
 
 /** Проверить условия нельзя: `WelcomePage` показывает окно без кнопки принятия. */
@@ -194,7 +194,7 @@ export const Unavailable: Story = {
       await canvas.findByRole("dialog", { name: "Добро пожаловать" }),
     );
     await expect(card.getByRole("alert")).toHaveTextContent(
-      "Условия сейчас не удаётся загрузить",
+      "Не удалось загрузить условия",
     );
     await expect(card.queryByRole("button")).not.toBeInTheDocument();
     await expect(

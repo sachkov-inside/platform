@@ -80,7 +80,7 @@ export function AccountEmailForm({
           <p className="break-all text-sm">{email}</p>
           {verified ? (
             <p className="mt-1 text-sm text-muted-foreground" role="status">
-              Почта подтверждена и привязана.
+              Почта подтверждена.
             </p>
           ) : null}
         </div>
@@ -88,7 +88,7 @@ export function AccountEmailForm({
         <>
           <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row">
             <p className="max-w-lg text-sm leading-6 text-muted-foreground">
-              Добавьте почту, чтобы входить в этот же аккаунт по коду из письма.
+              Добавьте почту для входа в этот аккаунт по коду из письма.
             </p>
             {!editing && challenge === null ? (
               <Button
@@ -188,7 +188,7 @@ export function AccountEmailForm({
                   type="button"
                   variant="outline"
                 >
-                  Отправить код повторно
+                  Отправить новый код
                 </Button>
                 <Button
                   disabled={pending}

@@ -56,7 +56,7 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean; resumeCold?: boolean; failedBootstrapAfterIdentity?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
@@ -69,6 +69,9 @@ async function launch({
   dirtySource = false,
   runningStand = false,
   diagnosticLog = false,
+  refresh = false,
+  resumeCold = false,
+  failedBootstrapAfterIdentity = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "platform-stand-cli-"));
   try {
@@ -98,6 +101,10 @@ const args = process.argv.slice(2);
 appendFileSync(process.env.CALL_LOG, JSON.stringify({command: process.argv[1].endsWith("docker") ? "docker" : "pnpm", args, source: process.env.STAND_WEB_SOURCE_SHA, storageOrigin: process.env.STAND_WEB_OBJECT_STORAGE_ORIGIN}) + "\\n");
 if(args.includes("build") && args.includes(process.env.FAILED_BUILD)) process.exit(9);
 if(args.includes("up") && !args.includes("logto-postgres") && process.env.FAILED_STARTUP === "true") process.exit(1);
+if(args.includes("identity:proof:bootstrap") && process.env.LOCAL_STAND_IDENTITY_RECEIPT === "true") {
+  process.stdout.write("inside-stand-identity:" + "c".repeat(64) + "\\n");
+  if(process.env.FAILED_BOOTSTRAP_AFTER_IDENTITY === "true") process.exit(11);
+}
 if(args.includes("logs")) process.stdout.write("migrations: primary dependency error\\n");
 if(process.argv[1].endsWith("lsof")) process.stdout.write("n" + process.env.DOCKER_STORAGE + "/Docker.raw\\n");
 if(args.includes("info")) process.stdout.write(process.env.DOCKER_STORAGE + "\\n");
@@ -129,6 +136,16 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       "fixture",
     ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
+    if (refresh || resumeCold)
+      writeFileSync(
+        join(root, "refresh-entry.mjs"),
+        `import {launchLocalStand} from "./scripts/local-stand.mjs";
+import {acquireLocalSetupLock} from "./scripts/local-setup-lock.mjs";
+import {appendFile} from "node:fs/promises";
+const release = await acquireLocalSetupLock("busy");
+try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: ${refresh}, resumeCold: ${resumeCold}, onIdentityReady: async (expected) => appendFile(process.env.CALL_LOG, JSON.stringify({command:"checkpoint",args:[expected]})+"\\n")}); }
+finally { await release(); }`,
+      );
     if (envFileStoragePort !== undefined)
       writeFileSync(
         join(root, ".env"),
@@ -136,7 +153,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       );
     writeFileSync(
       join(root, ".git/info/exclude"),
-      "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\n",
+      "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\nrefresh-entry.mjs\n",
     );
     const sha = await fixtureGit(root, ["rev-parse", "HEAD"]);
     if (dirtySource)
@@ -148,7 +165,12 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       [
         "--import",
         join(root, "capacity.mjs"),
-        join(root, "scripts/local-stand.mjs"),
+        join(
+          root,
+          refresh || resumeCold
+            ? "refresh-entry.mjs"
+            : "scripts/local-stand.mjs",
+        ),
         ...(productionWeb ? ["--production-web"] : []),
       ],
       {
@@ -162,6 +184,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
           CALL_LOG: log,
           FAILED_BUILD: failedBuild,
           FAILED_STARTUP: String(failedStartup),
+          FAILED_BOOTSTRAP_AFTER_IDENTITY: String(failedBootstrapAfterIdentity),
           CAPACITY_FILE: capacityFile,
           DOCKER_STORAGE: dockerStorage,
           EXHAUST_DISK: String(exhaustDisk),
@@ -225,6 +248,43 @@ test("development stand builds one workspace for backend roles and Web", async (
     assert.ok(call.args.includes("--no-build"));
     assert.ok(!call.args.includes("--build"));
   }
+});
+
+test("a controlled refresh rebuilds the application roles without touching infrastructure or migrations (CLI adapter)", async () => {
+  const { result, calls } = await launch({ refresh: true, runningStand: true });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    calls
+      .filter((call) => call.args.includes("build"))
+      .map((call) => call.args.at(-1)),
+    ["api"],
+  );
+  const up = calls.find((call) => call.args.includes("up"));
+  assert.ok(up);
+  assert.ok(up.args.includes("--no-deps"));
+  assert.ok(up.args.includes("--force-recreate"));
+  assert.ok(up.args.includes("local-accounts"));
+  for (const service of ["postgres", "logto", "rabbitmq", "migrations", "seed"])
+    assert.ok(!up.args.includes(service));
+  assert.ok(
+    !calls.some((call) =>
+      call.args.some((arg) => arg.startsWith("identity:") || arg === "down"),
+    ),
+  );
+});
+
+test("failed controlled refresh leaves existing containers and volumes for recovery", async () => {
+  const { result, calls } = await launch({
+    refresh: true,
+    runningStand: true,
+    failedStartup: true,
+  });
+  assert.notEqual(result.status, 0);
+  assert.ok(
+    !calls.some(
+      (call) => call.args.includes("down") || call.args.includes("--volumes"),
+    ),
+  );
 });
 
 test("insufficient measured disk space refuses before certificates, builds or startup", async () => {
@@ -342,4 +402,41 @@ test("another session's running stand is never built, restarted or stopped", asy
 test("production stand accepts an untracked diagnostic log outside its Docker context", async () => {
   const { result } = await launch({ productionWeb: true, diagnosticLog: true });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("owned cold recovery checkpoints bootstrap identity before a later startup failure (CLI adapter)", async () => {
+  const { result, calls } = await launch({
+    resumeCold: true,
+    runningStand: true,
+    failedStartup: true,
+  });
+  assert.notEqual(result.status, 0);
+  const bootstrap = calls.findIndex((call) =>
+    call.args.includes("identity:proof:bootstrap"),
+  );
+  const checkpoint = calls.findIndex((call) => call.command === "checkpoint");
+  const application = calls.findIndex(
+    (call) => call.args.includes("up") && !call.args.includes("logto-postgres"),
+  );
+  assert.ok(
+    bootstrap >= 0 && checkpoint > bootstrap && application > checkpoint,
+  );
+  assert.ok(!calls.some((call) => call.args.includes("--volumes")));
+});
+
+test("an owned identity receipt survives failure inside bootstrap before it returns (CLI adapter)", async () => {
+  const { result, calls } = await launch({
+    resumeCold: true,
+    failedBootstrapAfterIdentity: true,
+  });
+  assert.notEqual(result.status, 0);
+  assert.deepEqual(calls.find((call) => call.command === "checkpoint")?.args, [
+    "c".repeat(64),
+  ]);
+  assert.ok(
+    !calls.some(
+      (call) =>
+        call.args.includes("up") && !call.args.includes("logto-postgres"),
+    ),
+  );
 });
