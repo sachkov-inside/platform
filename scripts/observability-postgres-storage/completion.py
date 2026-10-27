@@ -53,7 +53,7 @@ def _ingest(source,body,deadline):
     resources=[]
     with queries._completion_deadline(remaining(deadline,4)):
         try:
-            source.verify_storage(deadline);source.targets.metrics_private(deadline)
+            source.verify_private_storage(deadline)
             connection=http.client.HTTPConnection('127.0.0.1',14318,timeout=remaining(deadline,4));resources.append(connection)
             connection.request('POST','/v1/metrics',body=body,headers={'Content-Type':'application/json'})
             response=connection.getresponse();resources.append(response)
@@ -61,7 +61,7 @@ def _ingest(source,body,deadline):
             # Pinned Alloy emits the canonical empty partialSuccess object on full success.
             # Rejections, messages, unknown fields and duplicate JSON keys remain failures.
             if record.decode(raw) not in ({},{'partialSuccess':{}}):raise ValueError('storage')
-            source.verify_storage(deadline);source.targets.metrics_private(deadline);remaining(deadline)
+            source.verify_private_storage(deadline);remaining(deadline)
         finally:_close(resources)
     remaining(deadline)
 
@@ -70,7 +70,7 @@ def _flush(source,deadline):
     resources=[]
     with queries._completion_deadline(remaining(deadline,2)):
         try:
-            source.verify_storage(deadline);target=source.targets.flush_target(deadline)
+            source.clock_deadline=deadline;target=source.targets.flush_target(deadline)
             key=pg_ownership.secret(source.targets.output)
             connection=http.client.HTTPConnection(target[0],8428,timeout=remaining(deadline,2));resources.append(connection)
             connection.connect()
@@ -78,7 +78,6 @@ def _flush(source,deadline):
             connection.request('POST','/internal/force_flush',body=('authKey='+key).encode('ascii'),headers={'Content-Type':'application/x-www-form-urlencoded'})
             response=connection.getresponse();resources.append(response)
             if _body(response,1)!=b'':raise ValueError('storage')
-            source.verify_storage(deadline)
             if source.targets.flush_target(deadline)!=target:raise ValueError('ownership')
             remaining(deadline)
         finally:_close(resources)

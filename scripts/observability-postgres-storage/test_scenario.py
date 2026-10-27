@@ -456,6 +456,7 @@ class Driver(unittest.TestCase):
                 if args[:2]==['docker','stop']:
                     self.assertEqual(args,['docker','stop','--timeout','2',ids['postgres']]);stopped[0]=True;clock[0]=102;return ids['postgres']+'\n'
                 self.assertEqual(args[:3],['docker','inspect','--format'])
+                if len(args)>5:return '\n'.join(daemon([*args[:4],cid],**kwargs) for cid in args[4:])+'\n'
                 role=next(role for role in roles if ids[role]==args[-1])
                 if args[3]==scenario.STOPPED:
                     self.assertTrue(stopped[0])

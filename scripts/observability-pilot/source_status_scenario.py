@@ -84,10 +84,10 @@ class OwnedTargets:
                 self._ownership_callback_error = error
                 raise
 
-    def inspect(self, role, cid):
+    def inspect(self, role, cid, *, _raw=None):
         try:
             self._ownership_stage(role, 'inspect_read')
-            raw = self.read(['docker', 'inspect', '--format', INSPECT, cid]).encode()
+            raw = self.read(['docker', 'inspect', '--format', INSPECT, cid]).encode() if _raw is None else _raw
             self._ownership_stage(role, 'inspect_decode')
             item = source_status.decode_json(raw)
             self._ownership_stage(role, 'inspect_shape')

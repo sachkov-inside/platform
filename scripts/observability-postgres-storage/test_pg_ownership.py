@@ -91,7 +91,7 @@ class PrivatePlan(unittest.TestCase):
             with self.assertRaises((ValueError,RuntimeError)):target.postgres()
 
     def test_exact_private_metrics_env_and_local_bridge_admission_refuse_foreign_state(self):
-        import pg_ownership
+        import pg_ownership,source_status_scenario
         for fault in (None,'explicit_gateway','missing_gateway','null_gateway','lookup_missing','lookup_duplicate','lookup_extra','lookup_replacement','rows_missing','rows_duplicate','rows_reordered','rows_extra','row_limit','row_oversize','logging','env','extra_env','command','image','network','driver','internal','attachment','ip','gateway','bridge','remote','nonlinux','alloy_user','alloy_caps','alloy_readonly','alloy_command','alloy_state'):
             with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
                 target,fake=self.targets(Path(directory).resolve()/'private');original=target.read;project=target.project;network='b'*64
@@ -119,8 +119,8 @@ class PrivatePlan(unittest.TestCase):
                     'caps':[] if fault=='alloy_caps' else ['ALL'],
                     'readonly':fault!='alloy_readonly','running':fault!='alloy_state'}
                 def read(args):
-                    if args==fake.compose+['ps','-q','alloy','metrics']:
-                        ids=[fake.ids['alloy'],fake.ids['metrics']]
+                    if args==fake.compose+['ps','-q','alloy','metrics','gateway']:
+                        ids=[fake.ids['alloy'],fake.ids['metrics'],fake.ids['gateway']]
                         if fault=='lookup_missing':ids.pop()
                         if fault=='lookup_duplicate':ids[1]=ids[0]
                         if fault=='lookup_extra':ids.append('9'*64)
@@ -128,14 +128,17 @@ class PrivatePlan(unittest.TestCase):
                         return '\n'.join(ids)+'\n'
                     if args[:3]==['docker','network','inspect']:return json.dumps(config)
                     if args[:3]==['docker','inspect','--format']:
-                        if args[-2:]==[fake.ids['alloy'],fake.ids['metrics']]:
+                        if args[-3:]==[fake.ids['alloy'],fake.ids['metrics'],fake.ids['gateway']]:
                             rows=[json.dumps(alloy),json.dumps(state)]
                             if fault=='rows_missing':rows.pop()
                             if fault=='rows_duplicate':rows[1]=rows[0]
                             if fault=='rows_reordered':rows.reverse()
                             if fault=='rows_extra':rows.append('{}')
                             if fault in ('row_limit','row_oversize'):rows[0]+=' '*(8191-len(rows[0])+(fault=='row_oversize'))
-                            return '\n'.join(rows)+'\n'
+                            owners=[read(['docker','inspect','--format',source_status_scenario.INSPECT,cid]) for cid in (fake.ids['alloy'],fake.ids['metrics'])]
+                            combined=[owners[0],rows[0]]
+                            if len(rows)>1:combined.extend((owners[1],rows[1]))
+                            return '\n'.join([*combined,*rows[2:],read(['docker','inspect','--format',source_status_scenario.INSPECT,fake.ids['gateway']]),'{}'])+'\n'
                         if '.Config.User' in args[3]:return json.dumps(alloy)
                         if '.Config.Env' in args[3]:return json.dumps(state)
                         if 'index .NetworkSettings.Networks' in args[3]:return json.dumps(attachment)
@@ -215,6 +218,7 @@ class StorageIdentity(unittest.TestCase):
                         if fault=='extra':ids.append('9'*64)
                         if fault=='replacement':ids[-1]='9'*64
                         return '\n'.join(ids)+'\n'
+                    if args[:3]==['docker','inspect','--format'] and len(args)>5:return '\n'.join(read([*args[:4],cid]) for cid in args[4:])+'\n'
                     raw=fake.command(args)
                     if args[:3]==['docker','inspect','--format'] and args[-1]==fake.ids['metrics']:
                         value=json.loads(raw)
