@@ -10,6 +10,8 @@ import {
   mcpInitializeResponse,
   readinessObservation,
   telegramSeedRange,
+  webHttpObservation,
+  webHttpExpected,
 } from "./responses.mjs";
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function record(value) {
@@ -238,8 +240,12 @@ async function sourceCacheReady() {
     seconds: result.seconds,
   };
 }
-/** Actual Web requests and raw private source; never prints a URL or source body. */
-async function webHttpWitness() {
+/** Actual before/after Web cohort; only closed numeric evidence leaves the raw source.
+ * @param {string} source
+ */
+async function webHttpWitness(source) {
+  if (!/^[a-f0-9]{40}$/u.test(source)) throw new Error("fixed source required");
+  const prior = await call("inside-web-http", 9420, "/metrics");
   const positive = await call(
     "web",
     3000,
@@ -251,32 +257,70 @@ async function webHttpWitness() {
     "/missing-private-http-sentinel?email=private-http-sentinel",
   );
   const metrics = await call("inside-web-http", 9420, "/metrics");
-  return {
-    ok:
-      positive.status === 200 &&
-      absent.status === 404 &&
-      metrics.status === 200 &&
-      typeof metrics.value === "string" &&
-      !metrics.value.includes("private-http-sentinel") &&
-      metrics.value.includes(
-        'route="/_health/live",method="GET",code="200",outcome="completed"',
-      ) &&
-      metrics.value.includes(
-        'route="_unmatched",method="GET",code="404",outcome="completed"',
-      ),
-  };
+  const before = webHttpObservation(prior.value, source);
+  const after = webHttpObservation(metrics.value, source);
+  if (
+    prior.status !== 200 ||
+    positive.status !== 200 ||
+    absent.status !== 404 ||
+    metrics.status !== 200 ||
+    before === null ||
+    after === null ||
+    before.process_start_seconds !== after.process_start_seconds ||
+    after.observed_at_seconds < before.observed_at_seconds ||
+    after.positive_count < before.positive_count + 1 ||
+    after.not_found_count < before.not_found_count + 1
+  )
+    return { ok: false };
+  return after;
 }
-/** @param {string} source */
-async function webHttpStored(source) {
-  if (!/^[a-f0-9]{40}$/u.test(source)) throw new Error("fixed source required");
+/** @param {string} source @param {string} encoded */
+async function webHttpStored(source, encoded) {
+  if (!/^[a-f0-9]{40}$/u.test(source) || encoded.length > 512)
+    throw new Error("fixed source required");
+  /** @type {unknown} */
+  let expected;
+  try {
+    expected = parse(encoded);
+  } catch {
+    throw new Error("closed Web witness required");
+  }
+  if (!webHttpExpected(expected))
+    throw new Error("closed Web witness required");
   const common =
     'job="platform-web-http",instance="web",source_sha="' + source + '"';
+  const positive =
+    "inside_web_http_requests_total{" +
+    common +
+    ',route="/_health/live",method="GET",code="200",outcome="completed"}';
+  const absent =
+    "inside_web_http_requests_total{" +
+    common +
+    ',route="_unmatched",method="GET",code="404",outcome="completed"}';
+  /** Every admitted counter sample must itself follow this witness, even if
+   * a current observed_at gauge and a prior process counter arrive separately.
+   * @param {string} selector @param {number} minimum
+   */
+  const current = (selector, minimum) =>
+    "(sum(" +
+    selector +
+    " and (timestamp(" +
+    selector +
+    ") >= " +
+    expected.observed_at_seconds +
+    ")) >= " +
+    minimum +
+    ")";
   const expression =
-    "((sum(inside_web_http_requests_total{" +
+    "(" +
+    current(positive, expected.positive_count) +
+    " and on() " +
+    current(absent, expected.not_found_count) +
+    ' and on() (up{job="platform-web-http",instance="web"} == 1) and on() (inside_web_http_observed_at_seconds{' +
     common +
-    ',route="/_health/live",code="200",outcome="completed"}) >= 1) and on() (sum(inside_web_http_requests_total{' +
-    common +
-    ',route="_unmatched",code="404",outcome="completed"}) >= 1) and on() (up{job="platform-web-http",instance="web"} == 1) and on() ((time() - inside_web_http_observed_at_seconds{' +
+    "} >= " +
+    expected.observed_at_seconds +
+    ") and on() ((time() - inside_web_http_observed_at_seconds{" +
     common +
     "}) >= 0 and (time() - inside_web_http_observed_at_seconds{" +
     common +
@@ -719,17 +763,27 @@ function argument(index) {
   return value;
 }
 if (action === "source-warmup") {
+  const absent = await call(
+    "web",
+    3000,
+    "/missing-private-http-sentinel?email=private-http-sentinel",
+  );
   const positive = await call("site.resource.test", 443, "/_health/live");
   const error = await call("site.resource.test", 443, "/_source_probe/error");
   console.log(
-    JSON.stringify({ ok: positive.status === 200 && error.status === 503 }),
+    JSON.stringify({
+      ok:
+        absent.status === 404 &&
+        positive.status === 200 &&
+        error.status === 503,
+    }),
   );
 } else if (action === "cache-ready") {
   console.log(JSON.stringify({ ok: (await sourceCacheReady()).ok }));
 } else if (action === "web-http-witness") {
-  console.log(JSON.stringify(await webHttpWitness()));
+  console.log(JSON.stringify(await webHttpWitness(argument(0))));
 } else if (action === "web-http-ready") {
-  console.log(JSON.stringify(await webHttpStored(argument(0))));
+  console.log(JSON.stringify(await webHttpStored(argument(0), argument(1))));
 } else if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
   // This one-shot process owns pending resolver handles too. Exit only after the

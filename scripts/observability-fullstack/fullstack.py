@@ -324,17 +324,23 @@ def await_sources(compose,output,*,enabled=True):
 
 def prove_web_http(compose):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
-    witness=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-witness'],timeout=8))
-    if witness!={'ok':True}:raise ValueError('web_http_boundary_unavailable')
+    raw=invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-witness',source],timeout=8)
     deadline=time.monotonic()+10
+    witness=json.loads(raw)
+    fields={'ok','positive_count','not_found_count','process_start_seconds','observed_at_seconds'}
+    if type(witness) is not dict or set(witness)!=fields or witness['ok'] is not True or any(
+            type(witness[key]) not in (int,float) or not math.isfinite(witness[key]) or not 0<witness[key]<=9007199254740991
+            for key in fields-{'ok'}) or any(type(witness[key]) is not int for key in ('positive_count','not_found_count')) or witness['observed_at_seconds']>=1e12 or witness['process_start_seconds']>witness['observed_at_seconds']:
+        raise ValueError('web_http_boundary_unavailable')
+    expected=json.dumps(witness,separators=(',',':'))
     def stored():
         remaining=deadline-time.monotonic()
         if remaining<=0:raise TimeoutError('web_http_stored_deadline')
-        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-ready',source],timeout=min(4,remaining)))
+        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-ready',source,expected],timeout=min(4,remaining)))
         if time.monotonic()>=deadline:raise TimeoutError('web_http_stored_deadline')
-        return value=={'ok':True}
+        return type(value) is dict and set(value)=={'ok'} and value['ok'] is True
     pilot.await_fact(stored,bool,budget=10,probe='web_http_stored_ready')
-    return {'state':'observed','source_sha':source,'positive_status':200,'not_found_status':404,'url_sentinel':'absent','stored_source_age_seconds_maximum':10}
+    return {'state':'observed','source_sha':source,'positive_status':200,'not_found_status':404,'url_sentinel':'absent','stored_source_age_seconds_maximum':10,'minimum_completed_counts':{'health':witness['positive_count'],'not_found':witness['not_found_count']},'raw_process_start_seconds':witness['process_start_seconds'],'post_witness_source_cut_seconds':witness['observed_at_seconds'],'stored_elapsed_seconds':time.monotonic()-(deadline-10)}
 
 
 def phase(compose,project,definition,active,enabled,pair,output):

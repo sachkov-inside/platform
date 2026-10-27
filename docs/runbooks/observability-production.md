@@ -479,11 +479,17 @@ body больше 2 MiB возвращает 503: частичные counts не
 
 Alloy читает источник каждые 5 секунд. Общая очередь `prometheus.remote_write.collector_health`
 для Web, Caddy и закрытых collector counters имеет `batch_send_deadline = "1s"`;
-прочие параметры очереди остаются штатными. Native проверка настоящего Web observer и CLI
-при прежнем scrape 5 s показала отказ stored barrier за 10 s с прежним batch 5 s.
-Batch 1 s дал готовность за 9,540 s и 8,343 s при двух разных совпадениях фаз, затем
-36 и 37 последовательных успешных чтений. Stored barrier 10 s, возраст 0..10 s и
-проверки недостающих counters сохраняются. В обзоре есть отдельная строка Web: missing/down/stale
+прочие параметры очереди остаются штатными. Это не обещает, что новая серия появится в запросе
+за 10 секунд. Закреплённый VM 1.154 сбрасывает кэш соответствия labels и metric IDs через
+[callback index DB](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/storage/index_db.go#L158-L159)
+с [штатным интервалом 10 секунд](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/mergeset/table.go#L43-L50).
+Native pipeline воспроизвёл отсутствие первой серии 404 до 10,757 s при уже видимых
+health/current SHA/up. Изолированное прежнее наблюдение queue 1 s за 9,540 s не доказывало
+готовность этого холодного набора labels через полный gateway. Scrape 1 s сам по себе
+также не устранил холодный отказ, поэтому Web scrape остаётся 5 s. Административный flush
+или фиктивные нулевые counters для готовности не используются.
+
+В обзоре есть отдельная строка Web: missing/down/stale
 не означает ноль. Каждая серия содержит SHA/environment; process epoch и уменьшение counters
 обозначают reset. p50/p95/p99 доступны только для завершённых ответов при >=100 observations,
 >=58 source samples за 5 минут, без failed scrape/counter reset/process epoch change и с текущим
@@ -517,8 +523,20 @@ status sample, проверяет one-sample burst, отсутствие оши�
 Не создаётся полный набор route × method × status серий. Source freshness, sample threshold,
 process epoch и reset guards остаются обязательными.
 
-Fullstack corpus переключает Web source вместе с ON/OFF. В ON он делает настоящие Web 200/404
-с секретным query sentinel, проверяет его отсутствие в private metrics body, затем требует
-те же SHA-bound counts в VictoriaMetrics через обычные Alloy и read gateway в пределах 10 секунд.
+Fullstack corpus переключает Web source вместе с ON/OFF. Его одинаковый технический прогрев
+в обоих режимах первым делает один настоящий Web 404, затем прежние TLS 200/503, в пределах
+прежнего command budget 4 s. Прежние native prefill и stored source-cache barrier остаются
+на своих местах. Новых ожиданий или переноса начала Web deadline нет.
+
+В ON отдельный witness с прежним budget 8 s читает private metrics до и после настоящих
+Web 200/404 с секретным query sentinel. Он требует текущий SHA, отсутствие sentinel, один
+raw process epoch и прирост обоих GET/completed counters. За следующие прежние 10 секунд
+обычный Alloy/read gateway должен показать не меньше этих новых counts. Timestamp каждого
+counter sample и `observed_at` должны быть не раньше raw post-witness cut; возраст источника
+остаётся 0..10 s, `up` обязан быть 1. Высокие старые counters прошлого процесса при том же SHA
+или один прогрев не заменяют новые наблюдения. Exact floating-point равенство raw process epoch
+и сохранённого значения не требуется: VM может сжимать его десятичную точность. Raw epoch
+проверяется до/после witness, а сохранённые counters связаны с ним собственными timestamps.
+Proof сохраняет только закрытые числовые поля counts/cut/epoch/elapsed, без metrics body или URL.
 Это исполняемый proof, не утверждение, что Linux-прогон уже завершился. Изменение не включает
 production monitoring или browser analytics.

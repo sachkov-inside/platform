@@ -104,7 +104,7 @@ def initialize(output, compose, invoke):
 
 
 def warmup(compose, invoke):
-    """Identical OFF/ON public TLS probes instantiate genuine lazy native families."""
+    """Identical OFF/ON Web404 and public TLS probes instantiate genuine lazy native families."""
     value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','source-warmup'],timeout=4))
     if type(value) is not dict or set(value)!={'ok'} or value['ok'] is not True:
         raise ValueError('source_warmup_unavailable')

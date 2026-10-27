@@ -168,3 +168,85 @@ export function mcpInitializeResponse(text, contentType) {
     return null;
   }
 }
+
+/** Closed raw Web cohort, never the original exposition or request identity.
+ * @param {unknown} body @param {string} source
+ */
+export function webHttpObservation(body, source) {
+  if (
+    typeof body !== "string" ||
+    Buffer.byteLength(body) > 1_048_576 ||
+    body.includes("private-http-sentinel") ||
+    !/^[a-f0-9]{40}$/u.test(source)
+  )
+    return null;
+  const lines = body.split("\n");
+  const epochs = lines.filter((line) =>
+    line.startsWith("inside_web_http_process_start_time_seconds{"),
+  );
+  if (epochs.length !== 1) return null;
+  const base = epochs[0]?.match(
+    new RegExp(
+      '^inside_web_http_process_start_time_seconds\\{(service="platform-web",environment="(?:test|isolated-pilot|production)",source_sha="' +
+        source +
+        '")\\} ',
+    ),
+  )?.[1];
+  if (base === undefined) return null;
+  /** @param {string} name @param {string} [labels] */
+  function sample(name, labels = "") {
+    const prefix = name + "{" + base + labels + "} ";
+    const matches = lines.filter((line) => line.startsWith(prefix));
+    if (matches.length !== 1) return null;
+    const text = matches[0]?.slice(prefix.length) ?? "";
+    if (text.length > 32 || !/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u.test(text))
+      return null;
+    const value = Number(text);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  const positive_count = sample(
+    "inside_web_http_requests_total",
+    ',route="/_health/live",method="GET",code="200",outcome="completed"',
+  );
+  const not_found_count = sample(
+    "inside_web_http_requests_total",
+    ',route="_unmatched",method="GET",code="404",outcome="completed"',
+  );
+  const process_start_seconds = sample(
+    "inside_web_http_process_start_time_seconds",
+  );
+  const observed_at_seconds = sample("inside_web_http_observed_at_seconds");
+  const value = {
+    ok: true,
+    positive_count,
+    not_found_count,
+    process_start_seconds,
+    observed_at_seconds,
+  };
+  return webHttpExpected(value) ? value : null;
+}
+/** @typedef {{ok:true, positive_count:number, not_found_count:number, process_start_seconds:number, observed_at_seconds:number}} WebHttpWitness */
+/** @param {unknown} value @returns {value is WebHttpWitness} */
+export function webHttpExpected(value) {
+  return (
+    record(value) &&
+    value["ok"] === true &&
+    Object.keys(value).sort().join(",") ===
+      "not_found_count,observed_at_seconds,ok,positive_count,process_start_seconds" &&
+    ["positive_count", "not_found_count"].every(
+      (key) =>
+        typeof value[key] === "number" &&
+        Number.isSafeInteger(value[key]) &&
+        value[key] >= 1,
+    ) &&
+    ["process_start_seconds", "observed_at_seconds"].every(
+      (key) =>
+        typeof value[key] === "number" &&
+        Number.isFinite(value[key]) &&
+        value[key] > 0 &&
+        value[key] < 1e12,
+    ) &&
+    Number(value["process_start_seconds"]) <=
+      Number(value["observed_at_seconds"])
+  );
+}

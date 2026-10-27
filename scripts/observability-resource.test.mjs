@@ -121,7 +121,7 @@ test("resource Web HTTP witness retains fixed source and complete process owners
     assert.equal(result.reason, "exit", result.stderr);
     assert.equal(result.code, 0, result.stdout + result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
-      cases: 8,
+      cases: 24,
       complete: true,
       private: false,
       missing: false,
