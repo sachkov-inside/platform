@@ -99,6 +99,11 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     /** Несколько состояний сразу, без повторов; вместе с `state` не принимается. */
     states: z.array(attemptStateSchema).min(1).max(7).optional(),
     kind: attemptKindSchema.optional(),
+    /**
+     * `incomplete`: подтверждённый платёж, выдача которого ещё не применена (в очереди выдачи есть
+     * строка без `appliedAt`, в том числе требующая разбора). Как и состояние, со временем меняется.
+     */
+    fulfillment: z.literal("incomplete").optional(),
     /** Период создания `[from, to)`; `from` раньше `to`. */
     from: z.iso.datetime({ offset: true }).optional(),
     to: z.iso.datetime({ offset: true }).optional(),

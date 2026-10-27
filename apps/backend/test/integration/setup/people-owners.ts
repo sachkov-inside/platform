@@ -19,7 +19,8 @@ export const unreadPeopleOwners = {
   learning: { readLastActivity: refusedRead, readLearningSummary: refusedRead },
   payments: { execute: refusedRead },
   submissions: { summarizeAccount: refusedRead },
-  community: { readMemberState: refusedRead },
+  community: { readMemberState: refusedRead, listProblemAccounts: refusedRead },
+  deliveries: { listTelegramProblemAccounts: refusedRead },
   waitlists: { readForAccount: refusedRead },
 } satisfies Omit<
   PeopleDirectoryDependencies,

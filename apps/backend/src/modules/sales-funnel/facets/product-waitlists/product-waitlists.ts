@@ -1,3 +1,5 @@
+import { countWaitlistJoins } from "../../features/count-waitlist-joins/count-waitlist-joins.js";
+import type { DailyWindow } from "../../../../infrastructure/contracts/daily-window.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { randomUUID } from "node:crypto";
@@ -612,6 +614,10 @@ export class ProductWaitlists {
         fail("dependency_unavailable"),
       );
     }
+  }
+  /** Waitlist joins of every intake per calendar day of the window (#1719). */
+  countJoinsByDay(window: DailyWindow) {
+    return countWaitlistJoins(this.dependencies.prisma, window);
   }
   async demand(query: {
     readonly productId: string;
