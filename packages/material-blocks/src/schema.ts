@@ -45,7 +45,7 @@ function materialBlockNode(
   name: string,
   description: MaterialBlockChildNodeDescription,
   nodeView: (() => NodeViewRenderer) | undefined,
-  group?: "block",
+  group?: "block" | "topLevelBlock",
 ): Node {
   return Node.create({
     ...(description.atom === true ? { atom: true } : {}),
@@ -111,7 +111,15 @@ export function materialDocumentExtensions(
   options: MaterialDocumentExtensionOptions = {},
 ): Extensions {
   return [
+    // A primary media position belongs to the root and appears at most once. Keeping it outside
+    // `block` makes wrapping and nested drop targets obey the same invariant as server acceptance.
+    Node.create({
+      name: "doc",
+      topNode: true,
+      content: "(block+ | block* topLevelBlock block*)",
+    }),
     StarterKit.configure({
+      document: false,
       code: false,
       hardBreak: false,
       heading: { levels: headingLevels },
@@ -134,7 +142,7 @@ export function materialDocumentExtensions(
               definition.type,
               declaration,
               options.nodeViews?.[definition.type],
-              "block",
+              declaration.group,
             ),
             ...Object.entries(declaration.childNodes ?? {}).map(
               ([name, child]) =>

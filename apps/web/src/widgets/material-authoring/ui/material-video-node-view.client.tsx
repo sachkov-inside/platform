@@ -11,9 +11,12 @@ import {
 import { Button } from "@/shared/ui/button";
 
 const fieldClass =
-  "w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "w-full min-w-0 rounded-lg border border-input bg-background min-h-11 px-3 py-2 text-base sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/** The block selects placement and context. Attachment and upload remain in the Video panel. */
+/**
+ * Temporary semantic UI for #1741.
+ * Replace through #1744 after Storybook acceptance.
+ */
 export function MaterialVideoNodeView({
   node,
   editor,
@@ -29,7 +32,9 @@ export function MaterialVideoNodeView({
     : [];
   const description: unknown = node.attrs["description"];
   const editable = editor.isEditable;
-  const write = (next: typeof chapters) => updateAttributes({ chapters: next });
+  const write = (next: typeof chapters) => {
+    updateAttributes({ chapters: next });
+  };
   return (
     <NodeViewWrapper
       className="my-8 rounded-xl border border-border bg-card p-4 sm:p-5"
@@ -58,8 +63,8 @@ export function MaterialVideoNodeView({
         </Button>
       </div>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Прикрепите запись в разделе «Видео». Плеер появится здесь. Блок можно
-        переместить между абзацами.
+        Прикрепите запись на вкладке «Обложка и видео». Плеер появится здесь.
+        Блок можно переместить между абзацами.
       </p>
       <label className="mt-4 grid gap-2 text-sm">
         Описание видео
@@ -67,9 +72,14 @@ export function MaterialVideoNodeView({
           className={`${fieldClass} min-h-20 resize-y`}
           disabled={!editable}
           value={typeof description === "string" ? description : ""}
-          onChange={(event) =>
-            updateAttributes({ description: event.currentTarget.value || null })
-          }
+          onChange={(event) => {
+            updateAttributes({
+              description:
+                event.currentTarget.value.length === 0
+                  ? null
+                  : event.currentTarget.value,
+            });
+          }}
         />
       </label>
       <fieldset className="mt-5 min-w-0">
@@ -86,15 +96,15 @@ export function MaterialVideoNodeView({
                 step={1}
                 type="number"
                 value={chapter.start}
-                onChange={(event) =>
+                onChange={(event) => {
                   write(
                     chapters.map((item, position) =>
                       position === index
                         ? { ...item, start: Number(event.currentTarget.value) }
                         : item,
                     ),
-                  )
-                }
+                  );
+                }}
               />
             </label>
             <label className="grid min-w-0 flex-1 gap-1 text-xs">
@@ -105,23 +115,23 @@ export function MaterialVideoNodeView({
                 disabled={!editable}
                 maxLength={200}
                 value={chapter.title}
-                onChange={(event) =>
+                onChange={(event) => {
                   write(
                     chapters.map((item, position) =>
                       position === index
                         ? { ...item, title: event.currentTarget.value }
                         : item,
                     ),
-                  )
-                }
+                  );
+                }}
               />
             </label>
             <Button
               aria-label={`Убрать главу ${String(index + 1)}`}
               disabled={!editable}
-              onClick={() =>
-                write(chapters.filter((_, position) => position !== index))
-              }
+              onClick={() => {
+                write(chapters.filter((_, position) => position !== index));
+              }}
               size="icon"
               type="button"
               variant="ghost"
@@ -138,15 +148,15 @@ export function MaterialVideoNodeView({
         <Button
           className="mt-3"
           disabled={!editable || chapters.length >= 200}
-          onClick={() =>
+          onClick={() => {
             write([
               ...chapters,
               {
                 start: (chapters.at(-1)?.start ?? -60) + 60,
                 title: "Новая глава",
               },
-            ])
-          }
+            ]);
+          }}
           type="button"
           variant="outline"
         >

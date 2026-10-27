@@ -234,6 +234,65 @@ describe("Inline material video", () => {
         },
       },
     });
+    const inheritedBody = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [{ type: "video", attrs: { nodeId: randomUUID() } }],
+      },
+    };
+    const inherited = await materials.authoring.saveMaterial({
+      actor,
+      materialId,
+      expectedContentVersion: 2,
+      idempotencyKey: "inline-video-inherit",
+      metadata,
+      body: inheritedBody,
+      videoChapters: [{ start: 0, title: "Imported introduction" }],
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    });
+    expect(inherited).toMatchObject({ ok: true });
+    expect(
+      await materials.authoring.previewMaterial({ actor, materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        body: {
+          blocks: [
+            {
+              kind: "video",
+              chapters: [{ start: 0, title: "Imported introduction" }],
+            },
+          ],
+        },
+      },
+    });
+    const cleared = await materials.authoring.saveMaterial({
+      actor,
+      materialId,
+      expectedContentVersion: 3,
+      idempotencyKey: "inline-video-clear-chapters",
+      metadata,
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            { type: "video", attrs: { nodeId: randomUUID(), chapters: [] } },
+          ],
+        },
+      },
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    });
+    expect(cleared).toMatchObject({ ok: true });
+    expect(
+      await materials.authoring.previewMaterial({ actor, materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: { body: { blocks: [{ kind: "video", chapters: [] }] } },
+    });
   });
 });
 

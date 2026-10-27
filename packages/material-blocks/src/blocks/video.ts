@@ -6,8 +6,8 @@ import {
 } from "../block-definition.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { optionalTextIssue } from "./block-fields.js";
-export const videoChaptersSchema: z.ZodType<
-  { start: number; title: string }[]
+export const videoChaptersSchema: z.ZodArray<
+  z.ZodObject<{ start: z.ZodNumber; title: z.ZodString }>
 > = z
   .array(
     z
@@ -40,7 +40,7 @@ export const videoBlock: MaterialBlockDefinition = defineMaterialBlock<"video">(
         chapters: "data-video-chapters",
       },
       draggable: true,
-      group: "block",
+      group: "topLevelBlock",
       parseHTML: ['[data-material-block="video"]'],
       renderHTML: (attributes) => [
         "div",

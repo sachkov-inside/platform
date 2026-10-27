@@ -103,7 +103,14 @@ export function assemblePreviewMaterial(
           metadata: current.value.metadata.toValues(),
           cacheScope: "private-no-store",
           body: hydrateMaterialAssets(
-            rendered.value,
+            {
+              ...rendered.value,
+              blocks: rendered.value.blocks.map((block) =>
+                block.kind === "video" && block.chapters === undefined
+                  ? { ...block, chapters: current.value.videoChapters }
+                  : block,
+              ),
+            },
             loadedPresentations.value,
           ),
         },

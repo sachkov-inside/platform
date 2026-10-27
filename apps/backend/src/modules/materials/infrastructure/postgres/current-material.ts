@@ -25,9 +25,15 @@ import type { VideoAuthoringPresentation } from "../../../videos/index.js";
 import { type ContentCoverProjection } from "../../../content-covers/index.js";
 import { loadContentCoverProjections } from "../../../content-covers/index.js";
 
+import {
+  videoChaptersSchema,
+  type VideoChapter,
+} from "../../domain/video-chapters.js";
+
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface CurrentMaterial {
+  readonly videoChapters: readonly VideoChapter[];
   readonly notifyTelegram: boolean | null;
   readonly source: RecordedAuthoringSource | null;
   readonly lifecycle: Material;
@@ -96,6 +102,7 @@ export async function loadCurrentMaterial(
   return {
     ok: true,
     value: {
+      videoChapters: videoChaptersSchema.parse(row.videoChapters),
       notifyTelegram: row.notifyTelegram,
       source:
         row.sourceId === null
