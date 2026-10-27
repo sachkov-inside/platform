@@ -1,5 +1,8 @@
-import { expect, it } from "vitest";
-import { ProductOutlines } from "../../src/modules/materials/index.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductOutlines } from "../../src/modules/products/index.js";
+import { expect, it, vi } from "vitest";
+import { z } from "zod";
+
 import { MaterialFirstOpens } from "../../src/modules/reading-activity/index.js";
 import {
   BillingProductSales,
@@ -20,7 +23,10 @@ it.each([
     });
     const result =
       owner === "outlines"
-        ? await new ProductOutlines(prisma).listForDiagnostics()
+        ? await new ProductOutlines(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ).listForDiagnostics()
         : await new TelegramAccountLinks(
             prisma,
           ).findCurrentAccountsForDiagnostics(["identity"]);
@@ -73,4 +79,37 @@ it("survey scalar totals do not depend on a whole-table row probe", async () => 
     }),
   ).toEqual({ ok: true, value: { uploaded: 5000, issued: 3000, paid: null } });
   expect(guards).toEqual([]);
+});
+
+it("reports a joined Products read failure at the diagnostic operation boundary only", async () => {
+  const { prisma } = funnelDiagnosticDatabase();
+  const failure = new Error("owned composition read failed");
+  const reads = vi
+    .spyOn(prisma, "$queryRaw")
+    .mockResolvedValueOnce([])
+    .mockRejectedValue(failure);
+  const logs = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outlines = new ProductOutlines(
+      prisma,
+      assembleProductMaterialReading(prisma),
+    );
+    expect(await outlines.listForDiagnostics()).toEqual({
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    });
+    expect(reads).toHaveBeenCalled();
+    expect(logs).toHaveBeenCalledOnce();
+    const record = z
+      .record(z.string(), z.unknown())
+      .parse(JSON.parse(String(logs.mock.calls[0]?.[0])));
+    expect(record).toMatchObject({
+      module: "products",
+      operation: "listForDiagnostics",
+      event: "dependency_failure",
+    });
+  } finally {
+    reads.mockRestore();
+    logs.mockRestore();
+  }
 });

@@ -1,3 +1,8 @@
+import { PaymentDiagnostics } from "../../src/modules/billing/index.js";
+import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
+import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
+import { ParticipantDiagnostics } from "../../src/entrypoints/mcp/participant-diagnostics.js";
+import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
 import { z } from "zod";
 import {
   Client,
@@ -156,6 +161,11 @@ test("an archived Product keeps Task pages, embedded tasks and files for holders
     videos: app.get<Videos>(VIDEOS),
     communications: app.get(Communications),
     billing: app.get(BillingOperations),
+    diagnostics: app.get(PaymentDiagnostics),
+    funnel: app.get(SalesFunnel),
+    queues: app.get(QueueDiagnostics),
+    participants: app.get(ParticipantDiagnostics),
+    retention: app.get(ActivityRetentionDiagnostics),
     telemetry: app.get(WebTelemetry),
     config: {
       host: "127.0.0.1",

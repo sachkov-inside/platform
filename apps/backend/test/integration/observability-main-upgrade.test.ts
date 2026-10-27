@@ -16,17 +16,15 @@ import { z } from "zod";
 import { frozenRegistry } from "../support/observability-migration-fixtures.js";
 
 it.each(["main101", "main102", "main103", "main104"] as const)(
-  "upgrades exact frozen %s to canonical117 without changing its prefix",
+  "upgrades exact frozen %s to canonical128 without changing its prefix",
   async (label) => {
     const mainRegistry = frozenRegistry(label);
     expect(platformMigrations.slice(0, mainRegistry.length)).toEqual(
       mainRegistry,
     );
-    expect(platformMigrations).toHaveLength(117);
-    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(117);
-    expect(platformMigrations.slice(104)).toEqual(
-      frozenRegistry("legacy115").slice(102),
-    );
+    expect(platformMigrations).toHaveLength(128);
+    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(128);
+    expect(platformMigrations.slice(0, 114)).toEqual(frozenRegistry("main114"));
     const database = await createTestDatabase();
     const ledger = async () =>
       parseAppliedMigrations(
@@ -159,7 +157,7 @@ it("retains the frozen historical root0108 upgrade and rejects its divergent led
   expect(
     createHash("sha256").update(JSON.stringify(rootRegistry)).digest("hex"),
   ).toBe(preparedRootDigest);
-  expect(rootRegistry.at(-1)?.name).toBe("0121_submission_activity_period");
+  expect(rootRegistry.at(-1)?.name).toBe("0108_submission_activity_period");
   expect(
     preparedRegistry
       .slice(preparedRootCount)
@@ -276,8 +274,8 @@ it.each([
     target: frozenRegistry("legacy116"),
   },
   {
-    label: "currentCanonical115",
-    prefix: platformMigrations.slice(0, 115),
+    label: "currentCanonical125",
+    prefix: platformMigrations.slice(0, 125),
     target: platformMigrations,
   },
 ] as const)(
@@ -297,10 +295,17 @@ it.each([
     `),
       );
       expect(await runMigrationsToLatest(database.url, target)).toEqual({
-        appliedMigrations: [
-          "0112_communications_tracking_trace_context",
-          "0126_waitlist_trace_context",
-        ],
+        appliedMigrations:
+          target === platformMigrations
+            ? [
+                "0125_communications_tracking_trace_context",
+                "0126_waitlist_trace_context",
+                "0127_queue_work_observation",
+              ]
+            : [
+                "0112_communications_tracking_trace_context",
+                "0113_waitlist_trace_context",
+              ],
       });
       const after = parseAppliedMigrations(
         await database.prisma.$queryRaw(Prisma.sql`
@@ -349,8 +354,8 @@ it.each([
     target: frozenRegistry("legacy116"),
   },
   {
-    label: "currentCanonical116",
-    prefix: platformMigrations.slice(0, 116),
+    label: "currentCanonical126",
+    prefix: platformMigrations.slice(0, 126),
     target: platformMigrations,
   },
 ] as const)(
@@ -379,7 +384,10 @@ it.each([
         );
       const before = await ledger();
       expect(await runMigrationsToLatest(database.url, target)).toEqual({
-        appliedMigrations: ["0126_waitlist_trace_context"],
+        appliedMigrations:
+          target === platformMigrations
+            ? ["0126_waitlist_trace_context", "0127_queue_work_observation"]
+            : ["0113_waitlist_trace_context"],
       });
       const after = await ledger();
       expect(after.slice(0, prefix.length)).toEqual(before);

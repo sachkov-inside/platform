@@ -1,4 +1,4 @@
-export const name = "0109_materials_notification_trace_context";
+export const name = "0122_materials_notification_trace_context";
 export const statement = `
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15s';

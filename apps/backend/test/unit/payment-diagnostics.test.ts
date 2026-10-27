@@ -124,6 +124,7 @@ describe("payment diagnostics", () => {
           sourceRef: `payment:${purchaseId}`,
           productId,
           issuedAt: new Date("2026-10-01T00:00:00Z"),
+          firstIssuedAt: new Date("2026-10-01T00:00:00Z"),
           capabilities: ["materials"],
           startsAt: new Date("2026-10-01T00:00:00Z"),
           validUntil: new Date("2026-10-15T00:00:00Z"),

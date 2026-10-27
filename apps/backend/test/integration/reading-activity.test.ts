@@ -877,8 +877,8 @@ describe("ReadingActivity on PostgreSQL", () => {
   test("reads genuine learning-start and manual transition events without reconstructing legacy opens", async () => {
     const clock = await activityTestClock(database.prisma);
     vi.setSystemTime(clock.at);
-    const product = await series();
-    const id = await material([product]);
+    const productId = await product();
+    const id = await material([productId]);
     const account = randomUUID();
     const contentAccess = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
@@ -893,7 +893,10 @@ describe("ReadingActivity on PostgreSQL", () => {
       materialContent: materials.materialContent,
       composition,
       reader: materials.publishedMaterialReader,
-      selection: new PublishedMaterialSelection(database.prisma),
+      selection: new PublishedMaterialSelection({
+        prisma: database.prisma,
+        products: new ProductDiscovery(database.prisma),
+      }),
       videos: {
         loadProgressMany: () => Promise.reject(new Error("not used")),
         loadReadyDurations: () => Promise.reject(new Error("not used")),
@@ -911,7 +914,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       contentVersion: facts.value.contentVersion,
     };
     await Promise.all([home.recordOpen(open), home.recordOpen(open)]);
-    const other = await material([product]);
+    const other = await material([productId]);
     const otherFacts = await materials.materialContent.findAccessFacts(
       materialId(other),
     );
@@ -965,7 +968,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     await database.prisma.productLearningStarted.create({
       data: {
         accountId: legacy,
-        productId: product,
+        productId: productId,
         startedAt: clock.at,
       },
     });
@@ -991,7 +994,7 @@ describe("ReadingActivity on PostgreSQL", () => {
           where: {
             accountId_productId: {
               accountId: failedAccount,
-              productId: product,
+              productId: productId,
             },
           },
         }),
@@ -1020,7 +1023,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const primaryStart =
       await database.prisma.productLearningStarted.findUniqueOrThrow({
         where: {
-          accountId_productId: { accountId: account, productId: product },
+          accountId_productId: { accountId: account, productId: productId },
         },
       });
     await database.prisma.$executeRaw(
@@ -1073,7 +1076,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await database.prisma.productLearningStarted.findUniqueOrThrow({
         where: {
-          accountId_productId: { accountId: account, productId: product },
+          accountId_productId: { accountId: account, productId: productId },
         },
       }),
     ).toEqual(primaryStart);

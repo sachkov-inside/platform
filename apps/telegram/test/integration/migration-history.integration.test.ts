@@ -147,6 +147,10 @@ it.each(["communications-first", "sign-in-first"] as const)(
     await assertPreserved();
     await migrateToLatest(database);
     await assertPreserved();
+    await migrateDown(database); // 039: additive confirmed-activity observation.
+    await assertPreserved();
+    await migrateDown(database); // 038: additive nullable receipt carrier.
+    await assertPreserved();
     await expect(migrateDown(database)).rejects.toMatchObject({
       message: "Database rollback failed",
       cause: {
@@ -209,6 +213,10 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
   await migrateTo(database, "036-material-announcements");
   expect(await read()).toEqual(historical);
   await migrateToLatest(database);
+  expect(await read()).toEqual(historical);
+  await migrateDown(database); // 039
+  expect(await read()).toEqual(historical);
+  await migrateDown(database); // 038
   expect(await read()).toEqual(historical);
   await expect(migrateDown(database)).rejects.toMatchObject({
     message: "Database rollback failed",

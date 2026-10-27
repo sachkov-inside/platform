@@ -5,7 +5,7 @@ import {
   migrationChecksum,
 } from "../../src/infrastructure/postgres/migrate-to-latest.js";
 
-// Index ledger checksums frozen from reviewed bd524e53. Prefix entries predate this change.
+// Frozen index ledger after the current Products ownership adaptation. Main prefix SQL stays unchanged.
 const indexLedger = [
   {
     name: "0114_funnel_diagnostic_candidates",
@@ -30,7 +30,7 @@ const indexLedger = [
   {
     name: "0118_funnel_diagnostic_current_products",
     checksum:
-      "ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
+      "565cd4f27b24b6213ed3100d44b9785fd0adca0d895cbdd1f6c91f69398de635",
   },
 ];
 const beforeIndexes = platformMigrations.findIndex(

@@ -289,62 +289,62 @@ export class WaitlistConfirmations {
             "traceparent",
             item.row.receipt_traceparent,
           ]) ?? null);
-    return this.telemetry.runAttempt(rowParent, async () => {
-      // Re-read after the claim commits: an earlier join generation must not authorize a
-      // send after local lock/pool waits. No connection is held during the Platform request.
-      let current: "accepted" | "suppressed" | "unavailable";
-      try {
-        current = await this.authorization.current(item.row.command, rowParent);
-      } catch (error) {
-        reportFailure(
-          "communications.waitlist-confirmation-authorization",
-          error,
+    // Re-read after the claim commits: an earlier join generation must not authorize a
+    // send after local lock/pool waits. No connection is held during the Platform request.
+    let current: "accepted" | "suppressed" | "unavailable";
+    try {
+      current = await this.authorization.current(item.row.command, rowParent);
+    } catch (error) {
+      reportFailure(
+        "communications.waitlist-confirmation-authorization",
+        error,
+      );
+      current = "unavailable";
+    }
+    if (current !== "accepted") {
+      await this.database.transaction().execute(async (tx) => {
+        await settle(
+          tx,
+          queue,
+          item,
+          current === "suppressed"
+            ? {
+                state: "suppressed",
+                diagnostic_code: "no_current_recipient",
+              }
+            : {
+                state: "pending",
+                attempt_count: item.attempt - 1,
+                available_at: new Date(
+                  this.clock.now().getTime() + CONFIRMATION_RETRY_INITIAL_MS,
+                ),
+                diagnostic_code: "authorization_unavailable",
+              },
         );
-        current = "unavailable";
-      }
-      if (current !== "accepted") {
-        await this.database.transaction().execute(async (tx) => {
-          await settle(
-            tx,
-            queue,
-            item,
-            current === "suppressed"
-              ? {
-                  state: "suppressed",
-                  diagnostic_code: "no_current_recipient",
-                }
-              : {
-                  state: "pending",
-                  attempt_count: item.attempt - 1,
-                  available_at: new Date(
-                    this.clock.now().getTime() + CONFIRMATION_RETRY_INITIAL_MS,
-                  ),
-                  diagnostic_code: "authorization_unavailable",
-                },
-          );
-        });
-        return current === "suppressed" ? 1 : 0;
-      }
-      const deadline = this.monotonic.now() + 250;
-      let admitted = false;
-      try {
-        admitted = await this.admitCheckedTransport(item, chatId, deadline);
-      } catch (error) {
-        if (!["pg_55P03", "pg_57014"].includes(failureCode(error))) throw error;
-        reportFailure("communications.waitlist-confirmation-admission", error);
-      }
-      if (!admitted || this.monotonic.now() >= deadline) {
-        // Proven unsent work can wait for fresh eligibility; never reset a recovered unknown lease.
-        await settle(this.database, queue, item, {
-          state: "pending",
-          attempt_count: item.attempt - 1,
-          available_at: new Date(
-            this.clock.now().getTime() + CONFIRMATION_RETRY_INITIAL_MS,
-          ),
-          diagnostic_code: "admission_deferred",
-        });
-        return 0;
-      }
+      });
+      return current === "suppressed" ? 1 : 0;
+    }
+    const deadline = this.monotonic.now() + 250;
+    let admitted = false;
+    try {
+      admitted = await this.admitCheckedTransport(item, chatId, deadline);
+    } catch (error) {
+      if (!["pg_55P03", "pg_57014"].includes(failureCode(error))) throw error;
+      reportFailure("communications.waitlist-confirmation-admission", error);
+    }
+    if (!admitted || this.monotonic.now() >= deadline) {
+      // Proven unsent work can wait for fresh eligibility; never reset a recovered unknown lease.
+      await settle(this.database, queue, item, {
+        state: "pending",
+        attempt_count: item.attempt - 1,
+        available_at: new Date(
+          this.clock.now().getTime() + CONFIRMATION_RETRY_INITIAL_MS,
+        ),
+        diagnostic_code: "admission_deferred",
+      });
+      return 0;
+    }
+    return this.telemetry.runAttempt(rowParent, async () => {
       let result;
       try {
         result = await this.telemetry.runBotApi(() =>

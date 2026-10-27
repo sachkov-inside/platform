@@ -65,16 +65,20 @@ protected-resource metadata и делегированного bearer token оп�
 
 ## Как читать результат
 
-Для каждого обещанного benefit Billing ищет точное основание `paid` этой покупки через
-владельца AccountRights. `granted` означает наличие основания с нужной capability;
-это не решение о действующем сейчас доступе. Смотрите `startsAt`, `validUntil` и состояние
-`revoked` отдельно. Оплаченный период мог законно закончиться или быть отозван.
+Для каждого Product из неизменяемого снимка разовой покупки Billing ищет точное основание
+`purchase` через владельца AccountRights и его текущий `ProductAccess`. Используется тот же
+sourceRef, что и при выдаче после оплаты: `payment:<purchaseRef>`, а для исторической покупки
+нескольких Product добавляется `:product:<productId>`. Account и Product проверяются одной парой.
+Пассивная история legacy grants не подтверждает текущую выдачу. `granted` означает наличие
+основания этой покупки и неотозванного ProductAccess; `revoked` показывает текущий отзыв.
+`startsAt` относится к основанию покупки, `validUntil=null` отражает пожизненный доступ к Product.
+Исторические recurring покупки и снимки без определённого Product дают `facts=unknown`.
 `refundedKopecks` показывает подтверждённые возвраты отдельно и не подменяет состояние права.
 
 `missing` означает отсутствие точного оплаченного основания. Нулевые подтверждённые возвраты
 вместе с подтверждённой оплатой и `missing` дают проверяемый пример для расследования выдачи.
 Это не доказательство отсутствия любого доступа: ручное основание или другая покупка независимы.
-Возврат, отзыв и истечение срока сами по себе не объявляются неисправностью. Отчёт не чинит
+Возврат и отзыв сами по себе не объявляются неисправностью. Отчёт не чинит
 выдачу и не определяет отставание очереди; эти факты требуют отдельной диагностики владельца.
 
 `coverage=paginated` требует продолжения. `coverage=partial`, `facts=unknown` или grant
@@ -163,22 +167,23 @@ SQL возвращает максимум 2001, переполнение даё�
 по-прежнему могут дать отказ; полезность всех production workloads не предполагается по
 одному успешному fixture.
 
-Canonical `main` сохраняет `0100_product_waitlists` без изменения SQL/checksum/позиции.
-Восемь observability migrations, ранее имевших номера 0100–0107, никогда не применялись
-вне уничтоженных disposable test databases. После коллизии с main они перенумерованы в
-0101–0108 до поставки, без изменения SQL. Исторические commits и их evidence сохраняют
-прежние номера; существующие ledgers не редактируются. Проверка
+Canonical `main` `346c8f2f` сохраняет все 114 registry entries, включая
+`0113_historical_authoring_contract`, без изменения SQL/checksum/позиции. Четырнадцать
+неопубликованных monitoring migrations добавлены после этого prefix, под номерами 0114–0127.
+Исторические frozen registries и их SQL/digests остаются исходными, со старыми номерами.
+Отдельный снимок `main114` закрепляет текущий main commit; итоговая registry содержит 128 entries.
 [observability-main-upgrade.test.ts](../../apps/backend/test/integration/observability-main-upgrade.test.ts)
-фиксирует digest точной registry main `67e3495e` через 0100, применяет восемь новых migrations,
-сверяет canonical checksums/positions, повторный запуск, отказ старой registry и совместимый rollback.
+проверяет исторические точные prefixes, отказы несовместимых ledgers и старых writers.
+[migrations.test.ts](../../apps/backend/test/integration/migrations.test.ts) отдельно проверяет
+переход current main через 0113 к 0127, неизменный prefix, повторный запуск и отказ короткой registry.
 
-Индексы поставляются append-only migrations 0101–0105: Product coverage JSON GIN, current
-catalog, Material first facts, journal account/identity/receipt и verified Telegram identity.
+Индексы поставляются append-only migrations 0114–0118: journal account/identity/receipt,
+платёжные кандидаты, первые чтения, verified Telegram identity и текущий Products catalog.
 Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;
 стоимость, запас места и допустимое окно требуют отдельной проверки при порученном deployment.
 Fixture с тысячами строк не измеряет этот production lock.
 
-После применения 0101–0105 прежний application image запускать нельзя: его короткая migration
+После применения 0114–0118 прежний application image запускать нельзя: его короткая migration
 registry отвергает новый ledger как не являющийся exact prefix, поэтому readiness/worker startup
 не пройдут. Нужен отдельный **rollback build** от принятого нового source: откатить диагностическую
 реализацию вместе с соответствующим public tool description, сохранив полную новую registry,
@@ -198,7 +203,7 @@ git restore --source <accepted-release-sha> -- \
   apps/backend/src/modules/billing/infrastructure/postgres/migrations/0115-billing-funnel-diagnostic-sources.ts \
   apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0116-reading-funnel-diagnostic-sources.ts \
   apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0117-telegram-funnel-diagnostic-identities.ts \
-  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0118-funnel-diagnostic-current-products.ts \
+  apps/backend/src/modules/products/infrastructure/postgres/migrations/0118-funnel-diagnostic-current-products.ts \
   apps/backend/test/integration/migrations.test.ts
 ```
 
@@ -207,7 +212,7 @@ git restore --source <accepted-release-sha> -- \
 а не оставаться описанием новых scoped candidates. Сохранение migration tests предотвращает возврат
 старого ожидаемого ledger. Проверка
 [funnel-diagnostics-rollback.test.ts](../../apps/backend/test/unit/funnel-diagnostics-rollback.test.ts)
-исполняет настоящий `assertAppliedMigrations`: ledger с checksums индексов, закреплёнными от reviewed `bd524e53`, отвергается прежней registry,
+исполняет настоящий `assertAppliedMigrations`: ledger с буквальными checksums текущих пяти индексов, отвергается прежней registry,
 принимается полностью сохранённой новой и снова отвергается при изменении SQL/checksum.
 
 Это проверка совместимости registry, не испытание production rollback. До публикации rollback build
@@ -343,7 +348,7 @@ Checkout и технические события источниками эти�
 `coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
 нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
 непрерывность rollout. После rollback на старый writer возможен gap сбора; compatible rollback build
-должен сохранить полную применённую registry, включая 0106–0108 и неизменные checksums. Старый image
+должен сохранить полную применённую registry, включая 0119–0121 и неизменные checksums. Старый image
 с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
 нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
 

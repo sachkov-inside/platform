@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { once } from "node:events";
 import { createServer, type RequestListener, type Server } from "node:http";
 import { Pool } from "pg";
@@ -197,7 +198,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
             const parsed = requestSchema.parse(input);
             if (
               request.method !== "POST" ||
-              request.url !== "/integrations/platform/v1/communications"
+              request.url !== "/integrations/platform/v2/communications"
             )
               throw new Error("unexpected provider route");
             calls.push({
@@ -214,7 +215,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
                 .writeHead(200, { "content-type": "application/json" })
                 .end(
                   JSON.stringify({
-                    contractVersion: "inside-communications-v1",
+                    contractVersion: "inside-communications-v2",
                     status: "ok",
                     safeUrl,
                   }),
@@ -248,7 +249,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
             }
             response.writeHead(200, { "content-type": "application/json" }).end(
               JSON.stringify({
-                contractVersion: "inside-communications-v1",
+                contractVersion: "inside-communications-v2",
                 status: "ok",
                 eventId: parsed.payload.eventId,
                 outcome: inserted.rowCount === 0 ? "duplicate" : "recorded",
@@ -321,13 +322,16 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       return new TrackingVisits(
         database.prisma,
         new HttpCommunicationsProvider({
-          endpoint: `${endpoint}/integrations/platform/v1/communications`,
+          endpoint: `${endpoint}/integrations/platform/v2/communications`,
           secret,
           authorizationSecret: "private-authorization-secret",
           botIdentity: "private-bot",
         }),
         origin,
-        new PublicContentTargets(database.prisma),
+        new PublicContentTargets(
+          database.prisma,
+          new ProductDiscovery(database.prisma),
+        ),
         undefined,
         () => now,
       );

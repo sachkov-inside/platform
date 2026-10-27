@@ -320,6 +320,58 @@ describe("Platform migrations", () => {
     ]);
   });
 
+  test("upgrades the exact current-main prefix with only the unpublished monitoring tail and preserves rollback identity", async () => {
+    const database = await createTestDatabase();
+    const ledgerSchema = z.array(
+      z.strictObject({
+        name: z.string(),
+        position: z.number().int(),
+        checksum: z.string(),
+      }),
+    );
+    const read = async () =>
+      ledgerSchema.parse(
+        await database.prisma.$queryRaw(
+          Prisma.sql`select name,position,checksum from public.platform_migrations order by position`,
+        ),
+      );
+    try {
+      await migrateThrough(database, "0113_historical_authoring_contract");
+      const prefix = await read();
+      expect(prefix).toHaveLength(114);
+      expect(prefix.at(-1)?.name).toBe("0113_historical_authoring_contract");
+      expect(await upgradeToLatest(database)).toEqual([
+        "0114_funnel_diagnostic_candidates",
+        "0115_billing_funnel_diagnostic_sources",
+        "0116_reading_funnel_diagnostic_sources",
+        "0117_telegram_funnel_diagnostic_identities",
+        "0118_funnel_diagnostic_current_products",
+        "0119_learning_activity_provenance",
+        "0120_bookmark_activity_provenance",
+        "0121_submission_activity_period",
+        "0122_materials_notification_trace_context",
+        "0123_notifications_notification_trace_context",
+        "0124_notifications_email_trace_context",
+        "0125_communications_tracking_trace_context",
+        "0126_waitlist_trace_context",
+        "0127_queue_work_observation",
+      ]);
+      const complete = await read();
+      expect(complete).toHaveLength(128);
+      expect(complete.slice(0, 114)).toEqual(prefix);
+      await expect(
+        runMigrationsToLatest(database.url, platformMigrations.slice(0, 114)),
+      ).rejects.toThrow("Migration ledger is not an exact registry prefix");
+      expect(await read()).toEqual(complete);
+      await expect(migrateToLatest(database.url)).resolves.toEqual({
+        appliedMigrations: [],
+      });
+      expect(await read()).toEqual(complete);
+    } finally {
+      await database.dispose();
+    }
+  });
+
   test("preserves uncertain legacy cover uploads during cleanup migration", async () => {
     const database = await createTestDatabase();
     try {

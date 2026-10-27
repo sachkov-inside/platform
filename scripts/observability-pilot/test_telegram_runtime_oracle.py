@@ -13,7 +13,7 @@ def rows(transport='json'):
              ('platform waitlist.confirm','3','0','0000000000000001', {'telegram.operation':'authorization','telegram.outcome':'accepted','http.response.status_code':'200'},2),
              ('waitlist attempt','1','0','0000000000000001', {'telegram.operation':'attempt','telegram.outcome':'completed'},3),
              ('telegram sendMessage','3','0','0000000000000003', {'telegram.operation':'sendMessage','telegram.outcome':'delivered'},4),
-             ('POST /integrations/platform/v1/communications','2','0',None, {'http.request.method':'POST','http.route':'/integrations/platform/v1/communications','http.request.outcome':'completed','http.response.status_code':'200'},5),
+             ('POST /integrations/platform/v2/communications','2','0',None, {'http.request.method':'POST','http.route':'/integrations/platform/v2/communications','http.request.outcome':'completed','http.response.status_code':'200'},5),
              ('telegram _OTHER','1','2','0000000000000001', {'telegram.operation':'_OTHER','telegram.outcome':'_OTHER'},6),
              ('telegram _OTHER','1','2','0000000000000001', {'telegram.operation':'_OTHER','telegram.outcome':'_OTHER'},6),
              ('platform waitlist.confirm','3','2','0000000000000001', {'telegram.operation':'authorization','telegram.outcome':'unavailable'},2),
@@ -40,7 +40,7 @@ def vector(transport='json'):
     common = {'service.name':'inside-telegram','deployment.environment.name':'isolated-pilot','service.version':'0.1566.1' if transport == 'json' else '0.1566.2','scope.name':'inside-collector'}
     def add(name,labels,value): points.append({'metric':{'__name__':name,**common,**labels},'value':[1790000001,str(value)]})
     operations = [('receipt','completed'),('authorization','accepted'),('attempt','completed'),('sendMessage','delivered'),('_OTHER','_OTHER'),('_OTHER','completed'),('receipt','_OTHER')]
-    http = [('POST','/integrations/platform/v1/communications','completed'),('_OTHER','_OTHER','_OTHER')]
+    http = [('POST','/integrations/platform/v2/communications','completed'),('_OTHER','_OTHER','_OTHER')]
     for prefix,counter,labels in ([('inside.telegram.duration','inside.telegram.operations',{'operation':op,'outcome':out}) for op,out in operations]+[('http.server.request.duration','http.server.request.count',{'http.request.method':method,'http.route':route,'http.request.outcome':outcome}) for method,route,outcome in http]):
         for name,value in [(counter,1),(prefix+'_count',1),(prefix+'_sum','0.25')]: add(name,labels,value)
         for bound in ('1','+Inf'): add(prefix+'_bucket',{**labels,'le':bound},1)

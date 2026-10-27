@@ -136,6 +136,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     readPaidGrantDiagnostics: (
       keys: readonly {
         readonly accountId: string;
+        readonly productId: string;
         readonly sourceRef: string;
       }[],
     ) => readPaidGrantDiagnostics(prisma, keys),

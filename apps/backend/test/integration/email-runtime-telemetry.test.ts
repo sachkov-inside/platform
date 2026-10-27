@@ -1,3 +1,4 @@
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -13,7 +14,7 @@ import { encodeNotification } from "../../src/infrastructure/notification-transp
 import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import { BillingContact } from "../../src/modules/accounts/facets/billing-contact/billing-contact.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+
 import { Notifications } from "../../src/modules/notifications/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { startNotificationBroker } from "./setup/broker.js";
@@ -602,7 +603,7 @@ test.each(scenarios)(
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       };
       const body = representativeDocument(BODY);
       const materials = assembleMaterials({

@@ -1340,6 +1340,7 @@ test("confirmation carrier stays immutable across replay and authorization rollb
       clock,
       authorization,
       transport,
+      undefined,
       telemetry,
     );
     await app.get(BotContacts).observeStart(
@@ -1401,7 +1402,7 @@ test("confirmation carrier stays immutable across replay and authorization rollb
       ).receipt_traceparent,
     ).toBeNull();
     expect(transport.send).toHaveBeenCalledTimes(1);
-    expect(authorizationRequests).toBe(1);
+    expect(authorizationRequests).toBe(2);
     expect(callbackFailed).toBe(false);
   } finally {
     try {
@@ -1421,11 +1422,11 @@ test("confirmation carrier stays immutable across replay and authorization rollb
   }
   expect(
     spans.filter((span) => span.name === "platform waitlist.confirm"),
-  ).toHaveLength(1);
+  ).toHaveLength(2);
   expect(spans.filter((span) => span.name === "waitlist attempt")).toHaveLength(
     1,
   );
-  const authorizationSpan = spans.find(
+  const authorizationSpans = spans.filter(
     (span) => span.name === "platform waitlist.confirm",
   );
   const attempt = spans.find((span) => span.name === "waitlist attempt");
@@ -1433,12 +1434,14 @@ test("confirmation carrier stays immutable across replay and authorization rollb
   expect(send).toBeDefined();
   expect(send?.parentSpanContext?.spanId).toBe(attempt?.spanContext().spanId);
   expect(send?.attributes["telegram.outcome"]).toBe("delivered");
-  expect(authorizationSpan).toBeDefined();
+  expect(authorizationSpans).toHaveLength(2);
   expect(attempt).toBeDefined();
-  expect(attempt?.parentSpanContext?.spanId).toBe(
-    authorizationSpan?.parentSpanContext?.spanId,
-  );
-  expect(attempt?.parentSpanContext?.spanId).not.toBe(
-    authorizationSpan?.spanContext().spanId,
-  );
+  for (const authorizationSpan of authorizationSpans) {
+    expect(attempt?.parentSpanContext?.spanId).toBe(
+      authorizationSpan.parentSpanContext?.spanId,
+    );
+    expect(attempt?.parentSpanContext?.spanId).not.toBe(
+      authorizationSpan.spanContext().spanId,
+    );
+  }
 });

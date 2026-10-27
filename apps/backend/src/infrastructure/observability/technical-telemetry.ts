@@ -277,14 +277,7 @@ export async function observeLogtoJwksRequest(
   }
 }
 
-export type TbankOperation =
-  | "Init"
-  | "GetState"
-  | "CheckOrder"
-  | "Charge"
-  | "Cancel"
-  | "AddCard"
-  | "GetAddCardState";
+export type TbankOperation = "Init" | "GetState" | "CheckOrder";
 
 /** Bank request plus its existing JSON read, excluding later domain validation. */
 export async function observeTbankRequest<Value>(

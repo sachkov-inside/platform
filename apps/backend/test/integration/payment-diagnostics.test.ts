@@ -20,6 +20,7 @@ const firstPurchase = "20000000-0000-4000-8000-000000000001";
 const secondPurchase = "20000000-0000-4000-8000-000000000002";
 const outsideWindow = "20000000-0000-4000-8000-000000000003";
 const pendingPurchase = "20000000-0000-4000-8000-000000000004";
+const productId = "30000000-0000-4000-8000-000000000001";
 const now = new Date("2026-10-19T12:00:00Z");
 const input = {
   from: "2026-10-18T21:00:00Z",
@@ -31,7 +32,7 @@ const snapshot = {
     id: owner,
     revision: 1,
     name: "Inside",
-    benefits: ["materials"],
+    benefits: [`product:${productId}`],
     archived: false,
   },
   paymentOption: {
@@ -60,9 +61,13 @@ beforeEach(async () => {
         logtoSubject: id,
       },
     });
+  await database.prisma.product.create({
+    data: { id: productId, slug: productId, name: "Synthetic Product" },
+  });
   await database.prisma.accountPermission.createMany({
     data: [
       { accountId: owner, permission: "platform:admin" },
+      { accountId: owner, permission: "billing:manage" },
       { accountId: operator, permission: "billing:manage" },
     ],
   });
@@ -132,19 +137,16 @@ it("reads confirmed payments through MCP and follows the bounded owner cursor wi
   const { grants, diagnostics } = capabilities();
   // A different purchase's paid grant must not hide the missing first purchase's source.
   expect(
-    await grants.applyPaidPeriod({
-      eventRef: owner,
-      accountId: buyer,
-      periodRef: `${secondPurchase}:materials`,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: ["materials"],
-        startsAt: input.from,
-        validUntil: null,
+    await grants.issueProductAccess(
+      { source: "purchase" },
+      {
+        accountId: buyer,
+        productId,
+        sourceRef: `payment:${secondPurchase}`,
+        issuedAt: input.from,
         reason: "Synthetic paid fixture",
       },
-    }),
+    ),
   ).toMatchObject({ ok: true });
   const server = new McpServer({
     name: "payment-diagnostics-postgres",
@@ -175,7 +177,9 @@ it("reads confirmed payments through MCP and follows the bounded owner cursor wi
           items: [
             {
               purchaseRef: firstPurchase,
-              grants: [{ capability: "materials", state: "missing" }],
+              grants: [
+                { capability: `product:${productId}`, state: "missing" },
+              ],
             },
           ],
         },
@@ -197,12 +201,27 @@ it("reads confirmed payments through MCP and follows the bounded owner cursor wi
           items: [
             {
               purchaseRef: secondPurchase,
-              grants: [{ capability: "materials", state: "granted" }],
+              grants: [
+                { capability: `product:${productId}`, state: "granted" },
+              ],
             },
           ],
           nextCursor: null,
         },
       },
+    });
+    expect(
+      await grants.revokeProductAccess(owner, {
+        accountId: buyer,
+        productId,
+        operationId: operator,
+        expectedRevision: 1,
+        reason: "Synthetic withdrawal",
+      }),
+    ).toMatchObject({ ok: true });
+    expect(await diagnostics.read(owner, { ...input, cursor })).toMatchObject({
+      ok: true,
+      value: { items: [{ grants: [{ state: "revoked", validUntil: null }] }] },
     });
   } finally {
     await client.close();

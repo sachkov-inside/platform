@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { randomUUID } from "node:crypto";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -41,8 +42,14 @@ describe("ListPublishedMaterials", () => {
       authorPolicy: { canManage: () => false },
     });
     const dependencies = {
-      directory: new ProductDirectory(testDatabase.prisma),
-      selection: new PublishedMaterialSelection(testDatabase.prisma),
+      directory: new ProductDirectory(
+        testDatabase.prisma,
+        assembleProductMaterialReading(testDatabase.prisma),
+      ),
+      selection: new PublishedMaterialSelection({
+        prisma: testDatabase.prisma,
+        products: new ProductDiscovery(testDatabase.prisma),
+      }),
       contentAccess,
     };
     for (const [slug, availability] of [
@@ -101,7 +108,7 @@ describe("ListPublishedMaterials", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       },
       body: representativeDocument("Never published."),
     });

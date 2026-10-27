@@ -151,6 +151,7 @@ async function readProductOutlines(
       return { ok: false, error: { code: "products_too_many" } };
     return { ok: true, value: rows };
   } catch (error) {
+    if (handle !== undefined) throw error;
     return dependencyFailure(
       { module: "products", operation: "listProductOutlines" },
       error,

@@ -1,3 +1,4 @@
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { Pool } from "pg";
 import { createTestDatabase } from "./setup/test-database.js";
 import {
@@ -34,7 +35,7 @@ import {
 import { startTestIdentityIssuer } from "./setup/test-identity-issuer.js";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+
 import { Notifications } from "../../src/modules/notifications/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { eventually } from "./setup/eventually.js";
@@ -304,7 +305,7 @@ test(
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: [],
+        productIds: [],
       };
       const body = representativeDocument("private-material-body-sentinel");
       const materials = assembleMaterials({
@@ -1010,7 +1011,7 @@ for (const mode of ["off", "export-failure"] as const) {
           tagIds: [],
           difficulty: null,
           outcomes: [],
-          seriesIds: [],
+          productIds: [],
         };
         const body = representativeDocument("private-off-body-sentinel");
         const materials = assembleMaterials({
@@ -1441,10 +1442,10 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
   const admin = new Pool({ connectionString: database.url, max: 1 });
   try {
     const materialMigrationIndex = platformMigrations.findIndex(
-      ({ name }) => name === "0109_materials_notification_trace_context",
+      ({ name }) => name === "0122_materials_notification_trace_context",
     );
     const emailMigrationIndex = platformMigrations.findIndex(
-      ({ name }) => name === "0111_notifications_email_trace_context",
+      ({ name }) => name === "0124_notifications_email_trace_context",
     );
     expect(materialMigrationIndex).toBeGreaterThan(0);
     expect(emailMigrationIndex).toBe(materialMigrationIndex + 2);
@@ -1459,13 +1460,13 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
     expect(
       throughCarriers.slice(materialMigrationIndex).map(({ name }) => name),
     ).toEqual([
-      "0109_materials_notification_trace_context",
-      "0110_notifications_notification_trace_context",
-      "0111_notifications_email_trace_context",
+      "0122_materials_notification_trace_context",
+      "0123_notifications_notification_trace_context",
+      "0124_notifications_email_trace_context",
     ]);
     const remaining = platformMigrations.slice(throughCarriers.length);
     expect(remaining[0]?.name).toBe(
-      "0112_communications_tracking_trace_context",
+      "0125_communications_tracking_trace_context",
     );
     await runMigrationsToLatest(database.url, legacyRegistry);
     const legacy = encodeNotification("materials", {
@@ -1499,9 +1500,9 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
     ).toEqual(legacyRegistry.map((migration) => migration.name));
     expect(await runMigrationsToLatest(database.url, throughCarriers)).toEqual({
       appliedMigrations: [
-        "0109_materials_notification_trace_context",
-        "0110_notifications_notification_trace_context",
-        "0111_notifications_email_trace_context",
+        "0122_materials_notification_trace_context",
+        "0123_notifications_notification_trace_context",
+        "0124_notifications_email_trace_context",
       ],
     });
     expect(
