@@ -105,8 +105,7 @@ it.each([
 });
 
 it("keeps reordered families as ordinary callouts", () => {
-  const blocks = cards();
-  [blocks[1], blocks[2]] = [blocks[2]!, blocks[1]!];
+  const blocks = cards().toReversed();
   expect(
     agentChoiceComparison("inside-content-aie-ch1-agent-choice", blocks),
   ).toBeUndefined();
