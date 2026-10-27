@@ -143,8 +143,9 @@ export function ProductSalePanel({
     archivePrice.isPending ||
     saveState.isPending;
 
-  if (sale.isPending) return <ProductSaleLoading />;
-  if (sale.isError) {
+  // Неудачное перечитывание после записи не прячет уже прочитанную продажу.
+  if (sale.data === undefined) {
+    if (!sale.isError) return <ProductSaleLoading />;
     const code =
       sale.error instanceof ProductSaleReadError
         ? sale.error.code

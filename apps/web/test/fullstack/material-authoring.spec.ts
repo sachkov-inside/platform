@@ -1732,7 +1732,7 @@ test("author edits product metadata on a dedicated page and returns to the list 
     page.getByRole("heading", { name: "Продукт пока пуст" }),
   ).toBeVisible();
   await page
-    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .getByRole("tab", { name: "Описание и витрина", exact: true })
     .click();
   await page
     .getByRole("textbox", { name: "Название продукта" })
@@ -1744,7 +1744,7 @@ test("author edits product metadata on a dedicated page and returns to the list 
   await expect(page).toHaveURL(/\/authoring\/products$/u);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
   await page
-    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .getByRole("tab", { name: "Описание и витрина", exact: true })
     .click();
   await expect(
     page.getByRole("textbox", { name: "Название продукта" }),
