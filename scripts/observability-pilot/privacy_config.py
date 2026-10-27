@@ -145,7 +145,9 @@ def render():
     waitlist_keys = ['waitlist.operation', 'waitlist.outcome']
     for key, values in zip(waitlist_keys, (waitlist['operations'], waitlist['outcomes'])):
         span_attributes += ['set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])', enum_rule(key, values)]
-    span_rules = ['keep_keys(attributes, '+literal(keys+dependency_keys+tracking_keys+waitlist_keys+['email.lane','messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *span_attributes,
+    failure_keys = ['failure.category','failure.code']
+    span_attributes += [enum_rule(key,policy['failure_causes'][field]) for key,field in zip(failure_keys,('categories','codes'))]
+    span_rules = ['keep_keys(attributes, '+literal(keys+dependency_keys+tracking_keys+waitlist_keys+failure_keys+['email.lane','messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *span_attributes,
         'delete_key(attributes, "messaging.message.id") where attributes["messaging.message.id"] != nil and not IsMatch(attributes["messaging.message.id"], "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")']
     for key in ('pgboss.job.retry_count','messaging.batch.message_count'):
         span_rules.append(f'delete_key(attributes, "{key}") where attributes["{key}"] != nil and (not IsInt(attributes["{key}"]) or attributes["{key}"] < 0 or attributes["{key}"] > 1000000)')
@@ -385,10 +387,16 @@ prometheus.relabel "trace_store_health" {
     return text
 
 
+def render_stdout():
+    policy = json.loads((CONFIG/'privacy-policy.json').read_text())['failure_causes']
+    template = (CONFIG.parent/'production/stdout.alloy.tmpl').read_text()
+    return template.replace('@@FAILURE_CATEGORIES@@',pattern(policy['categories'])).replace('@@FAILURE_CODES@@',pattern(policy['codes']))
+
+
 if __name__ == '__main__':
-    result = render()
-    if '--check' in sys.argv:
-        if (CONFIG/'config.alloy').read_text() != result:
-            raise SystemExit('Alloy privacy configuration is stale')
-    else:
-        (CONFIG/'config.alloy').write_text(result)
+    for target, result in ((CONFIG/'config.alloy',render()), (CONFIG.parent/'production/stdout.alloy',render_stdout())):
+        if '--check' in sys.argv:
+            if target.read_text() != result:
+                raise SystemExit('Alloy privacy configuration is stale')
+        else:
+            target.write_text(result)

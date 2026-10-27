@@ -29,8 +29,8 @@ test("isolated Bot API accepts only synthetic methods under the owned TLS identi
       const address = server.address();
       if (address === null || typeof address === "string")
         throw new Error("owned port required");
-      /** @param {string} path */
-      const call = async (path) =>
+      /** @param {string} path @param {Record<string,unknown>} [body] */
+      const call = async (path, body = {}) =>
         await new Promise(
           /** @param {(value:{status:number|undefined,body:unknown})=>void} resolve @param {(reason:unknown)=>void} reject */
           (resolve, reject) => {
@@ -63,7 +63,7 @@ test("isolated Bot API accepts only synthetic methods under the owned TLS identi
             incoming.on("timeout", () =>
               incoming.destroy(new Error("owned deadline")),
             );
-            incoming.end("{}");
+            incoming.end(JSON.stringify(body));
           },
         );
       assert.deepEqual(await call("/bot1566:synthetic/getMe"), {
@@ -86,6 +86,48 @@ test("isolated Bot API accepts only synthetic methods under the owned TLS identi
         status: 403,
         body: { ok: false, error_code: 403 },
       });
+      assert.deepEqual(
+        await call("/bot1566:synthetic/getChatMember", {
+          chat_id: -1000000000000,
+          user_id: 1566,
+        }),
+        {
+          status: 200,
+          body: {
+            ok: true,
+            result: {
+              status: "administrator",
+              user: { id: 1566, is_bot: true, first_name: "synthetic" },
+            },
+          },
+        },
+      );
+      assert.deepEqual(
+        await call("/bot1566:synthetic/getChatMember", {
+          chat_id: -1000000000000,
+          user_id: 1000001,
+        }),
+        {
+          status: 200,
+          body: {
+            ok: true,
+            result: {
+              status: "left",
+              user: { id: 1000001, is_bot: false, first_name: "synthetic" },
+            },
+          },
+        },
+      );
+      for (const body of [
+        { chat_id: -1000000000001, user_id: 1566 },
+        { chat_id: -1000000000000, user_id: 1567 },
+        { chat_id: { toString: "private-sentinel" }, user_id: 1566 },
+      ]) {
+        assert.deepEqual(await call("/bot1566:synthetic/getChatMember", body), {
+          status: 400,
+          body: { ok: false, error_code: 400 },
+        });
+      }
     } finally {
       server.closeAllConnections();
       await new Promise((resolve, reject) =>

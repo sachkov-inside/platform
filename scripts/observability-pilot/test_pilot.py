@@ -190,6 +190,7 @@ class PilotPreparationTest(unittest.TestCase):
     def test_only_loopback_published_services_join_the_owned_ingress_bridge(self):
         plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
                                   {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        self.assertIn("-search.latencyOffset=1ms", plan["services"]["metrics"]["command"])
         ingress_services = {"gateway", "alloy", "grafana"}
         self.assertTrue(plan["networks"]["pilot"]["internal"])
         self.assertEqual(plan["networks"].get("ingress"), {"driver": "bridge", "internal": False})
@@ -208,6 +209,11 @@ class PilotPreparationTest(unittest.TestCase):
             auth = (output / "auth.json").stat()
             plan = json.loads((output / "compose.json").read_text())
             reader = plan["services"]["vmauth"]
+            from urllib.parse import urlsplit,parse_qs
+            routes=json.loads((output/'auth.json').read_text())['users'][0]['url_map']
+            logs=next(route for route in routes if route['src_paths'][0].startswith('/logs/'))
+            self.assertEqual(parse_qs(urlsplit(logs['url_prefix']).query),{'extra_filters':['_time:14d']})
+            self.assertNotIn('merge_query_args',logs)
             self.assertEqual(auth.st_mode & 0o777, 0o600)
             self.assertEqual(reader.get("user"), f"{auth.st_uid}:{auth.st_gid}")
             self.assertEqual(reader["cap_drop"], ["ALL"])

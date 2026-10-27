@@ -89,10 +89,14 @@ function observedMethod<Method extends (...args: never[]) => unknown>(
         args[args.length - 1] = function (this: unknown, ...values: unknown[]) {
           const failed = values[0] !== undefined && values[0] !== null;
           if (!failed) prepare(values[1]);
-          return observation.complete(failed, () => {
-            const result: unknown = Reflect.apply(callback, this, values);
-            return result;
-          });
+          return observation.complete(
+            failed,
+            () => {
+              const result: unknown = Reflect.apply(callback, this, values);
+              return result;
+            },
+            values[0],
+          );
         };
       }
       try {
@@ -108,16 +112,24 @@ function observedMethod<Method extends (...args: never[]) => unknown>(
               return observation.complete(false, () => value);
             },
             (error: unknown) =>
-              observation.complete(true, () => {
-                throw error;
-              }),
+              observation.complete(
+                true,
+                () => {
+                  throw error;
+                },
+                error,
+              ),
           );
         }
         return observation.complete(false, () => result);
       } catch (error) {
-        return observation.complete(true, () => {
-          throw error;
-        });
+        return observation.complete(
+          true,
+          () => {
+            throw error;
+          },
+          error,
+        );
       }
     },
   });

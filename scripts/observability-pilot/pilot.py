@@ -66,7 +66,7 @@ def compose_plan(source, output, images, *, credential_owner):
     for name, retention in [("metrics", "90d"), ("logs", "14d"), ("traces", "14d")]:
         services[name].update({"command": ["-storageDataPath=/data", f"-retentionPeriod={retention}",
             "-memory.allowedBytes=256MiB"], "volumes": [f"{name}:/data"]})
-    services["metrics"]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2"]
+    services["metrics"]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2", "-search.latencyOffset=1ms"]
     for name in ("logs", "traces"):
         services[name]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2"]
     # Pinned VT can log unfiltered fields before its ingestion filter, including rejected rows.

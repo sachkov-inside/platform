@@ -100,6 +100,11 @@ def trace_rows(transport='json'):
                 'span_attr:dependency.operation':operation,'span_attr:dependency.outcome':outcome})
         if index<6 or index in (26,27):
             row['span_attr:http.response.status_code']='200'
+        if index in (7,9,11):
+            category,code={7:('constraint','23505'),9:('connection','ECONNREFUSED'),11:('timeout','57014')}[index]
+            row.update({'span_attr:failure.category':category,'span_attr:failure.code':code})
+        elif index==32:
+            row.update({'span_attr:failure.category':'_OTHER','span_attr:failure.code':'_OTHER'})
         rows.append(row)
     return rows
 

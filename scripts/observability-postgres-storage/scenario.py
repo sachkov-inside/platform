@@ -33,6 +33,7 @@ class Scenario:
         self.phase='acquisition';self.clock_deadline=None;self.end=None;self.cleanup_end=None;self.last_attempt=None
         self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None;self.upload_operation=None;self.visibility=[];self.visibility_overflow=False
         self.restart_down=None
+        self.published_sample=None
 
     def note_visibility(self,step,started,value,observed=None,previous=False,*,finished=None,completed_us=None):
         # Closed built-in numbers only. No transport/provider content enters this witness.
@@ -182,11 +183,15 @@ class Scenario:
             down_pending=(self.phase=='restart_observe' and self.restart_down is not None and self.ledger.last is not None
                 and type(self.oracle) is ModuleType and self.oracle.controlled_down_pending(raw,stamps,
                     evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value,down=self.restart_down))
+            fragments_pending=(observed['freshness']=='malformed' and self.published_sample==value and self.ledger.last is not None
+                and type(self.oracle) is ModuleType and self.oracle.acknowledged_fragments_pending(raw,stamps,
+                    evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value,
+                    down=self.restart_down if self.phase=='restart_observe' else None))
             query_finished=time.monotonic()
             if time.monotonic()>=query_deadline:raise TimeoutError()
             if phases is not None:self.note_visibility('stored',query_started,value,observed,previous_pending,finished=query_finished,completed_us=completed)
             if observed['freshness']=='fresh':return observed
-            if observed['freshness'] not in ('missing',) and not previous_pending and not down_pending:
+            if observed['freshness'] not in ('missing',) and not previous_pending and not down_pending and not fragments_pending:
                 if phases is not None and type(self.oracle) is ModuleType:
                     try:
                         reason=self.oracle.diagnostic_reason(observed)
@@ -214,7 +219,9 @@ class Scenario:
         upload_started=time.monotonic()
         self.upload(frame.payload(value))
         if phases is not None:self.note_visibility('uploaded',upload_started,value)
-        observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
+        self.published_sample=value.copy()
+        try:observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
+        finally:self.published_sample=None
         if phases is not None:self.phase=phases['ledger']
         continuity=self.ledger.accept(value)
         return value,{**observed,'continuity':continuity['continuity'],'count_complete':continuity['count_complete']}

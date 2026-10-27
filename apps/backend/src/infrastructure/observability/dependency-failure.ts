@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { describeError, writeLog } from "./log.js";
+import { classifyFailure } from "./failure-cause.js";
 
 /** Где упала зависимость: Module и его операция. */
 export interface DependencyScope {
@@ -32,7 +33,10 @@ function writeFailure(
   error: unknown,
   outcome: DependencyOutcome | undefined,
 ): void {
+  const cause = classifyFailure(error);
   writeLog("error", "dependency_failure", {
+    failureCategory: cause.category,
+    failureCode: cause.code,
     module: scope.module,
     operation: scope.operation,
     ...(outcome === undefined ? {} : { outcome: outcome.code }),
