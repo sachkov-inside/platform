@@ -273,3 +273,30 @@ class Records(unittest.TestCase):
                     else:
                         with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
                         self.assertFalse(public.exists())
+
+    def test_visibility_timing_curation_keeps_only_closed_source_bound_numbers(self):
+        import copy
+        import postgres_source
+        from test_public import AdmissionComposition
+        value={'schema':1,'source':'a'*40,'overflow':False,'rows':[{'phase':'baseline_second_stored_oracle','step':'stored','elapsed_ms':500,
+            'expected_age_ms':750,'stored_age_ms':13000,'freshness':'stale','previous_committed':True}]}
+        for control in ('valid','exception','source','age'):
+            with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700);metadata=root/'metadata';public=root/'public'
+                with AdmissionComposition().external_reads(root):
+                    postgres_source.admission(metadata);record.write(output,self.value())
+                    record.persist_visibility(output,value,'a'*40)
+                    path=output/'postgres-visibility.json'
+                    self.assertEqual(path.stat().st_mode&0o777,0o600)
+                    if control!='valid':
+                        changed=copy.deepcopy(value)
+                        if control=='exception':changed['rows'][0]['body']='private-sentinel'
+                        elif control=='source':changed['source']='b'*40
+                        else:changed['rows'][0]['expected_age_ms']=True
+                        path.write_text(json.dumps(changed))
+                    if control=='valid':
+                        postgres_source.collect(output,metadata,public)
+                        self.assertEqual(json.loads((public/'postgres-visibility.json').read_text()),value)
+                    else:
+                        with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
+                        self.assertFalse(public.exists())

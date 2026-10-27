@@ -238,3 +238,33 @@ def persist_upload(root,value):
     except BaseException:
         if primary is None:raise
         BaseException.__traceback__.__set__(primary,tb)
+
+
+def visibility(value,source):
+    if (type(value) is not dict or set(value)!={'schema','source','overflow','rows'} or type(value['schema']) is not int
+            or value['schema']!=1 or not sha(source) or value['source']!=source or type(value['overflow']) is not bool
+            or type(value['rows']) is not list or len(value['rows'])>64):refuse()
+    phases={phase for phase in PHASES if phase.startswith(('baseline_first_','baseline_second_'))}
+    for row in value['rows']:
+        if (type(row) is not dict or set(row)!={'phase','step','elapsed_ms','expected_age_ms','stored_age_ms','freshness','previous_committed'}
+                or type(row['phase']) is not str or row['phase'] not in phases or row['step'] not in ('acquired','uploaded','stored')
+                or type(row['elapsed_ms']) is not int or not 0<=row['elapsed_ms']<=180000
+                or row['expected_age_ms'] is not None and (type(row['expected_age_ms']) is not int or not -2000<=row['expected_age_ms']<=180000)
+                or row['stored_age_ms'] is not None and (type(row['stored_age_ms']) is not int or not 0<=row['stored_age_ms']<=600000)
+                or row['freshness'] not in (None,*FRESHNESS) or type(row['previous_committed']) is not bool):refuse()
+    return value
+
+
+def persist_visibility(root,value,source):
+    primary,tb=sys.exc_info()[1:]
+    try:
+        raw=(json.dumps(visibility(value,source),sort_keys=True,separators=(',',':'))+'\n').encode()
+        if len(raw)>16384:refuse()
+        with directory(Path(root)) as owned:
+            fd=os.open('postgres-visibility.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600,dir_fd=owned)
+            try:
+                if os.write(fd,raw)!=len(raw):refuse()
+            finally:os.close(fd)
+    except BaseException:
+        if primary is None:raise
+        BaseException.__traceback__.__set__(primary,tb)

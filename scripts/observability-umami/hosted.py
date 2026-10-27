@@ -11,12 +11,20 @@ import runtime
 
 ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'recovery.json',
              'container-states.json', 'readiness.json', 'storage-host.json', 'storage-vm.json',
-             'monitor-failure.json', 'umami-proof.json', 'umami-retention.json')
+             'monitor-failure.json', 'umami-proof.json', 'umami-retention.json', 'browser-analytics-proof.json')
 RECOVERY_ARTIFACTS=(*ARTIFACTS,'recovery-proof.json','recovery-inputs.json')
 
 
 def source_inputs():
-    return tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + tuple(sorted(runtime.SCRIPTS.glob('*.sql'))) + tuple(sorted((runtime.SCRIPTS/'fixtures'/'foundation-2.57.0').iterdir())) + (
+    web = tuple(sorted(path for directory in (ROOT / "apps/web/src", ROOT / "apps/web/app", ROOT / "apps/web/test") for path in directory.rglob("*") if path.is_file() and path.suffix in (".ts", ".tsx", ".mts", ".html"))) + (ROOT / "apps/web/proxy.ts", ROOT / "apps/web/package.json", ROOT / "apps/web/vitest.native-analytics.config.mts")
+    catalog = tuple(ROOT / name for name in (
+        'apps/backend/src/modules/content-library/features/read-reader-reference/read-reader-reference.ts',
+        'apps/backend/src/modules/content-library/features/read-reader-reference/read-reader-reference.controller.ts',
+        'apps/backend/src/modules/content-library/index.ts', 'apps/backend/src/entrypoints/api/api.module.ts',
+        'apps/backend/test/integration/content-library.test.ts', 'apps/backend/openapi/platform-api.json',
+    ))
+    legal = tuple(sorted(path for path in (ROOT / 'packages/legal/src').rglob('*') if path.is_file() and path.suffix in ('.ts','.json')))
+    return catalog + legal + web + tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + tuple(sorted(runtime.SCRIPTS.glob('*.sql'))) + tuple(sorted((runtime.SCRIPTS/'fixtures'/'foundation-2.57.0').iterdir())) + (
         ROOT / 'scripts/observability-pilot/pilot.py', ROOT / 'scripts/observability-pilot/native_cpu.py', ROOT / 'scripts/observability-pilot/ci.py',
         ROOT / 'scripts/observability-pilot/daemon.py', ROOT / 'scripts/observability-pilot/orbstack.py',
         ROOT / 'scripts/observability-pilot/storage_policy.py', ROOT / 'scripts/observability-pilot/collector_privacy.py', ROOT / 'infra/observability/pilot/probe.lock.json',
@@ -24,7 +32,7 @@ def source_inputs():
         ROOT / 'infra/production/database/restore-entrypoint.sh', ROOT / 'infra/production/database/pgbackrest.conf',
         ROOT / 'infra/production/database/libpq-version.c', ROOT / 'infra/production/database/versions.json',
         runtime.CONFIG / 'recovery-cache.lock.json', runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json', runtime.CONFIG / 'schema-fixture.sql',
-        ROOT / '.github/workflows/observability-umami.yml', ROOT / '.node-version',
+        ROOT / '.github/workflows/observability-umami.yml', ROOT / '.github/workflows/observability-browser-analytics.yml', ROOT / '.node-version', ROOT / 'package.json', ROOT / 'pnpm-lock.yaml',
         ROOT / 'scripts/observability-umami-startup.pg.test.mjs', ROOT / 'scripts/observability-umami-retention.pg.test.mjs', ROOT / 'scripts/observability-umami.test.mjs', ROOT / 'scripts/observability-umami-process.test.mjs',
         ROOT / 'scripts/process-group-signal.mjs',
     )

@@ -1974,6 +1974,13 @@ that a test stopped, not that it passed. The first HTTP/identity group and third
 real backend corpus group remain unchanged. These source diagnostics do not explain
 earlier hosted timeouts, increase a budget, or establish native capacity acceptance.
 
+Collection privacy and controlled Docker-command faults use the existing private real-Git source
+fixture. Build-command fixtures additionally copy the actual pinned image manifest into their
+own commit. Git identity, byte hashes, source-drift refusal, ownership and cleanup remain real;
+no production source cache or hash oracle replacement is used. The independent full-repository
+input test and workflow-route closure still read the complete application, including Web.
+All 114 inventoried methods and their process, output and cleanup limits are retained.
+
 ### Prepared ordinary-role PostgreSQL server source
 
 The independent `postgres-source` job in `observability-tracking-storage.yml` prepares an opt-in,
@@ -2121,6 +2128,26 @@ production rollout, server changes, capacity conclusions, provider messages or #
 для values, timestamps и контрольного global vector. Предел свежести 10 секунд и проверки
 полноты/cohort не меняются. Детерминированный тест воспроизводит этот отказ чтения;
 причинная связь с конкретным native CI требует нового source-bound прогона.
+
+Подтверждение OTLP HTTP 200 и доступность нового frame в VictoriaMetrics различаются.
+В закреплённом [VictoriaMetrics v1.154.0](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/storage/partition.go#L101)
+недавно принятые raw rows ещё не доступны поиску до преобразования в searchable parts.
+Проверка публикации допускает ожидание в прежнем 30-секундном окне, если raw vectors
+после всех прежних проверок полностью совпадают с последним frame, уже принятым private ledger.
+Это касается всех семи семейств и точного sample, не произвольного более старого результата.
+Старый frame остаётся `stale` в обычном oracle. Он не проходит приёмку и не продлевает
+порог свежести нового frame: новый frame обязан появиться с возрастом не более 10 секунд.
+Изменённый counter, чужая метка, неизвестный sample, unavailable и новый stale frame
+не получают такого ожидания. Query и decode используют один срок не более 10 секунд.
+Вычисление `ceil` и проверки frozen ownership сохранены.
+
+`postgres-visibility.json` отдельно сохраняет до 64 закрытых baseline timing rows:
+длительности acquire/upload/stored-read, возраст ожидаемого и прочитанного sample,
+исходную freshness и признак точного предыдущего committed frame. Публикуются только
+числа и конечные перечисления, без исходных timestamps, vectors, SQL, текстов ошибок
+и credentials. Receipt/source SHA проверяются до создания публичного каталога;
+превышение числа строк отмечается явно. Детерминированный RED/GREEN воспроизводит
+async visibility с прежним stale frame, а фактическое native завершение требует нового CI.
 
 ### PostgreSQL: завершение текущей проверки приватности
 

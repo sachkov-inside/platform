@@ -25,9 +25,21 @@ for (const value of inventory) {
   ids.push(value);
 }
 export const sourceIds = Object.freeze(ids);
+export const sourceGroups = Object.freeze({
+  contracts: Object.freeze(
+    ids.filter((id) => !id.startsWith("test_process_owner.")),
+  ),
+  "process-owner": Object.freeze(
+    ids.filter((id) => id.startsWith("test_process_owner.")),
+  ),
+});
 
-/** @param {unknown} stderr */
-export function sourceProgress(stderr) {
+/**
+ * @param {unknown} stderr
+ * @param {"contracts" | "process-owner" | undefined} [group]
+ */
+export function sourceProgress(stderr, group) {
+  const expectedIds = group === undefined ? sourceIds : sourceGroups[group];
   if (typeof stderr !== "string" || Buffer.byteLength(stderr) > 1_048_576)
     return null;
   /** @type {string | null} */
@@ -47,7 +59,7 @@ export function sourceProgress(stderr) {
     markerBytes += Buffer.byteLength(line) + 1;
     if (end < 0 || markerBytes > 32768) return null;
     if (active === null) {
-      const expected = sourceIds[completedCount];
+      const expected = expectedIds[completedCount];
       if (
         expected === undefined ||
         line !== `CADDY_SOURCE_V1 start ${expected}`
@@ -67,10 +79,15 @@ export function sourceProgress(stderr) {
     : { lastStarted, lastCompleted, completedCount };
 }
 
-/** @param {Awaited<ReturnType<typeof import("../observability-umami/process-owner.mjs").runOwnedProcess>>} result */
-export function assertCaddyContracts(result) {
+/**
+ * @param {Awaited<ReturnType<typeof import("../observability-umami/process-owner.mjs").runOwnedProcess>>} result
+ * @param {"contracts" | "process-owner" | undefined} [group]
+ */
+export function assertCaddyContracts(result, group) {
   const progress =
-    result.reason === "output_limit" ? null : sourceProgress(result.stderr);
+    result.reason === "output_limit"
+      ? null
+      : sourceProgress(result.stderr, group);
   let message =
     progress === null
       ? "Caddy source progress: unknown"
@@ -94,4 +111,16 @@ export function assertCaddyContracts(result) {
   }
   assert.equal(result.reason, "exit", message);
   assert.equal(result.code, 0, message);
+  if (group !== undefined) {
+    const expected = sourceGroups[group];
+    assert.deepEqual(
+      progress,
+      {
+        lastStarted: expected.at(-1),
+        lastCompleted: expected.at(-1),
+        completedCount: expected.length,
+      },
+      message,
+    );
+  }
 }

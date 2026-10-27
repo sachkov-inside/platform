@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = Path(__file__).resolve().parent
@@ -165,6 +166,54 @@ def fixture_proof(value):
     return value
 
 
+def browser_progress(path):
+    """Closed completed milestones only; never publish an assertion, stack or private body."""
+    phases=('started','listener_ready','choice_visible','observations_exported',
+            'native_events_verified','identity_reset_verified','revocation_verified')
+    if path.is_symlink() or not path.is_file():return 'not_started'
+    try:
+        with path.open('rb') as stream:raw=stream.read(129)
+        if len(raw)>128:return 'unavailable'
+        value=json.loads(raw)
+    except (OSError,ValueError):return 'unavailable'
+    return value['phase'] if type(value) is dict and set(value)=={'phase'} and value['phase'] in phases else 'unavailable'
+
+
+def browser_proof(output, compose, state):
+    """Explicit synthetic browser/native proof, using only this registered private project."""
+    if os.environ.get('INSIDE_UMAMI_BROWSER_PROOF') != 'true':return
+    if (len(compose)!=6 or compose[:3]!=['docker','compose','-p'] or compose[4]!='-f'
+            or re.fullmatch(PROJECT_PREFIX+r'[a-f0-9]{12}',compose[3]) is None
+            or pilot.FROZEN_DOCKER_IDENTITY is None):
+        raise ValueError('browser_proof_requires_registered_owner')
+    site=str(uuid.uuid4())
+    # Keep the existing native MCP/count corpus unchanged: this synthetic site belongs
+    # to the same read-only fixture team and is removed with the owned database volume.
+    invoke(compose,['exec','-T','db','psql','-X','-qAt','-U','umami','-d','umami','-v','ON_ERROR_STOP=1'],
+        payload=f"INSERT INTO public.website(website_id,name,domain,team_id) VALUES('{site}','synthetic-browser-proof','fixture.invalid','{state['team']}');")
+    private=output/'browser-proof.private.json'
+    with private.open('x') as stream:
+        os.chmod(private,0o600)
+        json.dump({'schema':1,'site':site,'key':state['key'],'project':compose[3],
+                   'endpoint':pilot.FROZEN_DOCKER_IDENTITY['endpoint'],'compose':str(Path(compose[5]).resolve())},stream)
+    try:
+        progress=output/'browser-proof.progress.json'
+        result=subprocess.run(['pnpm','--filter','@inside/web','exec','vitest','run','--config','vitest.native-analytics.config.mts'],
+            cwd=ROOT,env={**os.environ,'INSIDE_UMAMI_BROWSER_PROOF_INPUT':str(private),
+                'INSIDE_UMAMI_BROWSER_PROOF_PROGRESS':str(progress)},
+            capture_output=True,text=True,timeout=120)
+        log=output/'browser-proof.private.log'
+        log.write_text((result.stdout+result.stderr)[:65536]);log.chmod(0o600)
+        last_completed=browser_progress(progress)
+        passed=result.returncode==0 and last_completed=='revocation_verified'
+        pilot.write_json(output/'browser-analytics-proof.json',{'schema':1,'state':'passed' if passed else 'failed',
+            'returncode':result.returncode,'last_completed':last_completed,
+            'scope':'synthetic Chromium to production Web operation to pinned native Umami and bounded reader',
+            'production':'not_executed'})
+        if not passed:raise RuntimeError('browser_native_proof_failed')
+    finally:private.unlink(missing_ok=True)
+
+
 def smoke(output, compose):
     stage = 'database_start'
     try:
@@ -179,6 +228,8 @@ def smoke(output, compose):
         # Preserve inode: the bind mount must observe this key, not a replaced file.
         (output / 'reader.key').write_text(state['key'])
         os.chmod(output / 'reader.key', 0o600)
+        stage = 'browser_native_analytics'
+        browser_proof(output, compose, state)
         stage = 'native_mcp_setup'
         node, executable = native_setup(output)
         end = int(time.time() * 1000)

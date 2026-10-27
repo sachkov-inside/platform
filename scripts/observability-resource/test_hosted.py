@@ -20,7 +20,8 @@ _SOURCE_SCRIPTS = binding.SCRIPTS
 
 
 @contextmanager
-def _synthetic_source_checkout():
+def _synthetic_source_checkout(*,build_inputs=False):
+    if type(build_inputs) is not bool:raise ValueError('synthetic_source_build_mode_refused')
     if any(name.startswith('GIT_') and (name != 'GIT_PAGER' or type(value) is not str or value != 'cat')
            for name, value in os.environ.items()):
         raise ValueError('synthetic_git_environment_refused')
@@ -40,6 +41,9 @@ def _synthetic_source_checkout():
             'scripts/observability-resource/source_fixture.py': b'SYNTHETIC_SOURCE_INPUT = 1\n',
             '.github/workflows/observability-resource.yml': b'name: synthetic-source-input\n',
         }
+        if build_inputs:
+            name='infra/observability/pilot/inputs.lock.json'
+            files[name]=(_SOURCE_ROOT/name).read_bytes()
         for name, content in files.items():
             parent = checkout
             for part in Path(name).parts[:-1]:
@@ -240,6 +244,7 @@ class EvidenceTrust(unittest.TestCase):
                 self.assertTrue(all(not path.exists() for path in owned_paths))
 
 
+    @_synthetic_source_checkout()
     def test_changed_source_metadata_is_refused_before_collection(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -484,6 +489,9 @@ class ExactSourceBuildBoundary(unittest.TestCase):
             with self.subTest(stage=stage):
                 self.exercise_build(failure=stage)
 
+    # The fake Docker child exercises command/image ownership, not application compilation.
+    # Reuse the real private Git fixture instead of rehashing the complete application per fault.
+    @_synthetic_source_checkout(build_inputs=True)
     def exercise_build(self, *, failure=None):
         import socket
         import sys
@@ -832,6 +840,7 @@ class GroupSignalBoundary(unittest.TestCase):
 
 
 class DuplicateMetadata(unittest.TestCase):
+    @_synthetic_source_checkout()
     def test_literal_and_escaped_overwritten_private_fields_are_refused_before_publication(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -24,6 +24,7 @@ import {
   ListPublicSiteIndexController,
   ListLearningPracticesController,
   ReadProductAccessController,
+  ReadReaderReferenceController,
   ReadProductSaleAvailabilityController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
@@ -61,6 +62,7 @@ import { HealthController } from "./health.controller.js";
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
     ReadProductAccessController,
+    ReadReaderReferenceController,
     ReadProductSaleAvailabilityController,
     VideoAuthoringController,
     KinescopeWebhookController,

@@ -1,3 +1,4 @@
+import { AnalyticsObservation } from "@/features/storage-notice";
 import { IndividualPurchaseView } from "./individual-purchase-view";
 import type { PaymentLinkDetail } from "@/entities/subscription";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -24,7 +25,7 @@ import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client"
 export type ProductPurchaseViewer = "loading" | "guest" | "member";
 
 export interface ProductPurchaseViewProps {
-  readonly product: { readonly name: string } | null;
+  readonly product: { readonly id?: string; readonly name: string } | null;
   readonly offer: PriceSnapshot | null;
   readonly slug: string;
   readonly viewer: ProductPurchaseViewer;
@@ -79,6 +80,9 @@ export function ProductPurchaseView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem]">
+      {product?.id !== undefined && !unavailable && !hasPurchase ? (
+        <AnalyticsObservation event="checkout_started" entityId={product.id} />
+      ) : null}
       {/* Страница покупки, как и страница курса, обходится без общей нижней навигации: путь
           назад — ссылка вверху (решение владельца 09.10.2026). */}
       <HideMobileNavigation />

@@ -91,7 +91,11 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
         queue = 'membership-activity.retention'
         projected_policy = copy.deepcopy(policy)
         for key, addition in (('routes', route), ('routes', '/authoring/import/materials/state'),
-                              ('routes', '/authoring/import/tasks/state'), ('queues', queue)):
+                              ('routes', '/authoring/import/tasks/state'),
+                              ('routes', '/library/materials/by-id/:id/reference'),
+                              ('routes', '/library/materials/by-id/{id}/reference'),
+                              ('routes', '/library/products/by-id/:id/reference'),
+                              ('routes', '/library/products/by-id/{id}/reference'), ('queues', queue)):
             self.assertEqual(projected_policy[key].count(addition), 1)
             projected_policy[key].remove(addition)
         actual = privacy_config.render()
