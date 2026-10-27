@@ -41,7 +41,13 @@ export class OwnerOrderEmailRead {
         accountId: actorId,
         permission: "billing:manage",
       });
-      if (!permission.ok) return refusal("dependency_unavailable");
+      if (!permission.ok)
+        return refusal(
+          permission.error.code === "account_not_found" ||
+            permission.error.code === "invalid_input"
+            ? "forbidden"
+            : "dependency_unavailable",
+        );
       if (!permission.allowed) return refusal("forbidden");
       if (!z.uuid().safeParse(purchaseRef).success) return refusal("not_found");
       const row = await this.dependencies.prisma.billingPurchase.findUnique({

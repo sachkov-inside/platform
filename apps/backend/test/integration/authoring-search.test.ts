@@ -9,10 +9,13 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import { assemblePaymentsSearchGroup } from "../../src/modules/authoring-search/adapters/billing/payments-search-group.js";
 import { assembleMaterialsSearchGroup } from "../../src/modules/authoring-search/adapters/materials/materials-search-group.js";
 import { assembleProductsSearchGroup } from "../../src/modules/authoring-search/adapters/products/products-search-group.js";
 import { assembleAuthoringSearch } from "../../src/modules/authoring-search/features/search-authoring/search-authoring.js";
 import type { AuthoringSearchGroup } from "../../src/modules/authoring-search/ports/authoring-search-group.js";
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
+import { BillingPaymentSearch } from "../../src/modules/billing/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import {
   assembleProductAuthoring,
@@ -23,6 +26,10 @@ import {
   declaredServer,
   type DeclaredServer,
 } from "../support/declared-api.js";
+import {
+  commerceValue,
+  createProductCommerceFixture,
+} from "./setup/product-commerce.js";
 import {
   startTestIdentityIssuer,
   type TestIdentityIssuer,
@@ -330,10 +337,20 @@ describe("Authoring search", () => {
         { kind: "materials", state: "ready", items: [] },
       ],
     });
-    const denied = await server.inject({
+    // A billing owner reads only the Payments group; an account without either right is refused.
+    const billing = await server.inject({
       method: "GET",
       url: url("search product"),
       headers: billingHeaders,
+    });
+    expect(billing.statusCode).toBe(200);
+    expect(billing.json()).toEqual({
+      groups: [{ kind: "payments", state: "ready", items: [] }],
+    });
+    const denied = await server.inject({
+      method: "GET",
+      url: url("search product"),
+      headers: await signedIn(null),
     });
     expect(denied.statusCode).toBe(403);
     expect(denied.json()).toMatchObject({ code: "forbidden" });
@@ -385,8 +402,101 @@ describe("Authoring search", () => {
     );
   });
 
+  test("the Payments group finds a payment by order number, bank payment number or exact amount, without the buyer", async () => {
+    const owner = randomUUID();
+    await database.prisma.account.create({
+      data: {
+        id: owner,
+        logtoIssuer: "https://identity.invalid",
+        logtoSubject: owner,
+      },
+    });
+    await database.prisma.accountPermission.create({
+      data: { accountId: owner, permission: "platform:admin" },
+    });
+    const commerce = createProductCommerceFixture(database, owner);
+    // 37 % off 2 000 ₽ is 1 260 ₽, an amount no other payment here has.
+    const s = await commerce.scenario({ discount: 37 });
+    const purchase = commerceValue(
+      await s.payments.purchase(s.buyer, s.command),
+    );
+    const row = await database.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchase.purchaseRef },
+    });
+    const paymentId = row.paymentId ?? "";
+    expect(paymentId).toMatch(/^\d+$/u);
+    const payments = new BillingPaymentSearch({
+      prisma: database.prisma,
+      accounts: s.accounts,
+    });
+    const hit = {
+      purchaseRef: purchase.purchaseRef,
+      productName: "Курс",
+      amountKopecks: 126000,
+      state: row.state,
+      createdAt: row.createdAt.toISOString(),
+    };
+    for (const query of [
+      purchase.purchaseRef,
+      purchase.purchaseRef.toUpperCase(),
+      paymentId,
+      "1260",
+      "1 260 ₽",
+      "1\u00a0260\u00a0₽",
+      "1260 руб",
+      "1260 руб.",
+      "1 260,00 ₽",
+    ])
+      expect(
+        await payments.search({ actor: owner, query, limit: 5 }),
+        query,
+      ).toEqual({ ok: true, value: [hit] });
+    for (const query of [
+      "126",
+      "1260,5",
+      "Курс",
+      randomUUID(),
+      "order@example.test",
+    ])
+      expect(
+        await payments.search({ actor: owner, query, limit: 5 }),
+        query,
+      ).toEqual({ ok: true, value: [] });
+
+    const materialsOnly = assembleAccounts({
+      prisma: database.prisma,
+      emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
+    });
+    const registry = assembleAuthoringSearch([
+      ...searchGroups(database.prisma, (actor) => actor === manager),
+      assemblePaymentsSearchGroup(
+        new BillingPaymentSearch({
+          prisma: database.prisma,
+          accounts: materialsOnly,
+        }),
+      ),
+    ]);
+    // The manager has no billing:manage: the Payments group is omitted, not answered empty.
+    expect(await registry.search(manager, purchase.purchaseRef)).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          { kind: "products", state: "ready", items: [] },
+          { kind: "materials", state: "ready", items: [] },
+        ],
+      },
+    });
+    const found = await registry.search(owner, purchase.purchaseRef);
+    expect(found).toEqual({
+      ok: true,
+      value: { groups: [{ kind: "payments", state: "ready", items: [hit] }] },
+    });
+    expect(JSON.stringify(found)).not.toContain(s.buyer);
+    expect(JSON.stringify(found)).not.toContain("order@example.test");
+  });
+
   async function signedIn(
-    permission: "materials:manage" | "billing:manage",
+    permission: "materials:manage" | "billing:manage" | null,
   ): Promise<Record<string, string>> {
     const subject = `authoring-search-${randomUUID()}`;
     const bearer = await identity.sign(subject, {
@@ -402,9 +512,10 @@ describe("Authoring search", () => {
     const account = await database.prisma.account.findFirstOrThrow({
       where: { logtoSubject: subject },
     });
-    await database.prisma.accountPermission.create({
-      data: { accountId: account.id, permission },
-    });
+    if (permission !== null)
+      await database.prisma.accountPermission.create({
+        data: { accountId: account.id, permission },
+      });
     return headers;
   }
 });
