@@ -12,6 +12,7 @@ import {
   type SubmitEvent,
 } from "react";
 
+import type { NameSearchState } from "@/entities/authoring-person";
 import { formatCountRu, pluralRu } from "@/shared/lib/moscow-format";
 import { hasText, presentText } from "@/shared/lib/text";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
@@ -55,7 +56,7 @@ export type GrantPeopleSearchState =
   | {
       readonly kind: "ready";
       readonly items: readonly GrantPerson[];
-      readonly nameSearch: "available" | "unavailable" | "truncated";
+      readonly nameSearch: NameSearchState;
     }
   | { readonly kind: "unavailable" };
 
