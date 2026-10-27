@@ -281,7 +281,8 @@ test("on a phone payments are list items with large targets and no sideways scro
     main.getByRole("combobox", { name: "Продукт", exact: true }),
     main.getByRole("combobox", { name: "Состояние оплаты", exact: true }),
     main.getByLabel("С какого дня", { exact: true }),
-    first.getByRole("link").first(),
+    // Строку открывает щелчок по любому её месту, поэтому цель нажатия — вся строка.
+    first,
     first.getByRole("button", { name: /^Действия с платежом/u }),
     main.getByRole("button", { name: "Более ранние" }),
   ]) {

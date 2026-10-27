@@ -143,7 +143,7 @@ export const LongList: Story = {
     await userEvent.click(page.getByRole("button", { name: "Более ранние" }));
     await expect(queryChanged).toHaveBeenCalledWith({
       states: [],
-      cursor: ownerPayment(49).purchaseRef,
+      cursor: ownerPayment(50).purchaseRef,
     });
   },
 };
