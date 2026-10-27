@@ -75,6 +75,7 @@ export const searchGroupSchema = z.union([
     .object({
       items: z.array(paymentHitSchema),
       kind: z.literal("payments"),
+      personSearch: z.enum(["available", "name_unavailable", "unavailable"]),
       state: z.literal("ready"),
     })
     .strict(),
@@ -166,6 +167,22 @@ export const searchGroupPresentation: {
       })),
   },
 };
+
+/**
+ * Чего группа сейчас не искала, чтобы пустой список не выглядел ответом. Платежи по номеру заказа
+ * и сумме ищутся всегда; по человеку сервер мог не искать.
+ */
+export function searchGroupNote(group: AuthoringSearchGroup): string | null {
+  if (group.state !== "ready" || group.kind !== "payments") return null;
+  switch (group.personSearch) {
+    case "available":
+      return null;
+    case "name_unavailable":
+      return "Поиск по имени временно недоступен. Найдите платежи человека по email или ID.";
+    case "unavailable":
+      return "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.";
+  }
+}
 
 /** Строки группы, готовой к показу, в порядке сервера. */
 export function searchGroupEntries(

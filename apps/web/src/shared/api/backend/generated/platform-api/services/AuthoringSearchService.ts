@@ -45,6 +45,10 @@ export class AuthoringSearchService {
         state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
       }>;
       kind: 'payments';
+      /**
+       * Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in either case
+       */
+      personSearch: 'available' | 'name_unavailable' | 'unavailable';
       state: 'ready';
     }) | {
       kind: 'products' | 'materials' | 'payments';

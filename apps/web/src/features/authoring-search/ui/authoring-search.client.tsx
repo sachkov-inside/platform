@@ -22,6 +22,7 @@ import {
   authoringSearchQueryKey,
   authoringSearchQuerySchema,
   searchGroupEntries,
+  searchGroupNote,
   searchGroupPresentation,
   type AuthoringSearchEntry,
   type AuthoringSearchState,
@@ -312,7 +313,13 @@ function SearchPanel({
                   {heading}: поиск временно недоступен.
                 </p>
               );
-            if (groupEntries.length === 0) return null;
+            const note = searchGroupNote(group);
+            if (groupEntries.length === 0)
+              return note === null ? null : (
+                <p className="authoring-search-group-note" key={group.kind}>
+                  {heading}: {note}
+                </p>
+              );
             return (
               <div
                 aria-labelledby={headingId}
@@ -323,6 +330,9 @@ function SearchPanel({
                 <p className="authoring-search-group-heading" id={headingId}>
                   {heading}
                 </p>
+                {note === null ? null : (
+                  <p className="authoring-search-group-note">{note}</p>
+                )}
                 {groupEntries.map((entry) => (
                   <div
                     aria-selected={entry.id === active?.id}

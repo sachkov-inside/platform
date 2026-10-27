@@ -300,6 +300,38 @@ describe("People directory", () => {
       });
   });
 
+  test("the Account IDs for another owner's search report name search the same way", async () => {
+    const owner = randomUUID();
+    const directory = new PeopleDirectory({
+      accounts: {
+        checkPermission: ({ accountId }) =>
+          Promise.resolve({ ok: true, allowed: accountId === owner }),
+      },
+      directory: new AccountDirectory({
+        prisma: database.prisma,
+        protection: undefined,
+        emailFingerprintKey: "people-directory-email-fingerprint",
+      }),
+      telegram: new TelegramAccountLinks(database.prisma),
+    });
+    expect(
+      await directory.searchPersonAccounts(owner, {
+        query: "LEARNER.sign-in@example.test",
+      }),
+    ).toEqual({
+      ok: true,
+      value: { accountIds: [people.signIn], nameSearch: "available" },
+    });
+    for (const query of ["Анна", "@anna_tg"])
+      expect(await directory.searchPersonAccounts(owner, { query })).toEqual({
+        ok: true,
+        value: { accountIds: [], nameSearch: "unavailable" },
+      });
+    expect(
+      await directory.searchPersonAccounts(randomUUID(), { query: "Анна" }),
+    ).toEqual({ ok: false, error: { code: "forbidden" } });
+  });
+
   test("other roles are refused without a personal fact, and malformed requests are rejected", async () => {
     const urls = [
       `/authoring/people/identities?accountIds=${people.billing},${people.telegram}`,

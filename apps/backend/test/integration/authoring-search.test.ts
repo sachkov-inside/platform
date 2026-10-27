@@ -3,7 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 import { randomUUID } from "node:crypto";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
@@ -370,8 +370,16 @@ describe("Authoring search", () => {
       headers: billingHeaders,
     });
     expect(billing.statusCode).toBe(200);
+    // «search product» is name text, and names cannot be searched until Telegram's contract.
     expect(billing.json()).toEqual({
-      groups: [{ kind: "payments", state: "ready", items: [] }],
+      groups: [
+        {
+          kind: "payments",
+          state: "ready",
+          items: [],
+          personSearch: "name_unavailable",
+        },
+      ],
     });
     const denied = await server.inject({
       method: "GET",
@@ -550,7 +558,16 @@ describe("Authoring search", () => {
     const found = await registry.search(owner, purchase.purchaseRef);
     expect(found).toEqual({
       ok: true,
-      value: { groups: [{ kind: "payments", state: "ready", items: [hit] }] },
+      value: {
+        groups: [
+          {
+            kind: "payments",
+            state: "ready",
+            items: [hit],
+            personSearch: "available",
+          },
+        ],
+      },
     });
     expect(JSON.stringify(found)).not.toContain(s.buyer);
     expect(JSON.stringify(found)).not.toContain("order@example.test");
@@ -607,7 +624,16 @@ describe("Authoring search", () => {
       const found = await paymentsOf(owner, query);
       expect(found, query).toEqual({
         ok: true,
-        value: { groups: [{ kind: "payments", state: "ready", items: [hit] }] },
+        value: {
+          groups: [
+            {
+              kind: "payments",
+              state: "ready",
+              items: [hit],
+              personSearch: "available",
+            },
+          ],
+        },
       });
       expect(JSON.stringify(found)).not.toContain(person.buyer);
       expect(JSON.stringify(found)).not.toContain(email);
@@ -615,7 +641,16 @@ describe("Authoring search", () => {
     // A visitor is no person: the people directory does not find them, so neither do payments.
     expect(await paymentsOf(owner, visitor.buyer)).toEqual({
       ok: true,
-      value: { groups: [{ kind: "payments", state: "ready", items: [] }] },
+      value: {
+        groups: [
+          {
+            kind: "payments",
+            state: "ready",
+            items: [],
+            personSearch: "available",
+          },
+        ],
+      },
     });
 
     // platform:admin holds every right; another role never reads the group, a stranger is refused.
@@ -683,6 +718,114 @@ describe("Authoring search", () => {
     } finally {
       await observer.prisma.$disconnect();
     }
+  });
+
+  test("when the people directory fails, the Payments group still answers by order number and amount and says the person was not searched", async () => {
+    const owner = randomUUID();
+    await createAccount(owner, "billing:manage");
+    const commerce = createProductCommerceFixture(database, owner);
+    // 41 % off 2 000 ₽ is 1 180 ₽, an amount no other payment here has.
+    const s = await commerce.scenario({ discount: 41 });
+    const purchase = commerceValue(
+      await s.payments.purchase(s.buyer, s.command),
+    );
+    const row = await database.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchase.purchaseRef },
+    });
+    const hit = {
+      purchaseRef: purchase.purchaseRef,
+      productName: "Курс",
+      amountKopecks: 118000,
+      state: row.state,
+      createdAt: row.createdAt.toISOString(),
+    };
+    const payments = new BillingPaymentSearch({
+      prisma: database.prisma,
+      accounts: s.accounts,
+    });
+    const unavailablePeople = {
+      searchPersonAccounts: () =>
+        Promise.resolve({
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        }),
+    };
+    const registry = assembleAuthoringSearch([
+      assemblePaymentsSearchGroup(payments, unavailablePeople),
+    ]);
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      for (const query of [purchase.purchaseRef, "1180", "1 180 ₽"])
+        expect(await registry.search(owner, query), query).toEqual({
+          ok: true,
+          value: {
+            groups: [
+              {
+                kind: "payments",
+                state: "ready",
+                items: [hit],
+                personSearch: "unavailable",
+              },
+            ],
+          },
+        });
+      // An email cannot be searched now: the empty list says so rather than «no payments».
+      const email = `buyer-${randomUUID()}@example.test`;
+      expect(await registry.search(owner, email)).toEqual({
+        ok: true,
+        value: {
+          groups: [
+            {
+              kind: "payments",
+              state: "ready",
+              items: [],
+              personSearch: "unavailable",
+            },
+          ],
+        },
+      });
+      // Each failure is recorded, with the code only: neither the email nor the order number.
+      const records = errors.mock.calls.map(([line]) => String(line));
+      const failures = records.filter((line) =>
+        line.includes('"dependency_failure"'),
+      );
+      expect(failures).toHaveLength(4);
+      for (const line of failures) {
+        expect(JSON.parse(line)).toMatchObject({
+          module: "authoring-search",
+          operation: "searchAuthoring",
+          error: { code: "dependency_unavailable" },
+        });
+        expect(line).not.toContain(email);
+        expect(line).not.toContain(purchase.purchaseRef);
+      }
+    } finally {
+      errors.mockRestore();
+    }
+
+    // A refusal by the people directory still omits the group: the actor may not read it.
+    const refusing = assembleAuthoringSearch([
+      ...searchGroups(database.prisma, (actor) => actor === manager),
+      assemblePaymentsSearchGroup(payments, {
+        searchPersonAccounts: () =>
+          Promise.resolve({
+            ok: false as const,
+            error: { code: "forbidden" as const },
+          }),
+      }),
+    ]);
+    await createAccount(manager, "materials:manage");
+    expect(await refusing.search(manager, "1180")).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          { kind: "products", state: "ready", items: [] },
+          { kind: "materials", state: "ready", items: [] },
+        ],
+      },
+    });
   });
 
   /** An Account with one permission, or none; a second call for the same Account changes nothing. */
