@@ -67,7 +67,7 @@ async function metrics() {
     );
     const heading = course?.querySelector("[data-reader-header] h1");
     const rail = course?.querySelector("aside");
-    const selector = rail?.querySelector("[role=combobox]");
+    const selector = rail?.querySelector("button[aria-expanded]");
     const chevron = selector?.querySelector("svg");
     const controls = [
       ...(course?.querySelectorAll(
@@ -242,14 +242,16 @@ try {
 
     await page.setViewportSize({ width: 1440, height: 1000 });
     await visit(`${live}${guide}`);
-    const selector = page.getByRole("combobox", { name: "Глава курса" });
+    const selector = page.getByRole("button", { name: /^Глава \d+ из/ });
     await selector.focus();
-    await page.keyboard.press("ArrowDown");
-    await expect(page.getByRole("option").first()).toBeVisible();
+    await page.keyboard.press("Enter");
+    const chapters = page.getByRole("navigation", { name: "Главы курса" });
+    await expect(chapters.getByRole("button").first()).toBeVisible();
     await capture("live-chapter-keyboard", { whole: false, a11y: false });
-    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Tab");
     await page.keyboard.press("Enter");
     await expect(selector).toHaveAttribute("aria-expanded", "false");
+    await expect(selector).toBeFocused();
 
     await page.setViewportSize({ width: 390, height: 1000 });
     await visit(`${live}${guide}`);

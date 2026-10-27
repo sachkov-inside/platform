@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  ChevronDown,
   ChevronRight,
   List,
   X,
@@ -20,6 +21,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -32,13 +34,6 @@ import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
 import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
 import type {
   CourseReadingContext,
   CourseReadingStep,
@@ -286,15 +281,29 @@ export function CourseRail({
   const [selection, setSelection] = useState({
     key: selectionKey,
     chapter: context.currentChapterId,
+    choosing: false,
   });
   if (selection.key !== selectionKey) {
-    setSelection({ key: selectionKey, chapter: context.currentChapterId });
+    setSelection({
+      key: selectionKey,
+      chapter: context.currentChapterId,
+      choosing: false,
+    });
   }
   const chapterId =
     selection.key === selectionKey
       ? selection.chapter
       : context.currentChapterId;
-  const chapter = context.chapters.find((entry) => entry.id === chapterId);
+  const choosing = selection.key === selectionKey && selection.choosing;
+  const chapterIndex = context.chapters.findIndex(
+    (entry) => entry.id === chapterId,
+  );
+  const chapter = context.chapters[chapterIndex];
+  const readingChapterIndex = context.chapters.findIndex(
+    (entry) => entry.id === context.currentChapterId,
+  );
+  const chapterListId = useId();
+  const toggle = useRef<HTMLButtonElement>(null);
   const currentStepIndex =
     chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1;
   const rail = useRef<HTMLDivElement>(null);
@@ -306,7 +315,11 @@ export function CourseRail({
         !context.chapters.some((item) => item.id === event.detail)
       )
         return;
-      setSelection({ key: selectionKey, chapter: event.detail });
+      setSelection({
+        key: selectionKey,
+        chapter: event.detail,
+        choosing: false,
+      });
     };
     window.addEventListener(readerHistoryRestoreEvent, restore);
     return () => {
@@ -323,7 +336,11 @@ export function CourseRail({
       element.scrollTop += activeStepRect.bottom - railRect.bottom + 12;
     else if (activeStepRect.top < railRect.top)
       element.scrollTop -= railRect.top - activeStepRect.top + 12;
-  }, [context.current.id, chapterId]);
+  }, [context.current.id, chapterId, choosing]);
+  function chooseChapter(id: string) {
+    setSelection({ key: selectionKey, chapter: id, choosing: false });
+    toggle.current?.focus();
+  }
   return (
     <aside
       className={styles["rail"]}
@@ -337,83 +354,129 @@ export function CourseRail({
         <BookOpen size={16} aria-hidden="true" />
         Страница курса
       </IntentPrefetchLink>
-      <Select
-        value={chapterId}
-        onValueChange={(value) => {
-          setSelection({ key: selectionKey, chapter: value });
+      <button
+        ref={toggle}
+        type="button"
+        className={styles["chapterToggle"]}
+        aria-expanded={choosing}
+        aria-controls={chapterListId}
+        onClick={() => {
+          setSelection({
+            key: selectionKey,
+            chapter: chapterId,
+            choosing: !choosing,
+          });
         }}
       >
-        <SelectTrigger
-          aria-label="Глава курса"
-          className={styles["chapterTrigger"]}
+        <span className={styles["chapterHeading"]}>
+          <span className={styles["chapterOrdinal"]}>
+            Глава {chapter?.ordinal ?? chapterIndex + 1} из{" "}
+            {context.chapters.length}
+          </span>
+          <span className={styles["chapterName"]}>{chapter?.name}</span>
+        </span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {choosing ? (
+        <nav
+          id={chapterListId}
+          className={styles["railSteps"]}
+          aria-label="Главы курса"
+          onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            setSelection({
+              key: selectionKey,
+              chapter: chapterId,
+              choosing: false,
+            });
+            toggle.current?.focus();
+          }}
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent className={styles["chapterMenu"]}>
-          {context.chapters.map((entry, index) => (
-            <SelectItem
-              className={styles["chapterOption"]}
-              value={entry.id}
-              key={entry.id}
-            >
-              <span className={styles["chapterChoice"]}>
-                <span className={styles["chapterOrdinal"]}>
-                  Глава {entry.ordinal ?? index + 1}
-                </span>{" "}
-                <span className={styles["chapterName"]}>{entry.name}</span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <div
-        className={styles["railSteps"]}
-        ref={rail}
-        data-course-rail-scroll
-        role="navigation"
-        aria-label="Шаги текущей главы"
-        tabIndex={0}
-      >
-        {chapter?.steps.length === 0 ? (
-          <p className={styles["empty"]}>Глава готовится</p>
-        ) : (
           <ol>
-            {chapter?.steps.map((step, index) => (
+            {context.chapters.map((entry, index) => (
               <li
-                key={step.id}
+                key={entry.id}
                 data-course-position={
-                  index < currentStepIndex
+                  index < readingChapterIndex
                     ? "before"
-                    : index === currentStepIndex
+                    : index === readingChapterIndex
                       ? "current"
                       : undefined
                 }
               >
-                <StepLink step={step} current={context.current.id} />
+                <button
+                  type="button"
+                  className={styles["step"]}
+                  data-course-chapter-choice={entry.id}
+                  data-reading={
+                    index === readingChapterIndex ? true : undefined
+                  }
+                  aria-current={entry.id === chapterId ? "true" : undefined}
+                  onClick={() => {
+                    chooseChapter(entry.id);
+                  }}
+                >
+                  <span aria-hidden="true" className={styles["mark"]} />
+                  <span>
+                    <small>Глава {entry.ordinal ?? index + 1}</small>
+                    <span className={styles["stepTitle"]}>{entry.name}</span>
+                  </span>
+                </button>
               </li>
             ))}
           </ol>
-        )}
-        <CourseReferenceNavigation
-          references={[
-            ...(chapter?.references ?? []),
-            ...(context.references ?? []).filter(
-              (reference) =>
-                reference.id === context.activeReferenceId &&
-                chapter?.references?.some(
-                  (item) => item.id === reference.id,
-                ) !== true,
-            ),
-          ]}
-          activeReferenceId={context.activeReferenceId}
-          courseHref={context.href}
-          anchor={
-            context.currentPosition > 0
-              ? parseReaderCourseAnchor(context.current.id)
-              : undefined
-          }
-        />
-      </div>
+        </nav>
+      ) : (
+        <div
+          className={styles["railSteps"]}
+          ref={rail}
+          data-course-rail-scroll
+          role="navigation"
+          aria-label="Шаги текущей главы"
+          tabIndex={0}
+        >
+          {chapter?.steps.length === 0 ? (
+            <p className={styles["empty"]}>Глава готовится</p>
+          ) : (
+            <ol>
+              {chapter?.steps.map((step, index) => (
+                <li
+                  key={step.id}
+                  data-course-position={
+                    index < currentStepIndex
+                      ? "before"
+                      : index === currentStepIndex
+                        ? "current"
+                        : undefined
+                  }
+                >
+                  <StepLink step={step} current={context.current.id} />
+                </li>
+              ))}
+            </ol>
+          )}
+          <CourseReferenceNavigation
+            references={[
+              ...(chapter?.references ?? []),
+              ...(context.references ?? []).filter(
+                (reference) =>
+                  reference.id === context.activeReferenceId &&
+                  chapter?.references?.some(
+                    (item) => item.id === reference.id,
+                  ) !== true,
+              ),
+            ]}
+            activeReferenceId={context.activeReferenceId}
+            courseHref={context.href}
+            anchor={
+              context.currentPosition > 0
+                ? parseReaderCourseAnchor(context.current.id)
+                : undefined
+            }
+          />
+        </div>
+      )}
     </aside>
   );
 }

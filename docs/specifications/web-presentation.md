@@ -75,6 +75,10 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   in every selection state so their wrapping stays stable. Distinguish the current step with
   foreground text and a subtle action-coloured glow at its left marker; omit selected-row fill
   and visible status badges.
+  The rail heading names the shown chapter in full with its ordinal out of the chapter count.
+  Activating it replaces the step list in place with the chapter list, drawn as rail rows with
+  the same markers, and never overlays the reading column. Choosing a chapter or pressing Escape
+  restores the step list and returns focus to the heading.
   Strike through a Task title only when its persisted submission timestamp is present, including
   the currently open Task. Keep the submitted state accessible without a visible label or date;
   an unsent review report does not count as a submission or imply acceptance by the author.
