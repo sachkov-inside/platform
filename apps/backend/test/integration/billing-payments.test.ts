@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { BillingOperations } from "../../src/modules/billing/index.js";
+import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import {
   Tbank,
   tbankToken,
@@ -175,14 +176,14 @@ async function listPayments(
   });
 }
 
-function refs(result: unknown): string[] {
-  const parsed = result as {
-    ok: boolean;
-    result?: { items: { purchaseRef: string }[] };
-  };
-  if (!parsed.ok || parsed.result === undefined)
+function paymentsPage(result: OwnerResult) {
+  if (!result.ok || result.result.outcome !== "payments")
     throw new Error(JSON.stringify(result));
-  return parsed.result.items.map((item) => item.purchaseRef);
+  return result.result;
+}
+
+function refs(result: OwnerResult): string[] {
+  return paymentsPage(result).items.map((item) => item.purchaseRef);
 }
 
 test("payments.list narrows by Product, period [from, to) and several states, newest first", async () => {
@@ -257,8 +258,7 @@ test("payments.list continues by cursor within its filter and refuses a cursor o
         ...(cursor === undefined ? {} : { cursor }),
       });
       seen.push(...refs(page));
-      cursor = (page as { result: { nextCursor: string | null } }).result
-        .nextCursor;
+      cursor = paymentsPage(page).nextCursor;
     } while (cursor !== null);
     // Two payments of one instant keep a stable order by their reference.
     expect(seen).toEqual([

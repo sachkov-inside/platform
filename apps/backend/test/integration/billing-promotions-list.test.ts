@@ -1,4 +1,5 @@
 import { BillingOperations } from "../../src/modules/billing/index.js";
+import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createQueryEventClient } from "./setup/query-events.js";
@@ -65,22 +66,10 @@ async function listPromotions(
   });
 }
 
-function itemsOf(result: unknown) {
-  const parsed = result as {
-    ok: boolean;
-    result?: {
-      items: {
-        id: string;
-        usedCount: number;
-        questionnaire: boolean;
-        legacy: boolean;
-      }[];
-      nextCursor: string | null;
-    };
-  };
-  if (!parsed.ok || parsed.result === undefined)
+function itemsOf(result: OwnerResult) {
+  if (!result.ok || result.result.outcome !== "promotions")
     throw new Error(JSON.stringify(result));
-  return parsed.result;
+  return result.result;
 }
 
 test("promotions.list reads owner Promotions newest first with usage counted like the usage limit", async () => {
@@ -222,10 +211,7 @@ test("promotions.list keeps questionnaire Promotions apart and flags a migrated 
   expect(
     forProduct.items.every(
       (item) =>
-        (item as unknown as { productIds: string[] }).productIds.length === 0 ||
-        (item as unknown as { productIds: string[] }).productIds.includes(
-          s.productId,
-        ),
+        item.productIds.length === 0 || item.productIds.includes(s.productId),
     ),
   ).toBe(true);
   expect(

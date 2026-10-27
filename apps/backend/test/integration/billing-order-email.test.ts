@@ -3,7 +3,8 @@ import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { registerBillingTools } from "../../src/modules/billing/index.js";
+import { readCommittedToolSurface } from "../../scripts/mcp-tool-surface-file.js";
+import { ownerOperationSchema } from "../../src/modules/billing/domain/owner-operations.js";
 import { BillingOperations } from "../../src/modules/billing/index.js";
 import { OwnerOrderEmailRead } from "../../src/modules/billing/features/read-order-email/read-order-email.js";
 import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
@@ -131,17 +132,16 @@ test("the order email is absent from payments.list, payments.read and the MCP to
   expect(JSON.stringify(list)).not.toContain(orderEmail);
   expect(JSON.stringify(read)).not.toContain(orderEmail);
 
-  const tools: string[] = [];
-  registerBillingTools(
-    {
-      registerTool: (name: string) => {
-        tools.push(name);
-      },
-    } as never,
-    { accountId: world.owner, billing: owner },
-  );
+  // The committed surface is the live MCP tool list: `mcp:check` and the MCP HTTP test hold it.
+  const tools = readCommittedToolSurface();
   expect(tools).toContain("billing_payments_read");
+  expect(tools).toContain("billing_promotions_list");
   expect(tools.filter((name) => /email|order/iu.test(name))).toEqual([]);
+  expect(
+    ownerOperationSchema.options
+      .map((option) => option.shape.operation.value)
+      .filter((operation) => /email/iu.test(operation)),
+  ).toEqual([]);
 });
 
 describe("Owner Order Email over HTTP", () => {

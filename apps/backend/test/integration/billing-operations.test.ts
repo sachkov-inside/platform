@@ -152,14 +152,12 @@ test("productPrices.list reads one Product's price when asked by productId", asy
     operationId: randomUUID(),
     productId: s.productId,
   });
-  expect(result).toMatchObject({
-    ok: true,
-    result: { outcome: "catalogOffers", nextCursor: null },
-  });
-  const items = (
-    result as { result: { items: { product?: { id: string } }[] } }
-  ).result.items;
-  expect(items.map((item) => item.product?.id)).toEqual([s.productId]);
+  if (!result.ok || result.result.outcome !== "catalogOffers")
+    throw new Error(JSON.stringify(result));
+  expect(result.result.nextCursor).toBeNull();
+  expect(result.result.items.map((item) => item.product?.id)).toEqual([
+    s.productId,
+  ]);
 });
 
 test.each([

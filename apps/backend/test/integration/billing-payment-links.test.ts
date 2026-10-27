@@ -125,7 +125,7 @@ test("paymentLinks.list narrows by Product and visible state, newest first, with
 
     const list = async (filter: Record<string, unknown>) => {
       const result = await s.pricing.paymentLinks(world.owner, filter);
-      if (!result.ok) return result;
+      if (!result.ok) throw new Error(result.error.code);
       return {
         ids: result.value.items.map((item) => [item.id, item.state]),
         nextCursor: result.value.nextCursor,
@@ -151,7 +151,7 @@ test("paymentLinks.list narrows by Product and visible state, newest first, with
       ["changed", []],
     ] as const)
       expect(
-        (await list({ productId: s.productId, state }))?.ids?.map(([id]) => id),
+        (await list({ productId: s.productId, state })).ids.map(([id]) => id),
       ).toEqual(expected);
 
     const firstPage = await list({ productId: s.productId, limit: 2 });
