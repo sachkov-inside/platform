@@ -214,9 +214,17 @@ except KeyboardInterrupt:sys.exit(42)
                 patches.enter_context(patch.object(fullstack.technical,'summarize',return_value={}))
                 patches.enter_context(patch.object(fullstack,'evaluate',return_value={'state':'passed'}))
                 fullstack.worker(output)
-            value=stage_timing.read(output,SOURCE)
+                first_dispatched=list(dispatched)
+                value=stage_timing.read(output,SOURCE)
+                original_write=stage_timing.write
+                def refuse_terminal(path,value,source,**options):
+                    if value['state']=='completed':raise OSError('private terminal disk failure')
+                    return original_write(path,value,source,**options)
+                with patch.object(stage_timing,'write',side_effect=refuse_terminal):
+                    with self.assertRaises(ValueError):fullstack.worker(output)
+                self.assertEqual(json.loads((output/'fullstack-proof.json').read_text())['state'],'failed')
             self.assertEqual(value['state'],'completed')
-            self.assertEqual(dispatched,[(pair,on,name,group,group*3+phase)
+            self.assertEqual(first_dispatched,[(pair,on,name,group,group*3+phase)
                 for pair,on,group in ((0,False,0),(0,True,1),(1,True,2),(1,False,3))
                 for phase,name in enumerate(('idle','steady','spike'))])
             rows=value['stages']

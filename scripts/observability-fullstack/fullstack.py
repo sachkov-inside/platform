@@ -490,6 +490,7 @@ def worker(output):
             report['state']='measured'
             report['measured_linux_acceptance']=call('evaluate',evaluate,report)
             if report['measured_linux_acceptance']['state']!='passed':raise ValueError('fullstack_resource_acceptance_failed')
+        timing.finish()
     except BaseException:
         report['state']='failed'
         try:pilot.write_json(output/'fullstack-proof.json',report)
