@@ -142,7 +142,12 @@ export function ImportedProductPage({
               productName={collection.name}
             />
           ),
-          learners: <ProductLearnersTab productId={collection.id} />,
+          learners: (
+            <ProductLearnersTab
+              productId={collection.id}
+              productName={collection.name}
+            />
+          ),
           community: (
             <ProductCommunityTab
               productId={collection.id}

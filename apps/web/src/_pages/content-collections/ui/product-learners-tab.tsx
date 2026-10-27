@@ -1,21 +1,53 @@
-import { AdminEmptyState } from "@/shared/ui/admin";
+import { usePeopleSearch } from "@/entities/authoring-person";
+import { issueProductAccessOperation } from "@/entities/subscription";
+import {
+  ProductLearnersTab as ProductHoldersTab,
+  type GrantPeopleSearchState,
+} from "@/features/product-holders";
+
+/** Сколько людей показывает поиск в «Выдать продукт». */
+const GRANT_SEARCH_LIMIT = 20;
 
 /**
- * Вкладка «Ученики» страницы продукта. Пока это место для таблицы обладателей и выдачи продукта
- * нескольким людям (#1718): страница уже показывает вкладку, а её содержимое приходит отдельно и
- * заменяет тело этого компонента, не меняя страницу.
+ * Поиск людей #1721 в форме, которую ждёт выдача продукта. Отказ, конец сессии и сбой чтения для
+ * выбора людей одинаковы: искать сейчас нельзя.
+ */
+function useGrantPeopleSearch(query: string): GrantPeopleSearchState {
+  const search = usePeopleSearch(query, { limit: GRANT_SEARCH_LIMIT });
+  switch (search.kind) {
+    case "idle":
+    case "loading":
+      return search;
+    case "ready":
+      return {
+        kind: "ready",
+        items: search.items,
+        nameSearch: search.nameSearch,
+      };
+    case "signed_out":
+    case "forbidden":
+    case "unavailable":
+      return { kind: "unavailable" };
+  }
+}
+
+/**
+ * Вкладка «Ученики» страницы продукта: таблица обладателей и выдача продукта нескольким людям.
+ * Страница соединяет её с поиском людей и единственной выдачей Product Access.
  */
 export function ProductLearnersTab({
   productId,
+  productName,
 }: {
   readonly productId: string;
+  readonly productName: string;
 }) {
   return (
-    <div data-product-learners={productId}>
-      <AdminEmptyState
-        description="Здесь появятся люди с доступом к продукту, их прогресс и выдача продукта."
-        title="Ученики пока не показаны"
-      />
-    </div>
+    <ProductHoldersTab
+      issueProductAccess={issueProductAccessOperation.send}
+      productId={productId}
+      productName={productName}
+      usePeopleSearch={useGrantPeopleSearch}
+    />
   );
 }

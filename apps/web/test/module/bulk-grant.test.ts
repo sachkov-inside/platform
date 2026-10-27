@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { issueProductAccessOperation } from "@/features/billing-admin/api/product-access.operation";
+import { issueProductAccessOperation } from "@/entities/subscription";
 import {
   BULK_GRANT_LIMIT,
   bulkGrantSourceRef,
