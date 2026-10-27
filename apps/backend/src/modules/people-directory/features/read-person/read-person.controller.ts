@@ -34,7 +34,7 @@ import {
   peopleDirectoryProblem,
   personIdentityHttpSchema,
 } from "../../shared/people-http.js";
-import { peopleOrigins } from "../list-people/list-people.js";
+import { productAccessOriginSchema } from "../../../account-rights/index.js";
 import {
   PERSON_PAYMENTS_LIMIT,
   type PersonCard,
@@ -82,7 +82,7 @@ const personCardHttpSchema = z
             access: z.enum(["active", "revoked"]),
             revision: z.int().positive(),
             firstIssuedAt: z.iso.datetime().nullable(),
-            origin: z.enum(peopleOrigins),
+            origin: productAccessOriginSchema,
             history: z.array(
               z
                 .object({

@@ -34,7 +34,7 @@ export class PeopleService {
     /**
      * Only people with a Product Access first acquired this way (of `productId` when given, otherwise of any Product)
      */
-    origin?: 'paid' | 'manual' | 'course_activation' | 'legacy' | 'unknown',
+    origin?: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown',
     /**
      * Only people with a Product Access to this Product
      */
@@ -53,7 +53,7 @@ export class PeopleService {
       products: Array<{
         access: 'active' | 'revoked';
         name: string;
-        origin: 'paid' | 'manual' | 'course_activation' | 'legacy' | 'unknown';
+        origin: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         productId: string;
       }>;
       registeredAt: string;
@@ -150,7 +150,7 @@ export class PeopleService {
           reason: string | null;
         }>;
         name: string;
-        origin: 'paid' | 'manual' | 'course_activation' | 'legacy' | 'unknown';
+        origin: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         productId: string;
         revision: number;
       }>;

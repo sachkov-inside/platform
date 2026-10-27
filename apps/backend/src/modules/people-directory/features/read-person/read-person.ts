@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import type { ProductAccessOrigin } from "../../../account-rights/index.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -21,9 +22,6 @@ export const PERSON_PAYMENTS_LIMIT = 20;
 const LEARNING_CHUNK = 50;
 /** Accounts per identities read, the bound of the directory facts read. */
 const ACTOR_CHUNK = 100;
-
-type ProductOrigin =
-  "paid" | "manual" | "course_activation" | "legacy" | "unknown";
 
 /** Who recorded an event: Billing, Course Activation and the migration record no Account. */
 export type PersonHistoryActor =
@@ -58,7 +56,7 @@ export interface PersonProduct {
   /** The Product Access revision a revocation or restore must name. */
   readonly revision: number;
   readonly firstIssuedAt: string | null;
-  readonly origin: ProductOrigin;
+  readonly origin: ProductAccessOrigin;
   /** Newest first. */
   readonly history: readonly PersonHistoryEvent[];
 }

@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import {
+  productAccessOriginSchema,
+  type ProductAccessOrigin,
+} from "../../../account-rights/index.js";
+import {
   parsePersonSearchTerm,
   type PersonSearchTerm,
 } from "../../domain/person-search-term.js";
@@ -30,21 +34,12 @@ export const PEOPLE_CURSOR_MAX_CHARACTERS = 512;
  */
 const SEARCH_CANDIDATES_LIMIT = 50;
 
-export const peopleOrigins = [
-  "paid",
-  "manual",
-  "course_activation",
-  "legacy",
-  "unknown",
-] as const;
-export type PeopleOrigin = (typeof peopleOrigins)[number];
-
 /** One Product of a person in the list: its access state and how it was first acquired. */
 export interface PersonProductSummary {
   readonly productId: string;
   readonly name: string;
   readonly access: "active" | "revoked";
-  readonly origin: PeopleOrigin;
+  readonly origin: ProductAccessOrigin;
 }
 
 export interface PeopleListItem extends PersonIdentity {
@@ -67,7 +62,7 @@ const listInputSchema = z.strictObject({
   query: z.string().optional(),
   productId: z.uuid().toLowerCase().optional(),
   /** The origin of the first acquisition of a Product Access. */
-  origin: z.enum(peopleOrigins).optional(),
+  origin: productAccessOriginSchema.optional(),
   state: z.enum(["active", "revoked"]).optional(),
   cursor: z.string().min(1).max(PEOPLE_CURSOR_MAX_CHARACTERS).optional(),
   limit: z.coerce.number().int().min(1).max(PEOPLE_PAGE_LIMIT).optional(),
@@ -84,7 +79,7 @@ const cursorSchema = z.strictObject({
 interface ListScope {
   readonly term: PersonSearchTerm | undefined;
   readonly productId: string | undefined;
-  readonly origin: PeopleOrigin | undefined;
+  readonly origin: ProductAccessOrigin | undefined;
   readonly state: "active" | "revoked" | undefined;
 }
 
