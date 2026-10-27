@@ -5,8 +5,7 @@ import {
   type AccessProductCatalog,
 } from "../model/product-catalog";
 
-export const accessProductCatalogPath =
-  "/api/authoring/access/products/catalog";
+export const accessProductCatalogPath = "/api/authoring/people/product-choices";
 
 /** Каталог продуктов через BFF; любой сбой остаётся состоянием, а не исключением. */
 export async function requestAccessProductCatalog(

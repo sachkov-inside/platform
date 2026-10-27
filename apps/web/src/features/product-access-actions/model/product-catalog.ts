@@ -1,12 +1,16 @@
 import { z } from "zod";
 
 /**
- * Продукты, которые владелец может выдать или выбрать в фильтре людей (#1721). Каталог читается
- * из справочника авторских ссылок: в нём все продукты, включая архивные. Это список выбора, а не
- * правило доступа: выдачу всё равно решает Product Access.
+ * Продукты, которые владелец может выдать или выбрать в фильтре людей (#1721):
+ * `GET /authoring/people/product-choices` под тем же правом, что люди, архивные включены. Это
+ * список выбора, а не правило доступа: выдачу всё равно решает Product Access.
  */
 export const accessProductSchema = z
-  .object({ archived: z.boolean(), productId: z.uuid(), name: z.string() })
+  .object({
+    productId: z.uuid(),
+    name: z.string().min(1),
+    archived: z.boolean(),
+  })
   .strict();
 
 export type AccessProduct = z.infer<typeof accessProductSchema>;

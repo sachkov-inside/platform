@@ -4,43 +4,33 @@ import { z } from "zod";
 
 import {
   BackendConnectionError,
-  requestMaterialAuthoringReferences,
+  requestPeopleProductChoices,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 import { handleAuthenticatedRead } from "@/shared/auth/index.server";
 
 import {
+  accessProductSchema,
   sortAccessProducts,
   type AccessProductCatalog,
 } from "../model/product-catalog";
 
-/** Из справочника берутся только продукты: темы, форматы и теги остаются редактору. */
-const referencesSchema = z
-  .object({
-    products: z.array(
-      z
-        .object({
-          archived: z.boolean(),
-          id: z.uuid(),
-          name: z.string().min(1),
-        })
-        .strict(),
-    ),
-  })
-  .loose();
+const choicesSchema = z
+  .object({ items: z.array(accessProductSchema) })
+  .strict();
 const problemSchema = z
   .object({ code: z.string(), correlationId: z.string().optional() })
   .loose();
 
 export interface AccessProductCatalogDependencies {
-  readonly references: typeof requestMaterialAuthoringReferences;
+  readonly choices: typeof requestPeopleProductChoices;
 }
 
 const productionDependencies: AccessProductCatalogDependencies = {
-  references: requestMaterialAuthoringReferences,
+  choices: requestPeopleProductChoices,
 };
 
-/** `GET /api/authoring/access/products/catalog`: продукты для выдачи и фильтра людей. */
+/** `GET /api/authoring/people/product-choices`: продукты для выдачи и фильтра людей. */
 export function handleAccessProductCatalogRequest(
   dependencies: AccessProductCatalogDependencies = productionDependencies,
 ): Promise<Response> {
@@ -69,7 +59,7 @@ async function readCatalog(
 ): Promise<AccessProductCatalog> {
   let result: BackendTransportResult;
   try {
-    result = await dependencies.references(accessToken);
+    result = await dependencies.choices(accessToken);
   } catch (error) {
     if (error instanceof BackendConnectionError)
       return { kind: "unavailable", reference: error.code };
@@ -86,17 +76,8 @@ async function readCatalog(
         : "product-catalog",
     };
   }
-  const parsed = referencesSchema.safeParse(result.body);
+  const parsed = choicesSchema.safeParse(result.body);
   if (!parsed.success)
     return { kind: "unavailable", reference: "malformed-response" };
-  return {
-    kind: "ready",
-    products: sortAccessProducts(
-      parsed.data.products.map((product) => ({
-        archived: product.archived,
-        name: product.name,
-        productId: product.id,
-      })),
-    ),
-  };
+  return { kind: "ready", products: sortAccessProducts(parsed.data.items) };
 }
