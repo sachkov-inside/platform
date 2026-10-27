@@ -42,7 +42,7 @@ function storagePath(openFiles, filename, runtime) {
 }
 
 /**
- * @param {() => number} freeBytes measured available bytes on the Docker Desktop host filesystem
+ * @param {() => number} freeBytes measured available bytes on the active Docker runtime host filesystem
  */
 export function createStandBuildBudget(freeBytes) {
   const initialFreeBytes = freeBytes();
