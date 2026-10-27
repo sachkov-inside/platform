@@ -101,6 +101,38 @@ test("resource corpus meets the real API identity and account response contracts
   assert.match(result.stdout, /# tests [1-9][0-9]*\b/u);
 });
 
+// deterministic-test-allow unit-io: external owner bounds the real Web observer, HTTP listeners and inherited CLI descendants; worker failure, timeout and SIGKILL are checked at this routed boundary.
+test("resource Web HTTP witness retains fixed source and complete process ownership", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-web-http-contract-"));
+  try {
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL(
+            "./observability-fullstack/web-http-contract.mjs",
+            import.meta.url,
+          ),
+        ),
+        directory,
+      ],
+      { timeoutMs: 8000 },
+    );
+    assert.equal(result.reason, "exit", result.stderr);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      cases: 8,
+      complete: true,
+      private: false,
+      missing: false,
+      unavailable: false,
+      forbidden: 4,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 // deterministic-test-allow unit-io: dependency-ready tooling validates the generated private Telegram env through its real parser; the same external owner directly owns each sequential Python and Node/tsx group, with a five-second parser deadline.
 test("resource Telegram corpus meets the real application configuration contract", async () => {
   const directory = await mkdtemp(join(tmpdir(), "inside-resource-telegram-"));
