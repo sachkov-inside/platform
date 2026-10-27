@@ -150,7 +150,7 @@ try {
       "/api/authoring/billing/activation-rules/list",
       "/api/authoring/billing/activation-rules/save",
       "/api/authoring/billing/content/list",
-      "/authoring/access",
+      "/authoring/people",
       "/api/authoring/access/products/list",
       "/api/authoring/access/products/read",
       "/api/authoring/access/products/issue",

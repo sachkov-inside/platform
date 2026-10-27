@@ -61,7 +61,11 @@ function ProductPanel({
   const headingId = `person-product-${product.productId}`;
   const preparing = actions.pendingProductId === product.productId;
   return (
-    <article aria-labelledby={headingId} className="person-card-panel">
+    <article
+      aria-labelledby={headingId}
+      className="person-card-panel"
+      data-person-product={product.productId}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1.5">
           <h3 id={headingId}>{product.name}</h3>

@@ -45,28 +45,26 @@ test("owner issues, withdraws and explicitly restores one Product right through 
     expect(response.status()).toBe(200);
     return stateSchema.parse(await response.json()).value.value;
   }
-  await page.goto("/authoring/access");
-  const section = page
-    .getByRole("heading", { name: "Доступ к продуктам", exact: true })
-    .locator("..");
-  await section.getByLabel("Account", { exact: true }).fill(owner);
-  await section.getByLabel("Продукт", { exact: true }).fill(productId);
-  const sourceRef = `synthetic-owner-${info.project.name}`;
-  await section.getByLabel("Основание выдачи").fill(sourceRef);
-  await section
-    .getByLabel("Причина выдачи")
-    .fill("Синтетическая ручная выдача Product");
-  await section
-    .getByRole("button", { name: "Выдать бессрочный доступ", exact: true })
+  await page.goto(`/authoring/people/${owner}`);
+  const card = page.getByRole("main");
+  const product = card.locator(`[data-person-product="${productId}"]`);
+  async function grant(reason: string) {
+    await card
+      .getByRole("button", { name: "Выдать продукт", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Выдать продукт" });
+    await dialog.locator(`input[type="radio"][value="${productId}"]`).check();
+    if (await dialog.getByRole("radio", { name: reason }).isVisible())
+      await dialog.getByRole("radio", { name: reason }).check();
+    return dialog;
+  }
+  const issueDialog = await grant("Подарок");
+  await issueDialog
+    .getByRole("button", { name: "Выдать продукт", exact: true })
     .click();
-  await expect(section.getByRole("status")).toHaveText(
-    "Бессрочное право сохранено.",
-  );
+  await expect(card.getByText(/выдан\.$|уже был/u)).toBeVisible();
   const issued = await read();
   expect(issued.access).toBe("active");
-  expect(
-    issued.sources.filter((source) => source.sourceRef === sourceRef),
-  ).toHaveLength(1);
   const cabinet = await context.newPage();
   await cabinet.goto("/account");
   const cookieNotice = cabinet.getByRole("button", {
@@ -74,78 +72,51 @@ test("owner issues, withdraws and explicitly restores one Product right through 
     exact: true,
   });
   if (await cookieNotice.isVisible()) await cookieNotice.click();
-  const card = cabinet.locator(`[data-account-product="${productId}"]`);
+  const cabinetCard = cabinet.locator(`[data-account-product="${productId}"]`);
   await expect(
-    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
-  ).toBeVisible();
-  // Repeating the same source preserves the first issuance and the source history.
-  await section
-    .getByRole("button", { name: "Выдать бессрочный доступ", exact: true })
-    .click();
-  await expect(
-    section.getByRole("button", {
-      name: "Выдать бессрочный доступ",
+    cabinetCard.getByRole("heading", {
+      name: "Инженерная практика",
       exact: true,
     }),
-  ).toBeEnabled();
+  ).toBeVisible();
+  // A second grant of an active Product changes nothing, the dialog says so before sending.
+  const repeat = await grant("Компенсация");
+  await expect(repeat.getByText(/Выдача ничего не изменит/u)).toBeVisible();
+  await repeat
+    .getByRole("button", { name: "Выдать продукт", exact: true })
+    .click();
+  await expect(card.getByText(/ничего не изменилось/u)).toBeVisible();
   const repeated = await read();
   expect(repeated.firstIssuedAt).toBe(issued.firstIssuedAt);
-  expect(
-    repeated.sources.filter((source) => source.sourceRef === sourceRef),
-  ).toHaveLength(1);
-  const revoke = section.getByRole("region", {
-    name: `Отзыв доступа к продукту для Account ${owner}`,
-    exact: true,
-  });
+  await product.getByRole("button", { name: /^Отозвать доступ к/u }).click();
+  const revoke = page.getByRole("dialog", { name: /^Отозвать доступ к/u });
+  await expect(revoke.getByText("Материалы продукта закроются.")).toBeVisible();
+  await revoke.getByRole("radio", { name: "Другое" }).check();
+  await revoke.getByLabel("Заметка").fill("Синтетический отзыв Product");
   await revoke
-    .getByRole("combobox", { name: "Продукт", exact: true })
-    .selectOption(productId);
-  await revoke
-    .getByRole("button", { name: "Проверить доступ", exact: true })
+    .getByRole("button", { name: "Отозвать доступ", exact: true })
     .click();
-  await revoke
-    .getByLabel("Причина", { exact: true })
-    .fill("Синтетический отзыв Product");
-  await revoke
-    .getByRole("button", { name: "Отозвать доступ к продукту", exact: true })
-    .click();
-  await expect(revoke.getByRole("status")).toContainText(
-    "Доступ к продукту отозван",
-  );
+  await expect(card.getByText(/^Доступ к «.+» отозван\.$/u)).toBeVisible();
   const withdrawn = await read();
   expect(withdrawn.access).toBe("revoked");
   await cabinet.reload();
-  await expect(card.getByText("Доступ отозван", { exact: true })).toBeVisible();
-  // Another source cannot silently undo withdrawal.
-  await section.getByLabel("Основание выдачи").fill(`${sourceRef}-other`);
-  await section
-    .getByRole("button", { name: "Выдать бессрочный доступ", exact: true })
-    .click();
   await expect(
-    section.getByText(
-      "Доступ отозван. Для возврата права используйте явное восстановление.",
-      { exact: true },
-    ),
+    cabinetCard.getByText("Доступ отозван", { exact: true }),
   ).toBeVisible();
-  expect((await read()).access).toBe("revoked");
-  await section
-    .getByRole("button", { name: "Показать права", exact: true })
+  // A grant cannot silently undo withdrawal: the dialog sends the owner to restoration.
+  const regrant = await grant("Подарок");
+  await expect(regrant.getByText(/Выдача его не вернёт/u)).toBeVisible();
+  await regrant
+    .getByRole("button", { name: "Перейти к восстановлению", exact: true })
     .click();
-  await section
-    .getByRole("button", { name: "История права", exact: true })
-    .click();
-  await expect(
-    section.getByRole("heading", { name: "История права", exact: true }),
-  ).toBeVisible();
-  await section
-    .getByLabel("Причина восстановления")
+  const restore = page.getByRole("dialog", { name: /^Восстановить доступ к/u });
+  await restore
+    .getByLabel("Причина")
     .fill("Явное синтетическое решение владельца");
-  await section
-    .getByRole("button", { name: "Явно восстановить доступ", exact: true })
+  await restore
+    .getByRole("button", { name: "Восстановить доступ", exact: true })
     .click();
-  await expect(
-    section.getByText("Доступ явно восстановлен владельцем.", { exact: true }),
-  ).toBeVisible();
+  await expect(card.getByText(/восстановлен\.$/u)).toBeVisible();
   const restored = await read();
   expect(restored.access).toBe("active");
   expect(restored.firstIssuedAt).toBe(issued.firstIssuedAt);
@@ -154,11 +125,14 @@ test("owner issues, withdraws and explicitly restores one Product right through 
   );
   await cabinet.reload();
   await expect(
-    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
+    cabinetCard.getByRole("heading", {
+      name: "Инженерная практика",
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(card.getByText("Доступ отозван", { exact: true })).toHaveCount(
-    0,
-  );
+  await expect(
+    cabinetCard.getByText("Доступ отозван", { exact: true }),
+  ).toHaveCount(0);
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await page.locator("main").focus();
     await screenshotWholePage(page, {
