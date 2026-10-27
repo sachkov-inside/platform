@@ -4,6 +4,7 @@ import type { TechnicalTelemetry } from "./technical-telemetry.js";
 import type { BackendProcess } from "../../config/platform-config.js";
 import type { PgBossWorkObserver } from "../pg-boss-work-observation.js";
 import { dependencyFailure } from "./dependency-failure.js";
+import { classifyFailure } from "./failure-cause.js";
 import { describeError, runWithLogContext, writeLog } from "./log.js";
 
 // Уборка после отказа запуска обычно успевает; дольше процесс не держит открытое соединение.
@@ -74,7 +75,12 @@ export function observeJob<
           }
           return result;
         } catch (error) {
-          writeLog("error", "job_failed", { error: describeError(error) });
+          const cause = classifyFailure(error);
+          writeLog("error", "job_failed", {
+            failureCategory: cause.category,
+            failureCode: cause.code,
+            error: describeError(error),
+          });
           throw error;
         }
       },

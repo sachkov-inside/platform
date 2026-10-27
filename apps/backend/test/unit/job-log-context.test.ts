@@ -23,7 +23,9 @@ describe("job log context", () => {
         new Error("socket hang up"),
         null,
       );
-      return Promise.reject(new Error("dependency_unavailable"));
+      return Promise.reject(
+        Object.assign(new Error("dependency_unavailable"), { code: "23505" }),
+      );
     });
 
     await expect(
@@ -48,6 +50,8 @@ describe("job log context", () => {
     expect(records[1]).toMatchObject({
       ...unitOfWork,
       event: "job_failed",
+      failureCategory: "constraint",
+      failureCode: "23505",
       error: { message: "dependency_unavailable" },
     });
   });
@@ -110,9 +114,9 @@ it("an observation failure cannot retry successful business work or replace a ha
     const records = lines.mock.calls.map(([line]) =>
       logRecord.parse(JSON.parse(String(line))),
     );
-    expect(records.filter((row) => row["event"] === "job_failed")).toHaveLength(
-      1,
-    );
+    expect(
+      records.filter((row) => row["event"] === "job_failed"),
+    ).toMatchObject([{ failureCategory: "unknown", failureCode: "unknown" }]);
     expect(
       records.filter((row) => row["event"] === "dependency_failure"),
     ).toHaveLength(1);
