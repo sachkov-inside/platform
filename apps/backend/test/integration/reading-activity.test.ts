@@ -744,6 +744,125 @@ describe("ReadingActivity on PostgreSQL", () => {
     ).toMatchObject({ ok: true, value: { total: 101, read: 0 } });
   });
 
+  test("the owner learning summary measures the published composition whatever the learner's access", async () => {
+    const productId = await product();
+    const archived = await product();
+    const missing = randomUUID();
+    const first = await material([productId], "closed");
+    const second = await material([productId]);
+    await material([archived]);
+    await reading.setReadingState(command(second));
+    const learner = randomUUID();
+    await database.prisma.readingMaterialState.create({
+      data: {
+        accountId: learner,
+        materialId: first,
+        isRead: true,
+        readAt: new Date("2030-01-02T00:00:00.000Z"),
+        version: 1,
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+      },
+    });
+    await database.prisma.readingMaterialVisit.createMany({
+      data: [
+        {
+          accountId: learner,
+          materialId: first,
+          firstOpenedAt: new Date("2030-01-01T00:00:00.000Z"),
+          lastOpenedAt: new Date("2030-01-03T00:00:00.000Z"),
+        },
+        {
+          accountId: learner,
+          materialId: second,
+          firstOpenedAt: new Date("2030-01-02T00:00:00.000Z"),
+          lastOpenedAt: new Date("2030-01-04T00:00:00.000Z"),
+        },
+      ],
+    });
+    await database.prisma.productLearningStarted.create({
+      data: {
+        accountId: learner,
+        productId,
+        startedAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+    });
+    await database.prisma.product.update({
+      where: { id: archived },
+      data: { archivedAt: new Date("2030-01-05T00:00:00.000Z") },
+    });
+    // The learner holds no Product Access at all: the owner still sees the closed Material.
+    expect(
+      await reading.readLearningSummary(learner, [
+        productId.toUpperCase(),
+        archived,
+        missing,
+      ]),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          productId: productId.toUpperCase(),
+          startedAt: "2030-01-01T00:00:00.000Z",
+          progress: {
+            state: "measured",
+            read: 1,
+            total: 2,
+            lastActivityAt: "2030-01-04T00:00:00.000Z",
+          },
+        },
+        {
+          productId: archived,
+          startedAt: null,
+          progress: { state: "unavailable" },
+        },
+        {
+          productId: missing,
+          startedAt: null,
+          progress: { state: "unavailable" },
+        },
+      ],
+    });
+    expect(
+      await reading.readLearningSummary(randomUUID(), [productId]),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          productId,
+          startedAt: null,
+          progress: {
+            state: "measured",
+            read: 0,
+            total: 2,
+            lastActivityAt: null,
+          },
+        },
+      ],
+    });
+    expect(
+      await reading.readLearningSummary(
+        learner,
+        Array.from({ length: 51 }, () => randomUUID()),
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+
+    const idle = randomUUID();
+    expect(
+      await reading.readLastActivity([learner.toUpperCase(), idle]),
+    ).toEqual({
+      ok: true,
+      accounts: new Map([
+        [learner.toUpperCase(), "2030-01-04T00:00:00.000Z"],
+        [idle, null],
+      ]),
+    });
+    expect(
+      await reading.readLastActivity(
+        Array.from({ length: 51 }, () => randomUUID()),
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  });
+
   test("database constraints reject invalid state and duplicate event versions", async () => {
     const id = await material();
     await reading.setReadingState(command(id));
