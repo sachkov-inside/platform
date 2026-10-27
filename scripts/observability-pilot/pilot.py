@@ -1154,7 +1154,7 @@ def cleanup_project(compose, output, project, *, docker=("docker",), services=SE
                         '--filter', 'label=com.docker.compose.service=host-agent'], deadline=deadline).strip()
                     if re.fullmatch(r'[a-f0-9]{64}', identity) is None:
                         raise ValueError('native_host_state_owner')
-                    projection = '{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"actual_exit_code":{{json .State.ExitCode}},"oom_killed":{{json .State.OOMKilled}},"restart_count":{{json .RestartCount}},"runtime_error_present":{{ne .State.Error ""}},"has_process":{{gt .State.Pid 0}}}'
+                    projection = '{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"actual_exit_code":{{json .State.ExitCode}},"oom_killed":{{json .State.OOMKilled}},"restart_count":{{json .RestartCount}},"runtime_error_present":{{ne .State.Error ""}},"has_process":{{ne (json .State.Pid) "0"}}}'
                     native = checked_command(list(docker) + ['inspect', identity, '--format', projection], deadline=deadline)
                     row.update(native_host_state(native, identity, project))
                     row['native_failure_state'] = 'observed'
