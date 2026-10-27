@@ -104,6 +104,46 @@ test("the course sidebar stays mounted while only the material changes", async (
   }
 });
 
+test("the desktop chapter list opens inside the rail and returns to the steps", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chromium",
+    "The chapter list belongs to the desktop rail.",
+  );
+  const course = "/products/performance-course/programme";
+  await page.goto(
+    `/materials/performance-lesson-1?from=${encodeURIComponent(course)}`,
+  );
+  const rail = page.getByRole("complementary", { name: "Текущая глава" });
+  const heading = rail.getByRole("button", { name: /^Глава 1 из 2 Начало/ });
+  await expect(heading).toHaveAttribute("aria-expanded", "false");
+  await heading.click();
+  const chapters = rail.getByRole("navigation", { name: "Главы курса" });
+  await expect(chapters.getByRole("button")).toHaveCount(2);
+  const railBox = await rail.boundingBox();
+  const listBox = await chapters.boundingBox();
+  if (railBox === null || listBox === null)
+    throw new Error("Chapter rail has no layout box");
+  expect(listBox.x + listBox.width).toBeLessThanOrEqual(
+    railBox.x + railBox.width,
+  );
+  await page.keyboard.press("Escape");
+  await expect(heading).toHaveAttribute("aria-expanded", "false");
+  await expect(heading).toBeFocused();
+  await heading.click();
+  await chapters.getByRole("button", { name: /^Глава 2 Продолжение/ }).click();
+  const second = rail.getByRole("button", {
+    name: /^Глава 2 из 2 Продолжение/,
+  });
+  await expect(second).toBeFocused();
+  await expect(
+    rail
+      .getByRole("navigation", { name: "Шаги текущей главы" })
+      .getByRole("link", { name: "Материал 55", exact: true }),
+  ).toBeVisible();
+});
+
 test("mobile material actions and breadcrumbs fit one row", async ({
   page,
 }) => {

@@ -303,7 +303,7 @@ export function CourseRail({
     (entry) => entry.id === context.currentChapterId,
   );
   const chapterListId = useId();
-  const toggle = useRef<HTMLButtonElement>(null);
+  const chapterToggle = useRef<HTMLButtonElement>(null);
   const currentStepIndex =
     chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1;
   const rail = useRef<HTMLDivElement>(null);
@@ -339,13 +339,18 @@ export function CourseRail({
   }, [context.current.id, chapterId, choosing]);
   function chooseChapter(id: string) {
     setSelection({ key: selectionKey, chapter: id, choosing: false });
-    toggle.current?.focus();
+    chapterToggle.current?.focus();
   }
   return (
     <aside
       className={styles["rail"]}
       aria-label="Текущая глава"
       data-course-chapter={chapterId}
+      onKeyDown={(event) => {
+        if (!choosing || event.key !== "Escape") return;
+        event.preventDefault();
+        chooseChapter(chapterId);
+      }}
     >
       <IntentPrefetchLink
         className={styles["programmeLink"]}
@@ -355,7 +360,7 @@ export function CourseRail({
         Страница курса
       </IntentPrefetchLink>
       <button
-        ref={toggle}
+        ref={chapterToggle}
         type="button"
         className={styles["chapterToggle"]}
         aria-expanded={choosing}
@@ -382,16 +387,6 @@ export function CourseRail({
           id={chapterListId}
           className={styles["railSteps"]}
           aria-label="Главы курса"
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            setSelection({
-              key: selectionKey,
-              chapter: chapterId,
-              choosing: false,
-            });
-            toggle.current?.focus();
-          }}
         >
           <ol>
             {context.chapters.map((entry, index) => (
@@ -421,6 +416,9 @@ export function CourseRail({
                   <span>
                     <small>Глава {entry.ordinal ?? index + 1}</small>
                     <span className={styles["stepTitle"]}>{entry.name}</span>
+                    {index === readingChapterIndex ? (
+                      <span className="sr-only">Вы здесь</span>
+                    ) : null}
                   </span>
                 </button>
               </li>

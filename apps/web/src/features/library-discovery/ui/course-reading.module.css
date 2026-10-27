@@ -680,8 +680,7 @@ button.step {
 .dialog .step:not([aria-current="step"]) .mark {
   background: transparent;
 }
-.dialog .step[aria-current="step"] .mark,
-.step[data-reading] .mark {
+.dialog .step[aria-current="step"] .mark {
   background: var(--action);
 }
 

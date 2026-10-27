@@ -164,7 +164,7 @@ export const ChapterNavigation: Story = {
         .getAllByRole("button")
         .map((option) => option.textContent),
     ).toEqual([
-      "Глава 1Подготовь проект к разработке с агентом и проверь настройку",
+      "Глава 1Подготовь проект к разработке с агентом и проверь настройкуВы здесь",
       "Глава 2Продолжение",
       "Глава 3Следующая глава",
     ]);
@@ -216,6 +216,27 @@ export const LongChapterTitles: Story = {
         />
       </CourseReadingLayout>
     );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.queryByRole("button", { name: /^Глава 2 из 7/ });
+    if (heading === null || heading.getClientRects().length === 0) return;
+    const rail = canvas.getByRole("complementary", { name: "Текущая глава" });
+    await userEvent.click(heading);
+    const chapters = canvas.getByRole("navigation", { name: "Главы курса" });
+    await expect(
+      within(chapters).getByRole("button", { current: true }),
+    ).toHaveTextContent("Разработка с агентом на практике");
+    await expect(within(chapters).getByText("Вы здесь")).toBeInTheDocument();
+    await expect(chapters.getBoundingClientRect().right).toBeLessThanOrEqual(
+      rail.getBoundingClientRect().right,
+    );
+    await userEvent.keyboard("{Escape}");
+    await expect(heading).toHaveAttribute("aria-expanded", "false");
+    await expect(heading).toHaveFocus();
+    await expect(
+      canvas.getByRole("navigation", { name: "Шаги текущей главы" }),
+    ).toBeVisible();
   },
 };
 export const ServerStepChanges: Story = {
