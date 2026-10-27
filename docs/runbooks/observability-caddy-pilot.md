@@ -313,10 +313,10 @@ establish native acceptance. Fresh source-bound native evidence is still require
 
 ## Source test progress
 
-The source wrapper runs two separately owned contract groups: 82 pure/protocol methods and
+The source wrapper runs two separately owned contract groups: 84 pure/protocol methods and
 three process-lifecycle methods that acquire real launchers and listeners. Each invocation keeps
 the existing `15000ms` deadline and fixture/cleanup budgets. Complete discovery must match the
-85-method inventory, retaining all original methods, before selection in either process. The checked group union has
+87-method inventory, retaining all original methods, before selection in either process. The checked group union has
 no missing or repeated method; every method executes once across the two invocations.
 Best-effort start/completed markers identify only fixed inventoried source test IDs in
 its private captured stderr. The parent validates the complete ordered marker prefix before
@@ -407,6 +407,20 @@ active failure, including when the callback raises an operator interrupt. Withou
 failure, an operator interrupt still propagates; the mandatory restart runs in either case.
 These phases do not prove a historical unknown failure's cause. Collection requires the current source-bound
 reader; no positive case, query oracle, freshness tolerance or acquisition budget is changed.
+
+Eight fixed `reset_*` checkpoints distinguish the64-request corpus, old-source acquisition,
+gateway stop/start, readiness, native MCP entry, new-source acquisition and reset predicate.
+They update memory only, outside request journal windows. Existing seed and MCP progress
+still identify their own inner operations. A failure escaping this reset caller additionally
+uses an exact-type category: `command_exit`, `command_timeout`, `authority_refusal`, `http_eof`,
+`http_reset`, `http_body`, `http_status`, `host_io` or `runtime`; other failures retain the
+existing categories. Subclasses do not inherit a new category, and classifications outside
+this caller are unchanged. No exception text, arguments, command, identity or provider body
+is inspected or published. The existing six-field run schema and8192-byte bound remain.
+Optional metadata errors cannot replace a primary failure; an operator interrupt at the
+marker after a successful stop still executes the mandatory start before propagating.
+These diagnostics add no retry, traffic, acquisition, deadline or oracle change. A historical
+`reset/unknown` result remains unattributed until new source-bound runtime evidence identifies it.
 
 Source-cohort polling leaves five quiet seconds after an unsuccessful fresh/partition/stale
 acquisition completes, before starting its next query. This matches the native five-second

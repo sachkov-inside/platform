@@ -1,6 +1,7 @@
 """Linux-only genuine Caddy scenario. Protocol fixtures cannot establish native acceptance."""
 import math
 import http.client
+import subprocess
 import time
 import accounting
 import artifact
@@ -13,6 +14,7 @@ import mcp_snapshot
 import native_source
 import request_hold
 import traffic
+import source_status_scenario as core
 
 
 class AcquisitionBudgetRefusal(RuntimeError):
@@ -28,6 +30,16 @@ def failure_reason(error):
     return 'unknown'
 
 
+def reset_failure_reason(error):
+    # This vocabulary diagnoses only a failure that actually escaped reset().
+    # Never inspect foreign exception text, command arguments or subclasses.
+    return {subprocess.CalledProcessError:'command_exit',subprocess.TimeoutExpired:'command_timeout',
+            core.ScenarioFailed:'authority_refusal',http.client.RemoteDisconnected:'http_eof',
+            ConnectionResetError:'http_reset',http.client.IncompleteRead:'http_body',
+            http.client.BadStatusLine:'http_status',OSError:'host_io',BrokenPipeError:'host_io',
+            FileNotFoundError:'host_io',PermissionError:'host_io',RuntimeError:'runtime'}.get(type(error),failure_reason(error))
+
+
 class Scenario:
     def __init__(self,targets,token,executable,progress):
         self.targets,self.token,self.executable,self.progress=targets,token,executable,progress
@@ -35,6 +47,7 @@ class Scenario:
         self.journal=accounting.Traffic()
         self.acquisitions=0
         self.last_report=None
+        self._reset_error=None
 
     def remaining(self):
         remaining=self.deadline-time.monotonic()
@@ -49,13 +62,19 @@ class Scenario:
     def _inflight_checkpoint(self,name):self.progress('inflight_checkpoint',name)
 
     def _recovery_checkpoint(self,name,*,_primary=None):
-        try:self.progress('recovery_checkpoint',name)
+        self._optional_checkpoint('recovery_checkpoint',name,_primary=_primary)
+
+    def _reset_checkpoint(self,name,*,_primary=None):
+        self._optional_checkpoint('reset_checkpoint',name,_primary=_primary)
+
+    def _optional_checkpoint(self,kind,name,*,_primary=None):
+        try:self.progress(kind,name)
         except Exception:pass  # Optional diagnostics cannot block service restoration or replace its failure.
         except BaseException:
             if _primary is None:raise  # An operator interrupt still wins when no failure is active.
 
     def failed(self,error):
-        self.progress('failure',failure_reason(error))
+        self.progress('failure',reset_failure_reason(error) if error is self._reset_error else failure_reason(error))
 
     def _cohort_pause(self,value):
         if value[0]['state']!='observed':return 5
@@ -324,19 +343,29 @@ class Scenario:
 
     def reset(self):
         self.phase('reset')
-        for _ in range(64):last=self._one('http_get')
-        _,old=self.fresh_after(last['completed'])
-        self.targets.change('gateway','stop')
-        self.targets.change('gateway','start')
-        self.ready()
-        cut=self.seed()
-        self.phase('reset')
-        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
-            self.phase('reset')
-            report,current=self.fresh_after(cut,previous=old)
-            if report['comparison']['state']!='reset_observed':status.refuse()
-            self.matching(current,previous=old,read=read)
-        self.passed('counter_reset')
+        try:
+            self._reset_checkpoint('reset_load')
+            for _ in range(64):last=self._one('http_get')
+            self._reset_checkpoint('reset_old_fresh')
+            _,old=self.fresh_after(last['completed'])
+            self._reset_checkpoint('reset_stop')
+            self.targets.change('gateway','stop')
+            try:self._reset_checkpoint('reset_start')
+            finally:self.targets.change('gateway','start')
+            self._reset_checkpoint('reset_ready')
+            self.ready()
+            cut=self.seed()
+            self._reset_checkpoint('reset_mcp_open')
+            with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+                self._reset_checkpoint('reset_new_fresh')
+                report,current=self.fresh_after(cut,previous=old)
+                self._reset_checkpoint('reset_compare')
+                if report['comparison']['state']!='reset_observed':status.refuse()
+                self.matching(current,previous=old,read=read)
+            self.passed('counter_reset')
+        except BaseException as error:
+            self._reset_error=error
+            raise
 
     def run(self):
         self.ready()
