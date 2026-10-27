@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { telegramContactSchema } from "@inside/contracts/telegram-contact";
 
+import { authoringSubmissionsHref } from "@/shared/routing/authoring";
+
 const criterionV1Schema = z
   .object({
     id: z.string(),
@@ -164,7 +166,7 @@ export interface SubmissionSelection {
   readonly taskCode?: string;
 }
 
-export const submissionsHref = "/authoring/submissions";
+export const submissionsHref = authoringSubmissionsHref;
 
 /**
  * The selection that the Products on offer can show: a chapter outside the chosen Product and a task

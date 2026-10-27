@@ -19,6 +19,7 @@ import {
   metricValueText,
   overviewMetricIds,
   overviewMetrics,
+  periodHasFacts,
   periodLabel,
   progressText,
   type OverviewMetricId,
@@ -78,6 +79,12 @@ export function AuthoringOverviewView({
   if (state.kind !== "ready")
     return <OverviewFailure onRetry={onRetry} state={state} />;
   const period = state.period;
+  // Без права на продажи и доступ период ни на что не влияет: переключатель и подпись периода
+  // не показываются, а закрытые блоки сводятся в один отказ.
+  const salesHidden =
+    state.metrics.state === "forbidden" &&
+    state.funnel.state === "forbidden" &&
+    state.learning.state === "forbidden";
   return (
     <AuthoringOverviewFrame labelledBy={headingId}>
       <div
@@ -88,17 +95,25 @@ export function AuthoringOverviewView({
       >
         <AdminListHeader
           action={
-            <PeriodSwitch
-              onChange={(days) => {
-                onQueryChange({ ...query, period: days });
-              }}
-              value={query.period}
-            />
+            salesHidden ? undefined : (
+              <PeriodSwitch
+                onChange={(days) => {
+                  onQueryChange({ ...query, period: days });
+                }}
+                value={query.period}
+              />
+            )
           }
           headingId={headingId}
           title="Обзор"
         />
-        {state.metrics.state === "forbidden" ? (
+        {salesHidden ? (
+          <ForbiddenBlock title="Продажи и доступы">
+            Выручку, продажи, новые доступы и аккаунты, записи в ожидание,
+            воронку и обучение по продуктам видит аккаунт, у которого есть{" "}
+            {billingRight}.
+          </ForbiddenBlock>
+        ) : state.metrics.state === "forbidden" ? (
           <ForbiddenBlock title="Продажи и доступы">
             Выручку, продажи, новые доступы, аккаунты и записи в ожидание видит
             аккаунт, у которого есть {billingRight}.
@@ -113,7 +128,9 @@ export function AuthoringOverviewView({
             selected={query.metric}
           />
         )}
-        <p className="admin-overview-quiet">{periodRangeText(period)}</p>
+        {salesHidden ? null : (
+          <p className="admin-overview-quiet">{periodRangeText(period)}</p>
+        )}
         <div className="admin-overview-grid">
           {state.metrics.state === "ready" ? (
             <ChartBlock
@@ -124,8 +141,12 @@ export function AuthoringOverviewView({
           ) : null}
           <AttentionBlock attention={state.attention} />
           <EventsBlock events={state.events} />
-          <FunnelBlock funnel={state.funnel} period={period} />
-          <LearningBlock learning={state.learning} />
+          {salesHidden ? null : (
+            <>
+              <FunnelBlock funnel={state.funnel} period={period} />
+              <LearningBlock learning={state.learning} />
+            </>
+          )}
         </div>
       </div>
     </AuthoringOverviewFrame>
@@ -154,6 +175,7 @@ function MetricsRow({
   readonly onSelect: (metric: OverviewMetricId) => void;
 }) {
   const span = periodLabel(period.days);
+  const sales = readySales(metrics);
   return (
     <section aria-label="Показатели" className="admin-overview-metrics">
       {overviewMetricIds.map((id) => {
@@ -172,6 +194,7 @@ function MetricsRow({
               key={id}
               {...common}
               detail="Не удалось посчитать, источник не ответил"
+              unavailable
               value="Недоступно"
             />
           );
@@ -179,7 +202,12 @@ function MetricsRow({
           <MetricCard
             key={id}
             {...common}
-            change={metricChange(id, metric.current, metric.previous)}
+            change={metricChange(
+              id,
+              metric.current,
+              metric.previous,
+              id === "revenue" ? { sales: sales?.previous } : {},
+            )}
             detail={
               "byOrigin" in metric ? (
                 <OriginBreakdown byOrigin={metric.byOrigin} />
@@ -193,6 +221,11 @@ function MetricsRow({
   );
 }
 
+/** Продажи, по которым решается пустота выручки: продажа с возвратом в тот же день не пустота. */
+function readySales(metrics: ReadyMetrics) {
+  return metrics.sales.state === "ready" ? metrics.sales : undefined;
+}
+
 function ChartBlock({
   metric,
   metrics,
@@ -204,6 +237,7 @@ function ChartBlock({
 }) {
   const definition = overviewMetrics[metric];
   const series = metrics[metric];
+  const sales = metric === "revenue" ? readySales(metrics) : undefined;
   return (
     <section
       aria-label={`График: ${definition.label}`}
@@ -225,6 +259,10 @@ function ChartBlock({
           emptyDescription={definition.emptyDescription}
           emptyTitle={definition.emptyTitle}
           formatValue={(value) => metricValueText(metric, value)}
+          hasFacts={
+            periodHasFacts(series.current, { sales: sales?.current }) ||
+            periodHasFacts(series.previous, { sales: sales?.previous })
+          }
           points={series.current.daily}
           previous={series.previous.daily}
           summary={metricChartSummary(
@@ -232,6 +270,7 @@ function ChartBlock({
             period.days,
             series.current,
             series.previous,
+            { sales: sales?.previous },
           )}
           title={definition.label}
         />

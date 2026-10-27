@@ -96,7 +96,10 @@ export const Owner: Story = {
       period: 30,
       metric: "sales",
     });
-    await userEvent.click(page.getByRole("button", { name: "7 дней" }));
+    const sevenDays = page.getByRole("button", { name: "7 дней" });
+    await userEvent.click(sevenDays);
+    // Story держит период в args: фокус уходит, чтобы снимок не показывал рамку фокуса.
+    sevenDays.blur();
     await expect(queryChanged).toHaveBeenLastCalledWith({
       period: 7,
       metric: "revenue",
@@ -238,6 +241,8 @@ export const MaterialsOnly: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(page.queryByRole("region", { name: "Показатели" })).toBeNull();
+    await expect(page.queryByRole("group", { name: "Период" })).toBeNull();
+    await expect(page.queryByRole("region", { name: "Обучение" })).toBeNull();
     await expect(
       page.getByRole("region", { name: "Продажи и доступы" }),
     ).toHaveTextContent("право управлять доступом и оплатами");

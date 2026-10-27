@@ -3,10 +3,11 @@ import type { Route } from "next";
 import { formatRubles } from "@/shared/lib/moscow-format";
 import { hasText } from "@/shared/lib/text";
 import {
+  authoringPaymentHref,
   authoringPersonHref,
   authoringProductEditorHref,
+  authoringSubmissionHref,
 } from "@/shared/routing/authoring";
-import { internalRoute } from "@/shared/routing/internal-route";
 
 import { overviewOriginLabels } from "./metric-presentation";
 import type { OverviewEvent, OverviewEventPerson } from "./overview-contract";
@@ -82,7 +83,7 @@ export function overviewEventRow(
         key: `payment:${event.purchaseRef}`,
         title: `Оплата ${formatRubles(Math.round(event.amountKopecks / 100) * 100)}`,
         detail: null,
-        href: internalRoute(`/authoring/sales/payments/${event.purchaseRef}`),
+        href: authoringPaymentHref(event.purchaseRef),
       };
     case "access_issued":
       return {
@@ -110,9 +111,7 @@ export function overviewEventRow(
         key: `submission:${event.submissionId}`,
         title: event.commented ? "Сдача с комментарием" : "Новая сдача",
         detail: hasText(event.taskTitle) ? event.taskTitle : null,
-        href: internalRoute(
-          `/authoring/submissions?submission=${event.submissionId}`,
-        ),
+        href: authoringSubmissionHref(event.submissionId),
       };
   }
 }

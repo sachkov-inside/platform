@@ -20,6 +20,11 @@ export interface MetricCardProps {
   readonly label: string;
   /** Уже отформатированное значение. */
   readonly value: string;
+  /**
+   * Значение не посчитано: источник не ответил. Слово вместо числа стоит мельче и приглушённо,
+   * чтобы не читаться как показатель и не рваться посреди слова в узкой карточке.
+   */
+  readonly unavailable?: boolean;
   /** «за 30 дней»; у состояния на сейчас, например числа обладателей, периода нет. */
   readonly period?: string;
   /** Без сравнения карточка показывает только значение: число на сейчас или недоступный показатель. */
@@ -47,6 +52,7 @@ const meaningText = {
 export function MetricCard({
   label,
   value,
+  unavailable = false,
   period,
   change,
   detail,
@@ -56,7 +62,12 @@ export function MetricCard({
   const content = (
     <>
       <span className="admin-metric-label">{label}</span>
-      <span className="admin-metric-value">{value}</span>
+      <span
+        className="admin-metric-value"
+        data-unavailable={unavailable || undefined}
+      >
+        {value}
+      </span>
       {detail === undefined ? null : (
         <span className="admin-metric-detail">{detail}</span>
       )}

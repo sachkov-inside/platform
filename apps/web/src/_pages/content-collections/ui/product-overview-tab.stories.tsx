@@ -1,8 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { ReactNode } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
-import { internalRoute } from "@/shared/routing/internal-route";
+import {
+  ProductOverviewPanel,
+  type ProductOverview,
+} from "@/features/admin-overview";
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import {
   storyProductOverview,
   storyProductOverviewEmpty,
@@ -11,25 +14,14 @@ import {
 import { desktop, mobile } from "@/storybook/loads-in-place";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
-import type { ProductOverview } from "../model/product-overview";
-import { ProductOverviewPanel } from "./product-overview-panel.client";
+import { ProductEditorPageFrame } from "./product-editor-page-frame";
 
-const productPath = "/authoring/products/97000000-0000-4000-8000-000000000301";
+const productId = "97000000-0000-4000-8000-000000000301";
+const productPath = authoringProductEditorHref(productId);
 
-/**
- * Вкладка стоит в рамке страницы продукта, как на маршруте: `main` с `#authoring-content`
- * прокручивает страницу под каркасом с 48rem.
- */
-function ProductPageFrame({ children }: { readonly children: ReactNode }) {
-  return (
-    <main className="authoring-page" id="authoring-content" tabIndex={-1}>
-      <div className="authoring-page-body">{children}</div>
-    </main>
-  );
-}
-
+/** Вкладка стоит в настоящей рамке страницы продукта, как на маршруте. */
 const environment = authoringPageEnvironment(productPath, {
-  frame: ProductPageFrame,
+  frame: ProductEditorPageFrame,
 });
 const periodChanged = fn();
 const retried = fn();
@@ -47,7 +39,7 @@ const meta = {
     period: 30,
     onPeriodChange: periodChanged,
     onRetry: retried,
-    programHref: internalRoute(`${productPath}?tab=program`),
+    programHref: authoringProductEditorHref(productId, "program"),
   },
   beforeEach: () => {
     periodChanged.mockClear();
@@ -101,7 +93,7 @@ export const Empty: Story = {
   name: "Новый продукт",
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(page.getByText("Набор не открыт")).toBeVisible();
+    await expect(page.getByText(/^Набор не открыт/u)).toBeVisible();
     await expect(page.getByText("Доступа пока ни у кого нет")).toBeVisible();
     await expect(page.getByText("Событий пока нет")).toBeVisible();
   },

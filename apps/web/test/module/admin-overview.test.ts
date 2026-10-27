@@ -52,6 +52,7 @@ import {
   originBreakdown,
   overviewEventRow,
   parseOverviewPeriod,
+  periodHasFacts,
   periodLabel,
   productOverviewPeriodSearch,
   progressText,
@@ -128,6 +129,26 @@ describe("metric change against the previous period", () => {
     expect(metricChange("revenue", series(0), series(0))).toEqual({
       kind: "no_data",
     });
+  });
+
+  it("treats a sale refunded the same day as a fact, not an empty period", () => {
+    const netZero = series(0, 0);
+    const oneSale = series(1, 0);
+    expect(
+      metricChange("revenue", series(1_249_000), netZero, { sales: oneSale }),
+    ).toMatchObject({ kind: "delta", text: "+12\u00a0490\u00a0₽" });
+    expect(metricChange("revenue", series(1_249_000), netZero)).toEqual({
+      kind: "no_data",
+    });
+    expect(
+      metricChange("revenue", series(0), netZero, { sales: series(0, 0) }),
+    ).toEqual({ kind: "no_data" });
+    // День только с возвратом сам по себе не ноль.
+    expect(periodHasFacts(series(0, -499_000))).toBe(true);
+    expect(periodHasFacts(netZero, { sales: oneSale })).toBe(true);
+    expect(
+      metricChartSummary("revenue", 7, series(0), netZero, { sales: oneSale }),
+    ).toBe("За 7 дней: 0\u00a0₽. В прошлом периоде: 0\u00a0₽.");
   });
 
   it("describes the chart in words and names the period", () => {
@@ -241,7 +262,7 @@ describe("«Требует внимания»", () => {
         {
           id: "telegramDeliveryFailures",
           kind: "count",
-          label: "Сообщения Telegram не доставлены за 30 дней",
+          label: "Доставка сообщений Telegram не подтверждена",
           count: 1,
           countText: "1 человек",
           href: "/authoring/people?telegram=delivery_failed",

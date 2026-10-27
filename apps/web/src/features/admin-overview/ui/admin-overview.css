@@ -168,6 +168,10 @@
 .admin-overview-metrics[data-columns="4"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+/* Четыре карточки на телефоне встают два на два, без широкой первой. */
+.admin-overview-metrics[data-columns="4"] > :first-child {
+  grid-column: auto;
+}
 @container (min-width: 48rem) {
   .admin-overview-metrics[data-columns="4"] {
     grid-template-columns: repeat(4, minmax(0, 1fr));

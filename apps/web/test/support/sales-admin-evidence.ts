@@ -20,19 +20,41 @@ const liveChecksSchema = z.array(
 );
 type LiveCheck = z.infer<typeof liveChecksSchema>[number];
 
+/** Откуда снимок: флаг, который его включает, и каталог задачи в `docs/evidence`. */
+export interface AdminEvidenceTarget {
+  readonly flag: string;
+  readonly issue: `issue-${number}`;
+}
+
 /**
  * Снимок живого маршрута #1718 для production visual gate. Без `CAPTURE_SALES_ADMIN_EVIDENCE=1`
- * ничего не делает, и сценарий идёт как обычно. С ним до снимка проверяет, что у страницы нет
- * горизонтальной прокрутки и Axe чист для всей страницы вместе с каркасом, а итог проверки дописывает
- * в `live-checks-<проект>.json`. Набор навигации идёт в один поток, поэтому файл пишется без гонок.
- * Каталог выбирает `UPDATE_EVIDENCE=issue-1718` (`scripts/evidence-path.mjs`).
+ * ничего не делает, и сценарий идёт как обычно. Каталог выбирает `UPDATE_EVIDENCE=issue-1718`
+ * (`scripts/evidence-path.mjs`).
  */
-export async function salesAdminEvidence(
+export function salesAdminEvidence(
   page: Page,
   info: TestInfo,
   state: string,
 ): Promise<void> {
-  if (process.env["CAPTURE_SALES_ADMIN_EVIDENCE"] !== "1") return;
+  return adminEvidence(page, info, state, {
+    flag: "CAPTURE_SALES_ADMIN_EVIDENCE",
+    issue: "issue-1718",
+  });
+}
+
+/**
+ * Снимок живого маршрута админки для production visual gate задачи `target.issue`. Без флага
+ * `target.flag=1` ничего не делает. С ним до снимка проверяет, что у страницы нет горизонтальной
+ * прокрутки и Axe чист для всей страницы вместе с каркасом, а итог проверки дописывает в
+ * `live-checks-<проект>.json`. Набор навигации идёт в один поток, поэтому файл пишется без гонок.
+ */
+export async function adminEvidence(
+  page: Page,
+  info: TestInfo,
+  state: string,
+  target: AdminEvidenceTarget,
+): Promise<void> {
+  if (process.env[target.flag] !== "1") return;
   // Шаг сценария только что закрыл список выбора или снял `disabled`: замер посреди перехода видит
   // полупрозрачную кнопку и закрывающийся список, который ещё прячет остальную страницу. Конечные
   // анимации доигрывают; бесконечные (индикатор загрузки) не ждутся.
@@ -58,7 +80,7 @@ export async function salesAdminEvidence(
   const scan = await new AxeBuilder({ page }).analyze();
   expect(scan.violations).toEqual([]);
 
-  const directory = await prepareEvidenceDirectory("issue-1718");
+  const directory = await prepareEvidenceDirectory(target.issue);
   const file = `live-${state}-${info.project.name}.png`;
   const path = resolve(directory, file);
   // Снимок всей страницы рисует закреплённые элементы там, где стоит прокрутка: шаг сценария,
@@ -80,7 +102,10 @@ export async function salesAdminEvidence(
   } finally {
     if (stretch) await page.setViewportSize(viewport);
   }
-  await info.attach(`sales-admin-${state}`, { path, contentType: "image/png" });
+  await info.attach(`${target.issue}-${state}`, {
+    path,
+    contentType: "image/png",
+  });
 
   const url = new URL(page.url());
   const checksPath = resolve(

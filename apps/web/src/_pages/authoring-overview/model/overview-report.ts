@@ -2,15 +2,20 @@ import type { Route } from "next";
 import { z } from "zod";
 
 import {
-  defaultOverviewPeriod,
   newAccessMetricSchema,
   overviewEventSchema,
   overviewMetricSchema,
   overviewPeriodSchema,
   type OverviewPeriodDays,
 } from "@/features/admin-overview";
+import { salesPaymentsQueryHref } from "@/features/owner-payments";
 import { formatCountRu } from "@/shared/lib/moscow-format";
-import { internalRoute } from "@/shared/routing/internal-route";
+import {
+  authoringPeopleTelegramHref,
+  authoringProductEditorHref,
+  authoringSalesFunnelProductHref,
+  authoringSubmissionsHref,
+} from "@/shared/routing/authoring";
 
 /**
  * Обзор админки (#1719), `GET admin/overview?period=`. Каждый блок отвечает сам за себя: `forbidden`
@@ -138,8 +143,9 @@ interface AttentionDefinition {
 }
 
 /**
- * Проверки «Требует внимания» в порядке показа. Каждая ведет в уже отфильтрованный список; сбои
- * Telegram считаются людьми, сбои доставки за последние 30 дней.
+ * Проверки «Требует внимания» в порядке показа. Каждая ведет в уже отфильтрованный список. Сбои
+ * Telegram считаются людьми; доставка считается неподтверждённой, если сообщение не дошло за
+ * последние 30 дней или итог его отправки неизвестен.
  */
 export const attentionDefinitions: Readonly<
   Record<AttentionId, AttentionDefinition>
@@ -147,35 +153,34 @@ export const attentionDefinitions: Readonly<
   undeterminedPayments: {
     label: "Оплаты с неизвестным итогом",
     unchecked: "Не удалось проверить оплаты с неизвестным итогом",
-    href: internalRoute(
-      "/authoring/sales/payments?state=unknown&state=authorized",
-    ),
+    href: salesPaymentsQueryHref({ states: ["unknown", "authorized"] }),
     right: "billing",
   },
   fulfillmentIncomplete: {
     label: "Оплачено, но выдача не завершена",
     unchecked: "Не удалось проверить выдачу после оплаты",
-    href: internalRoute(
-      "/authoring/sales/payments?state=confirmed&fulfillment=incomplete",
-    ),
+    href: salesPaymentsQueryHref({
+      states: ["confirmed"],
+      fulfillment: "incomplete",
+    }),
     right: "billing",
   },
   communityFailures: {
     label: "Сбой доступа к группе Telegram",
     unchecked: "Не удалось проверить доступ к группам Telegram",
-    href: internalRoute("/authoring/people?telegram=community_failed"),
+    href: authoringPeopleTelegramHref("community_failed"),
     right: "billing",
   },
   telegramDeliveryFailures: {
-    label: "Сообщения Telegram не доставлены за 30 дней",
+    label: "Доставка сообщений Telegram не подтверждена",
     unchecked: "Не удалось проверить доставку сообщений Telegram",
-    href: internalRoute("/authoring/people?telegram=delivery_failed"),
+    href: authoringPeopleTelegramHref("delivery_failed"),
     right: "billing",
   },
   submissionsAwaitingFeedback: {
     label: "Сдачи без комментария",
     unchecked: "Не удалось проверить сдачи без комментария",
-    href: internalRoute("/authoring/submissions"),
+    href: authoringSubmissionsHref,
     right: "submissions",
   },
 };
@@ -317,22 +322,17 @@ export function funnelStepRows(
   });
 }
 
-/**
- * Полный отчет воронки за тот же период и продукт. Имена параметров те же, что у адреса отчета
- * (`productId`, `period`; тридцать дней не пишутся).
- */
+/** Полный отчет воронки за тот же период и продукт. */
 export function fullFunnelHref(
   productId: string,
   period: OverviewPeriodDays,
 ): Route {
-  const params = new URLSearchParams({ productId });
-  if (period !== defaultOverviewPeriod) params.set("period", String(period));
-  return internalRoute(`/authoring/sales/funnel?${params.toString()}`);
+  return authoringSalesFunnelProductHref(productId, period);
 }
 
 /** Обучение по продукту открывает «Учеников» страницы продукта. */
 export function productLearnersHref(productId: string): Route {
-  return internalRoute(`/authoring/products/${productId}?tab=learners`);
+  return authoringProductEditorHref(productId, "learners");
 }
 
 /**

@@ -38,7 +38,7 @@ export type TelegramProblem = z.infer<typeof telegramProblemSchema>;
 export const telegramProblemLabels: Readonly<Record<TelegramProblem, string>> =
   {
     community_failed: "Сбой доступа к группе Telegram",
-    delivery_failed: "Сообщения Telegram не доставлены",
+    delivery_failed: "Доставка в Telegram не подтверждена",
   };
 
 const instant = z.iso.datetime({ offset: true });

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { attemptStateSchema } from "@/entities/subscription";
 import { addMoscowDays, moscowDayStart } from "@/shared/lib/moscow-day";
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
+import { authoringPaymentsHref } from "@/shared/routing/authoring";
 
 /** Банковское состояние попытки оплаты: закрытый список владельца billing. */
 export type PaymentState = z.infer<typeof attemptStateSchema>;
@@ -37,7 +38,7 @@ export const emptyPaymentsQuery: PaymentsQuery = { states: [] };
 const fulfillmentSchema = z.literal("incomplete");
 export type PaymentFulfillmentFilter = z.infer<typeof fulfillmentSchema>;
 export const fulfillmentFilterLabel = "Выдача не завершена";
-export const salesPaymentsHref = "/authoring/sales/payments" satisfies Route;
+export const salesPaymentsHref = authoringPaymentsHref;
 
 /** Сколько строк просит одна страница списка. */
 export const paymentsPageSize = 50;

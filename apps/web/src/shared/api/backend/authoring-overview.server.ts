@@ -6,8 +6,12 @@ import {
   type BackendTransportResult,
 } from "./transport-core.server";
 
-/** Days of an Overview period; the generated client declares the same three choices. */
-export type AuthoringOverviewPeriod = 7 | 30 | 90;
+/** Days of an Overview period, as the generated client declares them. */
+export type AuthoringOverviewPeriod = NonNullable<
+  NonNullable<
+    Parameters<AuthoringOverviewService["readAuthoringOverview"]>[0]
+  >["period"]
+>;
 
 /**
  * The admin Overview (#1719); each block answers by the caller's rights. 403 when the Account has

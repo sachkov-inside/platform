@@ -2153,13 +2153,21 @@ test("trusted author walks a product chapter through Previews that stay closed t
         url.pathname ===
           `/authoring/materials/${inChapter.materialId}/preview` &&
         url.searchParams.get("product") === productId &&
-        url.searchParams.get("from") === editorPath,
+        url.searchParams.get("from") === `${editorPath}?tab=program`,
     );
     await expect(route).toContainText(
       `${chapterName} · материал 1 из ${String(total)}`,
     );
+    // Возврат ведёт в «Программу», откуда автор открыл предпросмотр, а не на «Обзор» (#1719).
     await page.getByRole("link", { name: "К продукту" }).click();
-    await expect(page).toHaveURL((url) => url.pathname === editorPath);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === editorPath &&
+        url.searchParams.get("tab") === "program",
+    );
+    await expect(
+      page.getByRole("tab", { name: "Программа", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
   } finally {
     // Руководство общее для прогона: глава снимается, чтобы остальные сценарии видели прежний состав.
     const current = await readProductOrder(page, productId);

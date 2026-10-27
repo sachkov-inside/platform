@@ -2,7 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import { parseOverviewPeriod } from "@/features/admin-overview";
+import {
+  parseOverviewPeriod,
+  type OverviewPeriodDays,
+} from "@/features/admin-overview";
 import {
   BackendConnectionError,
   requestAuthoringOverview,
@@ -54,7 +57,7 @@ export function handleOverviewRequest(
 }
 
 export async function readOverview(
-  period: 7 | 30 | 90,
+  period: OverviewPeriodDays,
   accessToken: string,
   dependencies: OverviewDependencies = productionDependencies,
 ): Promise<OverviewState> {

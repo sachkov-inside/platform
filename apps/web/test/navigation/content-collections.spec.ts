@@ -135,6 +135,13 @@ test("products list opens a product whose tabs live in the address and keep the 
   await expect(
     page.getByRole("list", { name: "Материалы продукта" }),
   ).toContainText("Первый шаг программы");
+  // Предпросмотр из программы возвращает в «Программу», а не на первую вкладку «Обзор» (#1719).
+  const previewHref = await page
+    .getByRole("link", { name: "Предпросмотр «Первый шаг программы»" })
+    .getAttribute("href");
+  expect(
+    new URL(previewHref ?? "", "http://web.test").searchParams.get("from"),
+  ).toBe(`/authoring/products/${architectureId}?tab=program`);
 
   await tab("Описание и витрина").click();
   await expect(page).toHaveURL(

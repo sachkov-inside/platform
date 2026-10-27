@@ -9,7 +9,10 @@ import {
 } from "@/shared/api/backend/index.server";
 import { handleAuthenticatedRead } from "@/shared/auth/index.server";
 
-import { parseOverviewPeriod } from "../model/overview-contract";
+import {
+  parseOverviewPeriod,
+  type OverviewPeriodDays,
+} from "../model/overview-contract";
 import {
   productOverviewSchema,
   type ProductOverviewState,
@@ -59,7 +62,7 @@ export function handleProductOverviewRequest(
 
 async function readProductOverview(
   productId: string,
-  period: 7 | 30 | 90,
+  period: OverviewPeriodDays,
   accessToken: string,
   dependencies: ProductOverviewDependencies,
 ): Promise<ProductOverviewState> {

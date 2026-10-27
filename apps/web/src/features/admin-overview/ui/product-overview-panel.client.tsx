@@ -113,6 +113,7 @@ export function ProductOverviewPanel({
       <div className="admin-overview-metrics" data-columns="4">
         <MetricCard
           label="Обладатели"
+          unavailable={state.holders.state !== "ready"}
           value={
             state.holders.state === "ready"
               ? formatCount(state.holders.active)
@@ -132,32 +133,43 @@ export function ProductOverviewPanel({
           period="сейчас"
         />
         <PeriodMetric
+          id="revenue"
           label="Выручка за вычетом возвратов"
           metric={state.revenue}
-          moneyLike
+          sales={state.sales}
           span={span}
         />
-        <PeriodMetric label="Продажи" metric={state.sales} span={span} />
+        <PeriodMetric
+          id="sales"
+          label="Продажи"
+          metric={state.sales}
+          span={span}
+        />
         <MetricCard
           label="Список ожидания"
+          unavailable={state.waitlist.state === "unavailable"}
           value={
             state.waitlist.state === "unavailable"
               ? unavailableValue
               : state.waitlist.intake === null
-                ? "Набор не открыт"
+                ? "Нет набора"
                 : formatCount(state.waitlist.intake.active)
           }
           detail={
             state.waitlist.state === "unavailable"
               ? unavailableDetail
               : state.waitlist.intake === null
-                ? "Записи появятся, когда откроется набор"
+                ? "Набор не открыт: записи появятся, когда он откроется"
                 : `Набор «${state.waitlist.intake.name}»`
           }
         />
       </div>
       <div className="admin-overview-grid">
-        <section aria-label="Обучение" className="admin-overview-block">
+        <section
+          aria-label="Обучение"
+          className="admin-overview-block"
+          data-span="all"
+        >
           <div className="admin-overview-block-header">
             <h3 className="m-0 text-[15px] font-semibold">Обучение</h3>
           </div>
@@ -203,29 +215,34 @@ export function ProductOverviewPanel({
 }
 
 function PeriodMetric({
+  id,
   label,
   metric,
+  sales,
   span,
-  moneyLike = false,
 }: {
+  readonly id: "revenue" | "sales";
   readonly label: string;
   readonly metric: OverviewMetric;
+  /** Для выручки: продажи того же периода решают, был ли прошлый период пуст. */
+  readonly sales?: OverviewMetric;
   readonly span: string;
-  readonly moneyLike?: boolean;
 }) {
-  const id = moneyLike ? "revenue" : "sales";
   if (metric.state === "unavailable")
     return (
       <MetricCard
         detail={unavailableDetail}
         label={label}
         period={span}
+        unavailable
         value={unavailableValue}
       />
     );
   return (
     <MetricCard
-      change={metricChange(id, metric.current, metric.previous)}
+      change={metricChange(id, metric.current, metric.previous, {
+        sales: sales?.state === "ready" ? sales.previous : undefined,
+      })}
       label={label}
       period={span}
       value={metricValueText(id, metric.current.total)}

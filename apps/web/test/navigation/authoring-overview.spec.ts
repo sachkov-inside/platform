@@ -231,12 +231,16 @@ test("a materials-only author sees refusals that name the right, not zeros (#171
   await expect(attention).toContainText(
     "Оплаты, выдачу и Telegram проверяет аккаунт с правом управлять доступом и оплатами.",
   );
+  // Закрытые правом продажи, воронка и обучение сведены в один отказ; период им не нужен.
   await expect(
     main(page).getByRole("region", { name: "Воронка продаж" }),
-  ).toContainText("Нет доступа");
+  ).toHaveCount(0);
   await expect(
-    main(page).getByRole("region", { name: "Обучение" }),
-  ).toContainText("Нет доступа");
+    main(page).getByRole("region", { name: "Продажи и доступы" }),
+  ).toContainText("воронку и обучение по продуктам");
+  await expect(main(page).getByRole("group", { name: "Период" })).toHaveCount(
+    0,
+  );
   // Без права на людей имя скрыто и карточка человека не предлагается.
   const events = main(page).getByRole("list", { name: "Последние события" });
   await expect(events).toContainText("Имя скрыто");

@@ -1,26 +1,26 @@
 import { z } from "zod";
 
+import {
+  authoringProductTabIds,
+  type AuthoringProductTab,
+} from "@/shared/routing/authoring";
+
 /**
  * Вкладки страницы продукта в адресе: `?tab=program` и т. д. Первая вкладка, «Обзор» (#1719), в
- * адрес не пишется; незнакомое значение открывает её же. Новая вкладка добавляется сюда, в
- * подписи `productPageTabLabels` и в панели страницы.
+ * адрес не пишется; незнакомое значение открывает её же. Список вкладок владеет
+ * `@/shared/routing/authoring`; новая вкладка добавляется туда, в подписи `productPageTabLabels`
+ * и в панели страницы.
  *
  * «Обзор» открывается по умолчанию, как первая вкладка спецификации #1717. Web не знает прав
  * аккаунта заранее, поэтому автор только материалов видит на «Обзоре» отказ со ссылкой на
  * «Программу».
  */
-export const productPageTabIds = [
-  "overview",
-  "program",
-  "description",
-  "sale",
-  "learners",
-  "community",
-] as const;
+export const productPageTabIds = authoringProductTabIds;
 
-export type ProductPageTabId = (typeof productPageTabIds)[number];
+export type ProductPageTabId = AuthoringProductTab;
 
-export const defaultProductPageTab: ProductPageTabId = "overview";
+export const defaultProductPageTab: ProductPageTabId =
+  authoringProductTabIds[0];
 
 const productPageTabSchema = z.enum(productPageTabIds);
 

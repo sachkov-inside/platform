@@ -102,7 +102,7 @@ function payment(index, state, createdAt) {
 
 /** 60 платежей, по одному в шесть часов с 24.10.2026 14:00 МСК назад; первый ждёт сверки. */
 function initialPayments() {
-  return Array.from({ length: 60 }, (_, index) =>
+  const rows = Array.from({ length: 60 }, (_, index) =>
     payment(
       index,
       index === 0 ? "unknown" : (states[index % states.length] ?? "confirmed"),
@@ -110,6 +110,12 @@ function initialPayments() {
         Date.parse("2026-10-24T11:00:00.000Z") - index * 6 * 3_600_000,
       ).toISOString(),
     ),
+  );
+  // Выдача этого подтверждённого платежа ещё готовится (#1719).
+  return rows.map((row) =>
+    row.purchaseRef === fulfillmentIncompleteRef
+      ? { ...row, access: "preparing" }
+      : row,
   );
 }
 

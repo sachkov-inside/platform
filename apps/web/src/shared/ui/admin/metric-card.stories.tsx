@@ -171,6 +171,7 @@ export const UnavailableMobile: Story = {
   args: {
     label: "Выручка за вычетом возвратов",
     value: "Недоступно",
+    unavailable: true,
     period: "за 30 дней",
     change: undefined,
     detail: "Не удалось посчитать, источник не ответил",
