@@ -88,6 +88,7 @@ class OwnershipDiagnostics(unittest.TestCase):
             self.assertNotIn('private-controlled',json.dumps(run))
 
     def test_all_139_literal_role_gate_phases_reach_the_actual_owning_boundary(self):
+        # Historical stable identifier; assertions cover every current role/gate phase.
         expected_roles=('metrics','logs','traces','alloy','vmauth','gateway','grafana','horizon')
         expected_gates=('lookup_read','lookup_empty','lookup_id','lookup_duplicate','inspect_read','inspect_decode',
             'inspect_shape','inspect_id','inspect_image','inspect_project','inspect_service','inspect_config',

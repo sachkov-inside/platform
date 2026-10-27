@@ -54,6 +54,7 @@ class RuntimeAuthority(unittest.TestCase):
             with self.assertRaises(ValueError):runtime_identity.validate(json.dumps(GATEWAY).encode(),'gateway',plan)
 
     def test_all_seven_role_user_contracts_and_complete_raw_schema(self):
+        # Historical stable identifier; the loop validates every role in the current plan.
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory).resolve()/'private';overlay.prepare(output);plan=overlay.plan(output)
             for role,service in plan['services'].items():
