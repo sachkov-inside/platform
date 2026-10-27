@@ -1,11 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-import {
-  personRowLabel,
-  usePersonIdentities,
-} from "@/entities/authoring-person";
+import { usePersonTitleText } from "@/entities/authoring-person";
 import {
   AdminFilterBar,
   DateField,
@@ -50,7 +47,7 @@ export function PaymentFilters({
   readonly resultLabel?: string | undefined;
 }) {
   const filtered = hasPaymentsFilters(query);
-  const personTitle = usePersonTitle(query.accountId);
+  const personTitle = usePersonTitleText(query.accountId);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <div className="owner-payments-fields">
@@ -143,18 +140,6 @@ export function PaymentFilters({
 
 interface PaymentsFilterChip extends Omit<AdminFilterChip, "onRemove"> {
   readonly next: PaymentsQuery;
-}
-
-/** Подпись покупателя из фильтра; пока она читается или недоступна, `null`. */
-function usePersonTitle(accountId: string | undefined): string | null {
-  const accountIds = useMemo(
-    () => (accountId === undefined ? [] : [accountId]),
-    [accountId],
-  );
-  const identities = usePersonIdentities(accountIds);
-  return accountId === undefined
-    ? null
-    : personRowLabel(identities, accountId).title;
 }
 
 /**

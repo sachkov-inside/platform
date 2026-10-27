@@ -1,6 +1,7 @@
 # Админка Platform: каркас, Обзор, люди и продажи
 
-Статус: решения владельца 24.10.2026, [спецификация #1717](https://github.com/sachkov-inside/platform/issues/1717).
+Статус: реализована на интеграционной ветке (итоговый PR #1729); решения владельца 24.10.2026
+и 27.10.2026, [спецификация #1717](https://github.com/sachkov-inside/platform/issues/1717).
 Основания: [модель доступа](../product/access-model.md), [рефакторинг доменной модели](domain-model-refactoring-v1.md)
 ([#1693](https://github.com/sachkov-inside/platform/issues/1693)) и
 [исследование референсов админок](../research/2026-10-24-admin-panel-design-references.md).

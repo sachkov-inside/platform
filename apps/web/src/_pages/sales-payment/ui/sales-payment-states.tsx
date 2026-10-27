@@ -4,6 +4,7 @@ import {
   AdminNotFound,
   AdminTableSkeleton,
 } from "@/shared/ui/admin";
+import { authoringPaymentsHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
 import { SalesPaymentFrame } from "./sales-payment-view.client";
@@ -55,7 +56,7 @@ function FailureBody({
     case "invalid_request":
       return (
         <AdminNotFound
-          backHref="/authoring/sales/payments"
+          backHref={authoringPaymentsHref}
           backLabel="Все платежи"
           description="По этому адресу платежа нет. Откройте его из списка платежей."
           title="Платёж не найден"

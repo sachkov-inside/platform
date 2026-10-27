@@ -6,6 +6,10 @@ import {
   getOptionalPlatformAccessToken,
   LogtoSessionUnavailableError,
 } from "@/shared/auth/index.server";
+import {
+  authoringProductsHref,
+  authoringTopicsHref,
+} from "@/shared/routing/authoring";
 
 import type { ContentCollectionKind } from "../model/content-collections";
 import { getContentCollections } from "../api/get-content-collections";
@@ -19,7 +23,7 @@ export async function ContentCollectionsPage({
 }) {
   const accessToken = await sessionToken();
   const returnHref =
-    kind === "topic" ? "/authoring/topics" : "/authoring/products";
+    kind === "topic" ? authoringTopicsHref : authoringProductsHref;
   if (accessToken === undefined) return unauthorized(returnHref);
   const state = await getContentCollections(kind, accessToken);
   if (state.kind === "unauthorized") return unauthorized(returnHref);

@@ -45,12 +45,6 @@ import type { HolderAccess } from "../model/product-holders";
 import { productHoldersQueryOptions } from "../model/product-holders-query-options";
 
 /**
- * Человек из поиска людей (#1721, `@/entities/authoring-person`): имя Telegram, @username и email
- * приходят, только если у читающего есть право; любое из них может отсутствовать.
- */
-export type GrantPerson = PersonIdentityValue;
-
-/**
  * Состояние поиска людей для выбора; поиск принадлежит #1721, диалог его только показывает.
  * `nameSearch: "unavailable"`: по имени сейчас искать нельзя, по email и ID можно; `truncated`:
  * совпало больше людей, чем показано.
@@ -60,7 +54,7 @@ export type GrantPeopleSearchState =
   | { readonly kind: "loading" }
   | {
       readonly kind: "ready";
-      readonly items: readonly GrantPerson[];
+      readonly items: readonly PersonIdentityValue[];
       readonly nameSearch: NameSearchState;
     }
   | { readonly kind: "unavailable" };
@@ -151,7 +145,7 @@ function GrantForm({
   readonly onBusy: (busy: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<readonly GrantPerson[]>([]);
+  const [selected, setSelected] = useState<readonly PersonIdentityValue[]>([]);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -414,13 +408,13 @@ function GrantForm({
  * Чем назвать человека: подпись `@/entities/authoring-person` (имя, затем @username, затем email).
  * У аккаунта без контактов заголовок нейтральный, а не его ID.
  */
-function personName(person: GrantPerson): string {
+function personName(person: PersonIdentityValue): string {
   const label = personLabel(person);
   return label.title ?? label.missing;
 }
 
 /** Подстрока, по которой человека узнают: остальные контакты и короткий ID аккаунта. */
-function personDetail(person: GrantPerson): string {
+function personDetail(person: PersonIdentityValue): string {
   return [
     ...personLabel(person).context,
     `ID ${shortAccountId(person.accountId)}`,
@@ -451,7 +445,7 @@ function PeopleSearch({
   readonly search: GrantPeopleSearchState;
   readonly selectedIds: readonly string[];
   readonly disabled: boolean;
-  readonly onAdd: (person: GrantPerson) => void;
+  readonly onAdd: (person: PersonIdentityValue) => void;
 }) {
   const id = useId();
   const chosen = new Set(selectedIds);
@@ -566,7 +560,7 @@ function SelectedPeople({
   full,
   onRemove,
 }: {
-  readonly selected: readonly GrantPerson[];
+  readonly selected: readonly PersonIdentityValue[];
   readonly flags: ReadonlyMap<string, HolderAccess>;
   readonly full: boolean;
   readonly onRemove: (accountId: string) => void;

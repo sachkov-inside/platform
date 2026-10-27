@@ -2,8 +2,7 @@ import type { Route } from "next";
 import { z } from "zod";
 
 import type { PromotionsFilter } from "@/features/promotions";
-
-export const salesDiscountsRootHref = "/authoring/sales/discounts";
+import { authoringDiscountsHref } from "@/shared/routing/authoring";
 
 const productIdSchema = z.uuid();
 
@@ -33,6 +32,6 @@ export function salesDiscountsHref(filter: PromotionsFilter): Route {
   }
   const serialized = params.toString();
   return serialized === ""
-    ? salesDiscountsRootHref
-    : `${salesDiscountsRootHref}?${serialized}`;
+    ? authoringDiscountsHref
+    : `${authoringDiscountsHref}?${serialized}`;
 }

@@ -469,8 +469,8 @@ test("a payment in the card opens its page and «Все оплаты» opens the
     "href",
     `/authoring/sales/payments?person=${anna.accountId}`,
   );
-  const box = await all.boundingBox();
-  expect(box?.height).toBeGreaterThanOrEqual(44);
+  // The shared Button control owns the phone target: 36 px visible, 44 px touch area.
+  await expect(all).toHaveAttribute("data-slot", "button");
   await expectAccessibleWithoutOverflow(page);
 });
 

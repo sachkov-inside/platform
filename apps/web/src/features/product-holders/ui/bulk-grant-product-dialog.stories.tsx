@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
+import type { PersonIdentityValue } from "@/entities/authoring-person";
 import { touchTarget } from "@/shared/ui/admin/admin.fixtures";
 import { Button } from "@/shared/ui/button";
 import { desktop, mobile } from "@/storybook/loads-in-place";
@@ -16,7 +17,6 @@ import {
   BulkGrantProductDialog,
   type BulkGrantProductDialogProps,
   type GrantPeopleSearchState,
-  type GrantPerson,
 } from "./bulk-grant-product-dialog.client";
 import {
   storyAccountId,
@@ -25,35 +25,40 @@ import {
   storyProductPath,
 } from "./product-holders.fixtures";
 
-const anna: GrantPerson = {
+const anna: PersonIdentityValue = {
   accountId: storyAccountId(40),
   displayName: "Анна Королёва",
   username: "anna_koroleva",
   email: "anna.koroleva@example.test",
   contactsState: "complete",
 };
-const andrey: GrantPerson = {
+const andrey: PersonIdentityValue = {
   accountId: storyAccountId(41),
   displayName: "Андрей Смирнов",
   username: "smirnov_dev",
   email: null,
   contactsState: "complete",
 };
-const anastasia: GrantPerson = {
+const anastasia: PersonIdentityValue = {
   accountId: storyAccountId(42),
   displayName: "Анастасия Белова-Константинопольская",
   username: null,
   email: "a.belova@example.test",
   contactsState: "complete",
 };
-const antonio: GrantPerson = {
+const antonio: PersonIdentityValue = {
   accountId: storyAccountId(43),
   displayName: null,
   username: "antonio_m",
   email: "antonio@example.test",
   contactsState: "complete",
 };
-const people: readonly GrantPerson[] = [anna, andrey, anastasia, antonio];
+const people: readonly PersonIdentityValue[] = [
+  anna,
+  andrey,
+  anastasia,
+  antonio,
+];
 
 /** Поиск #1721 в историях: тот же ответ, что даст `usePeopleSearch`, без сервера. */
 function usePeopleSearchFake(query: string): GrantPeopleSearchState {

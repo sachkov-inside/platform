@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { personRowLabel } from "../model/person-row-label";
 import {
@@ -31,4 +31,21 @@ export function usePersonTitles(
 ): (accountId: string) => ReactNode {
   const identities = usePersonIdentities(accountIds);
   return (accountId) => personRowTitle(identities, accountId);
+}
+
+/**
+ * Заголовок одного человека текстом, например для плашки фильтра. `null`, пока подпись читается,
+ * недоступна, у аккаунта нет контактов или человек не выбран.
+ */
+export function usePersonTitleText(
+  accountId: string | undefined,
+): string | null {
+  const accountIds = useMemo(
+    () => (accountId === undefined ? [] : [accountId]),
+    [accountId],
+  );
+  const identities = usePersonIdentities(accountIds);
+  return accountId === undefined
+    ? null
+    : personRowLabel(identities, accountId).title;
 }

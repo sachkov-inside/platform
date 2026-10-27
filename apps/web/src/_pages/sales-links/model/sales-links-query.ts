@@ -5,8 +5,7 @@ import {
   paymentLinkStateSchema,
   type PaymentLinksFilter,
 } from "@/features/payment-links";
-
-export const salesLinksRootHref = "/authoring/sales/links";
+import { authoringPaymentLinksHref } from "@/shared/routing/authoring";
 
 const productIdSchema = z.uuid();
 
@@ -31,6 +30,6 @@ export function salesLinksHref(filter: PaymentLinksFilter): Route {
   if (filter.state !== null) params.set("state", filter.state);
   const serialized = params.toString();
   return serialized === ""
-    ? salesLinksRootHref
-    : `${salesLinksRootHref}?${serialized}`;
+    ? authoringPaymentLinksHref
+    : `${authoringPaymentLinksHref}?${serialized}`;
 }

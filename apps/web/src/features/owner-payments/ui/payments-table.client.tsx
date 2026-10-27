@@ -64,7 +64,7 @@ export interface PaymentsTableProps {
 /**
  * Список платежей владельца: фильтры, таблица (на телефоне список), продолжение и состояния.
  * Читает `payments.list` через BFF billing; email заказа сюда не попадает. Платежи одного
- * человека — тот же список с фильтром покупателя, в него ведёт «Все оплаты» карточки человека.
+ * человека показывает этот же список с фильтром покупателя: в него ведёт «Все оплаты» карточки.
  */
 export function PaymentsTable({ query, onQueryChange }: PaymentsTableProps) {
   const request = useMemo(() => paymentsListRequest(query), [query]);

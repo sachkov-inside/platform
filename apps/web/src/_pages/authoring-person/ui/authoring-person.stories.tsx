@@ -144,7 +144,7 @@ export const AllBlocks: Story = {
     await expect(
       page.getByText(`Ссылка на оплату «${ai.name}»`, { exact: false }),
     ).toBeVisible();
-    // Строка оплаты ведёт на страницу платежа, «Все оплаты» — в список с фильтром по человеку.
+    // Строка оплаты ведёт на страницу платежа, а «Все оплаты» в список с фильтром по человеку.
     const payments = within(
       page.getByRole("region", { name: "Оплаты и ссылки" }),
     );

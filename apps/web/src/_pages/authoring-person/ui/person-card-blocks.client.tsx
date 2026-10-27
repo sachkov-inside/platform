@@ -14,7 +14,7 @@ import {
   StateBadge,
   type AdminTableColumn,
 } from "@/shared/ui/admin";
-import { buttonVariants } from "@/shared/ui/button";
+import { Button } from "@/shared/ui/button";
 
 import type {
   PersonCard,
@@ -74,7 +74,7 @@ function paymentTitle(payment: PersonCardPayment): string {
 
 /**
  * Последние оплаты человека, новые сверху, и ссылки на оплату, по которым он платил. Строка ведёт
- * на страницу платежа, «Все оплаты» — в список платежей с фильтром по этому человеку: карточка
+ * на страницу платежа, а «Все оплаты» в список платежей с фильтром по этому человеку: карточка
  * читает только последние оплаты. Order Email здесь нет.
  */
 export function PersonPaymentsBlock({
@@ -114,15 +114,9 @@ export function PersonPaymentsBlock({
         rows={payments.items}
       />
       <p className="m-0">
-        <Link
-          className={buttonVariants({
-            className: "min-h-11 px-4",
-            variant: "outline",
-          })}
-          href={personPaymentsHref(accountId)}
-        >
-          Все оплаты
-        </Link>
+        <Button asChild className="min-h-11 px-4" variant="outline">
+          <Link href={personPaymentsHref(accountId)}>Все оплаты</Link>
+        </Button>
       </p>
       <div className="person-card-panel">
         <h3>Ссылки, по которым человек оплатил</h3>

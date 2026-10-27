@@ -1,8 +1,8 @@
 import { CircleAlert, LockKeyhole, LogIn, RotateCcw } from "lucide-react";
 import Link from "next/link";
 
+import { authoringSalesFunnelHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
-import { authoringSalesFunnelHref as reportHref } from "@/shared/routing/authoring";
 import { StatusPanel } from "@/shared/ui/status-panel";
 
 import { SalesFunnelReportFrame } from "./sales-funnel-report-frame";
@@ -18,7 +18,11 @@ export function SalesFunnelReportState({
         <StatusPanel
           action={
             <form action="/auth/sign-in" method="post">
-              <input name="returnTo" type="hidden" value={reportHref} />
+              <input
+                name="returnTo"
+                type="hidden"
+                value={authoringSalesFunnelHref}
+              />
               <Button type="submit">
                 <LogIn aria-hidden="true" data-icon="inline-start" />
                 Войти через Telegram
@@ -42,7 +46,7 @@ export function SalesFunnelReportState({
         <StatusPanel
           action={
             <Button asChild variant="outline">
-              <Link href={reportHref}>
+              <Link href={authoringSalesFunnelHref}>
                 <RotateCcw aria-hidden="true" data-icon="inline-start" />
                 Обновить
               </Link>
