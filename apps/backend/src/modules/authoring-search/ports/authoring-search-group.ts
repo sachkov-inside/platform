@@ -4,7 +4,8 @@
  * dependency answers it as unavailable, and the other groups still answer.
  *
  * The groups are «Люди» (People Directory, `billing:manage`), «Продукты» (Products) and
- * «Материалы» (Materials), both `materials:manage`. Adding a group, for example «Платежи»:
+ * «Материалы» (Materials), both `materials:manage`, and «Платежи» (Billing, `billing:manage`).
+ * Adding a group:
  *
  * 1. The owning Module implements the search behind its own right and exports it from its
  *    `index.ts`; its answer needs no type from this Module, only the matching shape.
@@ -33,6 +34,12 @@ export type AuthoringSearchReadyGroup =
       readonly kind: "materials";
       readonly state: "ready";
       readonly items: readonly AuthoringSearchMaterial[];
+    }
+  | {
+      readonly kind: "payments";
+      readonly state: "ready";
+      readonly items: readonly AuthoringSearchPayment[];
+      readonly personSearch: PaymentPersonSearchState;
     };
 
 export type AuthoringSearchKind = AuthoringSearchReadyGroup["kind"];
@@ -63,6 +70,36 @@ export interface AuthoringSearchMaterial {
   readonly publicationState: "draft" | "published" | "unpublished";
   readonly topic: string | null;
 }
+
+/**
+ * A payment by order number, bank payment number, exact amount or the person who paid (found by
+ * the people directory); it names no person and no contact. `state` is the bank attempt state.
+ */
+export interface AuthoringSearchPayment {
+  readonly purchaseRef: string;
+  readonly productName: string;
+  readonly amountKopecks: number;
+  readonly state:
+    | "prepared"
+    | "sent"
+    | "unknown"
+    | "pending"
+    | "authorized"
+    | "confirmed"
+    | "failed";
+  readonly createdAt: string;
+}
+
+/**
+ * Whether the payments of a person were searched, so that an empty list is an answer:
+ * `name_unavailable` means the text was read as a name or @username and the people directory could
+ * not search names (as its own `nameSearch: "unavailable"`); `truncated` means more people matched
+ * than the search takes, so the payments of only some of them were searched (as its own
+ * `nameSearch: "truncated"`); `unavailable` means the people directory did not answer at all.
+ * Order number, bank payment number and amount are searched in every case.
+ */
+export type PaymentPersonSearchState =
+  "available" | "name_unavailable" | "truncated" | "unavailable";
 
 /** What one group search receives: the normalized text and the most hits to return. */
 export interface AuthoringSearchRequest {

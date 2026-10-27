@@ -21,6 +21,13 @@ import {
 import { getQueryClient } from "@/shared/api/query-client";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import {
+  catalogSaleResponse,
+  preorderState,
+  runningPrice,
+  runningState,
+  type CatalogSaleFake,
+} from "@/storybook/product-sale.fixtures";
+import {
   authoringPageEnvironment,
   routeContent,
 } from "@/storybook/story-environment";
@@ -41,6 +48,7 @@ const product = {
   kind: "product",
   materialCount: 4,
   publishedMaterialCount: 2,
+  holderCount: 1240,
   name: "Demo · От проекта до первого релиза",
   slug: "demo-first-release",
   summary:
@@ -57,6 +65,7 @@ const products: readonly ContentCollection[] = [
     slug: "demo-architecture",
     materialCount: 8,
     publishedMaterialCount: 4,
+    holderCount: 128,
   },
   {
     ...product,
@@ -66,6 +75,7 @@ const products: readonly ContentCollection[] = [
     slug: "demo-archived",
     archived: true,
     publishedMaterialCount: 0,
+    holderCount: 3,
   },
   product,
   {
@@ -76,6 +86,7 @@ const products: readonly ContentCollection[] = [
     slug: "demo-observability-and-incident-review-in-production",
     materialCount: 15,
     publishedMaterialCount: 12,
+    holderCount: 0,
   },
   {
     ...product,
@@ -85,6 +96,7 @@ const products: readonly ContentCollection[] = [
     slug: "demo-database",
     materialCount: 12,
     publishedMaterialCount: 6,
+    holderCount: null,
   },
 ];
 
@@ -100,8 +112,63 @@ function longProductList(size: number): ContentCollection[] {
   }));
 }
 
+/**
+ * Продажи каталога: поток идёт, предзаказ, продажи закрыты, без цены. Архивный продукт с ценой
+ * всё равно показан «Архивом».
+ */
+const catalogSale: CatalogSaleFake = {
+  prices: {
+    [product.id]: runningPrice,
+    "97000000-0000-4000-8000-000000000008": runningPrice,
+    "97000000-0000-4000-8000-000000000010": runningPrice,
+    "97000000-0000-4000-8000-000000000011": {
+      ...runningPrice,
+      published: false,
+    },
+  },
+  salesStates: [
+    { ...preorderState, productId: product.id },
+    { ...runningState, productId: "97000000-0000-4000-8000-000000000008" },
+  ],
+};
+
 let pinnedId: string | null = product.id;
 let pinVersion = 1;
+
+/** BFF списка: закреп на главной, продажи каталога и запись коллекции. */
+function productsBff(sale: Partial<CatalogSaleFake> = {}) {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const saleResponse = catalogSaleResponse(input, {
+      ...catalogSale,
+      ...sale,
+    });
+    if (saleResponse !== null) return saleResponse;
+    const path = new URL(
+      input instanceof Request ? input.url : String(input),
+      window.location.origin,
+    ).pathname;
+    if (path === "/api/authoring/home-pin" && init?.method === "PUT") {
+      const raw = init.body;
+      const body: unknown = typeof raw === "string" ? JSON.parse(raw) : null;
+      const productId =
+        typeof body === "object" && body !== null && "productId" in body
+          ? body.productId
+          : null;
+      pinnedId = typeof productId === "string" ? productId : null;
+      pinVersion += 1;
+      return Response.json({
+        kind: "ready",
+        pin: { productId: pinnedId, version: pinVersion },
+      });
+    }
+    if (path === "/api/authoring/home-pin")
+      return Response.json({
+        kind: "ready",
+        pin: { productId: pinnedId, version: pinVersion },
+      });
+    return Response.json({ kind: "saved", collection: product });
+  };
+}
 
 /** Раздел «Продукты»: навигация ведёт на `/authoring/products`, маршрут рендерит список продуктов. */
 const environment = authoringPageEnvironment("/authoring/products");
@@ -117,38 +184,13 @@ const meta = {
       pinVersion = 1;
       // Общий клиент запросов Storybook помнит закреп прошлой истории; каждая читает его заново.
       getQueryClient().removeQueries({ queryKey: ["authoring-home-pin"] });
+      getQueryClient().removeQueries({ queryKey: ["product-sale"] });
+      getQueryClient().removeQueries({ queryKey: ["owner-price-catalog"] });
       return () => {
         mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
       };
     },
-    fetchBeforeRender(async (input, init) => {
-      const path = new URL(
-        input instanceof Request ? input.url : String(input),
-        window.location.origin,
-      ).pathname;
-      if (path === "/api/authoring/home-pin" && init?.method === "PUT") {
-        const raw = init.body;
-        const body: unknown = typeof raw === "string" ? JSON.parse(raw) : null;
-        const productId =
-          typeof body === "object" && body !== null && "productId" in body
-            ? body.productId
-            : null;
-        pinnedId = typeof productId === "string" ? productId : null;
-        pinVersion += 1;
-        return Response.json({
-          kind: "ready",
-          pin: { productId: pinnedId, version: pinVersion },
-        });
-      }
-      if (path === "/api/authoring/home-pin")
-        return Response.json({
-          kind: "ready",
-          pin: { productId: pinnedId, version: pinVersion },
-        });
-      return Promise.resolve(
-        Response.json({ kind: "saved", collection: product }),
-      );
-    }),
+    fetchBeforeRender(productsBff()),
   ],
   decorators: environment.decorators,
   title: "Pages/Authoring/Продукты",
@@ -182,7 +224,8 @@ export const ProductsDesktop: Story = {
         .map((header) => header.textContent),
     ).toEqual([
       "Название",
-      "Состояние",
+      "Продажа",
+      "Обладатели",
       "Опубликовано",
       "На главной",
       "Действия",
@@ -197,7 +240,23 @@ export const ProductsDesktop: Story = {
     ).toHaveAttribute("aria-pressed", "true");
     await expect(within(table).getAllByText("На главной")).toHaveLength(2);
     await expect(within(table).getByText("Архив")).toBeVisible();
-    await expect(within(table).getAllByText("Активен")).toHaveLength(4);
+    await waitFor(() =>
+      expect(
+        within(table)
+          .getAllByRole("row")
+          .slice(1)
+          .map((row) => [
+            row.querySelector("[data-state]")?.textContent ?? null,
+            row.querySelectorAll("td")[2]?.textContent.replace(/\s+/gu, " "),
+          ]),
+      ).toEqual([
+        ["Поток идёт", "128"],
+        ["Архив", "3"],
+        ["Предзаказ", "1 240"],
+        ["Продажи закрыты", "0"],
+        ["Нет цены", "Нет данных"],
+      ]),
+    );
     await noHorizontalOverflow(canvasElement);
   },
 };
@@ -217,8 +276,10 @@ export const ProductsMobile: Story = {
     await expect(within(list).getAllByRole("listitem")).toHaveLength(5);
     await expect(page.queryByRole("table")).toBeNull();
     await expect(
-      within(list).getAllByText(/^Опубликовано: \d+$/u),
-    ).toHaveLength(5);
+      within(list).getByText("1 240 обладателей · опубликовано 2"),
+    ).toBeVisible();
+    await expect(within(list).getByText("Опубликовано: 6")).toBeVisible();
+    await expect(await within(list).findByText("Предзаказ")).toBeVisible();
     await noHorizontalOverflow(canvasElement);
   },
 };
@@ -336,12 +397,13 @@ export const RowMenuOpensProductTabs: Story = {
         .map((item) => item.textContent),
     ).toEqual([
       "Программа",
-      "Описание и обложка",
-      "Материалы продукта",
-      "Настройки",
+      "Описание и витрина",
+      "Продажа",
+      "Ученики",
+      "Сообщество и активация",
     ]);
     await expect(
-      within(menu).getByRole("menuitem", { name: "Описание и обложка" }),
+      within(menu).getByRole("menuitem", { name: "Описание и витрина" }),
     ).toHaveAttribute(
       "href",
       `/authoring/products/${product.id}?tab=description`,
@@ -369,6 +431,53 @@ export const PinUnavailable: Story = {
     await expect(page.getByRole("alert")).toHaveTextContent(
       "Закреп временно недоступен",
     );
+  },
+};
+
+/**
+ * Цены владельца не прочитаны (нет права или сбой): колонка показывает публичный этап продажи или
+ * «Неизвестно», но не «Нет цены» и не «Продажи закрыты».
+ */
+export const SaleWithoutOwnerPrices: Story = {
+  globals: desktop.globals,
+  beforeEach: fetchBeforeRender(productsBff({ pricesFailure: "forbidden" })),
+  play: async ({ canvasElement }) => {
+    const table = within(
+      routeContent(canvasElement).getByRole("table", { name: "Все продукты" }),
+    );
+    await expect(await table.findByText("Предзаказ")).toBeVisible();
+    await expect(table.getByText("Поток идёт")).toBeVisible();
+    await expect(table.getByText("Архив")).toBeVisible();
+    await expect(table.getAllByText("Неизвестно")).toHaveLength(2);
+    await expect(table.queryByText("Нет цены")).toBeNull();
+    await expect(table.queryByText("Продажи закрыты")).toBeNull();
+  },
+};
+
+export const SaleWithoutOwnerPricesMobile: Story = {
+  ...SaleWithoutOwnerPrices,
+  globals: mobile.globals,
+  play: async ({ canvasElement }) => {
+    const list = within(
+      routeContent(canvasElement).getByRole("list", { name: "Все продукты" }),
+    );
+    await expect(await list.findByText("Предзаказ")).toBeVisible();
+    await expect(list.queryByText("Нет цены")).toBeNull();
+    await noHorizontalOverflow(canvasElement);
+  },
+};
+
+/** Продажи каталога ещё читаются: архив уже назван, у остальных заглушка, а не «Неизвестно». */
+export const SaleLoading: Story = {
+  globals: desktop.globals,
+  beforeEach: fetchBeforeRender(productsBff({ pending: true })),
+  play: async ({ canvasElement }) => {
+    const table = within(
+      routeContent(canvasElement).getByRole("table", { name: "Все продукты" }),
+    );
+    await expect(table.getByText("Архив")).toBeVisible();
+    await expect(table.getAllByText("Загружаем продажу")).toHaveLength(4);
+    await expect(table.queryByText("Неизвестно")).toBeNull();
   },
 };
 

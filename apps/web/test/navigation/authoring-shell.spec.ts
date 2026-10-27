@@ -98,6 +98,10 @@ test("the admin shell reaches every section on desktop and through the phone pan
       sections.getByRole("link", { name: "Продукты" }),
     ).toHaveAttribute("aria-current", "page");
     await expect(sections.getByRole("link", { name: counter })).toBeVisible();
+    // Продажи живут под `/authoring/sales` (#1718).
+    await expect(
+      sections.getByRole("link", { name: "Платежи" }),
+    ).toHaveAttribute("href", "/authoring/sales/payments");
     await expect(
       page.getByRole("navigation", { name: "Основные разделы" }),
     ).toBeHidden();
@@ -124,6 +128,10 @@ test("the admin shell reaches every section on desktop and through the phone pan
     /^Сдачи\d+$/u,
   ]);
   await expect(dock.getByRole("link", { name: counter })).toBeVisible();
+  await expect(dock.getByRole("link", { name: "Продажи" })).toHaveAttribute(
+    "href",
+    "/authoring/sales/payments",
+  );
   const dockBox = await dock.boundingBox();
   const viewport = page.viewportSize();
   expect(dockBox).not.toBeNull();

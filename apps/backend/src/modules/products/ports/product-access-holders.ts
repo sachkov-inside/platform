@@ -14,3 +14,11 @@ export interface ProductAccessHolders {
     productIds: readonly string[],
   ): Promise<ReadonlyMap<string, number>>;
 }
+
+/**
+ * Who may see holder counts in the authoring list. Product holders are a `billing:manage` read,
+ * while the list itself is a `materials:manage` read; without this right the count stays absent.
+ */
+export interface HolderCountPolicy {
+  canReadHolderCounts(accountId: string): Promise<boolean>;
+}

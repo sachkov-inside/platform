@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect } from "storybook/test";
 
 import { StateBadge, adminStates, type AdminStateKey } from "./state-badge";
 
@@ -43,11 +43,13 @@ export const DictionaryDesktop: Story = {
   ...desktop,
   render: () => <Dictionary />,
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    // Одно слово может значить одно и то же у разных объектов («Доступ открыт» у платежа и у
+    // человека), поэтому плашка ищется по ключу, а слово проверяется на ней.
     for (const key of stateKeys) {
-      const badge = canvas.getByText(adminStates[key].label, {
-        selector: ".admin-badge",
-      });
+      const badge = canvasElement.querySelector(
+        `.admin-badge[data-state="${key}"]`,
+      );
+      await expect(badge).toHaveTextContent(adminStates[key].label);
       await expect(badge).toHaveAttribute("data-tone", adminStates[key].tone);
       await expect(badge).not.toHaveAttribute("role");
     }

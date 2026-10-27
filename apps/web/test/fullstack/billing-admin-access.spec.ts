@@ -13,7 +13,7 @@ test("owner edits one Product price and reloads the actual catalogue without tar
   page,
 }) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/billing");
+  await page.goto("/authoring/sales/links");
   const initial = await fullStackBrowserRequest(
     page,
     "/api/authoring/billing/catalog",
@@ -57,7 +57,11 @@ test("owner edits one Product price and reloads the actual catalogue without tar
   expect(await result.json()).toMatchObject({ ok: true });
   await page.reload();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Оплата", exact: true }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "Ссылки на оплату",
+      exact: true,
+    }),
   ).toBeVisible();
   const after = schema
     .parse(

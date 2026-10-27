@@ -429,6 +429,14 @@ describe("People list", () => {
             partial: false,
             truncated: true,
           },
+          // billing:manage reads the payments of the people found too; this one has none. More
+          // people match than the payments search takes, so that list is cut as well.
+          {
+            kind: "payments",
+            state: "ready",
+            items: [],
+            personSearch: "truncated",
+          },
         ],
       });
     } finally {
@@ -684,7 +692,10 @@ describe("People list", () => {
           checkProductAccess: refusedRead,
         },
         materialContent: { findAccessFacts: refusedRead },
-        composition: { read: refusedRead },
+        composition: {
+          read: refusedRead,
+          readIncludingArchived: refusedRead,
+        },
       });
       const dependencies: PeopleDirectoryDependencies = {
         accounts,

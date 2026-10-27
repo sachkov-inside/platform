@@ -12,6 +12,10 @@ import {
 } from "react";
 
 import { useHomePin } from "@/features/product-order";
+import {
+  catalogSaleStatus,
+  useCatalogSale,
+} from "@/features/product-sale-settings";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import {
   AdminEmptyState,
@@ -124,6 +128,7 @@ function ProductsSection({
   onSaved,
 }: SectionProps) {
   const homePin = useHomePin();
+  const sale = useCatalogSale();
   const found = filterCollections(collections, query);
   const shown = pageOfCollections(found, query.page);
   return (
@@ -146,7 +151,19 @@ function ProductsSection({
         <>
           <ProductsTable
             homePin={homePin}
-            rows={shown.rows.map(presentProductRow)}
+            rows={shown.rows.map((collection) =>
+              presentProductRow(
+                collection,
+                sale.kind === "ready"
+                  ? catalogSaleStatus(
+                      collection.id,
+                      collection.archived,
+                      sale.reads,
+                    )
+                  : null,
+              ),
+            )}
+            saleLoading={sale.kind === "loading"}
           />
           <CollectionPagination
             kind="product"

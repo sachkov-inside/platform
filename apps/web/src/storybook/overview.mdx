@@ -49,6 +49,24 @@ person card of #1721 are `Pages/Authoring/Люди` and `Pages/Authoring/Кар�
 Its guest sign-in and signed-in denied states are shown in `Pages/Payment/Checkout`;
 the redirect itself has no rendered page.
 
+The product page and the «Продажи» section of #1718 are shown in:
+
+- `Pages/Authoring/Редактор продукта` with the tabs «Программа», «Описание и витрина», «Продажа»
+  (price, sale state and the product's payment links), «Ученики» and «Сообщество и активация»;
+  the tab modules alone are `Features/Product/Продажа продукта`,
+  `Features/Product/Сообщество и активация`, `Pages/Authoring/Продукт/Ученики` and
+  `Pages/Authoring/Продукт/Выдать продукт`.
+- `Pages/Authoring/Платежи`, `Pages/Authoring/Платёж` and `Pages/Authoring/Платёж/Email заказа`
+  for `/authoring/sales/payments` and one payment.
+- `Pages/Authoring/Sales/Payment links` with `Components/Админка/Продажи/Создание ссылки на оплату`,
+  `Pages/Authoring/Sales/Discounts` with `Components/Админка/Продажи/Форма скидки`, and
+  `Pages/Authoring/Sales funnel report` for `/authoring/sales/funnel`.
+- `Components/Админка/AdminConfirmDialog` and `Components/Админка/Выбор из длинного списка`, the
+  confirmation and long-list choice these pages share.
+
+The former `/authoring/billing` and `/authoring/sales-funnel` have no page: `next.config.ts`
+redirects them to `/authoring/sales/payments` and `/authoring/sales/funnel`.
+
 ## Agent workflow
 
 When Storybook is running, inspect the catalog and rendered Docs at `http://localhost:6006`. Read

@@ -151,29 +151,30 @@ test("owner issues, withdraws and explicitly restores one Product right through 
     });
   }
   // Activation Rule now binds directly to Product and a separate Course source.
-  await page.goto("/authoring/billing");
-  await page.getByRole("tab", { name: "Активация курса", exact: true }).click();
-  const rules = page
-    .getByRole("heading", { name: "Ссылки активации курса", exact: true })
-    .locator("..");
-  await rules.getByLabel("Идентификатор нового правила").fill(randomUUID());
+  await page.goto(`/authoring/products/${productId}?tab=community`);
+  const rules = page.getByRole("region", {
+    name: "Активация прежнего курса",
+    exact: true,
+  });
   const ruleName = `Правило ${info.project.name}`;
   await rules.getByLabel("Название правила").fill(ruleName);
   await rules.getByLabel("Код активации").fill(randomUUID());
-  await rules.getByLabel("Идентификатор продукта").fill(productId);
   await rules
-    .getByLabel("Подтверждаемый источник курса")
+    .getByLabel("Источник курса")
     .fill(`synthetic-course-${info.project.name}`);
   await rules
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическая привязка курса к Product");
-  await rules.getByLabel("Опубликовать правило").check();
+  await rules.getByLabel("Опубликовать сразу").check();
   await rules
     .getByRole("button", { name: "Создать правило", exact: true })
     .click();
   await expect(
-    rules.getByText(`${ruleName} · Опубликовано`, { exact: true }),
-  ).toBeVisible();
+    rules
+      .getByRole("list", { name: "Правила активации продукта" })
+      .getByRole("listitem")
+      .filter({ hasText: ruleName }),
+  ).toContainText("Опубликовано");
   for (const surface of [page, cabinet]) {
     const scan = await new AxeBuilder({ page: surface })
       .include("main")

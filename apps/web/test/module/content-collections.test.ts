@@ -17,6 +17,7 @@ import {
   pageOfCollections,
   parseCollectionListQuery,
   presentProductRow,
+  productSaleBadge,
   presentTopicRow,
   productListColumnIds,
   serializeCollectionListQuery,
@@ -25,6 +26,7 @@ import {
 } from "@/_pages/content-collections/model/collection-list";
 import {
   parseProductPageTab,
+  productPageTabIds,
   productPageTabSearch,
 } from "@/_pages/content-collections/model/product-page-tabs";
 import {
@@ -365,10 +367,11 @@ describe("Topics and Products list presentation", () => {
     expect(pageOfCollections([], 4)).toMatchObject({ page: 1, totalPages: 1 });
   });
 
-  it("maps a Product row with its real cover, state and published count", () => {
+  it("maps a Product row with its real cover, sale stage, holders and published count", () => {
     expect(productListColumnIds).toEqual([
       "name",
-      "state",
+      "sale",
+      "holders",
       "published",
       "home",
     ]);
@@ -377,26 +380,43 @@ describe("Topics and Products list presentation", () => {
       renditions: [{ height: 540, width: 960 }],
     };
     expect(
-      presentProductRow({
-        ...collection,
-        cover,
-        kind: "product",
-        materialCount: 9,
-        publishedMaterialCount: 7,
-      }),
+      presentProductRow(
+        {
+          ...collection,
+          cover,
+          kind: "product",
+          materialCount: 9,
+          publishedMaterialCount: 7,
+          holderCount: 12,
+        },
+        "preorder",
+      ),
     ).toEqual({
       id: collectionId,
       name: "Platform",
       caption: "/products/platform",
       cover,
       archived: false,
-      state: "product.active",
+      sale: "sale.preorder",
+      holders: 12,
       publishedMaterialCount: 7,
       href: `/authoring/products/${collectionId}`,
     });
     expect(
-      presentProductRow({ ...collection, archived: true, kind: "product" }),
-    ).toMatchObject({ cover: null, state: "product.archived" });
+      presentProductRow({ ...collection, kind: "product" }, null),
+    ).toMatchObject({ cover: null, sale: null, holders: null });
+  });
+
+  it("shows «Архив» for an archived Product whatever its sale stage", () => {
+    expect(
+      presentProductRow(
+        { ...collection, archived: true, kind: "product", holderCount: 3 },
+        "running",
+      ),
+    ).toMatchObject({ sale: "product.archived", holders: 3 });
+    expect(productSaleBadge("archived")).toBe("product.archived");
+    expect(productSaleBadge("closed")).toBe("sale.closed");
+    expect(productSaleBadge(null)).toBeNull();
   });
 
   it("maps a Topic row with published out of all materials", () => {
@@ -416,16 +436,29 @@ describe("Topics and Products list presentation", () => {
   });
 
   it("reads the Product page tab from the address and falls back to the programme", () => {
-    expect(parseProductPageTab("description")).toBe("description");
-    expect(parseProductPageTab("artifacts")).toBe("artifacts");
-    expect(parseProductPageTab("settings")).toBe("settings");
+    for (const tab of productPageTabIds)
+      expect(parseProductPageTab(tab)).toBe(tab);
     expect(parseProductPageTab("sales")).toBe("program");
+    expect(parseProductPageTab("constructor")).toBe("program");
     expect(parseProductPageTab(null)).toBe("program");
+    expect(productPageTabSearch("", "sale")).toBe("?tab=sale");
     expect(productPageTabSearch("", "description")).toBe("?tab=description");
     expect(productPageTabSearch("?tab=description&x=1", "program")).toBe(
       "?x=1",
     );
     expect(productPageTabSearch("?tab=settings", "program")).toBe("");
+  });
+
+  it("opens the old artifacts and settings links on their new tabs (#1718)", () => {
+    expect(productPageTabIds).toEqual([
+      "program",
+      "description",
+      "sale",
+      "learners",
+      "community",
+    ]);
+    expect(parseProductPageTab("artifacts")).toBe("program");
+    expect(parseProductPageTab("settings")).toBe("description");
   });
 });
 

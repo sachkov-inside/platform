@@ -8,6 +8,7 @@ import {
   type PriceSnapshot,
   type PricingResult,
 } from "../domain/pricing.js";
+import { promotionUsage } from "./promotion-usage.js";
 export interface SelectPriceOptions {
   readonly allowUnpublished?: boolean;
 }
@@ -71,18 +72,9 @@ export async function selectPricesForOptions(
       endsAt: row.endsAt.toISOString(),
     }),
   );
-  const counts = await tx.billingPromoReservation.groupBy({
-    by: ["promotionId"],
-    where: {
-      promotionId: {
-        in: promotions.filter((p) => p.usageLimit !== null).map((p) => p.id),
-      },
-      state: { not: "failed" },
-    },
-    _count: { _all: true },
-  });
-  const usage = new Map(
-    counts.map((row) => [row.promotionId, row._count._all]),
+  const usage = await promotionUsage(
+    tx,
+    promotions.filter((p) => p.usageLimit !== null).map((p) => p.id),
   );
   for (const row of rows) {
     if (row.archived || (!row.published && options.allowUnpublished !== true)) {

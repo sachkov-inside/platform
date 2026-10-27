@@ -39,7 +39,7 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
 /**
  * The owner's people directory (#1721): reads composed over the owners of each fact. Nothing it
  * answers is a source of rights. The API process imports it, and the authoring search takes its
- * people group from the exported facet.
+ * people group and the payments of the people it finds from the exported facet.
  */
 @Module({
   imports: [

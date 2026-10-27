@@ -42,6 +42,7 @@ const searchKinds = [
   "people",
   "products",
   "materials",
+  "payments",
 ] as const satisfies readonly AuthoringSearchKind[];
 /** Every group kind can answer «unavailable»: a kind missing above fails compilation here. */
 const everyKindListed: [
@@ -115,6 +116,38 @@ const readyGroupHttpSchema = z.discriminatedUnion("kind", [
         .max(AUTHORING_SEARCH_GROUP_LIMIT),
     })
     .strict(),
+  z
+    .object({
+      kind: z.literal("payments"),
+      state: z.literal("ready"),
+      items: z
+        .array(
+          z
+            .object({
+              purchaseRef: z.uuid(),
+              productName: z.string(),
+              amountKopecks: z.int().positive(),
+              state: z.enum([
+                "prepared",
+                "sent",
+                "unknown",
+                "pending",
+                "authorized",
+                "confirmed",
+                "failed",
+              ]),
+              createdAt: z.iso.datetime(),
+            })
+            .strict(),
+        )
+        .max(AUTHORING_SEARCH_GROUP_LIMIT),
+      personSearch: z
+        .enum(["available", "name_unavailable", "truncated", "unavailable"])
+        .describe(
+          "Whether payments were also searched by the person the text names: name_unavailable when names cannot be searched now, truncated when more people matched than the search takes and only the payments of some of them were searched, unavailable when the people directory did not answer; order number, bank payment number and amount are searched in every case",
+        ),
+    })
+    .strict(),
 ]);
 
 const authoringSearchHttpSchema = z
@@ -149,7 +182,7 @@ export class SearchAuthoringController {
   @ApiOperation({
     operationId: "searchAuthoring",
     summary:
-      "Search the authoring groups the account may read, in a fixed order (people, products, materials): at most five hits per group; a group whose dependency failed answers unavailable; an account that may read no group is refused",
+      "Search the authoring groups the account may read, in a fixed order (people, products, materials, payments): at most five hits per group; a group whose dependency failed answers unavailable; an account that may read no group is refused",
   })
   @ApiQuery({
     name: "query",
@@ -244,6 +277,19 @@ export class SearchAuthoringController {
                 publicationState: material.publicationState,
                 topic: material.topic,
               })),
+            };
+          case "payments":
+            return {
+              kind: group.kind,
+              state: group.state,
+              items: group.items.map((payment) => ({
+                purchaseRef: payment.purchaseRef,
+                productName: payment.productName,
+                amountKopecks: payment.amountKopecks,
+                state: payment.state,
+                createdAt: payment.createdAt,
+              })),
+              personSearch: group.personSearch,
             };
         }
       }),

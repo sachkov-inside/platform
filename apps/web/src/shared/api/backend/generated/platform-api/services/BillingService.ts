@@ -500,6 +500,8 @@ export class BillingService {
       limit: number;
       operation: 'paymentLinks.list';
       operationId: string;
+      productId?: string;
+      state?: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
     } | {
       identityRef: string;
       operation: 'recipients.lookup';
@@ -567,6 +569,15 @@ export class BillingService {
       limit: number;
       operation: 'productPrices.list';
       operationId: string;
+      productId?: string;
+    } | {
+      archived: boolean;
+      cursor?: string;
+      limit: number;
+      operation: 'promotions.list';
+      operationId: string;
+      productId?: string;
+      questionnaire: boolean;
     } | {
       operation: 'content.list';
       operationId: string;
@@ -592,11 +603,15 @@ export class BillingService {
     } | {
       accountId?: string;
       cursor?: string;
+      from?: string;
       kind?: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       limit: number;
       operation: 'payments.list';
       operationId: string;
+      productId?: string;
       state?: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+      states?: Array<'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed'>;
+      to?: string;
     } | {
       auditCursor?: {
         afterSequence: string;
@@ -811,6 +826,7 @@ export class BillingService {
         revision: number;
       };
     } | {
+      archivedProductIds: Array<string>;
       items: Array<{
         communityPolicy?: 'explicit';
         currency: 'RUB';
@@ -864,6 +880,24 @@ export class BillingService {
       }>;
       nextCursor: string | null;
       outcome: 'catalogOffers';
+    } | {
+      items: Array<{
+        archived: boolean;
+        code: string | null;
+        endsAt: string;
+        id: string;
+        legacy: boolean;
+        name: string;
+        percent: number;
+        productIds: Array<string>;
+        questionnaire: boolean;
+        revision: number;
+        startsAt: string;
+        usageLimit: number | null;
+        usedCount: number;
+      }>;
+      nextCursor: string | null;
+      outcome: 'promotions';
     } | {
       items: Array<{
         access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
@@ -1186,6 +1220,26 @@ export class BillingService {
       url: '/billing/admin',
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read the immutable order email of one payment for the billing owner; never cached, listed, searched or exposed through MCP
+   * @returns any
+   * @throws ApiError
+   */
+  public readOwnerOrderEmail({
+    purchaseRef,
+  }: {
+    purchaseRef: string,
+  }): CancelablePromise<{
+    email: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/admin/payments/{purchaseRef}/order-email',
+      path: {
+        'purchaseRef': purchaseRef,
+      },
     });
   }
   /**

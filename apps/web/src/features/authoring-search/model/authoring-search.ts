@@ -2,20 +2,23 @@ import type { Route } from "next";
 import { z } from "zod";
 
 import { personIdentitySchema, personLabel } from "@/entities/authoring-person";
+import { attemptStateSchema } from "@/entities/subscription";
+import { formatMoscowDate, formatRubles } from "@/shared/lib/moscow-format";
 import {
   authoringPersonHref,
   authoringProductEditorHref,
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
+import { internalRoute } from "@/shared/routing/internal-route";
 
 /**
  * Общий поиск админки (#1717): одна строка запроса, ответ сервера по группам. Каждая группа
  * приходит только к аккаунту с правом на неё; аккаунт без права ни на одну группу получает отказ.
  *
- * Как добавить группу (#1718 «Платежи»): вариант в `searchGroupSchema` с тем же `kind`, что у
- * группы сервера, и запись в `searchGroupPresentation`. Порядок групп задаёт сервер: люди,
- * продукты, материалы. Группа «Люди» (#1721) приходит только аккаунту с `billing:manage`.
+ * Как добавить группу: вариант в `searchGroupSchema` с тем же `kind`, что у группы сервера, и
+ * запись в `searchGroupPresentation`. Порядок групп задаёт сервер: люди, продукты, материалы,
+ * платежи. Группы «Люди» (#1721) и «Платежи» (#1718) приходят только аккаунту с `billing:manage`.
  */
 export const authoringSearchQuerySchema = z
   .string()
@@ -38,9 +41,20 @@ const materialHitSchema = z
   })
   .strict();
 
+/** Платёж без человека и адреса: номер заказа, продукт, сумма, состояние банка и время. */
+const paymentHitSchema = z
+  .object({
+    amountKopecks: z.int().positive(),
+    createdAt: z.iso.datetime(),
+    productName: z.string(),
+    purchaseRef: z.uuid(),
+    state: attemptStateSchema,
+  })
+  .strict();
+
 const unavailableGroupSchema = z
   .object({
-    kind: z.enum(["people", "products", "materials"]),
+    kind: z.enum(["people", "products", "materials", "payments"]),
     state: z.literal("unavailable"),
   })
   .strict();
@@ -71,6 +85,19 @@ export const searchGroupSchema = z.union([
     .object({
       items: z.array(materialHitSchema),
       kind: z.literal("materials"),
+      state: z.literal("ready"),
+    })
+    .strict(),
+  z
+    .object({
+      items: z.array(paymentHitSchema),
+      kind: z.literal("payments"),
+      personSearch: z.enum([
+        "available",
+        "name_unavailable",
+        "truncated",
+        "unavailable",
+      ]),
       state: z.literal("ready"),
     })
     .strict(),
@@ -107,7 +134,7 @@ export interface AuthoringSearchEntry {
   readonly id: string;
   readonly href: Route;
   readonly title: string;
-  /** Подстрока контекста: тема материала, архив продукта. */
+  /** Подстрока контекста: тема материала, архив продукта, сумма и дата платежа. */
   readonly caption: string | null;
 }
 
@@ -165,6 +192,16 @@ export const searchGroupPresentation: {
           .join(" · "),
       })),
   },
+  payments: {
+    heading: "Платежи",
+    entries: (group) =>
+      group.items.map((item) => ({
+        id: `payments-${item.purchaseRef}`,
+        href: internalRoute(`/authoring/sales/payments/${item.purchaseRef}`),
+        title: item.productName,
+        caption: `${formatRubles(item.amountKopecks)} · ${formatMoscowDate(item.createdAt)}`,
+      })),
+  },
 };
 
 /** Строки группы, готовой к показу, в порядке сервера. */
@@ -179,18 +216,47 @@ export function searchGroupEntries(
       return searchGroupPresentation.products.entries(group);
     case "materials":
       return searchGroupPresentation.materials.entries(group);
+    case "payments":
+      return searchGroupPresentation.payments.entries(group);
   }
 }
 
-/** Пояснение к группе: у «Людей» без поиска по имени работают только email и ID. */
+/**
+ * Пояснение к группе, чтобы пустой или неполный список не выглядел полным ответом. У «Людей» без
+ * поиска по имени работают только email и ID. Платежи по номеру заказа и сумме ищутся всегда; по
+ * человеку сервер мог не искать или искать не у всех найденных людей.
+ */
 export function searchGroupNote(group: AuthoringSearchGroup): string | null {
-  if (group.kind !== "people" || group.state !== "ready") return null;
-  if (group.partial)
-    return "Поиск по имени и @username временно недоступен; поиск по email и ID работает.";
-  return group.truncated
-    ? "Показаны не все совпадения. Уточните запрос."
-    : null;
+  if (group.state !== "ready") return null;
+  switch (group.kind) {
+    case "people":
+      if (group.partial)
+        return "Поиск по имени и @username временно недоступен; поиск по email и ID работает.";
+      return group.truncated
+        ? "Показаны не все совпадения. Уточните запрос."
+        : null;
+    case "payments":
+      return paymentsNote[group.personSearch];
+    case "products":
+    case "materials":
+      return null;
+  }
 }
+
+const paymentsNote = {
+  available: null,
+  name_unavailable:
+    "Поиск по имени временно недоступен. Найдите платежи человека по email или ID.",
+  truncated: "Показаны платежи не всех найденных людей. Уточните запрос.",
+  unavailable:
+    "Поиск по человеку временно недоступен. Номер заказа и сумма ищутся.",
+} as const satisfies Record<
+  Extract<
+    AuthoringSearchGroup,
+    { kind: "payments"; state: "ready" }
+  >["personSearch"],
+  string | null
+>;
 
 export function authoringSearchQueryKey(query: string) {
   return ["authoring", "search", query] as const;

@@ -188,6 +188,22 @@ export async function readPeople(
 ): Promise<
   PeopleDirectoryResult<readonly PersonIdentity[], "dependency_unavailable">
 > {
+  const people = await selectPeople(dependencies, candidates);
+  if (!people.ok) return people;
+  return { ok: true, value: await identifyPeople(dependencies, people.value) };
+}
+
+/**
+ * The candidates that are people, as `readPeople` decides it from Account facts and Telegram
+ * bindings, without reading Telegram names: a caller that needs only the Account IDs, such as the
+ * payments of the people a search names, asks Telegram nothing beyond the bindings.
+ */
+export async function selectPeople(
+  dependencies: Pick<PeopleDirectoryDependencies, "directory" | "telegram">,
+  candidates: readonly string[],
+): Promise<
+  PeopleDirectoryResult<readonly PersonFacts[], "dependency_unavailable">
+> {
   const ids = [...new Set(candidates.map((id) => id.toLowerCase()))];
   if (ids.length === 0) return { ok: true, value: [] };
   const [facts, bindings] = await Promise.all([
@@ -209,7 +225,7 @@ export async function readPeople(
         linked,
       });
   }
-  return { ok: true, value: await identifyPeople(dependencies, people) };
+  return { ok: true, value: people };
 }
 
 /**

@@ -1,14 +1,16 @@
 import type { Route } from "next";
 
+import { internalRoute } from "@/shared/routing/internal-route";
+
 /**
  * Разделы админки по решению 2 спецификации #1717. Один источник для боковой панели, нижней
  * панели телефона, листа «Ещё», вкладок подразделов и Storybook.
  *
- * Пункты, чьи экраны строят следующие задачи (#1718 «Платежи», «Ссылки на оплату», «Скидки»,
- * «Воронка продаж», #1719 «Обзор»), пока ведут на нынешние страницы. Задача, которая заменяет
- * страницу, меняет здесь `href` и `paths`. «Люди» ведут в список людей #1721, прежний адрес
- * `/authoring/access` перенаправляет туда `next.config.ts`. «Сообщений» нет, пока в силе
- * решение #396.
+ * Пункт, чей экран строит следующая задача (#1719 «Обзор»), пока ведёт на нынешнюю страницу.
+ * Задача, которая заменяет страницу, меняет здесь `href` и `paths`. «Люди» ведут в список людей
+ * #1721, продажи (#1718) живут под `/authoring/sales/*`; прежние `/authoring/access`,
+ * `/authoring/billing` и `/authoring/sales-funnel` перенаправляет `next.config.ts`. «Сообщений» нет,
+ * пока в силе решение #396.
  */
 export type AuthoringNavigationItemId =
   | "overview"
@@ -58,6 +60,15 @@ export interface AuthoringNavigationGroup {
   ];
 }
 
+/**
+ * Адрес подраздела продаж, чью страницу строит соседняя задача #1718 («Ссылки на оплату»,
+ * «Скидки», «Воронка продаж»): пока её маршрута нет в дереве, типизированные адреса Next его не
+ * знают. С приходом страницы обёртка становится лишней.
+ */
+function salesRoute(path: `/authoring/sales/${string}`): Route {
+  return internalRoute(path);
+}
+
 /** Обзор строит #1719; до него `/authoring` перенаправляет в «Продукты» (`next.config.ts`). */
 export const authoringOverviewHref: Route = "/authoring";
 
@@ -89,9 +100,9 @@ const submissions = {
 const payments = {
   id: "payments",
   label: "Платежи",
-  href: "/authoring/billing",
+  href: "/authoring/sales/payments",
   icon: "payments",
-  paths: ["/authoring/billing"],
+  paths: ["/authoring/sales/payments"],
 } as const satisfies AuthoringNavigationItem;
 
 export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
@@ -133,23 +144,23 @@ export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
       {
         id: "payment-links",
         label: "Ссылки на оплату",
-        href: "/authoring/billing",
+        href: salesRoute("/authoring/sales/links"),
         icon: "payment-links",
-        paths: [],
+        paths: ["/authoring/sales/links"],
       },
       {
         id: "discounts",
         label: "Скидки",
-        href: "/authoring/billing",
+        href: salesRoute("/authoring/sales/discounts"),
         icon: "discounts",
-        paths: [],
+        paths: ["/authoring/sales/discounts"],
       },
       {
         id: "sales-funnel",
         label: "Воронка продаж",
-        href: "/authoring/sales-funnel",
+        href: salesRoute("/authoring/sales/funnel"),
         icon: "sales-funnel",
-        paths: ["/authoring/sales-funnel"],
+        paths: ["/authoring/sales/funnel"],
       },
     ],
   },

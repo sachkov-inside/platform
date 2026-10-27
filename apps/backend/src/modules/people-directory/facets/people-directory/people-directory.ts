@@ -9,6 +9,7 @@ import {
   failure,
   findCandidates,
   readPeople,
+  selectPeople,
   type NameSearchState,
   type PeopleDirectoryDependencies,
   type PeopleDirectoryResult,
@@ -55,17 +56,7 @@ export class PeopleDirectory {
     actorId: string,
     input: { readonly query: unknown; readonly limit?: unknown },
   ): Promise<SearchPeopleResult> {
-    // The right comes first: another role is refused whatever it sends.
-    const refused = await authorizePeopleRead(this.dependencies, actorId);
-    if (refused !== undefined) return refused;
-    const parsed = searchInputSchema.safeParse(input);
-    const term = parsed.success
-      ? parsePersonSearchTerm(parsed.data.query)
-      : undefined;
-    if (!parsed.success || term === undefined)
-      return failure("invalid_request");
-    const limit = parsed.data.limit ?? PEOPLE_SEARCH_LIMIT;
-    const candidates = await findCandidates(this.dependencies, term, limit);
+    const candidates = await this.findSearchCandidates(actorId, input);
     if (!candidates.ok) return candidates;
     const people = await readPeople(
       this.dependencies,
@@ -76,6 +67,37 @@ export class PeopleDirectory {
       ok: true,
       value: {
         items: people.value,
+        nameSearch: candidates.value.nameSearch,
+      },
+    };
+  }
+
+  /**
+   * The Account IDs of the people the same search finds, without their names or contacts: another
+   * owner's search by person, such as payments, joins its own facts by them. Telegram is asked
+   * for the name search and the bindings, never for names. `nameSearch` says, as in
+   * `searchPeople`, whether an empty list for a name is an answer.
+   */
+  async searchPersonAccounts(
+    actorId: string,
+    input: { readonly query: unknown; readonly limit?: unknown },
+  ): Promise<
+    PeopleDirectoryResult<{
+      readonly accountIds: readonly string[];
+      readonly nameSearch: NameSearchState;
+    }>
+  > {
+    const candidates = await this.findSearchCandidates(actorId, input);
+    if (!candidates.ok) return candidates;
+    const people = await selectPeople(
+      this.dependencies,
+      candidates.value.accountIds,
+    );
+    if (!people.ok) return people;
+    return {
+      ok: true,
+      value: {
+        accountIds: people.value.map((person) => person.accountId),
         nameSearch: candidates.value.nameSearch,
       },
     };
@@ -109,5 +131,26 @@ export class PeopleDirectory {
   /** The person card: every block answers on its own; see `readPerson`. */
   readPerson(actorId: string, accountId: unknown) {
     return readPerson(this.dependencies, actorId, accountId);
+  }
+
+  /** The Accounts a search text names, at most `limit`, after the right is checked. */
+  private async findSearchCandidates(
+    actorId: string,
+    input: { readonly query: unknown; readonly limit?: unknown },
+  ) {
+    // The right comes first: another role is refused whatever it sends.
+    const refused = await authorizePeopleRead(this.dependencies, actorId);
+    if (refused !== undefined) return refused;
+    const parsed = searchInputSchema.safeParse(input);
+    const term = parsed.success
+      ? parsePersonSearchTerm(parsed.data.query)
+      : undefined;
+    if (!parsed.success || term === undefined)
+      return failure("invalid_request");
+    return findCandidates(
+      this.dependencies,
+      term,
+      parsed.data.limit ?? PEOPLE_SEARCH_LIMIT,
+    );
   }
 }

@@ -58,6 +58,7 @@ export {
   PRODUCT_MATERIALS,
   type ProductMaterials,
 } from "./ports/product-materials.js";
+export type { HolderCountPolicy } from "./ports/product-access-holders.js";
 export type {
   CreateContentCollectionCommand,
   CreateContentCollectionError,

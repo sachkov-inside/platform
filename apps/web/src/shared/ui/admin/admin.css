@@ -58,7 +58,7 @@
   padding-inline: 4px;
   text-align: end;
 }
-.admin-table tbody tr[data-href] {
+.admin-table tbody tr:is([data-href], [data-opens]) {
   cursor: pointer;
 }
 .admin-table tbody tr:is(:hover, :focus-within) > td {
@@ -89,7 +89,7 @@
   border-bottom: 1px solid var(--border);
   overflow-wrap: anywhere;
 }
-.admin-list-item[data-href] {
+.admin-list-item:is([data-href], [data-opens]) {
   cursor: pointer;
 }
 .admin-list-item:is(:hover, :focus-within) {
@@ -140,6 +140,30 @@
   font-weight: 600;
   text-decoration: none;
   border-radius: 4px;
+}
+/* Название строки без своего адреса: кнопка выглядит как ссылка строки. */
+.admin-row-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+/* На телефоне касание всей строки попадает в кнопку названия; «⋯» остаётся над ней. */
+.admin-list-item:has(> .admin-list-item-main .admin-row-button) {
+  position: relative;
+}
+.admin-list-item .admin-row-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.admin-list-item:has(> .admin-list-item-main .admin-row-button)
+  > .admin-row-actions {
+  position: relative;
+  z-index: 1;
 }
 .admin-row-link:hover {
   text-decoration: underline;
@@ -877,6 +901,32 @@ button.admin-metric:focus-visible {
   font-size: 14px;
   line-height: 1.6;
 }
+.admin-dialog-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.admin-dialog-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -10px -10px 0 0;
+  border-radius: var(--radius-xl);
+  color: var(--muted-foreground);
+}
+.admin-dialog-close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.admin-dialog-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.admin-dialog-close:disabled {
+  opacity: 0.45;
+}
 .admin-dialog-banner {
   display: flex;
   gap: 8px;
@@ -962,6 +1012,39 @@ button.admin-metric:focus-visible {
 
 /* Поля формы. */
 
+.admin-checklist {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Выбранный вариант убирается целью нажатия в 44 px, как и остальные элементы формы. */
+.admin-checklist-selected .admin-filter-chip button {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.admin-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 2.75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.admin-checklist-item:hover {
+  background: var(--muted);
+}
+.admin-checklist-item input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
 .admin-field {
   display: grid;
   gap: 6px;
@@ -989,6 +1072,17 @@ button.admin-metric:focus-visible {
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   outline: none;
+}
+/*
+ * Поле во всю ширину колонки: адрес ссылки, поиск по длинному списку. Утилита `max-w-none` предел
+ * выше не снимает: этот файл стоит вне слоёв Tailwind, и его правила сильнее утилит.
+ */
+.admin-field-input-wide {
+  max-width: none;
+}
+/* Короткое число (процент скидки): поле в несколько знаков; утилита `max-w-*` его тоже не задаёт. */
+.admin-field-input-narrow {
+  max-width: 8rem;
 }
 .admin-field-input:focus-visible {
   border-color: var(--ring);

@@ -2,13 +2,15 @@ import { z } from "zod";
 
 /**
  * Вкладки страницы продукта в адресе: `?tab=description` и т. д. Первая вкладка, программа, в
- * адрес не пишется; незнакомое значение открывает её же.
+ * адрес не пишется; незнакомое значение открывает её же. Новая вкладка добавляется сюда, в
+ * подписи `productPageTabLabels` и в панели страницы.
  */
 export const productPageTabIds = [
   "program",
   "description",
-  "artifacts",
-  "settings",
+  "sale",
+  "learners",
+  "community",
 ] as const;
 
 export type ProductPageTabId = (typeof productPageTabIds)[number];
@@ -17,9 +19,22 @@ export const defaultProductPageTab: ProductPageTabId = "program";
 
 const productPageTabSchema = z.enum(productPageTabIds);
 
+/**
+ * Прежние вкладки (#1720) по-прежнему открываются по старым ссылкам: материалы продукта стали
+ * дополнительными материалами программы, а закреп на главной переехал в описание и витрину.
+ */
+const legacyProductPageTabs: ReadonlyMap<string, ProductPageTabId> = new Map([
+  ["artifacts", "program"],
+  ["settings", "description"],
+]);
+
 export function parseProductPageTab(value: string | null): ProductPageTabId {
   const parsed = productPageTabSchema.safeParse(value);
-  return parsed.success ? parsed.data : defaultProductPageTab;
+  if (parsed.success) return parsed.data;
+  return (
+    (value === null ? undefined : legacyProductPageTabs.get(value)) ??
+    defaultProductPageTab
+  );
 }
 
 /** Строка запроса адреса с выбранной вкладкой; остальные параметры адреса сохраняются. */

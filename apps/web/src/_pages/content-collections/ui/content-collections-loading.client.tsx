@@ -11,6 +11,10 @@ import {
 } from "@/shared/ui/admin";
 
 import type { ContentCollectionKind } from "../model/content-collections";
+import {
+  productPageTabIds,
+  type ProductPageTabId,
+} from "../model/product-page-tabs";
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { productPageTabLabels } from "./product-page-tabs.client";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";
@@ -88,35 +92,21 @@ export function ProductPageLoading() {
         >
           <span className="admin-skeleton-bar h-6 w-2/3 max-w-md" />
         </span>
-        <p>Программа, описание и настройки продукта.</p>
+        <p>Программа, витрина, продажа и ученики продукта.</p>
       </header>
       <div aria-hidden="true" inert>
         <WorkspaceTabs
           label="Разделы продукта"
           tabs={[
-            {
-              id: "program",
-              label: productPageTabLabels.program,
-              panel: panelSkeleton,
-            },
-            {
-              id: "description",
-              label: productPageTabLabels.description,
-              panel: panelSkeleton,
-            },
-            {
-              id: "artifacts",
-              label: productPageTabLabels.artifacts,
-              panel: panelSkeleton,
-            },
-            {
-              id: "settings",
-              label: productPageTabLabels.settings,
-              panel: panelSkeleton,
-            },
+            skeletonTab(productPageTabIds[0]),
+            ...productPageTabIds.slice(1).map(skeletonTab),
           ]}
         />
       </div>
     </ProductEditorPageFrame>
   );
+}
+
+function skeletonTab(id: ProductPageTabId) {
+  return { id, label: productPageTabLabels[id], panel: panelSkeleton };
 }

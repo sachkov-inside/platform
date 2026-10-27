@@ -20,13 +20,10 @@ import type {
   ProductAccessContext,
 } from "../../domain/product-access.js";
 import {
-  productAccessListQuerySchema,
-  productAccessListScope,
-  decodeProductAccessCursor,
-  encodeProductAccessCursor,
   productAccessTargetSchema,
   productAccessViewSchema,
 } from "../../domain/product-access.js";
+import { listProductAccess } from "../../features/list-product-access/list-product-access.js";
 import {
   activateCourse,
   beginActivation,
@@ -386,55 +383,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       );
     },
     listProductAccess: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", async () => {
-        const query = productAccessListQuerySchema.safeParse(input);
-        if (!query.success) return accessFailure("invalid_input");
-        const scope = productAccessListScope(query.data);
-        const cursor =
-          query.data.cursor === undefined
-            ? undefined
-            : decodeProductAccessCursor(query.data.cursor, scope);
-        if (cursor === null) return accessFailure("invalid_input");
-        const rows = await prisma.productAccess.findMany({
-          where: {
-            ...(scope.accountId === null ? {} : { accountId: scope.accountId }),
-            ...(scope.productId === null ? {} : { productId: scope.productId }),
-            ...(cursor === undefined
-              ? {}
-              : {
-                  OR: [
-                    { accountId: { gt: cursor[0] } },
-                    {
-                      accountId: cursor[0],
-                      productId: { gt: cursor[1] },
-                    },
-                  ],
-                }),
-          },
-          orderBy: [{ accountId: "asc" }, { productId: "asc" }],
-          take: query.data.limit + 1,
-        });
-        const last = rows[query.data.limit - 1];
-        return {
-          ok: true as const,
-          value: rows.slice(0, query.data.limit).map((row) =>
-            productAccessViewSchema.parse({
-              accountId: row.accountId,
-              productId: row.productId,
-              revision: row.revision,
-              firstIssuedAt: row.firstIssuedAt?.toISOString() ?? null,
-              access: row.revokedAt === null ? "active" : "revoked",
-            }),
-          ),
-          nextCursor:
-            rows.length > query.data.limit && last !== undefined
-              ? encodeProductAccessCursor(scope, [
-                  last.accountId,
-                  last.productId,
-                ])
-              : null,
-        };
-      }),
+      manage(
+        actorId,
+        "billing:manage",
+        () => listProductAccess(prisma, input),
+        "listProductAccess",
+      ),
     readProductAccess: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", async () => {
         const target = productAccessTargetSchema.safeParse(input);

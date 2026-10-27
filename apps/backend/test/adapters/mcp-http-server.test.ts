@@ -86,10 +86,13 @@ describe("MCP Streamable HTTP adapter", () => {
         tools.find((tool) => tool.name === "billing_productPrices_save")
           ?.annotations,
       ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
-      expect(
-        tools.find((tool) => tool.name === "billing_productPrices_list")
-          ?.annotations,
-      ).toMatchObject({ readOnlyHint: true });
+      const productPrices = tools.find(
+        (tool) => tool.name === "billing_productPrices_list",
+      );
+      expect(productPrices?.annotations).toMatchObject({ readOnlyHint: true });
+      // A read is not described as a catalog change, and names its archived Products.
+      expect(productPrices?.description).toContain("archivedProductIds");
+      expect(productPrices?.description).not.toContain("expectedRevision");
       expect(
         tools.find((tool) => tool.name === "billing_payments_read")
           ?.annotations,

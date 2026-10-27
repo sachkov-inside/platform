@@ -21,6 +21,7 @@ import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
 import { contentCollectionsRoute } from "./content-collections-backend.mjs";
+import { productSaleRoute } from "./product-sale-backend.mjs";
 import {
   holdNavigationTasks,
   navigationTaskRoute,
@@ -31,7 +32,10 @@ import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
 import { authoringSearchRoute } from "./authoring-search-backend.mjs";
+import { salesPaymentsRoute } from "./sales-payments-backend.mjs";
 import { peopleRoute } from "./people-backend.mjs";
+import { productLearnersRoute } from "./product-learners-backend.mjs";
+import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -950,8 +954,25 @@ function discoveryNotFound() {
   );
 }
 
+/** @type {WeakMap<import("node:http").IncomingMessage, Promise<string>>} */
+const requestBodies = new WeakMap();
+
+/**
+ * Тело запроса читается один раз: двойники одного пути (`POST /billing/admin`) по очереди
+ * смотрят на операцию, и тот, кто её не ведёт, передаёт запрос следующему.
+ *
+ * @param {import("node:http").IncomingMessage} request
+ */
+function readBody(request) {
+  const known = requestBodies.get(request);
+  if (known !== undefined) return known;
+  const body = readStream(request);
+  requestBodies.set(request, body);
+  return body;
+}
+
 /** @param {import("node:http").IncomingMessage} request */
-async function readBody(request) {
+async function readStream(request) {
   /** @type {Buffer[]} */
   const chunks = [];
   for await (const chunk of request) {
@@ -1100,12 +1121,25 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   const search = authoringSearchRoute(request, url);
   if (search !== null) return send(search.status, search.value);
+  // Ученики продукта (#1718) раньше людей (#1721): выдачу своего продукта ведёт двойник учеников.
+  const learners = await productLearnersRoute(request, url, readBody);
+  if (learners !== null) return send(learners.status, learners.value);
   const peopleRead = await peopleRoute(request, url, readBody);
   if (peopleRead !== null) return send(peopleRead.status, peopleRead.value);
   const materials = await authoringMaterialsRoute(request, url, readBody);
   if (materials !== null) return send(materials.status, materials.value);
   const collections = await contentCollectionsRoute(request, url, readBody);
   if (collections !== null) return send(collections.status, collections.value);
+  // Двойник раздела «Продажи» отвечает только своим токенам, поэтому стоит раньше двойника
+  // вкладки «Продажа», который отвечает каталогом цен любому владельцу.
+  const salesCatalog = await salesCatalogRoute(request, url, readBody);
+  if (salesCatalog !== null)
+    return send(salesCatalog.status, salesCatalog.value);
+  const sale = await productSaleRoute(request, url, readBody);
+  if (sale !== null) return send(sale.status, sale.value);
+  const salesPayments = await salesPaymentsRoute(request, url, readBody);
+  if (salesPayments !== null)
+    return send(salesPayments.status, salesPayments.value);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, productId } = homePinSchema.parse(

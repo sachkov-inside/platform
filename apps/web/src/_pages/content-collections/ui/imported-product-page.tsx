@@ -1,5 +1,4 @@
 import { ContentCoverEditor } from "@/features/content-covers";
-import { ProductCommunitySettings } from "@/features/product-community-settings";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { HomeProductPin, ProductOrderPanel } from "@/features/product-order";
 import { hasText } from "@/shared/lib/text";
@@ -7,7 +6,10 @@ import { hasText } from "@/shared/lib/text";
 import type { ContentCollection } from "../model/content-collections";
 import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-fields";
 import { ProductPageNavigation } from "./product-page-navigation.client";
+import { ProductCommunityTab } from "./product-community-tab";
+import { ProductLearnersTab } from "./product-learners-tab";
 import { ProductPageTabs } from "./product-page-tabs.client";
+import { ProductSaleTab } from "./product-sale-tab";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";
 
 /**
@@ -36,16 +38,22 @@ export function ImportedProductPage({
       </ProductPageNavigation>
       <header className="authoring-page-heading">
         <h1>{collection.name}</h1>
-        <p>Программа, описание и настройки продукта.</p>
+        <p>Программа, витрина, продажа и ученики продукта.</p>
       </header>
       <ProductPageTabs
         panels={{
           program: (
-            <ProductOrderPanel
-              productId={collection.id}
-              archived={collection.archived}
-              readOnly
-            />
+            <>
+              <ProductOrderPanel
+                productId={collection.id}
+                archived={collection.archived}
+                readOnly
+              />
+              <ProductArtifactsPanel
+                archived={collection.archived}
+                productId={collection.id}
+              />
+            </>
           ),
           description: (
             <section
@@ -121,22 +129,30 @@ export function ImportedProductPage({
                   </dl>
                 </section>
               )}
-            </section>
-          ),
-          artifacts: (
-            <ProductArtifactsPanel
-              archived={collection.archived}
-              productId={collection.id}
-            />
-          ),
-          settings: (
-            <>
               <HomeProductPin
                 productId={collection.id}
                 archived={collection.archived}
               />
-              <ProductCommunitySettings productId={collection.id} />
-            </>
+            </section>
+          ),
+          sale: (
+            <ProductSaleTab
+              archived={collection.archived}
+              productId={collection.id}
+              productName={collection.name}
+            />
+          ),
+          learners: (
+            <ProductLearnersTab
+              productId={collection.id}
+              productName={collection.name}
+            />
+          ),
+          community: (
+            <ProductCommunityTab
+              productId={collection.id}
+              productName={collection.name}
+            />
           ),
         }}
       />

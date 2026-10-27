@@ -19,6 +19,7 @@ import {
   type StoryViewport,
 } from "@/storybook/loads-in-place";
 import { withMutationFetch } from "@/storybook/mutation-mock";
+import { storyPriceSnapshot } from "@/storybook/sales-catalog.fixtures";
 import { ProductPageLoading } from "./content-collections-loading.client";
 import { ProductEditorPageClient } from "./product-editor-page.client";
 import {
@@ -77,6 +78,40 @@ const chapteredItems = items.map((item, index) => ({
   ...item,
   chapterId: index < 2 ? chapters[0]?.id : index === 2 ? chapters[1]?.id : null,
 }));
+const learnerId = "d1210000-0000-4000-8000-000000000001";
+/** Цена продукта в каталоге владельца: из неё вкладка «Продажа» создаёт ссылку на оплату. */
+const salePrice = storyPriceSnapshot({
+  id: collection.id,
+  name: collection.name,
+  priceKopecks: 1_490_000,
+});
+/** Две ссылки на оплату продукта: действующая со скидкой и оплаченная по обычной цене. */
+const productPaymentLinks = [
+  {
+    id: "97000000-0000-4000-8000-0000000000b1",
+    revision: 1,
+    state: "active",
+    createdAt: "2026-10-24T09:00:00.000Z",
+    expiresAt: "2026-11-15T20:59:59.000Z",
+    snapshot: storyPriceSnapshot(
+      { id: collection.id, name: collection.name, priceKopecks: 1_490_000 },
+      1_190_000,
+      "97000000-0000-4000-8000-0000000000b1",
+    ),
+  },
+  {
+    id: "97000000-0000-4000-8000-0000000000b2",
+    revision: 2,
+    state: "paid",
+    createdAt: "2026-10-18T12:30:00.000Z",
+    expiresAt: null,
+    snapshot: storyPriceSnapshot(
+      { id: collection.id, name: collection.name, priceKopecks: 1_490_000 },
+      1_490_000,
+      "97000000-0000-4000-8000-0000000000b2",
+    ),
+  },
+] as const;
 function Fixture({
   chaptered = false,
   children,
@@ -123,10 +158,94 @@ function Fixture({
         value: { productId: collection.id, groupRef: "primary" },
       },
     );
+    // «Ученики»: одна страница обладателей и подписи людей этой страницы.
+    queryClient.setQueryData(
+      ["authoring", "product-holders", collection.id, ""],
+      {
+        kind: "ready",
+        items: [
+          {
+            accountId: learnerId,
+            access: "active",
+            firstIssuedAt: "2026-10-20T09:30:00.000Z",
+            learning: {
+              readCount: 2,
+              totalCount: 4,
+              startedAt: "2026-10-20T10:00:00.000Z",
+              lastActivityAt: "2026-10-24T18:15:00.000Z",
+            },
+          },
+        ],
+        nextCursor: null,
+      },
+    );
+    queryClient.setQueryData(
+      ["authoring", "people", "identities", [learnerId]],
+      {
+        kind: "ready",
+        items: [
+          {
+            accountId: learnerId,
+            displayName: "Анна Петрова",
+            username: "anna_petrova",
+            email: "anna.petrova@example.test",
+            contactsState: "complete",
+          },
+        ],
+      },
+    );
     queryClient.setQueryData(["authoring-home-pin"], {
       kind: "ready",
       pin: { productId: collection.id, version: 1 },
     });
+    queryClient.setQueryData(["product-sale", collection.id], {
+      price: {
+        revision: 2,
+        name: collection.name,
+        priceKopecks: 1_490_000,
+        published: true,
+      },
+      salesState: {
+        productId: collection.id,
+        revision: 1,
+        name: "Первый поток",
+        stage: "preorder",
+        startsOn: "2027-02-01",
+        nextEvent: "",
+        priceAfterStartKopecks: 1_990_000,
+      },
+    });
+    queryClient.setQueryData(["owner-price-catalog"], {
+      items: [salePrice],
+      archivedProductIds: [],
+    });
+    queryClient.setQueryData(["owner-payment-links", collection.id, null], {
+      pages: [
+        {
+          outcome: "paymentLinks",
+          items: productPaymentLinks,
+          nextCursor: null,
+        },
+      ],
+      pageParams: [null],
+    });
+    queryClient.setQueryData(
+      ["owner-activation-rules"],
+      [
+        {
+          id: "97000000-0000-4000-8000-0000000000a1",
+          code: "FIRST-RELEASE-2025",
+          name: "Участники прежнего курса о первом релизе",
+          revision: 1,
+          productId: collection.id,
+          sourceRef: "inside-course:first-release-2025",
+          verificationMode: "course_membership",
+          published: true,
+          startsAt: "2026-09-01T00:00:00.000Z",
+          endsAt: null,
+        },
+      ],
+    );
     return queryClient;
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -167,7 +286,7 @@ type Story = StoryObj<typeof meta>;
 export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
     await expect(
@@ -195,7 +314,7 @@ export const TabFromAddress: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      page.getByRole("tab", { name: "Описание и обложка" }),
+      page.getByRole("tab", { name: "Описание и витрина" }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(
       page.getByRole("textbox", { name: "Название продукта" }),
@@ -223,21 +342,156 @@ export const UnknownTabFallsBack: Story = {
   },
 };
 
+/** Старые ссылки (#1720): `?tab=settings` открывает описание с закрепом, `?tab=artifacts` программу. */
+export const LegacySettingsLink: Story = {
+  globals: desktop.globals,
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=settings"),
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("tab", { name: "Описание и витрина" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("button", { name: "Снять закреп с главной" }),
+    ).toBeVisible();
+  },
+};
+export const LegacyArtifactsLink: Story = {
+  globals: mobile.globals,
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=artifacts"),
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(page.getByRole("tab", { name: "Программа" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(
+      page.getByRole("heading", { name: "Артефакты" }),
+    ).toBeVisible();
+  },
+};
+
+function tabStory(
+  tab: string,
+  name: string,
+  check: (page: ReturnType<typeof routeContent>) => Promise<void>,
+  globals: StoryViewport["globals"],
+): Story {
+  return {
+    globals,
+    beforeEach: () => {
+      mocked(useSearchParams).mockReturnValue(
+        new ReadonlyURLSearchParams(`tab=${tab}`),
+      );
+    },
+    play: async ({ canvasElement }) => {
+      const page = routeContent(canvasElement);
+      await expect(page.getByRole("tab", { name })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await check(page);
+    },
+  };
+}
+const saleTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(
+    page.getByText("Предзаказ", { selector: ".admin-badge" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Закрыть продажи" }),
+  ).toBeVisible();
+  // Под продажей стоят ссылки на оплату этого продукта, без выбора продукта.
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Ссылки на оплату" }),
+  ).toBeVisible();
+  // Таблица на компьютере и список на телефоне: видна одна из двух раскладок ссылок.
+  await expect(
+    page
+      .getAllByText("Готова к оплате")
+      .filter((badge) => badge.checkVisibility()),
+  ).toHaveLength(1);
+  await expect(
+    page.queryByRole("combobox", { name: "Продукт" }),
+  ).not.toBeInTheDocument();
+};
+const learnersTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(page.getByRole("heading", { name: "Ученики" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Анна Петрова" }),
+  ).toHaveAttribute("href", `/authoring/people/${learnerId}`);
+  await expect(
+    page.getByRole("button", { name: "Выдать продукт" }),
+  ).toBeVisible();
+};
+const communityTab = async (page: ReturnType<typeof routeContent>) => {
+  await expect(
+    page.getByText("Все продукты используют общую группу Telegram."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Участники прежнего курса о первом релизе"),
+  ).toBeVisible();
+};
+export const SaleTabDesktop = tabStory(
+  "sale",
+  "Продажа",
+  saleTab,
+  desktop.globals,
+);
+export const SaleTabMobile = tabStory(
+  "sale",
+  "Продажа",
+  saleTab,
+  mobile.globals,
+);
+export const LearnersTabDesktop = tabStory(
+  "learners",
+  "Ученики",
+  learnersTab,
+  desktop.globals,
+);
+export const LearnersTabMobile = tabStory(
+  "learners",
+  "Ученики",
+  learnersTab,
+  mobile.globals,
+);
+export const CommunityTabDesktop = tabStory(
+  "community",
+  "Сообщество и активация",
+  communityTab,
+  desktop.globals,
+);
+export const CommunityTabMobile = tabStory(
+  "community",
+  "Сообщество и активация",
+  communityTab,
+  mobile.globals,
+);
+
 /** Скрытые вкладки остаются смонтированными: несохранённое описание переживает смену вкладки. */
 export const DraftSurvivesTabSwitch: Story = {
   globals: mobile.globals,
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await userEvent.click(
-      page.getByRole("tab", { name: "Описание и обложка" }),
+      page.getByRole("tab", { name: "Описание и витрина" }),
     );
     const summary = page.getByRole("textbox", { name: /^Краткое описание/u });
     await userEvent.clear(summary);
     await userEvent.type(summary, "Черновик описания");
-    await userEvent.click(page.getByRole("tab", { name: "Настройки" }));
+    await userEvent.click(page.getByRole("tab", { name: "Продажа" }));
     await expect(summary).not.toBeVisible();
     await userEvent.click(
-      page.getByRole("tab", { name: "Описание и обложка" }),
+      page.getByRole("tab", { name: "Описание и витрина" }),
     );
     await expect(summary).toHaveValue("Черновик описания");
   },
@@ -275,7 +529,7 @@ export const Imported: Story = {
   decorators: importedDecorators,
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("note")).toHaveTextContent(
@@ -336,6 +590,24 @@ export const ImportedMobile: Story = {
   name: "Продукт из источника, телефон",
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
+/** У продукта из источника содержание только для чтения, а продажа и активация работают. */
+export const ImportedSaleTab: Story = {
+  name: "Продукт из источника, вкладка «Продажа»",
+  ...tabStory("sale", "Продажа", saleTab, desktop.globals),
+  args: { initialCollection: importedCollection },
+  decorators: importedDecorators,
+};
+export const ImportedCommunityTab: Story = {
+  name: "Продукт из источника, вкладка «Сообщество и активация»",
+  ...tabStory(
+    "community",
+    "Сообщество и активация",
+    communityTab,
+    mobile.globals,
+  ),
+  args: { initialCollection: importedCollection },
+  decorators: importedDecorators,
+};
 export const ImportedArchived: Story = {
   name: "Продукт из источника в архиве",
   args: { initialCollection: { ...importedCollection, archived: true } },
@@ -372,7 +644,7 @@ export const ImportedBare: Story = {
   ],
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: "Программа" }));
@@ -408,7 +680,7 @@ export const SavedAfterActivity: Story = {
   ),
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
 
@@ -435,7 +707,7 @@ export const FailedAfterActivity: Story = {
   ...SavedAfterActivity,
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+      within(canvasElement).getByRole("tab", { name: "Описание и витрина" }),
     );
     const canvas = within(canvasElement);
 

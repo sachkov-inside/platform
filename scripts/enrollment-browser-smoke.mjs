@@ -139,7 +139,8 @@ try {
     routes: [
       "/",
       "/welcome",
-      "/authoring/billing",
+      "/authoring/products",
+      `/authoring/products/${state["ENROLLMENT_PRODUCT_ID"] ?? ""}`,
       "/account",
       "/auth/status",
       "/api/account",
@@ -149,7 +150,6 @@ try {
       "/api/account/terms",
       "/api/authoring/billing/activation-rules/list",
       "/api/authoring/billing/activation-rules/save",
-      "/api/authoring/billing/content/list",
       "/authoring/people",
       "/api/authoring/people",
       "/api/authoring/access/products/issue",
@@ -177,7 +177,7 @@ try {
       waitFor(
         async () =>
           (
-            await fetch(`${webUrl}/authoring/billing`, {
+            await fetch(`${webUrl}/authoring/products`, {
               signal: AbortSignal.timeout(30_000),
             })
           ).status < 500,

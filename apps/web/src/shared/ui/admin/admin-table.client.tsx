@@ -40,7 +40,8 @@ export interface AdminTableProps<Row> {
   /**
    * Открывает объект на той же странице, например панель по адресу `?topic=`, вместо перехода Next:
    * его вызывают щелчок по строке и обычный щелчок по её ссылке. Ссылка `rowHref` остаётся для
-   * новой вкладки.
+   * новой вкладки. Без `rowHref` у объекта нет своего адреса (диалог подробностей): название
+   * строки становится кнопкой, которая открывает его так же.
    */
   readonly onRowOpen?: (row: Row) => void;
   /** Картинка перед названием в первой колонке таблицы, например обложка; в телефонном списке её нет. */
@@ -87,7 +88,8 @@ export function AdminTable<Row>({
     href: Route | undefined,
     row: Row,
   ) => {
-    if (href === undefined || event.defaultPrevented) return;
+    if (event.defaultPrevented) return;
+    if (href === undefined && onRowOpen === undefined) return;
     if (event.button !== 0) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return;
@@ -98,8 +100,8 @@ export function AdminTable<Row>({
     if (target.closest(interactiveDescendant) !== null) return;
     // Выделение текста мышью не переход.
     if (hasTextSelection()) return;
-    if (onRowOpen === undefined) router.push(href);
-    else onRowOpen(row);
+    if (onRowOpen !== undefined) onRowOpen(row);
+    else if (href !== undefined) router.push(href);
   };
   const titleOpener = (row: Row) =>
     onRowOpen === undefined
@@ -149,6 +151,7 @@ export function AdminTable<Row>({
             return (
               <tr
                 data-href={href}
+                data-opens={onRowOpen === undefined ? undefined : ""}
                 key={rowKey(row)}
                 onClick={(event) => {
                   openRow(event, href, row);
@@ -190,6 +193,7 @@ export function AdminTable<Row>({
             <li
               className="admin-list-item"
               data-href={href}
+              data-opens={onRowOpen === undefined ? undefined : ""}
               key={rowKey(row)}
               onClick={(event) => {
                 openRow(event, href, row);
@@ -238,7 +242,17 @@ function RowTitle({
   readonly children: ReactNode;
 }) {
   if (href === undefined)
-    return <span className="font-semibold">{children}</span>;
+    return onOpen === undefined ? (
+      <span className="font-semibold">{children}</span>
+    ) : (
+      <button
+        className="admin-row-link admin-row-button"
+        onClick={onOpen}
+        type="button"
+      >
+        {children}
+      </button>
+    );
   return (
     <Link
       className="admin-row-link"

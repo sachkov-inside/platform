@@ -1,4 +1,4 @@
-import { handleSaveCohort } from "@/features/billing-admin.server";
+import { handleSaveProductSalesState } from "@/features/product-sale-settings.server";
 export function POST(request: Request): Promise<Response> {
-  return handleSaveCohort(request);
+  return handleSaveProductSalesState(request);
 }

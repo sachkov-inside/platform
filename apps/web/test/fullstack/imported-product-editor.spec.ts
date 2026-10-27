@@ -27,7 +27,7 @@ test("imported product opens read-only in the editor and lets the author leave",
   await expect(page).toHaveURL(`/authoring/products/${productId}`);
 
   await page
-    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .getByRole("tab", { name: "Описание и витрина", exact: true })
     .click();
   await expect(page.getByRole("note")).toContainText(
     "Продукт перенесён из источника.",

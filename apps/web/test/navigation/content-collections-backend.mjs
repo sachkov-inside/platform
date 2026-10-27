@@ -21,6 +21,7 @@ const collectionWriteSchema = z
  * @typedef {{
  *   archived: boolean;
  *   cover: null;
+ *   holderCount: number | null;
  *   id: string;
  *   introduction: null | Record<string, string>;
  *   kind: "product" | "topic";
@@ -39,6 +40,8 @@ function initialCollections() {
   const collection = (value) => ({
     archived: false,
     cover: null,
+    // Как у backend: число обладателей есть только у продукта, у темы его нет.
+    holderCount: value.kind === "product" ? 0 : null,
     introduction: null,
     materialCount: 4,
     publishedMaterialCount: 2,
@@ -54,6 +57,7 @@ function initialCollections() {
       slug: "navigation-architecture",
       materialCount: 6,
       publishedMaterialCount: 5,
+      holderCount: 1240,
       introduction: {
         audience: "Разработчики, которые выпускают первый сервис.",
         outcome: "Собранный и проверенный релиз.",
@@ -66,6 +70,7 @@ function initialCollections() {
       kind: "product",
       name: "Работа с базой данных",
       slug: "navigation-database",
+      holderCount: 37,
     }),
     collection({
       id: "c0110000-0000-4000-8000-000000000003",
