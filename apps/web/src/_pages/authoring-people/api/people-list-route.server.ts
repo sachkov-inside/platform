@@ -32,7 +32,7 @@ const productionDependencies: PeopleListDependencies = {
   list: requestPeopleList,
 };
 
-/** `GET /api/authoring/people?query=&product=&origin=&state=&cursor=`: список людей для браузера. */
+/** `GET /api/authoring/people?query=&product=&origin=&state=&telegram=&cursor=`: список людей для браузера. */
 export function handlePeopleListRequest(
   request: Request,
   dependencies: PeopleListDependencies = productionDependencies,
@@ -78,6 +78,7 @@ export async function readPeopleList(
           : { productId: query.productId }),
         ...(query.origin === undefined ? {} : { origin: query.origin }),
         ...(query.state === undefined ? {} : { state: query.state }),
+        ...(query.telegram === undefined ? {} : { telegram: query.telegram }),
         ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
       },
       accessToken,

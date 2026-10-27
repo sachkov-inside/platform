@@ -40,9 +40,10 @@ export function eventPersonLabel(person: OverviewEventPerson): {
   readonly label: string;
   readonly named: boolean;
 } {
-  if (hasText(person.name)) return { label: person.name.trim(), named: true };
-  if (hasText(person.username))
-    return { label: `@${person.username.trim()}`, named: true };
+  const name = person.name?.trim();
+  if (hasText(name)) return { label: name, named: true };
+  const username = person.username?.trim();
+  if (hasText(username)) return { label: `@${username}`, named: true };
   return { label: "Без имени в Telegram", named: false };
 }
 
@@ -54,7 +55,11 @@ export function overviewEventRow(
   event: OverviewEvent,
   { peopleLinks }: { readonly peopleLinks: boolean },
 ): OverviewEventRow {
-  const person = eventPersonLabel(event.person);
+  const known = eventPersonLabel(event.person);
+  // Без права на карточку имя и @username не приходят: подпись говорит, что имя скрыто, а не
+  // что его нет.
+  const person =
+    known.named || peopleLinks ? known : { label: "Имя скрыто", named: false };
   const base = {
     kind: event.kind,
     occurredAt: event.occurredAt,

@@ -1,16 +1,15 @@
 import type { Route } from "next";
 
-import { internalRoute } from "@/shared/routing/internal-route";
+import { authoringOverviewHref } from "@/shared/routing/authoring";
 
 /**
  * Разделы админки по решению 2 спецификации #1717. Один источник для боковой панели, нижней
  * панели телефона, листа «Ещё», вкладок подразделов и Storybook.
  *
- * Пункт, чей экран строит следующая задача (#1719 «Обзор»), пока ведёт на нынешнюю страницу.
- * Задача, которая заменяет страницу, меняет здесь `href` и `paths`. «Люди» ведут в список людей
- * #1721, продажи (#1718) живут под `/authoring/sales/*`; прежние `/authoring/access`,
- * `/authoring/billing` и `/authoring/sales-funnel` перенаправляет `next.config.ts`. «Сообщений» нет,
- * пока в силе решение #396.
+ * «Обзор» (#1719) живёт на самом `/authoring`, «Люди» ведут в список людей #1721, продажи (#1718)
+ * живут под `/authoring/sales/*`; прежние `/authoring/access`, `/authoring/billing` и
+ * `/authoring/sales-funnel` перенаправляет `next.config.ts`. «Сообщений» нет, пока в силе решение
+ * #396.
  */
 export type AuthoringNavigationItemId =
   | "overview"
@@ -41,11 +40,13 @@ export interface AuthoringNavigationItem {
   readonly label: string;
   readonly href: Route;
   readonly icon: AuthoringNavigationIcon;
-  /**
-   * Адреса, на которых пункт текущий: сам адрес раздела и всё, что под ним. Пустой список —
-   * у пункта пока нет своей страницы и он ведёт на чужую, поэтому текущим не становится.
-   */
+  /** Адреса, на которых пункт текущий: сам адрес раздела и всё, что под ним. */
   readonly paths: readonly string[];
+  /**
+   * Пункт текущий только на самих `paths`, а не под ними: под `/authoring` лежат все разделы,
+   * поэтому «Обзор» текущий только на стартовой странице.
+   */
+  readonly exact?: true;
   /** Счётчик у пункта; по решению 2 он есть только у «Сдач». */
   readonly counter?: "submissions-awaiting-feedback";
 }
@@ -60,24 +61,15 @@ export interface AuthoringNavigationGroup {
   ];
 }
 
-/**
- * Адрес подраздела продаж, чью страницу строит соседняя задача #1718 («Ссылки на оплату»,
- * «Скидки», «Воронка продаж»): пока её маршрута нет в дереве, типизированные адреса Next его не
- * знают. С приходом страницы обёртка становится лишней.
- */
-function salesRoute(path: `/authoring/sales/${string}`): Route {
-  return internalRoute(path);
-}
-
-/** Обзор строит #1719; до него `/authoring` перенаправляет в «Продукты» (`next.config.ts`). */
-export const authoringOverviewHref: Route = "/authoring";
+export { authoringOverviewHref };
 
 const overview = {
   id: "overview",
   label: "Обзор",
   href: authoringOverviewHref,
   icon: "overview",
-  paths: [],
+  paths: [authoringOverviewHref],
+  exact: true,
 } as const satisfies AuthoringNavigationItem;
 
 const people = {
@@ -144,21 +136,21 @@ export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
       {
         id: "payment-links",
         label: "Ссылки на оплату",
-        href: salesRoute("/authoring/sales/links"),
+        href: "/authoring/sales/links",
         icon: "payment-links",
         paths: ["/authoring/sales/links"],
       },
       {
         id: "discounts",
         label: "Скидки",
-        href: salesRoute("/authoring/sales/discounts"),
+        href: "/authoring/sales/discounts",
         icon: "discounts",
         paths: ["/authoring/sales/discounts"],
       },
       {
         id: "sales-funnel",
         label: "Воронка продаж",
-        href: salesRoute("/authoring/sales/funnel"),
+        href: "/authoring/sales/funnel",
         icon: "sales-funnel",
         paths: ["/authoring/sales/funnel"],
       },
@@ -200,7 +192,9 @@ export const authoringMoreGroups: readonly {
 
 function matches(item: AuthoringNavigationItem, pathname: string): boolean {
   return item.paths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
+    (path) =>
+      pathname === path ||
+      (item.exact !== true && pathname.startsWith(`${path}/`)),
   );
 }
 

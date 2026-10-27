@@ -8,6 +8,7 @@ import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-field
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { ProductCommunityTab } from "./product-community-tab";
 import { ProductLearnersTab } from "./product-learners-tab";
+import { ProductOverviewTab } from "./product-overview-tab";
 import { ProductPageTabs } from "./product-page-tabs.client";
 import { ProductSaleTab } from "./product-sale-tab";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";
@@ -38,10 +39,11 @@ export function ImportedProductPage({
       </ProductPageNavigation>
       <header className="authoring-page-heading">
         <h1>{collection.name}</h1>
-        <p>Программа, витрина, продажа и ученики продукта.</p>
+        <p>Обзор, программа, витрина, продажа и ученики продукта.</p>
       </header>
       <ProductPageTabs
         panels={{
+          overview: <ProductOverviewTab productId={collection.id} />,
           program: (
             <>
               <ProductOrderPanel

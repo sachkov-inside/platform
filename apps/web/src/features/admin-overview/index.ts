@@ -2,6 +2,8 @@
  * Обзор админки (#1719): общие ряды показателей, изменение к прошлому периоду, лента событий и
  * вкладка «Обзор» страницы продукта. Вход безопасен для клиента.
  */
+import "./ui/admin-overview.css";
+
 export {
   defaultOverviewPeriod,
   newAccessMetricSchema,

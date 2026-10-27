@@ -435,22 +435,25 @@ describe("Topics and Products list presentation", () => {
     );
   });
 
-  it("reads the Product page tab from the address and falls back to the programme", () => {
+  it("reads the Product page tab from the address and falls back to the overview (#1719)", () => {
     for (const tab of productPageTabIds)
       expect(parseProductPageTab(tab)).toBe(tab);
-    expect(parseProductPageTab("sales")).toBe("program");
-    expect(parseProductPageTab("constructor")).toBe("program");
-    expect(parseProductPageTab(null)).toBe("program");
+    expect(parseProductPageTab("sales")).toBe("overview");
+    expect(parseProductPageTab("constructor")).toBe("overview");
+    expect(parseProductPageTab(null)).toBe("overview");
     expect(productPageTabSearch("", "sale")).toBe("?tab=sale");
-    expect(productPageTabSearch("", "description")).toBe("?tab=description");
-    expect(productPageTabSearch("?tab=description&x=1", "program")).toBe(
+    expect(productPageTabSearch("", "program")).toBe("?tab=program");
+    expect(productPageTabSearch("?tab=description&x=1", "overview")).toBe(
       "?x=1",
     );
-    expect(productPageTabSearch("?tab=settings", "program")).toBe("");
+    expect(productPageTabSearch("?tab=settings&period=7", "overview")).toBe(
+      "?period=7",
+    );
   });
 
   it("opens the old artifacts and settings links on their new tabs (#1718)", () => {
     expect(productPageTabIds).toEqual([
+      "overview",
       "program",
       "description",
       "sale",

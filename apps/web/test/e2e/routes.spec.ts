@@ -521,13 +521,13 @@ test("authoring route owns a dedicated shell outside the public application shel
   expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
 });
 
-test("the admin entry leads to Products until the Overview exists", async ({
+test("the admin entry is the Overview page itself, not a redirect (#1719)", async ({
   request,
 }) => {
   const response = await request.get("/authoring", { maxRedirects: 0 });
 
-  expect(response.status()).toBe(307);
-  expect(response.headers()["location"]).toBe("/authoring/products");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["location"]).toBeUndefined();
 });
 
 test("former sales addresses lead to the new sales section with their query (#1718)", async ({
