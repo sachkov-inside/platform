@@ -160,7 +160,7 @@ class ActualTransport(unittest.TestCase):
                 def __init__(self):self.output=output
                 def metrics_private(self,deadline):owners.append(deadline)
                 def flush_target(self,deadline):owners.append(deadline);return ('127.0.0.1','127.0.0.1',1)
-            source=SimpleNamespace(end=time.monotonic()+150,token='A'*32,targets=Targets(),verify_storage=owners.append)
+            source=SimpleNamespace(end=time.monotonic()+150,token='A'*32,targets=Targets(),verify_storage=owners.append,verify_private_storage=owners.append)
             if cohort:
                 import scenario,oracle
                 source=scenario.Scenario(Targets(),[],'A'*32,oracle)
@@ -285,7 +285,7 @@ class Settlement(unittest.TestCase):
                     def owner(deadline):
                         owner_calls.append(deadline)
                         if fault=='owner' and len(owner_calls)==2:fail()
-                    source=SimpleNamespace(verify_storage=owner,targets=SimpleNamespace(metrics_private=lambda deadline:None))
+                    source=SimpleNamespace(verify_private_storage=owner,targets=SimpleNamespace(metrics_private=lambda deadline:None))
                     caught=None
                     with patch.object(completion.http.client,'HTTPConnection',return_value=Connection()):
                         try:completion._ingest(source,b'{}',time.monotonic()+1)
@@ -308,7 +308,7 @@ class Settlement(unittest.TestCase):
             def request(self,*args,**kwargs):pass
             def getresponse(self):return Response()
             def close(self):closed.append('connection');raise primary
-        source=SimpleNamespace(verify_storage=lambda deadline:None,targets=SimpleNamespace(metrics_private=lambda deadline:None))
+        source=SimpleNamespace(verify_private_storage=lambda deadline:None,targets=SimpleNamespace(metrics_private=lambda deadline:None))
         with patch.object(completion.http.client,'HTTPConnection',return_value=Connection()):
             try:completion._ingest(source,b'{}',time.monotonic()+1)
             except OSError as error:self.assertIs(error,primary)
@@ -525,3 +525,19 @@ class FixtureLifetime(unittest.TestCase):
                 if server.socket.fileno()>=0:server.socket.close()
             for thread in threads:
                 if thread.ident is not None and thread.is_alive():thread.join(3)
+
+
+class PrivateBoundary(unittest.TestCase):
+    def test_real_source_private_snapshot_failure_prevents_current_ingest_flush_and_reads(self):
+        import scenario
+        primary=ValueError('ownership');deadlines=[]
+        def private(deadline):deadlines.append(deadline);raise primary
+        driver=scenario.Scenario(SimpleNamespace(metrics_private=private),[],'A'*32,None)
+        driver.end=time.monotonic()+150
+        with patch.object(completion.http.client,'HTTPConnection') as transport,patch.object(completion.queries,'protocol_read') as read:
+            try:completion.process(driver,EXPECTED,'foreign')
+            except ValueError as error:self.assertIs(error,primary)
+            else:self.fail('unproved private owner reached transport')
+        transport.assert_not_called();read.assert_not_called()
+        self.assertEqual(deadlines,[driver.clock_deadline])
+        self.assertLessEqual(driver.clock_deadline-time.monotonic(),10)

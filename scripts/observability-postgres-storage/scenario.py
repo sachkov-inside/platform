@@ -18,6 +18,8 @@ from types import ModuleType
 import queries
 import pg_ownership
 import completion
+import source_status
+import source_status_scenario
 # Caller loads this owner's oracle by its fixed file identity, avoiding cross-owner module-name aliases.
 STOPPED='{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}'
 
@@ -71,11 +73,23 @@ class Scenario:
 
     def verify_storage(self,deadline):
         self.clock_deadline=deadline;pilot.assert_docker_identity(deadline=deadline)
-        for role in ('alloy','metrics','gateway'):
+        # Batch only discovery; every fixed role still receives its complete identity inspection.
+        roles=('alloy','metrics','gateway')
+        current=self.read(self.compose+['ps','-q',*roles]).splitlines()
+        expected=[self.targets.targets[role]['id'] for role in roles]
+        if len(current)!=len(expected) or set(current)!=set(expected):raise ValueError('ownership')
+        raw=self.read(['docker','inspect','--format',source_status_scenario.INSPECT,*expected]).encode()
+        if len(raw)>source_status.MAX_BODY_BYTES:raise ValueError('ownership')
+        rows=raw.splitlines(keepends=True)
+        if len(rows)!=len(roles):raise ValueError('ownership')
+        for role,row in zip(roles,rows):
             target=self.targets.targets[role]
-            current=self.read(self.compose+['ps','-q',role]).strip()
-            if current!=target['id'] or self.targets.inspect(role,current)!=target:raise ValueError('ownership')
+            if self.targets.inspect(role,target['id'],_raw=row)!=target:raise ValueError('ownership')
         if time.monotonic()>=deadline:raise TimeoutError()
+
+    def verify_private_storage(self,deadline):
+        self.clock_deadline=deadline
+        self.targets.metrics_private(deadline)
 
     def await_postgres(self,cid):
         deadline=time.monotonic()+self.remaining()

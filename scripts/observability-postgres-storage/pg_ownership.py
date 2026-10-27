@@ -175,36 +175,33 @@ class Targets(source_status_scenario.OwnedTargets):
 
     postgres=tracking.TrackingTargets.postgres
 
-    def alloy_private(self,deadline):
-        if time.monotonic()>=deadline:raise TimeoutError()
-        pilot.assert_docker_identity(deadline=deadline)
-        target=self.targets['alloy'];cid=self.read(self.compose+['ps','-q','alloy']).strip()
-        if cid!=target['id'] or self.inspect('alloy',cid)!=target:refuse()
-        template='{"user":{{json .Config.User}},"command":{{json .Config.Cmd}},"caps":{{json .HostConfig.CapDrop}},"readonly":{{json .HostConfig.ReadonlyRootfs}},"running":{{json .State.Running}}}'
-        raw=self.read(['docker','inspect','--format',template,cid]).encode()
-        if len(raw)>8192:refuse()
-        value=source_status.decode_json(raw);expected=plan(self.output)['services']['alloy']
-        if (type(value) is not dict or set(value)!={'user','command','caps','readonly','running'}
-                or value['user']!=expected['user'] or value['command']!=expected['command']
-                or value['caps']!=['ALL'] or value['readonly'] is not True or value['running'] is not True):refuse()
-        pilot.assert_docker_identity(deadline=deadline)
-        if time.monotonic()>=deadline:raise TimeoutError()
-
     def metrics_private(self,deadline):
-        self.alloy_private(deadline)
         if time.monotonic()>=deadline:raise TimeoutError()
         pilot.assert_docker_identity(deadline=deadline)
-        target=self.targets['metrics'];cid=self.read(self.compose+['ps','-q','metrics']).strip()
-        if cid!=target['id'] or self.inspect('metrics',cid)!=target:refuse()
-        template='{"logging":{{json .HostConfig.LogConfig.Type}},"environment":{{json .Config.Env}},"command":{{json .Config.Cmd}},"running":{{json .State.Running}}}'
-        raw=self.read(['docker','inspect','--format',template,cid]).encode()
-        if len(raw)>8192:refuse()
-        value=source_status.decode_json(raw)
+        roles=('alloy','metrics','gateway');ids=[self.targets[role]['id'] for role in roles]
+        current=self.read(self.compose+['ps','-q',*roles]).splitlines()
+        if len(current)!=len(ids) or set(current)!=set(ids):refuse()
+        alloy_template='{"user":{{json .Config.User}},"command":{{json .Config.Cmd}},"caps":{{json .HostConfig.CapDrop}},"readonly":{{json .HostConfig.ReadonlyRootfs}},"running":{{json .State.Running}}}'
+        metrics_template='{"logging":{{json .HostConfig.LogConfig.Type}},"environment":{{json .Config.Env}},"command":{{json .Config.Cmd}},"running":{{json .State.Running}}}'
+        # One fixed CLI response retains the two original role-specific projections.
+        template=source_status_scenario.INSPECT+'\n{{if eq .Id '+json.dumps(ids[0])+'}}'+alloy_template+'{{else if eq .Id '+json.dumps(ids[1])+'}}'+metrics_template+'{{else}}{}{{end}}'
+        raw=self.read(['docker','inspect','--format',template,*ids]).encode()
+        if len(raw)>source_status.MAX_BODY_BYTES:refuse()
+        rows=raw.splitlines(keepends=True)
+        if len(rows)!=6 or any(len(rows[index])>8192 for index in (1,3,5)):refuse()
+        if source_status.decode_json(rows[5])!={}:refuse()
+        for role,cid,row in zip(roles,ids,rows[::2]):
+            if self.inspect(role,cid,_raw=row)!=self.targets[role]:refuse()
+        alloy,value=(source_status.decode_json(rows[index]) for index in (1,3))
+        expected=plan(self.output)
+        if (type(alloy) is not dict or set(alloy)!={'user','command','caps','readonly','running'}
+                or alloy['user']!=expected['services']['alloy']['user'] or alloy['command']!=expected['services']['alloy']['command']
+                or alloy['caps']!=['ALL'] or alloy['readonly'] is not True or alloy['running'] is not True):refuse()
         if type(value) is not dict or set(value)!={'logging','environment','command','running'} or value['running'] is not True or value['logging']!='none':refuse()
         env=value['environment']
         if type(env) is not list or len(env)>64 or any(type(item) is not str for item in env):refuse()
         selected=[item for item in env if item.startswith(PREFIX)]
-        if selected!=[KEY+'='+secret(self.output)] or value['command']!=plan(self.output)['services']['metrics']['command']:refuse()
+        if selected!=[KEY+'='+secret(self.output)] or value['command']!=expected['services']['metrics']['command']:refuse()
         pilot.assert_docker_identity(deadline=deadline)
         if time.monotonic()>=deadline:raise TimeoutError()
 
