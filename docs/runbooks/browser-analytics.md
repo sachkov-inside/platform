@@ -98,6 +98,10 @@ Workflow `observability-browser-analytics.yml` запускает отдельн
 
 Этот proof не создаёт отдельные Docker resources или ingest ports: все контейнеры принадлежат
 внешнему pilot lifecycle. Приватные входы и Vitest log остаются внутри private directory;
-публикуется только `browser-analytics-proof.json` вместе с source/cleanup evidence. Успех CI
+публикуется только `browser-analytics-proof.json` вместе с source/cleanup evidence. Поле
+`last_completed` содержит только последний завершённый этап из закрытого перечня: запуск теста,
+готовность listener, видимый выбор, отправку наблюдений, проверку native событий, смену сессии
+и отзыв. Если тест не начался или файл этапов непригоден, это указано отдельно. Тексты ошибок,
+стек, private body и ключ reader в это поле не попадают. Успех CI
 не заменяет проверку production ingress, визуальное принятие, legal-публикацию, ресурсную
 приёмку, очистку и production rollout. Pending native CI нельзя описывать как выполненный proof.

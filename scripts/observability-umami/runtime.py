@@ -166,6 +166,19 @@ def fixture_proof(value):
     return value
 
 
+def browser_progress(path):
+    """Closed completed milestones only; never publish an assertion, stack or private body."""
+    phases=('started','listener_ready','choice_visible','observations_exported',
+            'native_events_verified','identity_reset_verified','revocation_verified')
+    if path.is_symlink() or not path.is_file():return 'not_started'
+    try:
+        with path.open('rb') as stream:raw=stream.read(129)
+        if len(raw)>128:return 'unavailable'
+        value=json.loads(raw)
+    except (OSError,ValueError):return 'unavailable'
+    return value['phase'] if type(value) is dict and set(value)=={'phase'} and value['phase'] in phases else 'unavailable'
+
+
 def browser_proof(output, compose, state):
     """Explicit synthetic browser/native proof, using only this registered private project."""
     if os.environ.get('INSIDE_UMAMI_BROWSER_PROOF') != 'true':return
@@ -184,15 +197,20 @@ def browser_proof(output, compose, state):
         json.dump({'schema':1,'site':site,'key':state['key'],'project':compose[3],
                    'endpoint':pilot.FROZEN_DOCKER_IDENTITY['endpoint'],'compose':str(Path(compose[5]).resolve())},stream)
     try:
+        progress=output/'browser-proof.progress.json'
         result=subprocess.run(['pnpm','--filter','@inside/web','exec','vitest','run','--config','vitest.native-analytics.config.mts'],
-            cwd=ROOT,env={**os.environ,'INSIDE_UMAMI_BROWSER_PROOF_INPUT':str(private)},
+            cwd=ROOT,env={**os.environ,'INSIDE_UMAMI_BROWSER_PROOF_INPUT':str(private),
+                'INSIDE_UMAMI_BROWSER_PROOF_PROGRESS':str(progress)},
             capture_output=True,text=True,timeout=120)
         log=output/'browser-proof.private.log'
         log.write_text((result.stdout+result.stderr)[:65536]);log.chmod(0o600)
-        pilot.write_json(output/'browser-analytics-proof.json',{'schema':1,'state':'passed' if result.returncode==0 else 'failed',
-            'returncode':result.returncode,'scope':'synthetic Chromium to production Web operation to pinned native Umami and bounded reader',
+        last_completed=browser_progress(progress)
+        passed=result.returncode==0 and last_completed=='revocation_verified'
+        pilot.write_json(output/'browser-analytics-proof.json',{'schema':1,'state':'passed' if passed else 'failed',
+            'returncode':result.returncode,'last_completed':last_completed,
+            'scope':'synthetic Chromium to production Web operation to pinned native Umami and bounded reader',
             'production':'not_executed'})
-        if result.returncode!=0:raise RuntimeError('browser_native_proof_failed')
+        if not passed:raise RuntimeError('browser_native_proof_failed')
     finally:private.unlink(missing_ok=True)
 
 
