@@ -5,6 +5,7 @@ import {
   emptyPaymentsQuery,
   parsePaymentsListRequest,
   parsePaymentsSearchParams,
+  paymentStates,
   paymentsListRequest,
   paymentsPeriodLabel,
   salesPaymentsQueryHref,
@@ -187,11 +188,10 @@ describe("payment presentation", () => {
   });
 
   it("takes every state label from the shared dictionary", () => {
-    for (const [state, label] of Object.entries(paymentStateLabels))
-      expect(
-        adminStates[paymentStateBadge(state as keyof typeof paymentStateLabels)]
-          .label,
-      ).toBe(label);
+    for (const state of paymentStates)
+      expect(adminStates[paymentStateBadge(state)].label).toBe(
+        paymentStateLabels[state],
+      );
   });
 
   it("keeps access readiness apart from the bank state", () => {

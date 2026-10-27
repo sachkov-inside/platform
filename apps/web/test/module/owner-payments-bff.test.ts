@@ -38,6 +38,8 @@ const problem = (code: string, status: number) => ({
   problem: { code },
   response: new Response(null, { status }),
 });
+/** Чтение не пишет receipt: ссылка операции у каждого вызова своя. */
+const anyOperationId: unknown = expect.any(String);
 const get = (path: string) => new Request(`${origin}${path}`);
 
 function expectPrivate(response: Response) {
@@ -69,7 +71,7 @@ describe("payments list BFF", () => {
     expect(fakes.manage).toHaveBeenCalledWith(
       {
         operation: "payments.list",
-        operationId: expect.any(String),
+        operationId: anyOperationId,
         limit: 50,
         states: ["unknown", "failed"],
         productId,
@@ -165,7 +167,7 @@ describe("product choices BFF", () => {
     const response = await handleOwnerPaymentProductsRequest();
 
     expect(fakes.manage).toHaveBeenCalledWith(
-      { operation: "content.list", operationId: expect.any(String) },
+      { operation: "content.list", operationId: anyOperationId },
       "owner-token",
     );
     await expect(response.json()).resolves.toEqual({
@@ -204,7 +206,7 @@ describe("payment read BFF", () => {
     expect(fakes.manage).toHaveBeenCalledWith(
       {
         operation: "payments.read",
-        operationId: expect.any(String),
+        operationId: anyOperationId,
         purchaseRef,
         auditCursor: { purchaseRef, afterSequence: "100" },
       },

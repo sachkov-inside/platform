@@ -86,7 +86,7 @@ export function ownerPayment(
     amountKopecks,
     environment: "production",
     terminalRef: "1700000000001",
-    paymentId: state === "prepared" ? null : String(7_100_000_000 + index),
+    paymentId: String(7_100_000_000 + index),
     snapshot: snapshot(product, amountKopecks),
     fiscalization: state === "confirmed" ? "confirmed" : "pending",
     confirmedAt: state === "confirmed" ? createdAt : null,
