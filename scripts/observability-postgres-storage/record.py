@@ -216,7 +216,7 @@ def upload_operation(value):
     """Fixed acquisition witness, never provider responses, command arguments or SQL."""
     if (type(value) is not dict or set(value)!={'schema','phase','step','outcome','error','http_status','returncode'}
             or type(value['schema']) is not int or value['schema']!=1 or value['phase'] not in PHASES
-            or value['step'] not in ('deadline','owner_before','payload','http_open','http_body','owner_after','complete')
+            or value['step'] not in ('deadline','owner_before','payload','http_open','http_body','owner_after','complete','controlled_flush','controlled_publication')
             or value['outcome'] not in ('running','passed','failed')
             or value['error'] not in (None,'timeout','http_status','transport','command_failed','interrupted','invalid_result','operation_failed')
             or value['http_status'] is not None and (type(value['http_status']) is not int or not 100<=value['http_status']<=599)
@@ -247,7 +247,7 @@ def visibility(value,source):
     phases={phase for phase in PHASES if phase.startswith(('baseline_first_','baseline_second_'))}
     for row in value['rows']:
         if (type(row) is not dict or set(row)!={'phase','step','elapsed_ms','expected_age_ms','stored_age_ms','freshness','previous_committed'}
-                or type(row['phase']) is not str or row['phase'] not in phases or row['step'] not in ('acquired','uploaded','stored')
+                or type(row['phase']) is not str or row['phase'] not in phases or row['step'] not in ('acquired','uploaded','controlled_publication','stored')
                 or type(row['elapsed_ms']) is not int or not 0<=row['elapsed_ms']<=180000
                 or row['expected_age_ms'] is not None and (type(row['expected_age_ms']) is not int or not -2000<=row['expected_age_ms']<=180000)
                 or row['stored_age_ms'] is not None and (type(row['stored_age_ms']) is not int or not 0<=row['stored_age_ms']<=600000)

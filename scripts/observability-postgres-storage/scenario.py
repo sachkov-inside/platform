@@ -17,6 +17,7 @@ import record
 from types import ModuleType
 import queries
 import pg_ownership
+import completion
 # Caller loads this owner's oracle by its fixed file identity, avoiding cross-owner module-name aliases.
 STOPPED='{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}'
 
@@ -123,8 +124,13 @@ class Scenario:
     def upload(self,value,*,deadline=None):
         self.upload_operation={'schema':1,'phase':self.phase,'step':'deadline','outcome':'running','error':None,'http_status':None,'returncode':None}
         try:
+            # One decreasing publication deadline covers ACK and the fixture-only barrier.
+            if deadline is None:deadline=min(self.end,time.monotonic()+10)
             self._upload(value,deadline=deadline)
-            self.upload_operation.update(outcome='passed')
+            self.upload_operation['step']='controlled_flush'
+            completion._flush(self,deadline)
+            completion.remaining(deadline)
+            self.upload_operation.update(step='controlled_publication',outcome='passed')
         except BaseException as error:
             code=getattr(error,'returncode',None)
             status=error.code if isinstance(error,urllib.error.HTTPError) else self.upload_operation['http_status']
@@ -160,7 +166,11 @@ class Scenario:
             with opener.open(request,timeout=remaining) as response:
                 self.upload_operation['http_status']=response.status if type(response.status) is int and 100<=response.status<=599 else None
                 self.upload_operation['step']='http_body'
-                if response.status!=200 or len(response.read(4097))>4096:raise ValueError('collector')
+                raw=response.read(4097)
+                if response.status!=200 or len(raw)>4096:raise ValueError('collector')
+                try:ack=record.decode(raw)
+                except ValueError:raise ValueError('collector') from None
+                if ack not in ({},{'partialSuccess':{}}):raise ValueError('collector')
         self.upload_operation['step']='owner_after'
         self.verify_storage(deadline)
         self.upload_operation['step']='complete'
@@ -218,7 +228,7 @@ class Scenario:
         if phases is not None:self.phase=phases['upload']
         upload_started=time.monotonic()
         self.upload(frame.payload(value))
-        if phases is not None:self.note_visibility('uploaded',upload_started,value)
+        if phases is not None:self.note_visibility('controlled_publication',upload_started,value)
         self.published_sample=value.copy()
         try:observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
         finally:self.published_sample=None

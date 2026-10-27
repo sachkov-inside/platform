@@ -255,6 +255,9 @@ class Records(unittest.TestCase):
         import postgres_source
         from test_public import AdmissionComposition
         value={'schema':1,'phase':'baseline_first_upload','step':'http_open','outcome':'failed','error':'http_status','http_status':400,'returncode':None}
+        for step,outcome,error in (('controlled_flush','failed','operation_failed'),('controlled_publication','passed',None)):
+            observed={**value,'step':step,'outcome':outcome,'error':error,'http_status':200}
+            self.assertEqual(record.upload_operation(observed),observed)
         for control in ('valid','exception','status','step'):
             with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
                 root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700);metadata=root/'metadata';public=root/'public'
