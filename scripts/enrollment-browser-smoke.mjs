@@ -140,7 +140,7 @@ try {
       "/",
       "/welcome",
       "/authoring/products",
-      `/authoring/products/${state.ENROLLMENT_PRODUCT_ID ?? ""}`,
+      `/authoring/products/${state["ENROLLMENT_PRODUCT_ID"] ?? ""}`,
       "/account",
       "/auth/status",
       "/api/account",
