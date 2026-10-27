@@ -319,7 +319,7 @@ export function salesCatalogFetch(fixture: SalesCatalogFixture): MutationFetch {
     const read = (respond: () => Response) =>
       Promise.resolve(
         fixture.forbidden === true
-          ? Response.json({ ok: false, code: "forbidden" }, { status: 403 })
+          ? Response.json({ ok: false, code: "forbidden" })
           : fixture.unavailable === true
             ? Response.json({ ok: false, code: "unavailable" })
             : respond(),
