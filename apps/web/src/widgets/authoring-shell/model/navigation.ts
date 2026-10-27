@@ -1,5 +1,7 @@
 import type { Route } from "next";
 
+import { internalRoute } from "@/shared/routing/internal-route";
+
 /**
  * Разделы админки по решению 2 спецификации #1717. Один источник для боковой панели, нижней
  * панели телефона, листа «Ещё», вкладок подразделов и Storybook.
@@ -55,6 +57,15 @@ export interface AuthoringNavigationGroup {
     AuthoringNavigationItem,
     ...AuthoringNavigationItem[],
   ];
+}
+
+/**
+ * Адрес подраздела продаж, чью страницу строит соседняя задача #1718 («Ссылки на оплату»,
+ * «Скидки», «Воронка продаж»): пока её маршрута нет в дереве, типизированные адреса Next его не
+ * знают. С приходом страницы обёртка становится лишней.
+ */
+function salesRoute(path: `/authoring/sales/${string}`): Route {
+  return internalRoute(path);
 }
 
 /** Обзор строит #1719; до него `/authoring` перенаправляет в «Продукты» (`next.config.ts`). */
@@ -132,21 +143,21 @@ export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
       {
         id: "payment-links",
         label: "Ссылки на оплату",
-        href: "/authoring/sales/links",
+        href: salesRoute("/authoring/sales/links"),
         icon: "payment-links",
         paths: ["/authoring/sales/links"],
       },
       {
         id: "discounts",
         label: "Скидки",
-        href: "/authoring/sales/discounts",
+        href: salesRoute("/authoring/sales/discounts"),
         icon: "discounts",
         paths: ["/authoring/sales/discounts"],
       },
       {
         id: "sales-funnel",
         label: "Воронка продаж",
-        href: "/authoring/sales/funnel",
+        href: salesRoute("/authoring/sales/funnel"),
         icon: "sales-funnel",
         paths: ["/authoring/sales/funnel"],
       },
