@@ -107,7 +107,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`truncate sign_in_requests, sign_in_subjects, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
+  await sql`truncate membership_provider_state, membership_provider_observations, sign_in_requests, sign_in_subjects, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
     database,
   );
 });
@@ -137,76 +137,84 @@ describe("bot sign-in provider", () => {
     expect(await queue.claimNext(new Date(), true)).toBeUndefined();
   });
 
-  it("keeps one bot message through sign-in, linking, and the initial membership check", async () => {
-    const challenge = await register();
-    const sent: TelegramTextMessage[] = [];
-    const edited: TelegramMessageEdit[] = [];
-    const worker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(
-        database,
-        settleBlockedDelivery,
-        undefined,
-        signInReplyEligibility,
-      ),
-      {
-        sendText(message) {
-          sent.push(message);
-          return Promise.resolve({
-            kind: "delivered",
-            providerMessageId: "100",
-          });
+  it.each(["delivered", "uneditable"] as const)(
+    "keeps one bot message through sign-in and membership when the result is %s",
+    async (outcome) => {
+      const challenge = await register();
+      const sent: TelegramTextMessage[] = [];
+      const edited: TelegramMessageEdit[] = [];
+      const worker = new StartResponseDeliveryProcessor(
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
+        {
+          sendText(message) {
+            sent.push(message);
+            return Promise.resolve({
+              kind: "delivered",
+              providerMessageId: "100",
+            });
+          },
+          editText(message) {
+            edited.push(message);
+            return Promise.resolve(
+              outcome === "uneditable"
+                ? { kind: "api_rejected" as const, providerErrorCode: 400 }
+                : {
+                    kind: "delivered" as const,
+                    providerMessageId: message.messageId,
+                  },
+            );
+          },
         },
-        editText(message) {
-          edited.push(message);
-          return Promise.resolve({
-            kind: "delivered",
-            providerMessageId: message.messageId,
-          });
+        new RuntimeMetrics(),
+        config,
+      );
+      await start(challenge, 42);
+      expect(await worker.processAvailable()).toBe(1);
+      await callback(challenge, 42);
+      expect(await worker.processAvailable()).toBe(0);
+      const proof = await status(challenge, true);
+      if (proof.status !== "verified")
+        throw new Error("Expected verified proof");
+      const accountRef = randomUUID();
+      for (let attempt = 0; attempt < 2; attempt++) {
+        expect(
+          (
+            await request(`/${challenge.requestRef}/account-link`, {
+              contractVersion,
+              subjectRef: proof.subjectRef,
+              accountRef,
+            })
+          ).json(),
+        ).toMatchObject({ status: "linked" });
+      }
+      const membership = await application
+        .get(InitialMembershipCheckProcessor)
+        .processNext();
+      expect(membership?.evidence).toMatchObject({
+        principalRef: accountRef,
+        decision: "unavailable",
+      });
+      expect(membership?.responsePlanned).toBe(false);
+      expect(await worker.processAvailable()).toBe(1);
+      expect(await worker.processAvailable()).toBe(0);
+      expect(sent.map((message) => message.text)).toEqual([
+        "Вы входите в Sachkov Inside?",
+      ]);
+      expect(edited).toEqual([
+        {
+          chatId: "42",
+          messageId: "100",
+          text: "Вход подтверждён. Вернитесь на сайт.",
+          buttons: [{ text: "Открыть Inside", url: "https://platform.test/" }],
         },
-      },
-      new RuntimeMetrics(),
-      config,
-    );
-    await start(challenge, 42);
-    expect(await worker.processAvailable()).toBe(1);
-    await callback(challenge, 42);
-    expect(await worker.processAvailable()).toBe(0);
-    const proof = await status(challenge, true);
-    if (proof.status !== "verified") throw new Error("Expected verified proof");
-    const accountRef = randomUUID();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      expect(
-        (
-          await request(`/${challenge.requestRef}/account-link`, {
-            contractVersion,
-            subjectRef: proof.subjectRef,
-            accountRef,
-          })
-        ).json(),
-      ).toMatchObject({ status: "linked" });
-    }
-    const membership = await application
-      .get(InitialMembershipCheckProcessor)
-      .processNext();
-    expect(membership?.evidence).toMatchObject({
-      principalRef: accountRef,
-      decision: "unavailable",
-    });
-    expect(membership?.responsePlanned).toBe(false);
-    expect(await worker.processAvailable()).toBe(1);
-    expect(await worker.processAvailable()).toBe(0);
-    expect(sent.map((message) => message.text)).toEqual([
-      "Вы входите в Sachkov Inside?",
-    ]);
-    expect(edited).toEqual([
-      {
-        chatId: "42",
-        messageId: "100",
-        text: "Вход подтверждён. Вернитесь на сайт.",
-        buttons: [{ text: "Открыть Inside", url: "https://platform.test/" }],
-      },
-    ]);
-  });
+      ]);
+    },
+  );
 
   it("does not enter marketing when a sign-in start arrives while marketing is enabled", async () => {
     const marketing = application.get(MarketingEntry);
