@@ -37,10 +37,16 @@ import {
   type OverviewSourceState,
 } from "./overview-contract.js";
 
+/** The Nest token of the owners both Overview controllers compose. */
+export const OVERVIEW_DEPENDENCIES = Symbol("OVERVIEW_DEPENDENCIES");
+
 /** The owners whose facts the Overview composes; it owns no table of its own. */
 export interface OverviewDependencies {
   readonly accounts: Pick<Accounts, "checkPermission">;
-  readonly directory: Pick<AccountDirectory, "countNewPeople">;
+  readonly directory: Pick<
+    AccountDirectory,
+    "countNewPeople" | "listDirectory"
+  >;
   readonly links: Pick<TelegramAccountLinks, "listLinkedAccountIds">;
   readonly sales: Pick<
     BillingSalesOverview,

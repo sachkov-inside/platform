@@ -228,10 +228,10 @@ export const authoringOverviewSchema = z.strictObject({
       "Confirmed payments whose access is not yet applied",
     ),
     communityFailures: overviewAttentionItemSchema.describe(
-      "Accounts whose latest community operation failed or is overdue",
+      "People whose latest community operation failed or is overdue; the people list's telegram=community_failed total",
     ),
     telegramDeliveryFailures: overviewAttentionItemSchema.describe(
-      "Accounts with a failed or unknown Telegram delivery in the last 30 days",
+      "People with a Telegram delivery whose result is unknown, or that failed in the last 30 days; the people list's telegram=delivery_failed total",
     ),
     submissionsAwaitingFeedback: overviewAttentionItemSchema.describe(
       "Submissions without Author Feedback",

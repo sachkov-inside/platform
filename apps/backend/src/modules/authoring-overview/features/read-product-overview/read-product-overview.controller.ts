@@ -40,7 +40,11 @@ import {
   productOverviewSchema,
   type ProductOverview,
 } from "../../shared/overview-contract.js";
-import { AuthoringOverviewReads } from "../../shared/overview-reads.js";
+import {
+  OVERVIEW_DEPENDENCIES,
+  type OverviewDependencies,
+} from "../../shared/overview-composition.js";
+import { readProductOverview } from "./read-product-overview.js";
 
 @ApiTags("Authoring Overview")
 @ApiBearerAuth("logto")
@@ -51,8 +55,8 @@ import { AuthoringOverviewReads } from "../../shared/overview-reads.js";
 @Controller("admin/products/:productId/overview")
 export class ReadProductOverviewController {
   constructor(
-    @Inject(AuthoringOverviewReads)
-    private readonly overview: AuthoringOverviewReads,
+    @Inject(OVERVIEW_DEPENDENCIES)
+    private readonly owners: OverviewDependencies,
   ) {}
 
   @Get()
@@ -97,7 +101,8 @@ export class ReadProductOverviewController {
     @Param("productId") productId: string,
     @Query() input: unknown,
   ): Promise<ProductOverview> {
-    const result = await this.overview.readProductOverview(
+    const result = await readProductOverview(
+      this.owners,
       current.accountId,
       productId,
       input,

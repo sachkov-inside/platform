@@ -97,8 +97,6 @@ export interface PeopleDirectoryDependencies {
   >;
   readonly deliveries: Pick<Notifications, "listTelegramProblemAccounts">;
   readonly waitlists: Pick<ProductWaitlists, "readForAccount">;
-  /** The instant a Telegram problem filter is judged at; the real clock by default. */
-  readonly clock?: () => Date;
 }
 
 export const failure = <const Code extends PeopleDirectoryError["code"]>(

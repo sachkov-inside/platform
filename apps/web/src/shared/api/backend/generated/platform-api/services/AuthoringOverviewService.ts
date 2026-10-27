@@ -21,7 +21,7 @@ export class AuthoringOverviewService {
   }): CancelablePromise<{
     attention: {
       /**
-       * Accounts whose latest community operation failed or is overdue
+       * People whose latest community operation failed or is overdue; the people list's telegram=community_failed total
        */
       communityFailures: ({
         count: number;
@@ -54,7 +54,7 @@ export class AuthoringOverviewService {
         state: 'unavailable';
       });
       /**
-       * Accounts with a failed or unknown Telegram delivery in the last 30 days
+       * People with a Telegram delivery whose result is unknown, or that failed in the last 30 days; the people list's telegram=delivery_failed total
        */
       telegramDeliveryFailures: ({
         count: number;

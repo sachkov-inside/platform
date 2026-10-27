@@ -22658,7 +22658,7 @@
                       "additionalProperties": false,
                       "properties": {
                         "communityFailures": {
-                          "description": "Accounts whose latest community operation failed or is overdue",
+                          "description": "People whose latest community operation failed or is overdue; the people list's telegram=community_failed total",
                           "oneOf": [
                             {
                               "additionalProperties": false,
@@ -22826,7 +22826,7 @@
                           ]
                         },
                         "telegramDeliveryFailures": {
-                          "description": "Accounts with a failed or unknown Telegram delivery in the last 30 days",
+                          "description": "People with a Telegram delivery whose result is unknown, or that failed in the last 30 days; the people list's telegram=delivery_failed total",
                           "oneOf": [
                             {
                               "additionalProperties": false,
@@ -62656,7 +62656,7 @@
             }
           },
           {
-            "description": "Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery of the last 30 days failed or its result is unknown",
+            "description": "Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery's result is unknown or it failed in the last 30 days",
             "in": "query",
             "name": "telegram",
             "required": false,

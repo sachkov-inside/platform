@@ -715,9 +715,19 @@ describe("Authoring Overview", () => {
       recoverySkipped: true,
       updatedAt: new Date(instant - DAY_MS),
     });
+    // An old failure has aged out; an old unknown result is still a problem.
     await delivery(people.boundaryOld, {
       state: "failed",
       updatedAt: new Date(instant - 31 * DAY_MS),
+    });
+    await delivery(people.vera, {
+      state: "unknown",
+      updatedAt: new Date(instant - 90 * DAY_MS),
+    });
+    // A visitor's problem is no person's: neither the count nor the list shows it.
+    await delivery(people.visitor, {
+      state: "failed",
+      updatedAt: new Date(instant - DAY_MS),
     });
   });
 
@@ -820,8 +830,9 @@ describe("Authoring Overview", () => {
     expect(body["attention"]).toEqual({
       undeterminedPayments: { state: "ready", count: 2 },
       fulfillmentIncomplete: { state: "ready", count: 2 },
-      communityFailures: { state: "ready", count: 4 },
-      telegramDeliveryFailures: { state: "ready", count: 2 },
+      // People only, as the lists these items open: the visitor's failures are not counted.
+      communityFailures: { state: "ready", count: 3 },
+      telegramDeliveryFailures: { state: "ready", count: 3 },
       submissionsAwaitingFeedback: { state: "ready", count: 1 },
     });
   });
@@ -1165,7 +1176,22 @@ describe("Authoring Overview", () => {
     expect(delivery.items.map((item) => item.accountId)).toEqual([
       people.anna,
       people.boris,
+      people.vera,
     ]);
+    expect(delivery.total).toBe(3);
+    const combined = await list(
+      `?telegram=community_failed&productId=${productA}&state=active`,
+    );
+    expect(new Set(combined.items.map((item) => item.accountId))).toEqual(
+      new Set([people.boris, people.vera]),
+    );
+    expect(
+      (
+        await list(
+          `?telegram=community_failed&productId=${productA}&state=revoked`,
+        )
+      ).total,
+    ).toBe(0);
     const narrowed = await list(
       `?telegram=delivery_failed&productId=${productA}&origin=paid`,
     );
@@ -1195,6 +1221,32 @@ describe("Authoring Overview", () => {
         })
       ).statusCode,
     ).toBe(400);
+  });
+
+  test("another role is refused the Telegram filters without any personal fact", async () => {
+    for (const headers of [materialsOnly, nobody])
+      for (const telegram of ["community_failed", "delivery_failed"]) {
+        const response = await api.server.inject({
+          method: "GET",
+          url: `/authoring/people?telegram=${telegram}`,
+          headers,
+        });
+        expect(response.statusCode).toBe(403);
+        expect(response.body).not.toContain(people.boris);
+        expect(response.body).not.toContain("anna_tg");
+      }
+  });
+
+  test("both Overview reads are private and never stored", async () => {
+    for (const response of [
+      await read(owner),
+      await readProduct(owner, productA),
+    ]) {
+      expect(response.statusCode).toBe(200);
+      const cacheControl = String(response.headers["cache-control"]);
+      expect(cacheControl).toContain("private");
+      expect(cacheControl).toContain("no-store");
+    }
   });
 
   test("payments.list with fulfillment=incomplete keeps confirmed payments awaiting access", async () => {

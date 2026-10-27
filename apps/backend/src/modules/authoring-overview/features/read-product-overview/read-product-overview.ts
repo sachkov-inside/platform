@@ -19,7 +19,19 @@ import {
   readPaymentEvents,
   type OverviewDependencies,
 } from "../../shared/overview-composition.js";
-import type { ReadProductOverviewResult } from "../../shared/overview-reads.js";
+
+export type ReadProductOverviewResult =
+  | { readonly ok: true; readonly value: ProductOverview }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly code:
+          | "invalid_request"
+          | "forbidden"
+          | "product_not_found"
+          | "dependency_unavailable";
+      };
+    };
 
 const failure = (
   code:

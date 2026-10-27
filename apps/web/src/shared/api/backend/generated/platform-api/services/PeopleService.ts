@@ -29,7 +29,7 @@ export class PeopleService {
      */
     cursor?: string,
     /**
-     * Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery of the last 30 days failed or its result is unknown
+     * Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery's result is unknown or it failed in the last 30 days
      */
     telegram?: 'community_failed' | 'delivery_failed',
     /**

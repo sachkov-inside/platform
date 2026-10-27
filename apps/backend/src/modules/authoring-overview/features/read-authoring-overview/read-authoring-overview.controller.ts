@@ -37,7 +37,11 @@ import {
   overviewPeriodDaysSchema,
   type AuthoringOverview,
 } from "../../shared/overview-contract.js";
-import { AuthoringOverviewReads } from "../../shared/overview-reads.js";
+import {
+  OVERVIEW_DEPENDENCIES,
+  type OverviewDependencies,
+} from "../../shared/overview-composition.js";
+import { readAuthoringOverview } from "./read-authoring-overview.js";
 
 @ApiTags("Authoring Overview")
 @ApiBearerAuth("logto")
@@ -48,8 +52,8 @@ import { AuthoringOverviewReads } from "../../shared/overview-reads.js";
 @Controller("admin/overview")
 export class ReadAuthoringOverviewController {
   constructor(
-    @Inject(AuthoringOverviewReads)
-    private readonly overview: AuthoringOverviewReads,
+    @Inject(OVERVIEW_DEPENDENCIES)
+    private readonly owners: OverviewDependencies,
   ) {}
 
   @Get()
@@ -86,7 +90,8 @@ export class ReadAuthoringOverviewController {
     @CurrentAccount() current: AuthenticatedAccount,
     @Query() input: unknown,
   ): Promise<AuthoringOverview> {
-    const result = await this.overview.readAuthoringOverview(
+    const result = await readAuthoringOverview(
+      this.owners,
       current.accountId,
       input,
     );
