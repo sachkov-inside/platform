@@ -26,8 +26,6 @@ test("individual payment link shows its fixed price and terms, revokes across op
       await button.click();
     },
   );
-  await page.goto("/authoring/billing");
-  await page.getByRole("tab", { name: "Личные ссылки", exact: true }).click();
   const fixture = z
     .record(
       z.string(),
@@ -44,6 +42,9 @@ test("individual payment link shows its fixed price and terms, revokes across op
     throw new Error("Missing saved payment-link fixture for browser profile");
   const product = { id: fixture.productId };
   const link = { id: fixture.linkId, revision: fixture.revision };
+  // Раздел «Ссылки на оплату», суженный адресом до продукта фикстуры: у него одна ссылка.
+  const linksPath = `/authoring/sales/links?product=${product.id}`;
+  await page.goto(linksPath);
   // Current published v6 does not authorize a new Product link. Existing immutable links still read and revoke.
   const refused = await fullStackBrowserJsonRequest(
     page,
@@ -63,17 +64,11 @@ test("individual payment link shows its fixed price and terms, revokes across op
     code: "method_unavailable",
   });
   await page.reload();
-  await page.getByRole("tab", { name: "Личные ссылки", exact: true }).click();
-  await expect(
-    page.getByText("26 100", { exact: false }).first(),
-  ).toBeVisible();
   const ownerRegion = page.getByRole("region", {
     name: "Ссылки на оплату",
     exact: true,
   });
-  await ownerRegion
-    .getByLabel("Продукт", { exact: true })
-    .selectOption(product.id);
+  await expect(ownerRegion.getByText(/26\s100/u).first()).toBeVisible();
   expect(
     await ownerRegion.evaluate(
       (element) => element.scrollWidth <= element.clientWidth,
@@ -187,31 +182,23 @@ test("individual payment link shows its fixed price and terms, revokes across op
         await button.click();
       },
     );
-    await secondOwner.goto("/authoring/billing");
-    await secondOwner
-      .getByRole("tab", { name: "Личные ссылки", exact: true })
+    await secondOwner.goto(linksPath);
+    const linkRow = (owner: typeof page) =>
+      owner
+        .getByRole("region", { name: "Ссылки на оплату", exact: true })
+        .locator("tr:visible, li.admin-list-item:visible")
+        .filter({ hasText: /26\s100/u });
+    await expect(linkRow(secondOwner)).toHaveCount(1);
+    await expect(linkRow(page)).toHaveCount(1);
+    await linkRow(page)
+      .getByRole("button", { name: /^Действия со ссылкой/u })
       .click();
-    const secondRegion = secondOwner.getByRole("region", {
-      name: "Ссылки на оплату",
-      exact: true,
-    });
-    await expect(
-      secondRegion.locator(`input[value$="/${link.id}"]`),
-    ).toHaveCount(1);
-    const region = page.getByRole("region", {
-      name: "Ссылки на оплату",
-      exact: true,
-    });
-    const row = region
-      .locator("section")
-      .filter({ has: page.locator(`input[value$="/${link.id}"]`) });
-    await row
-      .getByRole("button", { name: "Отозвать ссылку", exact: true })
-      .click();
-    const secondRow = secondRegion
-      .locator("section")
-      .filter({ has: secondOwner.locator(`input[value$="/${link.id}"]`) });
-    await expect(secondRow.getByText(/Ссылка отозвана/)).toBeVisible();
+    await page.getByRole("menuitem", { name: "Отозвать" }).click();
+    const confirm = page.getByRole("dialog", { name: /^Отозвать ссылку/u });
+    await confirm.getByRole("button", { name: "Отозвать ссылку" }).click();
+    await expect(confirm).toBeHidden();
+    // Отзыв объявляется другим открытым вкладкам владельца: они перечитывают список сами.
+    await expect(linkRow(secondOwner)).toContainText("Отозвана");
     await secondOwner.close();
     await buyer.reload();
     await expect(

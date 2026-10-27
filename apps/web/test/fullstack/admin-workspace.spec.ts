@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ownerCatalogSchema } from "@/features/billing-admin/model/admin-operations";
+import { ownerPriceCatalogSchema as ownerCatalogSchema } from "@/entities/subscription/model/owner-price-catalog";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
@@ -77,7 +77,6 @@ test("owner creates a price and edits it twice without stale catalogue revisions
   context,
 }) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/billing");
   const productId = randomUUID();
   const name = `Цена synthetic ${productId}`;
   await page.goto("/authoring/products");
@@ -91,39 +90,21 @@ test("owner creates a price and edits it twice without stale catalogue revisions
   const createdId = page.url().split("/").at(-1);
   if (createdId === undefined)
     throw new Error("Created Product has no URL identifier");
-  await page.goto("/authoring/billing");
-  const create = page.locator("form").filter({
-    has: page.getByRole("heading", {
-      name: "Добавить цену продукта",
-      exact: true,
-    }),
-  });
-  await create
-    .getByLabel("Идентификатор продукта", { exact: true })
-    .fill(createdId);
-  await create.getByLabel("Название", { exact: true }).fill(name);
-  await create.getByLabel("Цена в копейках", { exact: true }).fill("12000");
-  for (const [index, price] of [12000, 13000, 14000].entries()) {
-    const form =
-      index === 0
-        ? create
-        : page.locator("form").filter({
-            has: page.getByRole("heading", { name: new RegExp(name, "u") }),
-          });
-    await form
-      .getByLabel("Цена в копейках", { exact: true })
-      .fill(String(price));
-    const refreshed = page.waitForResponse(
+  // Вкладка «Продажа»: каждая запись цены перечитывает каталог цен для блока ссылок на оплату.
+  const catalogRead = () =>
+    page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/authoring/billing/catalog") &&
         response.request().method() === "GET",
     );
-    await form
-      .getByRole("button", {
-        name: index === 0 ? "Сохранить без открытия продаж" : "Сохранить цену",
-        exact: true,
-      })
-      .click();
+  const firstRead = catalogRead();
+  await page.goto(`/authoring/products/${createdId}?tab=sale`);
+  expect((await firstRead).status()).toBe(200);
+  const panel = page.getByRole("tabpanel", { name: "Продажа" });
+  for (const [index, rubles] of [120, 130, 140].entries()) {
+    await panel.getByRole("textbox", { name: "Цена, ₽" }).fill(String(rubles));
+    const refreshed = catalogRead();
+    await panel.getByRole("button", { name: "Сохранить цену" }).click();
     const response = await refreshed;
     expect(response.status()).toBe(200);
     const envelope: unknown = await response.json();
@@ -135,18 +116,11 @@ test("owner creates a price and edits it twice without stale catalogue revisions
     expect(result.find((item) => item.product?.id === createdId)).toMatchObject(
       {
         product: { id: createdId, priceRevision: index + 1 },
-        paymentOption: { priceKopecks: price, mode: "one_time" },
+        paymentOption: { priceKopecks: rubles * 100, mode: "one_time" },
         offer: { published: false },
       },
     );
-    await expect(
-      page
-        .locator("form")
-        .filter({
-          has: page.getByRole("heading", { name: new RegExp(name, "u") }),
-        })
-        .getByRole("button", { name: "Сохранить цену", exact: true }),
-    ).toBeEnabled();
+    await expect(panel.getByRole("status")).toHaveText("Цена сохранена.");
   }
 });
 
