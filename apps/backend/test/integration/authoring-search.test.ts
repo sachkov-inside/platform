@@ -9,6 +9,7 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import { assemblePeopleSearchGroup } from "../../src/modules/authoring-search/adapters/people/people-search-group.js";
 import { assembleMaterialsSearchGroup } from "../../src/modules/authoring-search/adapters/materials/materials-search-group.js";
 import { assembleProductsSearchGroup } from "../../src/modules/authoring-search/adapters/products/products-search-group.js";
 import { assembleAuthoringSearch } from "../../src/modules/authoring-search/features/search-authoring/search-authoring.js";
@@ -296,6 +297,26 @@ describe("Authoring search", () => {
     expect(await partial.search(manager, "search corpus 1")).toMatchObject({
       ok: true,
       value: { groups: [{ kind: "materials", state: "ready" }] },
+    });
+  });
+
+  test("a People Directory refusal of a valid search text is a recorded defect: the group answers unavailable", async () => {
+    const [products] = searchGroups(database.prisma, () => true);
+    const search = assembleAuthoringSearch([
+      assemblePeopleSearchGroup({
+        searchPeople: () =>
+          Promise.resolve({ ok: false, error: { code: "invalid_request" } }),
+      }),
+      products,
+    ]);
+    expect(await search.search(manager, "search product")).toEqual({
+      ok: true,
+      value: {
+        groups: [
+          { kind: "people", state: "unavailable" },
+          { kind: "products", state: "ready", items: expectedProducts },
+        ],
+      },
     });
   });
 
