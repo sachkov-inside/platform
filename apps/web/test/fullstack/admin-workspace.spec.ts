@@ -120,7 +120,10 @@ test("owner creates a price and edits it twice without stale catalogue revisions
         offer: { published: false },
       },
     );
-    await expect(panel.getByRole("status")).toHaveText("Цена сохранена.");
+    // Сообщение продажи стоит первым: у блока ссылок ниже своя строка состояния фильтров.
+    await expect(panel.getByRole("status").first()).toHaveText(
+      "Цена сохранена.",
+    );
   }
 });
 

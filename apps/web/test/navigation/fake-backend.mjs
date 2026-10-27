@@ -1129,14 +1129,16 @@ const server = createServer(async (request, response) => {
   if (materials !== null) return send(materials.status, materials.value);
   const collections = await contentCollectionsRoute(request, url, readBody);
   if (collections !== null) return send(collections.status, collections.value);
+  // Двойник раздела «Продажи» отвечает только своим токенам, поэтому стоит раньше двойника
+  // вкладки «Продажа», который отвечает каталогом цен любому владельцу.
+  const salesCatalog = await salesCatalogRoute(request, url, readBody);
+  if (salesCatalog !== null)
+    return send(salesCatalog.status, salesCatalog.value);
   const sale = await productSaleRoute(request, url, readBody);
   if (sale !== null) return send(sale.status, sale.value);
   const salesPayments = await salesPaymentsRoute(request, url, readBody);
   if (salesPayments !== null)
     return send(salesPayments.status, salesPayments.value);
-  const salesCatalog = await salesCatalogRoute(request, url, readBody);
-  if (salesCatalog !== null)
-    return send(salesCatalog.status, salesCatalog.value);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, productId } = homePinSchema.parse(

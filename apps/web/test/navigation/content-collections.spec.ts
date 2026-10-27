@@ -206,7 +206,9 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   );
   await panel.getByRole("button", { name: "Сохранить цену" }).click();
   expect((await saved).status()).toBe(200);
-  await expect(panel.getByRole("status")).toHaveText("Цена сохранена.");
+  // Сообщение продажи стоит первым: у блока ссылок ниже своя строка состояния фильтров.
+  const saleStatus = panel.getByRole("status").first();
+  await expect(saleStatus).toHaveText("Цена сохранена.");
   await expect(amount).toHaveValue(/^34\s900$/u);
 
   // Ссылки на оплату продукта стоят под продажей и сразу берут новую ревизию цены.
@@ -227,7 +229,7 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expectAccessibleWithoutOverflow(page);
   await opening.getByRole("button", { name: "Открыть продажи" }).click();
   await expect(opening).toBeHidden();
-  await expect(panel.getByRole("status")).toHaveText("Продажи открыты.");
+  await expect(saleStatus).toHaveText("Продажи открыты.");
   await expect(badge).toHaveText("Предзаказ");
 
   await panel.getByRole("button", { name: "Закрыть продажи" }).click();
@@ -238,7 +240,7 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expect(badge).toHaveText("Предзаказ");
   await panel.getByRole("button", { name: "Закрыть продажи" }).click();
   await closing.getByRole("button", { name: "Закрыть продажи" }).click();
-  await expect(panel.getByRole("status")).toHaveText("Продажи закрыты.");
+  await expect(saleStatus).toHaveText("Продажи закрыты.");
   await expect(badge).toHaveText("Продажи закрыты");
 
   // Вкладки живут в адресе: «назад» возвращает программу, а вкладка продажи открывается по ссылке.
