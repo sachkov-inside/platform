@@ -1,3 +1,5 @@
+import { productCapability } from "@inside/access-capabilities";
+
 import type { PaymentLink, PriceSnapshot } from "@/entities/subscription";
 import type { PromotionListItem } from "@/features/promotions/model/promotion-operations";
 import type { RespondentsView } from "@/features/promotions/model/promotion-operations";
@@ -57,8 +59,10 @@ export function storyPriceSnapshot(
       id: offerId,
       revision: 1,
       name: item.name,
-      benefits: [`product:${item.id}`],
-      benefitPeriods: [{ capability: `product:${item.id}`, months: null }],
+      benefits: [productCapability(item.id)],
+      benefitPeriods: [
+        { capability: productCapability(item.id), months: null },
+      ],
       archived: false,
       published: true,
     },

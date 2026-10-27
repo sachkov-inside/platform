@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 
 import type { MutationFetch } from "./mutation-mock";
@@ -141,7 +142,7 @@ function priceSnapshot(price: SaleFixturePrice, productId = saleProductId) {
       id: offerId,
       revision: price.revision,
       name: price.name,
-      benefits: [`product:${productId}`],
+      benefits: [productCapability(productId)],
       archived: false,
       published: price.published,
     },
