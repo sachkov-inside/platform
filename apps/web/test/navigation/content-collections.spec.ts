@@ -209,6 +209,18 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expect(panel.getByRole("status")).toHaveText("Цена сохранена.");
   await expect(amount).toHaveValue(/^34\s900$/u);
 
+  // Ссылки на оплату продукта стоят под продажей и сразу берут новую ревизию цены.
+  const links = panel.locator("[data-payment-links]");
+  await expect(
+    links.getByRole("heading", { name: "Ссылки на оплату" }),
+  ).toBeVisible();
+  await expect(links.getByText("Ссылок на оплату пока нет")).toBeVisible();
+  await links.getByRole("button", { name: "Создать ссылку" }).first().click();
+  const creating = page.getByRole("dialog", { name: "Новая ссылка на оплату" });
+  await expect(creating).toContainText(/Архитектура приложения · 34\s900/u);
+  await creating.getByRole("button", { name: "Отмена" }).click();
+  await expect(creating).toBeHidden();
+
   await panel.getByRole("button", { name: "Открыть продажи" }).click();
   const opening = page.getByRole("dialog", { name: "Открыть продажи?" });
   await expect(opening).toContainText("34");

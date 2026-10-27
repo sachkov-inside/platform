@@ -6,6 +6,8 @@ import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 
 import {
   cohortStageSchema,
+  ownerPriceCatalogQueryKey,
+  paymentLinksQueryKey,
   type BillingFailureCode,
   type ProductSalesState,
 } from "@/entities/subscription";
@@ -95,6 +97,9 @@ export function ProductSalePanel({
     setDialog(null);
     void cache.invalidateQueries({ queryKey: productSaleQueryKey(productId) });
     void cache.invalidateQueries({ queryKey: catalogSaleQueryKey() });
+    // Новая ревизия цены меняет выбор цены для ссылки и состояние уже созданных ссылок.
+    void cache.invalidateQueries({ queryKey: ownerPriceCatalogQueryKey });
+    void cache.invalidateQueries({ queryKey: paymentLinksQueryKey });
     return true;
   };
   const lost = () => {

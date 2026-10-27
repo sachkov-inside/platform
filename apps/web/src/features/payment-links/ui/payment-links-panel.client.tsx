@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ownerPriceCatalogQueryKey,
   paymentLinkHref,
+  paymentLinksQueryKey,
   productPriceChoices,
   readOwnerPriceCatalog,
   type PaymentLink,
@@ -60,8 +61,6 @@ import {
 } from "./payment-link-create-dialog.client";
 import { copyPaymentLink, paymentLinkUrl } from "./payment-link-share.client";
 
-/** Ключ списков ссылок владельца: фильтр добавляется к нему, запись сбрасывает все фильтры. */
-export const paymentLinksQueryKey = ["owner-payment-links"] as const;
 const pageSize = 30;
 const allValue = "all";
 const headingId = "payment-links-heading";

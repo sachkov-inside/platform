@@ -1,9 +1,10 @@
+import { PaymentLinksPanel } from "@/features/payment-links";
 import { ProductSalePanel } from "@/features/product-sale-settings";
 
 /**
- * Вкладка «Продажа»: цена, состояние продажи и открытие или закрытие продаж продукта. Под ними
- * место для ссылок на оплату этого продукта (`paymentLinks` у `ProductSalePanel`): список ссылок
- * приходит отдельным модулем и встаёт сюда с уже заданным продуктом.
+ * Вкладка «Продажа»: цена, состояние продажи и открытие или закрытие продаж продукта, под ними
+ * ссылки на оплату этого продукта. Запись цены сбрасывает каталог цен и списки ссылок, поэтому
+ * блок ссылок сразу видит новую ревизию цены.
  */
 export function ProductSaleTab({
   productId,
@@ -17,6 +18,7 @@ export function ProductSaleTab({
   return (
     <ProductSalePanel
       archived={archived}
+      paymentLinks={<PaymentLinksPanel productId={productId} />}
       productId={productId}
       productName={productName}
     />

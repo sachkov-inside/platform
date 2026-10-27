@@ -138,6 +138,7 @@ export {
   paymentLinksPageSchema,
   paymentLinkStateLabels,
   paymentLinkHref,
+  paymentLinksQueryKey,
   type PaymentLink,
   type PaymentLinkDetail,
 } from "./model/payment-link";

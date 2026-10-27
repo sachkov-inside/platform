@@ -19,6 +19,7 @@ import {
   type StoryViewport,
 } from "@/storybook/loads-in-place";
 import { withMutationFetch } from "@/storybook/mutation-mock";
+import { storyPriceSnapshot } from "@/storybook/sales-catalog.fixtures";
 import { ProductPageLoading } from "./content-collections-loading.client";
 import { ProductEditorPageClient } from "./product-editor-page.client";
 import {
@@ -78,6 +79,39 @@ const chapteredItems = items.map((item, index) => ({
   chapterId: index < 2 ? chapters[0]?.id : index === 2 ? chapters[1]?.id : null,
 }));
 const learnerId = "d1210000-0000-4000-8000-000000000001";
+/** Цена продукта в каталоге владельца: из неё вкладка «Продажа» создаёт ссылку на оплату. */
+const salePrice = storyPriceSnapshot({
+  id: collection.id,
+  name: collection.name,
+  priceKopecks: 1_490_000,
+});
+/** Две ссылки на оплату продукта: действующая со скидкой и оплаченная по обычной цене. */
+const productPaymentLinks = [
+  {
+    id: "97000000-0000-4000-8000-0000000000b1",
+    revision: 1,
+    state: "active",
+    createdAt: "2026-10-24T09:00:00.000Z",
+    expiresAt: "2026-11-15T20:59:59.000Z",
+    snapshot: storyPriceSnapshot(
+      { id: collection.id, name: collection.name, priceKopecks: 1_490_000 },
+      1_190_000,
+      "97000000-0000-4000-8000-0000000000b1",
+    ),
+  },
+  {
+    id: "97000000-0000-4000-8000-0000000000b2",
+    revision: 2,
+    state: "paid",
+    createdAt: "2026-10-18T12:30:00.000Z",
+    expiresAt: null,
+    snapshot: storyPriceSnapshot(
+      { id: collection.id, name: collection.name, priceKopecks: 1_490_000 },
+      1_490_000,
+      "97000000-0000-4000-8000-0000000000b2",
+    ),
+  },
+] as const;
 function Fixture({
   chaptered = false,
   children,
@@ -180,6 +214,17 @@ function Fixture({
         nextEvent: "",
         priceAfterStartKopecks: 1_990_000,
       },
+    });
+    queryClient.setQueryData(["owner-price-catalog"], [salePrice]);
+    queryClient.setQueryData(["owner-payment-links", collection.id, null], {
+      pages: [
+        {
+          outcome: "paymentLinks",
+          items: productPaymentLinks,
+          nextCursor: null,
+        },
+      ],
+      pageParams: [null],
     });
     queryClient.setQueryData(
       ["owner-activation-rules"],
@@ -361,6 +406,14 @@ const saleTab = async (page: ReturnType<typeof routeContent>) => {
   await expect(
     page.getByRole("button", { name: "Закрыть продажи" }),
   ).toBeVisible();
+  // Под продажей стоят ссылки на оплату этого продукта, без выбора продукта.
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Ссылки на оплату" }),
+  ).toBeVisible();
+  await expect(page.getAllByText("Готова к оплате")[0]).toBeVisible();
+  await expect(
+    page.queryByRole("combobox", { name: "Продукт" }),
+  ).not.toBeInTheDocument();
 };
 const learnersTab = async (page: ReturnType<typeof routeContent>) => {
   await expect(page.getByRole("heading", { name: "Ученики" })).toBeVisible();

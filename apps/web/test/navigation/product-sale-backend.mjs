@@ -2,8 +2,8 @@
 import { z } from "zod";
 
 /**
- * Подставные цены, состояния продажи и правила активации для вкладок «Продажа» и «Сообщество и
- * активация» страницы продукта (#1718). Это HTTP-двойник `POST /billing/admin` и публичного
+ * Подставные цены, состояния продажи, пустой список ссылок на оплату и правила активации для
+ * вкладок «Продажа» и «Сообщество и активация» страницы продукта (#1718). Это HTTP-двойник `POST /billing/admin` и публичного
  * `GET /billing/product-sales-states`, а не проверка прав: любой токен владельца получает тот же
  * каталог. Ревизии проверяются, как в billing. `POST /__product-sale/reset` возвращает исходный
  * каталог перед каждой проверкой.
@@ -229,6 +229,20 @@ export async function productSaleRoute(request, url, readBody) {
         },
       };
     }
+    case "paymentLinks.list":
+      // Блок ссылок вкладки «Продажа» спрашивает только свой продукт: ссылок у продуктов страниц нет.
+      if (
+        command.productId === undefined ||
+        !catalogProductIds.has(command.productId)
+      )
+        return null;
+      return {
+        status: 200,
+        value: {
+          operationRef,
+          result: { outcome: "paymentLinks", items: [], nextCursor: null },
+        },
+      };
     case "activationRules.list":
       return {
         status: 200,

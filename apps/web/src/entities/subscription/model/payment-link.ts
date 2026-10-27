@@ -39,3 +39,9 @@ export const paymentLinkStateLabels: Record<PaymentLink["state"], string> = {
 export function paymentLinkHref(id: string): `/payment/links/${string}` {
   return `/payment/links/${id}`;
 }
+
+/**
+ * Ключ списков ссылок на оплату владельца в TanStack Query: фильтр добавляется к нему. Запись ссылки
+ * или цены продукта сбрасывает все списки под этим ключом.
+ */
+export const paymentLinksQueryKey = ["owner-payment-links"] as const;
