@@ -322,6 +322,56 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expect(tab("Обзор")).toHaveAttribute("aria-selected", "true");
 });
 
+test("sale tab amount and date fields stay compact with «₽» right after the field (#1717)", async ({
+  page,
+}) => {
+  // Общее правило каркаса `max-width: 100%` для полей совпадало по специфичности с пределом поля
+  // админки, и при другом порядке таблиц стилей поля растягивались во всю колонку.
+  await page.goto(`/authoring/products/${architectureId}?tab=sale`);
+  const panel = page.getByRole("tabpanel", { name: "Продажа" });
+  const price = panel.getByRole("textbox", { name: "Цена, ₽" });
+  await expect(price).toHaveValue(/^29\s900$/u);
+  const geometry = await panel.evaluate((root) => {
+    const remPx = Number.parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+    return {
+      limit: 14 * remPx,
+      fields: [...root.querySelectorAll(".admin-field-control")].map(
+        (control) => {
+          const input = control.querySelector("input:not([type=hidden])");
+          const suffix = control.querySelector(".admin-field-suffix");
+          if (!(input instanceof HTMLElement))
+            throw new Error("Amount control without an input");
+          const field = input.getBoundingClientRect();
+          return {
+            width: field.width,
+            suffixGap:
+              suffix === null
+                ? null
+                : suffix.getBoundingClientRect().left - field.right,
+          };
+        },
+      ),
+      date: (() => {
+        const input = root.querySelector('input[type="date"]');
+        if (!(input instanceof HTMLElement))
+          throw new Error("Sale tab without a start date field");
+        return input.getBoundingClientRect().width;
+      })(),
+    };
+  });
+  // «Цена» и «Цена после старта»: оба поля суммы со знаком «₽».
+  expect(geometry.fields).toHaveLength(2);
+  for (const field of geometry.fields) {
+    expect(field.width).toBeLessThanOrEqual(geometry.limit);
+    expect(field.suffixGap).not.toBeNull();
+    expect(field.suffixGap).toBeGreaterThanOrEqual(0);
+    expect(field.suffixGap).toBeLessThanOrEqual(16);
+  }
+  expect(geometry.date).toBeLessThanOrEqual(geometry.limit);
+});
+
 test("an archived price leaves the sale tab and the list saying so, with nothing to save or open (#1718)", async ({
   page,
 }, info) => {

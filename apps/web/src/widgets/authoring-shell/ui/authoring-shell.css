@@ -17,17 +17,27 @@
   background: var(--accent);
   color: var(--accent-foreground);
 }
-.authoring-workspace :focus-visible {
+/*
+ * Умолчания каркаса для элементов страницы. Область `.authoring-workspace` взята в `:where()`, и
+ * правило модуля (`.admin-field-input` с пределом ширины, `.admin-focus-ring:focus-visible`,
+ * `overflow-wrap: normal`) побеждает их при любом порядке таблиц стилей в сборке. При равной
+ * специфичности исход решал порядок, и поля «Продажи» растягивались во всю колонку (#1717).
+ * Кольцо фокуса равно по специфичности общему правилу `globals.css` и перекрывает его, потому что
+ * `globals.css` подключается первым: корневым макетом и рамкой Storybook. Поля админки
+ * (`.admin-field-input`, `.admin-field-textarea`, `.admin-search input`) не задают `outline`, чтобы
+ * не сравниваться с этим кольцом по порядку: к нему они добавляют свою рамку и тень.
+ */
+:where(.authoring-workspace) :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
-.authoring-workspace :where(h1, h2, h3, p, a, button, label) {
+:where(.authoring-workspace) :where(h1, h2, h3, p, a, button, label) {
   overflow-wrap: anywhere;
 }
-.authoring-workspace :where(input, select, textarea) {
+:where(.authoring-workspace) :where(input, select, textarea) {
   max-width: 100%;
 }
-.authoring-workspace :where(table) {
+:where(.authoring-workspace) :where(table) {
   font-variant-numeric: tabular-nums;
 }
 .authoring-skip {
