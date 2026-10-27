@@ -101,7 +101,7 @@ test("resource corpus meets the real API identity and account response contracts
   assert.match(result.stdout, /# tests [1-9][0-9]*\b/u);
 });
 
-// deterministic-test-allow unit-io: dependency-ready tooling validates the generated private Telegram env through its real parser; bounded.execute owns the complete Node/tsx group for five seconds inside the existing external owner.
+// deterministic-test-allow unit-io: dependency-ready tooling validates the generated private Telegram env through its real parser; the same external owner directly owns each sequential Python and Node/tsx group, with a five-second parser deadline.
 test("resource Telegram corpus meets the real application configuration contract", async () => {
   const directory = await mkdtemp(join(tmpdir(), "inside-resource-telegram-"));
   const loader = new URL(
@@ -126,23 +126,31 @@ try {
 from pathlib import Path
 sys.path.insert(0,str(Path.cwd()/"scripts/observability-fullstack"))
 import telegram
-sys.path.insert(0,str(Path.cwd()/"scripts/heavy-check"))
-from bounded import execute
 output=Path(sys.argv[1])
 telegram.configure(output,{'services':{'provider':{},'loadgen':{'volumes':[]}}},{'telegram':'owned-fixed-image'})
-sys.stdout.buffer.write(execute([sys.argv[2],'--import',sys.argv[3],'--input-type=module','-e',sys.argv[4],str(output/'telegram/application.env'),sys.argv[5]],timeout=5))
 `;
   try {
-    const result = await runOwnedProcess("python3", [
+    const prepared = await runOwnedProcess("python3", [
       "-B",
       "-c",
       command,
       directory,
-      process.execPath,
-      loader,
-      program,
-      application,
     ]);
+    assert.equal(prepared.reason, "exit", "Telegram fixture owner completed");
+    assert.equal(prepared.code, 0, "private Telegram environment prepared");
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        "--import",
+        loader,
+        "--input-type=module",
+        "-e",
+        program,
+        join(directory, "telegram/application.env"),
+        application,
+      ],
+      { timeoutMs: 5000 },
+    );
     assert.equal(
       result.reason,
       "exit",
