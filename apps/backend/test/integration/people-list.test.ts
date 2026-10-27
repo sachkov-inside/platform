@@ -3,6 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import {
   AccountDirectory,
@@ -441,10 +442,16 @@ describe("People list", () => {
       headers: owner,
     });
     expect(one.statusCode).toBe(200);
-    expect(one.json()).toMatchObject({
-      items: [{ accountId: people.billing }],
-      nameSearch: "truncated",
-    });
+    // Billing Contact matches are ordered by Account ID, which the fixtures draw at random.
+    const cut = z
+      .object({
+        items: z.array(z.object({ accountId: z.string() })).length(1),
+        nameSearch: z.literal("truncated"),
+      })
+      .parse(one.json());
+    expect([people.billing, people.billingTwin]).toContain(
+      cut.items[0]?.accountId,
+    );
   });
 
   test("names stay unknown, not absent, when Telegram cannot read them", async () => {
