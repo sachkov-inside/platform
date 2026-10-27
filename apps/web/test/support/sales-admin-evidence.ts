@@ -53,6 +53,7 @@ export async function adminEvidence(
   info: TestInfo,
   state: string,
   target: AdminEvidenceTarget,
+  { viewportAtBottom = false }: { readonly viewportAtBottom?: boolean } = {},
 ): Promise<void> {
   if (process.env[target.flag] !== "1") return;
   // Шаг сценария только что закрыл список выбора или снял `disabled`: замер посреди перехода видит
@@ -83,14 +84,37 @@ export async function adminEvidence(
   const directory = await prepareEvidenceDirectory(target.issue);
   const file = `live-${state}-${info.project.name}.png`;
   const path = resolve(directory, file);
-  // Снимок всей страницы рисует закреплённые элементы там, где стоит прокрутка: шаг сценария,
-  // прокрутивший телефон к кнопке, оставил бы верхнюю строку и скрытую ссылку «Перейти к
-  // содержанию» посреди снимка.
+  if (viewportAtBottom) {
+    // Только окно, без растяжения: страница прокручена до конца, как её видит человек. Так видно,
+    // стоит ли нижняя панель вплотную к краю окна.
+    await page.evaluate(() => {
+      document.querySelector("#authoring-content")?.scrollTo(0, 1e9);
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    await page.screenshot({ path });
+  } else await captureWholePage(page, path);
+  await info.attach(`${target.issue}-${state}`, {
+    path,
+    contentType: "image/png",
+  });
+  await recordCheck(info, directory, file, page.url(), {
+    scrollWidth,
+    clientWidth,
+    axeViolations: scan.violations.length,
+  });
+}
+
+/**
+ * Снимок всей страницы рисует закреплённые элементы там, где стоит прокрутка: шаг сценария,
+ * прокрутивший телефон к кнопке, оставил бы верхнюю строку и скрытую ссылку «Перейти к содержанию»
+ * посреди снимка. На телефоне прокручивается сам документ, и `fullPage` оставил бы нижнюю панель на
+ * границе первого экрана поверх содержимого: окно на время снимка растягивается на всю высоту
+ * документа, а под панелью остаётся полоса растянутого окна.
+ */
+async function captureWholePage(page: Page, path: string): Promise<void> {
   await page.evaluate(() => {
     window.scrollTo(0, 0);
   });
-  // На телефоне прокручивается сам документ, и `fullPage` оставил бы нижнюю панель на границе
-  // первого экрана поверх содержимого. Окно на время снимка растягивается на всю высоту документа.
   const viewport = page.viewportSize();
   const height = await page.evaluate(
     () => document.documentElement.scrollHeight,
@@ -102,12 +126,21 @@ export async function adminEvidence(
   } finally {
     if (stretch) await page.setViewportSize(viewport);
   }
-  await info.attach(`${target.issue}-${state}`, {
-    path,
-    contentType: "image/png",
-  });
+}
 
-  const url = new URL(page.url());
+/** Дописывает итог проверок снимка в `live-checks-<проект>.json`. */
+async function recordCheck(
+  info: TestInfo,
+  directory: string,
+  file: string,
+  pageUrl: string,
+  measured: {
+    readonly scrollWidth: number;
+    readonly clientWidth: number;
+    readonly axeViolations: number;
+  },
+): Promise<void> {
+  const url = new URL(pageUrl);
   const checksPath = resolve(
     directory,
     `live-checks-${info.project.name}.json`,
@@ -120,9 +153,7 @@ export async function adminEvidence(
     file,
     project: info.project.name,
     url: `${url.pathname}${url.search}`,
-    scrollWidth,
-    clientWidth,
-    axeViolations: scan.violations.length,
+    ...measured,
   };
   await writeFile(
     checksPath,
