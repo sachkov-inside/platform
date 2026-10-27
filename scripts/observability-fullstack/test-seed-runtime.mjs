@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { prepareDevelopmentCorpus } from "./seed-runtime.mjs";
 
-test("the fixture prepares the three real development seed modules outside the production payload", () => {
+test("the fixture runs the seed owner through production configuration modules", () => {
   const directory = mkdtempSync(join(tmpdir(), "inside-resource-seed-"));
   const target = join(directory, "development");
   try {
@@ -22,9 +22,10 @@ test("the fixture prepares the three real development seed modules outside the p
       new URL("../../apps/backend/src/development/", import.meta.url),
       target,
     );
-    const entry = readFileSync(join(target, "seed-local.js"), "utf8");
+    const entry = readFileSync(join(target, "resource-seed.js"), "utf8");
     assert.ok(entry.includes('"./seed-local-development.js"'));
-    assert.ok(!entry.includes(": Promise<void>"));
+    assert.ok(entry.includes('"../config/platform-config.js"'));
+    assert.ok(!entry.includes("load-platform-config"));
     assert.ok(
       readFileSync(join(target, "seed-local-development.js"), "utf8").includes(
         "seedLocalDevelopment",
@@ -57,18 +58,21 @@ test("the fixture refuses a redirected source before writing any seed module", (
     mkdirSync(source);
     mkdirSync(target);
     writeFileSync(
-      join(source, "seed-local.ts"),
+      join(source, "seed-local-offer-catalog.ts"),
       "export const value: number = 1;",
     );
     symlinkSync(
-      join(source, "seed-local.ts"),
+      join(source, "seed-local-offer-catalog.ts"),
       join(source, "seed-local-development.ts"),
     );
     assert.throws(
       () => prepareDevelopmentCorpus(source, target),
       /seed_source_file/u,
     );
-    assert.throws(() => readFileSync(join(target, "seed-local.js")), /ENOENT/u);
+    assert.throws(
+      () => readFileSync(join(target, "seed-local-offer-catalog.js")),
+      /ENOENT/u,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

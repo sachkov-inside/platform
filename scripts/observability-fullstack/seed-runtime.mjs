@@ -5,12 +5,19 @@ import { stripTypeScriptTypes } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SOURCES = [
-  "seed-local",
-  "seed-local-development",
-  "seed-local-offer-catalog",
-];
+const SOURCES = ["seed-local-development", "seed-local-offer-catalog"];
 const MAX_SOURCE_BYTES = 65536;
+// The development CLI imports load-platform-config, outside the production build closure.
+// This fixture calls the same seed owner with the already prepared runtime environment.
+const ENTRY = `import { parsePlatformConfig } from "../config/platform-config.js";
+import { createPrismaClient } from "../infrastructure/prisma/index.js";
+import { seedLocalDevelopment } from "./seed-local-development.js";
+const config = parsePlatformConfig(process.env);
+if (config.mode !== "development") throw new Error("resource_seed_disabled");
+const prisma = createPrismaClient(config.database.url);
+try { await seedLocalDevelopment(prisma, { demo: "published" }); }
+finally { await prisma.$disconnect(); }
+`;
 
 /** @param {string | URL} source @param {string} target */
 export function prepareDevelopmentCorpus(source, target) {
@@ -37,6 +44,10 @@ export function prepareDevelopmentCorpus(source, target) {
       flag: "wx",
       mode: 0o600,
     });
+  writeFileSync(join(target, "resource-seed.js"), ENTRY, {
+    flag: "wx",
+    mode: 0o600,
+  });
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -46,6 +57,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   )
     throw new Error("resource_seed_disabled");
   prepareDevelopmentCorpus("/resource/development", "/app/dist/development");
-  const entry = new URL("file:///app/dist/development/seed-local.js");
+  const entry = new URL("file:///app/dist/development/resource-seed.js");
   await import(entry.href);
 }
