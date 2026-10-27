@@ -427,8 +427,9 @@ The last whole observed frame's clock may schedule the next query at an integer 
 strictly after a projected five-second frame. A valid older frame can still arrive before the
 projected frame is published. For at most one five-second interval after that scheduled query,
 quarter-second follow-ups keep the same preparation cut and confirm the actual published frame.
-Expiry starts a new quiet preparation; the original sixty-second deadline and128 global cap
-still bound every attempt. The hint never supplies evidence: the returned whole vector, actual
+No follow-up query starts at or after expiry, including after an OS sleep overrun; expiry
+starts a new quiet preparation. A query started before expiry may finish under its existing
+ten-second request and sixty-second stage deadlines. The128 global cap still bounds every attempt. The hint never supplies evidence: the returned whole vector, actual
 source timestamp, freshness and journal checks still decide. Missing/stale/incomplete frames
 use the ordinary quiet wait. The existing
 rollover remains available only after the whole journal comparison passes and the source stamp

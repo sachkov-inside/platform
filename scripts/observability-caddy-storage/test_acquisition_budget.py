@@ -210,6 +210,38 @@ class AcquisitionBudget(unittest.TestCase):
                     self.assertTrue(all(start-end>=5 for (_,end),(start,_) in zip(queries,queries[1:])))
                     self.assertTrue(all(end-start==4 for start,end,*_ in experiment.journal._windows[120:]))
 
+        # Follow-up expiry bounds request START, including an OS sleep overrun.
+        # A request already started in the window retains the existing query limit.
+        for timing in ('scheduled_expiry','oversleep','inflight_completion'):
+            with self.subTest(followup_timing=timing):
+                now=[100.0];queries=[];overran=[False]
+                def sleep(seconds):
+                    if timing!='scheduled_expiry' and not overran[0] and .24<seconds<.26:
+                        now[0]=110.9 if timing=='inflight_completion' else 111.15;overran[0]=True
+                    else:now[0]+=seconds
+                clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],sleep=sleep)
+                experiment=scenario.Scenario(None,'owned_token',None,Mock());experiment.deadline=700
+                def publication(*args,**kwargs):
+                    started=now[0];point=math.floor(started)
+                    stamp=95.95 if not queries else 105.95 if started>=111.05 or timing=='inflight_completion' and started>=110.9 else 100.95
+                    values,stamps=acquisition(point=point,stamp=stamp)
+                    now[0]+=.2 if timing=='inflight_completion' and started>=110.9 else .02
+                    current={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),
+                             'evaluated_at':point,'completed_at':now[0]}
+                    result=scenario.status.evaluate(**current);result['transport']['canonical']='passed'
+                    queries.append((started,now[0]));return result,current
+                with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=publication):
+                    if timing=='inflight_completion':
+                        result,current=experiment.fresh_after(99,_partition=True)
+                        self.assertEqual(result['state'],'observed')
+                        self.assertLess(queries[-1][0],111);self.assertGreater(queries[-1][1],111)
+                    else:
+                        with self.assertRaises(TimeoutError):experiment.fresh_after(99,_partition=True)
+                        self.assertTrue(all(not 111<=round(started,6)<(116 if timing=='scheduled_expiry' else 116.15) for started,_ in queries))
+                        self.assertEqual(now[0],160)
+                self.assertEqual(len(experiment.journal._windows),len(queries))
+                self.assertLess(experiment.acquisitions,128)
+
     def test_classification_never_reads_foreign_metadata_or_matches_text(self):
         class Foreign(RuntimeError):
             def __getattribute__(self,name):raise AssertionError('foreign attribute inspected')

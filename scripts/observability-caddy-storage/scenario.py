@@ -150,8 +150,16 @@ class Scenario:
         deadline=time.monotonic()+min(60,self.remaining())
         next_read=None;followup_end=None
         def read():
-            if next_read is not None:
+            nonlocal cut,next_read,followup_end
+            while next_read is not None:
                 time.sleep(min(max(0,next_read-time.monotonic()),self.remaining(),max(0,deadline-time.monotonic())))
+                now=time.monotonic()
+                if now>=deadline:raise TimeoutError()
+                if followup_end is None or now<followup_end:break
+                # Expiry bounds query start, even if the OS overslept. No request
+                # has begun; prepare a fresh quiet interval before another read.
+                cut=max(status.clock(cut),status.clock(time.time())+5)
+                next_read=now+5;followup_end=None
             if time.monotonic()>=deadline:raise TimeoutError()
             return self.snapshot(previous)
         def check(value):
