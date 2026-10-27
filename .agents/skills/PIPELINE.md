@@ -67,6 +67,7 @@ project coordination, per-ticket review and final integrated review are defined 
   Platform's frontend set, installed with the 2026-08-19 harness; maintained in Platform.
   `modern-web-guidance` uses its checked-in guide corpus for focused compatibility questions.
 - `session-cleanup`: Platform-owned skill; maintained in Platform.
+- `local-stand`: Platform-owned shared-stand controller workflow; maintained in Platform.
 
 ## Adoption and recovery
 

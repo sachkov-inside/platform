@@ -2,6 +2,11 @@
 
 Build, capacity and troubleshooting details of `pnpm local:stand`. Start, stop and ownership rules live in the [local stand runbook](local-stand.md).
 
+The shared stand controller reuses this launcher. Its live preview mounts only Web app/src/public;
+other source changes use the same workspace-image build. A managed refresh builds application images
+and recreates their consumers without the cold-start identity, migration and seed sequence. Controller
+reservations, compatibility refusals and recovery are owned by the [stand runbook](local-stand.md).
+
 ## Production web build
 
 Web on the stand runs in development mode by default. Development mode does not prefetch links and

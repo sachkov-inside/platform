@@ -3,7 +3,7 @@
 
 import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   chmod,
   mkdir,
@@ -18,6 +18,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
+import { standIdentityReceiptPrefix } from "./stand-identity-receipt.mjs";
 import { checkDatabaseUrl } from "./check-database.mjs";
 import { provisionLearnerAccess } from "../infra/production/logto/learner-access.mjs";
 import { readAccessTokenTtl } from "./identity-proof-access-token.mjs";
@@ -146,11 +147,18 @@ async function main() {
     learnerResource === undefined
       ? undefined
       : await provisionLearnerAccess(api, { resource: learnerResource });
-  await writeRuntimeEnvironment(
+  const identity = await writeRuntimeEnvironment(
     application.id,
     applicationSecret,
     learner?.publicClientId,
   );
+  if (
+    onStand &&
+    process.env["LOCAL_STAND_IDENTITY_RECEIPT"] === "true" &&
+    identity
+  ) {
+    process.stdout.write(`${standIdentityReceiptPrefix}${identity}\n`);
+  }
   if (onStand) {
     const authoring = await ensureAuthoringStandApplication(api);
     await writeAuthoringStandEnvironment(
@@ -636,21 +644,20 @@ async function writeRuntimeEnvironment(
   // Пишется он целиком, а не поверх прежнего: остаток от предыдущего арендатора здесь и был бы
   // той самой ловушкой.
   const standPath = resolve(root, ".identity-proof/stand.env");
-  await writeEnvFile(
-    standPath,
-    mergeEnv("", {
-      ...Object.fromEntries(
-        standEnvironmentKeys.map((key) => [key, updates[key]]),
-      ),
-      // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
-      NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",
-      // Reader и `/practice-review-setup.txt` показывают учебный MCP стенда и его клиента.
-      LEARNER_MCP_URL: standLearnerMcpUrl,
-      ...(learnerClientId === undefined
-        ? {}
-        : { LEARNER_MCP_CLIENT_ID: learnerClientId }),
-    }),
-  );
+  const contents = mergeEnv("", {
+    ...Object.fromEntries(
+      standEnvironmentKeys.map((key) => [key, updates[key]]),
+    ),
+    // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
+    NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",
+    // Reader и `/practice-review-setup.txt` показывают учебный MCP стенда и его клиента.
+    LEARNER_MCP_URL: standLearnerMcpUrl,
+    ...(learnerClientId === undefined
+      ? {}
+      : { LEARNER_MCP_CLIENT_ID: learnerClientId }),
+  });
+  await writeEnvFile(standPath, contents);
+  return createHash("sha256").update(contents).digest("hex");
 }
 
 /** Значения входа, которые контейнеры стенда берут у bootstrap. Адреса базы и бэкенда — их свои. */
