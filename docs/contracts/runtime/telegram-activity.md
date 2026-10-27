@@ -15,6 +15,16 @@ returns `outside_collection`, never observed zero. An overlapping interval remai
 and exposes its collection boundary. Calendar interpretation is
 Europe/Moscow, not a sum of daily distinct counts.
 
+The existing activity source also returns `cleanup` for the whole Telegram activity journal,
+independent of the selected bot/window. It uses the same database `asOf` and 365-day `cutoff` as
+`retentionFrom`. One `occurred_at < cutoff ORDER BY occurred_at LIMIT 1` probe uses the existing
+retention index. `oldestExpiredAt` and `lagSeconds` measure the oldest overdue copy at the wire's
+millisecond timestamp resolution. `budgetSeconds=86400` and `withinBudget` compare that lag with
+the accepted next-day cleanup budget. Known no-expired data has null oldest/lag and `withinBudget=true`,
+not an invented expiry timestamp or a backlog count. Query failure makes the source and its MCP
+cleanup unknown. This is measured backlog, not proof of a running worker, deletion history or
+physical disk reclamation. Future application clocks never set this probe's asOf/cutoff.
+
 The current confirmed catalog contains:
 
 | Kind | Required durable outcome |

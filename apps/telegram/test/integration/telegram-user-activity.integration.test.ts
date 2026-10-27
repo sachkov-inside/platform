@@ -512,6 +512,30 @@ it("physically purges bounded365-day analytics batches by native clock and prese
       values (${config.botIdentity},1002,1002,'marketing_preference',${at})`.execute(
         database,
       );
+      const activity = new TelegramUserActivity(database, config);
+      const cleanupWindow = {
+        from: at.toISOString(),
+        to: (await nativeClock(database)).toISOString(),
+      };
+      const overdue = await activity.read(cleanupWindow);
+      expect(overdue).toMatchObject({
+        ok: true,
+        value: {
+          cleanup: {
+            status: "known",
+            oldestExpiredAt: old.toISOString(),
+            budgetSeconds: 86400,
+            withinBudget: false,
+          },
+        },
+      });
+      if (!overdue.ok) throw new Error("Expected the owned cleanup source");
+      expect(overdue.value.cleanup.asOf).toBe(overdue.value.asOf);
+      expect(
+        Date.parse(overdue.value.cleanup.asOf) -
+          Date.parse(overdue.value.cleanup.cutoff),
+      ).toBe(365 * 86400000);
+      expect(overdue.value.cleanup.lagSeconds).toBeGreaterThanOrEqual(86400);
       const fastClock = new Date(at.getTime() + 4000 * 86400000),
         periods = { membershipCheckDays: 90, salesFunnelEventDays: 30 };
       expect(await purgeExpiredRecords(database, fastClock, periods)).toBe(
@@ -519,6 +543,24 @@ it("physically purges bounded365-day analytics batches by native clock and prese
       );
       expect(await purgeExpiredRecords(database, fastClock, periods)).toBe(1);
       expect(await purgeExpiredRecords(database, fastClock, periods)).toBe(0);
+      expect(
+        await activity.read({
+          ...cleanupWindow,
+          to: (await nativeClock(database)).toISOString(),
+        }),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          cleanup: {
+            status: "known",
+            oldestExpiredAt: null,
+            lagSeconds: null,
+            budgetSeconds: 86400,
+            withinBudget: true,
+          },
+        },
+      });
+
       await vi.waitFor(
         async () => {
           expect(

@@ -102,10 +102,12 @@ export class ParticipantDiagnostics {
               status: "observed" as const,
               asOf: telegram.value.asOf,
               coverage: telegram.value.coverage,
+              cleanup: telegram.value.cleanup,
             }
           : {
               source: "telegram" as const,
               status: "unknown" as const,
+              cleanup: { status: "unknown" as const },
               asOf: null,
               error: {
                 code:
@@ -175,7 +177,7 @@ export function registerParticipantDiagnosticsTool(
     {
       title: "Read confirmed active Membership and Telegram participants",
       description:
-        "Requires current platform:admin. Distinct Membership Accounts with confirmed learning, reading transitions, bookmarks or submissions in one explicit [from,to) interval, at most 31 days. Input accepts UTC instants or offsets; calendar is Europe/Moscow. Three independent bounded read-only database snapshots enforce a 365-day horizon. Aggregate only, no identities or events. Coverage is partial and continuity is not proven; zero is only observed zero. Any failed or overflowing source makes Membership unknown. Telegram reads its own confirmed private-action facts through an authenticated bounded runtime interface. Current confirmed IdentityLinking maps linked Accounts; their distinct union with Membership and currently unlinked contacts are reported separately. Telegram coverage starts at collection, remains partial, and excludes commands without confirmed catalog outcomes. A failed Telegram source makes Telegram and combined counts unknown. No permission changes, external provider calls or mutations.",
+        "Requires current platform:admin. Distinct Membership Accounts with confirmed learning, reading transitions, bookmarks or submissions in one explicit [from,to) interval, at most 31 days. Input accepts UTC instants or offsets; calendar is Europe/Moscow. Three independent bounded read-only database snapshots enforce a 365-day horizon. Aggregate only, no identities or events. Coverage is partial and continuity is not proven; zero is only observed zero. Any failed or overflowing source makes Membership unknown. Telegram reads its own confirmed private-action facts through an authenticated bounded runtime interface. Current confirmed IdentityLinking maps linked Accounts; their distinct union with Membership and currently unlinked contacts are reported separately. Telegram coverage starts at collection, remains partial, and excludes commands without confirmed catalog outcomes. Its source includes indexed oldest-expired cleanup lag against a 24-hour budget using its database asOf/cutoff; this does not prove cleanup worker health. A failed Telegram source makes Telegram, combined and cleanup unknown. No permission changes, external provider calls or mutations.",
       inputSchema: z.strictObject({
         from: z.iso.datetime({ offset: true }),
         to: z.iso.datetime({ offset: true }),

@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import {
   TELEGRAM_ACTIVITY_RETENTION_MS,
   TELEGRAM_ACTIVITY_ROW_LIMIT,
+  TELEGRAM_ACTIVITY_CLEANUP_BUDGET_SECONDS,
   telegramActivityWindowSchema,
   telegramActivityResultSchema,
   type TelegramActivityResult,
@@ -81,6 +82,19 @@ export class TelegramUserActivity {
             .execute();
           if (rows.length > TELEGRAM_ACTIVITY_ROW_LIMIT)
             return { ok: false, error: { code: "source_budget_exceeded" } };
+          // Global journal cleanup, independent of the requested activity window or configured bot.
+          // occurred_at has its own retention index; LIMIT1 never computes a full expired count.
+          const oldest = await tx
+            .selectFrom("telegram_user_activity")
+            .select("occurred_at")
+            .where("occurred_at", "<", retentionFrom)
+            .orderBy("occurred_at")
+            .limit(1)
+            .executeTakeFirst();
+          const lagSeconds =
+            oldest === undefined
+              ? null
+              : (retentionFrom.getTime() - oldest.occurred_at.getTime()) / 1000;
           return telegramActivityResultSchema.parse({
             ok: true,
             value: {
@@ -92,6 +106,17 @@ export class TelegramUserActivity {
                 collectionStartedAt: at.started_at.toISOString(),
                 continuity: "not_proven",
                 retentionFrom: retentionFrom.toISOString(),
+              },
+              cleanup: {
+                status: "known",
+                asOf: at.as_of.toISOString(),
+                cutoff: retentionFrom.toISOString(),
+                oldestExpiredAt: oldest?.occurred_at.toISOString() ?? null,
+                lagSeconds,
+                budgetSeconds: TELEGRAM_ACTIVITY_CLEANUP_BUDGET_SECONDS,
+                withinBudget:
+                  lagSeconds === null ||
+                  lagSeconds <= TELEGRAM_ACTIVITY_CLEANUP_BUDGET_SECONDS,
               },
               attribution: "current_confirmed_link",
               accountIds: [

@@ -37,11 +37,39 @@ export const telegramActivityCoverageSchema: z.ZodObject<{
 });
 export type TelegramActivityCoverage = z.infer<typeof telegramActivityCoverageSchema>;
 
+export const TELEGRAM_ACTIVITY_CLEANUP_BUDGET_SECONDS = 86_400;
+export const telegramActivityCleanupSchema: z.ZodObject<{
+  status: z.ZodLiteral<"known">;
+  asOf: z.ZodISODateTime;
+  cutoff: z.ZodISODateTime;
+  oldestExpiredAt: z.ZodNullable<z.ZodISODateTime>;
+  lagSeconds: z.ZodNullable<z.ZodNumber>;
+  budgetSeconds: z.ZodLiteral<typeof TELEGRAM_ACTIVITY_CLEANUP_BUDGET_SECONDS>;
+  withinBudget: z.ZodBoolean;
+}, z.core.$strict> = z.strictObject({
+  status: z.literal("known"),
+  asOf: z.iso.datetime({ offset: true }),
+  cutoff: z.iso.datetime({ offset: true }),
+  oldestExpiredAt: z.iso.datetime({ offset: true }).nullable(),
+  lagSeconds: z.number().nonnegative().nullable(),
+  budgetSeconds: z.literal(TELEGRAM_ACTIVITY_CLEANUP_BUDGET_SECONDS),
+  withinBudget: z.boolean(),
+}).refine((value) => {
+  if (Date.parse(value.asOf) - Date.parse(value.cutoff) !== TELEGRAM_ACTIVITY_RETENTION_MS)
+    return false;
+  if (value.oldestExpiredAt === null)
+    return value.lagSeconds === null && value.withinBudget;
+  const lag = (Date.parse(value.cutoff) - Date.parse(value.oldestExpiredAt)) / 1000;
+  return lag > 0 && value.lagSeconds === lag && value.withinBudget === (lag <= value.budgetSeconds);
+});
+export type TelegramActivityCleanup = z.infer<typeof telegramActivityCleanupSchema>;
+
 export const telegramActivitySnapshotSchema: z.ZodObject<{
   contractVersion: z.ZodLiteral<"inside.telegram-activity.v1">;
   window: typeof telegramActivityWindowSchema;
   asOf: z.ZodISODateTime;
   coverage: typeof telegramActivityCoverageSchema;
+  cleanup: typeof telegramActivityCleanupSchema;
   attribution: z.ZodLiteral<"current_confirmed_link">;
   accountIds: z.ZodArray<z.ZodUUID>;
   unlinkedContacts: z.ZodNumber;
@@ -50,10 +78,13 @@ export const telegramActivitySnapshotSchema: z.ZodObject<{
   window: telegramActivityWindowSchema,
   asOf: z.iso.datetime({ offset: true }),
   coverage: telegramActivityCoverageSchema,
+  cleanup: telegramActivityCleanupSchema,
   attribution: z.literal("current_confirmed_link"),
   accountIds: z.array(z.uuid().toLowerCase()).max(TELEGRAM_ACTIVITY_ROW_LIMIT),
   unlinkedContacts: z.number().int().nonnegative().max(TELEGRAM_ACTIVITY_ROW_LIMIT),
-});
+}).refine((value) =>
+  value.cleanup.asOf === value.asOf && value.cleanup.cutoff === value.coverage.retentionFrom,
+);
 export type TelegramActivitySnapshot = z.infer<typeof telegramActivitySnapshotSchema>;
 
 const successSchema: z.ZodObject<{

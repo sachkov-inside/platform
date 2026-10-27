@@ -45,6 +45,15 @@ function telegram() {
         window,
         asOf: window.to,
         coverage,
+        cleanup: {
+          status: "known",
+          asOf: window.to,
+          cutoff: "2025-10-20T00:00:00.000Z",
+          oldestExpiredAt: null,
+          lagSeconds: null,
+          budgetSeconds: 86400,
+          withinBudget: true,
+        },
         attribution: "current_confirmed_link",
         accountIds: [actor, other, other],
         unlinkedContacts: 3,
@@ -73,6 +82,21 @@ it("unions confirmed linked Telegram Accounts with Membership and keeps unlinked
       attribution: "current_confirmed_link",
     },
   });
+  if (!result.ok) throw new Error("Expected an observed participant report");
+  expect(result.value.sources).toContainEqual(
+    expect.objectContaining({
+      source: "telegram",
+      cleanup: {
+        status: "known",
+        asOf: window.to,
+        cutoff: "2025-10-20T00:00:00.000Z",
+        oldestExpiredAt: null,
+        lagSeconds: null,
+        budgetSeconds: 86400,
+        withinBudget: true,
+      },
+    }),
+  );
   expect(owner.read).toHaveBeenCalledExactlyOnceWith(window);
   expect(JSON.stringify(result)).not.toContain(actor);
   expect(JSON.stringify(result)).not.toContain(other);
@@ -83,21 +107,35 @@ it.each(["source_unavailable", "source_budget_exceeded", "outside_retention"])(
     const owner = {
       read: vi.fn().mockResolvedValue({ ok: false, error: { code } }),
     };
-    expect(
-      await new ParticipantDiagnostics(
-        accounts,
-        member,
-        member,
-        member,
-        owner,
-      ).read(actor, window),
-    ).toMatchObject({
+    const result = await new ParticipantDiagnostics(
+      accounts,
+      member,
+      member,
+      member,
+      owner,
+    ).read(actor, window);
+
+    expect(result).toMatchObject({
       ok: true,
       value: {
         membership: { count: 1 },
         telegram: { status: "unknown", count: null },
         combined: { status: "unknown", count: null },
         unlinkedTelegramContacts: { count: null },
+      },
+    });
+    if (!result.ok) throw new Error("Expected a partial participant report");
+    expect(result.value.sources).toContainEqual({
+      source: "telegram",
+      status: "unknown",
+      asOf: null,
+      cleanup: { status: "unknown" },
+      error: { code },
+      coverage: {
+        status: "unknown",
+        retentionFrom: null,
+        collectionStartedAt: null,
+        continuity: "not_proven",
       },
     });
   },
@@ -186,6 +224,15 @@ function bodyForCasing() {
     window,
     asOf: window.to,
     coverage,
+    cleanup: {
+      status: "known",
+      asOf: window.to,
+      cutoff: "2025-10-20T00:00:00.000Z",
+      oldestExpiredAt: null,
+      lagSeconds: null,
+      budgetSeconds: 86400,
+      withinBudget: true,
+    },
     attribution: "current_confirmed_link",
     unlinkedContacts: 0,
   };
