@@ -292,13 +292,9 @@ export class ProductWaitlists {
             : [
                 {
                   productId: intake.productId,
-                  intakeId: intake.id,
                   intakeName: intake.name,
-                  /** Whether the intake still accepts new members. */
-                  intakeAccepting: intake.accepting,
                   active: membership.active,
                   joinedAt: membership.joinedAt.toISOString(),
-                  updatedAt: membership.updatedAt.toISOString(),
                 },
               ];
         }),

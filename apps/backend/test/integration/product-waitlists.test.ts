@@ -1009,21 +1009,15 @@ test("the person card reads every waitlist membership of one Account", async () 
     value: [
       {
         productId,
-        intakeId,
         intakeName: "Следующий набор",
-        intakeAccepting: true,
         active: true,
         joinedAt: "2030-03-05T12:00:00.000Z",
-        updatedAt: "2030-03-05T12:00:00.000Z",
       },
       {
         productId: closedProduct,
-        intakeId: closedIntake,
         intakeName: "Прошлый набор",
-        intakeAccepting: false,
         active: false,
         joinedAt: "2030-02-01T00:00:00.000Z",
-        updatedAt: "2030-02-03T00:00:00.000Z",
       },
     ],
   });
