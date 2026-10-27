@@ -48,6 +48,7 @@ class Scenario:
         self.acquisitions=0
         self.last_report=None
         self._reset_error=None
+        self._mcp_startup_error=None
 
     def remaining(self):
         remaining=self.deadline-time.monotonic()
@@ -73,7 +74,14 @@ class Scenario:
         except BaseException:
             if _primary is None:raise  # An operator interrupt still wins when no failure is active.
 
+    def _mcp_startup_failed(self,error):self._mcp_startup_error=error
+
     def failed(self,error):
+        if error is self._mcp_startup_error:
+            reason={RuntimeError:'runtime',BrokenPipeError:'host_io',OSError:'host_io',
+                    FileNotFoundError:'host_io',PermissionError:'host_io'}.get(type(error),failure_reason(error))
+            self.progress('failure',reason)
+            return
         self.progress('failure',reset_failure_reason(error) if error is self._reset_error else failure_reason(error))
 
     def _cohort_pause(self,value):
@@ -207,7 +215,7 @@ class Scenario:
     def matching(self,canonical,*,previous=None,read=None):
         if read is None:
             report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
-                previous=previous,progress=lambda phase:self.phase(phase))
+                previous=previous,progress=lambda phase:self.phase(phase),failure=self._mcp_startup_failed)
         else:report,mcp=read(evaluated_at=canonical['evaluated_at'],previous=previous)
         self.phase('mcp_compare')
         if report['state']!='observed':
@@ -227,7 +235,7 @@ class Scenario:
 
     def partition(self,cut):
         self.phase('partition')
-        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase),failure=self._mcp_startup_failed) as read:
             self.phase('partition')
             _,baseline=self.fresh_after(max(cut,time.time()),_partition=True)
             # Warmup precedes both sides of the accounting interval, not only the final query.
@@ -258,7 +266,7 @@ class Scenario:
         baseline=self.targets.native_raw()
         initial=native_source.parse(baseline)
         if initial is None or initial['in_flight']!=0:status.refuse()
-        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase),failure=self._mcp_startup_failed) as read:
             self.phase('inflight')
             self._inflight_checkpoint('inflight_open')
             with request_hold.Held(self.token) as held:
@@ -317,7 +325,7 @@ class Scenario:
             if unavailable['state']!='query_unavailable' or unavailable['observation'] is not None:status.refuse()
             try:
                 mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=math.floor(time.time()),
-                    progress=lambda phase:self.phase(phase))
+                    progress=lambda phase:self.phase(phase),failure=self._mcp_startup_failed)
             except caddy_mcp.QueryUnavailable:pass
             else:status.refuse()
             self.passed('gateway_unavailable')
@@ -356,7 +364,7 @@ class Scenario:
             self.ready()
             cut=self.seed()
             self._reset_checkpoint('reset_mcp_open')
-            with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase),failure=self._mcp_startup_failed) as read:
                 self._reset_checkpoint('reset_new_fresh')
                 report,current=self.fresh_after(cut,previous=old)
                 self._reset_checkpoint('reset_compare')

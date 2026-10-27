@@ -449,3 +449,22 @@ use the ordinary quiet wait. The existing
 rollover remains available only after the whole journal comparison passes and the source stamp
 has not yet passed the batch cut. No new rollover across an unverified business interval is
 added; no request window, counter or cohort-gap rule is reset.
+
+
+### Закрытая диагностика запуска native MCP
+
+В `caddy-run.json` запуск MCP различает `mcp_initialize_*` и `mcp_discovery_*`:
+`write`, `wait`, `decode`, `eof`, `deadline`. Отдельная фаза `mcp_initialized_write`
+обозначает отправку уведомления после принятого initialize. Это последние выполненные
+границы чтения и записи, а не установленная причина исторического отказа. Поля, исходный
+ответ MCP, аргументы, environment и текст исключения в отчёт не попадают. Для точного
+объекта, вышедшего из startup, обычный `RuntimeError` получает категорию `runtime`,
+точные ошибки host I/O получают `host_io`; неизвестные подклассы сохраняют прежнюю
+классификацию. Сбой необязательного диагностического callback не заменяет протокольную
+операцию. После готовности session последующие действия вызывающего кода не считаются
+startup. Чтение initialize и discovery сохраняет прежний предел 15 секунд на ответ,
+helper живёт не более прежних 60 секунд; новых попыток или расширения сценария нет.
+
+CI на `c957e4a1ca84b69463a7d0156b962087712dfb9b` завершился в фазе
+`mcp_initialize` с категорией `unknown`. Эти новые границы не устанавливают причину
+того запуска и сами по себе не подтверждают успешный native Caddy proof.

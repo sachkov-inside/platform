@@ -142,7 +142,7 @@ class AcquisitionBudget(unittest.TestCase):
         mcp=scenario.status.evaluate(**fresh);mcp['transport']['mcp']='passed'
         with patch.object(scenario.mcp_snapshot,'read_snapshot',return_value=(mcp,fresh)) as matching:
             self.assertEqual(experiment.matching(fresh),fresh)
-        matching.assert_called_once_with(None,'owned_token',evaluated_at=148,previous=None,progress=unittest.mock.ANY)
+        matching.assert_called_once_with(None,'owned_token',evaluated_at=148,previous=None,progress=unittest.mock.ANY,failure=experiment._mcp_startup_failed)
         self.assertEqual(experiment.last_report['state'],'observed')
         self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
 
@@ -262,6 +262,16 @@ class AcquisitionBudget(unittest.TestCase):
         for error,reason in ((scenario.AcquisitionBudgetRefusal(),'budget'),(Timeout(),'timeout'),
                              (Contract(),'contract'),(Interrupted(),'interrupted')):
             self.assertEqual(scenario.failure_reason(error),reason)
+
+        # Only the exact object escaping a marked MCP startup gains this vocabulary.
+        for error,reason in ((RuntimeError('private-canary'),'runtime'),(BrokenPipeError('private-canary'),'host_io'),
+                             (OSError('private-canary'),'host_io'),(Foreign('private-canary'),'unknown'),
+                             (Timeout(),'timeout'),(Contract(),'contract'),(Interrupted(),'interrupted')):
+            events=[];experiment=scenario.Scenario(None,'owned_token',None,lambda *item:events.append(item))
+            experiment._mcp_startup_failed(error);experiment.failed(error)
+            self.assertEqual(events,[('failure',reason)])
+            events.clear();experiment.failed(RuntimeError('private-canary'))
+            self.assertEqual(events,[('failure','unknown')])
 
     def test_worker_actual_scenario_cap_preserves_primary_first_failure_and_cleanup(self):
         from contextlib import contextmanager

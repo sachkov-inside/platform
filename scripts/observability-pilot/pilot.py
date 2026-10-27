@@ -243,7 +243,7 @@ def downloaded_asset(asset):
 
 
 @contextmanager
-def ready_stdio_probe(executable, environment, *, argv=None, progress=None, decode_response=None):
+def ready_stdio_probe(executable, environment, *, argv=None, progress=None, decode_response=None, startup_checkpoint=None):
     """Own initialization, discovery and exactly one subsequent fixed probe until context exit."""
     # The helper and native process stay in the externally supervised worker group.
     with native_cpu.measured_process(argv or [str(executable)], environment) as (process, measurement):
@@ -251,11 +251,21 @@ def ready_stdio_probe(executable, environment, *, argv=None, progress=None, deco
 
         def rpc(identifier, method, params, query_deadline=None):
             nonlocal buffered
+            startup = {1:'initialize',2:'discovery'}.get(identifier)
+            if method=='notifications/initialized':startup='initialized'
+            def checkpoint(step,*,refusing=False):
+                if startup is not None and startup_checkpoint is not None:
+                    # Optional, closed startup metadata cannot replace protocol I/O.
+                    try:startup_checkpoint(startup+'_'+step)
+                    except Exception:pass
+                    except BaseException:
+                        if not refusing:raise
             message = {"jsonrpc": "2.0", "method": method, "params": params}
             if identifier is not None:
                 message["id"] = identifier
             if query_deadline is not None and time.monotonic() >= query_deadline:
                 raise TimeoutError("native MCP query deadline exceeded")
+            checkpoint('write')
             process.stdin.write((json.dumps(message) + "\n").encode())
             process.stdin.flush()
             if identifier is None:
@@ -265,6 +275,7 @@ def ready_stdio_probe(executable, environment, *, argv=None, progress=None, deco
             while time.monotonic() < deadline:
                 while b"\n" in buffered:
                     line, buffered = buffered.split(b"\n", 1)
+                    checkpoint('decode')
                     response = json.loads(line) if decode_response is None else decode_response(line, identifier)
                     if not isinstance(response, dict):
                         raise RuntimeError("MCP response must be an object")
@@ -274,16 +285,19 @@ def ready_stdio_probe(executable, environment, *, argv=None, progress=None, deco
                         if query_deadline is not None and time.monotonic() >= query_deadline:
                             raise TimeoutError("native MCP query deadline exceeded")
                         return response.get("result")
+                checkpoint('wait')
                 readable, _, _ = select.select([process.stdout], [], [], max(0, deadline - time.monotonic()))
                 if readable:
                     chunk = os.read(process.stdout.fileno(), 65_536)
                     if not chunk:
+                        checkpoint('eof',refusing=True)
                         raise RuntimeError("native MCP exited before response")
                     buffered += chunk
                     if len(buffered) > 1_048_576:
                         raise RuntimeError("native MCP response exceeds pilot budget")
             if query_deadline is not None and time.monotonic() >= query_deadline:
                 raise TimeoutError("native MCP query deadline exceeded")
+            checkpoint('deadline',refusing=True)
             raise RuntimeError("native MCP response deadline exceeded")
 
         def report(phase,outcome):
