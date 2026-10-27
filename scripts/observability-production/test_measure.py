@@ -41,7 +41,8 @@ class Summaries(unittest.TestCase):
                 else:
                     self.assertEqual(measure.diagnose_host_startup(['docker','compose'],'owned'), {'cause':'permission_denied','exit_code':1})
                     self.assertIn(['docker','start','--attach',identity],calls)
-                    self.assertEqual(sum('stop' in args for args in calls),2)
+                    self.assertEqual([args for args in calls if 'stop' in args],
+                        [['docker','stop','--timeout','2',identity]] * 2)
                 self.assertFalse(any('run' in args or 'up' in args or 'logs' in args for args in calls))
 
     def test_missing_samples_and_io_never_become_a_capacity_pass(self):
