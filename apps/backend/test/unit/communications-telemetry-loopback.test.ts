@@ -44,7 +44,7 @@ function runtime(owner: TestContext, endpoint: string, enabled = true) {
   return telemetry;
 }
 const request = requestSchema.parse({
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   operation: "templates.read",
   operationId: "11111111-1111-4111-8111-111111111111",
   expectedRevision: 0,
@@ -52,7 +52,7 @@ const request = requestSchema.parse({
   payload: { templateId: "22222222-2222-4222-8222-222222222222" },
 });
 const success = {
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   status: "ok",
   template: {
     templateId: "22222222-2222-4222-8222-222222222222",
@@ -161,7 +161,7 @@ test("native communications preserves seven request/body outcomes with one compl
       if (mode === "/http") {
         res.writeHead(503).end(
           JSON.stringify({
-            contractVersion: "inside-communications-v1",
+            contractVersion: "inside-communications-v2",
             status: "authorization_unavailable",
           }),
         );

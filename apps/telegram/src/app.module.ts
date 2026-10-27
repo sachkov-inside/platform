@@ -1,8 +1,12 @@
+import { TelegramUserActivity } from "./modules/update-inbox/telegram-user-activity.js";
+import { TelegramUserActivityController } from "./modules/update-inbox/telegram-user-activity.controller.js";
 import {
   TELEGRAM_OBSERVABILITY,
   disabledTelegramObservability,
   type TelegramObservability,
 } from "./observability/telegram-observability.js";
+import { GrammyMembershipAdapter } from "./adapters/telegram/grammy-membership.adapter.js";
+import { DisabledTelegramMembership } from "./modules/membership-evidence/telegram-membership.js";
 import { MaterialAnnouncements } from "./modules/communications/material-announcements.js";
 import {
   MATERIAL_ANNOUNCEMENT_SOURCE,
@@ -38,10 +42,9 @@ import { BLOCKED_DELIVERY } from "./modules/outbound/blocked-delivery.js";
 import { settleBlockedDelivery } from "./modules/communications/delivery-contactability.js";
 import { isTruthy } from "./shared/truthiness.js";
 import { hasText } from "./shared/text.js";
-import { InvitationRedemption } from "./modules/subscription-activation/invitation-redemption.js";
-import { SubscriptionActivation } from "./modules/subscription-activation/subscription-activation.js";
-import { SourceGroupProof } from "./modules/subscription-activation/source-group-proof.js";
-import { ACTIVATION_PLATFORM } from "./modules/subscription-activation/activation-ports.js";
+import { CourseActivation } from "./modules/course-activation/course-activation.js";
+import { SourceGroupProof } from "./modules/course-activation/source-group-proof.js";
+import { ACTIVATION_PLATFORM } from "./modules/course-activation/activation-ports.js";
 import { HttpActivationPlatform } from "./adapters/platform/http-activation-platform.adapter.js";
 import { NotificationWorker } from "./operations/notification-worker.js";
 import {
@@ -56,9 +59,9 @@ import {
 } from "./modules/communications/author-delivery.js";
 import { CommunicationTracking } from "./modules/communications/communication-tracking.js";
 import { Api } from "grammy";
-import { Funnels } from "./modules/communications/funnels.js";
+import { CommunicationSequences } from "./modules/communications/communication-sequences.js";
 import { MarketingEntry } from "./modules/communications/marketing-entry.js";
-import { FunnelScheduler } from "./modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "./modules/communications/sequence-scheduler.js";
 import { COMMUNICATION_TRANSPORT } from "./modules/communications/communication-delivery.js";
 import {
   GrammyCommunicationsAdapter,
@@ -77,7 +80,6 @@ import {
   DisabledMessagesAdapter,
   GrammyMessagesAdapter,
 } from "./adapters/telegram/grammy-messages.adapter.js";
-import { GrammyMembershipAdapter } from "./adapters/telegram/grammy-membership.adapter.js";
 import { GrammyCommunityChatAdapter } from "./adapters/telegram/grammy-community-chat.adapter.js";
 import { HttpCommunityAuthorization } from "./adapters/platform/http-community-authorization.adapter.js";
 import { CommunityProvider } from "./modules/community/community-provider.js";
@@ -95,14 +97,13 @@ import {
   TELEGRAM_CALLBACK_ANSWERS,
   DisabledTelegramCallbackAnswers,
 } from "./modules/bot-sign-in/telegram-callback-answers.js";
-import { HttpPlatformCohortAdapter } from "./adapters/platform/http-platform-cohort.adapter.js";
+import { HttpPlatformProductSalesStateAdapter } from "./adapters/platform/http-platform-product-sales-state.adapter.js";
 import { HttpSalesFunnelAdapter } from "./adapters/platform/http-sales-funnel.adapter.js";
 import {
   SALES_FUNNEL_DELIVERY,
   type SalesFunnelDelivery,
 } from "./modules/sales-funnel/sales-funnel-delivery.js";
 import { SalesFunnelDeliveryProcessor } from "./modules/sales-funnel/sales-funnel-delivery-processor.js";
-import { HttpPlatformEvidenceAdapter } from "./adapters/platform/http-platform-evidence.adapter.js";
 import {
   botTelegramUserIdFromToken,
   APPLICATION_CONFIG,
@@ -122,26 +123,12 @@ import {
   MONOTONIC_CLOCK,
   systemMonotonicClock,
   type Clock,
+  type MonotonicClock,
 } from "./shared/clock.js";
 import { IdentityLinking } from "./modules/identity-linking/identity-linking.js";
 import { IdentityLinkRecovery } from "./modules/identity-linking/identity-link-recovery.js";
 import { IdentityLinkingController } from "./modules/identity-linking/identity-linking.controller.js";
 import { InMemoryIdentityLinkingAdapter } from "./modules/identity-linking/in-memory-identity-linking.adapter.js";
-import { InitialMembershipCheckProcessor } from "./modules/membership-evidence/initial-membership-check-processor.js";
-import { InitialMembershipCheckQueue } from "./modules/membership-evidence/initial-membership-check-queue.js";
-import { MembershipEvidenceDeliveryProcessor } from "./modules/membership-evidence/membership-evidence-delivery-processor.js";
-import { MembershipEvidenceOutbox } from "./modules/membership-evidence/membership-evidence-outbox.js";
-import { MembershipEvidenceProvider } from "./modules/membership-evidence/membership-evidence-provider.js";
-import {
-  DisabledPlatformEvidenceDelivery,
-  PLATFORM_EVIDENCE_DELIVERY,
-  type PlatformEvidenceDelivery,
-} from "./modules/membership-evidence/platform-evidence-delivery.js";
-import {
-  DisabledTelegramMembership,
-  TELEGRAM_MEMBERSHIP,
-  type TelegramMembership,
-} from "./modules/membership-evidence/telegram-membership.js";
 import {
   TELEGRAM_MESSAGES,
   type TelegramMessages,
@@ -183,6 +170,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        TelegramUserActivityController,
         TelegramContactsController,
         BotSignInController,
         CommunityController,
@@ -212,6 +200,7 @@ export class AppModule {
             CLOCK,
             WAITLIST_CONFIRMATION_AUTHORIZATION,
             COMMUNICATION_TRANSPORT,
+            MONOTONIC_CLOCK,
             TELEGRAM_OBSERVABILITY,
           ],
           useFactory: (
@@ -220,6 +209,7 @@ export class AppModule {
             clock: Clock,
             authorization: WaitlistConfirmationAuthorization,
             transport: CommunicationTransport,
+            monotonic: MonotonicClock,
             telemetry: TelegramObservability,
           ) =>
             new WaitlistConfirmations(
@@ -228,6 +218,7 @@ export class AppModule {
               clock,
               authorization,
               transport,
+              monotonic,
               telemetry,
             ),
         },
@@ -247,8 +238,7 @@ export class AppModule {
         { provide: LINK_EFFECTS, useValue: linkEffects },
         { provide: CONTACT_EFFECTS, useValue: contactEffects },
         { provide: BLOCKED_DELIVERY, useValue: settleBlockedDelivery },
-        SubscriptionActivation,
-        InvitationRedemption,
+        CourseActivation,
         {
           provide: ACTIVATION_PLATFORM,
           useFactory: () =>
@@ -262,7 +252,6 @@ export class AppModule {
                   binding: () => Promise.resolve(),
                   evidence: () => Promise.resolve(),
                   own: () => Promise.resolve(),
-                  redeem: () => Promise.resolve(),
                 },
         },
         {
@@ -309,21 +298,6 @@ export class AppModule {
               return new GrammyMessagesAdapter(applicationConfig.botToken);
             }
             return new DisabledMessagesAdapter();
-          },
-        },
-        {
-          provide: TELEGRAM_MEMBERSHIP,
-          inject: [APPLICATION_CONFIG],
-          useFactory: (
-            applicationConfig: ApplicationConfig,
-          ): TelegramMembership => {
-            if (
-              applicationConfig.membershipMode === "live" &&
-              hasText(applicationConfig.botToken)
-            ) {
-              return new GrammyMembershipAdapter(applicationConfig.botToken);
-            }
-            return new DisabledTelegramMembership();
           },
         },
         {
@@ -396,23 +370,17 @@ export class AppModule {
                         applicationConfig.communityRemovalsEnabled,
                     }
                   : {}),
-                ...(hasText(applicationConfig.communityTributeBotTelegramUserId)
-                  ? {
-                      tributeBotTelegramUserId:
-                        applicationConfig.communityTributeBotTelegramUserId,
-                      readmission: {
-                        replies,
-                        text: applicationConfig.communityTexts.readmission,
-                      },
-                    }
-                  : {}),
+                readmission: {
+                  replies,
+                  text: applicationConfig.communityTexts.readmission,
+                },
                 welcome: {
                   replies,
                   text: applicationConfig.communityTexts.welcome,
                 },
                 ...(applicationConfig.communityWelcomeCohort
                   ? {
-                      welcomeDetails: new HttpPlatformCohortAdapter(
+                      welcomeDetails: new HttpPlatformProductSalesStateAdapter(
                         applicationConfig.communityWelcomeCohort.url,
                         applicationConfig.communityWelcomeCohort.productId,
                       ),
@@ -422,25 +390,6 @@ export class AppModule {
                   applicationConfig.communityReconciliationCadenceMilliseconds,
               },
             ),
-        },
-        {
-          provide: PLATFORM_EVIDENCE_DELIVERY,
-          inject: [APPLICATION_CONFIG],
-          useFactory: (
-            applicationConfig: ApplicationConfig,
-          ): PlatformEvidenceDelivery => {
-            if (
-              applicationConfig.evidenceDeliveryMode === "live" &&
-              hasText(applicationConfig.platformEvidenceDeliveryUrl) &&
-              hasText(applicationConfig.platformEvidenceDeliverySecret)
-            ) {
-              return new HttpPlatformEvidenceAdapter(
-                applicationConfig.platformEvidenceDeliveryUrl,
-                applicationConfig.platformEvidenceDeliverySecret,
-              );
-            }
-            return new DisabledPlatformEvidenceDelivery();
-          },
         },
         {
           provide: SALES_FUNNEL_DELIVERY,
@@ -475,9 +424,9 @@ export class AppModule {
         },
         CommunicationTracking,
         Communications,
-        Funnels,
+        CommunicationSequences,
         MarketingEntry,
-        FunnelScheduler,
+        SequenceScheduler,
         MaterialAnnouncements,
         {
           provide: MATERIAL_ANNOUNCEMENT_SOURCE,
@@ -543,14 +492,10 @@ export class AppModule {
         IdentityLinking,
         IdentityLinkRecovery,
         InMemoryIdentityLinkingAdapter,
-        InitialMembershipCheckProcessor,
-        InitialMembershipCheckQueue,
-        MembershipEvidenceDeliveryProcessor,
-        MembershipEvidenceOutbox,
-        MembershipEvidenceProvider,
         RuntimeMetrics,
         { provide: RUNTIME_COUNTERS, useExisting: RuntimeMetrics },
         TelegramUpdateInbox,
+        TelegramUserActivity,
         TelegramUpdateProcessor,
         {
           provide: TELEGRAM_UPDATE_TRANSLATOR,

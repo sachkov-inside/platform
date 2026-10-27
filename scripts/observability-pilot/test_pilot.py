@@ -45,6 +45,47 @@ class PilotPreparationTest(unittest.TestCase):
             "service": "metrics", "state": "exited", "health": "", "exit_code": 2,
         }])
 
+    def test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner(self):
+        identity = 'a' * 64
+        raw = {'id': identity, 'project': 'owned', 'service': 'host-agent',
+            'actual_exit_code': 137, 'oom_killed': True, 'restart_count': 4,
+            'runtime_error_present': False, 'has_process': False}
+        expected = {key: value for key, value in raw.items() if key not in ('id', 'project', 'service')}
+        self.assertEqual(pilot.native_host_state(json.dumps(raw), identity, 'owned'), expected)
+        for key, value in (('id', 'b'*64), ('project', 'foreign'), ('service', 'api'),
+                           ('actual_exit_code', True), ('oom_killed', 'private-sentinel')):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                pilot.native_host_state(json.dumps({**raw, key: value}), identity, 'owned')
+        with self.assertRaises(ValueError):
+            pilot.native_host_state(json.dumps({**raw, 'Error': 'private-sentinel'}), identity, 'owned')
+
+    def test_cleanup_captures_native_host_failure_before_down_without_reading_logs(self):
+        identity = 'a' * 64
+        observed = {'id': identity, 'project': 'owned', 'service': 'host-agent',
+            'actual_exit_code': 137, 'oom_killed': True, 'restart_count': 4,
+            'runtime_error_present': False, 'has_process': False}
+        calls = []
+        def command(args, **options):
+            calls.append(args)
+            if args[:2] == ['compose', 'ps']:
+                return json.dumps([{'Service':'host-agent','State':'restarting','ExitCode':0}])
+            if args[:2] == ['docker', 'inspect']:
+                self.assertNotIn('json .State.Error', args[-1])
+                return json.dumps(observed)
+            if '--no-trunc' in args: return identity + '\n'
+            return ''
+        with tempfile.TemporaryDirectory() as directory, patch.object(pilot,'command',side_effect=command), patch.object(pilot,'assert_docker_identity'):
+            output = Path(directory)
+            result = pilot.cleanup_project(['compose'],output,'owned',services=('host-agent',))
+            state = json.loads((output/'container-states.json').read_text())[0]
+            self.assertEqual(state['exit_code'], 0)
+            self.assertEqual(state['actual_exit_code'], 137)
+            self.assertTrue(state['oom_killed'])
+            self.assertEqual(state['native_failure_state'], 'observed')
+            self.assertEqual(result['down'], 'passed')
+            self.assertLess(next(i for i,args in enumerate(calls) if args[:2]==['docker','inspect']), next(i for i,args in enumerate(calls) if 'down' in args))
+            self.assertFalse(any('logs' in args for args in calls))
+
     def test_transport_diagnostics_keep_only_error_type(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
@@ -118,6 +159,21 @@ class PilotPreparationTest(unittest.TestCase):
             "reason": "pilot requires 16 GiB free: 10 GiB host floor, 4 GiB growth cap, 2 GiB cleanup headroom",
         })
 
+        from storage_policy import assert_budget, StorageBudgetExceeded
+        gib = 1024**3
+        # Build layers and seven downloaded images have a separate bounded budget;
+        # running the monitoring workload keeps its original four-GiB ceiling.
+        assert_budget(32*gib, 27*gib, growth_bytes=8*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(32*gib, 27*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(32*gib, 24*gib, growth_bytes=8*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(20*gib, 10*gib, growth_bytes=8*gib)
+        for invalid in (True, 0, -1, 13*gib):
+            with self.subTest(growth_bytes=invalid), self.assertRaises(ValueError):
+                assert_budget(32*gib, 31*gib, growth_bytes=invalid)
+
     def test_local_smoke_admission_does_not_require_25_percent_of_entire_mac_disk(self):
         self.assertTrue(check_disk(total=460 * 1024**3, free=16 * 1024**3)["ready"])
 
@@ -134,6 +190,7 @@ class PilotPreparationTest(unittest.TestCase):
     def test_only_loopback_published_services_join_the_owned_ingress_bridge(self):
         plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
                                   {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        self.assertIn("-search.latencyOffset=1ms", plan["services"]["metrics"]["command"])
         ingress_services = {"gateway", "alloy", "grafana"}
         self.assertTrue(plan["networks"]["pilot"]["internal"])
         self.assertEqual(plan["networks"].get("ingress"), {"driver": "bridge", "internal": False})
@@ -152,6 +209,11 @@ class PilotPreparationTest(unittest.TestCase):
             auth = (output / "auth.json").stat()
             plan = json.loads((output / "compose.json").read_text())
             reader = plan["services"]["vmauth"]
+            from urllib.parse import urlsplit,parse_qs
+            routes=json.loads((output/'auth.json').read_text())['users'][0]['url_map']
+            logs=next(route for route in routes if route['src_paths'][0].startswith('/logs/'))
+            self.assertEqual(parse_qs(urlsplit(logs['url_prefix']).query),{'extra_filters':['_time:14d']})
+            self.assertNotIn('merge_query_args',logs)
             self.assertEqual(auth.st_mode & 0o777, 0o600)
             self.assertEqual(reader.get("user"), f"{auth.st_uid}:{auth.st_gid}")
             self.assertEqual(reader["cap_drop"], ["ALL"])

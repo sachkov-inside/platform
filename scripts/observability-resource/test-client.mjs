@@ -282,6 +282,52 @@ test("private resource identity signs real ES384 tokens with the existing five-m
       ),
     );
     assert.doesNotMatch(String(body), /private|inside_verified_email|token/u);
+    const previousCount = process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"];
+    try {
+      process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"] = "256";
+      const bulk = await serve(filename, { host: "127.0.0.1", port: 0 }, tls);
+      try {
+        /** @type {unknown} */ const issued = JSON.parse(
+          await readFile(filename, "utf8"),
+        );
+        assert.ok(
+          typeof issued === "object" &&
+            issued !== null &&
+            "tokens" in issued &&
+            Array.isArray(issued.tokens),
+        );
+        assert.equal(issued.tokens.length, 256);
+        const subjects = issued.tokens.map((/** @type {unknown} */ token) => {
+          assert.equal(typeof token, "string");
+          assert.ok(typeof token === "string");
+          const payload = token.split(".")[1];
+          assert.ok(payload);
+          /** @type {unknown} */ const identity = JSON.parse(
+            Buffer.from(payload, "base64url").toString(),
+          );
+          assert.ok(
+            typeof identity === "object" &&
+              identity !== null &&
+              "sub" in identity &&
+              typeof identity.sub === "string",
+          );
+          return identity.sub;
+        });
+        assert.equal(new Set(subjects).size, 256);
+        assert.equal(subjects[255], "resource-corpus-account-255");
+      } finally {
+        await bulk.close();
+      }
+      process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"] = "257";
+      await assert.rejects(
+        serve(filename, { host: "127.0.0.1", port: 0 }, tls),
+        /closed account count/u,
+      );
+    } finally {
+      if (previousCount === undefined)
+        delete process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"];
+      else process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"] = previousCount;
+    }
   } finally {
     await handle.close();
     await rm(directory, { recursive: true, force: true });

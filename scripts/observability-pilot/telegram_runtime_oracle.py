@@ -9,7 +9,7 @@ import re
 _MAX_BYTES = 1_048_576
 _SENTINEL = 'TELEGRAM_RUNTIME_PRIVACY_SENTINEL_1566'
 _OPERATIONS = (('receipt','completed'), ('authorization','accepted'), ('attempt','completed'), ('sendMessage','delivered'), ('_OTHER','_OTHER'), ('_OTHER','completed'), ('receipt','_OTHER'))
-_HTTP = (('POST','/integrations/platform/v1/communications','completed'), ('_OTHER','_OTHER','_OTHER'))
+_HTTP = (('POST','/integrations/platform/v2/communications','completed'), ('_OTHER','_OTHER','_OTHER'))
 _HEALTH = {'http.server.active_requests':0,'telemetry.trace.dropped':0,'telemetry.trace.export.failures':0,'telemetry.metric.export.failures':0,'telemetry.trace.sampling.ratio':1}
 
 
@@ -51,7 +51,7 @@ def _expected_span(index,transport,now_ns):
         ('platform waitlist.confirm','3','0','0000000000000001',{'telegram.operation':'authorization','telegram.outcome':'accepted','http.response.status_code':'200'}),
         ('waitlist attempt','1','0','0000000000000001',{'telegram.operation':'attempt','telegram.outcome':'completed'}),
         ('telegram sendMessage','3','0','0000000000000003',{'telegram.operation':'sendMessage','telegram.outcome':'delivered'}),
-        ('POST /integrations/platform/v1/communications','2','0',None,{'http.request.method':'POST','http.route':'/integrations/platform/v1/communications','http.request.outcome':'completed','http.response.status_code':'200'}),
+        ('POST /integrations/platform/v2/communications','2','0',None,{'http.request.method':'POST','http.route':'/integrations/platform/v2/communications','http.request.outcome':'completed','http.response.status_code':'200'}),
         ('telegram _OTHER','1','2','0000000000000001',{'telegram.operation':'_OTHER','telegram.outcome':'_OTHER'}),
         ('telegram _OTHER','1','2','0000000000000001',{'telegram.operation':'_OTHER','telegram.outcome':'_OTHER'}),
         ('platform waitlist.confirm','3','2','0000000000000001',{'telegram.operation':'authorization','telegram.outcome':'unavailable'}),

@@ -141,6 +141,7 @@ def worker(output):
         diagnostic.start('acquisition')
         try:
             with pilot.worker_storage_guard(owner,compose,output):
+                pilot.install_horizon(output)
                 pilot.install_plugin(output)
                 pilot.command(compose+['config','--quiet'])
                 pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
@@ -156,12 +157,7 @@ def worker(output):
                 token=source_status_query._read_private_token(output)
                 pilot.await_fact(lambda:pilot.request('/metrics/api/v1/query?query=1',token=token),lambda row:row[0]==200,output=output,probe='tracking_storage_query_ready')
                 def pg_ready():
-                    pilot.assert_docker_identity()
-                    try:
-                        pilot.command(['docker','exec',targets.postgres(),*ownership.PG_READY_COMMAND],timeout=3)
-                        return True
-                    except Exception:
-                        return False
+                    return ownership.postgres_ready(targets)
                 pilot.await_fact(pg_ready,lambda ready:ready,output=output,probe='tracking_postgresql_ready')
                 result['stage']='producer'
                 # No ambient exporter/header/client-certificate credentials or process bootstrap options.
@@ -172,7 +168,7 @@ def worker(output):
                     observed=observed,result=result,diagnostic=diagnostic,observation=observation)
                 result.update({'state':'passed','stage':'complete','native_api_request':True,'provider_requests':2,
                     'persisted_carrier':'passed','native_timer':'passed','api_owned_sdk_shutdown':'passed',
-                    'metrics':metrics,'traces':traces,'attempts':attempts,'containers':8,'volumes':5,'networks':2})
+                    'metrics':metrics,'traces':traces,'attempts':attempts,'containers':9,'volumes':5,'networks':2})
                 evidence=json.loads((output/'evidence.json').read_text());evidence['status']='passed: one genuine API tracking success composition only'
                 pilot.write_json(output/'evidence.json',evidence)
                 diagnostic.start('complete')

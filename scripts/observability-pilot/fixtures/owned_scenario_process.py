@@ -26,9 +26,10 @@ def kill_group(group, sig):
 
 
 @contextmanager
-def owned_scenario_process(output, mode):
+def owned_scenario_process(output, mode, *, slow_profile_write=False):
     fixture = Path(__file__).with_name('source-scenario-process.py')
-    parent = subprocess.Popen([sys.executable, str(fixture), 'parent', str(output), mode],
+    controls=['--slow-profile-write'] if slow_profile_write else []
+    parent = subprocess.Popen([sys.executable, str(fixture), 'parent', str(output), mode, *controls],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                               start_new_session=True)
     groups = [parent.pid]

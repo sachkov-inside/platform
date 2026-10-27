@@ -65,16 +65,20 @@ protected-resource metadata и делегированного bearer token оп�
 
 ## Как читать результат
 
-Для каждого обещанного benefit Billing ищет точное основание `paid` этой покупки через
-владельца AccountRights. `granted` означает наличие основания с нужной capability;
-это не решение о действующем сейчас доступе. Смотрите `startsAt`, `validUntil` и состояние
-`revoked` отдельно. Оплаченный период мог законно закончиться или быть отозван.
+Для каждого Product из неизменяемого снимка разовой покупки Billing ищет точное основание
+`purchase` через владельца AccountRights и его текущий `ProductAccess`. Используется тот же
+sourceRef, что и при выдаче после оплаты: `payment:<purchaseRef>`, а для исторической покупки
+нескольких Product добавляется `:product:<productId>`. Account и Product проверяются одной парой.
+Пассивная история legacy grants не подтверждает текущую выдачу. `granted` означает наличие
+основания этой покупки и неотозванного ProductAccess; `revoked` показывает текущий отзыв.
+`startsAt` относится к основанию покупки, `validUntil=null` отражает пожизненный доступ к Product.
+Исторические recurring покупки и снимки без определённого Product дают `facts=unknown`.
 `refundedKopecks` показывает подтверждённые возвраты отдельно и не подменяет состояние права.
 
 `missing` означает отсутствие точного оплаченного основания. Нулевые подтверждённые возвраты
 вместе с подтверждённой оплатой и `missing` дают проверяемый пример для расследования выдачи.
 Это не доказательство отсутствия любого доступа: ручное основание или другая покупка независимы.
-Возврат, отзыв и истечение срока сами по себе не объявляются неисправностью. Отчёт не чинит
+Возврат и отзыв сами по себе не объявляются неисправностью. Отчёт не чинит
 выдачу и не определяет отставание очереди; эти факты требуют отдельной диагностики владельца.
 
 `coverage=paginated` требует продолжения. `coverage=partial`, `facts=unknown` или grant
@@ -163,22 +167,28 @@ SQL возвращает максимум 2001, переполнение даё�
 по-прежнему могут дать отказ; полезность всех production workloads не предполагается по
 одному успешному fixture.
 
-Canonical `main` сохраняет `0100_product_waitlists` без изменения SQL/checksum/позиции.
-Восемь observability migrations, ранее имевших номера 0100–0107, никогда не применялись
-вне уничтоженных disposable test databases. После коллизии с main они перенумерованы в
-0101–0108 до поставки, без изменения SQL. Исторические commits и их evidence сохраняют
-прежние номера; существующие ledgers не редактируются. Проверка
+Canonical `main` `346c8f2f` сохраняет все 114 registry entries, включая
+`0113_historical_authoring_contract`, без изменения SQL/checksum/позиции. Четырнадцать
+неопубликованных monitoring migrations добавлены после этого prefix, под номерами 0114–0127.
+Исторические frozen registries и их SQL/digests остаются исходными, со старыми номерами.
+Отдельный снимок `main114` закрепляет текущий main commit; итоговая registry содержит 128 entries.
 [observability-main-upgrade.test.ts](../../apps/backend/test/integration/observability-main-upgrade.test.ts)
-фиксирует digest точной registry main `67e3495e` через 0100, применяет восемь новых migrations,
-сверяет canonical checksums/positions, повторный запуск, отказ старой registry и совместимый rollback.
+проверяет исторические точные prefixes, отказы несовместимых ledgers и старых writers.
+[migrations.test.ts](../../apps/backend/test/integration/migrations.test.ts) отдельно проверяет
+переход current main через 0113 к 0127, неизменный prefix, повторный запуск и отказ короткой registry.
 
-Индексы поставляются append-only migrations 0101–0105: Product coverage JSON GIN, current
-catalog, Material first facts, journal account/identity/receipt и verified Telegram identity.
+Product checkout/paid в диагностике учитывает сохранённый `product:<id>` benefit либо
+`materials` вместе с сохранённым `coverage.productIds`. Coverage, относящийся только к
+community/support, не считается покупкой контента. Подтверждённая покупка остаётся фактом оплаты,
+а текущая выдача или отзыв ProductAccess проверяются отдельным отчётом платёжной диагностики.
+
+Индексы поставляются append-only migrations 0114–0118: journal account/identity/receipt,
+платёжные кандидаты, первые чтения, verified Telegram identity и текущий Products catalog.
 Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;
 стоимость, запас места и допустимое окно требуют отдельной проверки при порученном deployment.
 Fixture с тысячами строк не измеряет этот production lock.
 
-После применения 0101–0105 прежний application image запускать нельзя: его короткая migration
+После применения 0114–0118 прежний application image запускать нельзя: его короткая migration
 registry отвергает новый ledger как не являющийся exact prefix, поэтому readiness/worker startup
 не пройдут. Нужен отдельный **rollback build** от принятого нового source: откатить диагностическую
 реализацию вместе с соответствующим public tool description, сохранив полную новую registry,
@@ -194,11 +204,11 @@ git restore --source bcb6a0723^ -- \
   apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/register-funnel-diagnostics-tool.ts
 git restore --source <accepted-release-sha> -- \
   apps/backend/src/migrations/index.ts \
-  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0101-funnel-diagnostic-candidates.ts \
-  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0102-billing-funnel-diagnostic-sources.ts \
-  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0103-reading-funnel-diagnostic-sources.ts \
-  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0104-telegram-funnel-diagnostic-identities.ts \
-  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0105-funnel-diagnostic-current-products.ts \
+  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0114-funnel-diagnostic-candidates.ts \
+  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0115-billing-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0116-reading-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0117-telegram-funnel-diagnostic-identities.ts \
+  apps/backend/src/modules/products/infrastructure/postgres/migrations/0118-funnel-diagnostic-current-products.ts \
   apps/backend/test/integration/migrations.test.ts
 ```
 
@@ -207,7 +217,7 @@ git restore --source <accepted-release-sha> -- \
 а не оставаться описанием новых scoped candidates. Сохранение migration tests предотвращает возврат
 старого ожидаемого ledger. Проверка
 [funnel-diagnostics-rollback.test.ts](../../apps/backend/test/unit/funnel-diagnostics-rollback.test.ts)
-исполняет настоящий `assertAppliedMigrations`: ledger с checksums индексов, закреплёнными от reviewed `bd524e53`, отвергается прежней registry,
+исполняет настоящий `assertAppliedMigrations`: ledger с буквальными checksums текущих пяти индексов, отвергается прежней registry,
 принимается полностью сохранённой новой и снова отвергается при изменении SQL/checksum.
 
 Это проверка совместимости registry, не испытание production rollback. До публикации rollback build
@@ -238,16 +248,17 @@ Account ID и username респондентов в этот отчёт не вх
 `operational_queue_diagnostics` в Platform MCP требует актуального `platform:admin` делегированного
 Account. Вход принимает строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
 бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
-Отчёт читает только инфраструктурные `pgboss.version`, `pgboss.queue`, `pgboss.job` через
+Отчёт читает native metadata `pgboss.version`, `pgboss.queue`, `pgboss.job` и собственные
+факты `queue_observation.last_successful_handler` через
 [owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
-Девять известных имён имеют один
+Семь известных имён имеют один
 [contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
 не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
 retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
 
 Один `RepeatableRead READ ONLY`-снимок имеет UTC `asOf`, проверяет точную schema version установленного
 pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
-1 s. Объём ответа ограничен девятью очередями и шестью известными states; история не обрезается до
+1 s. Объём ответа ограничен десятью очередями и шестью известными states; история не обрезается до
 произвольного числа jobs. Агрегация может сканировать всю сохранённую историю выбранных очередей;
 при превышении бюджета или недоступности источника ответ содержит `coverage: unknown` и
 `source_unavailable`, при несовместимой версии содержит `schema_mismatch`. Это не нулевые счётчики.
@@ -263,19 +274,49 @@ scheduled/blocked. `retrying` означает незавершённые `creat
 значения не являются пожизненными totals. Повторная попытка задания не равна повторному внешнему
 платежу. `failed` не доказывает денежную ошибку, а `completed` не доказывает успешный внешний эффект.
 
-`workerFreshness: not_proven` и `lastSuccessfulWorkAt: null` остаются даже после успешного запроса:
-текущего durable owner-факта, подтверждающего последнее успешное выполнение/доставку, здесь нет.
-Отчёт не заменяет worker liveness, readiness или source freshness. RabbitMQ, доменные outbox и
-email delivery в этом bounded этапе ещё не покрыты; их отсутствие в отчёте не означает отсутствие
-backlog или ошибок. Настройки сбора, entitlement/business semantics и production-конфигурация этим
-инструментом не меняются.
+`workerFreshness: per_queue` показывает отдельный `lastSuccessfulWork` для каждой фиксированной
+очереди. После успешного возврата обработчика worker синхронно принимает только ограниченные
+`id/retryCount` для отдельного owned writer, без ожидания диагностического I/O в native callback.
+В `queue_observation.last_successful_handler` остаются worker, release/source identity, время возврата
+`at` (`clock: process_wall_clock`) и более позднее время наблюдения `observedAt` по PostgreSQL.
+Одна SQL statement snapshot проверяет имя очереди, worker и исходные `id/retryCount` попытки в native
+state `active` либо `completed`. Нативные строки не блокируются и не изменяются; `failed`/`retry`,
+другая попытка и уже удалённая история не дают нового факта. Payload, output, job ID и attempt key
+в отчёт не попадают. Повтор той же последней попытки не обновляет время. Остаётся не более одной
+записи на очередь, десять записей всего; следующая работа заменяет её. История native jobs и
+перезапуск worker не удаляют этот факт. Миграция не создаёт прошлых фактов.
 
-### Provenance подтверждённой Membership activity
+`meaning: handler_result_committed` означает возврат обработчика после его собственных ожидаемых
+операций и успешный commit записи наблюдения. Запись может произойти после native ACK, однако
+`nativeAck: not_proven` и `externalEffect: not_proven` остаются всегда. Потеря ACK или восстановление
+задания может вызвать retry, а идемпотентность платежей и доставки остаётся обязанностью их владельцев.
+Ошибочное задание, healthcheck и polling не записывают успех. Writer имеет один запрос в работе и не
+более одного ожидающего результата на фиксированную очередь (не более семи). Он ждёт соединение
+не более 1 s, statement не более 1 s, lock не более 250 ms, transaction не более 2 s. Эти ожидания
+вынесены за native callback и не расширяют deadline задания. При shutdown после остановки jobs
+закрывается приём, отбрасывается незаписанное ожидание и завершается только текущий ограниченный
+запрос, до закрытия Prisma и освобождения generation lease. Незавершённое наблюдение при crash,
+полный buffer или отказ записи сохраняют предыдущий факт либо `unknown / no_history`, а не создают
+новый успех и не вызывают business retry. Native settlement, concurrency и retry policy не меняются.
 
-Подготовлены внутренние owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read`
-и `TaskSubmissionFacts.read` для следующего distinct Account report. Новый MCP/REST-инструмент
-или permission в этом этапе не добавлены. Эти trusted owner-интерфейсы возвращают Account ID;
-потребитель обязан проверить право до их вызова. Их результат не является публичной аналитикой.
+`lastSuccessfulWorkAt` содержит самое позднее подтверждённое время среди очередей или `null`, если
+истории нет. В каждой очереди `ageSeconds` считается от process-clock `at` до UTC `asOf` того же read-only snapshot;
+`freshness: recent` означает возраст до 300 s включительно, затем `stale`. Этот порог описывает возраст
+факта, а задержка записи `observedAt` не омолаживает работу. Он не является обещанием частоты выполнения: hourly/daily job может быть штатно stale.
+Отсутствие истории остаётся UNKNOWN, не нулём. Неполный, будущий, переполненный или повреждённый
+источник делает весь query `source_unavailable`, без частичного PASS. Отчёт не заменяет worker liveness,
+readiness или source freshness. RabbitMQ, доменные outbox и email delivery в этом bounded этапе ещё
+не покрыты; их отсутствие в отчёте не означает отсутствие backlog или ошибок. Настройки сбора,
+entitlement/business semantics и production-конфигурация этим инструментом не меняются.
+
+### Подтверждённая активность Membership и distinct отчёт
+
+Owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read` и
+`TaskSubmissionFacts.read` используются в Platform MCP `active_participant_diagnostics`.
+Инструмент проверяет актуальное `platform:admin` до вызова owners, принимает явное окно
+`{from,to}` и возвращает aggregate distinct Accounts без идентификаторов или исходных событий.
+Внутренние trusted интерфейсы возвращают Account ID только авторизованному составителю отчёта;
+их результат не является публичной аналитикой. Новое permission не вводится.
 
 Источники фактов:
 
@@ -304,24 +345,42 @@ UTC `asOf`, Account/kind, точное число сохранённых фак�
 из mutable visit/state. До 2000 релевантных Account/kind групп возвращаются целиком;
 2001-я означает `source_budget_exceeded / unknown`, без выдачи усечённых distinct totals.
 Потребитель может сузить окно. Cursor и стабильное продолжение между снимками не реализованы;
-объединение результатов разных окон/owners и политика distinct остаются следующим report slice.
-Unread/removal сохранены отдельно; решение об их включении в active participant показатель здесь
-не вводится. Checkout и технические события источниками этих интерфейсов не являются.
+distinct Accounts одного окна объединяются через Set по Account ID, а не сложением чисел
+owners. Неуспешный либо переполненный источник делает соответствующий итог `unknown`,
+не нулём. Реальные ручные unread/removal являются подтверждёнными действиями участника.
+Checkout и технические события источниками этих интерфейсов не являются.
 
 `coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
 нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
 непрерывность rollout. После rollback на старый writer возможен gap сбора; compatible rollback build
-должен сохранить полную применённую registry, включая 0106–0108 и неизменные checksums. Старый image
+должен сохранить полную применённую registry, включая 0119–0121 и неизменные checksums. Старый image
 с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
 нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
 
 Read horizon охватывает последние 365 дней относительно DB snapshot clock; более раннее начало запроса
 получает `outside_retention / unknown`. Исходные учебные receipts/manual journals и Product state
-не удаляются ради аналитики. Физическая очистка двух новых activity journals **ещё не реализована**:
-365-дневная retention полностью не принята. Для следующего retention slice подготовлен owner index
-`(occurred_at,event_id,...)`: bounded cleanup должен удалять только новые analytics events раньше
-cutoff, страницами по этому ключу, с конечным batch/work budget; отдельно показывать earliest retained
-expired event и cleanup lag, проверять повтор, остановку и restore. Не удалять исходные task receipts
-или читать чужую schema для этого cleanup. Ни cleanup job, ни новые внешние collector/Umami вызовы
-в бизнес-транзакции этим этапом не добавлены. Production migration/rollout требует отдельного допуска;
-новые period indexes существующих journals могут блокировать запись при обычном `CREATE INDEX`.
+не удаляются ради аналитики. `ReadingActivityRetention` и `BookmarkActivityRetention` физически
+удаляют только новые аналитические копии `learning_started_events` и `bookmarks.activity_events`
+раньше DB cutoff. Один проход владельца удаляет до 1000 строк по индексированному устойчивому
+ключу. Повторный проход безопасен; незавершённая очистка возвращает `hasMore` и фактический
+старейший просроченный event. Исходные manual journals, task receipts и Product state сохраняются.
+
+Billing worker запускает `membership-activity.retention` каждую минуту и при старте через
+`runActivityRetentionJob`. Оба владельца возвращают отдельный результат; отказ одного не скрывает
+результат другого. В очереди сохраняется ограниченный aggregate отчёт последнего завершённого
+прохода, включая частичный отказ. Это не доказательство непрерывной работы worker или физического
+возврата дискового места.
+
+Platform MCP `activity_retention_diagnostics` принимает строго `{}` и проверяет актуальное
+`platform:admin`. Два независимых owner snapshots показывают UTC `asOf`/`cutoff`,
+`oldestExpiredAt`, `lagSeconds` и `hasMore`, без полного подсчёта backlog и идентификаторов.
+Третий ограниченный запрос читает проверенный aggregate последнего прохода. После проверки
+права независимые чтения выполняются параллельно. Statement имеет бюджет 2 s, transaction 5 s,
+ожидание соединения 1 s; фактическая полная HTTP/MCP latency проверяется отдельно. Потерянный,
+некорректный или недоступный источник остаётся `unknown`, без отката к более старому успешному
+отчёту. Возраст receipt больше 600 секунд означает stale. Требование очистки в следующих
+сутках проверяется по измеренному lag, а не только по наличию job или его state.
+
+Production migration/rollout требует отдельного допуска. Новые period indexes существующих
+journals могут блокировать запись при обычном `CREATE INDEX`. Compatible rollback сохраняет
+полную применённую registry и её checksums; короткая registry старого image не подходит.

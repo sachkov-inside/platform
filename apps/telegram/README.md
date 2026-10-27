@@ -36,8 +36,8 @@ broadcasts through the shared sender. Broadcast audience snapshots are fixed at 
 stop/block suppression survives resume. Authenticated analytics expose contacts, source history,
 delivery progress and opaque tracking links with idempotent hit ingestion. Platform owns the editor,
 UI/MCP and redirect consumer; cross-application acceptance and production activation remain separate.
-`TELEGRAM_MARKETING_ENABLED=false` remains the default. No real funnels or authored copy are
-seeded: the current product direction is one owner-authored common funnel; multiple scenarios
+`TELEGRAM_MARKETING_ENABLED=false` remains the default. No real Communication Sequences or authored copy are
+seeded: the current product direction is one owner-authored common sequence; multiple scenarios
 exist only in synthetic tests.
 
 ## Ordinary `/start` runtime
@@ -104,64 +104,19 @@ The optional provider proves a private Telegram identity after an explicit confi
 It does not issue a website session or create/merge an Account. The protocol, server-side switch,
 and remaining Platform integration gates are in
 [`docs/specifications/bot-sign-in-v1.md`](docs/specifications/bot-sign-in-v1.md).
+The flow keeps one bot message: approval sends no receipt, and committed account linking edits
+the original prompt. An uneditable sign-in result never creates a replacement message.
 
-## Initial Membership Evidence
+## Course Activation and community observations
 
-- `TELEGRAM_CANONICAL_CHAT_ID` is required configuration and contains no committed real chat
-  identifier. `TELEGRAM_MEMBERSHIP_MODE=disabled` is the safe default; `live` additionally requires
-  `TELEGRAM_BOT_TOKEN`.
-- A final link confirmation creates one durable initial check. Telegram reads happen in the worker,
-  never in Platform confirmation or a content request.
-- `creator`, `administrator`, `member`, and `restricted + is_member=true` normalize to `member`;
-  `left`, `kicked`, and `restricted + is_member=false` normalize to `not_member`; unknown values,
-  API errors, timeouts, or a missing bot administrator prerequisite fail closed as `unavailable`.
-- Successful observations atomically allocate a monotonic per-link evidence version. Positive
-  evidence expires after five minutes; unavailable results carry no revision or new validity.
-- The exact `inside.membership-evidence.v1` envelope enters a durable outbox. Retries reuse one
-  `Idempotency-Key` and one durable evidence source (`link_time`, `member_status_event`, or
-  `reconciliation`); the production adapter sends that source in
-  `X-Inside-Membership-Evidence-Source`. `PLATFORM_EVIDENCE_DELIVERY_MODE=live` requires a separate
-  endpoint and Bearer credential.
-- A separate Telegram delivery intent reports linked member, non-member, or temporary unavailable
-  state without promising content access before Platform accepts the evidence.
-
-## Durable member-status events
-
-- Webhook registration must explicitly use
-  `allowed_updates=["message","chat_member","my_chat_member","callback_query"]`; omitted registration is unsafe
-  because Telegram excludes `chat_member` from its default set. Old update variants are still
-  accepted into the durable inbox and safely ignored by processing.
-- Only the exact configured canonical chat can affect Membership. The subject comes from
-  `new_chat_member.user.id`; the event actor is never substituted for it and persists only as the
-  redacted `actor_is_subject` audit fact.
-- Linked subject events use `ChatMemberUpdated.date` as source ordering and `update_id` only as a
-  same-second tie-breaker. Successful direct observations and events share one ordering cursor, so
-  duplicate, delayed, concurrent, and week-gap/random update IDs cannot roll back a newer current
-  observation or its monotonic evidence revision.
-- Removal and restriction events issue negative evidence even after a provider degradation.
-  Unknown future status is unavailable. A canonical `my_chat_member` demotion immediately marks
-  the provider degraded, rejects pending positive evidence observed after the loss, and blocks new
-  positive evidence until a newer administrator recovery.
-- Unlinked subjects create neither a PlatformLink nor evidence. The durable audit records only
-  canonical correlation, normalized disposition, linked/unlinked state, and redacted actor facts;
-  processed inbox payloads are discarded as before.
-
-## Durable Membership reconciliation
-
-- Every PlatformLink gets a durable PostgreSQL schedule. The configurable cadence defaults to four
-  minutes and cannot be configured at or beyond the five-minute positive-evidence validity.
-- Workers claim due links with row locks and recover expired one-minute leases after a crash or
-  restart. A batch is bounded by both item count and elapsed time; no user-facing HTTP path runs a
-  reconciliation.
-- Each check calls the same provider prerequisite, `getChatMember`, normalization, ordering,
-  revision, and evidence-outbox pipeline as initial checks. Missed removal and rejoin therefore
-  converge without a new link or manual database edit.
-- Unavailable Telegram reads and lost administrator capability fail closed, do not advance the
-  prior positive observation cursor, and retry with bounded 15–60 second backoff. One failing link
-  does not starve later due work.
-- Metrics expose only aggregate due count, oldest due age, success/failure/degraded counters, and
-  evidence delivery backlog. Telegram IDs, usernames, Account references, tokens, and secrets are
-  never metric labels.
+Course Activation verifies a separate course source and asks Platform to issue lifetime Product Access.
+The [portable protocol](../../docs/contracts/subscription-activation-v1/protocol.md) owns exact binding,
+receipt compatibility and the ordered route migration. The runtime Module is `course-activation`.
+The old membership-evidence bridge, initial checks, reconciliation and outbound evidence workers are removed.
+`TELEGRAM_MEMBERSHIP_MODE` and `PLATFORM_EVIDENCE_DELIVERY_MODE` reject every value except `disabled`.
+Historical tables and receipts remain passive. Source verification still uses the Telegram membership
+reader; actual community member updates still reach `CommunityProvider.observeMembershipEvent`.
+Linking/sign-in preserve identity and correlation and create no Product Access automatically.
 
 ## Community entitlements from Platform
 

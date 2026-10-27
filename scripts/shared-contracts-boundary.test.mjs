@@ -103,12 +103,12 @@ test("rejects a TypeScript schema copy in application source", () => {
 
 test("rejects provider corpus drift from its current OpenAPI operation", () => {
   const result = run((root) => {
-    put(root, "docs/contracts/platform-billing-cohorts/schema.json", {
+    put(root, "docs/contracts/platform-product-sales-states/schema.json", {
       response: { type: "string" },
     });
     put(root, "apps/backend/openapi/platform-api.json", {
       paths: {
-        "/billing/cohorts": {
+        "/billing/product-sales-states": {
           get: {
             operationId: "billingProductCohorts",
             responses: {
@@ -122,7 +122,7 @@ test("rejects provider corpus drift from its current OpenAPI operation", () => {
     });
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /platform-billing-cohorts.*OpenAPI/u);
+  assert.match(result.stderr, /platform-product-sales-states.*OpenAPI/u);
 });
 
 test("rejects an executable schema copy in root tooling", () => {

@@ -192,7 +192,7 @@ test("images, files and ready video persist automatically; fullscreen preserves 
   await screenshotWholePage(page, { path: "/tmp/396-editor-mobile.png" });
 });
 
-test("series picker shows materials before typing and saves composition on the same page", async ({
+test("product picker shows materials before typing and saves composition on the same page", async ({
   page,
 }) => {
   await createDraft(page, "для продукта");
@@ -202,7 +202,7 @@ test("series picker shows materials before typing and saves composition on the s
   await page.getByLabel("Название", { exact: true }).fill(name);
   await page
     .getByLabel("Адрес", { exact: false })
-    .fill(`series-${randomUUID()}`);
+    .fill(`product-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await page
@@ -665,7 +665,7 @@ test("paragraph controls insert at the hovered block without changing content on
   await expect(page.locator("dialog:modal")).toHaveCount(0);
 });
 
-test("image size survives reload and is used in preview; series are searchable without expanding", async ({
+test("image size survives reload and is used in preview; product are searchable without expanding", async ({
   page,
 }) => {
   await createDraft(page, "размер изображения");
@@ -675,10 +675,10 @@ test("image size survives reload and is used in preview; series are searchable w
   await page.getByLabel("Поиск продуктов").fill("Нет такого продукта");
   await expect(page.getByText("Продукты не найдены")).toBeVisible();
   await page.getByLabel("Поиск продуктов").fill("Demo");
-  const series = page.getByLabel("Выбор продуктов", { exact: true });
-  await expect(series.getByRole("checkbox").first()).toBeVisible();
+  const product = page.getByLabel("Выбор продуктов", { exact: true });
+  await expect(product.getByRole("checkbox").first()).toBeVisible();
   expect(
-    await series.evaluate(
+    await product.evaluate(
       (element) => element.scrollHeight >= element.clientHeight,
     ),
   ).toBe(true);

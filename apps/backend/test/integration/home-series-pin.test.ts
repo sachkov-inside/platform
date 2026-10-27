@@ -3,7 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 import { randomUUID } from "node:crypto";
 import { platformMigrations } from "../../src/migrations/index.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -40,7 +40,7 @@ afterAll(async () => {
   await database.dispose();
 });
 
-function metadata(title: string, seriesIds: string[]) {
+function metadata(title: string, productIds: string[]) {
   return {
     title,
     summary: "Public summary",
@@ -50,26 +50,26 @@ function metadata(title: string, seriesIds: string[]) {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds,
+    productIds,
   };
 }
-async function createSeries(title: string) {
-  const seriesId = randomUUID();
+async function createProduct(title: string) {
+  const productId = randomUUID();
   await database.prisma.product.create({
     data: {
-      id: seriesId,
+      id: productId,
       name: title,
-      slug: `series-${seriesId}`,
-      summary: "Series summary",
+      slug: `product-${productId}`,
+      summary: "Product summary",
     },
   });
-  return seriesId;
+  return productId;
 }
-async function createMaterial(seriesId: string) {
+async function createMaterial(productId: string) {
   const input = {
     actor,
     idempotencyKey: randomUUID(),
-    metadata: metadata("Material", [seriesId]),
+    metadata: metadata("Material", [productId]),
     body: representativeDocument(
       "Private body never belongs in the Home projection.",
     ),
@@ -88,7 +88,7 @@ async function createMaterial(seriesId: string) {
 }
 async function change(
   materialId: string,
-  seriesId: string,
+  productId: string,
   publicationState: "published" | "unpublished",
 ) {
   const current = await materials.authoring.loadMaterial({ actor, materialId });
@@ -98,7 +98,7 @@ async function change(
     materialId,
     idempotencyKey: randomUUID(),
     expectedContentVersion: current.value.contentVersion,
-    metadata: metadata("Material", [seriesId]),
+    metadata: metadata("Material", [productId]),
     publicationState,
     body: current.value.body,
   });
@@ -114,19 +114,19 @@ async function home() {
     { kind: "anonymous" },
   );
   if (!result.ok) throw new Error(result.error.code);
-  return result.value.pinnedSeries;
+  return result.value.pinnedProduct;
 }
 
-test("only Series can be pinned: author choice persists, competing writes conflict and visibility follows the published composition", async () => {
+test("only Product can be pinned: author choice persists, competing writes conflict and visibility follows the published composition", async () => {
   const authoring = materials.authoring;
   const initial = await authoring.loadHomePin({ actor });
   if (!initial.ok) throw new Error(initial.error.code);
   const version = initial.value.version;
-  expect(initial.value.seriesId).toBeNull();
+  expect(initial.value.productId).toBeNull();
   expect(await home()).toBeNull();
-  const first = await createSeries("First series");
-  const second = await createSeries("Second series");
-  const empty = await createSeries("Empty series");
+  const first = await createProduct("First product");
+  const second = await createProduct("Second product");
+  const empty = await createProduct("Empty product");
   const firstMaterial = await createMaterial(first);
   const secondMaterial = await createMaterial(second);
   expect(await authoring.loadHomePin({ actor: randomUUID() })).toEqual({
@@ -136,18 +136,22 @@ test("only Series can be pinned: author choice persists, competing writes confli
   expect(
     await authoring.setHomePin({
       actor: randomUUID(),
-      seriesId: first,
+      productId: first,
       expectedVersion: version,
     }),
   ).toEqual({ ok: false, error: { code: "forbidden" } });
-  for (const seriesId of [empty, firstMaterial, randomUUID()]) {
+  for (const productId of [empty, firstMaterial, randomUUID()]) {
     expect(
-      await authoring.setHomePin({ actor, seriesId, expectedVersion: version }),
+      await authoring.setHomePin({
+        actor,
+        productId,
+        expectedVersion: version,
+      }),
     ).toMatchObject({ ok: false, error: { code: "invalid_reference" } });
   }
   const competing = await Promise.all(
-    [first, second].map((seriesId) =>
-      authoring.setHomePin({ actor, seriesId, expectedVersion: version }),
+    [first, second].map((productId) =>
+      authoring.setHomePin({ actor, productId, expectedVersion: version }),
     ),
   );
   expect(competing.filter((result) => result.ok)).toHaveLength(1);
@@ -159,32 +163,32 @@ test("only Series can be pinned: author choice persists, competing writes confli
     authorPolicy: { canManage: () => true },
   });
   const saved = await restarted.authoring.loadHomePin({ actor });
-  if (!saved.ok || saved.value.seriesId === null)
+  if (!saved.ok || saved.value.productId === null)
     throw new Error("Expected a saved pin");
-  const pinnedId = saved.value.seriesId;
+  const pinnedId = saved.value.productId;
   const pinnedMaterial = pinnedId === first ? firstMaterial : secondMaterial;
   expect(saved.value.version).toBe(version + 1);
   expect(await home()).toMatchObject({
     id: pinnedId,
-    summary: "Series summary",
+    summary: "Product summary",
     count: 1,
   });
   expect(JSON.stringify(await home())).not.toContain("Private body");
   expect(
     await authoring.setHomePin({
       actor,
-      seriesId: null,
+      productId: null,
       expectedVersion: version,
     }),
   ).toEqual({ ok: false, error: { code: "stale_home_pin" } });
   await database.prisma.product.update({
     where: { id: pinnedId },
-    data: { name: "Current series title", summary: "Current series summary" },
+    data: { name: "Current product title", summary: "Current product summary" },
   });
   expect(await home()).toMatchObject({
     id: pinnedId,
-    name: "Current series title",
-    summary: "Current series summary",
+    name: "Current product title",
+    summary: "Current product summary",
   });
   await change(pinnedMaterial, pinnedId, "unpublished");
   expect(await home()).toBeNull();
@@ -200,20 +204,20 @@ test("only Series can be pinned: author choice persists, competing writes confli
   expect(
     await authoring.setHomePin({
       actor,
-      seriesId: pinnedId,
+      productId: pinnedId,
       expectedVersion: version + 1,
     }),
   ).toMatchObject({ ok: false, error: { code: "invalid_reference" } });
   expect(
     await authoring.setHomePin({
       actor,
-      seriesId: null,
+      productId: null,
       expectedVersion: version + 1,
     }),
-  ).toEqual({ ok: true, value: { seriesId: null, version: version + 2 } });
+  ).toEqual({ ok: true, value: { productId: null, version: version + 2 } });
   expect(await home()).toBeNull();
   await expect(
-    database.prisma.homeSeriesPin.create({ data: { id: 2 } }),
+    database.prisma.homeProductPin.create({ data: { id: 2 } }),
   ).rejects.toThrow();
-  expect(await database.prisma.homeSeriesPin.count()).toBe(1);
+  expect(await database.prisma.homeProductPin.count()).toBe(1);
 });

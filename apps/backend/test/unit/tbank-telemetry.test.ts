@@ -115,7 +115,7 @@ function runtime(sampleRatio = 1) {
   return { spans, metrics, telemetry };
 }
 
-test("all seven admitted bank operations count actual requests and local refusals do not", async () => {
+test("all three current bank operations count actual requests and local refusals do not", async () => {
   const { spans, telemetry } = runtime();
   try {
     const methods: string[] = [];
@@ -132,23 +132,7 @@ test("all seven admitted bank operations count actual requests and local refusal
               ErrorCode: "0",
               Payments: [],
             }
-          : method === "AddCard"
-            ? {
-                TerminalKey: config.terminalKey,
-                Success: true,
-                ErrorCode: "0",
-                RequestKey: "private-session",
-                PaymentURL: "http://127.0.0.1:8090/form",
-              }
-            : method === "GetAddCardState"
-              ? {
-                  TerminalKey: config.terminalKey,
-                  RequestKey: "private-session",
-                  Status: "NEW",
-                  Success: true,
-                  ErrorCode: "0",
-                }
-              : { ...payment, PaymentURL: "http://127.0.0.1:8090/form" };
+          : { ...payment, PaymentURL: "http://127.0.0.1:8090/form" };
       return Promise.resolve({ ok: true, json: () => Promise.resolve(result) });
     });
     await telemetry.runJob(async () => {
@@ -162,12 +146,6 @@ test("all seven admitted bank operations count actual requests and local refusal
           returnPath: "https://untrusted.example.test",
         }),
       ).rejects.toThrow("Invalid purchase return path");
-      const noBinding = new Tbank({ ...config, cardBinding: undefined }, () =>
-        Promise.reject(new Error("must not request")),
-      );
-      await expect(noBinding.addCard("private-account")).rejects.toThrow(
-        "Card binding",
-      );
       await bank.init({
         orderId: "private-order",
         accountId: "private-account",
@@ -177,39 +155,14 @@ test("all seven admitted bank operations count actual requests and local refusal
       });
       await bank.state("private-payment");
       await bank.order("private-order");
-      await bank.charge({
-        paymentId: "private-payment",
-        rebillId: "private-binding",
-      });
-      await bank.cancel({
-        paymentId: "private-payment",
-        amount: 100,
-        externalRequestId: "private-refund",
-        name: "private-name",
-        email: "private-email@example.test",
-      });
-      await bank.addCard("private-account");
-      await bank.addCardState("private-session");
       expect(bank.notification({})).toBeUndefined();
     });
     await telemetry.flush();
-    expect(methods).toEqual([
-      "Init",
-      "GetState",
-      "CheckOrder",
-      "Charge",
-      "Cancel",
-      "AddCard",
-      "GetAddCardState",
-    ]);
+    expect(methods).toEqual(["Init", "GetState", "CheckOrder"]);
     expect(spans.getFinishedSpans().map((span) => span.name)).toEqual([
       "tbank Init",
       "tbank GetState",
       "tbank CheckOrder",
-      "tbank Charge",
-      "tbank Cancel",
-      "tbank AddCard",
-      "tbank GetAddCardState",
     ]);
     expect(
       spans
@@ -259,7 +212,7 @@ test("bank request completion awaits existing JSON read and concurrent parents a
           ok: true,
           json: () => Promise.resolve(payment),
         }),
-      ).charge({ paymentId: "private-payment", rebillId: "private-rebill" });
+      ).state("private-payment");
       expect(telemetry.correlation()["spanId"]).toBe(secondParent);
     });
     body.resolve(payment);
@@ -273,7 +226,7 @@ test("bank request completion awaits existing JSON read and concurrent parents a
         .filter((span) => span.kind === SpanKind.CLIENT)
         .map((span) => [span.name, span.parentSpanContext?.spanId]),
     ).toEqual([
-      ["tbank Charge", secondParent],
+      ["tbank GetState", secondParent],
       ["tbank GetState", firstParent],
     ]);
     expect(telemetry.correlation()).toEqual({});

@@ -17,6 +17,8 @@ never a dependency.
 - Readiness-label triage: read `docs/agents/triage-labels.md`.
 - Product context, terminology or ADR placement: read `docs/agents/domain.md`.
 - Frontend delivery, Storybook review or a UI prototype: read `docs/agents/frontend-delivery.md`.
+- Local application review, interactive stand work, or switching worktrees on the shared stand:
+  use `.agents/skills/local-stand/SKILL.md`.
 - Before review, the Standards reviewer reads `CODING_STANDARDS.md` and the `CODING_STANDARDS.md`
   of each changed application.
 - After an explicit owner correction: follow [owner corrections](docs/agents/owner-corrections.md).

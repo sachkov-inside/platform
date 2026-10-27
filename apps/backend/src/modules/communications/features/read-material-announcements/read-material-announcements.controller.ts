@@ -44,7 +44,7 @@ const problem = z.object({
 @ApiTags("Communications")
 @ApiBearerAuth("telegram-communications")
 @PrivateNoStore()
-@Controller("integrations/telegram/v1/communications/materials")
+@Controller("integrations/telegram/v2/communications/materials")
 export class ReadMaterialAnnouncementsController {
   constructor(
     @Inject(PublicMaterialAnnouncements)

@@ -132,3 +132,62 @@ test("production reaches attempt 51 and its feedback; a failed continuation retr
     });
   }
 });
+
+test("revoked Product keeps own saved history without protected requirements or fresh submission controls", async ({
+  page,
+  context,
+  request,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const { wrapSession } = await import("@logto/node");
+  await context.addCookies([
+    {
+      name: "logto_inside-web-navigation",
+      url: baseURL,
+      httpOnly: true,
+      sameSite: "Lax",
+      value: await wrapSession(
+        {
+          accessToken: JSON.stringify({
+            [`@${backend}`]: {
+              // deterministic-test-allow wall-clock: separate production Web and Logto validate the synthetic session with their live clock.
+              expiresAt: Math.floor(Date.now() / 1000) + 3600,
+              scope: "",
+              token: "navigation-member-token",
+            },
+          }),
+          idToken: "navigation.id.token",
+          refreshToken: "navigation-refresh-token",
+        },
+        "inside-navigation-logto-cookie-secret-key",
+      ),
+    },
+  ]);
+  await request.post(`${backend}/__own-history`, {
+    data: { unavailable: false, revoked: true },
+  });
+  try {
+    await page.goto(taskPath, { waitUntil: "commit" });
+    await expect(
+      page.locator('[data-product-task-state="closed"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator("[data-own-submissions] [data-submission]"),
+    ).toHaveCount(50);
+    await expect(
+      page.getByRole("heading", { name: "Ситуация", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Отправить сдачу", exact: true }),
+    ).toHaveCount(0);
+    await page.getByRole("link", { name: "Предыдущие сдачи" }).click();
+    await expect(
+      page.getByText("Oldest feedback remains reachable"),
+    ).toBeVisible();
+  } finally {
+    await request.post(`${backend}/__own-history`, {
+      data: { unavailable: false, revoked: false },
+    });
+  }
+});

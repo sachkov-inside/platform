@@ -25,7 +25,7 @@ export function requestAuthoringMaterials(
   );
 }
 
-export type ContentCollectionKind = "series" | "topic";
+export type ContentCollectionKind = "product" | "topic";
 
 export function requestContentCollections(
   kind: ContentCollectionKind,
@@ -129,7 +129,7 @@ export function requestMaterialDraftCreation(
     readonly formatId: MaterialFormat | null;
     readonly idempotencyKey: string;
     readonly outcomes: readonly string[];
-    readonly seriesIds: readonly string[];
+    readonly productIds: readonly string[];
     readonly summary: string;
     readonly tagIds: readonly string[];
     readonly title: string;
@@ -148,7 +148,7 @@ export function requestMaterialDraftCreation(
             difficulty: input.difficulty,
             formatId: input.formatId,
             outcomes: [...input.outcomes],
-            seriesIds: [...input.seriesIds],
+            productIds: [...input.productIds],
             summary: input.summary === "" ? null : input.summary,
             tagIds: [...input.tagIds],
             title: input.title,
@@ -189,7 +189,7 @@ export function requestMaterialSave(
     readonly publicationState: "draft" | "published" | "unpublished";
     readonly notifyTelegram?: boolean;
     readonly primaryVideoId: string | null;
-    readonly seriesIds: readonly string[];
+    readonly productIds: readonly string[];
     readonly summary: string | null;
     readonly tagIds: readonly string[];
     readonly title: string | null;
@@ -212,7 +212,7 @@ export function requestMaterialSave(
             difficulty: input.difficulty,
             formatId: input.formatId,
             outcomes: [...input.outcomes],
-            seriesIds: [...input.seriesIds],
+            productIds: [...input.productIds],
             summary: input.summary,
             tagIds: [...input.tagIds],
             title: input.title,
@@ -294,21 +294,21 @@ export function requestMaterialAuthoringReferences(
   );
 }
 
-export function requestSeriesOrder(
-  seriesId: string,
+export function requestProductOrder(
+  productId: string,
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
       new MaterialAuthoringService(request).loadAuthoringProductOrder({
-        productId: seriesId,
+        productId: productId,
       }),
     200,
     { accessToken },
   );
 }
 
-export function requestSeriesReorder(
+export function requestProductReorder(
   input: {
     readonly programmePlacements?: readonly {
       readonly id: string;
@@ -326,14 +326,14 @@ export function requestSeriesReorder(
     readonly expectedOrderVersion: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups?: Readonly<Record<string, string>>;
-    readonly seriesId: string;
+    readonly productId: string;
   },
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
       new MaterialAuthoringService(request).reorderAuthoringProduct({
-        productId: input.seriesId,
+        productId: input.productId,
         requestBody: {
           ...(input.programmePlacements === undefined
             ? {}
@@ -401,7 +401,10 @@ export function requestAuthoringHomePin(
   );
 }
 export function requestHomePinUpdate(
-  input: { readonly seriesId: string | null; readonly expectedVersion: number },
+  input: {
+    readonly productId: string | null;
+    readonly expectedVersion: number;
+  },
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(

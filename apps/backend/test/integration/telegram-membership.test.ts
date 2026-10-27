@@ -55,59 +55,6 @@ describe("TelegramMembership", () => {
     await database.dispose();
   });
 
-  test.each(["registering", "pending", "unavailable"])(
-    "expires %s evidence delivery without binding an Account or losing the provider receipt",
-    async (status) => {
-      ({ clock, entitlements, membership } = fixture(database));
-      const begun = await membership.beginLink({ accountId: firstAccountId });
-      if (!begun.ok) throw new Error("Expected a Telegram link");
-      const receipt = await database.prisma.telegramLinkTransaction.update({
-        where: { linkRef: begun.state.linkRef },
-        data: { status, providerIdentityRef: "telegram-identity-ref-a" },
-      });
-      const command = {
-        deliveryId: "abandoned-registration-delivery",
-        source: "reconciliation" as const,
-        evidence: evidence(receipt.principalRef, "member", 1, clock.now()),
-      };
-      await expect(membership.acceptEvidence(command)).resolves.toEqual({
-        ok: false,
-        error: { code: "unavailable" },
-      });
-      clock.set(new Date("2030-01-01T00:05:00.000Z"));
-      // The same delivery must stop retrying even at the exact expiry boundary.
-      await expect(membership.acceptEvidence(command)).resolves.toEqual({
-        ok: false,
-        error: { code: "link_expired" },
-      });
-      const repeats = await Promise.all([
-        membership.acceptEvidence(command),
-        membership.acceptEvidence({
-          ...command,
-          deliveryId: "fresh-observation-of-abandoned-registration",
-          evidence: evidence(receipt.principalRef, "member", 2, clock.now()),
-        }),
-      ]);
-      expect(repeats).toEqual([
-        { ok: false, error: { code: "link_expired" } },
-        { ok: false, error: { code: "link_expired" } },
-      ]);
-      await expect(
-        entitlements.resolveForAccess(firstAccountId),
-      ).resolves.toEqual({ kind: "required" });
-      await expect(
-        database.prisma.telegramLinkTransaction.findUnique({
-          where: { linkRef: receipt.linkRef },
-        }),
-      ).resolves.toMatchObject({
-        status: "expired",
-        principalRef: receipt.principalRef,
-        providerIdentityRef: receipt.providerIdentityRef,
-        providerTransactionRef: receipt.providerTransactionRef,
-      });
-    },
-  );
-
   test("binds begin and final confirmation to one authenticated Account without granting access", async () => {
     ({ clock, entitlements, membership, provider } = fixture(database));
 
@@ -213,7 +160,7 @@ describe("TelegramMembership", () => {
     await expect(
       entitlements.resolveForAccess(firstAccountId),
     ).resolves.toEqual({
-      kind: "unavailable",
+      kind: "required",
     });
     await expect(
       membership.readAccountPresentation({ accountId: firstAccountId }),
@@ -221,131 +168,9 @@ describe("TelegramMembership", () => {
       ok: true,
       presentation: {
         link: { kind: "linked" },
-        membership: { kind: "unavailable" },
+        membership: { kind: "inactive" },
       },
     });
-  });
-
-  test("makes initial evidence retryable until final Account confirmation", async () => {
-    ({ clock, membership, provider } = fixture(database));
-    const begun = await membership.beginLink({ accountId: firstAccountId });
-    if (!begun.ok || begun.state.status !== "pending") {
-      throw new Error("Expected a pending Telegram link");
-    }
-    const principalRef = provider.registerRequests[0]?.accountRef ?? "";
-    const command = {
-      deliveryId: "delivery-before-confirm",
-      source: "link_time" as const,
-      evidence: evidence(principalRef, "member", 1, clock.now()),
-    };
-
-    await expect(membership.acceptEvidence(command)).resolves.toEqual({
-      ok: false,
-      error: { code: "unavailable" },
-    });
-    await expect(
-      database.prisma.membershipEvidenceReceipt.count(),
-    ).resolves.toBe(0);
-
-    await membership.confirmLink({
-      accountId: firstAccountId,
-      linkRef: begun.state.linkRef,
-    });
-    await expect(membership.acceptEvidence(command)).resolves.toMatchObject({
-      ok: true,
-      outcome: "applied",
-      state: "active",
-    });
-  });
-
-  test("routes durable evidence monotonically and keeps access local through outage and expiry", async () => {
-    ({ clock, entitlements, membership, provider } = fixture(database));
-    const begun = await membership.beginLink({ accountId: firstAccountId });
-    if (!begun.ok || begun.state.status !== "pending") {
-      throw new Error("Expected a pending Telegram link");
-    }
-    await membership.confirmLink({
-      accountId: firstAccountId,
-      linkRef: begun.state.linkRef,
-    });
-    const principalRef = provider.registerRequests[0]?.accountRef ?? "";
-
-    await expect(
-      membership.acceptEvidence({
-        deliveryId: "delivery-member-v1",
-        source: "reconciliation",
-        evidence: evidence(principalRef, "member", 1, clock.now()),
-      }),
-    ).resolves.toMatchObject({
-      ok: true,
-      outcome: "applied",
-      state: "active",
-    });
-    await expect(
-      entitlements.resolveForAccess(firstAccountId),
-    ).resolves.toEqual({
-      kind: "active",
-      validUntil: "2030-01-01T00:05:00.000Z",
-    });
-    await expect(
-      membership.readAccountPresentation({ accountId: firstAccountId }),
-    ).resolves.toEqual({
-      ok: true,
-      presentation: {
-        link: { kind: "linked" },
-        membership: { kind: "active" },
-      },
-    });
-
-    clock.set(new Date("2030-01-01T00:01:00.000Z"));
-    await expect(
-      membership.acceptEvidence({
-        deliveryId: "delivery-removal-v2",
-        source: "member_status_event",
-        evidence: evidence(principalRef, "not_member", 2, clock.now()),
-      }),
-    ).resolves.toMatchObject({
-      ok: true,
-      outcome: "applied",
-      state: "non_member",
-    });
-    await expect(
-      entitlements.resolveForAccess(firstAccountId),
-    ).resolves.toEqual({
-      kind: "expired",
-    });
-
-    await expect(
-      membership.acceptEvidence({
-        deliveryId: "delivery-replayed-v1",
-        source: "reconciliation",
-        evidence: evidence(principalRef, "member", 1, clock.now()),
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      error: { code: "replayed_evidence" },
-    });
-    clock.set(new Date("2030-01-01T00:02:00.000Z"));
-    await membership.acceptEvidence({
-      deliveryId: "delivery-rejoin-v3",
-      source: "reconciliation",
-      evidence: evidence(principalRef, "member", 3, clock.now()),
-    });
-    await expect(
-      entitlements.resolveForAccess(firstAccountId),
-    ).resolves.toEqual({
-      kind: "active",
-      validUntil: "2030-01-01T00:07:00.000Z",
-    });
-
-    provider.confirmation = { kind: "unavailable" };
-    clock.set(new Date("2030-01-01T00:07:00.001Z"));
-    await expect(
-      entitlements.resolveForAccess(firstAccountId),
-    ).resolves.toEqual({
-      kind: "stale",
-    });
-    expect(provider.confirmRequests).toHaveLength(1);
   });
 
   test("persists typed provider failure states without silent transfer", async () => {
@@ -542,7 +367,7 @@ describe("TelegramMembership", () => {
     await expect(
       entitlements.resolveForAccess(firstAccountId),
     ).resolves.toEqual({
-      kind: "unavailable",
+      kind: "required",
     });
   });
 
@@ -575,7 +400,7 @@ describe("TelegramMembership", () => {
       statuses.filter((status) => status !== "linked" && status !== "conflict"),
     ).toEqual([]);
     await expect(
-      database.prisma.membershipBinding.count({
+      database.prisma.telegramAccountLinkState.count({
         where: { accountId: firstAccountId },
       }),
     ).resolves.toBe(1);
@@ -717,25 +542,6 @@ class MutableClock {
   set(value: Date): void {
     this.value = value;
   }
-}
-
-function evidence(
-  principalRef: string,
-  decision: "member" | "not_member",
-  evidenceVersion: number,
-  checkedAt: Date,
-) {
-  return {
-    contractVersion: "inside.membership-evidence.v1",
-    principalRef,
-    decision,
-    reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-    checkedAt: checkedAt.toISOString(),
-    validUntil: new Date(checkedAt.getTime() + 5 * 60_000).toISOString(),
-    telegramIdentityRef: "telegram-identity-ref-a",
-    evidenceRef: `evidence-${String(evidenceVersion)}`,
-    evidenceVersion,
-  };
 }
 
 function deferred<T>(): {

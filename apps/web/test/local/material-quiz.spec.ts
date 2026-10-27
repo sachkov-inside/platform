@@ -30,7 +30,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
     id: `quiz-review:${identity}`,
     path: "fixtures/quiz.md",
     revision: "a".repeat(64),
-    showInFeed: false,
+    version: 2 as const,
   };
   const reservedResponse = await request.post(
     "/__local-api/authoring/import/materials/reserve",
@@ -64,7 +64,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
     topicId: topic.id,
     formatId: "guide",
     tagIds: [],
-    seriesIds: [],
+    productIds: [],
   };
   const apply = await request.post(
     "/__local-api/authoring/import/materials/apply",

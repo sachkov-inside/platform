@@ -61,6 +61,105 @@ def baseline_ports(test, fault=None, primary=None, secondary=None, waiting=False
 
 
 class Driver(unittest.TestCase):
+    def test_acknowledged_publication_may_wait_for_only_known_frame_fragments(self):
+        import copy
+        import oracle
+        from test_oracle import vectors,raw,EXPECTED,NOW
+        previous=EXPECTED.copy();current={**previous,'sample_us':NOW+2_000_000,'connected_backends':4}
+        rows,stamps=vectors()
+        for row in rows:row['value'][0]=1790000002
+        for row in stamps:row['value'][0]=1790000002
+        rows[0]['value'][1]='4'
+        rows[-2]['value'][1]=str(current['sample_us'])
+        for row in stamps[::2]:row['value'][1]='1790000002'
+        mixed=(raw(rows),raw(stamps),1790000002,current['sample_us'])
+        fresh_stamps=copy.deepcopy(stamps)
+        for row in fresh_stamps:row['value'][1]='1790000002'
+        fresh=(raw(rows),raw(fresh_stamps),1790000002,current['sample_us'])
+        driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.ledger.accept(previous)
+        driver.published_sample=current.copy()
+        with patch.object(scenario.time,'monotonic',return_value=100),patch.object(scenario.time,'sleep') as pause, \
+                patch.object(scenario.queries,'read',side_effect=[mixed,fresh]) as read:
+            self.assertEqual(driver.stored(current)['freshness'],'fresh')
+        self.assertEqual(read.call_count,2);pause.assert_called_once()
+        self.assertEqual(oracle.evaluate(*mixed[:2],evaluated_at=mixed[2],completed_us=mixed[3],expected=current)['freshness'],'malformed')
+        for fault in ('unacknowledged','counter','stamp','scope','future','different_expected'):
+            driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.ledger.accept(previous)
+            driver.published_sample=None if fault=='unacknowledged' else current.copy()
+            left,right=copy.deepcopy(rows),copy.deepcopy(stamps)
+            if fault=='counter':left[0]['value'][1]='5'
+            if fault=='stamp':right[0]['value'][1]='1790000001'
+            if fault=='scope':left[-1]['metric']['private']='not-exported'
+            if fault=='future':right[0]['value'][1]='1790000003'
+            expected={**current,'sample_us':NOW+3_000_000} if fault=='different_expected' else current
+            with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',return_value=100), \
+                    patch.object(scenario.queries,'read',return_value=(raw(left),raw(right),mixed[2],mixed[3])) as read:
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(expected)
+                read.assert_called_once()
+
+    def test_restart_publication_waits_only_for_the_exact_observed_controlled_down_frame(self):
+        import copy
+        import oracle
+        from test_oracle import vectors, raw, EXPECTED, NOW
+        previous=EXPECTED.copy()
+        current={**previous,'sample_us':NOW+2_000_000,'postmaster_us':NOW+1_000_000}
+        rows,stamps=vectors();rows[-1]['value'][1]='0';stamps[-1]['value'][1]='1790000001'
+        for row in (*rows,*stamps):row['value'][0]=1790000001
+        down=(raw(rows),raw(stamps),1790000001,NOW+1_000_000)
+        fresh_rows,fresh_stamps=vectors()
+        for row in fresh_rows:
+            suffix=row['metric']['__name__'].split('.')[-1]
+            if suffix=='sample_time_microseconds':row['value'][1]=str(current['sample_us'])
+            if suffix=='postmaster_start_time_microseconds':row['value'][1]=str(current['postmaster_us'])
+            row['value'][0]=1790000002
+        for row in fresh_stamps:row['value']=[1790000002,'1790000002']
+        fresh=(raw(fresh_rows),raw(fresh_stamps),1790000002,current['sample_us'])
+        driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.phase='restart_observe'
+        driver.ledger.accept(previous);driver.restart_down=down
+        pending=(*down[:2],1790000002,current['sample_us'])
+        # Query evaluation times change; stored source values and timestamps do not.
+        def reevaluate(observation):
+            import json
+            result=[]
+            for body in observation[:2]:
+                value=json.loads(body)
+                for row in value['data']['result']:row['value'][0]=observation[2]
+                result.append(json.dumps(value))
+            return (*result,*observation[2:])
+        pending=reevaluate(pending)
+        with patch.object(scenario.time,'monotonic',return_value=100),patch.object(scenario.time,'sleep') as pause, \
+                patch.object(scenario.queries,'read',side_effect=[pending,fresh]) as read:
+            self.assertEqual(driver.stored(current)['freshness'],'fresh')
+        self.assertEqual(read.call_count,2);pause.assert_called_once()
+        self.assertEqual(oracle.evaluate(*pending[:2],evaluated_at=pending[2],completed_us=pending[3],expected=current)['freshness'],'unavailable')
+        # Restart can expose new healthy families before replacing the known availability=0.
+        partial_rows,partial_stamps=copy.deepcopy(fresh_rows),copy.deepcopy(fresh_stamps)
+        partial_rows[-1]['value'][1]='0';partial_stamps[-1]['value'][1]='1790000001'
+        partial=(raw(partial_rows),raw(partial_stamps),fresh[2],fresh[3])
+        driver.published_sample=current.copy()
+        with patch.object(scenario.time,'monotonic',return_value=100),patch.object(scenario.time,'sleep'), \
+                patch.object(scenario.queries,'read',side_effect=[partial,fresh]):
+            self.assertEqual(driver.stored(current)['freshness'],'fresh')
+        driver.restart_down=None
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+                patch.object(scenario.queries,'read',return_value=partial):
+            with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(current)
+        for fault in ('no_witness','foreign_zero','counter','stamp','scope','no_restart','ordinary_phase'):
+            driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.phase='restart_observe'
+            driver.ledger.accept(previous);driver.restart_down=None if fault=='no_witness' else down
+            left,right=copy.deepcopy(rows),copy.deepcopy(stamps)
+            if fault=='foreign_zero':right[-1]['value'][1]='1790000001.001'
+            if fault=='counter':left[0]['value'][1]='4'
+            if fault=='stamp':right[0]['value'][1]='1789999999'
+            if fault=='scope':left[-1]['metric']['private']='not-exported'
+            if fault=='ordinary_phase':driver.phase='connections'
+            bad=reevaluate((raw(left),raw(right),1790000002,current['sample_us']))
+            expected=previous if fault=='no_restart' else current
+            with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',return_value=100), \
+                    patch.object(scenario.queries,'read',return_value=bad) as read:
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(expected)
+                read.assert_called_once()
+
     def test_only_terminal_owned_baseline_oracle_adopts_reason_and_each_attempt_clears_it(self):
         import json
         import oracle
@@ -311,9 +410,28 @@ class Driver(unittest.TestCase):
                 self.assertEqual([(m['name'],m['gauge']['dataPoints'][0]) for m in metrics],
                     [('inside.postgresql.server.available',{'attributes':[],'timeUnixNano':'1790000000000000000','asInt':'0'})])
             if fault is None:
-                self.assertEqual(calls[:3],['close','verify',['docker','stop','--time','2',cid]])
+                self.assertEqual(calls[:3],['close','verify',['docker','stop','--timeout','2',cid]])
                 self.assertEqual(calls[3],'inspect');self.assertEqual(len(calls),5)
             self.assertIsNone(driver.ledger.last)
+
+    def test_current_docker_cli_stop_output_is_only_the_owned_identity(self):
+        from types import SimpleNamespace
+        driver=scenario.Scenario(None,[],'fixed',None);driver.end=time.monotonic()+150
+        cid='a'*64;target={'id':cid};uploads=[]
+        driver.actors=SimpleNamespace(close=lambda deadline:None,process=None)
+        driver.targets=SimpleNamespace(targets={'postgres':target},inspect=lambda role,identity:target)
+        def cli(args):
+            if args[:2]==['docker','stop']:
+                # Captured from the actual Docker CLI's harmless `stop --time 2 --help`:
+                # the deprecated alias writes its warning to stdout even on success.
+                warning='Flag --time has been deprecated, use --timeout instead\n' if '--time' in args else ''
+                return warning+cid+'\n'
+            return 'stopped\n'
+        with patch.object(driver,'verify_pg'),patch.object(driver,'read',side_effect=cli), \
+             patch.object(driver,'upload',side_effect=lambda value,**options:uploads.append(value)), \
+             patch.object(scenario.pilot,'assert_docker_identity'):
+            self.assertEqual(driver.stop_postgres(),cid)
+        self.assertEqual(len(uploads),1)
 
     def test_real_stop_upload_composition_has_one_alarm_and_the_original_decreasing_deadline(self):
         import json
@@ -321,7 +439,7 @@ class Driver(unittest.TestCase):
         from pathlib import Path
         import postgres_source
         import source_status_scenario
-        for fault in (None,'poisoned_state','poisoned_owner','expired','http_failure','expired_response'):
+        for fault in (None,'poisoned_state','poisoned_owner','expired','http_failure','http_status','expired_response','flush_failure','expired_flush'):
             clock=[100.0];requests=[];identity_deadlines=[];stopped=[False];primary=RuntimeError('controlled HTTP first')
             driver=scenario.Scenario(None,['docker','compose','-p','inside-observability-pilot-'+'a'*12,'-f','/task/compose.json'],'fixed',None)
             driver.end=250;driver.clock_deadline=110
@@ -334,7 +452,7 @@ class Driver(unittest.TestCase):
                 self.assertLessEqual(kwargs['timeout'],10)
                 if args[:6]==driver.compose:return ids[args[-1]]
                 if args[:2]==['docker','stop']:
-                    self.assertEqual(args,['docker','stop','--time','2',ids['postgres']]);stopped[0]=True;clock[0]=102;return ids['postgres']+'\n'
+                    self.assertEqual(args,['docker','stop','--timeout','2',ids['postgres']]);stopped[0]=True;clock[0]=102;return ids['postgres']+'\n'
                 self.assertEqual(args[:3],['docker','inspect','--format'])
                 role=next(role for role in roles if ids[role]==args[-1])
                 if args[3]==scenario.STOPPED:
@@ -362,8 +480,16 @@ class Driver(unittest.TestCase):
                     self.assertEqual(request.full_url,'http://127.0.0.1:14318/v1/metrics')
                     requests.append(request)
                     if fault=='http_failure':raise primary
+                    if fault=='http_status':raise scenario.urllib.error.HTTPError('private-url',400,'private-body',{},None)
                     return Response()
-            with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',side_effect=lambda:clock[0]), \
+            flushes=[]
+            def publish(source,deadline):
+                self.assertIs(source,driver);self.assertEqual(deadline,110)
+                self.assertEqual(driver.upload_operation['http_status'],200)
+                flushes.append(deadline)
+                if fault=='flush_failure':raise primary
+                if fault=='expired_flush':clock[0]=111
+            with self.subTest(fault=fault),patch.object(scenario.completion,'_flush',side_effect=publish),patch.object(scenario.time,'monotonic',side_effect=lambda:clock[0]), \
                  patch.object(scenario.pilot,'command',side_effect=daemon),patch.object(scenario.pilot,'assert_docker_identity',side_effect=identity), \
                  patch.object(scenario.urllib.request,'build_opener',return_value=Opener()):
                 for role in roles:targets.targets[role]=targets.inspect(role,ids[role])
@@ -371,9 +497,19 @@ class Driver(unittest.TestCase):
                 else:
                     try:driver.stop_postgres()
                     except Exception as error:
-                        if fault=='http_failure':self.assertIs(error,primary)
+                        if fault=='http_status':
+                            self.assertIsInstance(error,scenario.urllib.error.HTTPError)
+                            self.assertEqual(driver.upload_operation,{'schema':1,'phase':'restart_unavailable_upload','step':'http_open','outcome':'failed','error':'http_status','http_status':400,'returncode':None})
+                            self.assertNotIn('private',json.dumps(driver.upload_operation))
+                            error.close()
+                        if fault=='flush_failure':
+                            self.assertIs(error,primary);self.assertEqual(driver.upload_operation['step'],'controlled_flush')
+                        if fault=='http_failure':
+                            self.assertIs(error,primary)
+                            self.assertEqual(driver.upload_operation,{'schema':1,'phase':'restart_unavailable_upload','step':'http_open','outcome':'failed','error':'operation_failed','http_status':None,'returncode':None})
                     else:self.fail('invalid composed stop returned success')
-            self.assertEqual(requests!=[],fault in (None,'http_failure','expired_response'))
+            self.assertEqual(requests!=[],fault in (None,'http_failure','http_status','expired_response','flush_failure','expired_flush'))
+            self.assertEqual(flushes,[110] if fault in (None,'flush_failure','expired_flush') else [])
             self.assertTrue(all(deadline==110 for deadline in identity_deadlines))
             self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
 
@@ -386,7 +522,7 @@ class Driver(unittest.TestCase):
             if counter[0]<2:
                 self.assertEqual(kwargs,{'_baseline':('first','second')[counter[0]]});phase='baseline'
             else:
-                self.assertEqual(kwargs,{});phase=driver.phase
+                self.assertEqual(kwargs,{});phase='restart' if driver.phase.startswith('restart_') else driver.phase
             observations[phase]=observations.get(phase,0)+1;counter[0]+=1
             value=EXPECTED.copy();value['sample_us']+=counter[0]*1000
             if phase=='deadlocks':value['deadlocks']=EXPECTED['deadlocks']+1
@@ -396,13 +532,30 @@ class Driver(unittest.TestCase):
             return value,{**verdict,'continuity':state['continuity'],'count_complete':state['count_complete']}
         final={**verdict,'age_seconds':.125}
         driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
-        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart' else 'stale'})
+        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart_unavailable_read' else 'stale'})
         with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
                 patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
                 patch.object(scenario.queries,'read',return_value=('','','',0)),patch.object(driver,'stored',side_effect=AssertionError('new stored query forbidden')), \
                 patch.object(scenario.time,'sleep'):
             cases=driver.run(lambda source:final)
         self.assertEqual(cases[-1],{**final,'phase':'privacy'})
+
+        # Native publication may fail at the controlled-down read before restart.
+        # Keep only the existing oracle's finite reason, preserving the same refusal.
+        import oracle
+        from test_oracle import vectors,raw,NOW
+        for diagnostic_failure in (None,RuntimeError('private diagnostic failure')):
+            counter[0]=0
+            driver=scenario.Scenario(None,['compose'],'fixed',oracle)
+            driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
+            rows,stamps=vectors();rows[-1]['metric']['private']='private sentinel'
+            with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
+                    patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
+                    patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)), \
+                    patch.object(oracle,'diagnostic_reason',side_effect=diagnostic_failure,wraps=oracle.diagnostic_reason) if diagnostic_failure is not None else ExitStack():
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.run(lambda _:self.fail('privacy reached'))
+            self.assertEqual(driver.phase,'restart_unavailable_read')
+            self.assertEqual(driver.oracle_failure_reason,'oracle_values_labels' if diagnostic_failure is None else None)
 
 
     def test_baseline_entered_stage_preserves_first_failure_for_every_fixed_boundary(self):
@@ -445,7 +598,6 @@ class Driver(unittest.TestCase):
             self.assertEqual(events,[('start',1),('setup',1),('acquire',1),('upload',1),('read',1),('oracle',1),
                 ('pending',1),('read',2),('oracle',2),('ledger',1),('acquire',2),('upload',2),('read',3),
                 ('oracle',3),('pending',2),('read',4),('oracle',4),('ledger',2),('connections',1),('close',1)])
-            self.assertEqual(clock[0],25)
             self.assertEqual(driver.phase,'connections')
             self.assertEqual(driver.cases,[{'freshness':'fresh','continuity':'same_epoch','count_complete':True,
                 'points':7,'age_seconds':0,'phase':'baseline'}])

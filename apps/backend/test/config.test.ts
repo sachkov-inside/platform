@@ -462,8 +462,6 @@ const demoTerminal = {
   terminalKey: "SYNTHETICDEMO",
   password: "synthetic-password",
   bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1_000_000,
   returnUrl: "https://inside.example.test/payment/return",
@@ -513,9 +511,8 @@ describe("bank payment contour", () => {
       parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test" }).tbank,
     ).toMatchObject({
       environment: "local",
-      cardBinding: { confirmed: true, checkType: "3DS" },
       notificationUrl: "http://127.0.0.1:3001/billing/tbank/notification",
-      returnUrl: "http://127.0.0.1:3000/subscription/return",
+      returnUrl: "http://127.0.0.1:3000/payment/return",
       endpoints: {
         apiBaseUrl: "http://127.0.0.1:8090/v2",
         formOrigins: ["http://127.0.0.1:8090"],
@@ -535,34 +532,25 @@ describe("bank payment contour", () => {
     });
   });
 
-  it("accepts a terminal without card-only confirmations, because only subscription sale depends on them", () => {
+  it("rejects retired terminal flags and accepts one-time terminal configuration", () => {
     // Форма банка показывает все способы оплаты: разовой покупке это не мешает; подписку отклоняет billing.
     const allMethods = {
       ...demoTerminal,
-      recurringCardConfirmed: false,
-      cardOnlyHostedConfirmed: false,
     };
     expect(
       parsePlatformConfig({
         ...stand,
         TBANK_CONFIG_JSON: JSON.stringify(allMethods),
       }).tbank,
-    ).toMatchObject({
-      recurringCardConfirmed: false,
-      cardOnlyHostedConfirmed: false,
-    });
+    ).toMatchObject({});
     expect(
       parsePlatformConfig({
         ...stand,
         TBANK_CONFIG_JSON: JSON.stringify({
           ...allMethods,
-          recurringCardConfirmed: true,
         }),
       }).tbank,
-    ).toMatchObject({
-      recurringCardConfirmed: true,
-      cardOnlyHostedConfirmed: false,
-    });
+    ).toMatchObject({});
     expect(() =>
       parsePlatformConfig({
         ...stand,
@@ -574,17 +562,12 @@ describe("bank payment contour", () => {
     ).toThrow(
       "Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration",
     );
-    // Подтверждение — явное утверждение владельца терминала: пропущенное поле не читается как «нет».
-    const { cardOnlyHostedConfirmed: _omitted, ...withoutConfirmation } =
-      demoTerminal;
-    expect(() =>
+    expect(
       parsePlatformConfig({
         ...stand,
-        TBANK_CONFIG_JSON: JSON.stringify(withoutConfirmation),
-      }),
-    ).toThrow(
-      "Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration",
-    );
+        TBANK_CONFIG_JSON: JSON.stringify(demoTerminal),
+      }).tbank,
+    ).toBeDefined();
   });
 
   it("refuses the double in production and refuses a terminal beside it", () => {
@@ -647,7 +630,7 @@ describe("notification delivery contour", () => {
     const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000" };
     const communications = {
       TELEGRAM_COMMUNICATIONS_ENDPOINT:
-        "http://127.0.0.1:3606/integrations/platform/v1/communications",
+        "http://127.0.0.1:3606/integrations/platform/v2/communications",
       TELEGRAM_COMMUNICATIONS_SECRET: "communications-provider-secret-00000",
       TELEGRAM_AUTHOR_AUTHORIZATION_SECRET:
         "author-authorization-secret-0000000",

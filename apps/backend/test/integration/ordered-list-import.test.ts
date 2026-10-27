@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { renderedMaterialBodySchema } from "@inside/material-blocks";
 
 import { convertMarkdown } from "../../../../tools/authoring/markdown.mjs";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
   createMigratedTestDatabase,
@@ -23,7 +23,7 @@ test("Markdown list starts survive import, persistence, preview and published re
     id: "ordered-list-start",
     path: "materials/ordered-list.md",
     revision: "a".repeat(64),
-    showInFeed: false,
+    version: 2 as const,
   };
   const imported = convertMarkdown(
     "5. Fifth\n\n   8. Nested eighth\n   9. Nested ninth\n6. Sixth\n\n- Bullet\n\n1. First\n2. Second",
@@ -71,7 +71,7 @@ test("Markdown list starts survive import, persistence, preview and published re
       topicId: topic.value.id,
       formatId: "note",
       tagIds: [],
-      seriesIds: [],
+      productIds: [],
     },
     body: accepted.value,
   });

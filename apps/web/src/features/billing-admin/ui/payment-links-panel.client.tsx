@@ -1,9 +1,5 @@
 "use client";
-import {
-  isProductCapability,
-  productIdFromCapability,
-  type coverageEntrySchema,
-} from "@inside/access-capabilities";
+import { type coverageEntrySchema } from "@inside/access-capabilities";
 import type { z } from "zod";
 import { useEffect } from "react";
 import { paymentLinksQueryKey as key } from "../model/access-query-keys";
@@ -34,7 +30,7 @@ import { PaymentLinksView } from "./payment-links-view.client";
 
 export function PaymentLinksPanel({
   offers,
-  content,
+  content: _content,
 }: {
   readonly offers: readonly PriceSnapshot[];
   readonly content: readonly z.infer<typeof coverageEntrySchema>[];
@@ -119,20 +115,10 @@ export function PaymentLinksPanel({
     creating.mutate({ ...input, operationId: operationId("create", input) });
   }
   const eligible = offers.filter(
-    (snapshot) =>
-      snapshot.paymentOption.mode === "one_time" &&
-      !snapshot.paymentOption.archived &&
-      !snapshot.offer.archived &&
-      snapshot.offer.benefits.filter(isProductCapability).length === 1,
+    (snapshot) => snapshot.product !== undefined && !snapshot.offer.archived,
   );
   function titleFor(snapshot: PriceSnapshot) {
-    const capability = snapshot.offer.benefits.find(isProductCapability);
-    const id =
-      capability === undefined ? null : productIdFromCapability(capability);
-    return (
-      content.find((entry) => entry.kind === "product" && entry.id === id)
-        ?.title ?? snapshot.offer.name
-    );
+    return snapshot.product?.name ?? snapshot.offer.name;
   }
   return (
     <PaymentLinksView

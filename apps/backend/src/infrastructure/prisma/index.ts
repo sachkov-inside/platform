@@ -1,5 +1,10 @@
 export { createPrismaClient } from "./create-prisma-client.js";
 export {
+  type ProductsPrisma,
+  type ProductsPrismaClient,
+  type ProductsPrismaTransaction,
+  type ContentCoversPrisma,
+  type ContentCoversPrismaClient,
   type NotificationsPrisma,
   type NotificationsPrismaClient,
   type BillingPrisma,
@@ -21,8 +26,8 @@ export {
   type MaterialsPrisma,
   type MaterialsPrismaClient,
   type MaterialsPrismaTransaction,
-  type MemberProfilesPrisma,
-  type MemberProfilesPrismaClient,
+  type AccountProfilesPrisma,
+  type AccountProfilesPrismaClient,
   type PlatformPrisma,
   type WebTelemetryPrisma,
   type TelegramMembershipPrisma,
@@ -47,6 +52,7 @@ export {
   lockMaterialReferenceChanges,
   lockMaterialSlugAllocation,
   lockPracticeImport,
+  lockProductSourceReservation,
   lockProductTaskImport,
   lockProductTaskSubmissions,
   lockNotification,
@@ -63,3 +69,8 @@ export {
   lockProductWaitlistOperation,
   lockProductWaitlistMembership,
 } from "./transaction-locks.js";
+
+export {
+  transactionHandle,
+  type TransactionHandle,
+} from "./transaction-handle.js";

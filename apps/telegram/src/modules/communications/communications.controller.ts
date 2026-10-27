@@ -7,7 +7,7 @@ import {
 } from "./waitlist-confirmations.js";
 import { AuthorDelivery } from "./author-delivery.js";
 import { CommunicationTracking } from "./communication-tracking.js";
-import { Funnels } from "./funnels.js";
+import { CommunicationSequences } from "./communication-sequences.js";
 import {
   Body,
   Controller,
@@ -30,14 +30,15 @@ import {
   validRequest,
 } from "./communications-contract.js";
 
-@Controller("integrations/platform/v1/communications")
+@Controller("integrations/platform/v2/communications")
 export class CommunicationsController {
   constructor(
     @Inject(WaitlistConfirmations)
     private readonly waitlistConfirmations: WaitlistConfirmations,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(Communications) private readonly communications: Communications,
-    @Inject(Funnels) private readonly funnels: Funnels,
+    @Inject(CommunicationSequences)
+    private readonly sequences: CommunicationSequences,
     @Inject(AuthorDelivery) private readonly authorDelivery: AuthorDelivery,
     @Inject(CommunicationTracking)
     private readonly tracking: CommunicationTracking,
@@ -72,7 +73,7 @@ export class CommunicationsController {
                 }
           : body.operation.startsWith("tracking.")
             ? await this.tracking.execute(body)
-            : await this.funnels.execute(body)),
+            : await this.sequences.execute(body)),
       };
     } catch (error) {
       if (error instanceof WaitlistConfirmationConflict)

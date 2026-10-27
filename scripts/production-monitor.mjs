@@ -125,7 +125,7 @@ function checkCertificate(host) {
 export async function runChecks(certificateCheck = checkCertificate) {
   const results = await Promise.all([
     checkUrl(`${webOrigin}/`, () => Promise.resolve(null)),
-    checkUrl(`${apiOrigin}/billing/cohorts`, async (response) => {
+    checkUrl(`${apiOrigin}/billing/product-sales-states`, async (response) => {
       /** @type {unknown} */
       const body = await response.json();
       return typeof body === "object" &&

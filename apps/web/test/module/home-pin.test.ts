@@ -20,8 +20,8 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 import {
   handleHomePinReadRequest,
   handleHomePinWriteRequest,
-} from "@/features/series-order/api/home-pin-route.server";
-const seriesId = "10000000-0000-4000-8000-000000000001";
+} from "@/features/product-order/api/home-pin-route.server";
+const productId = "10000000-0000-4000-8000-000000000001";
 function request(
   input: Record<string, unknown>,
   origin = "https://inside.example.test",
@@ -39,30 +39,30 @@ beforeEach(() => {
 it("authenticates selection and removal and keeps both reads and writes private", async () => {
   fakes.load.mockResolvedValue({
     ok: true,
-    body: { seriesId: null, version: 1 },
+    body: { productId: null, version: 1 },
     response: new Response(),
   });
   const read = await handleHomePinReadRequest();
   expect(await read.json()).toEqual({
     kind: "ready",
-    pin: { seriesId: null, version: 1 },
+    pin: { productId: null, version: 1 },
   });
   expect(read.headers.get("cache-control")).toBe("no-store, private");
-  for (const id of [seriesId, null]) {
+  for (const id of [productId, null]) {
     fakes.save.mockResolvedValue({
       ok: true,
-      body: { seriesId: id, version: 2 },
+      body: { productId: id, version: 2 },
       response: new Response(),
     });
     const response = await handleHomePinWriteRequest(
-      request({ seriesId: id, expectedVersion: 1, actor: "untrusted" }),
+      request({ productId: id, expectedVersion: 1, actor: "untrusted" }),
     );
     expect(await response.json()).toEqual({
       kind: "ready",
-      pin: { seriesId: id, version: 2 },
+      pin: { productId: id, version: 2 },
     });
     expect(fakes.save).toHaveBeenLastCalledWith(
-      { seriesId: id, expectedVersion: 1 },
+      { productId: id, expectedVersion: 1 },
       "trusted-token",
     );
     expect(response.headers.get("cache-control")).toBe("no-store, private");
@@ -76,7 +76,7 @@ it("rejects cross-origin and malformed writes before backend access", async () =
   expect(
     await (
       await handleHomePinWriteRequest(
-        request({ seriesId: "bad", expectedVersion: 0 }),
+        request({ productId: "bad", expectedVersion: 0 }),
       )
     ).json(),
   ).toEqual({ kind: "invalid_input" });
@@ -98,7 +98,7 @@ it.each([
     expect(
       await (
         await handleHomePinWriteRequest(
-          request({ seriesId, expectedVersion: 1 }),
+          request({ productId, expectedVersion: 1 }),
         )
       ).json(),
     ).toEqual({ kind });
@@ -107,12 +107,14 @@ it.each([
 it("does not accept a malformed success body", async () => {
   fakes.save.mockResolvedValue({
     ok: true,
-    body: { seriesId, version: 0 },
+    body: { productId, version: 0 },
     response: new Response(),
   });
   expect(
     await (
-      await handleHomePinWriteRequest(request({ seriesId, expectedVersion: 1 }))
+      await handleHomePinWriteRequest(
+        request({ productId, expectedVersion: 1 }),
+      )
     ).json(),
   ).toEqual({ kind: "unavailable" });
 });

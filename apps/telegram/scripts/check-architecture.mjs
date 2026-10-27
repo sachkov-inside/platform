@@ -36,9 +36,9 @@ const sharedForbiddenLayers = ["modules", "adapters", "operations", "config"];
 // The owning module reads or writes these tables, through owner interfaces.
 // `database/` keeps the schema, migrations and retention for every table.
 const tableOwners = {
-  activation_announcement_deliveries: "modules/subscription-activation",
-  activation_attempts: "modules/subscription-activation",
-  activation_review_requests: "modules/subscription-activation",
+  activation_announcement_deliveries: "modules/course-activation",
+  activation_attempts: "modules/course-activation",
+  activation_review_requests: "modules/course-activation",
   bot_contact_events: "modules/bot-contacts",
   bot_contacts: "modules/bot-contacts",
   communication_author_compositions: "modules/communications",
@@ -51,9 +51,9 @@ const tableOwners = {
   communication_broadcasts: "modules/communications",
   communication_contacts: "modules/communications",
   communication_deliveries: "modules/communications",
-  communication_enrollments: "modules/communications",
+  communication_participations: "modules/communications",
   communication_entries: "modules/communications",
-  communication_funnels: "modules/communications",
+  communication_sequences: "modules/communications",
   communication_intake_receipts: "modules/communications",
   communication_intro: "modules/communications",
   communication_operations: "modules/communications",
@@ -75,7 +75,7 @@ const tableOwners = {
   community_restriction_decisions: "modules/community",
   identity_link_events: "modules/identity-linking",
   identity_link_recoveries: "modules/identity-linking",
-  invitation_redemptions: "modules/subscription-activation",
+  invitation_redemptions: "modules/course-activation",
   link_transactions: "modules/identity-linking",
   membership_check_results: "modules/membership-evidence",
   membership_checks: "modules/membership-evidence",
@@ -99,6 +99,8 @@ const tableOwners = {
   telegram_transport_fairness: "modules/outbound",
   telegram_transport_slots: "modules/outbound",
   telegram_updates: "modules/update-inbox",
+  telegram_user_activity: "modules/update-inbox",
+  telegram_activity_collection: "modules/update-inbox",
 };
 
 // The author dialog decides every transition from its arguments alone; author-admin.ts runs
@@ -107,7 +109,7 @@ const pureDialogFiles = [
   "author-button",
   "author-composer",
   "author-dialog",
-  "author-funnels",
+  "author-sequences",
   "author-message-view",
   "author-sequence-composer",
   "author-transition",

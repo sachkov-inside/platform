@@ -10,18 +10,20 @@ import type { MaterialReaderMetadata } from "./material-reader-view";
 export function resolveReaderReturnTarget({
   returnTarget,
   material,
-  hasSeriesContext = false,
+  hasProductContext = false,
   inferCourseReturn = false,
 }: {
   readonly returnTarget: MaterialReaderReturnTarget;
-  readonly material?: Pick<MaterialReaderMetadata, "seriesMemberships">;
-  readonly hasSeriesContext?: boolean;
+  readonly material?: Pick<MaterialReaderMetadata, "productMemberships">;
+  readonly hasProductContext?: boolean;
   readonly inferCourseReturn?: boolean;
 }): MaterialReaderReturnTarget {
-  const memberships = material?.seriesMemberships ?? [];
-  if (returnTarget.kind === "series") {
-    return hasSeriesContext ||
-      memberships.some(({ series }) => series.slug === returnTarget.seriesSlug)
+  const memberships = material?.productMemberships ?? [];
+  if (returnTarget.kind === "product") {
+    return hasProductContext ||
+      memberships.some(
+        ({ product }) => product.slug === returnTarget.productSlug,
+      )
       ? returnTarget
       : homeMaterialReaderReturnTarget;
   }
@@ -32,7 +34,7 @@ export function resolveReaderReturnTarget({
     soleMembership !== undefined
   ) {
     return parseMaterialReaderReturnTarget(
-      productProgrammeHref(soleMembership.series.slug),
+      productProgrammeHref(soleMembership.product.slug),
     );
   }
   return returnTarget;

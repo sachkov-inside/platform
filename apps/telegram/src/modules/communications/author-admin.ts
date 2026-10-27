@@ -22,7 +22,7 @@ import {
   type AuthorAuthorization,
 } from "./author-authorization.js";
 import { AuthorBroadcastDrafts } from "./author-broadcast-drafts.js";
-import { AuthorFunnelDrafts } from "./author-funnel-drafts.js";
+import { AuthorSequenceDrafts } from "./author-sequence-drafts.js";
 import {
   AUTHOR_CONTENT_VALIDATION,
   validateAuthorContent,
@@ -40,7 +40,7 @@ import {
   pendingCompositions,
   removeAuthorDraft,
   retainComposition,
-  retainFunnelDraft,
+  retainSequenceDraft,
   saveAuthorDraft,
 } from "./author-drafts.js";
 import type { AuthorInput } from "./author-input.js";
@@ -54,7 +54,7 @@ import {
   validRequest,
   type CommunicationsRequest,
 } from "./communications-contract.js";
-import { Funnels } from "./funnels.js";
+import { CommunicationSequences } from "./communication-sequences.js";
 
 type Tx = Transaction<DatabaseSchema>;
 /** One author update being handled: its transaction, input and authorized author. */
@@ -80,20 +80,21 @@ const RECOVERABLE = [
 @Injectable()
 export class AuthorAdmin {
   private readonly broadcastDrafts: AuthorBroadcastDrafts;
-  private readonly funnelDrafts: AuthorFunnelDrafts;
+  private readonly sequenceDrafts: AuthorSequenceDrafts;
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(AUTHOR_AUTHORIZATION)
     private readonly authorization: AuthorAuthorization,
     @Inject(Communications) private readonly posts: Communications,
-    @Inject(Funnels) private readonly funnels: Funnels,
+    @Inject(CommunicationSequences)
+    private readonly sequences: CommunicationSequences,
     @Inject(AuthorDelivery) private readonly delivery: AuthorDelivery,
     @Inject(AUTHOR_CONTENT_VALIDATION)
     private readonly validation: AuthorContentValidation,
   ) {
-    this.broadcastDrafts = new AuthorBroadcastDrafts(funnels);
-    this.funnelDrafts = new AuthorFunnelDrafts(funnels);
+    this.broadcastDrafts = new AuthorBroadcastDrafts(sequences);
+    this.sequenceDrafts = new AuthorSequenceDrafts(sequences);
   }
   async handle(input: AuthorInput): Promise<boolean> {
     if (input.botIdentity !== this.config.botIdentity) return false;
@@ -189,7 +190,7 @@ export class AuthorAdmin {
                 ? { kind: "callback", data: input.callbackData }
                 : { kind: "text", text: input.text, content: input.content },
         );
-        await retainFunnelDraft(context, state.funnelAuthor);
+        await retainSequenceDraft(context, state.sequenceAuthor);
         await retainComposition(context, state);
         await tx
           .insertInto("communication_author_sessions")
@@ -329,8 +330,8 @@ export class AuthorAdmin {
         );
         return;
       }
-      case "retain-funnel-draft":
-        await retainFunnelDraft(c, effect.funnelAuthor);
+      case "retain-sequence-draft":
+        await retainSequenceDraft(c, effect.sequenceAuthor);
         return;
       case "remove-draft":
         await removeAuthorDraft(c, effect.id);
@@ -339,7 +340,7 @@ export class AuthorAdmin {
         await discardComposition(c, effect.id);
         return;
       case "read-statistics": {
-        const result = await this.funnels.execute(
+        const result = await this.sequences.execute(
           this.request(
             c,
             "statistics.read",
@@ -410,7 +411,7 @@ export class AuthorAdmin {
         }
       case "save-broadcast": {
         const b = effect.broadcast;
-        const result = await this.funnels.execute(
+        const result = await this.sequences.execute(
           this.request(
             c,
             "broadcasts.save",
@@ -431,7 +432,7 @@ export class AuthorAdmin {
         };
       }
       case "change-broadcast": {
-        const result = await this.funnels.execute(
+        const result = await this.sequences.execute(
           this.request(
             c,
             effect.operation === "launch"
@@ -468,28 +469,28 @@ export class AuthorAdmin {
           composing: await loadComposition(c, effect.destinationId),
           then: effect.then,
         };
-      case "list-funnels":
+      case "list-sequences":
         return {
-          kind: "funnels-listed",
-          ...(await this.funnelDrafts.list(c, effect.cursor)),
+          kind: "sequences-listed",
+          ...(await this.sequenceDrafts.list(c, effect.cursor)),
         };
-      case "read-funnel":
+      case "read-sequence":
         return {
-          kind: "funnel-read",
-          funnelAuthor: await this.funnelDrafts.read(c, effect.funnelId),
+          kind: "sequence-read",
+          sequenceAuthor: await this.sequenceDrafts.read(c, effect.sequenceId),
         };
       case "read-intro":
         return {
           kind: "intro-read",
-          funnelAuthor: await this.funnelDrafts.readIntro(c),
+          sequenceAuthor: await this.sequenceDrafts.readIntro(c),
         };
-      case "save-funnel": {
-        const f = effect.funnel;
+      case "save-sequence": {
+        const f = effect.sequence;
         const request = this.request(
           c,
-          "funnels.save",
+          "sequences.save",
           {
-            funnelId: f.funnelId,
+            sequenceId: f.sequenceId,
             name: f.name,
             isDefault: f.isDefault,
             sources: f.sources,
@@ -499,11 +500,11 @@ export class AuthorAdmin {
           f.revision,
         );
         if (!validRequest(request))
-          return { kind: "funnel-invalid", then: effect.then };
-        const result = await this.funnels.execute(request, c.tx);
+          return { kind: "sequence-invalid", then: effect.then };
+        const result = await this.sequences.execute(request, c.tx);
         return {
-          kind: "funnel-saved",
-          funnel: "funnel" in result ? result.funnel : undefined,
+          kind: "sequence-saved",
+          sequence: "sequence" in result ? result.sequence : undefined,
           then: effect.then,
         };
       }
@@ -523,7 +524,7 @@ export class AuthorAdmin {
           ),
         };
       case "save-intro": {
-        const result = await this.funnels.execute(
+        const result = await this.sequences.execute(
           this.request(
             c,
             "intro.save",
@@ -537,46 +538,46 @@ export class AuthorAdmin {
           intro: "intro" in result ? result.intro : undefined,
         };
       }
-      case "lock-funnel": {
-        const loaded = await this.funnels.execute(
-          this.request(c, "funnels.read", { funnelId: effect.funnelId }),
+      case "lock-sequence": {
+        const loaded = await this.sequences.execute(
+          this.request(c, "sequences.read", { sequenceId: effect.sequenceId }),
           c.tx,
         );
         return {
-          kind: "funnel-locked",
+          kind: "sequence-locked",
           publish: effect.publish,
-          revision: "funnel" in loaded ? loaded.funnel.revision : undefined,
+          revision: "sequence" in loaded ? loaded.sequence.revision : undefined,
         };
       }
-      case "publish-funnel": {
-        const output = await this.funnels.execute(
+      case "publish-sequence": {
+        const output = await this.sequences.execute(
           this.request(
             c,
-            effect.publish ? "funnels.publish" : "funnels.preview",
-            { funnelId: effect.funnelId },
+            effect.publish ? "sequences.publish" : "sequences.preview",
+            { sequenceId: effect.sequenceId },
             effect.revision,
           ),
           c.tx,
         );
-        if ("funnel" in output)
-          return { kind: "funnel-published", funnel: output.funnel };
+        if ("sequence" in output)
+          return { kind: "sequence-published", sequence: output.sequence };
         if ("preview" in output)
           return { kind: "publication-previewed", preview: output.preview };
         throw new CommunicationsError("malformed");
       }
-      case "change-funnel": {
-        const result = await this.funnels.execute(
+      case "change-sequence": {
+        const result = await this.sequences.execute(
           this.request(
             c,
-            "funnels.lifecycle",
-            { funnelId: effect.funnelId, action: effect.action },
+            "sequences.lifecycle",
+            { sequenceId: effect.sequenceId, action: effect.action },
             effect.revision,
           ),
           c.tx,
         );
         return {
-          kind: "funnel-changed",
-          funnel: "funnel" in result ? result.funnel : undefined,
+          kind: "sequence-changed",
+          sequence: "sequence" in result ? result.sequence : undefined,
         };
       }
       case "read-part-history":
@@ -584,9 +585,9 @@ export class AuthorAdmin {
           kind: "part-history-read",
           partId: effect.partId,
           delaySeconds: effect.delaySeconds,
-          published: await this.funnelDrafts.wasPublished(
+          published: await this.sequenceDrafts.wasPublished(
             c,
-            effect.funnelId,
+            effect.sequenceId,
             effect.partId,
           ),
         };

@@ -43,7 +43,7 @@ def verify(output,mode,*,command_exit):
             or any(cleanup[key]!='passed' for key in ('diagnostics','down','residue'))):artifact.refuse()
     typed=cleanup['source_freshness']
     if (type(typed) is not dict or set(typed)!={'outcome','containers','volumes','networks'} or typed['outcome']!='passed'
-            or any(type(typed[key]) is not int or typed[key]!=count for key,count in (('containers',7),('volumes',4),('networks',2)))):artifact.refuse()
+            or any(type(typed[key]) is not int or typed[key]!=count for key,count in (('containers',8),('volumes',4),('networks',2)))):artifact.refuse()
     if (type(outcome) is not dict or set(outcome)!={'exit_code','duration_seconds','monitor_failed','cleanup'}
             or type(outcome['exit_code']) is not int or outcome['exit_code']!=(124 if mode=='timeout' else 1)
             or outcome['monitor_failed'] is not False or outcome['cleanup']!=cleanup

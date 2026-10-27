@@ -4,9 +4,9 @@ import { parseMaterialReaderReturnTarget } from "../../src/shared/routing/materi
 
 const membership = (slug: string) => ({
   ordinal: 1,
-  series: { id: slug, name: slug, slug },
+  product: { id: slug, name: slug, slug },
 });
-const material = { seriesMemberships: [membership("ai-engineering")] };
+const material = { productMemberships: [membership("ai-engineering")] };
 
 describe("Reader course return without chapter navigation", () => {
   it.each([
@@ -42,14 +42,14 @@ describe("Reader course return without chapter navigation", () => {
   );
 
   it.each([
-    { seriesMemberships: [] },
-    { seriesMemberships: [membership("first"), membership("second")] },
+    { productMemberships: [] },
+    { productMemberships: [membership("first"), membership("second")] },
   ])(
     "does not guess an ambiguous or absent course",
-    ({ seriesMemberships }) => {
+    ({ productMemberships }) => {
       expect(
         resolveReaderReturnTarget({
-          material: { seriesMemberships },
+          material: { productMemberships },
           returnTarget: parseMaterialReaderReturnTarget(undefined),
           inferCourseReturn: true,
         }).kind,
@@ -73,7 +73,7 @@ describe("Reader course return without chapter navigation", () => {
       "/products/course/programme",
     );
     expect(
-      resolveReaderReturnTarget({ returnTarget, hasSeriesContext: true }),
+      resolveReaderReturnTarget({ returnTarget, hasProductContext: true }),
     ).toEqual(returnTarget);
   });
 });

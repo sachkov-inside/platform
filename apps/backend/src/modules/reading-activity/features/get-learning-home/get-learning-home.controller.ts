@@ -23,11 +23,11 @@ import {
 import { PersonalHome } from "../../facets/personal-home/personal-home.js";
 import { throwPersonalHomeError } from "../../adapters/nest/personal-home-http.js";
 import { continueMaterialSchema } from "../get-continue-materials/get-continue-materials.controller.js";
-import { seriesContinuationHttpSchema } from "../get-series-continuation/get-series-continuation.controller.js";
+import { productContinuationHttpSchema } from "../get-product-continuation/get-product-continuation.controller.js";
 export const learningHomeHttpSchema = z
   .object({
     video: continueMaterialSchema.nullable(),
-    series: seriesContinuationHttpSchema.nullable(),
+    product: productContinuationHttpSchema.nullable(),
   })
   .strict();
 @ApiTags("Personal home")
@@ -42,7 +42,7 @@ export class GetLearningHomeController {
   @ApiOperation({
     operationId: "getLearningHome",
     summary:
-      "Read the latest unfinished Series and partially watched Video of the current Account",
+      "Read the latest unfinished Product and partially watched Video of the current Account",
   })
   @ApiOkResponse({ schema: toOpenApiSchema(learningHomeHttpSchema) })
   @ApiResponse({

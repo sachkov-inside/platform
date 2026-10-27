@@ -1,8 +1,8 @@
+import type { ConfirmedTelegramAction } from "./telegram-user-activity.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
-import { SubscriptionActivation } from "../subscription-activation/subscription-activation.js";
-import { InvitationRedemption } from "../subscription-activation/invitation-redemption.js";
+import { CourseActivation } from "../course-activation/course-activation.js";
 import { AuthorAdmin } from "../communications/author-admin.js";
 import { MarketingEntry } from "../communications/marketing-entry.js";
 import { Communications } from "../communications/communications.js";
@@ -18,7 +18,6 @@ import {
   type TelegramCallbackAnswers,
 } from "../bot-sign-in/telegram-callback-answers.js";
 import { IdentityLinking } from "../identity-linking/identity-linking.js";
-import { MembershipEvidenceProvider } from "../membership-evidence/membership-evidence-provider.js";
 import {
   reportCondition,
   reportFailure,
@@ -58,19 +57,14 @@ export class TelegramUpdateProcessor {
   private readonly senderLimit: SenderRateLimit;
 
   constructor(
-    @Inject(SubscriptionActivation)
-    private readonly activation: Pick<
-      SubscriptionActivation,
-      "start" | "action"
-    >,
+    @Inject(CourseActivation)
+    private readonly activation: Pick<CourseActivation, "start" | "action">,
     @Inject(TelegramUpdateInbox) private readonly inbox: TelegramUpdateInbox,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(BotContacts) private readonly botContacts: BotContacts,
     @Inject(IdentityLinking)
     private readonly identityLinking: IdentityLinking,
     @Inject(RUNTIME_COUNTERS) private readonly metrics: RuntimeCounters,
-    @Inject(MembershipEvidenceProvider)
-    private readonly membershipEvidence: MembershipEvidenceProvider,
     @Inject(BotSignIn) private readonly signIn: BotSignIn,
     @Inject(TELEGRAM_CALLBACK_ANSWERS)
     private readonly callbackAnswers: TelegramCallbackAnswers,
@@ -85,8 +79,6 @@ export class TelegramUpdateProcessor {
     private readonly replies: StartResponseDeliveryQueue,
     @Inject(TELEGRAM_UPDATE_TRANSLATOR)
     private readonly translator: TelegramUpdateTranslator,
-    @Inject(InvitationRedemption)
-    private readonly invitations: Pick<InvitationRedemption, "start" | "retry">,
   ) {
     // Counted by webhook arrival, so a backlog after a processing delay is not refused.
     this.senderLimit = new SenderRateLimit(
@@ -123,9 +115,15 @@ export class TelegramUpdateProcessor {
           : "admitted";
         if (request && admission !== "admitted")
           await this.refuse(update, request, admission);
-        else await this.handle(command);
+        else await this.handle(command, update.updateId);
 
-        if (!(await this.inbox.markProcessed(update, now ?? new Date())))
+        const activity =
+          admission === "admitted"
+            ? await this.confirmedActivity(command, update.updateId)
+            : undefined;
+        if (
+          !(await this.inbox.markProcessed(update, now ?? new Date(), activity))
+        )
           reportCondition("update-inbox.process", "lease_lost", {
             update_id: update.updateId,
           });
@@ -154,6 +152,53 @@ export class TelegramUpdateProcessor {
     return processed;
   }
 
+  /** Recognized input alone is insufficient: every admitted kind needs its owner's durable success. */
+  private async confirmedActivity(
+    command: TelegramUpdateCommand,
+    updateId: string,
+  ): Promise<ConfirmedTelegramAction | undefined> {
+    switch (command.kind) {
+      case "marketing_preference":
+      case "start": {
+        const contact = command.value.contact;
+        const kind = await this.marketing.confirmedActivity(
+          contact.botIdentity,
+          contact.updateId,
+          contact.telegramUserId,
+        );
+        return kind === undefined
+          ? undefined
+          : { telegramUserId: contact.telegramUserId, kind };
+      }
+      case "template-intake":
+      case "author-input": {
+        const contact = command.value;
+        return (await this.communications.confirmedTemplateActivity(
+          contact.botIdentity,
+          contact.updateId,
+        ))
+          ? { telegramUserId: contact.telegramUserId, kind: "template_saved" }
+          : undefined;
+      }
+      case "sign-in-decision":
+        return (await this.signIn.confirmedDecision(command.value, updateId))
+          ? {
+              telegramUserId: command.value.telegramUserId,
+              kind: "sign_in_decision",
+            }
+          : undefined;
+      case "access-action":
+      case "community-request":
+      case "contactability":
+      case "membership":
+      case "join-request":
+      case "ignored":
+        return undefined;
+      default:
+        return unhandled(command, "Telegram activity command");
+    }
+  }
+
   /** A refused press still stops its button spinner; one notice per window explains the silence. */
   private async refuse(
     update: ClaimedTelegramUpdate,
@@ -174,13 +219,13 @@ export class TelegramUpdateProcessor {
       });
   }
 
-  private async handle(command: TelegramUpdateCommand): Promise<void> {
+  private async handle(
+    command: TelegramUpdateCommand,
+    updateId: string,
+  ): Promise<void> {
     switch (command.kind) {
       case "access-action":
         await this.botContacts.observeStart(command.value, "none");
-        // "I linked Telegram" also continues invitations that wait for an Account.
-        if (command.action === "retry" && command.activationCode === undefined)
-          await this.invitations.retry(command.value);
         await this.activation.action(
           command.value,
           command.action,
@@ -202,7 +247,7 @@ export class TelegramUpdateProcessor {
       case "start":
         return this.start(command.value);
       case "sign-in-decision":
-        await this.signIn.decide(command.value);
+        await this.signIn.decide(command.value, updateId);
         await this.callbackAnswers.answer(command.callbackQueryId);
         return;
       case "contactability":
@@ -210,7 +255,6 @@ export class TelegramUpdateProcessor {
         return;
       case "membership":
         await this.community.observeMembershipEvent(command.value);
-        await this.membershipEvidence.accept(command.value);
         return;
       case "join-request":
         await this.community.acceptJoinRequest(command.value);
@@ -243,8 +287,7 @@ export class TelegramUpdateProcessor {
   private async start(
     start: Extract<TelegramUpdateCommand, { kind: "start" }>["value"],
   ): Promise<void> {
-    const accessLink =
-      start.activationCode !== undefined || start.invitationCode !== undefined;
+    const accessLink = start.activationCode !== undefined;
     await this.botContacts.observeStart(
       start.contact,
       accessLink || isTruthy(this.config.activation?.enabled)
@@ -259,8 +302,6 @@ export class TelegramUpdateProcessor {
     );
     if (start.activationCode !== undefined)
       await this.activation.start(start.contact, start.activationCode);
-    if (start.invitationCode !== undefined)
-      await this.invitations.start(start.contact, start.invitationCode);
     if (start.signInToken?.kind === "digest") {
       await this.signIn.acceptStart(start.contact, start.signInToken.digest);
     }

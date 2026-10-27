@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import { z } from "zod";
 import assert from "node:assert/strict";
@@ -89,14 +90,14 @@ async function fixture(t, publication = "published") {
     metadata: {
       slug: "one",
       access: "free",
-      seriesMemberships:
-        /** @type {{seriesId: string; ordinal: number}[]} */ ([]),
+      productMemberships:
+        /** @type {{productId: string; ordinal: number}[]} */ ([]),
     },
     publicationState: /** @type {'draft'|'published'|'unpublished'} */ (
       publication
     ),
     source:
-      /** @type {{ id: string; path: string; revision: string; showInFeed: boolean } | null} */ (
+      /** @type {{ id: string; path: string; revision: string; version: 2 } | null} */ (
         null
       ),
   };
@@ -104,7 +105,7 @@ async function fixture(t, publication = "published") {
   const writes = [];
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path, body) => {
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (path === "/authoring/collections?kind=topic") return [];
     if (path === "/authoring/collections?kind=product") return [];
     if (path.endsWith("/validate")) return { valid: true };
@@ -117,7 +118,7 @@ async function fixture(t, publication = "published") {
         id: reservedSource.id,
         path: reservedSource.path,
         revision: "b".repeat(64),
-        showInFeed: false,
+        version: 2,
       };
       return { materialId, contentVersion: model.contentVersion };
     }
@@ -128,7 +129,14 @@ async function fixture(t, publication = "published") {
       writes.push(path);
       model.contentVersion += 1;
       model.metadata.access = command.metadata.access;
-      model.source = command.source;
+      model.source = z
+        .object({
+          version: z.literal(2),
+          id: z.string(),
+          path: z.string(),
+          revision: z.string(),
+        })
+        .parse(command.source);
       model.publicationState =
         command.publicationState === "published" ? "published" : "draft";
       return { materialId, contentVersion: model.contentVersion };
@@ -411,7 +419,7 @@ test("bounded preservation retains embedded Task context and writes only the sel
     sourcePath: "untouched.md",
     markdown: "Never import this changed context",
   });
-  f.model.metadata.seriesMemberships = [{ seriesId: productId, ordinal: 1 }];
+  f.model.metadata.productMemberships = [{ productId: productId, ordinal: 1 }];
   lesson.practiceTaskId = "embedded";
   lesson.markdown = "Changed [task](embedded.md) and [context](untouched.md).";
   lesson.links = { "embedded.md": "embedded", "untouched.md": "untouched" };
@@ -590,7 +598,7 @@ test("bounded preview refuses a selected Material membership change before write
     artifactIds: [],
   };
   // Source context omits a Product that still owns the selected Material on target.
-  f.model.metadata.seriesMemberships = [{ seriesId: productId, ordinal: 1 }];
+  f.model.metadata.productMemberships = [{ productId: productId, ordinal: 1 }];
   await writeFile(f.packagePath, canonical(f.manifest));
   await assert.rejects(
     previewPreservation(f.packagePath, f.state, {
@@ -678,7 +686,7 @@ test("bounded Task preservation refuses placement drift before writes", async (t
   assert.deepEqual(f.writes, []);
 });
 
-test("preservation uses the legacy Material wire shape when source omits notification intent", async (t) => {
+test("preservation omits notification intent on the current Material wire shape when source omits notification intent", async (t) => {
   const f = await fixture(t);
   const request = /** @type {import('./target.mjs').LocalTransport} */ (
     async (path, body, key, options) => {
@@ -722,6 +730,7 @@ test("preservation uses the legacy Material wire shape when source omits notific
   assert.ok(selected);
   previous.body.source.revision = materialRevision(derived.manifest, selected);
   previous.body.expectedContentVersion = f.model.contentVersion;
+  previous.body.source["commit"] = "a".repeat(40);
   previous.body.body = z
     .object({ schemaVersion: z.number(), doc: z.json() })
     .parse(

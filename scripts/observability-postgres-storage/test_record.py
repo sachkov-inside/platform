@@ -23,7 +23,7 @@ class Records(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve()
             for reason in oracle.ORACLE_REASONS:
-                for phase in ('baseline_first_stored_oracle','baseline_second_stored_oracle'):
+                for phase in ('baseline_first_stored_oracle','baseline_second_stored_oracle','restart_unavailable_read'):
                     value=self.value();value.update(state='failed',phase=phase,reason=reason)
                     record.write(root,value);self.assertEqual(record.read(root,'a'*40),value)
                     self.assertEqual(len(value),8);self.assertLessEqual((root/record.NAME).stat().st_size,4096)
@@ -249,3 +249,57 @@ class Records(unittest.TestCase):
                 bad['cases']=[{'phase':phase,'freshness':'fresh','continuity':'same_epoch',
                     'count_complete':True,'points':7,'age_seconds':0}]
                 with self.assertRaises(ValueError):record.validate(bad,'a'*40)
+
+
+    def test_upload_diagnostic_curation_refuses_unbounded_provider_or_exception_fields(self):
+        import postgres_source
+        from test_public import AdmissionComposition
+        value={'schema':1,'phase':'baseline_first_upload','step':'http_open','outcome':'failed','error':'http_status','http_status':400,'returncode':None}
+        for step,outcome,error in (('controlled_flush','failed','operation_failed'),('controlled_publication','passed',None)):
+            observed={**value,'step':step,'outcome':outcome,'error':error,'http_status':200}
+            self.assertEqual(record.upload_operation(observed),observed)
+        for control in ('valid','exception','status','step'):
+            with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700);metadata=root/'metadata';public=root/'public'
+                with AdmissionComposition().external_reads(root):
+                    postgres_source.admission(metadata);record.write(output,self.value())
+                    record.persist_upload(output,value)
+                    if control!='valid':
+                        path=output/'postgres-upload.json';raw=json.loads(path.read_text())
+                        if control=='exception':raw['exception']='private-sentinel'
+                        elif control=='status':raw['http_status']=True
+                        else:raw['step']='private-sentinel'
+                        path.write_text(json.dumps(raw))
+                    if control=='valid':
+                        postgres_source.collect(output,metadata,public)
+                        self.assertEqual(json.loads((public/'postgres-upload.json').read_text()),value)
+                    else:
+                        with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
+                        self.assertFalse(public.exists())
+
+    def test_visibility_timing_curation_keeps_only_closed_source_bound_numbers(self):
+        import copy
+        import postgres_source
+        from test_public import AdmissionComposition
+        value={'schema':1,'source':'a'*40,'overflow':False,'rows':[{'phase':'baseline_second_stored_oracle','step':'stored','elapsed_ms':500,
+            'expected_age_ms':750,'stored_age_ms':13000,'freshness':'stale','previous_committed':True}]}
+        for control in ('valid','exception','source','age'):
+            with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700);metadata=root/'metadata';public=root/'public'
+                with AdmissionComposition().external_reads(root):
+                    postgres_source.admission(metadata);record.write(output,self.value())
+                    record.persist_visibility(output,value,'a'*40)
+                    path=output/'postgres-visibility.json'
+                    self.assertEqual(path.stat().st_mode&0o777,0o600)
+                    if control!='valid':
+                        changed=copy.deepcopy(value)
+                        if control=='exception':changed['rows'][0]['body']='private-sentinel'
+                        elif control=='source':changed['source']='b'*40
+                        else:changed['rows'][0]['expected_age_ms']=True
+                        path.write_text(json.dumps(changed))
+                    if control=='valid':
+                        postgres_source.collect(output,metadata,public)
+                        self.assertEqual(json.loads((public/'postgres-visibility.json').read_text()),value)
+                    else:
+                        with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
+                        self.assertFalse(public.exists())

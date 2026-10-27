@@ -209,18 +209,31 @@ describe("production runtime readiness", () => {
     // Воркер держит обработчик своего отказа сразу, как `assembleNotificationWorker`.
     void failure.catch(() => undefined);
     let drained = false;
+    const cleanup: string[] = [];
 
     // Остановка после отказа — следствие, а не причина: её собственный срок не должен заменить
     // собой то, из-за чего воркер остановился.
     await expect(
       runWorker({
-        application: { close: () => Promise.resolve() },
+        application: {
+          close: () => {
+            cleanup.push("application");
+            return Promise.resolve();
+          },
+        },
+        workObservations: {
+          close: () => {
+            cleanup.push("observations");
+            return Promise.resolve();
+          },
+        },
         databaseUrl: database.url,
         failed: failure,
         jobs: {
           start: () => Promise.resolve(),
           stop() {
             drained = true;
+            cleanup.push("jobs");
             return Promise.reject(new Error("notification_drain_timeout"));
           },
         },
@@ -233,6 +246,7 @@ describe("production runtime readiness", () => {
       }),
     ).rejects.toThrow("notification_broker_disconnected");
     expect(drained).toBe(true);
+    expect(cleanup).toEqual(["jobs", "observations", "application"]);
   });
 
   test("reports the failure that stopped a worker even when its cleanup fails", async () => {

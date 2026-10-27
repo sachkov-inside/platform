@@ -69,6 +69,14 @@ Publisher releases: [Grafana 13.2.4](https://github.com/grafana/grafana/releases
 [VictoriaTraces 0.12.0](https://github.com/VictoriaMetrics/VictoriaTraces/releases/tag/v0.12.0).
 Это происхождение inputs, а не доказательство совместимости.
 
+Начиная с исправления SEC-1566-2 общий runtime включает также обязательный private `horizon`.
+Метрики и Jaeger из Grafana, native MCP и прямого query API проходят одну event-time границу;
+физический retention сам по себе её не доказывает. Перед `up` worker собирает source-bound
+статический guard закреплённым Go1.26.4, проверяет его manifest и удаляет временную сборку.
+Образ переиспользует pin metrics; отдельный процесс входит в общий lifecycle и measurement.
+Ограничения запросов и установка описаны в [production runbook](observability-production.md).
+Исторические результаты семи процессов выше не являются ресурсным доказательством нового состава.
+
 Для каждого asset закреплён `size_bytes` из GitHub Releases. Downloader читает не больше
 этого размера плюс один байт и требует точного размера и SHA256; дополнительный предел
 сжатого содержимого архива составляет 128MiB.
@@ -148,6 +156,8 @@ OTLP metrics/logs/traces, читает известный
 log и trace через query API, выполняет обязательный read POST, отрицательные проверки
 auth/method/mutation/encoded traversal, перезапускает Alloy, дожидается сохранения нового
 уникального trace через защищённый Jaeger API и отзывает временный ключ.
+Native Jaeger discovery читает сервисы через `/select/jaeger/api/services`, а операции
+одного сервиса через `/select/jaeger/api/services/{service}/operations`.
 Пять spans HTTP → publish → attempt → retry → dependency **сгенерированы fixture**;
 это не доказательство передачи контекста SDK/настоящей очередью/worker.
 
@@ -892,8 +902,8 @@ source-кандидата collector runtime ещё не выполнялся.
 
 ## Наблюдение собственных обращений к T-Bank
 
-`Tbank.call` наблюдает семь фиксированных операций: `Init`, `GetState`, `CheckOrder`,
-`Charge`, `Cancel`, `AddCard`, `GetAddCardState`. Один допущенный вызов делает один POST,
+`Tbank.call` наблюдает три действующие фиксированные операции: `Init`, `GetState`, `CheckOrder`.
+Удалённые операции recurring/card binding не возвращаются ради мониторинга. Один допущенный вызов делает один POST,
 без внутреннего повтора. Локальная проверка до `call`, приём notification и шифрование
 привязки не являются HTTP-обращениями. Duration включает подготовку существующего запроса,
 ожидание ответа и его существующее JSON-чтение, но исключает последующую проверку доменной
@@ -1974,6 +1984,13 @@ that a test stopped, not that it passed. The first HTTP/identity group and third
 real backend corpus group remain unchanged. These source diagnostics do not explain
 earlier hosted timeouts, increase a budget, or establish native capacity acceptance.
 
+Collection privacy and controlled Docker-command faults use the existing private real-Git source
+fixture. Build-command fixtures additionally copy the actual pinned image manifest into their
+own commit. Git identity, byte hashes, source-drift refusal, ownership and cleanup remain real;
+no production source cache or hash oracle replacement is used. The independent full-repository
+input test and workflow-route closure still read the complete application, including Web.
+All 114 inventoried methods and their process, output and cleanup limits are retained.
+
 ### Prepared ordinary-role PostgreSQL server source
 
 The independent `postgres-source` job in `observability-tracking-storage.yml` prepares an opt-in,
@@ -2085,7 +2102,8 @@ Python принимает этап только после отправки setu
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
-Для отказа `baseline_first_stored_oracle` или `baseline_second_stored_oracle` существующее
+Для отказа `baseline_first_stored_oracle`, `baseline_second_stored_oracle` или
+`restart_unavailable_read` существующее
 поле `reason` также допускает закрытые `oracle_*` причины первого локального отказа.
 Они различают stale/unavailable, группы JSON/envelope/row/labels/number для значений
 и timestamps, затем join, identity, cohort и сравнение ожидаемого frame. Это категории
@@ -2114,6 +2132,73 @@ Final success additionally requires both the original Core7/4/2 and complete PG8
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
 
+Перед текущим чтением целочисленная query time достигается на ближайшей границе секунды
+внутри того же убывающего срока запроса (не более 10 секунд). Округление назад могло исключить
+уже сохранённый frame с дробной секундой и вернуть старый baseline, который oracle правильно
+считает stale. Запрос в будущее не выполняется; одинаковая временная граница используется
+для values, timestamps и контрольного global vector. Предел свежести 10 секунд и проверки
+полноты/cohort не меняются. Детерминированный тест воспроизводит этот отказ чтения;
+причинная связь с конкретным native CI требует нового source-bound прогона.
+
+Подтверждение OTLP HTTP 200 и доступность нового frame в VictoriaMetrics различаются.
+В закреплённом [VictoriaMetrics v1.154.0](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/storage/partition.go#L101)
+недавно принятые raw rows ещё не доступны поиску до преобразования в searchable parts.
+Проверка публикации допускает ожидание в прежнем 30-секундном окне, если raw vectors
+после всех прежних проверок полностью совпадают с последним frame, уже принятым private ledger.
+Это касается всех семи семейств и точного sample, не произвольного более старого результата.
+Старый frame остаётся `stale` в обычном oracle. Он не проходит приёмку и не продлевает
+порог свежести нового frame: новый frame обязан появиться с возрастом не более 10 секунд.
+Изменённый counter, чужая метка, неизвестный sample и новый stale frame
+не получают такого ожидания. Только после собственного controlled stop и подтверждённого
+чтением unavailable проверка публикации restart может дождаться замены этого точного frame.
+Все шесть retained значений, labels и source timestamps, включая timestamp availability=0,
+должны совпасть с уже прочитанным down frame; новый sample должен иметь другой postmaster epoch.
+Иной unavailable не допускается. Обычный oracle продолжает возвращать unavailable,
+а новый полный frame обязан пройти прежнюю свежесть. Query и decode используют один срок не более 10 секунд.
+Вычисление `ceil` и проверки frozen ownership сохранены.
+
+Внутри той же проверки публикации values и source timestamps читаются отдельными native запросами.
+Если searchable parts обновились между ними, обычный oracle возвращает malformed для смешанного cohort.
+Только при уже подтверждённой HTTP 200 публикации проверка может продолжить ожидание,
+когда каждое значение и source timestamp точно принадлежат предыдущему committed frame или новому ACKed frame.
+Availability=0 допускается лишь как фрагмент точного собственного down frame в restart.
+Новая метка, неизвестное значение или промежуточный timestamp сразу отклоняются.
+Смешанный ответ не считается здоровым: завершение по-прежнему требует полного нового свежего frame.
+
+`postgres-visibility.json` отдельно сохраняет до 64 закрытых baseline timing rows:
+длительности acquire/upload/stored-read, возраст ожидаемого и прочитанного sample,
+исходную freshness и признак точного предыдущего committed frame. Публикуются только
+числа и конечные перечисления, без исходных timestamps, vectors, SQL, текстов ошибок
+и credentials. Receipt/source SHA проверяются до создания публичного каталога;
+превышение числа строк отмечается явно. Детерминированный RED/GREEN воспроизводит
+async visibility с прежним stale frame, а фактическое native завершение требует нового CI.
+
+### PostgreSQL: контролируемая публикация снимков fixture
+
+Обычные снимки сценария (baseline, соединения, блокировки, reset и восстановление после restart)
+и собственный `available=0` проходят один барьер публикации. Сначала требуется полный
+синхронный ACK Alloy: HTTP 200 с `{}` либо `{"partialSuccess":{}}`. Непустой partialSuccess,
+неизвестное поле, некорректный JSON и неполный ответ не разрешают flush. Затем используется
+тот же существующий аутентифицированный flush собственного metrics-контейнера, что и в
+проверке приватности ниже. Обе операции делят один убывающий срок не более 10 секунд;
+переданный срок остановки PostgreSQL сохраняется, а flush получает не более двух секунд.
+После барьера исходный полный oracle всё ещё требует тот же sample/cohort и возраст <=10 секунд.
+Время sample не обновляется, запрет чужих и смешанных значений, остальные фазы и проверки
+восстановления сохраняются. Ошибка ACK или flush завершает текущую проверку без повторной отправки.
+
+`postgres-upload.json.step` различает `controlled_flush` и `controlled_publication`.
+У baseline timing rows `postgres-visibility.json` шаг `controlled_publication` включает ACK и flush;
+старый `uploaded` сохраняется только для чтения прежних артефактов. Это управляемая публикация
+изолированного fixture, не измерение пассивной production-доставки. Пассивные lag/latency отдельно
+измеряют production/fullstack-прогоны; настройки production flush и query guard не меняются.
+
+Причина разделения подтверждена на закреплённой VM1.154 с настоящим OTLP protobuf: холодный
+первый набор из семи PG gauges был ACKed за 174 мс, но появился в обоих вариантах чтения
+(исходном и с точными параметрами guard) только при возрасте 10 609 мс. Отдельный холодный
+экземпляр с подтверждённым flush показал тот же набор при возрасте 172 мс. Этот узкий native
+контроль исключает изменение guard-параметров как необходимую причину задержки; он не
+доказывает пропускную способность Linux/Docker или готовность полного PG-прогона.
+
 ### PostgreSQL: завершение текущей проверки приватности
 
 Изолированный PostgreSQL-прогон создаёт собственную копию конфигурации Alloy.
@@ -2125,7 +2210,8 @@ production rollout, server changes, capacity conclusions, provider messages or #
 Каждая из шести фиксированных проверок приватности отправляет текущий SQL-снимок
 и свой контрольный пакет одним JSON-запросом размером не более 4096 байт.
 До чтения хранилища нужны два последовательных подтверждения: полный успешный ответ
-на этот запрос от синхронного конвейера Alloy, затем пустой успешный ответ на
+на этот запрос от синхронного конвейера Alloy (`{}` либо штатный для закреплённой
+версии `{"partialSuccess":{}}`), затем пустой успешный ответ на
 аутентифицированный `/internal/force_flush` того же принадлежащего стенду VictoriaMetrics.
 После этого полностью проверяются три исходных вектора S, T и G. G охватывает семь
 фиксированных семейств метрик без ограничения по service. Свежие положительные строки
@@ -2134,7 +2220,8 @@ production rollout, server changes, capacity conclusions, provider messages or #
 Вся последовательность, включая проверки принадлежности ресурсов, укладывается в один
 убывающий срок 10 секунд и оставшееся время работы сценария 150 секунд. Отправка получает
 не более четырёх секунд, flush не более двух. Дополнительные попытки и увеличение сроков
-не предусмотрены. Ответ с partial success, перенаправление, неизвестное содержимое,
+не предусмотрены. Непустой `partialSuccess` (отказ, сообщение или неизвестное поле),
+перенаправление, неизвестное содержимое,
 несовпадение ресурсов, неуспешное закрытие транспорта или превышение срока останавливают
 проверку. Таймаут не означает отмену операции внутри VictoriaMetrics. Перед продолжением
 нужна существующая полная очистка принадлежащего прогону стенда.
@@ -2177,8 +2264,9 @@ The opt-in uses `source_runner.py` with the same original synchronous `spawnSync
 combined or per-pipe capture allowance, process owner, signal handling, rescue or process-tree
 cleanup guarantee is introduced.
 
-Normal unittest discovery still owns the original 274 methods, order, warnings, result and exit
-semantics. The progress owner validates the entire fixed inventory before running the original
+Normal unittest discovery owns 276 methods, including all original274 and the two native host
+failure witness additions. The original order, warnings, result and exit
+semantics remain. The progress owner validates the entire fixed inventory before running the original
 suite. Fixed start/completed lines share captured stderr with normal unittest output. `completed`
 means the original `stopTest` callback was reached; it does not establish success. Marker write
 `OSError` can lose optional metadata. An active original exception and its built-in traceback
@@ -2193,7 +2281,7 @@ cannot turn a failed native outcome into a pass, while missing markers do not re
 native outcome. Raw captured unittest text is not the opt-in Linux assertion message.
 
 Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
-replace any of the original 274 methods. Synthetic dispatch/parity checks do not establish an
+replace any of the 276 discovered methods. Synthetic dispatch/parity checks do not establish an
 actual admitted Linux run or explain an earlier source timeout. Their separate assertion can
 identify a failed protocol method and the fixed category `failure` or `error` from one optional
 failure-only footer. An already failed third method may also identify one fixed parity field: `exit`,
@@ -2206,7 +2294,7 @@ tail, count/exit checks and unsupported-entry checks. The existing field takes p
 contains at most one suffix. Stage values are source literals, never traceback/error text or values.
 They identify a coarse block, not the failing line or cause. Success clears the stage, and later
 failures cannot inherit a successful comparison's stage. The original assertions and their order,
-three controls, 274-method inventory, 64-byte footer and process/capture budgets remain unchanged.
+three controls, 276-method inventory, 64-byte footer and process/capture budgets remain unchanged.
 It reads no traceback text. The three fixed positions do not report start,
 completion or success. Missing, foreign, truncated or oversized metadata stays `unknown`; native
 status, spawn error and signal remain authoritative. This feedback does not fix or explain a
@@ -2216,7 +2304,7 @@ is still required. The stronger withdrawn owner/guardian proposals and their ope
 Application CI activation is a separate reviewed change to the existing tooling step only; it
 must not opt in the direct functional workflow or widen any source or native gate.
 
-## Confirmed active Membership Accounts
+## Confirmed active Membership and Telegram participants
 
 Platform MCP registers `active_participant_diagnostics` for a trusted delegated Account. Each call
 checks current `platform:admin` before reading private activity. Input is exactly `from` and `to`,
@@ -2238,11 +2326,16 @@ cross-owner snapshot. Each source exposes its own `asOf` and `retentionFrom`. Hi
 observed zero under that incomplete coverage. Any failed or overflowing owner makes the Membership
 count `null`/`unknown`, even if another owner returned rows. The output does not publish a partial sum.
 
-Telegram, combined cross-surface Accounts and unlinked Telegram contacts are explicitly
-`not_collected` with `count:null`. They are not zero and the combined count is not copied from
-Membership. This report therefore does not complete the cross-surface active-participant criterion.
-It also does not implement physical deletion of activity history. Existing domain records remain
-owned by their capabilities; the read horizon is not evidence of physical retention cleanup.
+Telegram contributes its own persisted successful private-action facts through the authenticated
+`participant-activity` runtime contract. The [source protocol](../contracts/runtime/telegram-activity.md)
+is the authority for its finite outcome catalog, successful inbox settlement, native collection clock,
+365-day retention, limits and current-link semantics. The report returns Telegram distinct Accounts,
+the distinct Account union with Membership, and currently unlinked Telegram contacts separately.
+These are source snapshots, not browser analytics or reconstructed first/last history. Its source entry
+includes the actual collection start and partial/not-proven coverage. A failed or overflowing Telegram
+source makes Telegram, combined and unlinked counts unknown while preserving observed Membership.
+The combined count is unknown if any Membership owner fails. A successful report never exposes
+Account IDs, Telegram IDs, provider payload or command text.
 
 ## Membership analytics-copy retention
 
@@ -2330,3 +2423,7 @@ native MCP описаны в [инструкции расследования](o
 Provisioned vendor dashboard остаётся временным semantic UI внутри #1566.
 Native grammar, latency/cost, Grafana variable/time semantics и визуальная приёмка
 ещё обязательны; этот source unit не означает полного покрытия #1565 или production GO.
+
+Полный воспроизводимый resource corpus для #1566 описан в
+[отдельном runbook](observability-fullstack-resource.md). Short SDK-only эксперимент сохраняется
+как узкая проверка, его `partial` и неизвестные counters не подтверждают размер production.

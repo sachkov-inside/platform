@@ -1,3 +1,6 @@
+import { ProductReadingModule } from "../../modules/products/index.js";
+import { ProductAuthoringCompositionModule } from "../composition/product-authoring-composition.module.js";
+import { ContentAccessCompositionModule } from "../composition/content-access-composition.module.js";
 import { WebTelemetryHttpModule } from "../../modules/web-telemetry/index.js";
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
@@ -22,13 +25,13 @@ import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
   ListPublicSiteIndexController,
-  ListLearningPracticesController,
   ReadProductAccessController,
+  ReadReaderReferenceController,
   ReadProductSaleAvailabilityController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
-import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
+import { AccountProfilesModule } from "../../modules/account-profiles/index.js";
 import {
   CommunityEntitlementsModule,
   RecipientLinksModule,
@@ -57,10 +60,10 @@ import { HealthController } from "./health.controller.js";
     HealthController,
     ListPublishedMaterialsController,
     ListPublicSiteIndexController,
-    ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
     ReadProductAccessController,
+    ReadReaderReferenceController,
     ReadProductSaleAvailabilityController,
     VideoAuthoringController,
     KinescopeWebhookController,
@@ -88,13 +91,16 @@ export class ApiModule {
         SalesFunnelModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,
-        MemberProfilesModule,
+        AccountProfilesModule,
         TelegramMembershipModule,
         CommunityEntitlementsModule,
         AccountRightsModule,
         MaterialsModule,
+        ContentAccessCompositionModule,
+        ProductAuthoringCompositionModule,
         MaterialsHttpModule,
         MaterialContentModule,
+        ProductReadingModule,
         ProductTasksHttpModule,
         VideosModule,
         CoverageCatalogModule,

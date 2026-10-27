@@ -15,7 +15,7 @@ export const personalHomeResultSchema = z.discriminatedUnion("kind", [
             .object({ material: materialPreviewSchema, label: z.string() })
             .strict()
             .optional(),
-          series: z
+          product: z
             .object({
               collection: z
                 .object({

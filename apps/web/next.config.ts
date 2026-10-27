@@ -120,11 +120,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/subscription",
-        destination: "/payment/checkout",
-        permanent: true,
-      },
-      {
         source: "/account/email",
         destination: "/account/purchases",
         permanent: true,

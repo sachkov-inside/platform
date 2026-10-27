@@ -2,6 +2,9 @@ import { z } from "zod";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { registerFunnelDiagnosticsTool } from "../../src/modules/sales-funnel/index.js";
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
@@ -25,10 +28,8 @@ import {
   BillingProductSales,
   BillingSurveyRespondentSales,
 } from "../../src/modules/billing/index.js";
-import {
-  assembleMaterials,
-  ProductOutlines,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductOutlines } from "../../src/modules/products/index.js";
 import { MaterialFirstOpens } from "../../src/modules/reading-activity/index.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/facets/sales-funnel/sales-funnel.js";
 import { RecordBotEventsController } from "../../src/modules/sales-funnel/features/record-bot-events/record-bot-events.controller.js";
@@ -101,7 +102,7 @@ describe("Sales funnel report on PostgreSQL", () => {
         formatId: "guide",
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
         summary: `${title} summary.`,
         tagIds: [],
         title,
@@ -131,14 +132,14 @@ describe("Sales funnel report on PostgreSQL", () => {
     material.third = await publish("Агенты");
     firstChapter = randomUUID();
     secondChapter = randomUUID();
-    const order = await materials.authoring.loadSeriesOrder({
+    const order = await materials.authoring.loadProductOrder({
       actor: author,
-      seriesId: productId,
+      productId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor: author,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [material.first, material.second, material.third],
       chapters: [
@@ -155,6 +156,7 @@ describe("Sales funnel report on PostgreSQL", () => {
 
     funnel = new SalesFunnel({
       prisma: db.prisma,
+      products: new WaitlistProducts(db.prisma),
       rights: assembleAccountRights({
         prisma: db.prisma,
         clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -164,7 +166,10 @@ describe("Sales funnel report on PostgreSQL", () => {
         emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
       }),
       links: new TelegramAccountLinks(db.prisma),
-      outlines: new ProductOutlines(db.prisma),
+      outlines: new ProductOutlines(
+        db.prisma,
+        assembleProductMaterialReading(db.prisma),
+      ),
       firstOpens: new MaterialFirstOpens(db.prisma),
       sales: new BillingProductSales(db.prisma),
       surveyRespondents: new BillingSurveyRespondentSales(db.prisma),
@@ -277,6 +282,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     });
   const scope = (productIds: readonly string[], wholePlatform = false) => ({
     offer: {
+      benefits: ["materials"],
       coverage: {
         productIds,
         materialIds: [],
@@ -569,8 +575,7 @@ describe("Sales funnel report on PostgreSQL", () => {
           code: `code-${promotionId}`,
           startsAt: before,
           endsAt: new Date("2030-12-31T00:00:00.000Z"),
-          offerIds: [],
-          paymentOptionIds: [],
+          productIds: [],
           usageLimit: 1,
         },
       });
@@ -658,6 +663,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     const recorded = await withExhaustedPool(db, (prisma) =>
       new SalesFunnel({
         prisma,
+        products: new WaitlistProducts(prisma),
         rights: assembleAccountRights({
           prisma,
           clock: () => new Date("2030-04-02T00:00:00Z"),
@@ -667,7 +673,10 @@ describe("Sales funnel report on PostgreSQL", () => {
           emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
         }),
         links: new TelegramAccountLinks(prisma),
-        outlines: new ProductOutlines(prisma),
+        outlines: new ProductOutlines(
+          prisma,
+          assembleProductMaterialReading(prisma),
+        ),
         firstOpens: new MaterialFirstOpens(prisma),
         sales: new BillingProductSales(prisma),
         surveyRespondents: new BillingSurveyRespondentSales(prisma),

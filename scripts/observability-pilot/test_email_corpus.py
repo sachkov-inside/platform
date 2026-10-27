@@ -226,9 +226,9 @@ class EmailNativeMetricEnvelope(unittest.TestCase):
         from test_dependency_privacy import metric_rows
         stages={'json':6,'protobuf':6}
         body=json.loads(metric_response(stages)[1]);body['data']['result']+=metric_rows()
-        body['stats']={'seriesFetched':'670','executionTimeMsec':2}
+        body['stats']={'seriesFetched':'690','executionTimeMsec':2}
         verdict=email_privacy.stored_metric_corpus((200,json.dumps(body)),stages)
-        self.assertEqual(verdict,{'legacy':{'stored_series':440,'metric_labelsets':86,'pool_series':10,'privacy':'passed'},
+        self.assertEqual(verdict,{'legacy':{'stored_series':460,'metric_labelsets':90,'pool_series':10,'privacy':'passed'},
                                 'email':{'stored_series':230,'metric_labelsets':46,'fallback_stages':stages,'privacy':'passed'}})
         poisoned=copy.deepcopy(body);poisoned['data']['result'][-1]['metric']['private']='late-secret'
         with self.assertRaises(RuntimeError):email_privacy.stored_metric_corpus((200,json.dumps(poisoned)),stages)

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ReadingActivityPrismaClient } from "../../../infrastructure/prisma/index.js";
 
-export const MAX_RECENT_SERIES = 10;
+export const MAX_RECENT_PRODUCT = 10;
 export type LearningStartedRead = (
   account: string,
   productId: string,
@@ -28,8 +28,8 @@ export function createLearningStartedRead(
 ): LearningStartedRead {
   const scope = idSchema.parse(account);
   const candidates = new Set(productIds.map((id) => idSchema.parse(id)));
-  if (candidates.size > MAX_RECENT_SERIES)
-    throw new Error("Learning Home series bound exceeded");
+  if (candidates.size > MAX_RECENT_PRODUCT)
+    throw new Error("Learning Home product bound exceeded");
   let started: Promise<ReadonlySet<string>> | undefined;
   return async (requestedAccount, productId) => {
     const product = idSchema.parse(productId);

@@ -72,7 +72,13 @@ const meta = {
         ok: true,
         value: {
           ok: true,
-          value: { accountId, productId, revision: 3, access: "revoked" },
+          value: {
+            accountId,
+            productId,
+            revision: 3,
+            access: "revoked",
+            firstIssuedAt: "2026-10-23T10:00:00Z",
+          },
         },
       }),
     );

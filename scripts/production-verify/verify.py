@@ -173,19 +173,21 @@ def verify_platform(manifest, state, record):
 
 
 def verify_public_routes(record):
-    routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 401, 'unauthorized'),
-              ('GET', '/billing/cohorts', 200, '"items"'),
+    routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 404, ''),
+              ('GET', '/billing/product-sales-states', 200, '"items"'),
               ('POST', '/billing/tbank/notification', 400, 'invalid_notification'),
-              ('POST', '/integrations/telegram/v1/communications/authorize', 401, 'unauthorized'),
-              ('POST', '/integrations/telegram/v1/communications/validate-content', 401, 'unauthorized'),
+              ('POST', '/integrations/telegram/v2/communications/authorize', 401, 'unauthorized'),
+              ('POST', '/integrations/telegram/v2/communications/validate-content', 401, 'unauthorized'),
               ('POST', '/internal/billing-dispatch/authorize', 401, 'unauthorized'),
               ('POST', '/internal/notifications/dispatch/authorize', 401, 'unauthorized')]
-    routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 401, 'unauthorized')
-               for suffix in ['binding', 'own-access', 'attempts', 'evidence']]
+    routes += [('POST', '/integrations/telegram/v1/course-activation/' + suffix, 401, 'unauthorized')
+               for suffix in ['binding', 'own-access', 'attempts', 'evidence', 'announcement']]
+    routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 404, '')
+               for suffix in ['binding', 'own-access', 'attempts', 'evidence', 'announcement']]
     for method, path, code, needle in routes:
         status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev',
                             bank_rejection_probe=path == '/billing/tbank/notification')
-        record.append(check(method + ' ' + path.split('?')[0], status == code and needle in body, 'expected HTTP/body authentication boundary'))
+        record.append(check(method + ' ' + path.split('?')[0], status == code and (body == '' if code == 404 else needle in body), 'expected HTTP/body authentication boundary'))
 
     browser_path = '/communications/visit?token=' + 'A' * 43
     status, body = http('https://sachkov.dev' + browser_path, 'GET', 'sachkov.dev')
@@ -316,7 +318,7 @@ def observe_telegram(seconds):
 
 TELEGRAM_READ = r"""
 import {loadApplicationConfig,botTelegramUserIdFromToken} from '/app/dist/config/application-config.js';
-import {HttpPlatformCohortAdapter} from '/app/dist/adapters/platform/http-platform-cohort.adapter.js';
+import {HttpPlatformProductSalesStateAdapter,validProductSalesStatesResponse} from '/app/dist/adapters/platform/http-platform-product-sales-state.adapter.js';
 const env=process.env;
 const config=loadApplicationConfig(env);
 async function api(method,body={}) {
@@ -336,12 +338,11 @@ if(config.communityWelcomeCohort){
  const fetcher=async(input,init)=>{
   const response=await fetch(input,init);
   const body=await response.clone().json();
-  validResponse=response.status===200 && new Headers(init.headers).get('x-inside-domain-names')==='products.v1' &&
-   Array.isArray(body?.items) && body.items.every(item=>item!==null && typeof item.productId==='string');
+  validResponse=response.status===200 && validProductSalesStatesResponse(body);
   if(validResponse) selected=body.items.find(item=>item.productId.toLowerCase()===config.communityWelcomeCohort.productId.toLowerCase());
   return response;
  };
- const details=await new HttpPlatformCohortAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
+ const details=await new HttpPlatformProductSalesStateAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
  // The owning adapter validates calendar dates; an empty fallback must not hide a rejected date.
  const dateAccepted=selected===undefined || selected.startsOn===null ||
   (typeof selected.startsOn==='string' && details.streamStartsOn===selected.startsOn);
@@ -360,7 +361,7 @@ if(!env.PLATFORM_ACTIVATION_URL || !env.PLATFORM_ACTIVATION_SECRET){
  console.log(JSON.stringify({configured:false}));
 }else{
  const observations=[];
- const allowed=new Set(['/integrations/telegram/v1/subscription-activation/binding','/integrations/telegram/v1/subscription-activation/own-access']);
+ const allowed=new Set(['/integrations/telegram/v1/course-activation/binding','/integrations/telegram/v1/course-activation/own-access']);
  const fetcher=async(input,init)=>{
   const url=new URL(input); if(url.origin!=='https://inside.sachkov.dev'||!allowed.has(url.pathname)) throw new Error('read outside allowlist');
   const header=new Headers(init.headers).get('x-inside-domain-names');
@@ -392,7 +393,7 @@ def verify_telegram(manifest, state, record):
     record.append(check('Telegram readiness', status == 200 and json.loads(ready).get('status') == 'ready', 'expected live ready response'))
     paths = ['/webhooks/telegram', '/integrations/platform/v1/identity-links',
              '/integrations/platform/v1/identity-links/release-probe/confirm',
-             '/integrations/platform/v1/community-entitlements', '/integrations/platform/v1/communications',
+             '/integrations/platform/v1/community-entitlements', '/integrations/platform/v2/communications',
              '/integrations/identity/v1/sign-in']
     paths += ['/integrations/identity/v1/sign-in/release-probe/' + suffix for suffix in ['status', 'consume', 'account-link']]
     routes = [(method, path, 401 if method == 'POST' else 404) for path in paths for method in ['POST', 'GET']]

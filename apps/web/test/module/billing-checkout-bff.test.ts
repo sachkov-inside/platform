@@ -47,13 +47,9 @@ import {
   loadViewerBillingOffers,
 } from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
-import {
-  handleCancelRenewal,
-  handleCurrentBilling,
-} from "@/features/billing-subscription.server";
+import { handleCurrentBilling } from "@/features/billing-subscription.server";
 import {
   accessGrounds,
-  activeSubscription,
   materialsOffer,
   ownPayments,
   pendingPurchase,
@@ -110,14 +106,11 @@ it("читает каталог от имени вошедшего покупа�
   fakes.offers.mockResolvedValue(
     ok({ items: [materialsOffer], nextCursor: null }),
   );
-  expect(await loadViewerBillingOffers({ mode: "subscription" })).toEqual({
+  expect(await loadViewerBillingOffers()).toEqual({
     kind: "ready",
     offers: [materialsOffer],
   });
-  expect(fakes.offers).toHaveBeenCalledWith(
-    { mode: "subscription", limit: 50 },
-    "reader-token",
-  );
+  expect(fakes.offers).toHaveBeenCalledWith({ limit: 50 }, "reader-token");
 });
 
 it("сбой чтения сессии не выдаётся за гостевую витрину", async () => {
@@ -136,16 +129,16 @@ it("сохраняет расчёт под собственным operationId и
   const response = await handleBillingQuote(
     command("/api/account/billing/quote", {
       operationId,
-      paymentOptionId: supportOffer.paymentOption.id,
-      optionRevision: supportOffer.paymentOption.revision,
+      productId: supportOffer.paymentOption.id,
+      priceRevision: supportOffer.paymentOption.revision,
     }),
   );
   expect(await response.json()).toEqual({ ok: true, value: savedQuote });
   expect(fakes.quote).toHaveBeenCalledWith(
     {
       operationId,
-      paymentOptionId: supportOffer.paymentOption.id,
-      optionRevision: supportOffer.paymentOption.revision,
+      productId: supportOffer.paymentOption.id,
+      priceRevision: supportOffer.paymentOption.revision,
     },
     "trusted-token",
   );
@@ -335,11 +328,11 @@ it("отвечает 401 на собственный read без действу�
   expect(fakes.current).not.toHaveBeenCalled();
 });
 
-it("возвращает подписку, основания доступа, списания и поводы одним конвертом", async () => {
+it("возвращает Product Access, основания, оплаты и поводы одним конвертом", async () => {
   const envelope = {
-    subscription: activeSubscription,
+    products: [],
     notices: [],
-    grounds: accessGrounds,
+    access: { grounds: accessGrounds },
     payments: ownPayments,
   };
   fakes.current.mockResolvedValue(ok(envelope));
@@ -347,29 +340,11 @@ it("возвращает подписку, основания доступа, с
   expect(await response.json()).toEqual({ ok: true, value: envelope });
 });
 
-it("требует ожидаемую редакцию для отмены продления", async () => {
-  fakes.cancel.mockResolvedValue(problem("revision_conflict", 409));
-  const response = await handleCancelRenewal(
-    command("/api/account/billing/subscription/cancel", {
-      operationId,
-      expectedRevision: 7,
-    }),
-  );
-  expect(await response.json()).toEqual({
-    ok: false,
-    code: "revision_conflict",
-  });
-  expect(fakes.cancel).toHaveBeenCalledWith(
-    { operationId, expectedRevision: 7 },
-    "trusted-token",
-  );
-});
-
 it("private quote forwards only the link authority, never an amount from the browser", async () => {
   const input = {
     operationId,
-    paymentOptionId: materialsOffer.paymentOption.id,
-    optionRevision: 1,
+    productId: materialsOffer.product?.id,
+    priceRevision: 1,
     paymentLinkId: "69000000-0000-4000-8000-000000001450",
   };
   fakes.quote.mockResolvedValue(ok(savedQuote));

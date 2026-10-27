@@ -1,16 +1,18 @@
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   ProductOutlines,
   ProductDirectory,
-  PublishedSeriesComposition,
-  assembleMaterials,
-} from "../../src/modules/materials/index.js";
-import { productChapterPlacementIssues } from "../../src/modules/materials/features/reorder-series/product-chapter-placement.js";
+  PublishedProductComposition,
+} from "../../src/modules/products/index.js";
+import { productChapterPlacementIssues } from "../../src/modules/materials/features/reorder-product/product-chapter-placement.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -56,7 +58,7 @@ describe("Product chapters", () => {
       formatId,
       difficulty: null,
       outcomes: [],
-      seriesIds: [...productIds],
+      productIds: [...productIds],
       summary: `${title} summary.`,
       tagIds: [],
       title,
@@ -85,9 +87,9 @@ describe("Product chapters", () => {
   };
 
   const load = async (productId: string) => {
-    const loaded = await materials.authoring.loadSeriesOrder({
+    const loaded = await materials.authoring.loadProductOrder({
       actor,
-      seriesId: productId,
+      productId: productId,
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
     return loaded.value;
@@ -117,9 +119,9 @@ describe("Product chapters", () => {
 
     const initial = await load(productId);
     expect(initial.chapters).toEqual([]);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second, third],
       chapters: [
@@ -152,9 +154,9 @@ describe("Product chapters", () => {
       [third, releaseChapter],
     ]);
 
-    const renamed = await materials.authoring.reorderSeries({
+    const renamed = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: grouped.orderVersion,
       orderedMaterialIds: [first, second, third],
       chapters: [
@@ -197,18 +199,18 @@ describe("Product chapters", () => {
         stepGroup: null,
       }),
     );
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second, third],
       chapters: [{ id: chapterId, name: "Original", summary: "" }],
       programmePlacements,
     });
     if (!saved.ok) throw new Error(saved.error.code);
-    const renamed = await materials.authoring.reorderSeries({
+    const renamed = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: saved.value.orderVersion,
       orderedMaterialIds: [first, second, third],
       chapters: [{ id: chapterId, name: "Renamed", summary: "" }],
@@ -219,7 +221,7 @@ describe("Product chapters", () => {
     );
   });
 
-  test("a Product shell regroups an interrupted chapter run and keeps the programme", async () => {
+  test("catalogue reordering and chapter renames retain the independently authored programme", async () => {
     const productId = await product("interrupted-chapter-run");
     const a1 = await material("Interrupted A1", [productId]);
     const a2 = await material("Interrupted A2", [productId]);
@@ -246,9 +248,9 @@ describe("Product chapters", () => {
       stepGroup: null,
     }));
     // An explicit programme leaves the Material order unchecked, so a chapter run can break.
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: (await load(productId)).orderVersion,
       orderedMaterialIds: [a1, b1, loose, b2, a2],
       chapters: chapters("First"),
@@ -256,37 +258,24 @@ describe("Product chapters", () => {
     });
     if (!saved.ok) throw new Error(saved.error.code);
 
-    // Resending that order with new chapter text is the refused shell.
-    await expect(
-      materials.authoring.reorderSeries({
-        actor,
-        seriesId: productId,
-        expectedOrderVersion: saved.value.orderVersion,
-        orderedMaterialIds: [a1, b1, loose, b2, a2],
-        chapters: chapters("Renamed"),
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      error: {
-        code: "invalid_reference",
-        issues: [
-          {
-            code: "product_chapter_not_continuous",
-            path: "/orderedMaterialIds/3",
-          },
-          {
-            code: "product_chapter_not_continuous",
-            path: "/orderedMaterialIds/4",
-          },
-        ],
-      },
+    // Catalogue ordering does not become a second programme authority during a chapter rename.
+    const renamed = await materials.authoring.reorderProduct({
+      actor,
+      productId: productId,
+      expectedOrderVersion: saved.value.orderVersion,
+      orderedMaterialIds: [a1, b1, loose, b2, a2],
+      chapters: chapters("Renamed"),
     });
+    if (!renamed.ok) throw new Error(renamed.error.code);
+    expect((await load(productId)).programmePlacements).toEqual(
+      programmePlacements,
+    );
 
     // The shell's order: each chapter by first programme placement, unchaptered Materials last.
-    const regrouped = await materials.authoring.reorderSeries({
+    const regrouped = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
-      expectedOrderVersion: saved.value.orderVersion,
+      productId: productId,
+      expectedOrderVersion: renamed.value.orderVersion,
       orderedMaterialIds: [a1, a2, b2, b1, loose],
       chapters: chapters("Renamed"),
     });
@@ -314,9 +303,9 @@ describe("Product chapters", () => {
     ]);
     const chapterId = randomUUID();
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [lesson, reference],
       chapters: [{ id: chapterId, name: "Chapter", summary: "" }],
@@ -347,7 +336,7 @@ describe("Product chapters", () => {
         expectedOrderVersion: before.orderVersion,
         materialIds: [],
       }),
-    ).toMatchObject({ ok: false, error: { code: "stale_series_order" } });
+    ).toMatchObject({ ok: false, error: { code: "stale_product_order" } });
     expect(
       await materials.authoring.updateChapterAttachments({
         actor,
@@ -368,9 +357,9 @@ describe("Product chapters", () => {
     const programmePlacements = [
       { id: randomUUID(), materialId: first, chapterId: null, stepGroup: null },
     ];
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second],
       programmePlacements,
@@ -379,9 +368,9 @@ describe("Product chapters", () => {
     const third = await material("Flat C", [productId]);
     const before = await load(productId);
     expect(before.programmePlacements).toEqual(programmePlacements);
-    const reordered = await materials.authoring.reorderSeries({
+    const reordered = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: before.orderVersion,
       orderedMaterialIds: [third, second, first],
     });
@@ -402,18 +391,18 @@ describe("Product chapters", () => {
       chapterId,
       stepGroup: null,
     };
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [lesson],
       chapters: [{ id: chapterId, name: "Only chapter", summary: "" }],
       programmePlacements: [placement],
     });
     if (!saved.ok) throw new Error(saved.error.code);
-    const removed = await materials.authoring.reorderSeries({
+    const removed = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: saved.value.orderVersion,
       orderedMaterialIds: [lesson],
       chapters: [],
@@ -430,9 +419,9 @@ describe("Product chapters", () => {
     const second = await material("Первая фича", [productId]);
     const [basics, feature] = [randomUUID(), randomUUID()];
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second],
       chapters: [
@@ -443,9 +432,9 @@ describe("Product chapters", () => {
     });
     if (!saved.ok) throw new Error(saved.error.code);
 
-    const swapped = await materials.authoring.reorderSeries({
+    const swapped = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: saved.value.orderVersion,
       orderedMaterialIds: [second, first],
       chapters: [
@@ -461,9 +450,9 @@ describe("Product chapters", () => {
       [basics, 2],
     ]);
 
-    const moved = await materials.authoring.reorderSeries({
+    const moved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: afterSwap.orderVersion,
       orderedMaterialIds: [second, first],
       chapters: [
@@ -491,9 +480,9 @@ describe("Product chapters", () => {
     const only = await material("Цель поиска", [productId]);
     const [goal, planned] = [randomUUID(), randomUUID()];
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [only],
       chapters: [
@@ -509,9 +498,9 @@ describe("Product chapters", () => {
       "Переговоры",
     ]);
 
-    const removed = await materials.authoring.reorderSeries({
+    const removed = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: withEmpty.orderVersion,
       orderedMaterialIds: [only],
       chapters: [
@@ -536,9 +525,9 @@ describe("Product chapters", () => {
     const second = await material("Второй", [productId]);
     const chapterId = randomUUID();
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second],
       chapters: [{ id: chapterId, name: "Одна глава", summary: "" }],
@@ -562,7 +551,7 @@ describe("Product chapters", () => {
         formatId,
         difficulty: null,
         outcomes: [],
-        seriesIds: [productId],
+        productIds: [productId],
         summary: "Первый summary.",
         tagIds: [],
         title: "Первый, изменён",
@@ -586,9 +575,9 @@ describe("Product chapters", () => {
     const second = await material("Второй", [productId]);
     const chapterId = randomUUID();
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second],
       chapters: [{ id: chapterId, name: "Одна глава", summary: "" }],
@@ -633,9 +622,9 @@ describe("Product chapters", () => {
     ]);
     const [firstChapter, secondChapter] = [randomUUID(), randomUUID()];
     const firstOrder = await load(firstProduct);
-    const savedFirst = await materials.authoring.reorderSeries({
+    const savedFirst = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: firstProduct,
+      productId: firstProduct,
       expectedOrderVersion: firstOrder.orderVersion,
       orderedMaterialIds: [shared],
       chapters: [{ id: firstChapter, name: "Подготовка", summary: "" }],
@@ -643,9 +632,9 @@ describe("Product chapters", () => {
     });
     if (!savedFirst.ok) throw new Error(savedFirst.error.code);
     const secondOrder = await load(secondProduct);
-    const savedSecond = await materials.authoring.reorderSeries({
+    const savedSecond = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: secondProduct,
+      productId: secondProduct,
       expectedOrderVersion: secondOrder.orderVersion,
       orderedMaterialIds: [shared],
       chapters: [{ id: secondChapter, name: "Проверка", summary: "" }],
@@ -657,9 +646,9 @@ describe("Product chapters", () => {
     expect((await load(secondProduct)).items[0]?.chapterId).toBe(secondChapter);
 
     await expect(
-      materials.authoring.reorderSeries({
+      authorProductProgramme(materials.authoring, {
         actor,
-        seriesId: firstProduct,
+        productId: firstProduct,
         expectedOrderVersion: savedFirst.value.orderVersion,
         orderedMaterialIds: [shared],
         chapters: [{ id: secondChapter, name: "Чужая глава", summary: "" }],
@@ -687,9 +676,9 @@ describe("Product chapters", () => {
     ];
 
     await expect(
-      materials.authoring.reorderSeries({
+      authorProductProgramme(materials.authoring, {
         actor,
-        seriesId: productId,
+        productId: productId,
         expectedOrderVersion: initial.orderVersion,
         orderedMaterialIds: [first, second, third],
         chapters,
@@ -709,9 +698,9 @@ describe("Product chapters", () => {
     });
 
     await expect(
-      materials.authoring.reorderSeries({
+      authorProductProgramme(materials.authoring, {
         actor,
-        seriesId: productId,
+        productId: productId,
         expectedOrderVersion: initial.orderVersion,
         orderedMaterialIds: [first, second, third],
         chapters,
@@ -727,9 +716,9 @@ describe("Product chapters", () => {
 
     const unknown = randomUUID();
     await expect(
-      materials.authoring.reorderSeries({
+      materials.authoring.reorderProduct({
         actor,
-        seriesId: productId,
+        productId: productId,
         expectedOrderVersion: initial.orderVersion,
         orderedMaterialIds: [first, second, third],
         chapters,
@@ -757,9 +746,9 @@ describe("Product chapters", () => {
     const second = await material("Второй", [productId]);
     const chapterId = randomUUID();
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [first, second],
       chapters: [{ id: chapterId, name: "Одна глава", summary: "" }],
@@ -767,9 +756,9 @@ describe("Product chapters", () => {
     });
     if (!saved.ok) throw new Error(saved.error.code);
 
-    const reordered = await materials.authoring.reorderSeries({
+    const reordered = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: saved.value.orderVersion,
       orderedMaterialIds: [second, first],
     });
@@ -786,9 +775,9 @@ describe("Product chapters", () => {
     ]);
 
     await expect(
-      materials.authoring.reorderSeries({
+      authorProductProgramme(materials.authoring, {
         actor,
-        seriesId: productId,
+        productId: productId,
         expectedOrderVersion: saved.value.orderVersion,
         orderedMaterialIds: [second, first],
         chapters: [
@@ -803,7 +792,7 @@ describe("Product chapters", () => {
     ).resolves.toEqual({
       ok: false,
       error: {
-        code: "stale_series_order",
+        code: "stale_product_order",
         currentOrderVersion: afterReorder.orderVersion,
       },
     });
@@ -815,9 +804,9 @@ describe("Product chapters", () => {
     const outside = await material("Снаружи", []);
     const chapterId = randomUUID();
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [inside],
       chapters: [{ id: chapterId, name: "До архива", summary: "" }],
@@ -832,9 +821,9 @@ describe("Product chapters", () => {
 
     const archived = await load(productId);
     expect(archived.archived).toBe(true);
-    const renamed = await materials.authoring.reorderSeries({
+    const renamed = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: archived.orderVersion,
       orderedMaterialIds: [inside],
       chapters: [{ id: chapterId, name: "После архива", summary: "Описание." }],
@@ -846,9 +835,9 @@ describe("Product chapters", () => {
     ]);
 
     await expect(
-      materials.authoring.reorderSeries({
+      materials.authoring.reorderProduct({
         actor,
-        seriesId: productId,
+        productId: productId,
         expectedOrderVersion: renamed.value.orderVersion,
         orderedMaterialIds: [inside, outside],
         chapters: [
@@ -860,7 +849,7 @@ describe("Product chapters", () => {
       ok: false,
       error: {
         code: "invalid_reference",
-        issues: [{ code: "series_archived", path: "/orderedMaterialIds/1" }],
+        issues: [{ code: "product_archived", path: "/orderedMaterialIds/1" }],
       },
     });
   });
@@ -871,9 +860,9 @@ describe("Product chapters", () => {
     const draft = await material("Черновик", [productId], false);
     const [visible, empty] = [randomUUID(), randomUUID()];
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [published, draft],
       chapters: [
@@ -886,7 +875,7 @@ describe("Product chapters", () => {
 
     const programme =
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "published-programme",
         first: null,
       });
@@ -906,9 +895,15 @@ describe("Product chapters", () => {
       published,
     ]);
     expect(
-      await new PublishedSeriesComposition(testDatabase.prisma).read(productId),
+      await new PublishedProductComposition(
+        testDatabase.prisma,
+        assembleProductMaterialReading(testDatabase.prisma),
+      ).read(productId),
     ).toEqual({ ok: true, value: [published] });
-    const outlines = await new ProductOutlines(testDatabase.prisma).list();
+    const outlines = await new ProductOutlines(
+      testDatabase.prisma,
+      assembleProductMaterialReading(testDatabase.prisma),
+    ).list();
     if (!outlines.ok) throw new Error(outlines.error.code);
     expect(
       outlines.value.find((product) => product.id === productId)?.chapters,
@@ -917,7 +912,10 @@ describe("Product chapters", () => {
       { id: empty, name: "Пустая глава", materialIds: [] },
     ]);
     expect(
-      await new ProductDirectory(testDatabase.prisma).products({
+      await new ProductDirectory(
+        testDatabase.prisma,
+        assembleProductMaterialReading(testDatabase.prisma),
+      ).products({
         ids: [productId],
       }),
     ).toMatchObject([
@@ -936,16 +934,16 @@ describe("Product chapters", () => {
     const only = await material("Единственный", [productId]);
     const initial = await load(productId);
     expect(initial.chapters).toEqual([]);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await materials.authoring.reorderProduct({
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [only],
     });
     expect(saved).toMatchObject({ ok: true });
 
     const flat = await materials.publishedMaterialReader.discoverProjections({
-      kind: "series",
+      kind: "product",
       slug: "flat-product",
       first: null,
     });
@@ -1005,9 +1003,9 @@ describe("Product chapters", () => {
     }
 
     const initial = await load(productId);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: composition,
       chapters: authored,
@@ -1029,7 +1027,7 @@ describe("Product chapters", () => {
 
     const programme =
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "seven-chapters",
         first: null,
       });
@@ -1050,9 +1048,9 @@ describe("Product chapters", () => {
       [{ id: "not-a-uuid", name: "Глава", summary: "" }],
     ]) {
       await expect(
-        materials.authoring.reorderSeries({
+        materials.authoring.reorderProduct({
           actor,
-          seriesId: productId,
+          productId: productId,
           expectedOrderVersion: initial.orderVersion,
           orderedMaterialIds: [],
           chapters,
@@ -1074,7 +1072,7 @@ describe("Product chapters", () => {
     const initial = await load(productId);
     const input = {
       actor,
-      seriesId: productId,
+      productId: productId,
       expectedOrderVersion: initial.orderVersion,
       orderedMaterialIds: [lesson, reference, draft],
       chapterAssignments: { [lesson]: chapterId },
@@ -1093,7 +1091,7 @@ describe("Product chapters", () => {
         },
       ],
     };
-    const saved = await materials.authoring.reorderSeries(input);
+    const saved = await authorProductProgramme(materials.authoring, input);
     if (!saved.ok) throw new Error(saved.error.code);
     const loaded = await load(productId);
     expect(loaded.chapters[0]?.supplementaryMaterialIds).toEqual([
@@ -1102,7 +1100,7 @@ describe("Product chapters", () => {
     ]);
     const programme =
       await materials.publishedMaterialReader.discoverProjections({
-        kind: "series",
+        kind: "product",
         slug: "chapter-supplements",
         first: null,
       });
@@ -1116,7 +1114,7 @@ describe("Product chapters", () => {
     ]);
     for (const invalid of [foreign]) {
       await expect(
-        materials.authoring.reorderSeries({
+        authorProductProgramme(materials.authoring, {
           ...input,
           expectedOrderVersion: loaded.orderVersion,
           chapters: [
@@ -1134,7 +1132,7 @@ describe("Product chapters", () => {
       });
       expect((await load(productId)).orderVersion).toBe(loaded.orderVersion);
     }
-    const retained = await materials.authoring.reorderSeries({
+    const retained = await authorProductProgramme(materials.authoring, {
       ...input,
       expectedOrderVersion: loaded.orderVersion,
       chapters: [
@@ -1148,7 +1146,7 @@ describe("Product chapters", () => {
       reference,
       draft,
     ]);
-    const cleared = await materials.authoring.reorderSeries({
+    const cleared = await authorProductProgramme(materials.authoring, {
       ...input,
       expectedOrderVersion: renamed.orderVersion,
       chapters: [
@@ -1167,7 +1165,10 @@ describe("Product chapters", () => {
     ).toBeUndefined();
     expect(
       (await load(productId)).items.map((item) => item.materialId),
-    ).toEqual([lesson, reference, draft]);
+    ).toEqual([
+      lesson,
+      ...[reference, draft].sort((left, right) => left.localeCompare(right)),
+    ]);
     for (const retained of [true, false]) {
       const before = await materials.authoring.loadMaterial({
         actor,
@@ -1185,7 +1186,7 @@ describe("Product chapters", () => {
           formatId,
           difficulty: null,
           outcomes: [],
-          seriesIds: retained ? [productId] : [],
+          productIds: retained ? [productId] : [],
           summary: "Справочник",
           tagIds: [],
           title: "Справочник",
@@ -1200,9 +1201,9 @@ describe("Product chapters", () => {
     }
     const detached = await load(productId);
     await expect(
-      materials.authoring.reorderSeries({
+      authorProductProgramme(materials.authoring, {
         actor,
-        seriesId: productId,
+        productId: productId,
         expectedOrderVersion: detached.orderVersion,
         orderedMaterialIds: detached.items.map((item) => item.materialId),
         chapters: detached.chapters.map((chapter) => ({

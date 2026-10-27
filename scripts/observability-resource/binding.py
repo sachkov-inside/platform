@@ -16,7 +16,7 @@ def inputs():
     # Conservative tracked compilation/build closure. COPY source, workspace install,
     # generated Prisma and contracts can all change the actual backend payload.
     names = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z', '--',
-        'apps/backend', 'packages', 'docs/contracts', 'scripts', 'infra', 'patches',
+        'apps/backend', 'apps/web', 'apps/telegram', 'packages', 'docs/contracts', 'scripts', 'infra', 'patches',
         ':(top,glob)*.json', ':(top,glob)*.yaml', ':(top,glob)*.yml',
         'apps/web/package.json', 'apps/telegram/package.json', '.node-version', '.npmrc', '.dockerignore',
         '.github/actions/setup-platform', '.github/workflows/ci.yml', '.github/workflows/observability-resource.yml'],

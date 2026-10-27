@@ -1,3 +1,4 @@
+import { MATERIAL_PUBLICATION } from "../src/modules/materials/index.js";
 import type { INestApplicationContext } from "@nestjs/common";
 import { ModulesContainer, NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -31,7 +32,7 @@ import {
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
 import { ACCOUNT_RIGHTS } from "../src/modules/account-rights/index.js";
-import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
+import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/account-profiles/index.js";
 import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
 import { ReadingActivityRetention } from "../src/modules/reading-activity/index.js";
 import { BookmarkActivityRetention } from "../src/modules/bookmarks/index.js";
@@ -45,8 +46,8 @@ function isAccessGrants(instance: unknown): boolean {
   return (
     typeof instance === "object" &&
     instance !== null &&
-    "applyPaidPeriod" in instance &&
-    typeof instance.applyPaidPeriod === "function" &&
+    "issueProductAccess" in instance &&
+    typeof instance.issueProductAccess === "function" &&
     "resolveCapabilities" in instance &&
     typeof instance.resolveCapabilities === "function"
   );
@@ -109,14 +110,37 @@ describe("backend process composition", () => {
   });
 
   it("loads and validates the process environment through Nest composition", async () => {
-    const api = await createApiApplication(undefined, { logger: false });
+    const api = await createApiApplication(undefined, {
+      logger: false,
+      abortOnError: false,
+    });
     application = api;
 
     expect(api.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
   });
 
+  it("assembles ContentAccess above the content owners", async () => {
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
+    application = api;
+    const modules = api.get(ModulesContainer);
+    const owners = [...modules.values()].filter((module) =>
+      [...module.providers.keys()].some(
+        (token) => String(token) === "Symbol(CONTENT_ACCESS)",
+      ),
+    );
+    expect(owners.map((module) => module.metatype.name)).toEqual([
+      "ContentAccessCompositionModule",
+    ]);
+  });
+
   it("binds one immutable config and one Prisma lifecycle in the API", async () => {
-    const api = await createApiApplication(config, { logger: false });
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = api;
 
     expect(api.get(PLATFORM_CONFIG)).toBe(config);
@@ -134,7 +158,10 @@ describe("backend process composition", () => {
   });
 
   it("gives billing and community one access grant provider", async () => {
-    const api = await createApiApplication(config, { logger: false });
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = api;
 
     expect(accessGrantFacets(api)).toHaveLength(1);
@@ -142,8 +169,11 @@ describe("backend process composition", () => {
     expect(api.get(CommunityEntitlements)).toBeDefined();
   });
 
-  it("registers Materials controllers with Materials, only in the API", async () => {
-    const api = await createApiApplication(config, { logger: false });
+  it("registers content controllers with their owners, only in the API", async () => {
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     const apiControllers = registeredControllers(api);
     await api.close();
     const materialsControllers =
@@ -154,25 +184,42 @@ describe("backend process composition", () => {
         "UploadMaterialAssetController",
         "VideoPlaybackController",
         "KinescopeVideoAuthorizationController",
+      ]),
+    );
+    const artifactControllers =
+      apiControllers.get("ProductArtifactsHttpModule") ?? [];
+    expect(artifactControllers).toEqual(
+      expect.arrayContaining([
+        "ProductArtifactAuthoringController",
         "ProductArtifactReadController",
       ]),
     );
+    const contentControllers = [
+      ...materialsControllers,
+      ...artifactControllers,
+    ];
     expect(
       apiControllers
         .get("ApiModule")
-        ?.filter((name) => materialsControllers.includes(name)),
+        ?.filter((name) => contentControllers.includes(name)),
     ).toEqual([]);
 
-    const mcp = await createMcpApplication(config, { logger: false });
+    const mcp = await createMcpApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = mcp;
     const mcpControllers = [...registeredControllers(mcp).values()].flat();
     expect(
-      mcpControllers.filter((name) => materialsControllers.includes(name)),
+      mcpControllers.filter((name) => contentControllers.includes(name)),
     ).toEqual([]);
   });
 
   it("uses the same required bindings for the MCP context", async () => {
-    const mcp = await createMcpApplication(config, { logger: false });
+    const mcp = await createMcpApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = mcp;
 
     expect(mcp.get(PLATFORM_CONFIG)).toBe(config);
@@ -193,7 +240,7 @@ describe("backend process composition", () => {
   it("binds the Billing worker to readiness and its access consumers", async () => {
     application = await NestFactory.createApplicationContext(
       BillingWorkerModule.forRoot(config),
-      { abortOnError: false, logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
@@ -231,7 +278,7 @@ describe("backend process composition", () => {
   it("loads and validates worker config through Nest composition", async () => {
     application = await NestFactory.createApplicationContext(
       MaterialAssetsWorkerModule.forRoot(),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
@@ -240,7 +287,7 @@ describe("backend process composition", () => {
   it("binds the Avatar maintenance worker to the same typed config", async () => {
     application = await NestFactory.createApplicationContext(
       ProfileAvatarsWorkerModule.forRoot(config),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
@@ -250,11 +297,15 @@ describe("backend process composition", () => {
   it("binds the Video deletion worker to stored provider configuration", async () => {
     application = await NestFactory.createApplicationContext(
       VideoDeletionsWorkerModule.forRoot(config),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
     expect(application.get(VIDEO_DELETION_MAINTENANCE)).toBeDefined();
+    expect(
+      application.get<{ containsVideoReference: unknown }>(MATERIAL_PUBLICATION)
+        .containsVideoReference,
+    ).toBeTypeOf("function");
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {

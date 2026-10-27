@@ -50,7 +50,7 @@ interface ParsedDraftForm {
   readonly outcomes: readonly string[];
   readonly formatId: MaterialFormat | null;
   readonly idempotencyKey: string;
-  readonly seriesIds: readonly string[];
+  readonly productIds: readonly string[];
   readonly summary: string;
   readonly tagIds: readonly string[];
   readonly title: string;
@@ -126,7 +126,7 @@ function backendDraftInput(input: ParsedCreateMaterialDraftInput):
       document: documentFields.document,
       formatId: input.formatId === "unassigned" ? null : input.formatId,
       idempotencyKey: `web-create-${input.submissionId}`,
-      seriesIds: documentFields.seriesIds,
+      productIds: documentFields.productIds,
       summary: input.summary,
       tagIds: input.tagIds,
       title: input.title,

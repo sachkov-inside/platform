@@ -22,7 +22,7 @@ import privacy
 
 SCOPE=record.SCOPE
 ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','recovery.json','postgres-source-cleanup.json',
-           'collector-logging.json','postgres-source-logging.json')
+           'collector-logging.json','postgres-source-logging.json','postgres-upload.json','postgres-visibility.json')
 
 
 def source_inputs():
@@ -56,6 +56,7 @@ def worker(output):
     result=record.report(source);started=time.monotonic();driver=None
     try:
         with pilot.worker_storage_guard(owner,compose,output):
+            pilot.install_horizon(output)
             pilot.install_plugin(output);pilot.command(compose+['config','--quiet'])
             pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
             expected=ownership.plan(output)
@@ -83,7 +84,7 @@ def worker(output):
         result['reason']='query_timeout' if isinstance(error,TimeoutError) else (
             'ownership' if result['phase']=='acquisition' else 'storage' if result['phase']=='privacy' else 'query_refused')
         if (not isinstance(error,TimeoutError) and driver is not None
-                and result['phase'] in ('baseline_first_stored_oracle','baseline_second_stored_oracle')
+                and result['phase'] in ('baseline_first_stored_oracle','baseline_second_stored_oracle','restart_unavailable_read')
                 and type(driver.oracle_failure_reason) is str and driver.oracle_failure_reason in record.ORACLE_REASONS):
             result['reason']=driver.oracle_failure_reason
         if driver is not None:result['cases']=driver.cases
@@ -91,6 +92,9 @@ def worker(output):
     finally:
         result['duration_seconds']=time.monotonic()-started
         record.persist(output,result)
+        if driver is not None and driver.upload_operation is not None:
+            record.persist_upload(output,driver.upload_operation)
+        if driver is not None:record.persist_visibility(output,{'schema':1,'source':source,'rows':driver.visibility,'overflow':driver.visibility_overflow},source)
 
 
 def cleanup_proof(output):
@@ -98,7 +102,7 @@ def cleanup_proof(output):
     owner=json.loads((output/'owner.json').read_text());pilot.restore_daemon(owner)
     proof=ownership.verify_pg_absence(output,owner['project'])
     pilot.write_json(output/'postgres-source-cleanup.json',proof)
-    if proof!={'outcome':'passed','containers':8,'volumes':5,'networks':2}:raise ValueError('cleanup')
+    if proof!={'outcome':'passed','containers':9,'volumes':5,'networks':2}:raise ValueError('cleanup')
 
 
 def collect(output,metadata,destination):
@@ -106,6 +110,8 @@ def collect(output,metadata,destination):
     current=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
     if source!=current:record.refuse()
     projected=record.read(output,source)
+    if (output/'postgres-upload.json').exists():record.upload_operation(record._read(output,'postgres-upload.json',1024))
+    if (output/'postgres-visibility.json').exists():record.visibility(record._read(output,'postgres-visibility.json',16384),source)
     ci.collect(output,metadata,destination,artifacts=ARTIFACTS)
     record.write(destination,projected)
 

@@ -19,6 +19,7 @@ const config: WebRuntimeConfig = {
   learnerMcp: { url: "https://inside.example.test/mcp/learning" },
   mode: "test",
   runtime: { release: "v7", sourceSha: "7".repeat(40) },
+  httpMetrics: { enabled: false, applicationPort: 3000, environment: "test" },
 };
 
 describe("Web operational readiness", () => {

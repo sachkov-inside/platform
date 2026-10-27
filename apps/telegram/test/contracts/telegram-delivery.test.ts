@@ -32,7 +32,7 @@ function plan(input: unknown) {
 }
 
 describe("Telegram delivery across the repository transition", () => {
-  it("records the ordered migration identity including immutable waitlist receipt tracing", () => {
+  it("records the ordered migration identity including the additive confirmed activity collector", () => {
     const result = runOwnedCommandSync(
       process.execPath,
       ["scripts/release-contract.mjs", "migrations-identity"],
@@ -41,9 +41,9 @@ describe("Telegram delivery across the repository transition", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       identity:
-        "sha256:2e473225c5b79c094afa2b5113ece9bc1afe72bd178d65f35f3259d5c4f987a5",
-      count: 38,
-      latest: "037-waitlist-receipt-tracing.ts",
+        "sha256:63343bab3e9267433573414e4615d184ccae08ab5d5d8f83e6f0053c7f550d5e",
+      count: 40,
+      latest: "039-confirmed-user-activity.ts",
     });
   });
 

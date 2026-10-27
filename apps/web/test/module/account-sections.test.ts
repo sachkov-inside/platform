@@ -37,6 +37,6 @@ it("не показывает подписки даже при историче�
     subscriptionOwned: true,
   });
 
-  expect(offered.some((section) => section.id === "subscription")).toBe(false);
-  expect(owned.some((section) => section.id === "subscription")).toBe(false);
+  expect(offered.some((section) => section.label === "Подписка")).toBe(false);
+  expect(owned.some((section) => section.label === "Подписка")).toBe(false);
 });

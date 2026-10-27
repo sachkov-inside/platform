@@ -20,7 +20,6 @@ import {
   currentBillingResponse,
   productOnlyOffer,
   productQuote,
-  productWithSupportOffer,
   legalDocuments,
   verifiedContact,
   pendingPurchase,
@@ -195,18 +194,6 @@ export const ForSaleMobile: Story = {
 };
 
 /** У продукта несколько вариантов: выбор стоит над оформлением, первый выбран сразу. */
-export const TwoOffers: Story = {
-  ...purchaseRoute("member"),
-  args: { offers: [productOnlyOffer, productWithSupportOffer] },
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-  play: async ({ canvasElement }) => {
-    const canvas = routeContent(canvasElement);
-    const options = await canvas.findAllByRole("radio");
-    await expect(options).toHaveLength(2);
-    await expect(options[0]).toBeChecked();
-  },
-};
-
 export const NotForSale: Story = {
   ...purchaseRoute("member"),
   args: { offers: [] },

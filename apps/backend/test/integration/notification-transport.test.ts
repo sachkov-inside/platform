@@ -856,8 +856,33 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       await worker.stop();
     }
   }, 45_000);
-  test("composed worker relays both sources and email/results, drains and reports broker failure", async () => {
+  test("composed worker relays both sources and email/results, drains and reports broker failure", async ({
+    onTestFailed,
+  }) => {
+    const startedAt = performance.now();
+    let stage = "migration";
+    let stageStartedAt = startedAt;
+    let cleanupStage = "not started";
+    let cleanupStartedAt: number | undefined;
+    const enterStage = (next: string) => {
+      stage = next;
+      stageStartedAt = performance.now();
+    };
+    onTestFailed(() => {
+      const failedAt = performance.now();
+      console.error("Composed transport failure stage", {
+        stage,
+        elapsedMs: Math.round(failedAt - startedAt),
+        stageElapsedMs: Math.round(failedAt - stageStartedAt),
+        cleanupStage,
+        cleanupElapsedMs:
+          cleanupStartedAt === undefined
+            ? null
+            : Math.round(failedAt - cleanupStartedAt),
+      });
+    });
     await migrateRuntimeDatabase(database.url);
+    enterStage("fixture preparation");
     const transport = assembleNotificationTransport(database.prisma, 100);
     const observed: Record<string, unknown>[] = [];
     const worker = assembleNotificationPipeline({
@@ -915,6 +940,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     });
     void running.catch(() => undefined);
     try {
+      enterStage("readiness");
       await Promise.race([
         running,
         transportBarrier(
@@ -930,6 +956,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
           barrierBudgetMs,
         ),
       ]);
+      enterStage("inbox");
       await transportBarrier(
         "composed worker inbox committed for all four lanes",
         async () => {
@@ -955,13 +982,20 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
             event["status"] === "operator_attention",
         ),
       ).toBe(true);
+      enterStage("broker stop_app");
       await admin(["stop_app"]);
+      enterStage("worker failure settlement");
       await expect(running).rejects.toThrow(
         /notification_broker_disconnected|notification_consumer_stopped/u,
       );
+      enterStage("completed");
     } finally {
+      cleanupStage = "worker cleanup";
+      cleanupStartedAt = performance.now();
       await worker.stop();
+      cleanupStage = "broker start_app";
       await admin(["start_app"]);
+      cleanupStage = "completed";
     }
   }, 45_000);
 });

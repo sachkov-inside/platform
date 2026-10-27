@@ -1,0 +1,298 @@
+{
+  "coverage": "Stored production observations. Every expected source has an explicit state: 1 observed/up, 0 read failure/down, -1 UNKNOWN/stale/missing. NoData never means healthy. Host/container and cached owner observations require the explicit host-metrics profile. HTTP before/after covers API/MCP/Telegram with the same quality mask, no causal claim. Watchdog values come from its existing bounded reads, are not a business ledger and expire after 180s. SDK/native source snapshots expire after 10s (host scrapes after45s). Missing telemetry does not prove business inactivity. Source readiness is not worker liveness. Technical monitoring does not activate browser analytics. Web HTTP has its own Node completion source and dedicated route/build/status panels, with strict sample/reset/freshness gates; SDK before/after panels retain their API/MCP/Telegram scope.",
+  "panels": [
+    {
+      "title": "Host available memory (fraction, keep at least 0.25)",
+      "query": "node_memory_MemAvailable_bytes{job=\"platform-host\"} / node_memory_MemTotal_bytes{job=\"platform-host\"}"
+    },
+    {
+      "title": "Host CPU busy fraction",
+      "query": "1 - avg(rate(node_cpu_seconds_total{job=\"platform-host\",mode=\"idle\"}[5m]))"
+    },
+    {
+      "title": "Filesystem available bytes",
+      "query": "node_filesystem_avail_bytes{job=\"platform-host\"}"
+    },
+    {
+      "title": "Filesystem available inodes",
+      "query": "node_filesystem_files_free{job=\"platform-host\"}"
+    },
+    {
+      "title": "Container working set bytes",
+      "query": "container_memory_working_set_bytes{job=\"platform-containers\"}"
+    },
+    {
+      "title": "Container CPU seconds per second",
+      "query": "rate(container_cpu_usage_seconds_total{job=\"platform-containers\"}[5m])"
+    },
+    {
+      "title": "Container OOM events (counter increase)",
+      "query": "increase(container_oom_events_total{job=\"platform-containers\"}[1h])"
+    },
+    {
+      "title": "Collection scrape sample age seconds",
+      "query": "time() - timestamp(up{job=~\"platform-collector|platform-trace-store|platform-stdout|platform-host|platform-containers\"})"
+    },
+    {
+      "title": "Queue state observations",
+      "query": "{__name__=\"pgboss.queue.jobs\"} and ((time() - timestamp({__name__=\"pgboss.queue.jobs\"})) >= 0 and (time() - timestamp({__name__=\"pgboss.queue.jobs\"})) <= 10)",
+      "description": "Last owner queue sample only. Missing or >10s old is UNKNOWN; zero is observed zero. Does not prove worker liveness."
+    },
+    {
+      "title": "Dependency failures (observed)",
+      "query": "{__name__=~\"inside[.]dependency[.]operations(_total)?\",outcome=\"failed\"}"
+    },
+    {
+      "title": "Trace drops (increase)",
+      "query": "increase({__name__=~\"telemetry[.]trace[.]dropped(_total)?\"}[5m])"
+    },
+    {
+      "title": "Stdout parsing and export failures",
+      "query": "{__name__=~\"loki_source_syslog_parsing_errors_total|loki_write_dropped_entries_total\"}"
+    },
+    {
+      "title": "Business exceptions observed by existing Watchdog",
+      "query": "inside_watchdog_value{check=~\"purchases|fulfillment|notification_outbox|email_effects\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"purchases|fulfillment|notification_outbox|email_effects\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"purchases|fulfillment|notification_outbox|email_effects\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"purchases|fulfillment|notification_outbox|email_effects\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "Counts beyond existing operational thresholds, not totals or successful purchases. purchases: unknown/authorized >15m or sent/pending >25h; fulfillment >5m; outbox/email >10m. Owner payment/access diagnostics remain authoritative."
+    },
+    {
+      "title": "Telegram business queues and failed community operations",
+      "query": "inside_watchdog_value{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "community_operations: failed/unknown updates in last10m. Ages in seconds. Webhook pending is native Telegram backlog, not app delivery proof."
+    },
+    {
+      "title": "Telegram readiness, observed errors and reset markers",
+      "query": "inside_watchdog_value{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "Counters are native snapshots; reset=1 means decrease since previous successful observation. Missing initial/reset interval is UNKNOWN. Ready HTTP200 does not establish business success."
+    },
+    {
+      "title": "Backup timer and last-result state",
+      "query": "inside_watchdog_value{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "1 active/success,0 inactive/failure; absent last result after reboot is UNKNOWN. Latest successful timestamp is shown separately; successful backup is not restore proof."
+    },
+    {
+      "title": "Cached container/host exceptions",
+      "query": "inside_watchdog_value{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "Across existing Watchdog projects. All counts withheld if Docker inspection fails. Empty listing is not proof every expected service exists."
+    },
+    {
+      "title": "Existing recovery/telemetry operating conditions",
+      "query": "inside_watchdog_value{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "billing_queue_idle=1 means no completed payment-recovery task in5m. Web telemetry names follow existing health view conditions and units; these are operational conditions, not user activity."
+    },
+    {
+      "title": "Owner observation age seconds (stale >180)",
+      "query": "time() - inside_watchdog_observed_at_seconds",
+      "description": "Timestamp belongs to actual completed Watchdog read cycle. Interrupted/deploy-skipped cycles do not refresh it. Future/negative age is invalid."
+    },
+    {
+      "title": "Backup last-success age seconds",
+      "query": "time() - (inside_watchdog_value{check=~\"backup_last_success_timestamp_seconds\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds)))",
+      "description": "Age since latest successful systemd backup completion, unknown after reboot until known completion. Threshold8h. No backup storage inspection or restore proof."
+    },
+    {
+      "title": "PostgreSQL native counts (ordinary reader)",
+      "query": "{__name__=~\"inside_postgresql_server_(backends|waiting_locks|deadlocks_since_reset)\",job=\"platform-owner-cache\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) <= 10)",
+      "description": "Only validated ordinary-role pg_catalog aggregates for inside DB. Missing stats/reset/role/source is UNKNOWN. No query text, PID, user or SQL is stored."
+    },
+    {
+      "title": "PostgreSQL server/statistics epoch markers",
+      "query": "{__name__=~\"inside_postgresql_server_(postmaster_start_time_microseconds|statistics_reset_time_microseconds|sample_time_microseconds)\",job=\"platform-owner-cache\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) <= 10)",
+      "description": "Microseconds. Changed epoch or decreased counter invalidates cross-epoch delta; unavailable intervals are incomplete."
+    },
+    {
+      "title": "Caddy public native HTTP counts",
+      "query": "{__name__=~\"caddy_http_(requests_total|request_errors_total|requests_in_flight)\",job=\"platform-owner-cache\",server=\"public\",handler=\"subroute\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) <= 10)",
+      "description": "Actual adapted public443 server/subroute counted once. Other servers/automatic redirects validated before exclusion. Excludes pre-route parsing/TCP/TLS/HTTP3 failures."
+    },
+    {
+      "title": "Caddy process epoch marker",
+      "query": "caddy_process_start_time_seconds{job=\"platform-owner-cache\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) <= 10)",
+      "description": "Process epoch in seconds; decreases/reset or changed epoch prevent an uninterrupted interval claim. Missing source is UNKNOWN."
+    },
+    {
+      "title": "Owner cache parsing failure (1 means invalid cache)",
+      "query": "node_textfile_scrape_error{job=\"platform-owner-cache\"}",
+      "description": "Scraper up is separate from source availability and file parsing; missing file/source is UNKNOWN."
+    },
+    {
+      "title": "Web HTTP requests by build, route, method, status and completion",
+      "query": "inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\"} and on(job,instance) ((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10))",
+      "description": "Actual Node finish/close outcomes, exactly once per response; aborted streams remain aborted with the status sent before close (0 if none). Cumulative since process epoch, independent of trace sampling. Missing route series is unknown, not observed zero."
+    },
+    {
+      "title": "Web HTTP active and started requests",
+      "query": "{__name__=~\"inside_web_http_(active_requests|started_total)\",job=\"platform-web-http\",instance=\"web\"} and on(job,instance) ((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10))"
+    },
+    {
+      "title": "Web HTTP process epoch and counter resets",
+      "query": "inside_web_http_process_start_time_seconds{job=\"platform-web-http\",instance=\"web\"} and on(job,instance) ((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10))",
+      "description": "Process epoch changes or counter decreases invalidate cross-epoch comparison; inspect resets(inside_web_http_requests_total[5m]). SHA is present on every series. Scrape failure, gaps or stale samples are not healthy zero."
+    },
+    {
+      "title": "Web HTTP p50 completed response seconds (quality gated)",
+      "query": "histogram_quantile(0.5,sum by(le,source_sha,route,method,code)(rate(inside_web_http_duration_seconds_bucket{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m]))) and on(source_sha,route,method,code) (sum by(source_sha,route,method,code)(increase(inside_web_http_duration_seconds_count{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) >= 100) and on(source_sha,route,method,code) (sum by(source_sha,route,method,code)(resets(inside_web_http_duration_seconds_count{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) == 0) and on() (max(((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10))) == 1) and on() (max(((min_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) == 1) and (count_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58))) == 1) and on(source_sha) (changes(inside_web_http_process_start_time_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) == 0 and count_over_time(inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)",
+      "description": "Native duration includes streaming through Node finish. Requires >=100 completed observations, >=58 five-second source samples in 5m, no failed scrape, counter reset or process epoch change, and current source age 0..10s. Missing/partial intervals show Unknown. Aborts are reported separately, not latency success. Select a build with source_sha when comparing releases."
+    },
+    {
+      "title": "Web HTTP p95 completed response seconds (quality gated)",
+      "query": "histogram_quantile(0.95,sum by(le,source_sha,route,method,code)(rate(inside_web_http_duration_seconds_bucket{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m]))) and on(source_sha,route,method,code) (sum by(source_sha,route,method,code)(increase(inside_web_http_duration_seconds_count{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) >= 100) and on(source_sha,route,method,code) (sum by(source_sha,route,method,code)(resets(inside_web_http_duration_seconds_count{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) == 0) and on() (max(((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10))) == 1) and on() (max(((min_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) == 1) and (count_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58))) == 1) and on(source_sha) (changes(inside_web_http_process_start_time_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) == 0 and count_over_time(inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)",
+      "description": "Native duration includes streaming through Node finish. Requires >=100 completed observations, >=58 five-second source samples in 5m, no failed scrape, counter reset or process epoch change, and current source age 0..10s. Missing/partial intervals show Unknown. Aborts are reported separately, not latency success. Select a build with source_sha when comparing releases."
+    },
+    {
+      "title": "Web HTTP p99 completed response seconds (quality gated)",
+      "query": "histogram_quantile(0.99,sum by(le,source_sha,route,method,code)(rate(inside_web_http_duration_seconds_bucket{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m]))) and on(source_sha,route,method,code) (sum by(source_sha,route,method,code)(increase(inside_web_http_duration_seconds_count{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) >= 100) and on(source_sha,route,method,code) (sum by(source_sha,route,method,code)(resets(inside_web_http_duration_seconds_count{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) == 0) and on() (max(((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10))) == 1) and on() (max(((min_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) == 1) and (count_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58))) == 1) and on(source_sha) (changes(inside_web_http_process_start_time_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) == 0 and count_over_time(inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)",
+      "description": "Native duration includes streaming through Node finish. Requires >=100 completed observations, >=58 five-second source samples in 5m, no failed scrape, counter reset or process epoch change, and current source age 0..10s. Missing/partial intervals show Unknown. Aborts are reported separately, not latency success. Select a build with source_sha when comparing releases."
+    },
+    {
+      "title": "Web HTTP 4xx fraction of completed responses",
+      "query": "((sum by(environment,source_sha,route,method)(increase_pure(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\",code=~\"4..\"}[5m])) or on(environment,source_sha,route,method) (sum by(environment,source_sha,route,method)(increase_pure(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) * 0)) / sum by(environment,source_sha,route,method)(increase_pure(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m]))) and on(environment,source_sha,route,method) (sum by(environment,source_sha,route,method)(resets(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) == 0) and on() (max((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10)) == 1) and on() (max((min_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) == 1) and (count_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)) == 1) and on(source_sha) (changes(inside_web_http_process_start_time_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) == 0 and count_over_time(inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)",
+      "description": "Owned Web status counters start at zero; native increase_pure retains the first observed burst in both numerator and denominator. Fractions estimate the scrape window rather than exact event times. Zero errors requires observed completed requests and a complete source window. Missing/failed/stale scrape, insufficient samples, zero denominator or epoch/counter reset show Unknown. Aborted streams retain their separate outcome."
+    },
+    {
+      "title": "Web HTTP 5xx fraction of completed responses",
+      "query": "((sum by(environment,source_sha,route,method)(increase_pure(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\",code=~\"5..\"}[5m])) or on(environment,source_sha,route,method) (sum by(environment,source_sha,route,method)(increase_pure(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) * 0)) / sum by(environment,source_sha,route,method)(increase_pure(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m]))) and on(environment,source_sha,route,method) (sum by(environment,source_sha,route,method)(resets(inside_web_http_requests_total{job=\"platform-web-http\",instance=\"web\",outcome=\"completed\"}[5m])) == 0) and on() (max((up{job=\"platform-web-http\",instance=\"web\"} == 1) and on(job,instance) ((time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) >= 0 and (time() - inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}) <= 10)) == 1) and on() (max((min_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) == 1) and (count_over_time(up{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)) == 1) and on(source_sha) (changes(inside_web_http_process_start_time_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) == 0 and count_over_time(inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"}[5m]) >= 58)",
+      "description": "Owned Web status counters start at zero; native increase_pure retains the first observed burst in both numerator and denominator. Fractions estimate the scrape window rather than exact event times. Zero errors requires observed completed requests and a complete source window. Missing/failed/stale scrape, insufficient samples, zero denominator or epoch/counter reset show Unknown. Aborted streams retain their separate outcome."
+    }
+  ],
+  "sources": [
+    {
+      "name": "collector",
+      "value": "max(up{job=\"platform-collector\",instance=\"pilot\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-collector\",instance=\"pilot\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "trace-store",
+      "value": "max(up{job=\"platform-trace-store\",instance=\"pilot\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-trace-store\",instance=\"pilot\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "stdout",
+      "value": "max(up{job=\"platform-stdout\",instance=\"production\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-stdout\",instance=\"production\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "host",
+      "value": "max(up{job=\"platform-host\",instance=\"production-host\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-host\",instance=\"production-host\"}))",
+      "maximum_age_seconds": 45
+    },
+    {
+      "name": "containers",
+      "value": "max(up{job=\"platform-containers\",instance=\"production-host\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-containers\",instance=\"production-host\"}))",
+      "maximum_age_seconds": 45
+    },
+    {
+      "name": "platform-api",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-api\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-api\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-mcp",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-mcp\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-mcp\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-material-assets-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-material-assets-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-material-assets-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-profile-avatars-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-profile-avatars-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-profile-avatars-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-video-deletions-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-video-deletions-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-video-deletions-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-billing-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-billing-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-billing-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-notifications-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-notifications-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-notifications-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "inside-telegram",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"inside-telegram\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"inside-telegram\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "watchdog-containers",
+      "value": "max(inside_watchdog_value{check=\"source_containers\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_containers\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-backups",
+      "value": "max(inside_watchdog_value{check=\"source_backups\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_backups\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-platform_database",
+      "value": "max(inside_watchdog_value{check=\"source_platform_database\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_platform_database\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-telegram_database",
+      "value": "max(inside_watchdog_value{check=\"source_telegram_database\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_database\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-telegram_metrics",
+      "value": "max(inside_watchdog_value{check=\"source_telegram_metrics\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_metrics\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-telegram_webhook",
+      "value": "max(inside_watchdog_value{check=\"source_telegram_webhook\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_webhook\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "owner-cache-scraper",
+      "value": "max(up{job=\"platform-owner-cache\",instance=\"production-host\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-owner-cache\",instance=\"production-host\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "native-postgresql",
+      "value": "max(inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"})",
+      "observed_at": "max(inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"})",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "native-caddy",
+      "value": "max(inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"})",
+      "observed_at": "max(inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"})",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "web-http",
+      "value": "max(up{job=\"platform-web-http\",instance=\"web\"})",
+      "observed_at": "max(inside_web_http_observed_at_seconds{job=\"platform-web-http\",instance=\"web\"})",
+      "maximum_age_seconds": 10
+    }
+  ]
+}

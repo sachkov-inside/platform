@@ -62,7 +62,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
         NODE_ENV: "test",
         DATABASE_URL: database.url,
         TELEGRAM_COMMUNICATIONS_ENDPOINT:
-          "http://127.0.0.1:9876/integrations/platform/v1/communications",
+          "http://127.0.0.1:9876/integrations/platform/v2/communications",
         TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-communications-secret",
         TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN: "https://inside.test",
         TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: secret,
@@ -93,10 +93,10 @@ describe("communications permission and confirmed author HTTP authorization", ()
   ) {
     return app.inject({
       method: "POST",
-      url: "/integrations/telegram/v1/communications/authorize",
+      url: "/integrations/telegram/v2/communications/authorize",
       headers: { authorization },
       payload: {
-        contractVersion: "inside-communications-v1",
+        contractVersion: "inside-communications-v2",
         permission: "communications:manage",
         requestId: randomUUID(),
         subject,
@@ -212,7 +212,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
   test("bot content validation authenticates the author and checks the supplied snapshot without reading Telegram", async () => {
     const requestId = randomUUID();
     const payload = {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       permission: "communications:manage",
       requestId,
       subject: {
@@ -239,7 +239,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
     ) =>
       app.inject({
         method: "POST",
-        url: "/integrations/telegram/v1/communications/validate-content",
+        url: "/integrations/telegram/v2/communications/validate-content",
         headers: { authorization },
         payload: body,
       });
@@ -255,7 +255,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
         })
       ).json(),
     ).toEqual({
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       requestId,
       status: "denied",
     });
@@ -263,7 +263,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
     expect(missing.statusCode).toBe(200);
     expect(missing.headers["cache-control"]).toBe("private, no-store");
     expect(missing.json()).toEqual({
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       requestId,
       status: "ok",
       accountRef,

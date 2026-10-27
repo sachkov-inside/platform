@@ -29,54 +29,21 @@ import {
   applySourcePracticeBodySchema,
   practiceImportReceiptSchema,
   type PracticeImportError,
-  sourcePracticeSchema,
-  validateSourcePracticeResultSchema,
 } from "./import-source-practice.contract.js";
 
 @MaterialAuthoringEndpoint()
-@Controller("authoring/import/practices")
+@Controller("authoring/history/practice-receipts")
 export class ImportSourcePracticeController {
   constructor(
     @Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring,
   ) {}
 
-  @Post("validate")
+  @Post()
   @HttpCode(200)
   @ApiOperation({
-    operationId: "validateSourcePractice",
+    operationId: "readHistoricalPracticeReceipt",
     summary:
-      "Validate authored practice data and inspect its current CAS version without writes",
-  })
-  @ApiBody({ schema: toOpenApiSchema(sourcePracticeSchema) })
-  @ApiOkResponse({
-    schema: toOpenApiSchema(validateSourcePracticeResultSchema),
-  })
-  @ApiMaterialAuthoringErrors(400, 401, 403, 500, 503)
-  async validate(
-    @CurrentAccount() account: AuthenticatedAccount,
-    @Body() input: unknown,
-  ) {
-    const parsed = sourcePracticeSchema.safeParse(input);
-    if (!parsed.success)
-      throw problemException(
-        400,
-        "invalid_request_shape",
-        "Practice definition is malformed",
-      );
-    const result = await this.authoring.validateSourcePractice({
-      ...parsed.data,
-      actor: account.accountId,
-    });
-    if (!result.ok) throwImportError(result.error);
-    return result.value;
-  }
-
-  @Post("apply")
-  @HttpCode(200)
-  @ApiOperation({
-    operationId: "applySourcePractice",
-    summary:
-      "Import the current practice definition against explicit source and mutation versions",
+      "Replay an authorized historical Practice receipt; new writes are retired",
   })
   @ApiBody({ schema: toOpenApiSchema(applySourcePracticeBodySchema) })
   @ApiHeader({
@@ -98,7 +65,7 @@ export class ImportSourcePracticeController {
         "invalid_request_shape",
         "Practice import request is malformed",
       );
-    const result = await this.authoring.applySourcePractice({
+    const result = await this.authoring.readHistoricalPracticeReceipt({
       ...parsed.data,
       actor: account.accountId,
       idempotencyKey: key ?? "",
@@ -121,6 +88,12 @@ function throwImportError(error: PracticeImportError): never {
         403,
         error.code,
         "Practice authoring is forbidden",
+      );
+    case "practice_definition_retired":
+      throw problemException(
+        409,
+        error.code,
+        "Practice authoring is retired; import Product Tasks",
       );
     case "source_mismatch":
     case "practice_version_conflict":

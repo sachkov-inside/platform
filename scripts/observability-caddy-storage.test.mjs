@@ -9,10 +9,69 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runOwnedProcess } from "./observability-umami/process-owner.mjs";
 import * as contracts from "./observability-caddy-storage/contract-runner.mjs";
 
+test("Caddy source groups partition all original methods once and keep independent ordered progress", () => {
+  const groups = contracts.sourceGroups;
+  assert.deepEqual(Object.keys(groups), ["contracts", "process-owner"]);
+  assert.equal(groups.contracts.length, 82);
+  assert.equal(groups["process-owner"].length, 3);
+  const combined = [...groups.contracts, ...groups["process-owner"]];
+  assert.equal(new Set(combined).size, 85);
+  assert.deepEqual(combined.toSorted(), contracts.sourceIds);
+  for (const group of /** @type {const} */ (["contracts", "process-owner"])) {
+    const ids = groups[group];
+    const complete = ids
+      .map(
+        (id) =>
+          `CADDY_SOURCE_V1 start ${id}\nCADDY_SOURCE_V1 completed ${id}\n`,
+      )
+      .join("");
+    assert.deepEqual(contracts.sourceProgress(complete, group), {
+      lastStarted: ids.at(-1),
+      lastCompleted: ids.at(-1),
+      completedCount: ids.length,
+    });
+    const foreign =
+      groups[group === "contracts" ? "process-owner" : "contracts"][0];
+    assert.equal(
+      contracts.sourceProgress(`CADDY_SOURCE_V1 start ${foreign}\n`, group),
+      null,
+    );
+    assert.throws(
+      () =>
+        contracts.assertCaddyContracts(
+          {
+            code: 0,
+            signal: null,
+            pid: undefined,
+            reason: "exit",
+            stdout: "private-canary",
+            stderr: `CADDY_SOURCE_V1 start ${ids[0]}\nCADDY_SOURCE_V1 completed ${ids[0]}\n`,
+          },
+          group,
+        ),
+      (error) =>
+        error instanceof assert.AssertionError &&
+        !error.message.includes("private-canary"),
+    );
+  }
+});
+
 // deterministic-test-allow unit-io: pure bounded Caddy contracts and owned protocol fixtures, no Docker or external provider; outer owner reaps children on every outcome.
-test("Caddy refuses invalid whole observations and owns protocol children", async () => {
-  const result = await contracts.runCaddyContracts([]);
-  contracts.assertCaddyContracts(result);
+test("Caddy refuses invalid whole observations through 82 pure and protocol contracts", async () => {
+  const result = await contracts.runCaddyContracts([
+    "--source-group",
+    "contracts",
+  ]);
+  contracts.assertCaddyContracts(result, "contracts");
+});
+
+// deterministic-test-allow unit-io: independent owned process-lifecycle acceptance retains the same 15-second runner and complete registered group cleanup budget.
+test("Caddy process owner reaps real listeners through all 3 lifecycle contracts", async () => {
+  const result = await contracts.runCaddyContracts([
+    "--source-group",
+    "process-owner",
+  ]);
+  contracts.assertCaddyContracts(result, "process-owner");
 });
 
 test("Caddy source progress projects only a canonical active source test", () => {
@@ -126,6 +185,24 @@ test("Caddy timeout and nonzero assertions publish only closed source progress",
       }
     }
   }
+  const failedId = contracts.sourceIds[0];
+  assert.ok(failedId !== undefined);
+  const method = failedId.split(".").at(-1);
+  assert.throws(
+    () =>
+      contracts.assertCaddyContracts({
+        code: 1,
+        signal: null,
+        pid: undefined,
+        reason: "exit",
+        stdout: "private-canary",
+        stderr: `FAIL: ${method} (${failedId}) (protocol='private-canary')\nprivate-canary\nFAIL: private (private-canary)\n`,
+      }),
+    (error) =>
+      error instanceof assert.AssertionError &&
+      error.message.includes(failedId) &&
+      !error.message.includes("private-canary"),
+  );
   contracts.assertCaddyContracts({
     code: 0,
     signal: null,

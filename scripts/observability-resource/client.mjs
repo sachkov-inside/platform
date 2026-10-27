@@ -152,24 +152,35 @@ export async function serve(
     const header = Buffer.from(
       JSON.stringify({ alg: "ES384", kid: "resource-fixture" }),
     ).toString("base64url");
-    const payload = Buffer.from(
-      JSON.stringify({
-        iss: "https://identity.resource.test/oidc",
-        aud: "https://api.resource.test",
-        sub: "resource-corpus-account",
-        inside_verified_email: "resource-corpus@inside.test",
-        iat: now,
-        exp: now + TOKEN_LIFETIME_SECONDS,
-      }),
-    ).toString("base64url");
-    const input = header + "." + payload;
-    const signature = sign("sha384", Buffer.from(input), {
-      key: pair.privateKey,
-      dsaEncoding: "ieee-p1363",
-    }).toString("base64url");
+    const count = Number(process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"] ?? "1");
+    if (!Number.isSafeInteger(count) || count < 1 || count > 256)
+      throw new Error("closed account count");
+    const tokens = Array.from({ length: count }, (_, index) => {
+      const payload = Buffer.from(
+        JSON.stringify({
+          iss: "https://identity.resource.test/oidc",
+          aud: "https://api.resource.test",
+          sub:
+            "resource-corpus-account" +
+            (count === 1 ? "" : "-" + String(index)),
+          inside_verified_email:
+            "resource-corpus" +
+            (count === 1 ? "" : String(index)) +
+            "@inside.test",
+          iat: now,
+          exp: now + TOKEN_LIFETIME_SECONDS,
+        }),
+      ).toString("base64url");
+      const input = header + "." + payload;
+      const signature = sign("sha384", Buffer.from(input), {
+        key: pair.privateKey,
+        dsaEncoding: "ieee-p1363",
+      }).toString("base64url");
+      return input + "." + signature;
+    });
     writeFileSync(
       filename + ".new",
-      JSON.stringify({ token: input + "." + signature }),
+      JSON.stringify({ token: tokens[0], ...(count > 1 ? { tokens } : {}) }),
       { mode: 0o600 },
     );
     renameSync(filename + ".new", filename);

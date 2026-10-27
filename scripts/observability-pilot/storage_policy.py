@@ -4,6 +4,10 @@ GIB = 1024**3
 STOP_MARGIN_BYTES = 256 * 1024**2
 FLOOR_BYTES = 10 * GIB
 GROWTH_BYTES = 4 * GIB
+# Image construction also retains build layers. It is not the runtime disk budget.
+IMAGE_PREPARATION_GROWTH_BYTES = 8 * GIB
+# Five source images and their pinned runtime inputs, Linux full-stack CI only.
+FULLSTACK_IMAGE_PREPARATION_GROWTH_BYTES = 16 * GIB
 CLEANUP_HEADROOM_BYTES = 2 * GIB
 MINIMUM_FREE_BYTES = FLOOR_BYTES + GROWTH_BYTES + CLEANUP_HEADROOM_BYTES
 
@@ -21,8 +25,10 @@ class StorageBudgetExceeded(RuntimeError):
         self.reason = reason
 
 
-def assert_budget(initial, free):
+def assert_budget(initial, free, *, growth_bytes=GROWTH_BYTES):
+    if type(growth_bytes) is not int or growth_bytes not in (GROWTH_BYTES, IMAGE_PREPARATION_GROWTH_BYTES, FULLSTACK_IMAGE_PREPARATION_GROWTH_BYTES):
+        raise ValueError("unsupported storage budget")
     floor = free <= FLOOR_BYTES + STOP_MARGIN_BYTES
-    growth = initial - free >= GROWTH_BYTES - STOP_MARGIN_BYTES
+    growth = initial - free >= growth_bytes - STOP_MARGIN_BYTES
     if floor or growth:
         raise StorageBudgetExceeded('floor_growth' if floor and growth else 'floor' if floor else 'growth')

@@ -38,7 +38,7 @@ export async function paymentViews(
   const [pending, refunds] = await Promise.all([
     tx.billingFulfillment.findMany({
       where: { purchaseRef: { in: purchaseRefs }, appliedAt: null },
-      select: { purchaseRef: true },
+      select: { purchaseRef: true, reviewRequiredAt: true },
     }),
     tx.billingRefund.findMany({
       where: { purchaseRef: { in: purchaseRefs } },
@@ -71,11 +71,18 @@ export async function paymentViews(
       access:
         row.state !== "confirmed"
           ? "awaiting_payment"
-          : waiting
-            ? "preparing"
-            : "ready",
-      refundedKopecks: totals.refundedKopecks,
-      refundableKopecks: totals.refundableKopecks,
+          : pending.some(
+                (item) =>
+                  item.purchaseRef === row.id && item.reviewRequiredAt !== null,
+              )
+            ? "review_required"
+            : waiting
+              ? "preparing"
+              : "ready",
+      refundedKopecks: row.refundReviewRequired ? null : totals.refundedKopecks,
+      refundableKopecks: row.refundReviewRequired
+        ? null
+        : totals.refundableKopecks,
     });
   });
 }

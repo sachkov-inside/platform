@@ -1,7 +1,7 @@
+import type { MaterialDiscoveryContext } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import { selectPublishedMaterialProjectionPage } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -37,7 +37,7 @@ const cursorSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
-      kind: z.literal("series"),
+      kind: z.literal("product"),
       materialId: normalizedUuidSchema,
       ordinal: z.number().int().positive(),
     })
@@ -63,8 +63,8 @@ const querySchema = z
       .max(120)
       .transform((value) => value.replace(/\s+/gu, " "))
       .optional(),
-    seriesSlugs: facetSlugsSchema.optional(),
-    sort: z.enum(["newest", "relevance", "series", "title"]).optional(),
+    productSlugs: facetSlugsSchema.optional(),
+    sort: z.enum(["newest", "relevance", "product", "title"]).optional(),
     topicSlugs: facetSlugsSchema.optional(),
   })
   .strict()
@@ -79,17 +79,17 @@ const querySchema = z
         path: ["topicSlugs"],
       });
     }
-    if (query.sort === "series" && query.seriesSlugs?.length !== 1) {
+    if (query.sort === "product" && query.productSlugs?.length !== 1) {
       context.addIssue({
         code: "custom",
-        message: "Series order requires exactly one Series filter",
+        message: "Product order requires exactly one Product filter",
         path: ["sort"],
       });
     }
   });
 
 export async function listPublishedMaterialProjections(
-  prisma: MaterialsPrisma,
+  prisma: MaterialDiscoveryContext,
   query: ListPublishedMaterialProjectionsQuery,
 ): Promise<PublishedMaterialProjectionListResult> {
   const parsed = querySchema.safeParse(query);
@@ -109,7 +109,7 @@ export async function listPublishedMaterialProjections(
       formatSlugs: parsed.data.formatSlugs ?? [],
       first: parsed.data.first,
       feedOnly: parsed.data.feedOnly ?? false,
-      seriesSlugs: parsed.data.seriesSlugs ?? [],
+      productSlugs: parsed.data.productSlugs ?? [],
       sort,
       topicSlugs: parsed.data.topicSlugs ?? [],
       ...(parsed.data.q === undefined || parsed.data.q.length === 0
@@ -136,8 +136,8 @@ function resolvedProjectionSort(
   const requested =
     query.sort ??
     (query.q === undefined || query.q.length === 0
-      ? query.seriesSlugs?.length === 1
-        ? "series"
+      ? query.productSlugs?.length === 1
+        ? "product"
         : "newest"
       : "relevance");
   return requested === "relevance" &&

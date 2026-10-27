@@ -122,7 +122,8 @@ class DependencyScheduling(unittest.TestCase):
         self.assertTrue(boundary.sent==expected,'all sixteen original unsafe wire bodies must remain byte/JSON equal')
         self.assertEqual(boundary.proof['outcome'],'passed')
         self.assertEqual([(c['partition'],c['transport']) for c in boundary.proof['cases']],list(PAIRS))
-        self.assertEqual(boundary.proof['metrics'],{'stored_series':440,'metric_labelsets':86,'pool_series':10,'privacy':'passed'})
+        # activity.read adds completed/failed in both transports: 20 series, four labelsets.
+        self.assertEqual(boundary.proof['metrics'],{'stored_series':460,'metric_labelsets':90,'pool_series':10,'privacy':'passed'})
         self.assertEqual(boundary.events[-1],('metric','/metrics/api/v1/query?query=%7B__name__%3D~%22.%2B%22%7D'))
         self.assertEqual([row['probe'] for row in boundary.readiness],
             [partition+'_full_storage_'+transport for partition,transport in PAIRS]+['dependency_metric_catalog'])
@@ -138,8 +139,8 @@ class DependencyScheduling(unittest.TestCase):
             'telegram_http':partition=='telegram-http','now_ns':stamp})
             for (partition,transport),stamp in zip(PAIRS,STAMPS)])
         self.assertEqual(boundary.proof['cases'],[
-            {'transport':transport,'stored_spans':35 if partition=='dependency' else 2 if partition=='communications' else 8,
-             'registered_completions':32 if partition=='dependency' else 2 if partition=='communications' else 8,
+            {'transport':transport,'stored_spans':35 if partition=='dependency' else 2 if partition=='communications' else 10,
+             'registered_completions':32 if partition=='dependency' else 2 if partition=='communications' else 10,
              'causality':'passed','fallback':'passed' if partition=='dependency' else 'not_applicable',
              'privacy':'passed','partition':partition} for partition,transport in PAIRS])
 

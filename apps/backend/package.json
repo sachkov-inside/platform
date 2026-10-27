@@ -23,7 +23,7 @@
     "start:video-deletions-worker": "node dist/entrypoints/video-deletions-worker.js",
     "db:migrate": "tsx src/migrations/migrate.ts",
     "release:bootstrap-owner": "tsx src/release/bootstrap-owner-account.ts",
-    "release:moderate-profiles": "tsx src/release/moderate-member-profiles.ts",
+    "release:moderate-profiles": "tsx src/release/moderate-account-profiles.ts",
     "db:seed": "tsx src/development/seed-local.ts",
     "dev:bank-double": "tsx watch src/development/bank-double.ts",
     "smoke:set-full-stack-membership": "tsx src/development/set-full-stack-membership.ts",

@@ -1,4 +1,4 @@
-"""New PG ownership and typed absence extend rather than weaken the Core7 proof."""
+"""New PG ownership and typed absence extend rather than weaken the Core8 proof."""
 import fnmatch
 import json
 from pathlib import Path
@@ -12,18 +12,32 @@ import ownership
 
 
 class TrackingOwnership(unittest.TestCase):
+    def test_init_unix_socket_cannot_claim_application_tcp_readiness(self):
+        from types import SimpleNamespace
+        targets=SimpleNamespace(postgres=lambda:'owned-postgres')
+        tcp_ready=False
+        def command(args,**options):
+            if '-h' in args and args[args.index('-h')+1]=='127.0.0.1' and not tcp_ready:
+                raise subprocess.CalledProcessError(1,args)
+            return ''
+        with patch.object(ownership.pilot,'assert_docker_identity'), patch.object(ownership.pilot,'command',side_effect=command):
+            self.assertFalse(ownership.postgres_ready(targets), 'init-only Unix socket is accepting while the real application endpoint is unavailable')
+            tcp_ready=True
+            self.assertTrue(ownership.postgres_ready(targets))
+
     def test_exact_plan_is_eight_services_five_volumes_two_networks_without_ryuk(self):
+        # Historical stable identifier; assertions require Core8 plus PostgreSQL (9 services).
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'private'
             ownership.prepare(output)
             plan=ownership.plan(output)
             self.assertEqual(json.loads((output/'compose.json').read_text()),plan)
             self.assertEqual(set(plan['services']),set(ownership.SERVICES))
-            self.assertEqual(len(plan['services']),8)
+            self.assertEqual(len(plan['services']),9)
             self.assertEqual(len(plan['volumes']),5)
             self.assertEqual(len(plan['networks']),2)
-            self.assertEqual(sum(float(value['cpus']) for value in plan['services'].values()),2)
-            self.assertEqual(sum(int(value['mem_limit'][:-1]) for value in plan['services'].values()),4096)
+            self.assertEqual(sum(float(value['cpus']) for value in plan['services'].values()),2.1)
+            self.assertEqual(sum(int(value['mem_limit'][:-1]) for value in plan['services'].values()),4224)
             self.assertEqual(plan['services']['postgres']['image'],ownership.PG_IMAGE)
             self.assertEqual(plan['services']['postgres']['logging'],{'driver':'none'})
             self.assertEqual(plan['services']['postgres']['volumes'],['postgres:/var/lib/postgresql'])
@@ -35,10 +49,10 @@ class TrackingOwnership(unittest.TestCase):
         value={'project':project,'container':'b'*64,'volume':project+'_postgres','networks':['c'*64,'d'*64]}
         (output/'tracking-pg-owned.json').write_text(json.dumps(value))
         (output/'source-freshness-owned.json').write_text(json.dumps({'project':project,
-            'containers':['e'+str(i)*63 for i in range(7)],
+            'containers':['e'+str(i)*63 for i in range(8)],
             'volumes':[project+'_'+name for name in ('metrics','logs','traces','grafana')],
             'networks':['c'*64,'d'*64]}))
-        (output/'cleanup.json').write_text(json.dumps({'source_freshness':{'outcome':'passed','containers':7,'volumes':4,'networks':2}}))
+        (output/'cleanup.json').write_text(json.dumps({'source_freshness':{'outcome':'passed','containers':8,'volumes':4,'networks':2}}))
         return project,value
 
     def test_absence_needs_exact_missing_container_and_volume_plus_successful_core_proof(self):
@@ -51,7 +65,11 @@ class TrackingOwnership(unittest.TestCase):
                        'Error response from daemon: get '+identity+': no such volume')
                 raise subprocess.CalledProcessError(1,argv,output='[]',stderr=error)
             with patch.object(ownership.pilot,'assert_docker_identity'),patch.object(ownership.pilot,'command',side_effect=absent):
-                self.assertEqual(ownership.verify_pg_absence(output,project),{'outcome':'passed','containers':8,'volumes':5,'networks':2})
+                proof=ownership.verify_pg_absence(output,project)
+                self.assertEqual(proof,{'outcome':'passed','containers':9,'volumes':5,'networks':2})
+                # The combined result includes the separately owned PostgreSQL process.
+                ownership.prepare(output/'plan')
+                self.assertEqual(proof['containers'],len(ownership.plan(output/'plan')['services']))
             self.assertEqual(calls,[['docker','container','inspect',value['container']],['docker','volume','inspect',value['volume']]])
 
     def test_daemon_failure_still_present_bad_identity_and_failed_core_remain_unproved(self):
@@ -79,7 +97,7 @@ class TrackingOwnership(unittest.TestCase):
             'scripts/observability-tracking-storage/test_tracking_trace_reasons.py',
             'apps/backend/src/entrypoints/api/create-api-application.ts',
             'apps/backend/src/modules/communications/facets/tracking-visits/tracking-visits.ts',
-            'apps/backend/src/modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.ts',
+            'apps/backend/src/modules/communications/infrastructure/postgres/migrations/0125-tracking-trace-context.ts',
             'apps/backend/src/migrations/index.ts','apps/backend/prisma/schema.prisma',
             'apps/backend/prisma.config.ts','apps/backend/test/support/proof-dependencies.ts','docs/contracts/runtime/diagnostic-error.ts',
             '.github/actions/setup-platform/action.yml','pnpm-lock.yaml','.github/workflows/observability-tracking-storage.yml',
@@ -125,9 +143,9 @@ class ActualOwnershipRows(unittest.TestCase):
                     return json.dumps(actual[argv[-1]])
                 if case=='accepted':
                     targets=ownership.TrackingTargets(output,compose,plan,read)
-                    self.assertEqual(len(targets.targets),8)
+                    self.assertEqual(len(targets.targets),9)
                     self.assertEqual(targets.postgres(),ids['postgres'])
-                    self.assertEqual(len(json.loads((output/'source-freshness-owned.json').read_text())['containers']),7)
+                    self.assertEqual(len(json.loads((output/'source-freshness-owned.json').read_text())['containers']),8)
                     self.assertEqual(json.loads((output/'tracking-pg-owned.json').read_text())['container'],ids['postgres'])
                 else:
                     with self.assertRaises(RuntimeError): ownership.TrackingTargets(output,compose,plan,read)

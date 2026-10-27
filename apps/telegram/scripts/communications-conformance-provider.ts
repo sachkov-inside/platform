@@ -21,7 +21,7 @@ import {
   COMMUNICATION_TRANSPORT,
   type CommunicationMessage,
 } from "../src/modules/communications/communication-delivery.js";
-import { FunnelScheduler } from "../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../src/modules/communications/sequence-scheduler.js";
 import { TelegramUpdateProcessor } from "../src/modules/update-inbox/telegram-update-processor.js";
 import {
   localProofDatabaseUrl,
@@ -54,8 +54,8 @@ const config = {
     PLATFORM_INTEGRATION_SECRET: "synthetic_linking_secret_conformance",
     PLATFORM_COMMUNICATIONS_SECRET:
       "synthetic_communications_secret_conformance",
-    PLATFORM_AUTHOR_AUTHORIZATION_URL: `${platform}/integrations/telegram/v1/communications/authorize`,
-    PLATFORM_AUTHOR_CONTENT_VALIDATION_URL: `${platform}/integrations/telegram/v1/communications/validate-content`,
+    PLATFORM_AUTHOR_AUTHORIZATION_URL: `${platform}/integrations/telegram/v2/communications/authorize`,
+    PLATFORM_AUTHOR_CONTENT_VALIDATION_URL: `${platform}/integrations/telegram/v2/communications/validate-content`,
     PLATFORM_AUTHOR_AUTHORIZATION_SECRET:
       "synthetic_authorization_secret_conformance",
     PLATFORM_TRACKING_REDIRECT_URL:
@@ -176,7 +176,7 @@ control.post<{
     await app.get(TelegramUpdateProcessor).processAvailable(100, now);
     await app.get(StartResponseDeliveryProcessor).processAvailable(100, now);
     const processed = await app
-      .get(FunnelScheduler)
+      .get(SequenceScheduler)
       .processAvailable(request.body.limit ?? 100);
     return { processed, now: now.toISOString(), simulated: true };
   },

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "name": "production-topology-synthetic-v1",
+  "acceptance": "pending-representative-application-and-host",
+  "repetitions": 2,
+  "sample_interval_seconds": 2,
+  "query_interval_seconds": 0.5,
+  "phases": [
+    { "name": "idle", "seconds": 10, "chains_per_second": 0 },
+    { "name": "steady", "seconds": 20, "chains_per_second": 5 },
+    { "name": "spike", "seconds": 10, "chains_per_second": 20 }
+  ],
+  "missing": [
+    "representative application traffic and cardinality",
+    "shared PostgreSQL 18 plus Umami and every application process",
+    "application HTTP p95 ON/OFF baseline",
+    "full 14/90/365-day retention and recovery corpus",
+    "complete producer loss and restart ledger",
+    "physical Timeweb CPU/memory/disk reserve and seven days"
+  ]
+}

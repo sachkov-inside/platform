@@ -87,12 +87,13 @@ class ScenarioTests(unittest.TestCase):
                     self.assertNotIn('private boundary diagnostic', json.dumps(report))
 
     def test_real_worker_cli_withholds_boundary_diagnostics_paths_and_command_details(self):
-        for mode in ('cli_failure', 'cli_command_failure'):
-            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+        for mode, slow_profile_write in ((mode, slow) for mode in ('cli_failure', 'cli_command_failure') for slow in (False,True)):
+            with self.subTest(mode=mode,slow_profile_write=slow_profile_write), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory).resolve()
-                with owned_scenario_process(output, mode) as process:
+                with owned_scenario_process(output, mode,slow_profile_write=slow_profile_write) as process:
                     stdout, stderr = process.communicate(timeout=8)
                     self.assertEqual(process.returncode, 1, stderr)
+                    self.assertTrue((output/('command-failed' if mode=='cli_command_failure' else 'boundary-entered')).is_file())
                     report = json.loads((output / 'source-freshness.json').read_text())
                     self.assertEqual(report['state'], 'failed')
                     self.assertIn('ScenarioFailed', stderr)
@@ -282,8 +283,8 @@ class ScenarioTests(unittest.TestCase):
                            'Error response from daemon: network ' + identity + ' not found')
                 raise subprocess.CalledProcessError(1, args, output='[]', stderr=message + '\n')
             result = scenario.verify_cleanup(output, PROJECT, read=gone, clock=lambda: 0)
-            self.assertEqual(result, {'outcome': 'passed', 'containers': 7, 'volumes': 4, 'networks': 2})
-            self.assertEqual(len(calls), 13)
+            self.assertEqual(result, {'outcome': 'passed', 'containers': 8, 'volumes': 4, 'networks': 2})
+            self.assertEqual(len(calls), 14)
             def ambiguous(args, **_):
                 raise subprocess.CalledProcessError(1, args, output='', stderr='daemon private-secret unavailable')
             result = scenario.verify_cleanup(output, PROJECT, read=ambiguous, clock=lambda: 0)
@@ -345,7 +346,7 @@ class ScenarioTests(unittest.TestCase):
                 self.assertIs(kwargs['assert_identity'], pilot.assert_docker_identity)
                 return {'state': 'passed', 'duration_seconds': 12}
             with patch.object(pilot, 'worker_storage_guard', return_value=nullcontext()), \
-                    patch.object(pilot, 'install_plugin'), patch.object(pilot, 'command'), \
+                    patch.object(pilot, 'install_horizon'), patch.object(pilot, 'install_plugin'), patch.object(pilot, 'command'), \
                     patch.object(pilot, 'smoke', side_effect=smoke), patch.object(scenario, 'run', side_effect=freshness):
                 pilot.run_worker(output)
             self.assertEqual(order, ['original smoke', 'freshness'])

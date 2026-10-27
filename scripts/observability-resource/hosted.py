@@ -12,6 +12,7 @@ import acquisition
 import runtime
 import disk_feedback
 import preparation
+from storage_policy import IMAGE_PREPARATION_GROWTH_BYTES, FLOOR_BYTES, CLEANUP_HEADROOM_BYTES
 
 SCOPE = 'hosted short synthetic SDK-only comparison; acceptance pending; not physical-host capacity'
 REPOSITORY = 'sachkov-inside/platform'
@@ -217,7 +218,7 @@ def prepare_images(source, disk, images, recorder, numeric, consumer):
     runtime.fixture.images({'schema': 1, 'source': source['checkout_sha'], 'owner': owner,
                             'backend': 'sha256:' + 'a'*64, 'foundation': 'sha256:' + 'b'*64}, source['checkout_sha'])
     pins = json.loads((binding.ROOT / 'infra/observability/pilot/inputs.lock.json').read_text())['images']
-    if set(pins) != set(runtime.pilot.SERVICES):
+    if set(pins) != set(runtime.pilot.SERVICES)-{'horizon'}:
         raise ValueError('resource_preload_service_set')
     for image in pins.values():
         if not isinstance(image, str) or not re.fullmatch(r'[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}', image):
@@ -232,8 +233,12 @@ def prepare_images(source, disk, images, recorder, numeric, consumer):
 
 
 def prepare_acquired(source, images, recorder, numeric, identity, owner, pins, stage):
+    free = runtime.pilot.shutil.disk_usage(Path(identity['storage'])).free
+    if free < FLOOR_BYTES + IMAGE_PREPARATION_GROWTH_BYTES + CLEANUP_HEADROOM_BYTES:
+        raise ValueError('resource_image_preparation_requires_20_gib_free')
     numeric.attempt()
-    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop,observe_samples=True) as samples:
+    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop,observe_samples=True,
+                                  growth_bytes=IMAGE_PREPARATION_GROWTH_BYTES) as samples:
         numeric.entered(samples)
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],

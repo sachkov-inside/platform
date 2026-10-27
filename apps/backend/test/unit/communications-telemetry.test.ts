@@ -13,13 +13,13 @@ import { requestSchema } from "../../src/modules/communications/communications-s
 const config = parsePlatformConfig({
   NODE_ENV: "test",
   TELEGRAM_COMMUNICATIONS_ENDPOINT:
-    "http://127.0.0.1:9876/integrations/platform/v1/communications",
+    "http://127.0.0.1:9876/integrations/platform/v2/communications",
   TELEGRAM_COMMUNICATIONS_SECRET: "private-communications-secret",
   TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "private-authorization-secret",
   TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "private-bot",
 }).communications;
 const request = requestSchema.parse({
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   operation: "templates.read",
   operationId: "11111111-1111-4111-8111-111111111111",
   expectedRevision: 0,
@@ -27,7 +27,7 @@ const request = requestSchema.parse({
   payload: { templateId: "22222222-2222-4222-8222-222222222222" },
 });
 const success = {
-  contractVersion: "inside-communications-v1",
+  contractVersion: "inside-communications-v2",
   status: "ok",
   template: {
     templateId: "22222222-2222-4222-8222-222222222222",
@@ -188,7 +188,7 @@ test.each(["transport", "body", "http"] as const)(
           failure === "http"
             ? Response.json(
                 {
-                  contractVersion: "inside-communications-v1",
+                  contractVersion: "inside-communications-v2",
                   status: "authorization_unavailable",
                 },
                 { status: 503 },

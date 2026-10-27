@@ -80,7 +80,7 @@ test("only post-auth decoded confirmations admit one canonical Node-parsed paren
       LOGTO_AUDIENCE: issuer.audience,
       LOGTO_JWKS_URL: issuer.jwksUrl,
       TELEGRAM_COMMUNICATIONS_ENDPOINT:
-        "http://127.0.0.1:1/integrations/platform/v1/communications",
+        "http://127.0.0.1:1/integrations/platform/v2/communications",
       TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-receipt-secret",
       TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic-authorization-secret",
       TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot",
@@ -88,7 +88,7 @@ test("only post-auth decoded confirmations admit one canonical Node-parsed paren
     app = await createApiApplication(config, { logger: false });
     await app.listen(0, "127.0.0.1");
     const url = new URL(
-      "/integrations/telegram/v1/communications/waitlist",
+      "/integrations/telegram/v2/communications/waitlist",
       await app.getUrl(),
     );
     const command = {

@@ -46,12 +46,11 @@ export const config = {
     "/payment/links/:path*",
     "/telegram/continue",
     "/api/account/billing/purchase",
-    "/api/account/billing/payment-method/change",
-    "/api/account/billing/subscription/change",
     "/api/account/billing/contact/start",
     "/api/account/billing/contact/confirm",
     "/api/web-vitals",
     "/api/render-errors",
+    "/api/analytics",
     "/legal/:path+",
   ],
 };

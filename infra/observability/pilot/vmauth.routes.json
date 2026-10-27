@@ -1,6 +1,6 @@
 {
   "metrics": {
-    "backend": "http://metrics:8428/",
+    "backend": "http://horizon:8081/metrics/",
     "paths": [
       "/api/v1/query",
       "/api/v1/query_range",
@@ -12,7 +12,7 @@
     ]
   },
   "logs": {
-    "backend": "http://logs:9428/",
+    "backend": "http://logs:9428/?extra_filters=_time%3A14d",
     "paths": [
       "/select/logsql/query",
       "/select/logsql/hits",
@@ -28,10 +28,9 @@
     ]
   },
   "traces": {
-    "backend": "http://traces:10428/",
+    "backend": "http://horizon:8081/traces/",
     "paths": [
       "/select/jaeger/api/services",
-      "/select/jaeger/api/operations",
       "/select/jaeger/api/services/[^/]+/operations",
       "/select/jaeger/api/traces",
       "/select/jaeger/api/traces/[0-9a-fA-F]{32}",

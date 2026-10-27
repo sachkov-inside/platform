@@ -35,7 +35,7 @@ service-authenticated направления, проверку текущего 
 `pnpm guardrails` запрещает повторные corpus-папки, побайтные копии артефактов и схемы с тем же `$id`
 вне этой папки, включая JSON-схемы внутри TS/JS. Отрицательные fixtures проверки исполняет `pnpm test:tooling`.
 Схему subscription-activation меняй в исходных Zod codecs backend: `AccountRights` и
-`telegram-membership/domain/subscription-activation-wire.ts`. Затем выполняй
+`telegram-membership/domain/course-activation-wire.ts`. Затем выполняй
 `pnpm --filter @inside/backend contracts:generate`; `contracts:check` проверяет полученный JSON.
 Communications меняется в общем JSON; backend генерирует из него Zod командой
 `pnpm --filter @inside/backend communications:generate`. `communications:check` запрещает расхождение.
@@ -64,3 +64,7 @@ Telegram обновляется следующим. Несовместимый �
 по Node-parsed `rawHeaders`: одно поле, lowercase version `00`, flags `00`/`01` и ненулевые IDs.
 Аутентификация и строгая проверка тела остаются в существующих обработчиках приложений.
 Пробелы, удалённые Node до `rawHeaders`, не восстанавливаются этой проверкой.
+
+`@inside/contracts/telegram-activity` задаёт внутренний отчёт подтверждённой активности Telegram;
+[протокол](runtime/telegram-activity.md) описывает каталог исходов, текущую подтверждённую связь
+с Account, пределы данных, аутентификацию и совместимость со старой версией Telegram.

@@ -6,6 +6,7 @@ import artifact
 import caddy_mcp
 import caddy_query
 import caddy_status as status
+import evidence
 import inflight
 import mcp_snapshot
 import native_source
@@ -44,14 +45,17 @@ class Scenario:
 
     def _partition_checkpoint(self,name):self.progress('partition_checkpoint',name)
 
+    def _inflight_checkpoint(self,name):self.progress('inflight_checkpoint',name)
+
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
-    def _until(self,read,predicate):
-        deadline=time.monotonic()+min(60,self.remaining())
+    def _until(self,read,predicate,*,deadline=None):
+        if deadline is None:deadline=time.monotonic()+min(60,self.remaining())
         while time.monotonic()<deadline:
             self.remaining()
             value=read()
+            if time.monotonic()>=deadline:raise TimeoutError()
             if predicate(value):return value
             time.sleep(min(.25,self.remaining(),max(0,deadline-time.monotonic())))
         raise TimeoutError()
@@ -81,15 +85,20 @@ class Scenario:
         finally:self.targets.change('vmauth','start')
         return self.ready()['completed']
 
-    def snapshot(self,previous=None):
+    def snapshot(self,previous=None,*,evaluated_at=None,deadline=None):
         if self.acquisitions>=128:raise AcquisitionBudgetRefusal()
         # A prior acquisition's completion cannot be later than the new fixed evaluation time.
         while previous is not None and math.floor(time.time())<math.ceil(previous['completed_at']):
             time.sleep(min(.05,self.remaining()))
         self.acquisitions+=1
         started=time.time()
+        query_seconds=min(10,self.remaining())
+        if deadline is not None:
+            query_seconds=min(query_seconds,deadline-time.monotonic())
+            if query_seconds<=0:raise TimeoutError()
         report,acquired=caddy_query.read_snapshot(self.token,previous=previous,
-            deadline_seconds=min(10,self.remaining()),diagnose=True)
+            deadline_seconds=query_seconds,diagnose=True,
+            **({} if evaluated_at is None else {'evaluated_at':evaluated_at}))
         if acquired is None or report['state']=='malformed' or report['transport']['canonical']!='passed':
             raise ValueError('closed Caddy canonical query refused')
         self.journal.record(started,time.time(),'GET',200,count=2)
@@ -117,34 +126,49 @@ class Scenario:
             return True
         return self._until(lambda:self.snapshot(previous),check)
 
-    def matching(self,canonical,*,previous=None):
-        report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
-            previous=previous,progress=lambda phase:self.phase(phase))
-        if report['state']!='observed' or status.acquire(**canonical)!=status.acquire(**mcp):status.refuse()
+    def matching(self,canonical,*,previous=None,read=None):
+        if read is None:
+            report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
+                previous=previous,progress=lambda phase:self.phase(phase))
+        else:report,mcp=read(evaluated_at=canonical['evaluated_at'],previous=previous)
+        self.phase('mcp_compare')
+        if report['state']!='observed':
+            phase='mcp_compare_'+report['state']
+            if phase in evidence.MCP_COMPARE_PHASES:self.phase(phase)
+            status.refuse()
+        expected_values,expected_stamps=status.acquire(**canonical)
+        actual_values,actual_stamps=status.acquire(**mcp)
+        for differs,phase in ((expected_values.keys()!=actual_values.keys(),'keys'),
+                              (expected_values!=actual_values,'values'),
+                              (expected_stamps!=actual_stamps,'timestamps')):
+            if differs:
+                self.phase('mcp_compare_'+phase);status.refuse()
         report['transport']['canonical']='passed'
         self.last_report=artifact.validate(report)
         return mcp
 
     def partition(self,cut):
         self.phase('partition')
-        _,baseline=self.fresh_after(cut,_partition=True)
-        # Repeat every controlled response class inside a journaled interval, including recovery502s.
-        batch_cut=self.seed()
-        self.phase('partition')
-        self._partition_checkpoint('partition_compare_acquire')
-        def check(value):
-            report,acquired=value
-            if report['state']!='observed':
-                self._partition_checkpoint('partition_compare_state');return False
-            if self.journal.verify(baseline,acquired) is not True:
-                self._partition_checkpoint('partition_compare_journal');return False
-            return True
-        while True:
-            _,current=self._until(lambda:self.snapshot(baseline),check)
-            if self.stamp(current)>status.clock(batch_cut):break
-            self._partition_checkpoint('partition_compare_after_cut')
-            baseline=current
-        self.matching(current)
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            self.phase('partition')
+            _,baseline=self.fresh_after(cut,_partition=True)
+            # Warmup precedes both sides of the accounting interval, not only the final query.
+            batch_cut=self.seed()
+            self.phase('partition')
+            self._partition_checkpoint('partition_compare_acquire')
+            def check(value):
+                report,acquired=value
+                if report['state']!='observed':
+                    self._partition_checkpoint('partition_compare_state');return False
+                if self.journal.verify(baseline,acquired) is not True:
+                    self._partition_checkpoint('partition_compare_journal');return False
+                return True
+            while True:
+                _,current=self._until(lambda:self.snapshot(baseline),check)
+                if self.stamp(current)>status.clock(batch_cut):break
+                self._partition_checkpoint('partition_compare_after_cut')
+                baseline=current
+            self.matching(current,read=read)
         self.passed('partition');self.passed('mcp')
         source=self.targets.native_metrics()
         if source is None or source['request_errors_total']<1:status.refuse()
@@ -152,27 +176,58 @@ class Scenario:
 
     def held(self):
         self.phase('inflight')
+        self._inflight_checkpoint('inflight_baseline')
         baseline=self.targets.native_raw()
         initial=native_source.parse(baseline)
         if initial is None or initial['in_flight']!=0:status.refuse()
-        with request_hold.Held(self.token) as held:
-            # These registry reads are srv1 only. No8080 observation is sent before this exact1 witness.
-            held.assert_holding()
-            raw=self.targets.native_raw()
-            independent=native_source.parse(raw)
-            held.assert_holding()
-            if independent is None or independent['in_flight']!=1:status.refuse()
-            while True:
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            self.phase('inflight')
+            self._inflight_checkpoint('inflight_open')
+            with request_hold.Held(self.token) as held:
+                # These registry reads are srv1 only. No8080 observation is sent before this exact1 witness.
+                self._inflight_checkpoint('inflight_raw_held')
                 held.assert_holding()
-                report,canonical=self.snapshot()
-                if (report['state']=='observed' and report['observation']['in_flight']>=1
-                        and self.stamp(canonical)>status.clock(held.started_at)):
-                    mcp=self.matching(canonical)
-                    held.finish()
-                    inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
-                        r_received=held.started_at,f_sent=held.finished_at)
-                    break
-                time.sleep(min(.05,self.remaining()))
+                raw=self.targets.native_raw()
+                independent=native_source.parse(raw)
+                held.assert_holding()
+                if independent is None or independent['in_flight']!=1:status.refuse()
+                registry_base=raw
+                # Exclude a scrape already in progress before R. The registry's
+                # sole active handler must first be this owned native read.
+                self._inflight_checkpoint('inflight_registry_quiet')
+                while native_source.scrape_registry(registry_base)['in_flight']!=1:
+                    held.assert_holding();time.sleep(min(.25,self.remaining()))
+                    registry_base=self.targets.native_raw()
+                    held.assert_holding()
+                self._inflight_checkpoint('inflight_registry_scrape')
+                own_reads=0
+                while True:
+                    held.assert_holding()
+                    current=self.targets.native_raw();own_reads+=1
+                    held.assert_holding()
+                    if inflight.scraped(registry_base,current,own_reads):break
+                    time.sleep(min(.25,self.remaining()))
+                # Freeze a historical integer E only after the proved scrape can
+                # belong to E. This clock boundary never substitutes for the scrape.
+                self._inflight_checkpoint('inflight_boundary')
+                cut=math.ceil(time.time())
+                while time.time()<cut:
+                    held.assert_holding();time.sleep(min(.05,self.remaining()))
+                publication_deadline=time.monotonic()+min(caddy_query.QUERY_SECONDS,self.remaining())
+                self._inflight_checkpoint('inflight_release')
+                held.finish()
+                evaluated=math.floor(held.finished_at)
+            def stored(value):
+                report,canonical=value
+                return (report['state']=='observed' and report['observation']['in_flight']>=1
+                    and status.clock(held.started_at)<self.stamp(canonical)<status.clock(held.finished_at))
+            self._inflight_checkpoint('inflight_stored')
+            _,canonical=self._until(lambda:self.snapshot(evaluated_at=evaluated,deadline=publication_deadline),
+                stored,deadline=publication_deadline)
+            mcp=self.matching(canonical,read=read)
+            self._inflight_checkpoint('inflight_cohort')
+            inflight.validate(baseline=baseline,raw_held=raw,canonical=canonical,mcp=mcp,
+                r_received=held.started_at,f_sent=held.finished_at)
         self.passed('inflight')
 
     def outages(self):
@@ -212,9 +267,11 @@ class Scenario:
         self.ready()
         cut=self.seed()
         self.phase('reset')
-        report,current=self.fresh_after(cut,previous=old)
-        if report['comparison']['state']!='reset_observed':status.refuse()
-        self.matching(current,previous=old)
+        with mcp_snapshot.session(self.executable,self.token,progress=lambda phase:self.phase(phase)) as read:
+            self.phase('reset')
+            report,current=self.fresh_after(cut,previous=old)
+            if report['comparison']['state']!='reset_observed':status.refuse()
+            self.matching(current,previous=old,read=read)
         self.passed('counter_reset')
 
     def run(self):

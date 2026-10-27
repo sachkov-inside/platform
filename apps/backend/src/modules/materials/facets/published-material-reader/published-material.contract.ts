@@ -1,5 +1,5 @@
 import type { MaterialDifficulty } from "../../domain/material-metadata.js";
-import type { ContentCoverProjection } from "../content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 
 export interface PublishedMaterialProjectionDto {
   readonly materialId: string;
@@ -35,10 +35,10 @@ export interface PublishedMaterialProjectionDto {
     readonly id: string;
     readonly name: string;
   }[];
-  readonly seriesMemberships: readonly {
+  readonly productMemberships: readonly {
     readonly ordinal: number;
     readonly stepGroup?: string | null;
-    readonly series: {
+    readonly product: {
       readonly id: string;
       readonly name: string;
       readonly slug: string;

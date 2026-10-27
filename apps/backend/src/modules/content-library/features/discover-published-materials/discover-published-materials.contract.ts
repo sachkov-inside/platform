@@ -1,14 +1,14 @@
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
 import type {
-  ContentCoverProjection,
   ProductIntroductionDto,
   ProductLandingPageDto,
 } from "../../../materials/index.js";
 
 export interface DiscoverPublishedMaterialsQuery {
   readonly first: number | null;
-  readonly kind: "related" | "series" | "topic";
+  readonly kind: "related" | "product" | "topic";
   readonly slug: string;
   readonly subject: Subject;
 }
@@ -48,7 +48,7 @@ export interface PublishedMaterialDiscoveryDto {
   }[];
   readonly hasNext: boolean;
   readonly items: readonly PublishedMaterialCatalogItemDto[];
-  readonly kind: "related" | "series" | "topic";
+  readonly kind: "related" | "product" | "topic";
   readonly reference: {
     /**
      * Whether any lesson of this Product is written for both ways of going through it; false for
@@ -65,7 +65,7 @@ export interface PublishedMaterialDiscoveryDto {
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
   };
-  readonly relatedSeries: readonly {
+  readonly relatedProduct: readonly {
     readonly id: string;
     readonly matchingMaterialCount: number;
     readonly name: string;

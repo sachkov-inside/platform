@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
   contentWriter,
@@ -70,8 +71,14 @@ export function assembleDeleteDraft(
       DeleteDraftError
     >(
       dependencies.prisma,
-      (transaction, rollback) =>
-        executeIdempotentMaterialMutation<DeleteDraftEffect>(
+      async (transaction, rollback) => {
+        const currentPermission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!currentPermission.ok) return rollback(currentPermission.error);
+        return executeIdempotentMaterialMutation<DeleteDraftEffect>(
           transaction,
           {
             actor: command.actor,
@@ -86,6 +93,7 @@ export function assembleDeleteDraft(
               transaction,
               command.materialId,
               [],
+              dependencies.memberships,
             );
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
@@ -134,7 +142,7 @@ export function assembleDeleteDraft(
             }
             if (command.deleteVideoId !== null) {
               const deletion = await requestVideoDeletion(
-                transaction,
+                transactionHandle(transaction),
                 {
                   actor: command.actor,
                   materialId: command.materialId,
@@ -149,12 +157,17 @@ export function assembleDeleteDraft(
                 });
               }
             }
+            await dependencies.memberships.detachMaterial(
+              command.materialId,
+              transactionHandle(transaction),
+            );
             await transaction.material.delete({
               where: { id: command.materialId },
             });
             return { kind: "deleted", materialId: command.materialId };
           },
-        ),
+        );
+      },
       mapPostgresReadError,
       "deleteDraft",
     );

@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+import type { ConfirmedTelegramAction } from "./telegram-user-activity.js";
 import { Inject, Injectable } from "@nestjs/common";
 
 import { DATABASE, type Database } from "../../database/database.js";
@@ -107,13 +109,29 @@ export class TelegramUpdateInbox {
   async markProcessed(
     update: ClaimedTelegramUpdate,
     processedAt: Date,
+    activity?: ConfirmedTelegramAction,
   ): Promise<boolean> {
-    return settle(this.database, updates, update.lease, {
-      failure_code: null,
-      locked_at: null,
-      payload: null,
-      processed_at: processedAt,
-      state: "processed",
+    return this.database.transaction().execute(async (tx) => {
+      const settled = await settle(tx, updates, update.lease, {
+        failure_code: null,
+        locked_at: null,
+        payload: null,
+        processed_at: processedAt,
+        state: "processed",
+      });
+      if (settled && activity)
+        await tx
+          .insertInto("telegram_user_activity")
+          .values({
+            bot_identity: update.botIdentity,
+            update_id: update.updateId,
+            telegram_user_id: activity.telegramUserId,
+            kind: activity.kind,
+            occurred_at: sql<Date>`clock_timestamp()`,
+          })
+          .onConflict((c) => c.doNothing())
+          .execute();
+      return settled;
     });
   }
 

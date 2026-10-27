@@ -116,6 +116,8 @@ def admission(metadata, *, inputs=None, scope=None):
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', CONFIG / "owner-overview.json", Path(__file__),
               Path(__file__).with_name("core_timing.py"), Path(__file__).with_name("source_status.py"), Path(__file__).with_name("source_status_query.py"), Path(__file__).with_name("source_status_scenario.py"), Path(__file__).with_name("pilot.py"), Path(__file__).with_name("owner_overview.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("email_privacy.py"), Path(__file__).with_name("telegram_http_storage.py"), Path(__file__).with_name("telegram_runtime_privacy.py"), Path(__file__).with_name("telegram_runtime_oracle.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
               ROOT / ".github/workflows/observability-pilot.yml", ROOT / "apps/backend/openapi/platform-api.json")
+    inputs = (*inputs, *sorted((ROOT / 'infra/observability/horizon').glob('*')),
+              Path(__file__).with_name('horizon_build.py'), ROOT / 'scripts/heavy-check/bounded.py')
     write_json(metadata / "source.json", {
         "checkout_sha": sha,
         "checkout_tree": read_command(["git", "-C", str(ROOT), "rev-parse", "HEAD^{tree}"]),

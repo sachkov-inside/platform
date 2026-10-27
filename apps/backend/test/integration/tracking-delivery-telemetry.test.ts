@@ -141,7 +141,7 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
           if (command.operation === "tracking.resolve") {
             response.writeHead(200, { "content-type": "application/json" }).end(
               JSON.stringify({
-                contractVersion: "inside-communications-v1",
+                contractVersion: "inside-communications-v2",
                 status: "ok",
                 safeUrl: `${origin}/materials/proof-material`,
               }),
@@ -161,7 +161,7 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
           if (rejected) {
             response.writeHead(403, { "content-type": "application/json" }).end(
               JSON.stringify({
-                contractVersion: "inside-communications-v1",
+                contractVersion: "inside-communications-v2",
                 status: "forbidden",
               }),
             );
@@ -177,7 +177,7 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
           }
           response.writeHead(200, { "content-type": "application/json" }).end(
             JSON.stringify({
-              contractVersion: "inside-communications-v1",
+              contractVersion: "inside-communications-v2",
               status: "ok",
               eventId: command.payload.eventId,
               outcome: duplicate ? "duplicate" : "recorded",
@@ -215,7 +215,7 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
     IDENTITY_EMAIL_FINGERPRINT_KEY: "synthetic-tracking-proof-fingerprint-key",
     TELEGRAM_TRACKING_ORIGIN: origin,
     TELEGRAM_COMMUNICATIONS_ENDPOINT:
-      provider + "/integrations/platform/v1/communications",
+      provider + "/integrations/platform/v2/communications",
     TELEGRAM_COMMUNICATIONS_SECRET: "private-tracking-provider-secret",
     TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "private-tracking-author-secret",
     TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "tracking_proof_bot",

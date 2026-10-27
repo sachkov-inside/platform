@@ -1,4 +1,4 @@
-import type { PriceSnapshot, ProductCohort } from "./billing-contract";
+import type { PriceSnapshot, ProductSalesState } from "./billing-contract";
 import { formatKopecks } from "./presentation";
 
 const cohortDate = new Intl.DateTimeFormat("ru-RU", {
@@ -64,7 +64,7 @@ export interface PreorderPrice {
  * большую цену.
  */
 export function preorderPrice(
-  cohort: ProductCohort | null,
+  cohort: ProductSalesState | null,
   offer: PriceSnapshot | null,
   today: string = cohortToday(),
 ): PreorderPrice | null {
@@ -91,7 +91,7 @@ export function preorderPrice(
  * предзаказе — и день старта известен. После старта и между потоками наклейки нет.
  */
 export function cohortCountdown(
-  cohort: ProductCohort | null,
+  cohort: ProductSalesState | null,
   today: string = cohortToday(),
 ): string | null {
   const startsOn = cohort?.startsOn ?? null;
@@ -112,7 +112,7 @@ export interface PreorderTerms {
 
 /** Условия предзаказа, пока поток на этапе предзаказа; иначе `null`. */
 export function preorderTerms(
-  cohort: ProductCohort | null,
+  cohort: ProductSalesState | null,
   today: string = cohortToday(),
 ): PreorderTerms | null {
   if (cohort?.stage !== "preorder" || cohort.startsOn === null) return null;

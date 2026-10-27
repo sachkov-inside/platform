@@ -2,7 +2,6 @@ import { paymentModes } from "@inside/legal";
 import { z } from "zod";
 
 import {
-  acceptanceScreenSchema,
   buttonLabelSchema,
   shownRenewalTermsSchema,
 } from "../legal-acceptances/legal-acceptances.contract.js";
@@ -39,6 +38,7 @@ export const consentKindSchema = z.enum([
  */
 export const consentPaymentModeSchema = z.enum(paymentModes);
 export const legalDocumentSchema = z.strictObject({
+  commercialModel: z.literal("product-lifetime-v1").optional(),
   kind: consentKindSchema,
   appliesTo: z
     .array(consentPaymentModeSchema)
@@ -60,13 +60,12 @@ export type LegalDocument = z.infer<typeof legalDocumentSchema>;
 export const acceptConsentsSchema = z.strictObject({
   operationId: z.uuid(),
   contextRef: z.uuid(),
-  screen: acceptanceScreenSchema.exclude(["first-sign-in"]),
+  screen: z.literal("checkout"),
   buttonLabel: buttonLabelSchema,
-  shownTerms: shownRenewalTermsSchema.optional(),
   documents: z
     .array(
       z.strictObject({
-        kind: consentKindSchema,
+        kind: consentKindSchema.exclude(["recurring"]),
         documentId: z.string().min(1).max(100),
         version: z.string().min(1).max(100),
         digest: z.string().length(64),

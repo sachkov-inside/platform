@@ -117,7 +117,7 @@ def forwarded_descriptor():
 with forwarded_descriptor() as pass_fds, patch.object(pilot.platform,'system',return_value='Darwin'), patch.object(pilot.platform,'machine',return_value='arm64'), \
      patch.object(orbstack,'identify',return_value=identity), patch.object(pilot,'command',side_effect=command), \
      patch.object(pilot,'supervise_worker',side_effect=supervise), patch.object(orbstack,'verify_probe'), \
-     patch.object(pilot,'install_plugin'), \
+     patch.object(pilot,'install_horizon'), patch.object(pilot,'install_plugin'), \
      patch.object(pilot.shutil,'disk_usage',return_value=disk_sample), \
      patch.object(pilot,'smoke',side_effect=smoke), \
      patch.object(source_status_scenario, 'run', return_value={'state':'fixture only', 'duration_seconds':0}):

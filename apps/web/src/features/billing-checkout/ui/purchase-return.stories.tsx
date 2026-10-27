@@ -15,7 +15,7 @@ const meta = {
   component: PurchaseReturnView,
   args: {
     purchase: null,
-    accountHref: "/account/subscription",
+    accountHref: "/account",
     onRefresh: fn(),
   },
   parameters: {

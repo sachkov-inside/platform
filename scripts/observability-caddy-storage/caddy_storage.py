@@ -51,8 +51,9 @@ def worker(output):
     run=evidence.Run();experiment=None
     def persist():artifact.write_run(output,run.snapshot())
     def progress(kind,value):
-        if kind=='partition_checkpoint':
-            if type(value) is not str or value not in evidence.PARTITION_PHASES:artifact.refuse()
+        if kind in ('partition_checkpoint','inflight_checkpoint'):
+            allowed=evidence.PARTITION_PHASES if kind=='partition_checkpoint' else evidence.INFLIGHT_PHASES
+            if type(value) is not str or value not in allowed:artifact.refuse()
             run.start(value)
             return
         if kind=='phase':run.start(value)
@@ -67,6 +68,7 @@ def worker(output):
     try:
         with pilot.worker_storage_guard(owner,compose,output):
             overlay.verify(output)  # Exact current source bytes and authority BEFORE Compose acquisition.
+            pilot.install_horizon(output)
             pilot.install_plugin(output)
             pilot.command(compose+['config','--quiet'])
             pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
@@ -131,7 +133,7 @@ def verify_cleanup(output):
     typed=value.get('source_freshness') if type(value) is dict else None
     if (type(value) is not dict or value.get('down')!='passed' or value.get('residue')!='passed'
             or type(typed) is not dict or set(typed)!={'outcome','containers','volumes','networks'} or typed['outcome']!='passed'
-            or any(type(typed[key]) is not int or typed[key]!=count for key,count in (('containers',7),('volumes',4),('networks',2)))):
+            or any(type(typed[key]) is not int or typed[key]!=count for key,count in (('containers',8),('volumes',4),('networks',2)))):
         raise RuntimeError('Caddy typed resource absence unproved')
 
 
@@ -157,7 +159,11 @@ def main(argv=None):
         ci.recover(output)
         verify_cleanup(output)
     elif args.action=='verify-fault':native_fault.verify(output,args.case,command_exit=args.exit_code)
-    else:collection.collect(output,args.metadata,args.public)
+    else:
+        collection.collect(output,args.metadata,args.public)
+        value=artifact.read_run(args.public)
+        if value is not None:
+            print(json.dumps({name:value[name] for name in ('state','phase','reason')},sort_keys=True))
     return 0
 
 

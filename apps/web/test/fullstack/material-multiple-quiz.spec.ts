@@ -65,7 +65,7 @@ test("multiple-answer quiz survives real document admission, published Reader an
       // The isolated full-stack seed owns this Platform topic.
       topicId: "72000000-0000-4000-8000-000000000002",
       submissionId: randomUUID(),
-      seriesIds: [],
+      productIds: [],
       document: body.doc,
     },
   );

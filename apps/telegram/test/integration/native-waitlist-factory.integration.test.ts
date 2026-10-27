@@ -29,7 +29,7 @@ const MAX_BODY_BYTES = 1_048_576;
 const spanSchema = z.object({
   name: z.enum([
     "waitlist receipt",
-    "POST /integrations/platform/v1/communications",
+    "POST /integrations/platform/v2/communications",
   ]),
   traceId: z.string().regex(/^[0-9a-f]{32}$/),
   spanId: z.string().regex(/^[0-9a-f]{16}$/),
@@ -327,7 +327,7 @@ function post(
         {
           host: "127.0.0.1",
           port,
-          path: "/integrations/platform/v1/communications",
+          path: "/integrations/platform/v2/communications",
           method: "POST",
           headers: [
             "Host",
@@ -527,7 +527,7 @@ test("actual managed factory admits only authenticated strict Node-parsed receip
       (span) => span.name === "waitlist receipt",
     );
     const http = ctx.spans.filter(
-      (span) => span.name === "POST /integrations/platform/v1/communications",
+      (span) => span.name === "POST /integrations/platform/v2/communications",
     );
     expect(receipts).toHaveLength(17);
     for (const span of receipts) {

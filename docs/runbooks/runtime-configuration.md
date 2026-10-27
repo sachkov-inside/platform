@@ -137,7 +137,7 @@ their exact provider-side settings during the credentialed acceptance run.
 
 The bank contour follows the same shape. `TBANK_PROVIDER_MODE` is `real` by default everywhere and
 selects the terminal from `TBANK_CONFIG_JSON`; `test` replaces it with the local stand double
-described in the [local development runbook](local-acceptance-sale.md#local-sale-bank-double-and-mail-capture)
+described in the [local development runbook](local-acceptance-sale.md#purchase-and-recovery)
 and refuses to read a terminal beside it. Only the `local` contour accepts addresses without HTTPS,
 production mode rejects that contour outright, and
 `scripts/production-runtime-contract.test.mjs` keeps the stand services and their variables out of
@@ -250,13 +250,15 @@ The pinned root was compared with the chain the bank serves and matches: SHA-256
 Verified terminal and cash-register capabilities are recorded in
 [issue-402 terminal capability](../verification/issue-402-tbank-terminal-capability.md).
 
-## Tribute source ingress
+## Retired commerce configuration
 
-Optional `TRIBUTE_API_KEY` and `TRIBUTE_SIGNATURE_ENCODING` (`hex` or `base64`) configure only the
-signed Tribute inbox. Both absent means disabled; one without the other fails configuration.
-Encoding requires a credentialed provider fixture before rollout. The key never reaches the web
-application. Billing worker reconciles pending verified sources in bounded batches independently of
-community dispatch. See [Tribute operations](tribute-access-convergence.md) for scope and gates.
+Tribute ingress, its keys and signature configuration have been removed. The Billing worker has
+no Tribute, renewal or saved-card jobs. `TBANK_CONFIG_JSON` contains only the direct-payment
+terminal and receipt configuration; `recurringCardConfirmed`, `cardOnlyHostedConfirmed` and
+`cardBinding` are no longer accepted. Before a separately authorized deployment, remove those
+retired fields from the runtime files while preserving the terminal identity and encryption key
+needed for already sent operations and historical Order Email. See
+[local Product purchase acceptance](local-acceptance-sale.md) for the retained recovery behavior.
 
 ## Participant learning MCP
 
@@ -276,14 +278,17 @@ the local HTTP endpoint and tests need no production data or published course. A
 read returns one complete structured body; a client response/context limit must be reported as an
 incomplete client read, not converted into a successful course check.
 
-Practice review (#785) adds `learning_practice_read` to that same learner endpoint and two
-`materials:manage` import API operations under `/authoring/import/practices`. It adds no process,
-provider model key or learner progress storage. A local package can include `practiceDefinitions`
-with commit provenance; its source references must match the selected Material revisions. New
-migration `0072-practice-definitions` creates the current delivery projection and scoped import
-receipts. Author MCP permissions and tool inventory remain separate from the learner surface.
+Legacy Practice execution (#785) is removed in #1712: neither `learning_practice_read` nor
+`/authoring/import/practices` is registered. Current import/release/native consumers use Product Tasks.
+Authorized `POST /authoring/history/practice-receipts` and
+`POST /authoring/history/material-receipts` only read exact existing actor/key/request receipts.
+They do not validate or execute new legacy commands. Migration0111 keeps source-bound Practice
+provenance and dispositions;0113 moves definitions to historical storage and retains Sourcev1
+records. Current authoring uses contract2 and Sourcev2 without `showInFeed`; the original package,
+receipt and migration evidence remains intact. Author and learner permissions remain separate.
 
-Product Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
+Product Tasks expose five tools, including `learning_task_review_update`, and the `review_task`
+prompt on that endpoint, plus two
 `materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-product-tasks`
 creates the `product_tasks` schema. `PRODUCT_TASK_SUBMISSIONS_ENABLED` (`true` or `false`) turns
 submission on, for the MCP tool and for the task page form of the API (#947): it defaults to `true`

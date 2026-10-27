@@ -2,16 +2,17 @@ import "server-only";
 
 import { fillProductPageHero } from "@/entities/product-page";
 import { cohortCountdown } from "@/entities/subscription";
-import { loadProductCohort } from "@/entities/subscription.catalog.server";
+import { loadProductSalesState } from "@/entities/subscription.catalog.server";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 
+import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
 import type { HomeResult } from "../model/home-view";
 import { readPublicHome } from "./public-home.public-cache.server";
 
 /**
- * Главная с подставленными сроками: тексты карточки закреплённого продукта берут `{access_term}`
- * и `{support_term}` из его предложения для всех. Оба чтения гостевые и приходят из общего кеша,
+ * Home resolves authored offer placeholders for everyone. The support duration stays in the
+ * offer document, outside the public card. Оба чтения гостевые и приходят из общего кеша,
  * поэтому Главная по-прежнему ничего не ждёт (ADR 0027). Сбой чтения сроков срок не выдумывает.
  */
 export async function readPublicHomeWithOfferTerms(): Promise<HomeResult> {
@@ -26,21 +27,41 @@ export async function fillPinnedOfferTerms(
   result: HomeResult,
 ): Promise<HomeResult> {
   if (result.kind !== "ready") return result;
-  const pinned = result.value.pinnedSeries;
+  const pinned = result.value.pinnedProduct;
   if (pinned === null || (pinned.card === null && pinned.hero === null))
     return result;
   // Поток читается рядом со сроками: он нужен наклейке «до старта N дней» на анимации курса.
   const [read, cohort] = await Promise.all([
     readPublicProductOfferTerms(pinned.id),
-    pinned.hero === null ? Promise.resolve(null) : loadProductCohort(pinned.id),
+    pinned.hero === null
+      ? Promise.resolve(null)
+      : loadProductSalesState(pinned.id),
   ]);
-  const terms = read.kind === "ready" ? read.terms : null;
+  return presentPinnedTerms(
+    result,
+    read.kind === "ready" ? read.terms : null,
+    cohort?.kind === "ready" ? cohortCountdown(cohort.cohort) : null,
+  );
+}
+
+/** Same card while auxiliary price terms are pending, with unresolved placeholders removed. */
+export function withoutPinnedOfferTerms(result: HomeResult): HomeResult {
+  return presentPinnedTerms(result, null, null);
+}
+function presentPinnedTerms(
+  result: HomeResult,
+  terms: OneTimeOfferTerms | null,
+  countdown: string | null,
+): HomeResult {
+  if (result.kind !== "ready" || result.value.pinnedProduct === null)
+    return result;
+  const pinned = result.value.pinnedProduct;
   const fill = (text: string) => fillOneTimeTerms(text, terms);
   return {
     ...result,
     value: {
       ...result.value,
-      pinnedSeries: {
+      pinnedProduct: {
         ...pinned,
         card:
           pinned.card === null
@@ -53,8 +74,7 @@ export async function fillPinnedOfferTerms(
               },
         hero:
           pinned.hero === null ? null : fillProductPageHero(pinned.hero, fill),
-        startCountdown:
-          cohort?.kind === "ready" ? cohortCountdown(cohort.cohort) : null,
+        startCountdown: countdown,
       },
     },
   };

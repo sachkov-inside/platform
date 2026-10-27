@@ -21,33 +21,53 @@ def _inventory():
 
 
 SOURCE_IDS=_inventory()
+# Process-lifecycle acceptance owns real listeners, launchers and group retirement.
+# Keep its deadline independent from the pure/protocol contracts, with one shared inventory.
+SOURCE_GROUPS={
+    'contracts':tuple(value for value in SOURCE_IDS if not value.startswith('test_process_owner.')),
+    'process-owner':tuple(value for value in SOURCE_IDS if value.startswith('test_process_owner.')),
+}
+
+
+def _tests(suite):
+    if isinstance(suite,unittest.TestSuite):
+        for child in suite:yield from _tests(child)
+    else:yield suite
+
+
+def select_group(suite,group):
+    # Validate complete discovery before any selection, so filtering cannot hide a lost method.
+    verify_inventory(suite)
+    if type(group) is not str or group not in SOURCE_GROUPS:_refuse()
+    expected=SOURCE_GROUPS[group]
+    selected=[test for test in _tests(suite) if test.id() in expected]
+    if tuple(test.id() for test in selected)!=expected:_refuse()
+    return unittest.TestSuite(selected)
 
 
 def verify_inventory(suite):
-    def flatten(value):
-        if isinstance(value,unittest.TestSuite):
-            for child in value:yield from flatten(child)
-        else:yield value.id()
-    try:actual=tuple(flatten(suite))
+    try:actual=tuple(test.id() for test in _tests(suite))
     except Exception:_refuse()
     if any(type(value) is not str for value in actual) or actual!=SOURCE_IDS:_refuse()
 
 
 class ProgressResult(unittest.TextTestResult):
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,source_group=None,**kwargs):
         super().__init__(*args,**kwargs)
+        if source_group is not None and (type(source_group) is not str or source_group not in SOURCE_GROUPS):_refuse()
+        self._source_ids=SOURCE_IDS if source_group is None else SOURCE_GROUPS[source_group]
         self._source_index=0;self._source_active=None;self._source_enabled=True
 
     def _source_event(self,event,test):
         if not self._source_enabled:return
         try:
             identifier=test.id()
-            if (type(identifier) is not str or self._source_index>=len(SOURCE_IDS)
-                    or identifier!=SOURCE_IDS[self._source_index]
+            if (type(identifier) is not str or self._source_index>=len(self._source_ids)
+                    or identifier!=self._source_ids[self._source_index]
                     or event=='start' and self._source_active is not None
                     or event=='completed' and self._source_active!=identifier):
                 self._source_enabled=False;return
-            literal=SOURCE_IDS[self._source_index]
+            literal=self._source_ids[self._source_index]
             self.stream.write('\nCADDY_SOURCE_V1 '+event+' '+literal+'\n');self.stream.flush()
             if event=='start':self._source_active=literal
             else:self._source_active=None;self._source_index+=1

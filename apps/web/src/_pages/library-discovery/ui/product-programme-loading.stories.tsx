@@ -6,7 +6,7 @@ import {
   MaterialReadingScope,
   type MaterialPreview,
 } from "@/entities/material";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { PublishedProductResult } from "@/features/library-discovery";
 import { productOnlyOffer } from "@/storybook/billing.fixtures";
 import {
   boxOf,
@@ -24,8 +24,8 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { ProductProgrammeView } from "./product-programme-view";
 import { ProductProgrammeLoading } from "./library-discovery-loading";
-import { PendingSeries } from "./product-programme-view";
-import { SeriesLearningProvider } from "./series-learning.client";
+import { PendingProduct } from "./product-programme-view";
+import { ProductLearningProvider } from "./product-learning.client";
 
 const titles = [
   "От идеи к первой версии",
@@ -50,7 +50,7 @@ const materials = titles.map((title, index): MaterialPreview => ({
   topic: "Platform",
   topicSlug: "platform",
   tags: [],
-  seriesMemberships: [
+  productMemberships: [
     {
       name: "Создание Platform Inside",
       slug: "platform-inside",
@@ -68,7 +68,7 @@ const chapters = ["Основа продукта", "Данные и доступ
 }));
 const result = {
   chapters,
-  discoveryKind: "series",
+  discoveryKind: "product",
   kind: "ready",
   hasNext: false,
   reference: {
@@ -78,9 +78,9 @@ const result = {
     summary: "От продуктовой идеи до работающего приложения.",
   },
   items: materials,
-  relatedSeries: [],
+  relatedProduct: [],
   topics: [],
-} satisfies PublishedSeriesResult;
+} satisfies PublishedProductResult;
 
 function StagedProgramme({
   sequence,
@@ -107,7 +107,7 @@ function SharedPart({
   return (
     <Suspense
       fallback={
-        <PendingSeries
+        <PendingProduct
           artifacts={{ artifacts: [], kind: "ready" }}
           result={result}
         />
@@ -125,7 +125,7 @@ const memberResult = {
     ...item,
     availability: "available" as const,
   })),
-} satisfies PublishedSeriesResult;
+} satisfies PublishedProductResult;
 
 function PersonalPart({
   sequence,
@@ -135,9 +135,9 @@ function PersonalPart({
   readonly signedIn: boolean;
 }) {
   use(sequence.personalPart);
-  // Прогресс приходит контекстом, как от `SeriesLearningSource` в `PersonalSeries`.
+  // Прогресс приходит контекстом, как от `ProductLearningSource` в `PersonalProduct`.
   return signedIn ? (
-    <SeriesLearningProvider
+    <ProductLearningProvider
       learning={{
         kind: "ready",
         read: 1,
@@ -149,7 +149,7 @@ function PersonalPart({
         productOffer={productOnlyOffer}
         result={memberResult}
       />
-    </SeriesLearningProvider>
+    </ProductLearningProvider>
   ) : (
     <ProductProgrammeView productOffer={productOnlyOffer} result={result} />
   );
@@ -162,14 +162,14 @@ interface ProgrammeGeometry {
 }
 
 function measure(canvasElement: HTMLElement): ProgrammeGeometry {
-  const firstRow = canvasElement.querySelector("[data-series-ordinal='1']");
+  const firstRow = canvasElement.querySelector("[data-product-ordinal='1']");
   return {
     back: boxOf(canvasElement, "[data-programme-part='back']"),
     header: boxOf(canvasElement, "[data-programme-part='header']"),
     firstRow:
       firstRow === null
         ? null
-        : boxOf(canvasElement, "[data-series-ordinal='1']"),
+        : boxOf(canvasElement, "[data-product-ordinal='1']"),
   };
 }
 
@@ -240,7 +240,7 @@ function loadsInPlace(
         name: "Создание Platform Inside",
       });
       await expect(
-        canvasElement.querySelectorAll("[data-series-access-pending]").length,
+        canvasElement.querySelectorAll("[data-product-access-pending]").length,
       ).toBe(materials.length - 2);
       const sharedPart = measure(canvasElement);
 
@@ -249,7 +249,7 @@ function loadsInPlace(
         await canvas.findByRole("progressbar", { name: "Прогресс продукта" });
       else await canvas.findByRole("link", { name: "Оплатить сейчас" });
       await expect(
-        canvasElement.querySelector("[data-series-access-pending]"),
+        canvasElement.querySelector("[data-product-access-pending]"),
       ).toBeNull();
       const ready = measure(canvasElement);
 

@@ -1,4 +1,4 @@
 export {
   ProductProgrammePage,
-  PublishedSeriesPage,
+  PublishedProductPage,
 } from "./ui/library-discovery-page";

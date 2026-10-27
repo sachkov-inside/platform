@@ -58,15 +58,6 @@ it("покупателю показывается оферта его покуп
       url: "https://inside.example.test/legal/subscription",
       text: "",
     },
-    {
-      kind: "recurring",
-      appliesTo: ["subscription"],
-      documentId: "recurring-consent",
-      version: "1",
-      digest: "c".repeat(64),
-      url: "https://inside.example.test/legal/recurring-consent",
-      text: "",
-    },
   ];
 
   const oneTime = purchaseConsentPolicy(documents, "one_time");
@@ -78,6 +69,6 @@ it("покупателю показывается оферта его покуп
   expect(oneTime.required).toEqual(["terms"]);
   expect(
     subscription.applicable.map((document) => document.documentId),
-  ).toEqual(["subscription", "recurring-consent"]);
-  expect(subscription.required).toEqual(["terms", "recurring"]);
+  ).toEqual(["purchase"]);
+  expect(subscription.required).toEqual(["terms"]);
 });

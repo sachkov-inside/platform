@@ -5,7 +5,7 @@ import {
   preorderDiscount,
   preorderPrice,
   type PriceSnapshot,
-  type ProductCohort,
+  type ProductSalesState,
 } from "@/entities/subscription";
 import type { CohortStatus } from "@/features/ai-engineering-course";
 import type { ProductAccess } from "@/features/library-discovery";
@@ -26,7 +26,7 @@ export function cohortStatus({
   slug,
   today = cohortToday(),
 }: {
-  readonly cohort: ProductCohort | null;
+  readonly cohort: ProductSalesState | null;
   readonly offer: PriceSnapshot | null;
   readonly productAccess: ProductAccess;
   readonly slug: string;

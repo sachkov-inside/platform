@@ -37,7 +37,7 @@ export function funnelDiagnosticDatabase(
         sql.includes(sourceTables[input.failTable] ?? "never-source")
       )
         return Promise.reject(new Error("source offline"));
-      if (sql.includes("from materials.series"))
+      if (sql.includes("from products.products"))
         return Promise.resolve(input.compositions ?? []);
       if (
         sql.includes("max(received_at)") ||

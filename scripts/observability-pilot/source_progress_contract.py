@@ -1,4 +1,4 @@
-"""Three synthetic passive-progress controls, outside the original274-test discovery."""
+"""Three synthetic passive-progress controls, outside the original276-test discovery."""
 import ast
 import io
 import json
@@ -31,22 +31,32 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         result=subprocess.run([sys.executable,'-c',identity,str(root.resolve()),
             str(root.resolve().parent/'observability-caddy-storage')],capture_output=True,timeout=5)
         self.assertEqual(result.returncode,0,'closed Core/Caddy module identity refused')
-        self.assertEqual(result.stdout,b'[80, 274]\n')
+        self.assertEqual(result.stdout,b'[85, 276]\n')
         for path in sorted(root.glob('test_*.py')):
             for cls in ast.parse(path.read_text()).body:
                 if isinstance(cls,ast.ClassDef):
                     expected.extend(path.stem+'.'+cls.name+'.'+method.name for method in cls.body
                         if isinstance(method,ast.FunctionDef) and method.name.startswith('test_'))
-        self.assertEqual(len(expected),274)
+        self.assertEqual(len(expected),276)
         self.assertEqual(tuple(sorted(expected)),owner.SOURCE_IDS)
-        self.assertEqual(len(json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()),30713)
+        # The accepted native-host witness adds exactly two methods, retaining all274 originals.
+        import hashlib
+        added=(
+            'test_pilot.PilotPreparationTest.test_cleanup_captures_native_host_failure_before_down_without_reading_logs',
+            'test_pilot.PilotPreparationTest.test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner')
+        self.assertTrue(all(identifier in owner.SOURCE_IDS for identifier in added))
+        baseline=[identifier for identifier in owner.SOURCE_IDS if identifier not in added]
+        self.assertEqual(len(baseline),274)
+        self.assertEqual(hashlib.sha256(json.dumps(baseline,separators=(',',':')).encode()).hexdigest(),
+            'e0fac579823df0df2d5658f678db37241c367c0dcdfe7f840262a903d2512051')
+        self.assertEqual(len(json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()),30932)
         self.assertLessEqual((root/'source-tests.json').stat().st_size,32768)
         self.assertEqual(len([node for node in ast.parse(Path(__file__).read_text()).body
             if isinstance(node,ast.ClassDef) for method in node.body
             if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')]),3)
         suite=unittest.TestLoader().discover(str(root),pattern='test_*.py')
         mapping=owner.verify_inventory(suite)
-        self.assertEqual(len(mapping),274)
+        self.assertEqual(len(mapping),276)
         with self.assertRaisesRegex(ValueError,'^closed Core source inventory refused$'):
             owner.verify_inventory(unittest.TestSuite())
 
@@ -105,7 +115,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                         self.assertIs(BaseException.__traceback__.__get__(primary),before)
         writer.fault=None
 
-        # Project actual stdlib result records without executing any of the original274 bodies.
+        # Project actual stdlib result records without executing any of the original276 bodies.
         cases=[CoreSourceProgress(method) for method in PROTOCOL_METHODS]
         observed=unittest.TextTestResult(io.StringIO(),True,1)
         for case in cases:observed.startTest(case);observed.stopTest(case)

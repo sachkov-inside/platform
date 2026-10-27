@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import {
   PROFILE_AVATAR_LIMITS,
   processProfileAvatar,
-} from "../../src/modules/member-profiles/features/change-profile-avatar/process-profile-avatar.js";
+} from "../../src/modules/account-profiles/features/change-profile-avatar/process-profile-avatar.js";
 
 describe("Profile avatar processing", () => {
   test("emits only square WebP renditions from a server-validated crop", async () => {

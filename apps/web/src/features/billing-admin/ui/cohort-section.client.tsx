@@ -7,7 +7,7 @@ import {
   cohortStageSchema,
   formatKopecks,
   type CohortStage,
-  type ProductCohort,
+  type ProductSalesState,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
@@ -40,7 +40,7 @@ const stageLabels: Record<CohortStage, string> = {
 
 export interface CohortSectionProps {
   /** `null` — потоки прочитать не удалось; без текущей редакции сохранение получило бы конфликт. */
-  readonly cohorts: readonly ProductCohort[] | null;
+  readonly cohorts: readonly ProductSalesState[] | null;
   readonly content?:
     z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
   readonly pending: boolean;

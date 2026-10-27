@@ -51,7 +51,7 @@ const environment = accountSectionEnvironment("/account", {
         Response.json({
           kind: "ready",
           continuation: {
-            series: {
+            product: {
               collection: {
                 id: "00000000-0000-4000-8000-000000000f01",
                 slug: "inside-ai-engineering",

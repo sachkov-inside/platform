@@ -19,7 +19,10 @@ PHASES=CASE_PHASES+('baseline_actor_start','baseline_setup',
     'baseline_waiting_locks',
     'baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
     'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
-    'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
+    'baseline_setup_table','baseline_setup_rows','baseline_setup_reset',
+    'restart_close_clients','restart_stop_identity','restart_stop_command','restart_stopped_identity',
+    'restart_stopped_state','restart_unavailable_upload','restart_unavailable_read','restart_start_command',
+    'restart_ready','restart_observe')
 REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup',*ORACLE_REASONS)
 FRESHNESS=('fresh','stale','missing','unavailable','malformed')
 CONTINUITY=('initial','same_epoch','statistics_reset','server_restart','ownership_changed','unknown')
@@ -108,7 +111,7 @@ def validate(value,source):
             or type(value['duration_seconds']) not in (int,float) or not math.isfinite(value['duration_seconds'])
             or not 0<=value['duration_seconds']<=600):refuse()
     if value['reason'] in ORACLE_REASONS and (value['state']!='failed'
-            or value['phase'] not in ('baseline_first_stored_oracle','baseline_second_stored_oracle')):refuse()
+            or value['phase'] not in ('baseline_first_stored_oracle','baseline_second_stored_oracle','restart_unavailable_read')):refuse()
     cases=[]
     for case in value['cases']:
         if (type(case) is not dict or set(case)!={'phase','freshness','continuity','count_complete','points','age_seconds'}
@@ -207,3 +210,61 @@ def receipt(root):
             or type(v) is not str or re.fullmatch(r'[0-9a-f]{64}',v) is None for k,v in inputs.items())):refuse()
         return value['checkout_sha']
     except (OSError,ValueError,TypeError,KeyError,UnicodeError,RecursionError):refuse()
+
+
+def upload_operation(value):
+    """Fixed acquisition witness, never provider responses, command arguments or SQL."""
+    if (type(value) is not dict or set(value)!={'schema','phase','step','outcome','error','http_status','returncode'}
+            or type(value['schema']) is not int or value['schema']!=1 or value['phase'] not in PHASES
+            or value['step'] not in ('deadline','owner_before','payload','http_open','http_body','owner_after','complete','controlled_flush','controlled_publication')
+            or value['outcome'] not in ('running','passed','failed')
+            or value['error'] not in (None,'timeout','http_status','transport','command_failed','interrupted','invalid_result','operation_failed')
+            or value['http_status'] is not None and (type(value['http_status']) is not int or not 100<=value['http_status']<=599)
+            or value['returncode'] is not None and (type(value['returncode']) is not int or not -128<=value['returncode']<=255)):
+        refuse()
+    return value.copy()
+
+
+def persist_upload(root,value):
+    primary,tb=sys.exc_info()[1:]
+    try:
+        raw=(json.dumps(upload_operation(value),sort_keys=True,separators=(',',':'))+'\n').encode()
+        if len(raw)>1024:refuse()
+        with directory(Path(root)) as owned:
+            fd=os.open('postgres-upload.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600,dir_fd=owned)
+            try:
+                if os.write(fd,raw)!=len(raw):refuse()
+            finally:os.close(fd)
+    except BaseException:
+        if primary is None:raise
+        BaseException.__traceback__.__set__(primary,tb)
+
+
+def visibility(value,source):
+    if (type(value) is not dict or set(value)!={'schema','source','overflow','rows'} or type(value['schema']) is not int
+            or value['schema']!=1 or not sha(source) or value['source']!=source or type(value['overflow']) is not bool
+            or type(value['rows']) is not list or len(value['rows'])>64):refuse()
+    phases={phase for phase in PHASES if phase.startswith(('baseline_first_','baseline_second_'))}
+    for row in value['rows']:
+        if (type(row) is not dict or set(row)!={'phase','step','elapsed_ms','expected_age_ms','stored_age_ms','freshness','previous_committed'}
+                or type(row['phase']) is not str or row['phase'] not in phases or row['step'] not in ('acquired','uploaded','controlled_publication','stored')
+                or type(row['elapsed_ms']) is not int or not 0<=row['elapsed_ms']<=180000
+                or row['expected_age_ms'] is not None and (type(row['expected_age_ms']) is not int or not -2000<=row['expected_age_ms']<=180000)
+                or row['stored_age_ms'] is not None and (type(row['stored_age_ms']) is not int or not 0<=row['stored_age_ms']<=600000)
+                or row['freshness'] not in (None,*FRESHNESS) or type(row['previous_committed']) is not bool):refuse()
+    return value
+
+
+def persist_visibility(root,value,source):
+    primary,tb=sys.exc_info()[1:]
+    try:
+        raw=(json.dumps(visibility(value,source),sort_keys=True,separators=(',',':'))+'\n').encode()
+        if len(raw)>16384:refuse()
+        with directory(Path(root)) as owned:
+            fd=os.open('postgres-visibility.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600,dir_fd=owned)
+            try:
+                if os.write(fd,raw)!=len(raw):refuse()
+            finally:os.close(fd)
+    except BaseException:
+        if primary is None:raise
+        BaseException.__traceback__.__set__(primary,tb)

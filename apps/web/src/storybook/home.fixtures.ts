@@ -33,7 +33,7 @@ function material(
     ...(duration === undefined
       ? {}
       : { primaryVideoDurationSeconds: duration }),
-    seriesMemberships: [],
+    productMemberships: [],
     slug,
     summary:
       "Практический разбор: от понятных границ к работающему приложению.",
@@ -113,7 +113,7 @@ const guides = [
 ] as const satisfies readonly MaterialPreview[];
 
 export const illustratedHome: HomeView = {
-  pinnedSeries: null,
+  pinnedProduct: null,
   membership: { kind: "active" },
   guides,
   videos,
@@ -181,7 +181,7 @@ const pinnedPlaylist = illustratedHome.playlists[1];
 /** Главная с закреплённым продуктом в обычном оформлении. */
 export const illustratedPinnedHome: HomeView = {
   ...illustratedHome,
-  pinnedSeries:
+  pinnedProduct:
     pinnedPlaylist === undefined
       ? null
       : {

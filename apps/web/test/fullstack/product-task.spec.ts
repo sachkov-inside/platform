@@ -97,11 +97,13 @@ test("a learner without Membership reads a free task from the programme, submits
   });
 
   await page.goto(`/products/${productSlug}/programme`);
-  await expect(
-    page
-      .locator(`[data-programme-task="${code}"]`)
-      .locator("[data-task-submitted]"),
-  ).toBeVisible();
+  const currentTask = afterLesson.locator(
+    `[data-programme-task="${code}"]:visible`,
+  );
+  await expect(currentTask).toHaveCount(1);
+  const currentSubmission = currentTask.locator("[data-task-submitted]");
+  await expect(currentSubmission).toHaveCount(1);
+  await expect(currentSubmission).toBeVisible();
 });
 
 test("an unknown task code answers with the task not-found page (#947)", async ({

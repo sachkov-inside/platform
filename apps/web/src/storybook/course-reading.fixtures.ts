@@ -78,19 +78,19 @@ function requiredContext(
 }
 export const courseGuide = requiredContext(
   courseReadingContext({
-    series: courseSource,
+    product: courseSource,
     current: { kind: "material", slug: "course-intro" },
   }),
 );
 export const courseTask = requiredContext(
   courseReadingContext({
-    series: courseSource,
+    product: courseSource,
     current: { kind: "task", code: "aie-ch1-onboarding" },
   }),
 );
 export const taskOnlyCourse = requiredContext(
   courseReadingContext({
-    series: {
+    product: {
       ...courseSource,
       kind: "empty",
       items: [],
@@ -102,7 +102,7 @@ export const taskOnlyCourse = requiredContext(
 
 export const courseNext = requiredContext(
   courseReadingContext({
-    series: courseSource,
+    product: courseSource,
     current: { kind: "material", slug: "next" },
   }),
 );

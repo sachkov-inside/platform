@@ -1,4 +1,4 @@
-import type { AccountsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type {
   VerifiedAccountIdentity,
   VerifiedAccountSignIn,
@@ -50,7 +50,7 @@ export interface Accounts {
   /** A caller with an open transaction passes it to keep this read on the same connection. */
   readIdentityForLink(
     accountId: string,
-    transaction?: Pick<AccountsPrisma, "account">,
+    transaction?: TransactionHandle,
   ): Promise<
     | {
         readonly issuer: string;
@@ -63,23 +63,29 @@ export interface Accounts {
   /** Same identity facts for a bounded set, retaining each requested UUID spelling. */
   readIdentitiesForLink(
     accountIds: readonly string[],
-    transaction?: Pick<AccountsPrisma, "account">,
+    transaction?: TransactionHandle,
   ): Promise<
     ReadonlyMap<string, Awaited<ReturnType<Accounts["readIdentityForLink"]>>>
   >;
 
-  establishAccount(command: {
-    readonly identity: VerifiedAccountSignIn;
-  }): Promise<EstablishAccountResult>;
+  establishAccount(
+    command: {
+      readonly identity: VerifiedAccountSignIn;
+    },
+    transaction?: TransactionHandle,
+  ): Promise<EstablishAccountResult>;
 
   resolveAccount(query: {
     readonly identity: VerifiedAccountIdentity;
   }): Promise<ResolveAccountResult>;
 
-  checkPermission(query: {
-    readonly accountId: string;
-    readonly permission: PlatformPermission;
-  }): Promise<PermissionDecision>;
+  checkPermission(
+    query: {
+      readonly accountId: string;
+      readonly permission: PlatformPermission;
+    },
+    transaction?: TransactionHandle,
+  ): Promise<PermissionDecision>;
 }
 
 export type { VerifiedAccountIdentity, VerifiedAccountSignIn };

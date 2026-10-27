@@ -519,17 +519,17 @@ test("email carrier migration rolls back all four columns on a bounded lock refu
   const admin = new Pool({ connectionString: database.url, max: 1 });
   try {
     const emailMigrationIndex = platformMigrations.findIndex(
-      ({ name }) => name === "0111_notifications_email_trace_context",
+      ({ name }) => name === "0124_notifications_email_trace_context",
     );
     expect(emailMigrationIndex).toBeGreaterThan(0);
     expect(platformMigrations[emailMigrationIndex - 1]?.name).toBe(
-      "0110_notifications_notification_trace_context",
+      "0123_notifications_notification_trace_context",
     );
     const before = platformMigrations.slice(0, emailMigrationIndex);
     const throughEmail = platformMigrations.slice(0, emailMigrationIndex + 1);
     const remaining = platformMigrations.slice(throughEmail.length);
     expect(remaining[0]?.name).toBe(
-      "0112_communications_tracking_trace_context",
+      "0125_communications_tracking_trace_context",
     );
     await runMigrationsToLatest(database.url, before);
     const command = deliverySchema.parse({
@@ -568,7 +568,7 @@ test("email carrier migration rolls back all four columns on a bounded lock refu
       ),
     ).toEqual([]);
     expect(await runMigrationsToLatest(database.url, throughEmail)).toEqual({
-      appliedMigrations: ["0111_notifications_email_trace_context"],
+      appliedMigrations: ["0124_notifications_email_trace_context"],
     });
     expect(
       await runMigrationsToLatest(database.url, platformMigrations),

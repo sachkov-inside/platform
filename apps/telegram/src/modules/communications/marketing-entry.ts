@@ -1,10 +1,9 @@
+import { decodeStoredSequenceDraft } from "./historical-sequence-decoder.js";
 import { hasText } from "../../shared/text.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
-import { cancelDelivery } from "./funnel-timeline.js";
+import { cancelDelivery } from "./sequence-timeline.js";
 import { updateMarketingAvailability } from "./marketing-preferences.js";
 import { randomUUID } from "node:crypto";
-import type { Transaction } from "kysely";
-import type { DatabaseSchema } from "../../database/database.js";
 import {
   recordBotEntered,
   recordMarketingConsent,
@@ -29,15 +28,14 @@ export class MarketingEntry {
   enabled(): boolean {
     return this.config.marketingEnabled;
   }
-  /**
-   * `/stop`, `/resume` or the consent button: each is an explicit choice and is reported to
-   * Platform as consent granted or withdrawn.
-   */
+  /** Explicit `/stop` and `/resume` choices retain their historical event vocabulary. */
   async setPreference(
     start: VerifiedPrivateStart,
     enabled: boolean,
     via: "command" | "consent" = "command",
   ): Promise<void> {
+    // Already committed old inbox commands remain readable, but cannot undo an explicit stop.
+    if (via === "consent") return;
     await this.database.transaction().execute(async (tx) => {
       await contactLock(tx, this.config.botIdentity, start.telegramUserId);
       const prior = await tx
@@ -91,23 +89,56 @@ export class MarketingEntry {
         observedAt: now,
         granted: enabled,
       });
-      const consent = this.config.salesFunnel?.consent;
       await enqueueReply(tx, {
         botIdentity: start.botIdentity,
         telegramUserId: start.telegramUserId,
         privateChatId: start.privateChatId,
-        messageText:
-          via === "consent" && consent
-            ? consent.confirmation
-            : enabled
-              ? "Сообщения включены. Пропущенные сообщения не придут."
-              : "Сообщения выключены. Чтобы включить их снова, отправьте /resume.",
+        messageText: enabled
+          ? "Сообщения включены. Пропущенные сообщения не придут."
+          : "Сообщения выключены. Чтобы включить их снова, отправьте /resume.",
         sourceKey: `marketing-preference:${start.botIdentity}:${start.updateId}`,
         triggerUpdateId: start.updateId,
         now,
       });
     });
   }
+  /** A committed domain receipt, including retries after a worker crash. */
+  async confirmedActivity(
+    bot: string,
+    update: string,
+    user: string,
+  ): Promise<"marketing_preference" | "marketing_entry" | undefined> {
+    const preference = await this.database
+      .selectFrom("communication_preferences")
+      .innerJoin(
+        "communication_contacts",
+        "communication_contacts.contact_id",
+        "communication_preferences.contact_id",
+      )
+      .select("communication_preferences.update_id")
+      .where("communication_preferences.bot_identity", "=", bot)
+      .where("communication_preferences.update_id", "=", update)
+      .where("communication_contacts.bot_identity", "=", bot)
+      .where("communication_contacts.telegram_user_id", "=", user)
+      .executeTakeFirst();
+    if (preference) return "marketing_preference";
+    const entry = await this.database
+      .selectFrom("communication_entries")
+      .innerJoin(
+        "communication_contacts",
+        "communication_contacts.contact_id",
+        "communication_entries.contact_id",
+      )
+      .select("communication_entries.update_id")
+      .where("communication_entries.bot_identity", "=", bot)
+      .where("communication_entries.update_id", "=", update)
+      .where("communication_entries.outcome", "=", "entered")
+      .where("communication_contacts.bot_identity", "=", bot)
+      .where("communication_contacts.telegram_user_id", "=", user)
+      .executeTakeFirst();
+    return entry ? "marketing_entry" : undefined;
+  }
+
   async enter(start: VerifiedPrivateStart, source?: string): Promise<void> {
     await this.database.transaction().execute(async (tx) => {
       await contactLock(tx, this.config.botIdentity, start.telegramUserId);
@@ -145,26 +176,26 @@ export class MarketingEntry {
             .executeTakeFirst()
         : undefined;
       let query = tx
-        .selectFrom("communication_funnels")
+        .selectFrom("communication_sequences")
         .selectAll()
         .where("bot_identity", "=", start.botIdentity)
         .where("lifecycle", "=", "published");
       query = hasText(source)
         ? query.where(
-            "funnel_id",
+            "sequence_id",
             "=",
-            sourceRow?.funnel_id ?? "00000000-0000-0000-0000-000000000000",
+            sourceRow?.sequence_id ?? "00000000-0000-0000-0000-000000000000",
           )
         : query.where("is_default", "=", true);
       const row = await query.executeTakeFirst();
-      const funnel =
+      const sequence =
         row?.published &&
         row.published_revision !== null &&
         (!hasText(source) ||
           row.published.sources.some((s) => s.code === source))
           ? {
-              funnelId: row.funnel_id,
-              draft: row.published,
+              sequenceId: row.sequence_id,
+              draft: decodeStoredSequenceDraft(row.published),
               revision: row.published_revision,
             }
           : undefined;
@@ -175,13 +206,13 @@ export class MarketingEntry {
           bot_identity: start.botIdentity,
           update_id: start.updateId,
           contact_id: contact.contact_id,
-          funnel_id: funnel?.funnelId ?? null,
+          sequence_id: sequence?.sequenceId ?? null,
           source_id: sourceRow?.source_id ?? null,
           source_code: source ?? null,
           entered_at: now,
           outcome: !contact.marketing_enabled
             ? "marketing_off"
-            : funnel
+            : sequence
               ? "entered"
               : "unavailable",
         })
@@ -199,7 +230,7 @@ export class MarketingEntry {
         now,
         dueAt: now,
       };
-      if (!funnel) {
+      if (!sequence) {
         await planDelivery(tx, {
           ...common,
           kind: "fallback",
@@ -241,62 +272,25 @@ export class MarketingEntry {
         await cancelDelivery(tx, intro, now, "marketing_unavailable");
       }
       await tx
-        .insertInto("communication_enrollments")
+        .insertInto("communication_participations")
         .values({
-          enrollment_id: randomUUID(),
+          participation_id: randomUUID(),
           contact_id: contact.contact_id,
-          funnel_id: funnel.funnelId,
-          enrolled_at: now,
+          sequence_id: sequence.sequenceId,
+          participated_at: now,
           initial_entry_key: `entry:${start.botIdentity}:${start.updateId}`,
         })
-        .onConflict((c) => c.columns(["contact_id", "funnel_id"]).doNothing())
+        .onConflict((c) => c.columns(["contact_id", "sequence_id"]).doNothing())
         .execute();
       await planDelivery(tx, {
         ...common,
         kind: "entry",
         key: `entry:${start.botIdentity}:${start.updateId}`,
-        funnelId: funnel.funnelId,
-        stepId: funnel.draft.entryResponse.stepId,
-        parts: funnel.draft.entryResponse.parts,
-        revision: funnel.revision,
+        sequenceId: sequence.sequenceId,
+        stepId: sequence.draft.entryResponse.stepId,
+        parts: sequence.draft.entryResponse.parts,
+        revision: sequence.revision,
       });
-      const consent = this.config.salesFunnel?.consent;
-      if (
-        consent &&
-        contact.marketing_enabled &&
-        !(await hasConsented(tx, contact.contact_id))
-      )
-        await enqueueReply(tx, {
-          botIdentity: start.botIdentity,
-          telegramUserId: start.telegramUserId,
-          privateChatId: start.privateChatId,
-          messageText: consent.prompt,
-          buttons: [
-            { text: consent.button, callbackData: MARKETING_CONSENT_CALLBACK },
-          ],
-          sourceKey: `marketing-consent:${start.botIdentity}:${start.updateId}`,
-          triggerUpdateId: start.updateId,
-          now,
-        });
     });
   }
-}
-
-/** The callback data of the consent button; the Telegram adapter routes it back here. */
-export const MARKETING_CONSENT_CALLBACK = "marketing:consent";
-
-/** The contact's latest explicit choice was to receive messages. */
-async function hasConsented(
-  tx: Transaction<DatabaseSchema>,
-  contactId: string,
-): Promise<boolean> {
-  const latest = await tx
-    .selectFrom("communication_preferences")
-    .select("enabled")
-    .where("contact_id", "=", contactId)
-    .orderBy("observed_at", "desc")
-    .orderBy("update_id", "desc")
-    .limit(1)
-    .executeTakeFirst();
-  return latest?.enabled === true;
 }

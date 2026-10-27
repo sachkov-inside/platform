@@ -113,13 +113,13 @@ def endpoint(body,*,status=200,held=None,seen=None,inspect_request=None,headers=
 
 
 class ActualTransport(unittest.TestCase):
-    def exercise(self,*,ingest=b'{}',flush=b'',foreign=False,hold=None,status=200,headers=(),flush_status=200,expire=None):
+    def exercise(self,*,ingest=b'{}',flush=b'',foreign=False,hold=None,status=200,headers=(),flush_status=200,expire=None,cohort=False):
         events=[];owners=[];reads=[];actual=http.client.HTTPConnection
         ingest_seen=threading.Event();flush_seen=threading.Event();release=threading.Event();watch_errors=[]
         def packet(request,body):
             events.append('ingest')
             self.assertEqual(request.path,'/v1/metrics');self.assertLessEqual(len(body),4096)
-            self.assertEqual(len(json.loads(body)['resourceMetrics']),2)
+            self.assertEqual(len(json.loads(body)['resourceMetrics']),1 if cohort else 2)
         def flush_packet(request,body):
             events.append('flush');self.assertEqual(request.path,'/internal/force_flush')
             self.assertEqual(body,b'authKey='+b'a'*64)
@@ -142,8 +142,12 @@ class ActualTransport(unittest.TestCase):
             def __enter__(self):return self
             def __exit__(self,*_):return False
             def read(self,cap):return self.body
+        actual_opener=queries.urllib.request.build_opener(queries.urllib.request.ProxyHandler({}),queries.source_status_query.NoRedirect())
         class Opener:
             def open(self,request,timeout):
+                if request.full_url=='http://127.0.0.1:14318/v1/metrics':
+                    return actual_opener.open(request,timeout=timeout)
+                if not flush_seen.is_set():raise AssertionError('stored cohort read before controlled publication')
                 reads.append(request);events.append('read')
                 current=copy.deepcopy(stamps if len(reads)==2 else rows)
                 if foreign and len(reads)==3:
@@ -157,9 +161,15 @@ class ActualTransport(unittest.TestCase):
                 def metrics_private(self,deadline):owners.append(deadline)
                 def flush_target(self,deadline):owners.append(deadline);return ('127.0.0.1','127.0.0.1',1)
             source=SimpleNamespace(end=time.monotonic()+150,token='A'*32,targets=Targets(),verify_storage=owners.append)
+            if cohort:
+                import scenario,oracle
+                source=scenario.Scenario(Targets(),[],'A'*32,oracle)
+                source.end=time.monotonic()+150;source.verify_storage=owners.append
+                source.acquire=lambda:EXPECTED.copy()
             with endpoint(ingest,status=status,held=release if hold=='ingest' else None,seen=ingest_seen,inspect_request=packet,headers=headers,tolerate_disconnect=expire is not None) as ingest_port, \
                     endpoint(flush,status=flush_status,held=release if hold=='flush' else None,seen=flush_seen,inspect_request=flush_packet,tolerate_disconnect=expire is not None) as flush_port:
-                def connection(host,port,timeout):
+                def connection(host,port=None,timeout=None):
+                    if cohort and host=='127.0.0.1:14318' and port is None:host,port='127.0.0.1',14318
                     self.assertEqual(host,'127.0.0.1');self.assertIn(port,(14318,8428))
                     client=actual(host,ingest_port if port==14318 else flush_port,timeout=timeout)
                     if expire is not None and ((hold=='ingest' and port==14318) or (hold=='flush' and port==8428)):
@@ -172,14 +182,20 @@ class ActualTransport(unittest.TestCase):
                             return response()
                         client.getresponse=held_response
                     return client
+                # urllib computes Content-Length through this original class static method.
+                connection._get_content_length=actual._get_content_length
                 try:
                     if hold is not None and expire is None:
                         watcher=threading.Thread(target=watch)
                         watcher.start()
-                    with patch.object(completion.http.client,'HTTPConnection',side_effect=connection), \
+                    with patch.object(completion.http.client,'HTTPConnection',new=connection), \
                             patch.object(queries.urllib.request,'build_opener',return_value=Opener()), \
                             patch.object(queries.time,'time',return_value=1790000000),patch.object(queries.time,'time_ns',return_value=NOW*1000):
-                        result=completion.process(source,EXPECTED,'foreign')
+                        if cohort:
+                            sample,result=source.observe()
+                            self.assertEqual(sample,EXPECTED)
+                            self.assertEqual(source.upload_operation['step'],'controlled_publication')
+                        else:result=completion.process(source,EXPECTED,'foreign')
                     self.assertEqual(result['freshness'],'fresh')
                 except BaseException:
                     if expire is not None:
@@ -208,15 +224,26 @@ class ActualTransport(unittest.TestCase):
                         raise primary from None
         return events,owners,reads
 
+    def test_current_cohort_waits_for_ack_and_controlled_publication_before_the_whole_oracle(self):
+        for hold in ('ingest','flush'):
+            with self.subTest(held=hold):
+                events,owners,reads=self.exercise(cohort=True,hold=hold,ingest=b'{"partialSuccess":{}}')
+                self.assertEqual(events,['ingest','flush','read','read'])
+                self.assertEqual(len(reads),2)
+        for body in (b'{"partialSuccess":{"rejectedDataPoints":1}}',b'{} trailing'):
+            with self.subTest(body=body),self.assertRaises(ValueError):self.exercise(cohort=True,ingest=body)
+        with self.assertRaises(ValueError):self.exercise(cohort=True,flush_status=403)
+        with self.assertRaises((TimeoutError,socket.timeout)):self.exercise(cohort=True,hold='flush',expire=.05)
+
     def test_real_held_current_ingest_and_flush_ack_block_later_steps(self):
         for hold in ('ingest','flush'):
             with self.subTest(held=hold):
-                events,owners,reads=self.exercise(hold=hold)
+                events,owners,reads=self.exercise(hold=hold,ingest=b'{"partialSuccess":{}}')
                 self.assertEqual(events,['ingest','flush','read','read','read'])
                 self.assertEqual(len(reads),3);self.assertEqual(len(set(owners)),1)
 
     def test_actual_partial_invalid_and_oversized_ingest_never_reach_flush_or_queries(self):
-        for body in (b'{"partialSuccess":{}}',b'{"a":1,"a":2}',b'\xef\xbb\xbf{}',b'{} trailing',b'null',b'',b' '*1025):
+        for body in (b'{"partialSuccess":{"rejectedDataPoints":1}}',b'{"partialSuccess":{"errorMessage":"private-failure"}}',b'{"partialSuccess":{"extra":1}}',b'{"a":1,"a":2}',b'\xef\xbb\xbf{}',b'{} trailing',b'null',b'',b' '*1025):
             with self.subTest(body_length=len(body)),self.assertRaises(ValueError):self.exercise(ingest=body)
         with self.assertRaises(ValueError):self.exercise(status=302)
         with self.assertRaises(ValueError):self.exercise(headers=(('Content-Encoding','gzip'),))

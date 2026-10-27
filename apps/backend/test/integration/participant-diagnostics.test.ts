@@ -1,3 +1,10 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import {
+  ProductDirectory,
+  PublishedProductComposition,
+} from "../../src/modules/products/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/client";
@@ -18,11 +25,8 @@ import {
 } from "../../src/modules/bookmarks/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
-  ProductDirectory,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import {
   ReadingActivity,
@@ -72,12 +76,18 @@ it("counts overlapping confirmed commands once across Moscow midnight through de
     prisma: database.prisma,
     authorPolicy,
   });
-  const directory = new ProductDirectory(database.prisma);
+  const directory = new ProductDirectory(
+    database.prisma,
+    assembleProductMaterialReading(database.prisma),
+  );
   const contentAccess = assembleContentAccess({
     materialResourceFacts: assembleMaterialResourceFacts(
       materials.materialContent,
     ),
-    productTaskResourceFacts: assembleProductTaskResourceFacts(database.prisma),
+    productTaskResourceFacts: assembleProductTaskResourceFacts(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
     accountPermissions: {
       hasMaterialsManage: (id) => Promise.resolve(id === owner),
     },
@@ -107,7 +117,7 @@ it("counts overlapping confirmed commands once across Moscow midnight through de
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [],
+      productIds: [],
     },
     body: representativeDocument("Activity"),
   });
@@ -166,12 +176,18 @@ it("counts overlapping confirmed commands once across Moscow midnight through de
     prisma: database.prisma,
     contentAccess,
     materialContent: materials.materialContent,
-    composition: new PublishedSeriesComposition(database.prisma),
+    composition: new PublishedProductComposition(
+      database.prisma,
+      assembleProductMaterialReading(database.prisma),
+    ),
   });
   const bookmarks = new Bookmarks({
     prisma: database.prisma,
     contentAccess,
-    selection: new PublishedMaterialSelection(database.prisma),
+    selection: new PublishedMaterialSelection({
+      prisma: database.prisma,
+      products: new ProductDiscovery(database.prisma),
+    }),
     videos: {
       loadReadyDurations: () => Promise.reject(new Error("not called")),
     },
@@ -269,6 +285,7 @@ it("counts overlapping confirmed commands once across Moscow midnight through de
             { source: "reading", status: "observed" },
             { source: "bookmarks", status: "observed" },
             { source: "submissions", status: "observed" },
+            { source: "telegram", status: "unknown" },
           ],
           telegram: { count: null },
           combined: { count: null },
@@ -310,6 +327,7 @@ it("counts overlapping confirmed commands once across Moscow midnight through de
                 error: { code: "source_unavailable" },
               },
               { status: "observed" },
+              { source: "telegram", status: "unknown" },
             ],
           },
         },

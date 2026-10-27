@@ -192,7 +192,15 @@ export class NotificationProvider {
     };
     const requestedAt = this.clock.now();
     let permit: DispatchResponse | undefined;
-    if (Date.parse(c.notAfter) > requestedAt.getTime()) {
+    const retired =
+      c.content.category === "subscription" &&
+      [
+        "renewal_reminder",
+        "access_ending",
+        "renewal_cancelled",
+        "access_expired",
+      ].includes(c.content.kind);
+    if (!retired && Date.parse(c.notAfter) > requestedAt.getTime()) {
       try {
         permit = await this.authorization.authorize(request);
       } catch (error) {
@@ -221,6 +229,15 @@ export class NotificationProvider {
         current.available_at > this.clock.now()
       )
         return;
+      // Historical commands stay readable; unsent retired purposes never acquire a permit.
+      // Started/unknown/sent attempts were excluded above and retain their immutable outcome.
+      if (retired) {
+        await this.record(tx, current, {
+          state: "suppressed",
+          reason: "source_unavailable",
+        });
+        return;
+      }
       if (Date.parse(c.notAfter) <= this.clock.now().getTime()) {
         await this.record(tx, current, {
           state: "suppressed",

@@ -19,14 +19,14 @@ test("receipt dispatch authorization binds the service response to its exact eve
     ),
   );
   const adapter = new HttpWaitlistConfirmationAdapter(
-    "https://platform.test/integrations/telegram/v1/communications/authorize",
+    "https://platform.test/integrations/telegram/v2/communications/authorize",
     "synthetic-secret",
     fetcher,
   );
   expect(await adapter.current(command)).toBe("accepted");
   expect(fetcher.mock.calls[0]?.[0]).toEqual(
     new URL(
-      "https://platform.test/integrations/telegram/v1/communications/waitlist",
+      "https://platform.test/integrations/telegram/v2/communications/waitlist",
     ),
   );
   expect(fetcher.mock.calls[0]?.[1]?.redirect).toBe("error");

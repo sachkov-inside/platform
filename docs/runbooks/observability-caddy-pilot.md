@@ -105,6 +105,19 @@ original-timestamp maps must agree. A bounded typed tool-error frame remains a q
 malformed protocol metadata cannot substitute for the gateway-outage fact. The existing 1 MiB
 framing and 15-second RPC limits remain unchanged.
 
+A task-owned reproduction with the digest-verified native v1.20.2 executable reproduced
+canonical-observed followed by MCP-stale on the same original samples: initialization alone
+took 5.57–7.15 seconds, crossing the ten-second source age. Both actual HTTP queries retained
+the same fixed evaluation time and `nocache=1`; no upstream cache/time rewrite was observed.
+The Caddy phase now completes native initialize/discovery before selecting its canonical
+acquisition and before opening the held-body request. Each phase owns one ready child and one
+values/timestamps pair. No process/session spans partition, held, outage or reset phases.
+The existing helper's sixty-second lifetime and cleanup are unchanged. The actual query pair,
+whole-vector validation and final oracle share one ten-second budget; completion freshness
+remains ten seconds and held-body lifetime remains eight. A ready session still rejects old
+samples and cannot be reused. The local HTTP/native-MCP reproduction is a timing/transport
+regression proof, not Linux Caddy/VictoriaMetrics acceptance.
+
 The pinned MCP v1.20.2 producer supplies optional initialize `instructions` metadata. The Caddy
 reader accepts only a string at that field, within the existing 1024 UTF-8 byte metadata limit
 and privacy checks. It does not execute, display or publish the contents. Unknown fields,
@@ -130,6 +143,14 @@ owned-vmauth outage, sentinel-bearing headers/path/query/body, exact partition r
 both query transports, gateway outage, Alloy staleness and a deliberately visible counter reset.
 No provider, business message or production application call is made.
 
+The privacy POST places its body sentinel in a MetricsQL comment on the constant `1` query,
+using only the admitted `query` form key. Its sentinel Host, Cookie, trace and other private
+headers remain present. The case still requires HTTP200 and the complete validated query-one
+response through the closed query guard and native VictoriaMetrics. Unknown form keys remain
+refused before storage. The local native guard/vendor replay establishes this request contract;
+exact-source Linux Caddy acceptance remains a separate requirement.
+
+
 For in-flight observation, a child sends the existing POST query's declared seven-byte body
 `query=1`, withholding its final byte. Its total monotonic eight-second deadline covers connect,
 prefix send, wait, response headers/body and parsing. The child owns one outbound socket and
@@ -138,11 +159,41 @@ finally and outer group ownership cover success, failure, timeout and interrupti
 
 Before this child, a quiescent raw9091 snapshot must show retained in-flight zero. After `R`,
 **before any8080 canonical/MCP query**, full raw9091 must show exactly one while the final body
-byte remains withheld. Only then may stored canonical/MCP original cohorts strictly inside the
-conservative `R`-received to `F`-sent interval establish the case, followed by validated finite
-HTTP200 completion. A canonical self-query's in-flight value is insufficient. Missing native
-visibility within eight seconds fails/incompletes the case; no deadline is increased. The source
-predicate and protocol fixtures do not replace actual Linux Caddy evidence.
+byte remains withheld. After the proved native scrape, F must produce validated finite HTTP200/D
+completion and close the child inside its eight-second deadline. Only afterward may stored
+canonical/MCP original cohorts establish the historical case. Every source timestamp must lie
+strictly inside the conservative `R`-received to `F`-sent interval. A canonical self-query's
+in-flight value is insufficient. Missing native visibility within eight seconds fails/incompletes
+the case; no deadline is increased. Stored publication has its separate ten-second deadline,
+and every final source observation still requires age at most ten seconds. The source predicate
+and protocol fixtures do not replace actual Linux Caddy evidence.
+
+The held socket proves native collection separately from asynchronous storage visibility.
+After the independent public gauge witness, the worker reads the validated private
+`srv1/metrics` registry. It first waits for that role's in-flight gauge to be exactly one
+(the worker's own read), excluding an already running pre-R scrape. Only Alloy and this worker
+read this registry in the owned topology. Each subsequent native read accounts for its preceding
+completed owned read; a completed-request counter increase beyond that exact count proves an
+Alloy scrape. Own reads, missing roles, private labels, a counter reset or a busy baseline cannot
+substitute for it. Polling is every 250ms, within the unchanged eight-second socket deadline.
+
+After that scrape, the worker waits only until the next integer evaluation boundary that can
+include it, sends F, validates HTTP200/D and closes the child. It freezes `E=floor(F)` and then
+queries the stored history at that same E through both canonical HTTP and MCP. Publication may
+settle for at most ten seconds after release; every paired query retains its ten-second budget.
+Every original sample timestamp must still satisfy `R < timestamp < F`, all original maps must
+match, and source age must be at most ten seconds at each transport's final completion. A query
+may complete after F; a later or stale source sample cannot replace the held witness. No flush,
+scrape acceleration, held deadline, freshness tolerance or 128-acquisition cap is introduced.
+
+The 2026-10-27 owned HTTP/native-MCP replay reproduced the previous storage-coupled timeout at
+7.999 seconds even though scrapes occurred. The corrected sequence closed the held request in
+0.893 seconds and read the same historical cohort after 7.159 seconds of post-release export
+latency. The peer kept the five-second scrape cadence and both native MCP queries at fixed E.
+This proves sequencing and transport, not Linux Caddy/VictoriaMetrics acceptance. Earlier local
+replay of forty prior acquisitions plus a 6.8-second visibility delay also proved why 50ms
+polling exhausted the shared128 cap; that separate polling defect was fixed before this
+sequencing change. Linux native acceptance remains pending.
 
 ## Outcomes and cleanup
 
@@ -253,17 +304,23 @@ establish native acceptance. Fresh source-bound native evidence is still require
 
 ## Source test progress
 
-The source wrapper retains its single `15000ms` suite deadline and existing fixture/cleanup
-budgets. Best-effort start/completed markers identify only fixed inventoried source test IDs in
+The source wrapper runs two separately owned contract groups: 82 pure/protocol methods and
+three process-lifecycle methods that acquire real launchers and listeners. Each invocation keeps
+the existing `15000ms` deadline and fixture/cleanup budgets. Complete discovery must match the
+85-method inventory, retaining all original methods, before selection in either process. The checked group union has
+no missing or repeated method; every method executes once across the two invocations.
+Best-effort start/completed markers identify only fixed inventoried source test IDs in
 its private captured stderr. The parent validates the complete ordered marker prefix before
-showing the last started/completed source method and completed count. Missing, malformed or
+showing the last started/completed source method and completed count within that group. A
+successful group also requires its complete marker sequence, independently of exit status.
+Missing, malformed or
 oversized markers give `unknown`. Both timeout and nonzero-exit assertions omit raw captured
 output. `completed` records that a method stopped; it does not report a pass or replace the
 original exit/timeout/interruption result. Inventory checks retain every original source test
 exactly once, along with explicitly added progress controls.
 
-This diagnostic does not explain the earlier baseline source timeout or establish native Caddy
-acceptance. No suite splitting, deadline increase or production configuration change is included.
+These source contracts do not establish native Caddy acceptance. The native cases, workload,
+production configuration and their acceptance deadlines are unchanged.
 
 ### Native-only incomplete detail
 
@@ -315,3 +372,9 @@ Decimal strictly below 10 is refused. A saved age of 10 alone cannot establish t
 stale decision or token arithmetic. Legacy stale reports without the token retain
 their existing behavior. This serialization compatibility rule changes no native
 freshness tolerance, success predicate, query, clock, process owner or limit.
+
+`caddy-run.json` distinguishes the held baseline, child opening, independent held read, quiet registry, native scrape
+witness, integer boundary, release/HTTP response, stored history and final cohort validation using only
+fixed `inflight_*` stages. Checkpoints update memory and are persisted on terminal failure; polling does
+not add disk writes or publish native response bodies. A `contract` failure identifies its owning stage
+without implying that a controlled HTTP/MCP fixture established native Caddy acceptance.

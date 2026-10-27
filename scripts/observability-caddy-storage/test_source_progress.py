@@ -13,6 +13,11 @@ class SourceProgress(unittest.TestCase):
         suite=unittest.defaultTestLoader.discover(str(Path(__file__).parent),pattern='test_*.py')
         source_progress.verify_inventory(suite)
         added={
+            'test_warm_matching.WarmMatching.test_held_waits_for_next_scraped_frame_without_spending_snapshot_cap',
+            'test_mcp_snapshot.MCPObservation.test_ready_session_is_one_pair_only_and_original_stale_frames_remain_stale',
+            'test_mcp_snapshot.MCPObservation.test_shared_ten_second_query_budget_includes_final_oracle_validation',
+            'test_warm_matching.WarmMatching.test_partition_prepares_native_before_selecting_current_canonical_sample',
+            'test_warm_matching.WarmMatching.test_ready_native_session_precedes_held_body_and_exact_canonical_acquisition',
             'test_acquisition_budget.AcquisitionBudget.test_127_performs_one_query_then_refuses_next_without_more_work',
             'test_acquisition_budget.AcquisitionBudget.test_actual_snapshot_128_and_129_refuse_before_any_acquisition_work',
             'test_acquisition_budget.AcquisitionBudget.test_classification_never_reads_foreign_metadata_or_matches_text',
@@ -20,18 +25,33 @@ class SourceProgress(unittest.TestCase):
             'test_source_progress.SourceProgress.test_discovery_matches_fixed_inventory_and_original_methods_once',
             'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
             'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome'}
-        self.assertEqual(len(source_progress.SOURCE_IDS),80)
-        self.assertEqual(len(set(source_progress.SOURCE_IDS)),80)
+        self.assertEqual(len(source_progress.SOURCE_IDS),85)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),85)
         self.assertTrue(added<=set(source_progress.SOURCE_IDS))
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),73)
         self.assertEqual(hashlib.sha256(json.dumps(baseline).encode()).hexdigest(),'34a7fb8b62c29fdf4980fa775a515fe1917839dfd1bd17cfae82db0b4de1be00')
+        groups=source_progress.SOURCE_GROUPS
+        self.assertEqual(tuple(groups),('contracts','process-owner'))
+        self.assertEqual(tuple(map(len,groups.values())),(82,3))
+        combined=tuple(value for group in groups.values() for value in group)
+        self.assertEqual(len(set(combined)),85)
+        self.assertEqual(tuple(sorted(combined)),source_progress.SOURCE_IDS)
+        for group,expected in groups.items():
+            selected=source_progress.select_group(suite,group)
+            self.assertEqual(tuple(test.id() for test in selected),expected)
+        for group in ('unknown','__proto__',None,[],1):
+            with self.assertRaisesRegex(ValueError,'^closed Caddy source inventory refused$'):
+                source_progress.select_group(suite,group)
         class Case(unittest.TestCase):
             def runTest(self):pass
             def id(self):return source_progress.SOURCE_IDS[0]
         for cases in ((Case(),),(Case(),Case())):
             with self.assertRaisesRegex(ValueError,'^closed Caddy source inventory refused$'):
                 source_progress.verify_inventory(unittest.TestSuite(cases))
+            for group in groups:
+                with self.assertRaisesRegex(ValueError,'^closed Caddy source inventory refused$'):
+                    source_progress.select_group(unittest.TestSuite(cases),group)
 
     def test_emitters_use_inventory_literals_and_completed_does_not_claim_success(self):
         stream=io.StringIO()

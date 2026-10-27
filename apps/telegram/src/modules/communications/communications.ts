@@ -199,6 +199,21 @@ export class Communications {
       : this.database.transaction().execute(work);
   }
 
+  /** Only a saved template is meaningful activity, never an authorization denial or mode toggle. */
+  async confirmedTemplateActivity(
+    bot: string,
+    update: string,
+  ): Promise<boolean> {
+    const receipt = await this.database
+      .selectFrom("communication_intake_receipts")
+      .select("outcome")
+      .where("bot_identity", "=", bot)
+      .where("update_id", "=", update)
+      .where("outcome", "=", "saved")
+      .executeTakeFirst();
+    return receipt !== undefined;
+  }
+
   async intake(input: TemplateIntake): Promise<void> {
     await transactionWithExternalReads(this.database, async (tx) => {
       await lock(

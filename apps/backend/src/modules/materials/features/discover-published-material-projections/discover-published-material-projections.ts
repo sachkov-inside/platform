@@ -1,10 +1,10 @@
+import type { MaterialProgrammeContext } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
-  selectPublishedMaterialProjectionsBySeries,
+  selectPublishedMaterialProjectionsByProduct,
   selectPublishedMaterialProjectionsByTopic,
   selectRelatedPublishedMaterialProjections,
 } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
@@ -23,16 +23,16 @@ const querySchema = z
       ])
       .optional(),
     first: z.number().int().min(0).max(10_000).nullable(),
-    kind: z.enum(["related", "series", "topic"]),
+    kind: z.enum(["related", "product", "topic"]),
     slug: z
       .string()
       .max(120)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
   })
   .strict()
-  .refine(({ first, kind }) => first !== null || kind === "series", {
+  .refine(({ first, kind }) => first !== null || kind === "product", {
     path: ["first"],
-    message: "Only complete Series discovery may omit a page size",
+    message: "Only complete Product discovery may omit a page size",
   })
   .refine(
     ({ first, kind }) => kind !== "related" || (first !== null && first > 0),
@@ -43,7 +43,7 @@ const querySchema = z
   );
 
 export async function discoverPublishedMaterialProjections(
-  prisma: MaterialsPrisma,
+  prisma: MaterialProgrammeContext,
   query: DiscoverPublishedMaterialProjectionsQuery,
   contentAccess: Pick<ContentAccess, "checkProductAccess">,
 ): Promise<PublishedMaterialDiscoveryResult> {
@@ -86,7 +86,7 @@ export async function discoverPublishedMaterialProjections(
 }
 
 function selectDiscovery(
-  prisma: MaterialsPrisma,
+  prisma: MaterialProgrammeContext,
   query: z.infer<typeof querySchema>,
   original: DiscoverPublishedMaterialProjectionsQuery,
   contentAccess: Pick<ContentAccess, "checkProductAccess">,
@@ -101,8 +101,8 @@ function selectDiscovery(
         query.slug,
         query.first,
       );
-    case "series":
-      return selectPublishedMaterialProjectionsBySeries(
+    case "product":
+      return selectPublishedMaterialProjectionsByProduct(
         prisma,
         query.slug,
         query.first,

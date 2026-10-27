@@ -6,6 +6,7 @@ import json
 import math
 import subprocess
 import urllib.request
+import urllib.error
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-pilot'))
 import pilot
 import source_status_query
@@ -16,6 +17,7 @@ import record
 from types import ModuleType
 import queries
 import pg_ownership
+import completion
 # Caller loads this owner's oracle by its fixed file identity, avoiding cross-owner module-name aliases.
 STOPPED='{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}'
 
@@ -30,7 +32,23 @@ class Scenario:
     def __init__(self,targets,compose,token,oracle):
         self.targets,self.compose,self.token,self.oracle=targets,compose,token,oracle
         self.phase='acquisition';self.clock_deadline=None;self.end=None;self.cleanup_end=None;self.last_attempt=None
-        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None
+        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None;self.upload_operation=None;self.visibility=[];self.visibility_overflow=False
+        self.restart_down=None
+        self.published_sample=None
+
+    def note_visibility(self,step,started,value,observed=None,previous=False,*,finished=None,completed_us=None):
+        # Closed built-in numbers only. No transport/provider content enters this witness.
+        if len(self.visibility)>=64:self.visibility_overflow=True;return
+        finished=time.monotonic() if finished is None else finished
+        completed_us=time.time_ns()//1000 if completed_us is None else completed_us
+        age=observed.get('age_seconds') if observed is not None else None
+        sample=value.get('sample_us') if type(value) is dict else None
+        expected_age=int((completed_us-sample)/1000) if type(sample) is int else None
+        if expected_age is not None and not -2000<=expected_age<=180000:expected_age=None
+        self.visibility.append({'phase':self.phase,'step':step,'elapsed_ms':max(0,int((finished-started)*1000)),
+            'expected_age_ms':expected_age,
+            'stored_age_ms':int(age*1000) if type(age) in (int,float) and math.isfinite(age) else None,
+            'freshness':observed['freshness'] if observed is not None else None,'previous_committed':previous})
 
     def remaining(self,cap=10):
         value=min(cap,self.end-time.monotonic())
@@ -104,11 +122,37 @@ class Scenario:
         self.remaining()
 
     def upload(self,value,*,deadline=None):
+        self.upload_operation={'schema':1,'phase':self.phase,'step':'deadline','outcome':'running','error':None,'http_status':None,'returncode':None}
+        try:
+            # One decreasing publication deadline covers ACK and the fixture-only barrier.
+            if deadline is None:deadline=min(self.end,time.monotonic()+10)
+            self._upload(value,deadline=deadline)
+            self.upload_operation['step']='controlled_flush'
+            completion._flush(self,deadline)
+            completion.remaining(deadline)
+            self.upload_operation.update(step='controlled_publication',outcome='passed')
+        except BaseException as error:
+            code=getattr(error,'returncode',None)
+            status=error.code if isinstance(error,urllib.error.HTTPError) else self.upload_operation['http_status']
+            category=('timeout' if isinstance(error,(TimeoutError,subprocess.TimeoutExpired)) else
+                'http_status' if isinstance(error,urllib.error.HTTPError) else
+                'transport' if isinstance(error,(urllib.error.URLError,OSError)) else
+                'command_failed' if isinstance(error,subprocess.CalledProcessError) else
+                'interrupted' if isinstance(error,(KeyboardInterrupt,SystemExit)) else
+                'invalid_result' if isinstance(error,ValueError) else 'operation_failed')
+            self.upload_operation.update(outcome='failed',error=category,
+                http_status=status if type(status) is int and 100<=status<=599 else None,
+                returncode=code if type(code) is int and -128<=code<=255 else None)
+            raise
+
+    def _upload(self,value,*,deadline=None):
         now=time.monotonic()
         if deadline is None:deadline=min(self.end,now+10)
         if type(deadline) not in (int,float) or not math.isfinite(deadline) or deadline>self.end or deadline-now>10:raise ValueError('collector')
         if deadline<=now:raise TimeoutError()
+        self.upload_operation['step']='owner_before'
         self.verify_storage(deadline)
+        self.upload_operation['step']='payload'
         body=json.dumps(value,separators=(',',':'),allow_nan=False).encode()
         if len(body)>65536:raise ValueError('malformed')
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),source_status_query.NoRedirect())
@@ -118,9 +162,18 @@ class Scenario:
         with source_status_query._deadline(remaining):
             remaining=deadline-time.monotonic()
             if remaining<=0:raise TimeoutError()
+            self.upload_operation['step']='http_open'
             with opener.open(request,timeout=remaining) as response:
-                if response.status!=200 or len(response.read(4097))>4096:raise ValueError('collector')
+                self.upload_operation['http_status']=response.status if type(response.status) is int and 100<=response.status<=599 else None
+                self.upload_operation['step']='http_body'
+                raw=response.read(4097)
+                if response.status!=200 or len(raw)>4096:raise ValueError('collector')
+                try:ack=record.decode(raw)
+                except ValueError:raise ValueError('collector') from None
+                if ack not in ({},{'partialSuccess':{}}):raise ValueError('collector')
+        self.upload_operation['step']='owner_after'
         self.verify_storage(deadline)
+        self.upload_operation['step']='complete'
         if time.monotonic()>=deadline:raise TimeoutError()
 
     def stored(self,value,*,_baseline=None):
@@ -131,11 +184,24 @@ class Scenario:
         while time.monotonic()<deadline:
             self.oracle_failure_reason=None
             if phases is not None:self.phase=phases['stored_read']
-            raw,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,deadline-time.monotonic()))
+            query_started=time.monotonic();query_deadline=min(deadline,query_started+10)
+            raw,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=query_deadline-time.monotonic())
             if phases is not None:self.phase=phases['stored_oracle']
             observed=self.oracle.evaluate(raw,stamps,evaluated_at=evaluated,completed_us=completed,expected=value,**({} if phases is None else {'diagnose':True}))
+            previous_pending=(observed['freshness']=='stale' and self.ledger.last is not None and type(self.oracle) is ModuleType
+                and self.oracle.previous_committed_pending(raw,stamps,evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value))
+            down_pending=(self.phase=='restart_observe' and self.restart_down is not None and self.ledger.last is not None
+                and type(self.oracle) is ModuleType and self.oracle.controlled_down_pending(raw,stamps,
+                    evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value,down=self.restart_down))
+            fragments_pending=(observed['freshness']=='malformed' and self.published_sample==value and self.ledger.last is not None
+                and type(self.oracle) is ModuleType and self.oracle.acknowledged_fragments_pending(raw,stamps,
+                    evaluated_at=evaluated,completed_us=completed,previous=self.ledger.last,expected=value,
+                    down=self.restart_down if self.phase=='restart_observe' else None))
+            query_finished=time.monotonic()
+            if time.monotonic()>=query_deadline:raise TimeoutError()
+            if phases is not None:self.note_visibility('stored',query_started,value,observed,previous_pending,finished=query_finished,completed_us=completed)
             if observed['freshness']=='fresh':return observed
-            if observed['freshness'] not in ('missing',):
+            if observed['freshness'] not in ('missing',) and not previous_pending and not down_pending and not fragments_pending:
                 if phases is not None and type(self.oracle) is ModuleType:
                     try:
                         reason=self.oracle.diagnostic_reason(observed)
@@ -154,12 +220,18 @@ class Scenario:
         while True:
             if time.monotonic()>=deadline:raise TimeoutError()
             if phases is not None:self.phase=phases['acquire']
+            acquire_started=time.monotonic()
             value=self.acquire()
+            if phases is not None:self.note_visibility('acquired',acquire_started,value)
             if predicate(value):break
         if settle_before_publish is not None:settle_before_publish()
         if phases is not None:self.phase=phases['upload']
+        upload_started=time.monotonic()
         self.upload(frame.payload(value))
-        observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
+        if phases is not None:self.note_visibility('controlled_publication',upload_started,value)
+        self.published_sample=value.copy()
+        try:observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
+        finally:self.published_sample=None
         if phases is not None:self.phase=phases['ledger']
         continuity=self.ledger.accept(value)
         return value,{**observed,'continuity':continuity['continuity'],'count_complete':continuity['count_complete']}
@@ -170,19 +242,25 @@ class Scenario:
     def stop_postgres(self):
         """Only an explicitly owned graceful stop with settled clients may emit controlled-down zero."""
         deadline=time.monotonic()+self.remaining()
+        self.phase='restart_close_clients'
         self.actors.close(deadline)
         if self.actors.process is not None and self.actors.process.poll()!=0:raise ValueError('cleanup')
+        self.phase='restart_stop_identity'
         self.verify_pg(deadline);cid=self.targets.targets['postgres']['id']
         self.clock_deadline=deadline
-        stopped=self.read(['docker','stop','--time','2',cid])
+        self.phase='restart_stop_command'
+        stopped=self.read(['docker','stop','--timeout','2',cid])
         if type(stopped) is not str or len(stopped.encode('utf-8'))>65 or stopped not in (cid,cid+'\n'):raise ValueError('ownership')
         pilot.assert_docker_identity(deadline=deadline)
+        self.phase='restart_stopped_identity'
         if self.targets.inspect('postgres',cid)!=self.targets.targets['postgres']:raise ValueError('ownership')
+        self.phase='restart_stopped_state'
         state=self.read(['docker','inspect','--format',STOPPED,cid])
         # Logical cap on the fixed daemon-side boolean projection, not a general subprocess allocation cap.
         if type(state) is not str or len(state.encode('utf-8'))>16 or state not in ('stopped','stopped\n'):raise ValueError('ownership')
         if time.monotonic()>=deadline:raise TimeoutError()
         self.remaining()
+        self.phase='restart_unavailable_upload'
         self.upload(frame.unavailable_payload(time.time_ns()//1000),deadline=deadline)
         self.actors=fixture.Fixture()
         return cid
@@ -220,18 +298,31 @@ class Scenario:
             self.case('reset',verdict)
             self.phase='restart'
             cid=self.stop_postgres()
+            self.phase='restart_unavailable_read'
             unavailable_deadline=time.monotonic()+self.remaining()
             while True:
+                self.oracle_failure_reason=None
                 if time.monotonic()>=unavailable_deadline:raise TimeoutError()
                 values,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,unavailable_deadline-time.monotonic()))
-                down=self.oracle.evaluate(values,stamps,evaluated_at=evaluated,completed_us=completed,expected=reset)
-                if down['freshness']=='unavailable':break
-                if down['freshness'] not in ('fresh','missing'):raise ValueError('storage')
+                down=self.oracle.evaluate(values,stamps,evaluated_at=evaluated,completed_us=completed,expected=reset,diagnose=True)
+                if down['freshness']=='unavailable':
+                    self.restart_down=(values,stamps,evaluated,completed)
+                    break
+                if down['freshness'] not in ('fresh','missing'):
+                    if type(self.oracle) is ModuleType:
+                        try:
+                            reason=self.oracle.diagnostic_reason(down)
+                            if type(reason) is str and reason in record.ORACLE_REASONS:self.oracle_failure_reason=reason
+                        except BaseException:pass
+                    raise ValueError('storage')
                 # Old retained healthy rows are pending in this controlled down phase, never a successful down verdict.
                 time.sleep(min(.25,max(0,unavailable_deadline-time.monotonic())))
+            self.phase='restart_start_command'
             self.clock_deadline=time.monotonic()+self.remaining();self.read(['docker','start',cid])
+            self.phase='restart_ready'
             self.await_postgres(cid)
             self.actors.start()
+            self.phase='restart_observe'
             restarted,verdict=self.observe(lambda value:value['postmaster_us']!=reset['postmaster_us'])
             if verdict['continuity']!='server_restart' or verdict['count_complete']:raise ValueError('reset')
             self.case('restart',verdict)

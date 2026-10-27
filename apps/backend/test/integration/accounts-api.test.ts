@@ -118,7 +118,7 @@ describe("Accounts API", () => {
       read
         .json<{ documents: { documentId: string }[] }>()
         .documents.map((document) => document.documentId),
-    ).toEqual(["purchase", "subscription", "recurring-consent"]);
+    ).toEqual(["purchase"]);
     const disabled = await server.inject({
       method: "POST",
       url,
@@ -283,7 +283,7 @@ describe("Accounts API", () => {
     });
 
     await database.prisma.product.create({
-      data: { id: seriesId, name: "Platform", slug: "platform" },
+      data: { id: productId, name: "Platform", slug: "platform" },
     });
 
     const created = await server.inject({
@@ -314,28 +314,56 @@ describe("Accounts API", () => {
     expect(companion.statusCode).toBe(201);
     const companionReceipt = readMaterialReceipt(companion.json<unknown>());
 
-    const initialOrder = await server.inject({
+    const fixtureOrder = await server.inject({
       method: "GET",
-      url: `/authoring/series/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
     });
-    expect(initialOrder.statusCode).toBe(200);
+    const programmePlacements = [
+      initial.materialId,
+      companionReceipt.materialId,
+    ].map((materialId) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId: null,
+      stepGroup: null,
+    }));
+    const programmeFixture = await server.inject({
+      method: "PUT",
+      url: `/authoring/products/${productId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: fixtureOrder.json<{ orderVersion: string }>()
+          .orderVersion,
+        orderedMaterialIds: programmePlacements.map(
+          ({ materialId }) => materialId,
+        ),
+        programmePlacements,
+      },
+    });
+    expect(programmeFixture.statusCode).toBe(200);
+    const initialOrder = await server.inject({
+      method: "GET",
+      url: `/authoring/series/${productId}/order`,
+      headers: authorization,
+    });
+    expect(initialOrder.statusCode).toBe(404);
     const canonicalOrder = await server.inject({
       method: "GET",
-      url: `/authoring/products/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
     });
     expect(canonicalOrder.statusCode).toBe(200);
-    expect(canonicalOrder.json()).toEqual(initialOrder.json());
+
     expect(
       (
         await server.inject({
           method: "GET",
-          url: `/authoring/products/${seriesId}/order`,
+          url: `/authoring/products/${productId}/order`,
         })
       ).statusCode,
     ).toBe(401);
-    const initialOrderBody = initialOrder.json<{
+    const initialOrderBody = canonicalOrder.json<{
       readonly items: readonly { readonly materialId: string }[];
       readonly orderVersion: string;
     }>();
@@ -346,23 +374,37 @@ describe("Accounts API", () => {
 
     const reordered = await server.inject({
       method: "PUT",
-      url: `/authoring/products/${seriesId}/order`,
+      url: `/authoring/products/${productId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
         orderedMaterialIds: [companionReceipt.materialId, initial.materialId],
+        programmePlacements: [...programmePlacements].reverse(),
       },
     });
     expect(reordered.statusCode).toBe(200);
-    expect(reordered.json()).toMatchObject({ seriesId });
+    expect(reordered.json()).toMatchObject({ productId });
 
-    const staleOrder = await server.inject({
+    const retiredOrder = await server.inject({
       method: "PUT",
-      url: `/authoring/series/${seriesId}/order`,
+      url: `/authoring/series/${productId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
         orderedMaterialIds: [initial.materialId, companionReceipt.materialId],
+        programmePlacements,
+      },
+    });
+    expect(retiredOrder.statusCode).toBe(404);
+
+    const staleOrder = await server.inject({
+      method: "PUT",
+      url: `/authoring/products/${productId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: initialOrderBody.orderVersion,
+        orderedMaterialIds: [initial.materialId, companionReceipt.materialId],
+        programmePlacements,
       },
     });
     expect(staleOrder.statusCode).toBe(409);
@@ -370,7 +412,7 @@ describe("Accounts API", () => {
       readonly code: string;
       readonly currentOrderVersion?: string;
     }>();
-    expect(staleOrderBody.code).toBe("stale_series_order");
+    expect(staleOrderBody.code).toBe("stale_product_order");
     expect(staleOrderBody.currentOrderVersion).toMatch(/^[a-f0-9]{64}$/u);
 
     const corpus = await server.inject({
@@ -614,13 +656,13 @@ describe("Accounts API", () => {
 
     expect(created.json()).not.toHaveProperty("profile.publicProfileId");
     // A Profile has no address for other members: the former member page and its avatar are gone.
-    const stored = await database.prisma.memberProfile.findUniqueOrThrow({
+    const stored = await database.prisma.accountProfile.findUniqueOrThrow({
       where: { accountId: ownerAccountId },
     });
     for (const url of [
-      `/member-profiles/${stored.publicProfileId}`,
-      `/member-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
-      `/member-profiles/${stored.publicProfileId}/reports`,
+      `/account-profiles/${stored.publicProfileId}`,
+      `/account-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
+      `/account-profiles/${stored.publicProfileId}/reports`,
     ]) {
       for (const token of [
         undefined,
@@ -660,7 +702,7 @@ describe("Accounts API", () => {
     expect(readPrivateProfile(updated.json<unknown>())).toMatchObject({
       displayName: "Кирилл",
       bio: null,
-      version: 2,
+      version: 2 as const,
     });
 
     const conflict = await server.inject({
@@ -694,7 +736,7 @@ describe("Accounts API", () => {
     });
     expect(removedDeleteRoute.statusCode).toBe(404);
     await expect(
-      database.prisma.memberProfileAuditEvent.findMany({
+      database.prisma.accountProfileAuditEvent.findMany({
         where: { accountId: ownerAccountId },
         orderBy: { createdAt: "asc" },
         select: { event: true },
@@ -740,7 +782,7 @@ describe("Accounts API", () => {
 
 const topicId = "73000000-0000-4000-8000-000000000001";
 const formatId = "guide";
-const seriesId = "73000000-0000-4000-8000-000000000003";
+const productId = "73000000-0000-4000-8000-000000000003";
 
 function materialDraftPayload(
   title: string,
@@ -757,7 +799,7 @@ function materialDraftPayload(
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [seriesId],
+      productIds: [productId],
     },
     body: representativeDocument(text),
   };
@@ -816,7 +858,7 @@ function readPrivateProfile(value: unknown): {
     !("version" in value.profile) ||
     typeof value.profile.version !== "number"
   ) {
-    throw new TypeError("Member Profile API response has no private Profile");
+    throw new TypeError("Account Profile API response has no private Profile");
   }
   return {
     displayName: value.profile.displayName,

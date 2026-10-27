@@ -23,7 +23,7 @@ const referenceSchema = z
 const responseSchema = z
   .object({
     formats: z.array(referenceSchema.extend({ id: materialFormatSchema })),
-    series: z.array(referenceSchema),
+    products: z.array(referenceSchema),
     tags: z.array(referenceSchema),
     topics: z.array(referenceSchema),
   })

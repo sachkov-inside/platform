@@ -77,7 +77,7 @@ export async function produce(databaseUrl, progress = () => {}, phase = null) {
       request.on("end", () => {
         try {
           assert.equal(request.method, "POST");
-          assert.equal(request.url, "/integrations/platform/v1/communications");
+          assert.equal(request.url, "/integrations/platform/v2/communications");
           assert.equal(request.headers.authorization, `Bearer ${secret}`);
           for (const key of ["traceparent", "tracestate", "baggage"])
             assert.equal(request.headers[key], undefined);
@@ -88,7 +88,7 @@ export async function produce(databaseUrl, progress = () => {}, phase = null) {
             assert.equal(command.payload.token, token);
             response.writeHead(200, { "content-type": "application/json" }).end(
               JSON.stringify({
-                contractVersion: "inside-communications-v1",
+                contractVersion: "inside-communications-v2",
                 status: "ok",
                 safeUrl: `${origin}/materials/proof-material`,
               }),
@@ -103,7 +103,7 @@ export async function produce(databaseUrl, progress = () => {}, phase = null) {
             assert.equal(command.payload.traffic, "unknown");
             response.writeHead(200, { "content-type": "application/json" }).end(
               JSON.stringify({
-                contractVersion: "inside-communications-v1",
+                contractVersion: "inside-communications-v2",
                 status: "ok",
                 eventId: command.payload.eventId,
                 outcome: "recorded",
@@ -187,7 +187,7 @@ export async function produce(databaseUrl, progress = () => {}, phase = null) {
           "synthetic-tracking-storage-fingerprint-key",
         TELEGRAM_TRACKING_ORIGIN: origin,
         TELEGRAM_COMMUNICATIONS_ENDPOINT:
-          endpoint + "/integrations/platform/v1/communications",
+          endpoint + "/integrations/platform/v2/communications",
         TELEGRAM_COMMUNICATIONS_SECRET: secret,
         TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "private-tracking-author-secret",
         TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "tracking_storage_bot",

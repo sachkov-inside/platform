@@ -39,7 +39,7 @@ export const publishedCatalogPageHttpSchema = z
             slug: materialFormatSchema,
           }),
         ),
-        series: z.array(publishedCatalogFacetHttpSchema),
+        products: z.array(publishedCatalogFacetHttpSchema),
         topics: z.array(publishedCatalogFacetHttpSchema),
       })
       .strict(),
@@ -80,7 +80,7 @@ const discoveryReferenceHttpSchema = z
   })
   .strict();
 
-const relatedSeriesHttpSchema = z
+const relatedProductHttpSchema = z
   .object({
     id: z.uuid(),
     matchingMaterialCount: z.number().int().nonnegative(),
@@ -142,16 +142,16 @@ export const publishedDiscoveryPageHttpSchema = z
     chapters: z.array(productChapterHttpSchema),
     hasNext: z.boolean(),
     items: z.array(publishedCatalogItemHttpSchema),
-    kind: z.enum(["related", "series", "topic"]),
+    kind: z.enum(["related", "product", "topic"]),
     reference: discoveryReferenceHttpSchema,
-    relatedSeries: z.array(relatedSeriesHttpSchema),
+    relatedProduct: z.array(relatedProductHttpSchema),
     topics: z.array(discoveryTopicHttpSchema),
   })
   .strict();
 
 export const publishedTopicPageHttpSchema =
   publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("topic") });
-export const publishedSeriesPageHttpSchema =
-  publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("series") });
+export const publishedProductPageHttpSchema =
+  publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("product") });
 export const relatedPublishedMaterialsHttpSchema =
   publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("related") });

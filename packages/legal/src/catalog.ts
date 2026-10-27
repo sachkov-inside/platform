@@ -103,6 +103,7 @@ export type PaymentMode = (typeof paymentModes)[number];
  * policy is linked next to the form instead of appearing here as a checkbox.
  */
 export interface ConsentDocument {
+  readonly commercialModel?: "product-lifetime-v1";
   readonly kind: ConsentKind;
   /** Payment modes this document applies to: an offer belongs to the sale it governs. */
   readonly appliesTo: readonly PaymentMode[];
@@ -131,12 +132,6 @@ interface ConsentDefinition {
  */
 const consentDefinitions: readonly ConsentDefinition[] = [
   { kind: "terms", appliesTo: ["one_time"], edition: purchaseV6 },
-  { kind: "terms", appliesTo: ["subscription"], edition: subscriptionV1 },
-  {
-    kind: "recurring",
-    appliesTo: ["subscription"],
-    edition: recurringConsentV1,
-  },
 ];
 
 /**
@@ -186,5 +181,8 @@ export function consentDocuments(origin: string): readonly ConsentDocument[] {
     digest: definition.edition.digest,
     url: `${base}${legalEditionPath(definition.edition.key, definition.edition.version)}`,
     text: definition.edition.text,
+    ...(definition.edition.commercialModel === undefined
+      ? {}
+      : { commercialModel: definition.edition.commercialModel }),
   }));
 }

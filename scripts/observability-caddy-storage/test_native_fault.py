@@ -15,7 +15,7 @@ class ExpectedNativeFault(unittest.TestCase):
             run=evidence.Run();run.start('identity');run.pass_case('logging');run.pass_case('identity')
             artifact.write_run(output,run.snapshot())
             cleanup={'diagnostics':'passed','down':'passed','residue':'passed',
-                     'source_freshness':{'outcome':'passed','containers':7,'volumes':4,'networks':2}}
+                     'source_freshness':{'outcome':'passed','containers':8,'volumes':4,'networks':2}}
             outcome={'exit_code':124,'duration_seconds':2,'monitor_failed':False,'cleanup':cleanup}
             for name,value in (('cleanup.json',cleanup),('worker-outcome.json',outcome)):(output/name).write_text(json.dumps(value))
             with self.assertRaises(ValueError):native_fault.verify(output,'timeout',command_exit=1)
@@ -29,7 +29,7 @@ class ExpectedNativeFault(unittest.TestCase):
             run=evidence.Run();run.start('identity');run.pass_case('logging');run.pass_case('identity');run.fail('contract')
             artifact.write_run(output,run.snapshot())
             cleanup={'diagnostics':'passed','down':'passed','residue':'passed',
-                     'source_freshness':{'outcome':'passed','containers':7,'volumes':4,'networks':2}}
+                     'source_freshness':{'outcome':'passed','containers':8,'volumes':4,'networks':2}}
             outcome={'exit_code':1,'duration_seconds':2,'monitor_failed':False,'cleanup':cleanup}
             for name,value in (('cleanup.json',cleanup),('worker-outcome.json',outcome)):(output/name).write_text(json.dumps(value))
             self.assertTrue(native_fault.verify(output,'failure',command_exit=1))

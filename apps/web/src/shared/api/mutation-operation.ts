@@ -18,6 +18,8 @@ export interface MutationOperationDefinition<
 > {
   readonly input: Input;
   readonly method: MutationMethod;
+  /** A capability may lower, never raise, the shared JSON body ceiling. */
+  readonly maxBodyBytes?: number;
   readonly path: `/api/${string}`;
   readonly result: Result;
   /** Maps a failed request or a malformed answer to the feature's own outcome. */
@@ -32,6 +34,11 @@ export interface MutationOperation<
 > extends MutationOperationDefinition<Input, Result> {
   /** The browser adapter: one same-origin request to the operation's literal route. */
   readonly send: (input: z.input<Input>) => Promise<z.output<Result>>;
+  /** Cancel an optional report in flight when its permission is revoked. */
+  readonly sendWithSignal: (
+    input: z.input<Input>,
+    signal: AbortSignal,
+  ) => Promise<z.output<Result>>;
 }
 
 /**
@@ -47,6 +54,8 @@ export function defineMutationOperation<
   return {
     ...definition,
     send: (input) => sendMutationOperation(definition, input),
+    sendWithSignal: (input, signal) =>
+      sendMutationOperation(definition, input, signal),
   };
 }
 
@@ -56,6 +65,7 @@ async function sendMutationOperation<
 >(
   operation: MutationOperationDefinition<Input, Result>,
   input: z.input<Input>,
+  signal?: AbortSignal,
 ): Promise<z.output<Result>> {
   let response: Response;
   try {
@@ -68,6 +78,7 @@ async function sendMutationOperation<
         "content-type": "application/json",
       },
       method: operation.method,
+      ...(signal === undefined ? {} : { signal }),
     });
   } catch {
     return operation.transportFailure({ kind: "status", status: 503 });

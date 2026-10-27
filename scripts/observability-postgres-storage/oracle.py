@@ -216,6 +216,12 @@ def _refine_join_reason(labels,time_labels,stamps,completed_us):
     return coarse
 
 
+def _metrics_for_frame(value):
+    return {'inside.postgresql.server.'+suffix:value[key] for suffix,key in (
+        ('backends','connected_backends'),('waiting_locks','waiting_locks'),('deadlocks_since_reset','deadlocks'),
+        ('postmaster_start_time_microseconds','postmaster_us'),('statistics_reset_time_microseconds','stats_reset_us'),('sample_time_microseconds','sample_us'))}
+
+
 def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owner_current=True,diagnose=False):
     if type(diagnose) is not bool:raise ValueError('malformed')
     stage='input'
@@ -255,13 +261,8 @@ def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owne
             if diagnose:_observe_stale(report,'healthy',sample,expected)
             return report
         if type(expected) is not dict or set(expected)!={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}:_reject('oracle_expected')
-        wanted={'inside.postgresql.server.backends':expected['connected_backends'],
-                'inside.postgresql.server.waiting_locks':expected['waiting_locks'],
-                'inside.postgresql.server.deadlocks_since_reset':expected['deadlocks'],
-                'inside.postgresql.server.postmaster_start_time_microseconds':expected['postmaster_us'],
-                'inside.postgresql.server.statistics_reset_time_microseconds':expected['stats_reset_us'],
-                'inside.postgresql.server.sample_time_microseconds':expected['sample_us'],'inside.postgresql.server.available':1}
         if any(type(v) is not int or not 0<=v<=_MAX for v in expected.values()):_reject('oracle_expected')
+        wanted={**_metrics_for_frame(expected),'inside.postgresql.server.available':1}
         if values!=wanted:
             # A prior complete admitted frame may remain pending while fixed publication settles.
             if sample<expected['sample_us']:return _report('missing','storage',7,float(age))
@@ -285,6 +286,89 @@ def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owne
         elif stage in _VECTOR_REASONS and type(error) in (json.JSONDecodeError,UnicodeEncodeError,RecursionError):
             reason=_VECTOR_REASONS[stage]['decode']
         return _diagnosed(_report('malformed','malformed'),diagnose,reason)
+
+
+def previous_committed_pending(raw_values,raw_timestamps,*,evaluated_at,completed_us,previous,expected):
+    """Only an exact already-committed frame may await a newer ACKed frame's visibility.
+
+    This is a fixture publication barrier, never a healthy verdict for stale source data.
+    The ordinary evaluate() contract and ten-second freshness gate remain unchanged.
+    """
+    fields={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}
+    if (type(previous) is not dict or type(expected) is not dict or set(previous)!=fields or set(expected)!=fields
+            or any(type(value) is not int or not 0<=value<=_MAX for frame in (previous,expected) for value in frame.values())
+            or not 0<previous['sample_us']<expected['sample_us']):return False
+    checked=evaluate(raw_values,raw_timestamps,evaluated_at=evaluated_at,completed_us=completed_us,expected=previous,diagnose=True)
+    if diagnostic_reason(checked)!='oracle_stale_healthy_sample_match':return False
+    # A stale verdict intentionally precedes expected-value matching. Explicitly compare
+    # ALL seven families here; a reused timestamp or altered counter is not a prior frame.
+    try:values,_=_vector(raw_values,evaluated_at)
+    except (ValueError,KeyError,TypeError,UnicodeError,OverflowError,RecursionError):return False
+    wanted=_metrics_for_frame(previous)
+    wanted['inside.postgresql.server.available']=1
+    return values==wanted
+
+
+def controlled_down_pending(raw_values,raw_timestamps,*,evaluated_at,completed_us,previous,expected,down):
+    """A proved controlled-down frame may remain visible while restart publication settles.
+
+    This is only a publication barrier. It never changes the ordinary unavailable verdict,
+    and admits neither another failure timestamp nor a changed retained counter/identity.
+    """
+    fields={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}
+    if (type(previous) is not dict or type(expected) is not dict or set(previous)!=fields or set(expected)!=fields
+            or any(type(value) is not int or not 0<=value<=_MAX for sample in (previous,expected) for value in sample.values())
+            or not 0<previous['sample_us']<expected['sample_us']
+            or expected['postmaster_us']==previous['postmaster_us'] or type(down) is not tuple or len(down)!=4):return False
+    try:
+        old_values,old_stamps,old_evaluated,old_completed=down
+        if evaluate(old_values,old_stamps,evaluated_at=old_evaluated,completed_us=old_completed,expected=previous)['freshness']!='unavailable':return False
+        if evaluate(raw_values,raw_timestamps,evaluated_at=evaluated_at,completed_us=completed_us,expected=expected)['freshness'] not in ('unavailable','stale'):return False
+        values,labels=_vector(raw_values,evaluated_at)
+        stamps,time_labels=_vector(raw_timestamps,evaluated_at,timestamps=True)
+        witnessed,witness_labels=_vector(old_values,old_evaluated)
+        witness_stamps,witness_time_labels=_vector(old_stamps,old_evaluated,timestamps=True)
+        wanted=_metrics_for_frame(previous)
+        wanted['inside.postgresql.server.available']=0
+        return (values==witnessed==wanted and stamps==witness_stamps
+            and labels==time_labels==witness_labels==witness_time_labels
+            and stamps['inside.postgresql.server.available']<Decimal(expected['sample_us'])/1_000_000)
+    except (ValueError,KeyError,TypeError,UnicodeError,OverflowError,RecursionError):return False
+
+
+def acknowledged_fragments_pending(raw_values,raw_timestamps,*,evaluated_at,completed_us,previous,expected,down=None):
+    """Wait for visibility of one ACKed cohort, never accept a mixed cohort as healthy.
+
+    Values and source timestamps are separate native queries. Each can briefly observe
+    only some newly searchable families. Only exact contributions from these two owned
+    frames may wait; unknown counters, source timestamps, identities or labels refuse.
+    """
+    fields={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}
+    if (type(completed_us) is not int or not 0<completed_us<=_MAX
+            or down is not None and (type(down) is not tuple or len(down)!=4)
+            or type(previous) is not dict or type(expected) is not dict or set(previous)!=fields or set(expected)!=fields
+            or any(type(value) is not int or not 0<=value<=_MAX for sample in (previous,expected) for value in sample.values())
+            or not 0<previous['sample_us']<expected['sample_us']<=completed_us):return False
+    try:
+        values,labels=_vector(raw_values,evaluated_at)
+        stamps,time_labels=_vector(raw_timestamps,evaluated_at,timestamps=True)
+        if set(values)!=_NAMES or set(stamps)!=_NAMES or labels!=time_labels:return False
+        old={**_metrics_for_frame(previous),'inside.postgresql.server.available':1}
+        new={**_metrics_for_frame(expected),'inside.postgresql.server.available':1}
+        allowed_stamps={Decimal(sample['sample_us']//1000)/1000 for sample in (previous,expected)}
+        availability_stamps=allowed_stamps
+        availability_values=(1,)
+        if down is not None:
+            if not controlled_down_pending(*down[:2],evaluated_at=down[2],completed_us=completed_us,
+                    previous=previous,expected=expected,down=down):return False
+            down_stamps,_=_vector(down[1],down[2],timestamps=True)
+            availability_stamps=allowed_stamps|{down_stamps['inside.postgresql.server.available']}
+            availability_values=(0,1)
+        allowed_values={name:(old[name],new[name]) for name in _NAMES}
+        allowed_values['inside.postgresql.server.available']=availability_values
+        return (all(values[name] in allowed_values[name] for name in _NAMES)
+            and all(stamp in (availability_stamps if name.endswith('.available') else allowed_stamps) for name,stamp in stamps.items()))
+    except (ValueError,KeyError,TypeError,UnicodeError,OverflowError,RecursionError):return False
 
 
 def evaluate_protocol(raw_values,raw_timestamps,raw_global,*,evaluated_at,completed_us,expected):

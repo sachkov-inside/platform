@@ -1,3 +1,5 @@
+import { HttpTelegramActivity } from "../modules/telegram-membership/index.js";
+import { PLATFORM_CONFIG } from "../config/platform-config.js";
 import { ActivityRetentionDiagnostics } from "./mcp/activity-retention-diagnostics.js";
 import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
 import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
@@ -15,6 +17,8 @@ import { ACCOUNTS, type Accounts } from "../modules/accounts/index.js";
 import { PgBossQueueDiagnostics } from "../infrastructure/pg-boss-queue-diagnostics.js";
 import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
 import { SalesFunnelModule } from "../modules/sales-funnel/index.js";
+import { ProductAuthoringCompositionModule } from "./composition/product-authoring-composition.module.js";
+import { ContentAccessCompositionModule } from "./composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
 import { BillingModule } from "../modules/billing/index.js";
 import { CommunicationsModule } from "../modules/communications/index.js";
@@ -69,14 +73,25 @@ import {
         ReadingActivityFacts,
         BookmarkActivityFacts,
         TaskSubmissionFacts,
+        PLATFORM_CONFIG,
       ],
       useFactory: (
         accounts: Accounts,
         reading: ReadingActivityFacts,
         bookmarks: BookmarkActivityFacts,
         submissions: TaskSubmissionFacts,
+        config: PlatformConfig,
       ) =>
-        new ParticipantDiagnostics(accounts, reading, bookmarks, submissions),
+        new ParticipantDiagnostics(
+          accounts,
+          reading,
+          bookmarks,
+          submissions,
+          new HttpTelegramActivity(
+            config.telegramMembership.linkingEndpoint,
+            config.telegramMembership.linkingSecret,
+          ),
+        ),
     },
   ],
 })
@@ -92,6 +107,8 @@ export class McpModule {
         WebTelemetryModule,
         CommunicationsModule,
         MaterialsModule,
+        ContentAccessCompositionModule,
+        ProductAuthoringCompositionModule,
         BillingModule,
         SalesFunnelModule,
         ProductTasksModule,

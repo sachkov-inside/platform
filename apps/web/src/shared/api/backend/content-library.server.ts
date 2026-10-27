@@ -21,8 +21,8 @@ export function requestPublishedMaterialCatalog(
     readonly canonicalTopic?: string;
     readonly format?: readonly string[];
     readonly q?: string;
-    readonly series?: readonly string[];
-    readonly sort?: "newest" | "relevance" | "series" | "title";
+    readonly product?: readonly string[];
+    readonly sort?: "newest" | "relevance" | "product" | "title";
     readonly topic?: readonly string[];
   },
   options: PublicRequestOptions = {},
@@ -37,7 +37,7 @@ export function requestPublishedMaterialCatalog(
           : { canonicalTopic: query.canonicalTopic }),
         ...(query.format === undefined ? {} : { format: [...query.format] }),
         ...(query.q === undefined ? {} : { q: query.q }),
-        ...(query.series === undefined ? {} : { series: [...query.series] }),
+        ...(query.product === undefined ? {} : { product: [...query.product] }),
         ...(query.sort === undefined ? {} : { sort: query.sort }),
         ...(query.topic === undefined ? {} : { topic: [...query.topic] }),
       }),
@@ -83,7 +83,7 @@ export function requestProductAccess(
   );
 }
 
-export function requestPublishedSeries(
+export function requestPublishedProduct(
   slug: string,
   options: PublicRequestOptions = {},
 ): Promise<BackendTransportResult> {
@@ -121,18 +121,6 @@ export function requestPublishedMaterial(
   );
 }
 
-export function requestLearningPractices(
-  slug: string,
-  options: PublicRequestOptions = {},
-): Promise<BackendTransportResult> {
-  return executeGeneratedRequest(
-    (request) =>
-      new ContentLibraryService(request).listLearningPractices({ slug }),
-    200,
-    options,
-  );
-}
-
 export function requestPublicSiteIndex(query: {
   readonly after?: string;
 }): Promise<BackendTransportResult> {
@@ -140,5 +128,23 @@ export function requestPublicSiteIndex(query: {
     (request) => new ContentLibraryService(request).listPublicSiteIndex(query),
     200,
     {},
+  );
+}
+
+/** One fresh owner-validated business identity; never accepts a URL or exposes content. */
+export function requestReaderReference(
+  kind: "product" | "material",
+  id: string,
+  accessToken?: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      kind === "product"
+        ? new ContentLibraryService(request).readReaderProductReference({ id })
+        : new ContentLibraryService(request).readReaderMaterialReference({
+            id,
+          }),
+    200,
+    accessToken === undefined ? {} : { accessToken },
   );
 }

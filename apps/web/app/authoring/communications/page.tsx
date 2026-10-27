@@ -1,5 +1,4 @@
-import { CommunicationsPage } from "@/_pages/communications";
-export const metadata = { title: "Воронки Telegram" };
-export default function Page() {
-  return <CommunicationsPage />;
+import { notFound } from "next/navigation";
+export default function RetiredCommunicationsPage() {
+  notFound();
 }

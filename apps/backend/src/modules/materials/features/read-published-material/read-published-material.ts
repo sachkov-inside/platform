@@ -1,3 +1,4 @@
+import type { ProductDiscovery } from "../../../products/index.js";
 import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -41,6 +42,7 @@ const MAX_READ_ATTEMPTS = 2;
 export async function readPublishedMaterial(
   dependencies: {
     readonly prisma: MaterialsPrismaClient;
+    readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
     readonly contentAccess: ContentAccess;
     readonly materialContent: MaterialContent;
     readonly materialBodyOperations: MaterialBodyOperations;
@@ -61,7 +63,7 @@ export async function readPublishedMaterial(
   try {
     for (let attempt = 0; attempt < MAX_READ_ATTEMPTS; attempt += 1) {
       const projection = await selectPublishedMaterialProjectionBySlug(
-        dependencies.prisma,
+        dependencies,
         slug,
       );
       if (projection === undefined) {

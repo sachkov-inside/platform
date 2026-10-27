@@ -10,12 +10,13 @@ TRACE_IDS = {'json':'d'*31+'3','protobuf':'d'*31+'4'}
 COMMUNICATIONS_TRACE_IDS = {'json':'d'*31+'5','protobuf':'d'*31+'6'}
 COMMUNICATIONS = (('telegram','communications.execute','completed'),('telegram','communications.execute','failed'))
 TELEGRAM_HTTP_TRACE_IDS = {'json':'e'*30+'71','protobuf':'e'*30+'72'}
-TELEGRAM_HTTP = tuple(('telegram',op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount') for out in OUTCOMES)
+TELEGRAM_HTTP = tuple(('telegram',op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount','activity.read') for out in OUTCOMES)
 RELEASES = {'json':'a'*40,'protobuf':'b'*40}
 CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUTCOMES)
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
     ('postgresql',op,out) for op in ('query','acquire','material-slug-lock') for out in OUTCOMES) + tuple(
     ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES) + tuple(('telegram',op,out) for op in ('community.set','community.status') for out in OUTCOMES)
+FAILURE_CAUSES = {'query':('constraint','23505'),'acquire':('connection','ECONNREFUSED'),'material-slug-lock':('timeout','57014')}
 POOL = {'available':1,'total':2,'idle':1,'waiting':3,'registry_overflow':0}
 METRICS = ('inside.dependency.operations','inside.dependency.duration')
 
@@ -59,6 +60,11 @@ def _json(now_ns, batch=None, *, communications=False, telegram_http=False):
                  {'key':'http.response.status_code','value':{'intValue':'200' if index < 6 or dependency=='logto' else '999'}}]+unsafe,
             'events':[{'timeUnixNano':str(now_ns),'name':SENTINEL,'attributes':unsafe}],
             'status':{'code':0 if known and outcome=='completed' else 2,'message':SENTINEL}})
+        if dependency=='postgresql' and outcome=='failed':
+            category,code=FAILURE_CAUSES[operation]
+            spans[-1]['attributes'] += [attr('failure.category',category),attr('failure.code',code)]
+        elif not (communications or telegram_http) and index==len(registered):
+            spans[-1]['attributes'] += [attr('failure.category',SENTINEL),attr('failure.code',SENTINEL)]
         points.append({'timeUnixNano':str(now_ns),
             'attributes':dimensions(('dependency','operation','outcome'))+unsafe+
                 [{'key':'http.response.status_code','value':{'intValue':'200'}}]})
@@ -216,6 +222,11 @@ def stored_traces(raw,transport, *, communications=False, telegram_http=False, n
                     'span_attr:dependency.operation':operation,'span_attr:dependency.outcome':outcome})
             if index < 6 or dependency=='logto':
                 attributes['span_attr:http.response.status_code']='200'
+            if dependency=='postgresql' and outcome=='failed':
+                category,code=FAILURE_CAUSES[operation]
+                attributes.update({'span_attr:failure.category':category,'span_attr:failure.code':code})
+            elif not communications and index==len(registered):
+                attributes.update({'span_attr:failure.category':'_OTHER','span_attr:failure.code':'_OTHER'})
             expected = {'trace_id':ids[transport],'parent_span_id':'b'*16,
                 'resource_attr:service.name':'platform-api','resource_attr:deployment.environment.name':'isolated-pilot',
                 'resource_attr:service.version':RELEASES[transport],'scope_name':'inside-collector',
@@ -293,6 +304,6 @@ def stored_metrics(response):
             seen.add(key)
         if seen!=expected or pool_seen!={(release,name) for release in RELEASES.values() for name in POOL}:
             return None
-        return {'stored_series':440,'metric_labelsets':86,'pool_series':10,'privacy':'passed'}
+        return {'stored_series':len(expected)+len(pool_seen),'metric_labelsets':len(expected)//5,'pool_series':10,'privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency metric contract failed; raw response withheld') from None

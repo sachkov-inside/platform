@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { ActivationActions } from "../../src/modules/subscription-activation/activation-actions.js";
+import { ActivationActions } from "../../src/modules/course-activation/activation-actions.js";
 import { deferred } from "../support/deferred.js";
 
 it("waits for a started timeout fallback after the original action wins its race", async () => {

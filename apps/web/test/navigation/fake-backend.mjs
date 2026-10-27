@@ -1,4 +1,10 @@
 // @ts-check
+import {
+  productReaderStateRoute,
+  holdReaderOptionalResponses,
+  readerOptionalResponseState,
+  waitReaderOptionalResponse,
+} from "./product-reader-state-backend.mjs";
 /**
  * Подставной backend для проверок переходов на production-сборке (#670).
  *
@@ -29,7 +35,7 @@ const controlSchema = z
   .partial()
   .passthrough();
 const homePinSchema = z
-  .object({ expectedVersion: z.number(), seriesId: z.unknown() })
+  .object({ expectedVersion: z.number(), productId: z.unknown() })
   .passthrough();
 
 // Порт задаёт `playwright.navigation.config.ts`; при отдельном запуске сервер берёт свободный.
@@ -169,10 +175,10 @@ const lessons = [
   outcomes: ["Понимать, как устроен переход между страницами"],
   primaryVideoId: null,
   publishedAt: `2026-09-0${String(n)}T09:00:00.000Z`,
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: n,
-      series: { id: product.id, name: product.name, slug: product.slug },
+      product: { id: product.id, name: product.name, slug: product.slug },
       stepGroup: null,
     },
   ],
@@ -194,10 +200,10 @@ const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
   publishedAt: new Date(Date.UTC(2026, 5, index + 1)).toISOString(),
   format:
     index % 2 === 0 ? { id: "video", name: "Видео", slug: "video" } : format,
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: index + 1,
-      series: {
+      product: {
         id: performanceProduct.id,
         name: performanceProduct.name,
         slug: performanceProduct.slug,
@@ -223,10 +229,10 @@ const referenceLessons = [
   ...performanceTemplate,
   ...item,
   materialId: `33333333-3333-4333-8333-${String(index + 801).padStart(12, "0")}`,
-  seriesMemberships: [
+  productMemberships: [
     {
       ordinal: index + 1,
-      series: {
+      product: {
         id: referenceProduct.id,
         name: referenceProduct.name,
         slug: referenceProduct.slug,
@@ -242,7 +248,7 @@ const lessonsOf = (product) =>
     : product.slug === referenceProduct.slug
       ? referenceLessons
       : lessons.filter(
-          (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
+          (lesson) => lesson.productMemberships[0]?.product.id === product.id,
         );
 
 /**
@@ -259,6 +265,7 @@ let practiceGate;
 let releasePractice;
 let practiceHeld = false;
 let practiceUnavailable = false;
+let coexistingPracticeTask = false;
 
 /**
  * @param {Lesson} lesson
@@ -302,7 +309,7 @@ function body(lesson, entitled) {
     })),
   };
   const written =
-    lesson.seriesMemberships[0]?.series.id === modesProductId ? [step] : [];
+    lesson.productMemberships[0]?.product.id === modesProductId ? [step] : [];
   return {
     schemaVersion: 1,
     blocks: [
@@ -381,12 +388,12 @@ function anchorParagraph(text) {
 /** @param {Lesson} lesson */
 function readerProjection(lesson) {
   const { availability: _availability, ...rest } = projection(lesson, false);
-  const { seriesMemberships, ...base } = rest;
+  const { productMemberships, ...base } = rest;
   return {
     ...base,
-    seriesMemberships: seriesMemberships.map(({ ordinal, series }) => ({
+    productMemberships: productMemberships.map(({ ordinal, product }) => ({
       ordinal,
-      series,
+      product,
     })),
   };
 }
@@ -427,9 +434,9 @@ function route(method, url, entitled) {
     const lesson = lessons[0];
     if (lesson === undefined) throw new Error("Missing free lesson fixture");
     return json({
-      kind: "series",
+      kind: "product",
       hasNext: false,
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
       reference: {
         ...products[0],
@@ -466,7 +473,7 @@ function route(method, url, entitled) {
       membership: { kind: entitled ? "active" : "unknown" },
       notes: [],
       // Закреплённый продукт приходит с оформлением и подписями карточки (#671).
-      pinnedSeries: {
+      pinnedProduct: {
         ...collection(entitled),
         presentation: "default",
         card: {
@@ -494,7 +501,7 @@ function route(method, url, entitled) {
     return json({
       facets: {
         formats: [],
-        series: products
+        products: products
           .filter((item) => item.slug !== archivedProductSlug)
           .map((item) => ({
             id: item.id,
@@ -532,8 +539,8 @@ function route(method, url, entitled) {
         )
           return { productId: id, sold: false };
         // The thin fixture uses the same offered-price admission as the existing full sale.
-        const offersUrl = new URL("/billing/offers", url);
-        offersUrl.searchParams.set("capability", "product:" + id);
+        const offersUrl = new URL("/billing/product-prices", url);
+        offersUrl.searchParams.set("productId", id);
         const offers = route("GET", offersUrl, entitled);
         if (
           offers === undefined ||
@@ -548,7 +555,7 @@ function route(method, url, entitled) {
       }),
     });
   }
-  const discovery = /^\/library\/(products|series|topics)\/([^/]+)$/u.exec(
+  const discovery = /^\/library\/(products|product|topics)\/([^/]+)$/u.exec(
     path,
   );
   if (discovery !== null) {
@@ -569,7 +576,7 @@ function route(method, url, entitled) {
           slug: topic.slug,
           summary: "Тема для проверки переходов.",
         },
-        relatedSeries: [],
+        relatedProduct: [],
         topics: [],
       });
     }
@@ -627,7 +634,7 @@ function route(method, url, entitled) {
       ].filter((chapter) => chapter.materialIds.length > 0),
       hasNext: false,
       items: items.map((lesson) => projection(lesson, entitled)),
-      kind: "series",
+      kind: "product",
       reference: {
         ...(product.slug === performanceProduct.slug
           ? {
@@ -647,7 +654,7 @@ function route(method, url, entitled) {
         slug: product.slug,
         summary: "Синтетический продукт для проверки мгновенных переходов.",
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [
         { cover: null, id: topic.id, name: topic.name, slug: topic.slug },
       ],
@@ -669,7 +676,7 @@ function route(method, url, entitled) {
         slug: related[1],
         summary: "",
       },
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
     });
   }
@@ -721,7 +728,7 @@ function route(method, url, entitled) {
           : chromeCollision
             ? "33333333-3333-4333-8333-333333333313"
             : "33333333-3333-4333-8333-333333333312",
-        seriesMemberships: [],
+        productMemberships: [],
         title: source ? "Ссылки на раздел" : "Целевой материал",
       }),
       body: anchorBody(source, chromeCollision),
@@ -735,7 +742,7 @@ function route(method, url, entitled) {
     ].find((candidate) => candidate.slug === material[1]);
     if (
       lesson === undefined ||
-      (lesson.seriesMemberships[0]?.series.slug === archivedProductSlug &&
+      (lesson.productMemberships[0]?.product.slug === archivedProductSlug &&
         !entitled)
     ) {
       return json(
@@ -785,12 +792,19 @@ function route(method, url, entitled) {
   if (/^\/accounts\/current\/billing\/products\/[^/]+\/purchase$/u.test(path))
     return json(null);
   if (path === "/accounts/current/billing")
-    return json({ subscription: null, notices: [], grounds: [], payments: [] });
+    return json({
+      products: [],
+      notices: [],
+      access: { grounds: [] },
+      payments: [],
+    });
   if (path === "/accounts/current/billing/contact")
     return json({ ok: true, contact: null, documents: [] });
-  if (path === "/billing/offers") {
+  if (path === "/billing/product-prices") {
     const offerId = "66666666-6666-4666-8666-666666666601";
     const publicPrice = {
+      product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
+      supportMonths: 3,
       currency: "RUB",
       firstPriceKopecks: 990_000,
       offer: {
@@ -815,45 +829,27 @@ function route(method, url, entitled) {
       renewalPriceKopecks: 990_000,
       timezone: "Europe/Moscow",
     };
-    const alternatePrice = {
+    const modesPrice = {
       ...publicPrice,
+      product: {
+        id: modesProductId,
+        name: "Продукт с режимами",
+        priceRevision: 1,
+      },
       offer: {
         ...publicPrice.offer,
-        id: "66666666-6666-4666-8666-666666666605",
-        name: "Второй проверочный тариф",
-      },
-      paymentOption: {
-        ...publicPrice.paymentOption,
-        id: "66666666-6666-4666-8666-666666666606",
-        offerId: "66666666-6666-4666-8666-666666666605",
-      },
-    };
-    const invitedOfferId = "66666666-6666-4666-8666-666666666603";
-    const invitedPrice = {
-      ...publicPrice,
-      offer: {
-        ...publicPrice.offer,
-        id: invitedOfferId,
-        name: "Тариф по приглашению",
+        id: modesProductId,
+        name: "Продукт с режимами",
         benefits: [`product:${modesProductId}`],
         benefitPeriods: [
           { capability: `product:${modesProductId}`, months: null },
         ],
       },
-      paymentOption: {
-        ...publicPrice.paymentOption,
-        id: "66666666-6666-4666-8666-666666666604",
-        offerId: invitedOfferId,
-      },
     };
-    const capability = url.searchParams.get("capability");
+    const selected = url.searchParams.get("productId");
     return json({
-      items: (entitled
-        ? [publicPrice, alternatePrice, invitedPrice]
-        : [publicPrice, alternatePrice]
-      ).filter(
-        (snapshot) =>
-          capability === null || snapshot.offer.benefits.includes(capability),
+      items: [publicPrice, modesPrice].filter(
+        (item) => selected === null || item.product.id === selected,
       ),
       nextCursor: null,
     });
@@ -984,6 +980,26 @@ const server = createServer(async (request, response) => {
     send(200, { hold });
     return;
   }
+  if (url.pathname === "/__reader-optional-hold" && request.method === "POST") {
+    holdReaderOptionalResponses(
+      url.searchParams.get("held") === "true",
+      url.searchParams.get("target") ?? "all",
+    );
+    send(200, readerOptionalResponseState());
+    return;
+  }
+  if (url.pathname === "/__reader-optional-hold" && request.method === "GET") {
+    send(200, readerOptionalResponseState());
+    return;
+  }
+  const readerState = productReaderStateRoute(request, url, {
+    baseRoute: route,
+  });
+  if (readerState !== null) {
+    await waitReaderOptionalResponse(url, response);
+    send(readerState.status, readerState.value);
+    return;
+  }
   const metrics = await dataLoadingMetricsRoute(request, url, readBody, {
     baseRoute: route,
     reader: () => {
@@ -1037,6 +1053,14 @@ const server = createServer(async (request, response) => {
     send(200, { requests: state.requests });
     return;
   }
+  if (
+    url.pathname === "/__coexisting-practice-task" &&
+    request.method === "POST"
+  ) {
+    coexistingPracticeTask = url.searchParams.get("enabled") === "true";
+    send(200, { enabled: coexistingPracticeTask });
+    return;
+  }
   if (url.pathname === "/__practice-hold") {
     if (request.method === "POST") {
       const { hold, unavailable = false } = z
@@ -1072,10 +1096,10 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
-    const { expectedVersion, seriesId } = homePinSchema.parse(
+    const { expectedVersion, productId } = homePinSchema.parse(
       JSON.parse(await readBody(request)),
     );
-    if (authorized) send(200, { seriesId, version: expectedVersion + 1 });
+    if (authorized) send(200, { productId, version: expectedVersion + 1 });
     else
       send(401, {
         code: "invalid_proof",
@@ -1085,18 +1109,67 @@ const server = createServer(async (request, response) => {
       });
     return;
   }
-  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+  const boundTask = /^\/library\/materials\/([^/]+)\/task$/u.exec(url.pathname);
+  if (boundTask !== null) {
     if (authorized && practiceGate !== undefined) {
       practiceHeld = true;
       await practiceGate;
       practiceHeld = false;
     }
-    send(
-      practiceUnavailable ? 503 : 200,
-      practiceUnavailable
-        ? { code: "dependency_unavailable" }
-        : { practices: [] },
-    );
+    if (practiceUnavailable) {
+      send(503, { code: "dependency_unavailable" });
+      return;
+    }
+    const material = lessons.find((item) => item.materialId === boundTask[1]);
+    if (
+      coexistingPracticeTask &&
+      material !== undefined &&
+      ["navigation-lesson-1", "navigation-lesson-3"].includes(material.slug)
+    ) {
+      const code =
+        material.access === "free"
+          ? "navigation-free-task"
+          : "navigation-closed-task";
+      const task = navigationTaskRoute(
+        new URL(`/library/products/navigation-tasks/tasks/${code}`, url),
+        authorized,
+      );
+      if (task === undefined)
+        throw new Error("Missing explicit bound Task fixture");
+      send(task.status, task.value);
+    } else send(404, { code: "task_not_found" });
+    return;
+  }
+  if (
+    coexistingPracticeTask &&
+    /^\/accounts\/current\/product-tasks\/navigation-(free|closed)-task\/submissions$/u.test(
+      url.pathname,
+    )
+  ) {
+    const code = url.pathname.split("/").at(-2);
+    send(200, {
+      code,
+      currentVersion: 1,
+      nextCursor: null,
+      latestSubmittedAt: null,
+      versions: [],
+      submissions: [],
+    });
+    return;
+  }
+  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+    send(200, {
+      practices: coexistingPracticeTask
+        ? [
+            {
+              practiceId: "historical:coexisting-practice",
+              title: "Историческое условие",
+              contextVersion: "a".repeat(64),
+              reviewProtocolVersion: "2",
+            },
+          ]
+        : [],
+    });
     return;
   }
   const result = state.unavailable

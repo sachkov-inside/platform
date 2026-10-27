@@ -412,7 +412,8 @@ async function proveTelegramLink(
       tokenDigest: receipt.tokenDigest,
       providerTransactionRef: receipt.providerTransactionRef,
     });
-    expect(await database.prisma.membershipBinding.findMany()).toEqual([
+    expect(await database.prisma.membershipBinding.count()).toBe(0);
+    expect(await database.prisma.telegramAccountLinkState.findMany()).toEqual([
       expect.objectContaining({
         accountId: account.accountId,
         principalRef: receipt.principalRef,

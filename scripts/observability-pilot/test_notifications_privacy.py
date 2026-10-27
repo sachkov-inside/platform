@@ -56,10 +56,10 @@ class NotificationCatalog(unittest.TestCase):
             'error':'notification_operation_failed'})
         self.assertEqual(policy['queues'], ['material-assets.cleanup','profile-avatars.cleanup',
             'videos.deletions','web-telemetry.retention','membership-activity.retention','billing.payment-recovery',
-            'billing.subscription-renewal','billing.subscription-notices','tribute.source-reconciliation',
             'community.entitlement-delivery','_OTHER'])
-        self.assertEqual(len(policy['routes']),224)
-        self.assertEqual(policy['routes'].count('/authoring/import/materials/publication'),1)
+        self.assertEqual(len(policy['routes']),247)
+        for route in ('/authoring/import/materials/publication', '/authoring/import/materials/state', '/authoring/import/tasks/state'):
+            self.assertEqual(policy['routes'].count(route),1)
         owner = (pilot.ROOT/'apps/backend/src/infrastructure/observability/technical-telemetry.ts').read_text()
         for value in ('rabbitmq','inside.events.materials.v1','notification_operation_failed',
                       'inside.notification.operations','inside.notification.duration'):

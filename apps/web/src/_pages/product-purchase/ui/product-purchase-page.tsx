@@ -6,7 +6,7 @@ import {
   readGuestProductSale,
   readViewerProductSale,
 } from "@/entities/subscription.sale.server";
-import { loadPublishedSeries } from "@/features/library-discovery.server";
+import { loadPublishedProduct } from "@/features/library-discovery.server";
 
 import { ProductPurchase } from "./product-purchase.client";
 
@@ -27,7 +27,7 @@ export async function ProductPurchasePage({
   readonly promoCode?: string;
   readonly slug: string;
 }) {
-  const product = await loadPublishedSeries(slug, accessToken);
+  const product = await loadPublishedProduct(slug, accessToken);
   if (product.kind === "not-found") notFound();
   if (product.kind === "unavailable" || product.reference.id === undefined) {
     return (

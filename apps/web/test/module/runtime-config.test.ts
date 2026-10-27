@@ -9,6 +9,36 @@ describe("Web runtime configuration", () => {
     vi.restoreAllMocks();
   });
 
+  it("requires explicit valid HTTP metrics opt-in and a finite environment", () => {
+    expect(
+      parseWebRuntimeConfig({ NODE_ENV: "test" }).httpMetrics.enabled,
+    ).toBe(false);
+    expect(
+      parseWebRuntimeConfig({
+        NODE_ENV: "test",
+        INSIDE_WEB_HTTP_METRICS_ENABLED: "true",
+        INSIDE_WEB_HTTP_METRICS_ENVIRONMENT: "isolated-pilot",
+        PORT: "4123",
+      }).httpMetrics,
+    ).toEqual({
+      enabled: true,
+      environment: "isolated-pilot",
+      applicationPort: 4123,
+    });
+    expect(() =>
+      parseWebRuntimeConfig({
+        NODE_ENV: "test",
+        INSIDE_WEB_HTTP_METRICS_ENABLED: "yes",
+      }),
+    ).toThrow();
+    expect(() =>
+      parseWebRuntimeConfig({
+        NODE_ENV: "test",
+        INSIDE_WEB_HTTP_METRICS_ENVIRONMENT: "private-sentinel",
+      }),
+    ).toThrow();
+  });
+
   it("uses complete local defaults only outside production", () => {
     expect(parseWebRuntimeConfig({ NODE_ENV: "development" })).toEqual({
       mode: "development",
@@ -25,6 +55,11 @@ describe("Web runtime configuration", () => {
       runtime: {
         release: "development",
         sourceSha: "0".repeat(40),
+      },
+      httpMetrics: {
+        enabled: false,
+        applicationPort: 3000,
+        environment: "test",
       },
     });
   });

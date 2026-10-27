@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       plan: ${{ steps.select.outputs.plan }}
+      plan_sha256: ${{ steps.select.outputs.plan_sha256 }}
       required: ${{ steps.select.outputs.required }}
     steps:
       - name: Check out source
@@ -589,8 +590,23 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           COVERAGE_JSON: ${{ inputs.coverage_json }}
           SOURCE_SHA: ${{ inputs.source_sha }}
-          SELECTED_PLAN: ${{ needs.plan.outputs.plan }}
-          JOB_RESULTS: ${{ toJSON(needs) }}
+          SELECTED_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+          JOB_RESULTS: >-
+            {
+            "plan": {"result": "${{ needs.plan.result }}"},
+            "docs": {"result": "${{ needs.docs.result }}"},
+            "contracts": {"result": "${{ needs.contracts.result }}"},
+            "static": {"result": "${{ needs.static.result }}"},
+            "unit": {"result": "${{ needs.unit.result }}"},
+            "ui": {"result": "${{ needs.ui.result }}"},
+            "web-e2e": {"result": "${{ needs.web-e2e.result }}"},
+            "integration": {"result": "${{ needs.integration.result }}"},
+            "integration-serial": {"result": "${{ needs.integration-serial.result }}"},
+            "compose-development": {"result": "${{ needs.compose-development.result }}"},
+            "compose-production": {"result": "${{ needs.compose-production.result }}"},
+            "telegram": {"result": "${{ needs.telegram.result }}"},
+            "fullstack": {"result": "${{ needs.fullstack.result }}"}
+            }
         run: node scripts/ci-coverage-run.mjs gate
       - name: Record trusted source coverage
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -24,16 +24,29 @@ it("distinguishes an absent queue from a registered empty queue without starting
   const report = await diagnostics.read();
   expect(report).toMatchObject({
     ok: true,
-    value: { workerFreshness: "not_proven", lastSuccessfulWorkAt: null },
+    value: { workerFreshness: "per_queue", lastSuccessfulWorkAt: null },
   });
   if (!report.ok) throw new Error("Expected available fixture source");
-  expect(report.value.queues).toHaveLength(10);
+  expect(report.value.queues).toHaveLength(7);
+  for (const retired of [
+    "billing.subscription-renewal",
+    "billing.subscription-notices",
+    "tribute.source-reconciliation",
+  ])
+    expect(report.value.queues.map((row) => row.name)).not.toContain(retired);
   expect(
     report.value.queues.find((row) => row.name === "material-assets.cleanup"),
   ).toEqual({
     name: "material-assets.cleanup",
     status: "unknown",
     reason: "queue_not_registered",
+    lastSuccessfulWork: {
+      status: "unknown",
+      reason: "no_history",
+      at: null,
+      ageSeconds: null,
+      release: null,
+    },
   });
   await database.prisma.$executeRaw(Prisma.sql`
     insert into pgboss.queue (name, policy, retry_limit, retry_delay, retry_backoff, expire_seconds, retention_seconds, deletion_seconds, partition, table_name)
@@ -61,6 +74,13 @@ it("distinguishes an absent queue from a registered empty queue without starting
     retrying: 0,
     retainedRetryAttempts: 0,
     oldestBacklogAgeSeconds: null,
+    lastSuccessfulWork: {
+      status: "unknown",
+      reason: "no_history",
+      at: null,
+      ageSeconds: null,
+      release: null,
+    },
   });
 });
 

@@ -1,5 +1,8 @@
+import {
+  benefitPeriodsSchema,
+  coverageSchema,
+} from "@inside/access-capabilities";
 import { z } from "zod";
-import { coverageSchema } from "@inside/access-capabilities";
 import { capabilitiesSchema } from "../../account-rights/index.js";
 
 export const idSchema = z.uuid().toLowerCase();
@@ -7,12 +10,7 @@ export const revisionSchema = z.int().positive().max(2_147_483_647);
 export const moneySchema = z.int().positive();
 export const benefitsSchema = capabilitiesSchema;
 export { benefitPeriodsSchema } from "@inside/access-capabilities";
-import { benefitPeriodsSchema } from "@inside/access-capabilities";
-/**
- * Кому Offer продаётся: всем, только Account с основанием «прежний подписчик Tribute» —
- * подтверждённым периодом Tribute, или только Account с погашённым приглашением на этот Offer.
- * Отсутствующее поле в прежнем снимке читается как `everyone`.
- */
+/** Historical snapshot decoder only; new Product prices do not evaluate eligibility classes. */
 export const offerEligibilitySchema = z.enum([
   "everyone",
   "former_tribute_subscribers",
@@ -62,12 +60,19 @@ export const promotionSchema = z.strictObject({
   code: z.string().trim().min(1).max(100).nullable(),
   startsAt: z.iso.datetime({ offset: true }),
   endsAt: z.iso.datetime({ offset: true }),
-  offerIds: z.array(idSchema).max(100),
-  paymentOptionIds: z.array(idSchema).max(100),
+  productIds: z.array(idSchema).max(100),
   usageLimit: revisionSchema.nullable(),
   archived: z.boolean(),
 });
 export const priceSnapshotSchema = z.strictObject({
+  product: z
+    .strictObject({
+      id: idSchema,
+      name: z.string(),
+      priceRevision: revisionSchema,
+    })
+    .optional(),
+  supportMonths: z.literal(3).optional(),
   individualPayment: z
     .strictObject({ linkId: idSchema, basePriceKopecks: moneySchema })
     .optional(),
@@ -135,9 +140,7 @@ export function applicablePromotion(
     Date.parse(promotion.startsAt) <= now.getTime() &&
     now.getTime() < Date.parse(promotion.endsAt) &&
     (promotion.code === null || promotion.code === code) &&
-    (promotion.offerIds.length === 0 ||
-      promotion.offerIds.includes(option.offerId)) &&
-    (promotion.paymentOptionIds.length === 0 ||
-      promotion.paymentOptionIds.includes(option.id))
+    (promotion.productIds.length === 0 ||
+      promotion.productIds.includes(option.id))
   );
 }
