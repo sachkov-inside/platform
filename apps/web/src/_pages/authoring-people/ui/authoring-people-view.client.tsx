@@ -69,6 +69,8 @@ export function AuthoringPeopleView({
   query,
   state,
 }: AuthoringPeopleViewProps) {
+  if (state.kind === "invalid_query")
+    return <PeopleQueryRefused onQueryChange={onQueryChange} query={query} />;
   if (state.kind !== "ready")
     return <AuthoringPeopleFailure onRetry={onRetry} state={state} />;
   const filtered = hasPeopleListFilters(query);
@@ -453,12 +455,47 @@ function menuItems(row: PersonRow): AdminRowMenuItem[] {
   ];
 }
 
+/**
+ * Nest отказал запросу списка (400). С курсором это устаревшая страница: список начинается
+ * заново с теми же фильтрами. Без курсора не так сам запрос, и сбрасываются фильтры.
+ */
+function PeopleQueryRefused({
+  onQueryChange,
+  query,
+}: {
+  readonly onQueryChange: (query: PeopleListQuery) => void;
+  readonly query: PeopleListQuery;
+}) {
+  const { cursor, ...firstPage } = query;
+  const stalePage = cursor !== undefined;
+  return (
+    <AuthoringPeopleFrame labelledBy={headingId}>
+      <AdminListHeader headingId={headingId} title="Люди" />
+      <AdminNoResults
+        description={
+          stalePage
+            ? "Список изменился или ссылка неполная, поэтому эту страницу уже не показать. Откройте список с первой страницы: фильтры сохранятся."
+            : "Сервер не принял этот запрос. Сбросьте поиск и фильтры, чтобы увидеть всех людей."
+        }
+        onReset={() => {
+          onQueryChange(stalePage ? firstPage : resetPeopleListQuery);
+        }}
+        resetLabel={stalePage ? "К началу списка" : "Сбросить фильтры"}
+        title={stalePage ? "Страница списка устарела" : "Запрос не принят"}
+      />
+    </AuthoringPeopleFrame>
+  );
+}
+
 function AuthoringPeopleFailure({
   onRetry,
   state,
 }: {
   readonly onRetry: () => void;
-  readonly state: Exclude<PeopleListState, { readonly kind: "ready" }>;
+  readonly state: Exclude<
+    PeopleListState,
+    { readonly kind: "ready" | "invalid_query" }
+  >;
 }) {
   const view =
     state.kind === "signed_out"

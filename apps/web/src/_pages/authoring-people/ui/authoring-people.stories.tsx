@@ -345,6 +345,35 @@ export const NoResultsMobile: Story = {
   },
 };
 
+export const StaleCursor: Story = {
+  args: {
+    query: { cursor: "o:75", state: "active" },
+    state: { kind: "invalid_query" },
+  },
+  globals: desktop.globals,
+  name: "Страница списка устарела",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { name: "Страница списка устарела" }),
+    ).toBeVisible();
+    await expect(page.queryByRole("button", { name: "Повторить" })).toBeNull();
+    await userEvent.click(
+      page.getByRole("button", { name: "К началу списка" }),
+    );
+    await expect(queryChanged).toHaveBeenLastCalledWith({ state: "active" });
+  },
+};
+
+export const StaleCursorMobile: Story = {
+  ...StaleCursor,
+  globals: mobile.globals,
+  name: "Страница списка устарела · телефон",
+  play: async ({ canvasElement }) => {
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
 export const Keyboard: Story = {
   globals: desktop.globals,
   name: "Список · клавиатура",

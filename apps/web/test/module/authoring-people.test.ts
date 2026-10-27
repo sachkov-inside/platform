@@ -151,6 +151,22 @@ describe("people list BFF", () => {
   });
 });
 
+describe("people list BFF refusal", () => {
+  it("answers a Nest 400 (stale or foreign cursor) as a refused query, not as an outage", async () => {
+    const response = await handlePeopleListRequest(
+      new Request(
+        "https://inside.example.test/api/authoring/people?cursor=stale-cursor",
+      ),
+      {
+        list: () =>
+          Promise.resolve(backendAnswer(400, { code: "invalid_request" })),
+      },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ kind: "invalid_query" });
+  });
+});
+
 describe("person card BFF", () => {
   it("answers a ready card, a 404 for an unknown or malformed ID and keeps blocks independent", async () => {
     const read = vi.fn((accountId: string) =>

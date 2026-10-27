@@ -46,11 +46,13 @@ export function handlePeopleListRequest(
     const status =
       state.kind === "ready"
         ? 200
-        : state.kind === "signed_out"
-          ? 401
-          : state.kind === "forbidden"
-            ? 403
-            : 503;
+        : state.kind === "invalid_query"
+          ? 400
+          : state.kind === "signed_out"
+            ? 401
+            : state.kind === "forbidden"
+              ? 403
+              : 503;
     return Response.json(state, {
       status,
       ...(state.kind === "unavailable"
@@ -88,6 +90,7 @@ export async function readPeopleList(
   if (!result.ok) {
     if (result.response.status === 401) return { kind: "signed_out" };
     if (result.response.status === 403) return { kind: "forbidden" };
+    if (result.response.status === 400) return { kind: "invalid_query" };
     const problem = problemSchema.safeParse(result.problem);
     return {
       kind: "unavailable",

@@ -536,6 +536,10 @@ export async function peopleRoute(request, url, readBody) {
   if (token === "Bearer people-unavailable")
     return { status: 503, value: { code: "dependency_unavailable" } };
   if (url.pathname === "/authoring/people") {
+    // A cursor this double did not issue stands for a stale or foreign one: Nest answers 400.
+    const cursor = url.searchParams.get("cursor");
+    if (cursor !== null && !/^o:\d+$/u.test(cursor))
+      return { status: 400, value: { code: "invalid_request" } };
     if (token === "Bearer people-empty")
       return {
         status: 200,

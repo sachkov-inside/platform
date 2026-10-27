@@ -235,6 +235,22 @@ test("a name search that Telegram cannot answer says so instead of «nobody foun
   await expect(page.getByText("Никого не нашли")).toHaveCount(0);
 });
 
+test("a stale cursor the server refuses starts the list over instead of offering a retry", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  await signIn(context, baseURL);
+  await page.goto("/authoring/people?state=active&cursor=stale-cursor");
+  await expect(
+    page.getByRole("heading", { name: "Страница списка устарела" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Повторить" })).toHaveCount(0);
+  await page.getByRole("button", { name: "К началу списка" }).click();
+  await expect(page).toHaveURL(/\/authoring\/people\?state=active$/u);
+  await expect(personRow(page, anna.name)).toBeVisible();
+});
+
 test("the owner grants, revokes with a reason and its consequence, and restores in the card", async ({
   baseURL,
   context,
