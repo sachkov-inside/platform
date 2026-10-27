@@ -293,6 +293,14 @@ export const PhoneProgramme: Story = {
     await expect(
       dock.queryByRole("link", { name: "К прохождению курса" }),
     ).toBeNull();
+    await document.fonts.ready;
+    const label = dock.getByText("Программа", {
+      selector: "span",
+      exact: true,
+    });
+    const labelRange = document.createRange();
+    labelRange.selectNodeContents(label);
+    await expect(labelRange.getClientRects()).toHaveLength(1);
     await userEvent.click(
       canvas.getByRole("button", { name: "Вся программа" }),
     );

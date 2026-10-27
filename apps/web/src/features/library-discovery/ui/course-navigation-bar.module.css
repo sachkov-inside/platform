@@ -69,7 +69,8 @@
 }
 .items > [aria-current] {
   flex: 1 1 0;
-  gap: 6px;
+  gap: 4px;
+  padding-inline: 0;
   background: var(--primary);
   color: var(--primary-foreground);
 }
