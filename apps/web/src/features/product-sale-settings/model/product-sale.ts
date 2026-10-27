@@ -42,6 +42,29 @@ export const productSalesStateOutcomeSchema = z.object({
   salesState: productSalesStatesSchema.shape.items.element.nullable(),
 });
 
+/**
+ * Продажи всего каталога для списка продуктов: страница цен владельца (`productPrices.list` без
+ * продукта) и страница публичных состояний продажи. Обе идут по продуктам и продолжаются курсором.
+ */
+export function catalogSaleQueryKey(part?: "prices" | "states") {
+  return part === undefined
+    ? (["product-sale", "catalog"] as const)
+    : (["product-sale", "catalog", part] as const);
+}
+
+/** Страница цен каталога за одно чтение: столько принимает `productPrices.list`. */
+export const CATALOG_PRICES_PAGE_SIZE = 100;
+/** Больше страниц одного чтения список не просит: такой каталог читается как недоступный. */
+export const CATALOG_SALE_PAGES_LIMIT = 20;
+
+export const listOwnerProductPricesInputSchema = z.strictObject({
+  operationId,
+  cursor: z.uuid().optional(),
+});
+export const listProductSalesStatesInputSchema = z.strictObject({
+  cursor: z.uuid().optional(),
+});
+
 // Записи: те же команды и проверки ревизии, что и у прежнего раздела продаж.
 
 export const saveProductPriceInputSchema = z.strictObject({
@@ -145,16 +168,59 @@ export function ownerPriceOf(
   if (items.some((item) => item.product?.id !== productId))
     return { ok: false };
   const snapshot = items[0];
-  if (snapshot?.product === undefined) return { ok: true, price: null };
   return {
     ok: true,
-    price: {
-      revision: snapshot.product.priceRevision,
-      name: snapshot.product.name,
-      priceKopecks: snapshot.paymentOption.priceKopecks,
-      published: snapshot.offer.published ?? false,
-    },
+    price: snapshot === undefined ? null : ownerPrice(snapshot),
   };
+}
+
+/** Цены каталога владельца по продуктам; запись без продукта ценой продукта не считается. */
+export function ownerPricesByProduct(
+  items: readonly PriceSnapshot[],
+): ReadonlyMap<string, OwnerProductPrice> {
+  const prices = new Map<string, OwnerProductPrice>();
+  for (const snapshot of items) {
+    const price = ownerPrice(snapshot);
+    if (snapshot.product !== undefined && price !== null)
+      prices.set(snapshot.product.id, price);
+  }
+  return prices;
+}
+
+function ownerPrice(snapshot: PriceSnapshot): OwnerProductPrice | null {
+  if (snapshot.product === undefined) return null;
+  return {
+    revision: snapshot.product.priceRevision,
+    name: snapshot.product.name,
+    priceKopecks: snapshot.paymentOption.priceKopecks,
+    published: snapshot.offer.published ?? false,
+  };
+}
+
+/**
+ * Прочитанные продажи каталога. `null`: чтение отказано или не удалось, и о нём ничего не известно.
+ */
+export interface CatalogSaleReads {
+  readonly prices: ReadonlyMap<string, OwnerProductPrice> | null;
+  readonly salesStates: ReadonlyMap<string, ProductSalesState> | null;
+}
+
+/**
+ * Состояние продажи строки списка продуктов по правилу `deriveSaleStatus`. Без цен владельца
+ * (нет права или сбой) известен только публичный этап; без него, как и при открытых продажах с
+ * непрочитанным этапом, состояние неизвестно (`null`), а не «продажи закрыты».
+ */
+export function catalogSaleStatus(
+  productId: string,
+  productArchived: boolean,
+  reads: CatalogSaleReads,
+): SaleStatus | null {
+  if (productArchived) return "archived";
+  const salesState = reads.salesStates?.get(productId) ?? null;
+  if (reads.prices === null) return salesState?.stage ?? null;
+  const price = reads.prices.get(productId) ?? null;
+  if (reads.salesStates === null && price?.published === true) return null;
+  return deriveSaleStatus({ productArchived, price, salesState });
 }
 
 /** Команда цены: название и продажи остаются прежними, у первой цены название продукта. */

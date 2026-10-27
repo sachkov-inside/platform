@@ -21,13 +21,17 @@ import * as readPriceRoute from "../../app/api/authoring/billing/product-prices/
 import * as savePriceRoute from "../../app/api/authoring/billing/product-prices/save/route";
 import * as archivePriceRoute from "../../app/api/authoring/billing/product-prices/archive/route";
 import * as readStateRoute from "../../app/api/authoring/billing/product-sales-states/read/route";
+import * as listPricesRoute from "../../app/api/authoring/billing/product-prices/list/route";
+import * as listStatesRoute from "../../app/api/authoring/billing/product-sales-states/list/route";
 import * as saveStateRoute from "../../app/api/authoring/billing/product-sales-states/save/route";
 import { archiveProductPriceOperation } from "@/features/product-sale-settings/api/archive-product-price.operation";
 import { saveProductPriceOperation } from "@/features/product-sale-settings/api/save-product-price.operation";
 import { saveProductSalesStateOperation } from "@/features/product-sale-settings/api/save-product-sales-state.operation";
 import {
+  catalogSaleStatus,
   deriveSaleStatus,
   ownerPriceOf,
+  ownerPricesByProduct,
   priceCommand,
   saleFailureMessage,
   salesStateCommand,
@@ -36,6 +40,10 @@ import {
   type OwnerProductPrice,
 } from "@/features/product-sale-settings/model/product-sale";
 import { readProductSale } from "@/features/product-sale-settings/model/use-product-sale.client";
+import {
+  readCatalogPrices,
+  readCatalogSalesStates,
+} from "@/features/product-sale-settings/model/use-catalog-sale.client";
 import type { PriceSnapshot, ProductSalesState } from "@/entities/subscription";
 
 import { routeBrowserMutations } from "../support/mutation-operation-route";
@@ -107,6 +115,8 @@ const routes = {
   "/api/authoring/billing/product-prices/archive": archivePriceRoute,
   "/api/authoring/billing/product-sales-states/read": readStateRoute,
   "/api/authoring/billing/product-sales-states/save": saveStateRoute,
+  "/api/authoring/billing/product-prices/list": listPricesRoute,
+  "/api/authoring/billing/product-sales-states/list": listStatesRoute,
 };
 
 beforeEach(() => {
@@ -412,5 +422,121 @@ describe("маршруты продажи", () => {
       { operation: "productSalesState.save", operationId, ...state },
       "owner-token",
     );
+  });
+});
+
+describe("продажи каталога в списке продуктов", () => {
+  const anyOperationId: unknown = expect.any(String);
+  const thirdProductId = "00000000-0000-4000-8000-000000001720";
+  const prices = new Map([
+    [productId, price],
+    [otherProductId, { ...price, published: false }],
+  ]);
+  const states = new Map([[productId, salesState]]);
+
+  it("выводит этап по правилу страницы продукта", () => {
+    const reads = { prices, salesStates: states };
+    expect(catalogSaleStatus(productId, false, reads)).toBe("preorder");
+    expect(catalogSaleStatus(otherProductId, false, reads)).toBe("closed");
+    expect(catalogSaleStatus(thirdProductId, false, reads)).toBe("unpriced");
+    expect(catalogSaleStatus(productId, true, reads)).toBe("archived");
+  });
+
+  it("без цен владельца показывает публичный этап или неизвестность, но не «закрыто»", () => {
+    const reads = { prices: null, salesStates: states };
+    expect(catalogSaleStatus(productId, false, reads)).toBe("preorder");
+    expect(catalogSaleStatus(otherProductId, false, reads)).toBeNull();
+    expect(
+      catalogSaleStatus(otherProductId, false, {
+        prices: null,
+        salesStates: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("открытая продажа без прочитанных этапов неизвестна, закрытая остаётся закрытой", () => {
+    const reads = { prices, salesStates: null };
+    expect(catalogSaleStatus(productId, false, reads)).toBeNull();
+    expect(catalogSaleStatus(otherProductId, false, reads)).toBe("closed");
+    expect(catalogSaleStatus(thirdProductId, false, reads)).toBe("unpriced");
+  });
+
+  it("раскладывает каталог владельца по продуктам", () => {
+    expect(
+      ownerPricesByProduct([
+        snapshot(productId, true),
+        snapshot(otherProductId),
+      ]),
+    ).toEqual(prices);
+  });
+
+  it("читает весь каталог цен страницами по 100 без продукта", async () => {
+    routeBrowserMutations(routes);
+    const cursor = "00000000-0000-4000-8000-0000000017ff";
+    fakes.manage
+      .mockResolvedValueOnce(
+        ok({
+          operationRef: operationId,
+          result: {
+            outcome: "catalogOffers",
+            items: [snapshot(productId, true)],
+            nextCursor: cursor,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(catalog([snapshot(otherProductId)]));
+
+    await expect(readCatalogPrices()).resolves.toEqual(prices);
+    expect(fakes.manage).toHaveBeenCalledTimes(2);
+    expect(fakes.manage).toHaveBeenNthCalledWith(
+      1,
+      {
+        operation: "productPrices.list",
+        operationId: anyOperationId,
+        limit: 100,
+      },
+      "owner-token",
+    );
+    expect(fakes.manage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        operation: "productPrices.list",
+        cursor,
+        limit: 100,
+      }),
+      "owner-token",
+    );
+  });
+
+  it("отказ владельцу в ценах читается как неизвестные цены, а не пустой каталог", async () => {
+    routeBrowserMutations(routes);
+    fakes.manage.mockResolvedValue(problem("forbidden", 403));
+
+    await expect(readCatalogPrices()).resolves.toBeNull();
+  });
+
+  it("читает публичные состояния продажи всех продуктов страницами", async () => {
+    routeBrowserMutations(routes);
+    const cursor = "00000000-0000-4000-8000-0000000017ff";
+    const other = { ...salesState, productId: otherProductId };
+    fakes.salesStates
+      .mockResolvedValueOnce(ok({ items: [salesState], nextCursor: cursor }))
+      .mockResolvedValueOnce(ok({ items: [other], nextCursor: null }));
+
+    await expect(readCatalogSalesStates()).resolves.toEqual(
+      new Map([
+        [productId, salesState],
+        [otherProductId, other],
+      ]),
+    );
+    expect(fakes.salesStates).toHaveBeenNthCalledWith(1, undefined, undefined);
+    expect(fakes.salesStates).toHaveBeenNthCalledWith(2, undefined, cursor);
+  });
+
+  it("сбой публичного чтения не выдаёт пустые этапы", async () => {
+    routeBrowserMutations(routes);
+    fakes.salesStates.mockResolvedValue(problem("unavailable", 503));
+
+    await expect(readCatalogSalesStates()).resolves.toBeNull();
   });
 });

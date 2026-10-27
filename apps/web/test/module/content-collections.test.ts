@@ -17,6 +17,7 @@ import {
   pageOfCollections,
   parseCollectionListQuery,
   presentProductRow,
+  productSaleBadge,
   presentTopicRow,
   productListColumnIds,
   serializeCollectionListQuery,
@@ -366,10 +367,11 @@ describe("Topics and Products list presentation", () => {
     expect(pageOfCollections([], 4)).toMatchObject({ page: 1, totalPages: 1 });
   });
 
-  it("maps a Product row with its real cover, state and published count", () => {
+  it("maps a Product row with its real cover, sale stage, holders and published count", () => {
     expect(productListColumnIds).toEqual([
       "name",
-      "state",
+      "sale",
+      "holders",
       "published",
       "home",
     ]);
@@ -378,26 +380,43 @@ describe("Topics and Products list presentation", () => {
       renditions: [{ height: 540, width: 960 }],
     };
     expect(
-      presentProductRow({
-        ...collection,
-        cover,
-        kind: "product",
-        materialCount: 9,
-        publishedMaterialCount: 7,
-      }),
+      presentProductRow(
+        {
+          ...collection,
+          cover,
+          kind: "product",
+          materialCount: 9,
+          publishedMaterialCount: 7,
+          holderCount: 12,
+        },
+        "preorder",
+      ),
     ).toEqual({
       id: collectionId,
       name: "Platform",
       caption: "/products/platform",
       cover,
       archived: false,
-      state: "product.active",
+      sale: "sale.preorder",
+      holders: 12,
       publishedMaterialCount: 7,
       href: `/authoring/products/${collectionId}`,
     });
     expect(
-      presentProductRow({ ...collection, archived: true, kind: "product" }),
-    ).toMatchObject({ cover: null, state: "product.archived" });
+      presentProductRow({ ...collection, kind: "product" }, null),
+    ).toMatchObject({ cover: null, sale: null, holders: null });
+  });
+
+  it("shows «Архив» for an archived Product whatever its sale stage", () => {
+    expect(
+      presentProductRow(
+        { ...collection, archived: true, kind: "product", holderCount: 3 },
+        "running",
+      ),
+    ).toMatchObject({ sale: "product.archived", holders: 3 });
+    expect(productSaleBadge("archived")).toBe("product.archived");
+    expect(productSaleBadge("closed")).toBe("sale.closed");
+    expect(productSaleBadge(null)).toBeNull();
   });
 
   it("maps a Topic row with published out of all materials", () => {

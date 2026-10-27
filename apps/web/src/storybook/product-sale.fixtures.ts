@@ -128,10 +128,10 @@ export interface SaleBffOptions {
   readonly pending?: boolean;
 }
 
-function priceSnapshot(price: SaleFixturePrice) {
+function priceSnapshot(price: SaleFixturePrice, productId = saleProductId) {
   return {
     product: {
-      id: saleProductId,
+      id: productId,
       name: price.name,
       priceRevision: price.revision,
     },
@@ -139,7 +139,7 @@ function priceSnapshot(price: SaleFixturePrice) {
       id: offerId,
       revision: price.revision,
       name: price.name,
-      benefits: [`product:${saleProductId}`],
+      benefits: [`product:${productId}`],
       archived: false,
       published: price.published,
     },
@@ -278,4 +278,50 @@ export function productSaleBff(options: SaleBffOptions = {}): MutationFetch {
     }
     return refused("unavailable");
   };
+}
+
+export interface CatalogSaleFake {
+  /** Цены владельца по продуктам; продукта без записи цена не задана. */
+  readonly prices: Readonly<Record<string, SaleFixturePrice>>;
+  readonly salesStates: readonly SaleFixtureState[];
+  /** Чтение цен владельца отвечает этим отказом. */
+  readonly pricesFailure?: "forbidden" | "unavailable";
+  /** Чтения не отвечают: колонка продажи остаётся в загрузке. */
+  readonly pending?: boolean;
+}
+
+/**
+ * Ответ BFF продаж каталога для списка продуктов (`product-prices/list`, `product-sales-states/list`);
+ * `null`, когда запрос не к ним. Каталог помещается в одну страницу.
+ */
+export function catalogSaleResponse(
+  input: RequestInfo | URL,
+  fake: CatalogSaleFake,
+): Promise<Response> | null {
+  const path = new URL(
+    input instanceof Request ? input.url : String(input),
+    window.location.origin,
+  ).pathname;
+  if (
+    path !== "/api/authoring/billing/product-prices/list" &&
+    path !== "/api/authoring/billing/product-sales-states/list"
+  )
+    return null;
+  if (fake.pending === true) return new Promise<Response>(() => undefined);
+  if (path === "/api/authoring/billing/product-sales-states/list")
+    return Promise.resolve(ok({ items: fake.salesStates, nextCursor: null }));
+  if (fake.pricesFailure !== undefined)
+    return Promise.resolve(refused(fake.pricesFailure));
+  return Promise.resolve(
+    ok({
+      operationRef,
+      result: {
+        outcome: "catalogOffers",
+        items: Object.entries(fake.prices).map(([productId, price]) =>
+          priceSnapshot(price, productId),
+        ),
+        nextCursor: null,
+      },
+    }),
+  );
 }

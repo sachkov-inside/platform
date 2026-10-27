@@ -2,12 +2,14 @@ import type { Route } from "next";
 import { z } from "zod";
 
 import type { ContentCover } from "@/entities/material.model";
+import type { SaleStatus } from "@/features/product-sale-settings";
 import {
   formatCountRu,
   type RussianPluralForms,
 } from "@/shared/lib/moscow-format";
 import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import { internalRoute } from "@/shared/routing/internal-route";
+import type { AdminStateKey } from "@/shared/ui/admin";
 
 import type {
   ContentCollection,
@@ -176,9 +178,8 @@ export function formatCollectionCount(
 }
 
 /**
- * Строка списка продуктов. Колонки идут в порядке `productListColumnIds`; #1718 добавит к строке
- * обладателей и этап продажи (Product Sales State) из модели #1693 и поставит их колонки в этот же
- * порядок, не меняя остальных.
+ * Строка списка продуктов. Колонки идут в порядке `productListColumnIds`: название, продажа,
+ * обладатели, опубликованные материалы, закреп на главной.
  */
 export interface ProductListRow {
   readonly id: string;
@@ -188,21 +189,37 @@ export interface ProductListRow {
   /** Настоящая обложка; без неё строка картинки не показывает. */
   readonly cover: ContentCover | null;
   readonly archived: boolean;
-  readonly state: "product.active" | "product.archived";
+  /** «Архив» у архивного продукта, иначе этап продажи; `null`, когда этап неизвестен. */
+  readonly sale: AdminStateKey | null;
+  /** Число обладателей; `null`, когда список его не знает. */
+  readonly holders: number | null;
   readonly publishedMaterialCount: number;
   readonly href: Route;
 }
 
 export const productListColumnIds = [
   "name",
-  "state",
+  "sale",
+  "holders",
   "published",
   "home",
 ] as const;
 export type ProductListColumnId = (typeof productListColumnIds)[number];
 
+/**
+ * Плашка продажи строки. Архив продукта показан словом «Архив», как в фильтре списка; остальные
+ * состояния берутся из правила продажи `catalogSaleStatus` (`@/features/product-sale-settings`).
+ */
+export function productSaleBadge(
+  status: SaleStatus | null,
+): AdminStateKey | null {
+  if (status === null) return null;
+  return status === "archived" ? "product.archived" : `sale.${status}`;
+}
+
 export function presentProductRow(
   collection: ContentCollection,
+  sale: SaleStatus | null,
 ): ProductListRow {
   return {
     id: collection.id,
@@ -210,7 +227,8 @@ export function presentProductRow(
     caption: `/products/${collection.slug}`,
     cover: collection.cover ?? null,
     archived: collection.archived,
-    state: collection.archived ? "product.archived" : "product.active",
+    sale: productSaleBadge(collection.archived ? "archived" : sale),
+    holders: collection.holderCount ?? null,
     publishedMaterialCount: collection.publishedMaterialCount,
     href: authoringProductEditorHref(collection.id),
   };

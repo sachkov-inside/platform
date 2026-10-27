@@ -5,6 +5,7 @@ import {
   HomeProductPinButton,
   type useHomePin,
 } from "@/features/product-order";
+import { formatCountRu } from "@/shared/lib/moscow-format";
 import { internalRoute } from "@/shared/routing/internal-route";
 import {
   AdminRowMenu,
@@ -28,19 +29,22 @@ import { productPageTabLabels } from "./product-page-tabs.client";
 type HomePinState = ReturnType<typeof useHomePin>;
 
 /**
- * Таблица продуктов. Колонки берутся из `productListColumnIds` по порядку: новая колонка (#1718)
+ * Таблица продуктов. Колонки берутся из `productListColumnIds` по порядку: новая колонка
  * добавляется туда и в `productColumns`, а строка получает своё поле в `ProductListRow`.
+ * `saleLoading`: продажи каталога ещё читаются, и неизвестный этап показан заглушкой, а не «Неизвестно».
  */
 export function ProductsTable({
   rows,
   homePin,
+  saleLoading = false,
 }: {
   readonly rows: readonly ProductListRow[];
   readonly homePin: HomePinState;
+  readonly saleLoading?: boolean;
 }) {
   const pinnedId = homePin.controls.pin?.productId ?? null;
   const columns = productListColumnIds.map(
-    (id) => productColumns(pinnedId)[id],
+    (id) => productColumns(pinnedId, saleLoading)[id],
   );
   return (
     <AdminTable
@@ -50,8 +54,13 @@ export function ProductsTable({
       mobileItem={(row) => ({
         title: row.name,
         caption: row.caption,
-        badge: <StateBadge state={row.state} />,
-        metric: `Опубликовано: ${String(row.publishedMaterialCount)}`,
+        ...(row.sale === null
+          ? {}
+          : { badge: <StateBadge state={row.sale} /> }),
+        metric:
+          row.holders === null
+            ? `Опубликовано: ${String(row.publishedMaterialCount)}`
+            : `${formatCountRu(row.holders, holderForms)} · опубликовано ${String(row.publishedMaterialCount)}`,
       })}
       rowActions={(row) => (
         <>
@@ -91,23 +100,59 @@ export function ProductsTable({
   );
 }
 
+const holderForms = ["обладатель", "обладателя", "обладателей"] as const;
+const holderCountFormat = new Intl.NumberFormat("ru-RU");
+
 function productColumns(
   pinnedId: string | null,
+  saleLoading: boolean,
 ): Record<ProductListColumnId, AdminTableColumn<ProductListRow>> {
   return {
     name: { id: "name", header: "Название", cell: (row) => row.caption },
-    state: {
-      id: "state",
-      header: "Состояние",
+    sale: {
+      id: "sale",
+      header: "Продажа",
+      width: "10rem",
+      cell: (row) =>
+        row.sale !== null ? (
+          <StateBadge state={row.sale} />
+        ) : saleLoading ? (
+          <>
+            <span
+              aria-hidden="true"
+              className="admin-skeleton-bar block w-24"
+            />
+            <span className="sr-only">Загружаем продажу</span>
+          </>
+        ) : (
+          <NotKnown label="Неизвестно" />
+        ),
+    },
+    holders: {
+      id: "holders",
+      header: "Обладатели",
       width: "8rem",
-      cell: (row) => <StateBadge state={row.state} />,
+      align: "end",
+      cell: (row) => (
+        <span className="tabular-nums">
+          {row.holders === null ? (
+            <NotKnown label="Нет данных" />
+          ) : (
+            holderCountFormat.format(row.holders)
+          )}
+        </span>
+      ),
     },
     published: {
       id: "published",
       header: "Опубликовано",
       width: "9rem",
       align: "end",
-      cell: (row) => String(row.publishedMaterialCount),
+      cell: (row) => (
+        <span className="tabular-nums">
+          {String(row.publishedMaterialCount)}
+        </span>
+      ),
     },
     home: {
       id: "home",
@@ -117,6 +162,11 @@ function productColumns(
         row.id === pinnedId ? <StateBadge state="product.pinned" /> : null,
     },
   };
+}
+
+/** Неизвестное значение словами, приглушённо: пропуск не выглядит нулём или отказом. */
+function NotKnown({ label }: { readonly label: string }) {
+  return <span className="text-muted-foreground">{label}</span>;
 }
 
 /**

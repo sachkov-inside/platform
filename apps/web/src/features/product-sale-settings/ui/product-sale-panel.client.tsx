@@ -23,6 +23,7 @@ import { archiveProductPriceOperation } from "../api/archive-product-price.opera
 import { saveProductPriceOperation } from "../api/save-product-price.operation";
 import { saveProductSalesStateOperation } from "../api/save-product-sales-state.operation";
 import {
+  catalogSaleQueryKey,
   deriveSaleStatus,
   priceBounds,
   priceCommand,
@@ -93,6 +94,7 @@ export function ProductSalePanel({
     setNotice(done);
     setDialog(null);
     void cache.invalidateQueries({ queryKey: productSaleQueryKey(productId) });
+    void cache.invalidateQueries({ queryKey: catalogSaleQueryKey() });
     return true;
   };
   const lost = () => {
