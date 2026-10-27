@@ -531,7 +531,7 @@ export function ProgrammeDialog({
               )
             ) : (
               <>
-                Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
+                Глава {chapter?.ordinal ?? 1} · {chapterStep}/
                 {chapter?.steps.length ?? 0}
               </>
             )
