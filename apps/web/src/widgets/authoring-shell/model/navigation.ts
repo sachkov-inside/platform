@@ -4,9 +4,10 @@ import type { Route } from "next";
  * Разделы админки по решению 2 спецификации #1717. Один источник для боковой панели, нижней
  * панели телефона, листа «Ещё», вкладок подразделов и Storybook.
  *
- * Пункты, чьи экраны строят следующие задачи (#1721 «Люди», #1718 «Платежи», «Ссылки на оплату»,
- * «Скидки», «Воронка продаж», #1719 «Обзор»), пока ведут на нынешние страницы. Задача, которая
- * заменяет страницу, меняет здесь `href` и `paths`. «Сообщений» нет, пока в силе решение #396.
+ * Пункты, чьи экраны строят следующие задачи (#1721 «Люди», #1719 «Обзор»), пока ведут на нынешние
+ * страницы. Задача, которая заменяет страницу, меняет здесь `href` и `paths`. Продажи (#1718) живут
+ * под `/authoring/sales/*`; прежние `/authoring/billing` и `/authoring/sales-funnel` перенаправляет
+ * `next.config.ts`. «Сообщений» нет, пока в силе решение #396.
  */
 export type AuthoringNavigationItemId =
   | "overview"
@@ -87,9 +88,9 @@ const submissions = {
 const payments = {
   id: "payments",
   label: "Платежи",
-  href: "/authoring/billing",
+  href: "/authoring/sales/payments",
   icon: "payments",
-  paths: ["/authoring/billing"],
+  paths: ["/authoring/sales/payments"],
 } as const satisfies AuthoringNavigationItem;
 
 export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
@@ -131,23 +132,23 @@ export const authoringNavigation: readonly AuthoringNavigationGroup[] = [
       {
         id: "payment-links",
         label: "Ссылки на оплату",
-        href: "/authoring/billing",
+        href: "/authoring/sales/links",
         icon: "payment-links",
-        paths: [],
+        paths: ["/authoring/sales/links"],
       },
       {
         id: "discounts",
         label: "Скидки",
-        href: "/authoring/billing",
+        href: "/authoring/sales/discounts",
         icon: "discounts",
-        paths: [],
+        paths: ["/authoring/sales/discounts"],
       },
       {
         id: "sales-funnel",
         label: "Воронка продаж",
-        href: "/authoring/sales-funnel",
+        href: "/authoring/sales/funnel",
         icon: "sales-funnel",
-        paths: ["/authoring/sales-funnel"],
+        paths: ["/authoring/sales/funnel"],
       },
     ],
   },

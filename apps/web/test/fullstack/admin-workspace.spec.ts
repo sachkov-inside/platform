@@ -23,8 +23,8 @@ test("admin workspace exposes every active task on desktop and phone through rea
     ["Темы", "/authoring/topics", "more"],
     ["Сдачи", "/authoring/submissions", "dock"],
     ["Люди", "/authoring/access", "dock"],
-    [phone ? "Продажи" : "Платежи", "/authoring/billing", "dock"],
-    ["Воронка продаж", "/authoring/sales-funnel", "more"],
+    [phone ? "Продажи" : "Платежи", "/authoring/sales/payments", "dock"],
+    ["Воронка продаж", "/authoring/sales/funnel", "more"],
     ["Продукты", "/authoring/products", "more"],
   ] as const;
   for (const [label, pathname, place] of destinations) {
