@@ -504,7 +504,7 @@ export function ProgrammeDialog({
           <>
             {supplementary ? null : context.previous === null ? (
               <button disabled aria-label="Предыдущий шаг">
-                <ArrowLeft size={18} aria-hidden="true" />
+                <ArrowLeft size={16} aria-hidden="true" />
               </button>
             ) : (
               <IntentPrefetchLink
@@ -512,7 +512,7 @@ export function ProgrammeDialog({
                 title={context.previous.title}
                 href={context.previous.href}
               >
-                <ArrowLeft size={18} aria-hidden="true" />
+                <ArrowLeft size={16} aria-hidden="true" />
               </IntentPrefetchLink>
             )}
             <span>
@@ -531,7 +531,7 @@ export function ProgrammeDialog({
             </span>
             {supplementary ? null : context.next === null ? (
               <button disabled aria-label="Следующий шаг">
-                <ArrowRight size={18} aria-hidden="true" />
+                <ArrowRight size={16} aria-hidden="true" />
               </button>
             ) : (
               <IntentPrefetchLink
@@ -539,7 +539,7 @@ export function ProgrammeDialog({
                 title={context.next.title}
                 href={context.next.href}
               >
-                <ArrowRight size={18} aria-hidden="true" />
+                <ArrowRight size={16} aria-hidden="true" />
               </IntentPrefetchLink>
             )}
           </>

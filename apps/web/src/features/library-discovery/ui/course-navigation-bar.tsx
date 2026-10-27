@@ -41,7 +41,7 @@ export function CourseNavigationItem(props: NavigationItemProps) {
   const Icon = props.icon;
   const content = (
     <>
-      <Icon size={18} aria-hidden="true" />
+      <Icon size={16} aria-hidden="true" />
       <span>{props.label}</span>
     </>
   );
