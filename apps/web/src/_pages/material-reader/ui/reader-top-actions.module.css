@@ -74,7 +74,7 @@
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 4px 0;
+  inset: 3px 0;
   border-radius: inherit;
   background: var(--action);
 }

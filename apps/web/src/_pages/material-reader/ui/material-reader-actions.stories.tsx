@@ -395,9 +395,7 @@ async function expectCompactNext(next: HTMLElement) {
   const bounds = next.getBoundingClientRect();
   const surface = getComputedStyle(next, "::before");
   await expect(bounds.height).toBe(44);
-  await expect(
-    bounds.height - parseFloat(surface.top) - parseFloat(surface.bottom),
-  ).toBe(36);
+  await expect(parseFloat(surface.height)).toBe(36);
 }
 
 /** Accepted A keeps action order and touch targets at both ends of the material. */

@@ -24,6 +24,8 @@ exists. Preserve the computed Back destination, canonical sharing address and ex
 adapters. The article has no automatic contents disclosure.
 
 Use 44 px controls with 16 px icons, 14 px labels and a 54 px panel at normal text size.
+Owner decision 2026-10-27 (#1731): Next keeps its 44 px hit area, with a 36 px visible surface
+inset by 4 px above and below on desktop and mobile, in both action panels.
 Allow the panel and action group to wrap whenever enlarged text, recovery actions or narrow
 embedding cannot fit one row. Keep accessible names when labels
 become visually hidden. Desktop shows labels; below 64rem viewport width or at most 620 px panel
