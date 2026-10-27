@@ -151,6 +151,37 @@ export const SparseSpikyDesktop: Story = {
 
 export const SparseSpikyMobile: Story = { ...SparseSpikyDesktop, ...mobile };
 
+/**
+ * Выручка за вычетом возвратов, где в один день были только возвраты: линия уходит ниже нуля, а
+ * нулевая линия остаётся на оси (#1719).
+ */
+export const NegativeDayDesktop: Story = {
+  ...desktop,
+  args: {
+    title: "Выручка за вычетом возвратов",
+    summary: "За 7 дней: 24 980 ₽. 21 октября только возврат: \u22124 990 ₽.",
+    points: series([1_249_000, 0, 0, -499_000, 0, 1_249_000, 499_000]),
+    previous: series([0, 499_000, 0, 0, 0, 0, 499_000], Date.UTC(2026, 9, 17)),
+    formatValue: formatRubles,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/^[-\u2212]5\s000\s₽$/u)).toBeInTheDocument();
+    const plot = canvas.getByRole("group");
+    const box = plot.getBoundingClientRect();
+    const line = canvasElement.querySelector(
+      "svg polyline.admin-trend-current",
+    );
+    const lowest = line?.getBoundingClientRect();
+    // Линия целиком внутри поля графика: отрицательный день не уходит под ось.
+    await expect(lowest?.bottom ?? Infinity).toBeLessThanOrEqual(
+      box.bottom + 1,
+    );
+  },
+};
+
+export const NegativeDayMobile: Story = { ...NegativeDayDesktop, ...mobile };
+
 /** Нет данных: пустое состояние вместо плоской линии и без фокусируемого поля. */
 export const EmptyDesktop: Story = {
   ...desktop,

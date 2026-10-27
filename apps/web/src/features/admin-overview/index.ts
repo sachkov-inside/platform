@@ -32,6 +32,7 @@ export {
   metricValueText,
   originBreakdown,
   overviewMetricIds,
+  periodHasFacts,
   overviewMetrics,
   overviewOriginLabels,
   periodLabel,

@@ -1,4 +1,5 @@
 "use client";
+import { ProductOverviewTab } from "@/features/admin-overview";
 import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
@@ -18,7 +19,6 @@ import { ImportedProductPage } from "./imported-product-page";
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { ProductCommunityTab } from "./product-community-tab";
 import { ProductLearnersTab } from "./product-learners-tab";
-import { ProductOverviewTab } from "./product-overview-tab";
 import { ProductPageTabs } from "./product-page-tabs.client";
 import { ProductSaleTab } from "./product-sale-tab";
 

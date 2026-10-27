@@ -37,6 +37,7 @@ describe("amount field validation", () => {
 describe("trend chart scale", () => {
   it("rounds the top up to a readable number", () => {
     expect(niceScale(1_996_000, true)).toEqual({
+      min: 0,
       max: 2_000_000,
       ticks: [0, 1_000_000, 2_000_000],
     });
@@ -44,13 +45,26 @@ describe("trend chart scale", () => {
   });
 
   it("drops a fractional middle line for whole counts", () => {
-    expect(niceScale(1, true)).toEqual({ max: 1, ticks: [0, 1] });
-    expect(niceScale(9, true)).toEqual({ max: 10, ticks: [0, 5, 10] });
-    expect(niceScale(2, true)).toEqual({ max: 2, ticks: [0, 1, 2] });
+    expect(niceScale(1, true)).toEqual({ min: 0, max: 1, ticks: [0, 1] });
+    expect(niceScale(9, true)).toEqual({ min: 0, max: 10, ticks: [0, 5, 10] });
+    expect(niceScale(2, true)).toEqual({ min: 0, max: 2, ticks: [0, 1, 2] });
   });
 
   it("keeps a positive top for an all-zero series", () => {
     expect(niceScale(0, true).max).toBe(1);
+  });
+
+  it("drops the bottom below zero for a refund-only day and keeps the zero line (#1719)", () => {
+    expect(niceScale(1_249_000, true, -499_000)).toEqual({
+      min: -500_000,
+      max: 2_000_000,
+      ticks: [-500_000, 0, 2_000_000],
+    });
+    expect(niceScale(0, true, -37)).toEqual({
+      min: -50,
+      max: 0,
+      ticks: [-50, 0],
+    });
   });
 
   it("labels the first and last day and spreads the rest", () => {

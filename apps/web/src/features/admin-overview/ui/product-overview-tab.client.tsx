@@ -1,9 +1,10 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { Route } from "next";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
+
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 
 import type { OverviewPeriodDays } from "../model/overview-contract";
 import {
@@ -20,10 +21,8 @@ import { ProductOverviewPanel } from "./product-overview-panel.client";
  */
 export function ProductOverviewTab({
   productId,
-  programHref,
 }: {
   readonly productId: string;
-  readonly programHref: Route;
 }) {
   const pathname = usePathname();
   const [ownPath] = useState(pathname);
@@ -48,7 +47,7 @@ export function ProductOverviewTab({
         void overview.refetch();
       }}
       period={period}
-      programHref={programHref}
+      programHref={authoringProductEditorHref(productId, "program")}
       refreshing={overview.isPlaceholderData}
       state={overview.data ?? { kind: "loading" }}
     />

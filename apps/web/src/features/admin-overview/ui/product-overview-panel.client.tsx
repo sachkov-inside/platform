@@ -132,12 +132,18 @@ export function ProductOverviewPanel({
           period="сейчас"
         />
         <PeriodMetric
+          id="revenue"
           label="Выручка за вычетом возвратов"
           metric={state.revenue}
-          moneyLike
+          sales={state.sales}
           span={span}
         />
-        <PeriodMetric label="Продажи" metric={state.sales} span={span} />
+        <PeriodMetric
+          id="sales"
+          label="Продажи"
+          metric={state.sales}
+          span={span}
+        />
         <MetricCard
           label="Список ожидания"
           value={
@@ -207,17 +213,19 @@ export function ProductOverviewPanel({
 }
 
 function PeriodMetric({
+  id,
   label,
   metric,
+  sales,
   span,
-  moneyLike = false,
 }: {
+  readonly id: "revenue" | "sales";
   readonly label: string;
   readonly metric: OverviewMetric;
+  /** Для выручки: продажи того же периода решают, был ли прошлый период пуст. */
+  readonly sales?: OverviewMetric;
   readonly span: string;
-  readonly moneyLike?: boolean;
 }) {
-  const id = moneyLike ? "revenue" : "sales";
   if (metric.state === "unavailable")
     return (
       <MetricCard
@@ -229,7 +237,9 @@ function PeriodMetric({
     );
   return (
     <MetricCard
-      change={metricChange(id, metric.current, metric.previous)}
+      change={metricChange(id, metric.current, metric.previous, {
+        sales: sales?.state === "ready" ? sales.previous : undefined,
+      })}
       label={label}
       period={span}
       value={metricValueText(id, metric.current.total)}

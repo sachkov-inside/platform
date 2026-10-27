@@ -1,3 +1,4 @@
+import { ProductOverviewTab } from "@/features/admin-overview";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { HomeProductPin, ProductOrderPanel } from "@/features/product-order";
@@ -8,7 +9,6 @@ import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-field
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { ProductCommunityTab } from "./product-community-tab";
 import { ProductLearnersTab } from "./product-learners-tab";
-import { ProductOverviewTab } from "./product-overview-tab";
 import { ProductPageTabs } from "./product-page-tabs.client";
 import { ProductSaleTab } from "./product-sale-tab";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";

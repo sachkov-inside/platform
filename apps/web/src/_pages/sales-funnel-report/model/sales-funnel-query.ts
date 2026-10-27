@@ -1,8 +1,10 @@
 import type { Route } from "next";
 import { z } from "zod";
 
+import { authoringSalesFunnelHref } from "@/shared/routing/authoring";
+
 /** Адрес отчёта в разделе «Продажи». */
-export const salesFunnelRootHref = "/authoring/sales/funnel";
+export const salesFunnelRootHref = authoringSalesFunnelHref;
 
 /** Готовые периоды в днях, считая сегодняшний день по Москве. Тридцать дней идут по умолчанию. */
 export const funnelPeriodPresets = [7, 30, 90] as const;

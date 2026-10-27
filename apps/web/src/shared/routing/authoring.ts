@@ -11,12 +11,84 @@ export const authoringOverviewHref = "/authoring" satisfies Route;
 const authoringProductsPrefix = "/authoring/products/";
 const productIdSchema = z.uuid();
 
-export function authoringProductEditorHref(productId: string): Route {
-  return internalRoute(`${authoringProductsPrefix}${productId}`);
+/**
+ * Вкладки страницы продукта в адресе `?tab=`. Первая, «Обзор» (#1719), открывается без параметра.
+ * Страница продукта (`_pages/content-collections`) берёт список отсюда, поэтому адрес вкладки
+ * строит одно место.
+ */
+export const authoringProductTabIds = [
+  "overview",
+  "program",
+  "description",
+  "sale",
+  "learners",
+  "community",
+] as const;
+
+export type AuthoringProductTab = (typeof authoringProductTabIds)[number];
+
+/** Страница продукта на вкладке `tab`; «Обзор» без параметра. */
+export function authoringProductEditorHref(
+  productId: string,
+  tab: AuthoringProductTab = authoringProductTabIds[0],
+): Route {
+  const path = `${authoringProductsPrefix}${productId}`;
+  return internalRoute(
+    tab === authoringProductTabIds[0] ? path : `${path}?tab=${tab}`,
+  );
+}
+
+/** «Сдачи»: список открывается с фильтром «без комментария». */
+export const authoringSubmissionsHref =
+  "/authoring/submissions" satisfies Route;
+
+/** Сдача, открытая поверх списка «Сдачи». */
+export function authoringSubmissionHref(submissionId: string): Route {
+  return internalRoute(
+    `${authoringSubmissionsHref}?${new URLSearchParams({ submission: submissionId }).toString()}`,
+  );
+}
+
+/** «Воронка продаж» (#1718). */
+export const authoringSalesFunnelHref =
+  "/authoring/sales/funnel" satisfies Route;
+
+/**
+ * Отчёт воронки по продукту за готовый период в днях (`period`, один из готовых периодов отчёта);
+ * тридцать дней, период отчёта по умолчанию, в адрес не пишутся. Имена параметров те же, что читает
+ * страница отчёта.
+ */
+export function authoringSalesFunnelProductHref(
+  productId: string,
+  periodDays: number,
+): Route {
+  const params = new URLSearchParams({ productId });
+  if (periodDays !== 30) params.set("period", String(periodDays));
+  return internalRoute(`${authoringSalesFunnelHref}?${params.toString()}`);
+}
+
+/** «Платежи» раздела «Продажи» (#1718). */
+export const authoringPaymentsHref =
+  "/authoring/sales/payments" satisfies Route;
+
+/** Страница одного платежа. */
+export function authoringPaymentHref(purchaseRef: string): Route {
+  return internalRoute(`${authoringPaymentsHref}/${purchaseRef}`);
 }
 
 /** Список людей админки (#1721); прежний `/authoring/access` перенаправляется сюда. */
 export const authoringPeopleHref = internalRoute("/authoring/people");
+
+/** Проблема Telegram, которой список людей открывается из Обзора (#1719). */
+export type AuthoringPeopleTelegramProblem =
+  "community_failed" | "delivery_failed";
+
+/** Список людей с этой проблемой Telegram (`?telegram=`). */
+export function authoringPeopleTelegramHref(
+  problem: AuthoringPeopleTelegramProblem,
+): Route {
+  return internalRoute(`${authoringPeopleHref}?telegram=${problem}`);
+}
 
 /** Карточка человека по ID аккаунта. */
 export function authoringPersonHref(accountId: string): Route {
@@ -40,9 +112,15 @@ export function parseAuthoringReturnHref(value: unknown): Route {
   if (url.origin !== "https://inside.local") {
     return authoringMaterialsRootHref;
   }
-  if (returnProductId(url.pathname) !== undefined) {
-    return url.search === ""
-      ? internalRoute(url.pathname)
+  const productId = returnProductId(url.pathname);
+  if (productId !== undefined) {
+    // Возврат на страницу продукта несёт только вкладку, например «Программу» (#1719).
+    if (url.search === "") return internalRoute(url.pathname);
+    const tab = authoringProductTabIds.find(
+      (id) => id === url.searchParams.get("tab"),
+    );
+    return tab !== undefined && [...url.searchParams.keys()].length === 1
+      ? authoringProductEditorHref(productId, tab)
       : authoringMaterialsRootHref;
   }
   if (url.pathname !== authoringMaterialsRootHref) {
@@ -69,8 +147,12 @@ export function authoringReturnActionLabel(returnHref: string): string {
     : "Вернуться к продукту";
 }
 
-/** Продукт, в редактор которого ведёт адрес возврата; у списка материалов продукта нет. */
-function returnProductId(pathname: string): string | undefined {
+/**
+ * Продукт, в редактор которого ведёт адрес возврата; у списка материалов продукта нет. Вкладка
+ * в строке запроса продукта не меняет.
+ */
+function returnProductId(href: string): string | undefined {
+  const pathname = href.split("?")[0] ?? href;
   if (!pathname.startsWith(authoringProductsPrefix)) return undefined;
   const parsed = productIdSchema.safeParse(
     pathname.slice(authoringProductsPrefix.length),

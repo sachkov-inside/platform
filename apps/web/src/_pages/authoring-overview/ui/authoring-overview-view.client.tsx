@@ -19,6 +19,7 @@ import {
   metricValueText,
   overviewMetricIds,
   overviewMetrics,
+  periodHasFacts,
   periodLabel,
   progressText,
   type OverviewMetricId,
@@ -174,6 +175,7 @@ function MetricsRow({
   readonly onSelect: (metric: OverviewMetricId) => void;
 }) {
   const span = periodLabel(period.days);
+  const sales = readySales(metrics);
   return (
     <section aria-label="Показатели" className="admin-overview-metrics">
       {overviewMetricIds.map((id) => {
@@ -199,7 +201,12 @@ function MetricsRow({
           <MetricCard
             key={id}
             {...common}
-            change={metricChange(id, metric.current, metric.previous)}
+            change={metricChange(
+              id,
+              metric.current,
+              metric.previous,
+              id === "revenue" ? { sales: sales?.previous } : {},
+            )}
             detail={
               "byOrigin" in metric ? (
                 <OriginBreakdown byOrigin={metric.byOrigin} />
@@ -213,6 +220,11 @@ function MetricsRow({
   );
 }
 
+/** Продажи, по которым решается пустота выручки: продажа с возвратом в тот же день не пустота. */
+function readySales(metrics: ReadyMetrics) {
+  return metrics.sales.state === "ready" ? metrics.sales : undefined;
+}
+
 function ChartBlock({
   metric,
   metrics,
@@ -224,6 +236,7 @@ function ChartBlock({
 }) {
   const definition = overviewMetrics[metric];
   const series = metrics[metric];
+  const sales = metric === "revenue" ? readySales(metrics) : undefined;
   return (
     <section
       aria-label={`График: ${definition.label}`}
@@ -245,6 +258,10 @@ function ChartBlock({
           emptyDescription={definition.emptyDescription}
           emptyTitle={definition.emptyTitle}
           formatValue={(value) => metricValueText(metric, value)}
+          hasFacts={
+            periodHasFacts(series.current, { sales: sales?.current }) ||
+            periodHasFacts(series.previous, { sales: sales?.previous })
+          }
           points={series.current.daily}
           previous={series.previous.daily}
           summary={metricChartSummary(
@@ -252,6 +269,7 @@ function ChartBlock({
             period.days,
             series.current,
             series.previous,
+            { sales: sales?.previous },
           )}
           title={definition.label}
         />

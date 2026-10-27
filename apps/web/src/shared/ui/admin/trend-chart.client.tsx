@@ -24,6 +24,11 @@ export interface TrendChartProps {
   readonly formatValue: (value: number) => string;
   readonly emptyTitle: string;
   readonly emptyDescription: string;
+  /**
+   * За период были факты, хотя каждый день в сумме ноль: например, продажа и её возврат в один
+   * день. Тогда график рисует нулевую линию, а не пустое состояние.
+   */
+  readonly hasFacts?: boolean;
 }
 
 /**
@@ -41,6 +46,7 @@ export function TrendChart({
   formatValue,
   emptyTitle,
   emptyDescription,
+  hasFacts = false,
 }: TrendChartProps) {
   const id = useId();
   const titleId = `${id}-title`;
@@ -51,7 +57,8 @@ export function TrendChart({
   const comparable = previous.slice(0, points.length);
   const empty =
     points.length === 0 ||
-    [...points, ...comparable].every((point) => point.value === 0);
+    (!hasFacts &&
+      [...points, ...comparable].every((point) => point.value === 0));
 
   const header = (
     <div className="admin-trend-header">
@@ -97,11 +104,16 @@ export function TrendChart({
       ...comparable.map((point) => point.value),
     ),
     [...points, ...comparable].every((point) => Number.isInteger(point.value)),
+    Math.min(
+      ...points.map((point) => point.value),
+      ...comparable.map((point) => point.value),
+    ),
   );
   const last = points.length - 1;
   const shown = active ?? last;
   const x = (index: number) => (last === 0 ? 50 : (index / last) * 100);
-  const y = (value: number) => 100 - (value / scale.max) * 100;
+  const y = (value: number) =>
+    100 - ((value - scale.min) / (scale.max - scale.min)) * 100;
   const currentPoint = points[shown];
   const previousPoint = comparable[shown];
 

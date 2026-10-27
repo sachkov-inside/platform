@@ -35,8 +35,9 @@ interface MetricDefinition {
 }
 
 /**
- * Подписи показателей. «Новые аккаунты» по формулировке спецификации #1717: Обзор считает
- * созданные аккаунты, а не людей из списка «Люди», куда попадают только аккаунты со связью.
+ * Подписи показателей. «Новые аккаунты» по формулировке спецификации #1717: backend считает новых
+ * людей по правилу списка «Люди», то есть аккаунты со Sign-in Email, подтверждённым Billing
+ * Contact или текущей связью Telegram, по дню регистрации.
  */
 export const overviewMetrics: Readonly<
   Record<OverviewMetricId, MetricDefinition>
@@ -105,9 +106,27 @@ export function metricAmountText(id: OverviewMetricId, value: number): string {
     : formatCountRu(value, forms);
 }
 
-/** Прошлый период пуст: ни одного события ни в один день. */
-function isEmptySeries(series: OverviewSeries): boolean {
+function isZeroSeries(series: OverviewSeries): boolean {
   return series.total === 0 && series.daily.every((point) => point.value === 0);
+}
+
+/**
+ * Продажи того же периода для выручки: выручка за вычетом возвратов бывает нулём и при фактах,
+ * например продажа и её возврат в один день. Пустоту периода тогда решают продажи.
+ */
+export interface RevenueFacts {
+  readonly sales?: OverviewSeries | undefined;
+}
+
+/**
+ * За период были факты показателя. Выручка пуста, только когда пусты и её ряд, и ряд продаж;
+ * день только с возвратом и так не ноль.
+ */
+export function periodHasFacts(
+  series: OverviewSeries,
+  { sales }: RevenueFacts = {},
+): boolean {
+  return !isZeroSeries(series) || (sales !== undefined && !isZeroSeries(sales));
 }
 
 /**
@@ -119,8 +138,9 @@ export function metricChange(
   id: OverviewMetricId,
   current: OverviewSeries,
   previous: OverviewSeries,
+  previousFacts: RevenueFacts = {},
 ): MetricChange {
-  if (isEmptySeries(previous)) return { kind: "no_data" };
+  if (!periodHasFacts(previous, previousFacts)) return { kind: "no_data" };
   const forms = overviewMetrics[id].forms;
   const difference =
     forms === null
@@ -160,9 +180,10 @@ export function metricChartSummary(
   days: OverviewPeriodDays,
   current: OverviewSeries,
   previous: OverviewSeries,
+  previousFacts: RevenueFacts = {},
 ): string {
   const head = `${periodLabel(days).replace(/^з/u, "З")}: ${metricAmountText(id, current.total)}`;
-  const before = isEmptySeries(previous)
+  const before = !periodHasFacts(previous, previousFacts)
     ? "В прошлом периоде данных нет."
     : `В прошлом периоде: ${metricAmountText(id, previous.total)}.`;
   const peak = current.daily.reduce<OverviewSeries["daily"][number] | null>(
