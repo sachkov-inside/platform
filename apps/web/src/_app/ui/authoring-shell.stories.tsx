@@ -8,6 +8,10 @@ import type {
 import { AuthoringMaterialsView } from "@/_pages/authoring-materials/ui/authoring-materials-view.client";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
+  authoringMaterialsRootHref,
+  authoringProductEditorHref,
+} from "@/shared/routing/authoring";
+import {
   captureRouterPush,
   storyRouterPush,
   touchTarget,
@@ -132,7 +136,7 @@ function shellEnvironment({
   readonly awaitingFeedbackCount?: number | null;
   readonly search?: "ready" | "forbidden" | "partly_unavailable";
 } = {}): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
-  const environment = authoringPageEnvironment("/authoring/materials", {
+  const environment = authoringPageEnvironment(authoringMaterialsRootHref, {
     awaitingFeedbackCount,
   });
   return {
@@ -358,7 +362,7 @@ export const SearchDesktop: Story = {
     );
     await userEvent.keyboard("{ArrowUp}{Enter}");
     await expect(storyRouterPush).toHaveBeenCalledWith(
-      `/authoring/products/${productId}`,
+      authoringProductEditorHref(productId),
     );
     await waitFor(() =>
       expect(
