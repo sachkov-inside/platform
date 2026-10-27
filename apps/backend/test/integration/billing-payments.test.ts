@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { BillingOperations } from "../../src/modules/billing/index.js";
 import {
   Tbank,
   tbankToken,
@@ -140,4 +141,164 @@ test("bank adapter binds only scalar signed facts and rejects a payment URL outs
       email: "order@example.test",
     }),
   ).rejects.toThrow();
+});
+
+const defaultNow = new Date("2030-01-31T10:00:00Z");
+
+function ownerOperations(s: Awaited<ReturnType<typeof world.scenario>>) {
+  return new BillingOperations({
+    prisma: world.db.prisma,
+    accounts: s.accounts,
+    pricing: s.pricing,
+    payments: s.payments,
+    grants: s.grants,
+    bank: s.bank,
+  });
+}
+
+/** One purchase of `productId` started at `at` by a fresh buyer. */
+async function purchaseAt(at: string, productId?: string) {
+  world.setTime(new Date(at));
+  const s = await world.scenario(productId === undefined ? {} : { productId });
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  return { s, purchaseRef: purchase.purchaseRef };
+}
+
+async function listPayments(
+  owner: BillingOperations,
+  filter: Record<string, unknown>,
+) {
+  return await owner.execute(world.owner, {
+    operation: "payments.list",
+    operationId: randomUUID(),
+    ...filter,
+  });
+}
+
+function refs(result: unknown): string[] {
+  const parsed = result as {
+    ok: boolean;
+    result?: { items: { purchaseRef: string }[] };
+  };
+  if (!parsed.ok || parsed.result === undefined)
+    throw new Error(JSON.stringify(result));
+  return parsed.result.items.map((item) => item.purchaseRef);
+}
+
+test("payments.list narrows by Product, period [from, to) and several states, newest first", async () => {
+  try {
+    const first = await purchaseAt("2030-02-01T10:00:00Z");
+    const productId = first.s.productId;
+    const second = await purchaseAt("2030-02-02T10:00:00Z", productId);
+    const third = await purchaseAt("2030-02-03T10:00:00Z", productId);
+    const other = await purchaseAt("2030-02-02T12:00:00Z");
+    await second.s.notify("CONFIRMED");
+    const owner = ownerOperations(first.s);
+
+    expect(refs(await listPayments(owner, { productId }))).toEqual([
+      third.purchaseRef,
+      second.purchaseRef,
+      first.purchaseRef,
+    ]);
+    expect(
+      refs(
+        await listPayments(owner, {
+          productId,
+          from: "2030-02-02T13:00:00+03:00",
+          to: "2030-02-03T10:00:00Z",
+        }),
+      ),
+    ).toEqual([second.purchaseRef]);
+    expect(
+      refs(
+        await listPayments(owner, {
+          from: "2030-02-02T00:00:00Z",
+          to: "2030-02-03T00:00:00Z",
+        }),
+      ),
+    ).toEqual([other.purchaseRef, second.purchaseRef]);
+    expect(
+      refs(await listPayments(owner, { productId, states: ["confirmed"] })),
+    ).toEqual([second.purchaseRef]);
+    expect(
+      refs(
+        await listPayments(owner, {
+          productId,
+          states: ["confirmed", "failed"],
+        }),
+      ),
+    ).toEqual([second.purchaseRef]);
+    expect(
+      refs(await listPayments(owner, { productId, state: "confirmed" })),
+    ).toEqual([second.purchaseRef]);
+    expect(
+      refs(await listPayments(owner, { productId: randomUUID() })),
+    ).toEqual([]);
+  } finally {
+    world.setTime(defaultNow);
+  }
+});
+
+test("payments.list continues by cursor within its filter and refuses a cursor or filter outside it", async () => {
+  try {
+    const first = await purchaseAt("2030-03-01T10:00:00Z");
+    const productId = first.s.productId;
+    const second = await purchaseAt("2030-03-01T10:00:00Z", productId);
+    const third = await purchaseAt("2030-03-02T10:00:00Z", productId);
+    const other = await purchaseAt("2030-03-02T10:00:00Z");
+    const owner = ownerOperations(first.s);
+
+    const seen: string[] = [];
+    let cursor: string | null | undefined;
+    do {
+      const page = await listPayments(owner, {
+        productId,
+        limit: 1,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      seen.push(...refs(page));
+      cursor = (page as { result: { nextCursor: string | null } }).result
+        .nextCursor;
+    } while (cursor !== null);
+    // Two payments of one instant keep a stable order by their reference.
+    expect(seen).toEqual([
+      third.purchaseRef,
+      ...[first.purchaseRef, second.purchaseRef].sort().reverse(),
+    ]);
+
+    for (const filter of [
+      { productId, cursor: other.purchaseRef },
+      { productId, cursor: randomUUID() },
+      {
+        productId,
+        from: "2030-03-02T00:00:00Z",
+        cursor: first.purchaseRef,
+      },
+      { accountId: first.s.buyer, cursor: third.purchaseRef },
+      { from: "2030-03-02T00:00:00Z", to: "2030-03-02T00:00:00Z" },
+      { from: "2030-03-03T00:00:00Z", to: "2030-03-02T00:00:00Z" },
+      { from: "2030-03-02" },
+      { state: "pending", states: ["pending"] },
+      { states: [] },
+      { states: ["failed", "failed"] },
+      {
+        states: [
+          "prepared",
+          "sent",
+          "unknown",
+          "pending",
+          "authorized",
+          "confirmed",
+          "failed",
+          "failed",
+        ],
+      },
+    ])
+      expect(await listPayments(owner, filter)).toEqual({
+        ok: false,
+        error: { code: "invalid_request" },
+      });
+  } finally {
+    world.setTime(defaultNow);
+  }
 });
