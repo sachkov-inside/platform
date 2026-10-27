@@ -1,7 +1,10 @@
+import { readAuthoringOverview } from "../features/read-authoring-overview/read-authoring-overview.js";
+import { readProductOverview } from "../features/read-product-overview/read-product-overview.js";
 import type {
   AuthoringOverview,
   ProductOverview,
 } from "./overview-contract.js";
+import type { OverviewDependencies } from "./overview-composition.js";
 
 export type ReadAuthoringOverviewResult =
   | { readonly ok: true; readonly value: AuthoringOverview }
@@ -26,26 +29,22 @@ export type ReadProductOverviewResult =
       };
     };
 
-/** The Overview reads both controllers call (#1719). */
+/** The Overview reads both controllers call (#1719); see each operation. */
 export class AuthoringOverviewReads {
+  constructor(private readonly dependencies: OverviewDependencies) {}
+
   readAuthoringOverview(
-    _actorId: string,
-    _input: unknown,
+    actorId: string,
+    input: unknown,
   ): Promise<ReadAuthoringOverviewResult> {
-    return Promise.resolve({
-      ok: false,
-      error: { code: "dependency_unavailable" },
-    });
+    return readAuthoringOverview(this.dependencies, actorId, input);
   }
 
   readProductOverview(
-    _actorId: string,
-    _productId: string,
-    _input: unknown,
+    actorId: string,
+    productId: string,
+    input: unknown,
   ): Promise<ReadProductOverviewResult> {
-    return Promise.resolve({
-      ok: false,
-      error: { code: "dependency_unavailable" },
-    });
+    return readProductOverview(this.dependencies, actorId, productId, input);
   }
 }
