@@ -49,7 +49,7 @@ export function CourseNavigationItem(props: NavigationItemProps) {
     <IntentPrefetchLink
       className={styles["item"]}
       href={props.href}
-      aria-current={props.current ? "page" : undefined}
+      aria-current={props.current === true ? "page" : undefined}
     >
       {content}
     </IntentPrefetchLink>
@@ -59,9 +59,9 @@ export function CourseNavigationItem(props: NavigationItemProps) {
       type="button"
       onClick={props.onClick}
       disabled={props.disabled}
-      aria-current={props.current ? "true" : undefined}
-      aria-haspopup={props.opensProgramme ? "dialog" : undefined}
-      aria-label={props.opensProgramme ? "Вся программа" : undefined}
+      aria-current={props.current === true ? "true" : undefined}
+      aria-haspopup={props.opensProgramme === true ? "dialog" : undefined}
+      aria-label={props.opensProgramme === true ? "Вся программа" : undefined}
     >
       {content}
     </button>
