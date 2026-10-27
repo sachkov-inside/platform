@@ -80,6 +80,13 @@ function usePeopleSearchWithoutNames(query: string): GrantPeopleSearchState {
     : search;
 }
 
+function usePeopleSearchTruncated(query: string): GrantPeopleSearchState {
+  const search = usePeopleSearchFake(query);
+  return search.kind === "ready"
+    ? { ...search, nameSearch: "truncated" }
+    : search;
+}
+
 /** Проверка заранее: у Андрея доступ уже есть, у Анастасии он отозван. */
 const knownAccess: Readonly<Record<string, "active" | "revoked">> = {
   [andrey.accountId]: "active",
@@ -356,6 +363,25 @@ export const NameSearchUnavailableDesktop: Story = {
     ).toBeVisible();
     await expect(
       view.getByText("Никого не нашли", { exact: false }),
+    ).toBeVisible();
+  },
+};
+
+export const NameSearchTruncatedDesktop: Story = {
+  args: { usePeopleSearch: usePeopleSearchTruncated },
+  globals: desktop.globals,
+  name: "Совпало больше людей, чем показано · широкий экран",
+  play: async () => {
+    const view = await dialogView();
+    await userEvent.type(
+      view.getByRole("searchbox", { name: "Найти человека" }),
+      "Ан",
+    );
+    await expect(
+      await view.findByText("Показаны не все совпадения. Уточните запрос."),
+    ).toBeVisible();
+    await expect(
+      view.getByRole("button", { name: "Добавить Анна Королёва" }),
     ).toBeVisible();
   },
 };

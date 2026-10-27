@@ -46,7 +46,8 @@ export interface GrantPerson {
 
 /**
  * Состояние поиска людей для выбора; поиск принадлежит #1721, диалог его только показывает.
- * `nameSearch: "unavailable"`: по имени сейчас искать нельзя, по email и ID можно.
+ * `nameSearch: "unavailable"`: по имени сейчас искать нельзя, по email и ID можно; `truncated`:
+ * совпало больше людей, чем показано.
  */
 export type GrantPeopleSearchState =
   | { readonly kind: "idle" }
@@ -54,7 +55,7 @@ export type GrantPeopleSearchState =
   | {
       readonly kind: "ready";
       readonly items: readonly GrantPerson[];
-      readonly nameSearch: "available" | "unavailable";
+      readonly nameSearch: "available" | "unavailable" | "truncated";
     }
   | { readonly kind: "unavailable" };
 
@@ -551,6 +552,9 @@ function SearchOutcome({
               Поиск по имени временно недоступен. Найдите человека по email или
               ID.
             </p>
+          ) : null}
+          {search.nameSearch === "truncated" ? (
+            <p className={hint}>Показаны не все совпадения. Уточните запрос.</p>
           ) : null}
           {search.items.length === 0 ? (
             <p className={hint}>
