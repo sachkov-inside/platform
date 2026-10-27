@@ -15,14 +15,15 @@ class WarmMatching(unittest.TestCase):
         # appears at109. Export latency must not extend the eight-second socket.
         from types import SimpleNamespace
         import caddy_query
-        for fault in (None,'prior_scrape','outside_interval','no_scrape','stale'):
+        for fault in (None,'prior_scrape','outside_interval','no_scrape','stale','registry_contract','finish_contract','canonical_contract'):
             with self.subTest(fault=fault):
-                now=[100.0];events=[];reads=[];registry=[10];finished=[]
+                now=[100.0];events=[];reads=[];registry=[10];finished=[];progress=[]
                 clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
                     sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
                 class Targets:
                     def native_raw(self):
                         registry[0]+=1
+                        if fault=='registry_contract' and registry[0]==13:raise ValueError('private-counterexample')
                         extra=(int(now[0]>=100.5)+int(now[0]>=105)) if fault=='prior_scrape' else int(fault!='no_scrape' and now[0]>=105)
                         busy=2 if fault=='prior_scrape' and now[0]<101 else 1
                         raw=wire()+f'caddy_http_requests_total{{server="srv1",handler="metrics"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="metrics"}} {busy}\n'.encode()
@@ -36,7 +37,9 @@ class WarmMatching(unittest.TestCase):
                     def assert_holding(self):
                         if now[0]>=108:raise TimeoutError('unchanged eight-second hold expired')
                     def finish(self):
-                        self.assert_holding();now[0]+=.001;self.finished_at=now[0];finished.append(now[0])
+                        self.assert_holding()
+                        if fault=='finish_contract':raise ValueError('private-response-counterexample')
+                        now[0]+=.001;self.finished_at=now[0];finished.append(now[0])
                 class Response:
                     status=200
                     def __init__(self,raw):
@@ -56,13 +59,15 @@ class WarmMatching(unittest.TestCase):
                     now[0]+=.001;reads.append(point)
                     return Response(json.dumps(raw).encode())
                 original=caddy_query.read_snapshot
-                def canonical(*args,**kwargs):return original(*args,wall_clock=clock.time,**kwargs)
+                def canonical(*args,**kwargs):
+                    if fault=='canonical_contract':raise ValueError('private-query-counterexample')
+                    return original(*args,wall_clock=clock.time,**kwargs)
                 def read(*,evaluated_at,previous=None):
                     report,current=canonical('owned_token',evaluated_at=evaluated_at,previous=previous)
                     report['transport']['mcp']='passed';return report,current
                 @contextmanager
                 def ready(*args,**kwargs):yield read
-                experiment=scenario.Scenario(Targets(),'owned_token',Path('/native'),lambda *_:None)
+                experiment=scenario.Scenario(Targets(),'owned_token',Path('/native'),lambda kind,value:progress.append((kind,value)))
                 experiment.deadline=700
                 with patch.object(scenario,'time',clock),patch.object(scenario.mcp_snapshot,'session',ready), \
                         patch.object(scenario.request_hold,'Held',Held), \
@@ -78,6 +83,11 @@ class WarmMatching(unittest.TestCase):
                         with self.assertRaises((TimeoutError,ValueError)):experiment.held()
                         if fault=='no_scrape':self.assertEqual(reads,[])
                     self.assertLess(experiment.acquisitions,48)
+                    expected={'registry_contract':'inflight_registry_scrape','finish_contract':'inflight_release',
+                              'canonical_contract':'inflight_stored'}.get(fault)
+                    if expected is not None:
+                        self.assertEqual([value for kind,value in progress if kind=='inflight_checkpoint'][-1],expected)
+                        self.assertNotIn('private-',str(progress))
 
     def test_ready_native_session_precedes_held_body_and_exact_canonical_acquisition(self):
         events=[];registry=[100]
