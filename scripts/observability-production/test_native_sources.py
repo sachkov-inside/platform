@@ -77,6 +77,24 @@ else:
             "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())"], timeout=1, payload=b'fixed-response')
         self.assertEqual(response, b'fixed-response')
 
+    def test_owned_failure_observer_sees_capped_merged_pipes_only_after_child_cleanup(self):
+        observed = []
+        code = "import os,sys; os.write(2,b'permission denied private-sentinel'); sys.exit(1)"
+        with self.assertRaises(RuntimeError):
+            native_sources._execute([sys.executable, '-c', code], timeout=1,
+                observe_failure=lambda raw, status: observed.append((raw, status)))
+        self.assertEqual(observed, [(b'permission denied private-sentinel', 1)])
+        def broken(raw, status): raise ValueError('private callback failure')
+        with self.assertRaisesRegex(RuntimeError, '^native_source_command_exit$'):
+            native_sources._execute([sys.executable, '-c', code], timeout=1, observe_failure=broken)
+        for mode in ('oversize', 'hang'):
+            observed=[]
+            code="import os,time; os.write(2,b'x'*65536) if '"+mode+"'=='oversize' else None; time.sleep(10)"
+            with self.assertRaises(ValueError if mode=='oversize' else TimeoutError):
+                native_sources._execute([sys.executable,'-c',code],timeout=.5,
+                    observe_failure=lambda raw,status:observed.append((len(raw),status)))
+            self.assertEqual(observed,[(4096 if mode=='oversize' else 0,-9)])
+
     def test_caddy_only_has_two_read_paths_and_no_user_supplied_url_or_admin_write(self):
         for path in ('http://private.invalid', '/config', '/stop', '/load', '/metrics?person=private'):
             with self.subTest(path=path), self.assertRaises(ValueError): native_sources.caddy_get(path)

@@ -22,6 +22,20 @@ class QueryReadiness(unittest.TestCase):
             with self.subTest(response=response):
                 self.assertFalse(check.query_one(response))
 
+    def test_startup_output_projects_only_closed_cause_and_never_private_text(self):
+        for raw, cause in ((b'failed to get cgroup private-sentinel', 'cgroup_mount_missing'),
+                           (b'building component private-sentinel Permission denied', 'permission_denied'),
+                           (b'private-sentinel unknown reason', 'unknown')):
+            self.assertEqual(check.startup_cause(raw), cause)
+        with self.assertRaises(ValueError): check.startup_cause(b'x' * 4097)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path/'production-measurements.json').write_text(json.dumps({'host_startup_diagnostic': {'cause':'permission_denied', 'exit_code':1},'private':'private-sentinel'}))
+            captured=io.StringIO()
+            with redirect_stdout(captured): check.feedback(path)
+            self.assertNotIn('private-sentinel',captured.getvalue())
+            self.assertIn('permission_denied',captured.getvalue())
+
     def test_job_feedback_does_not_publish_provider_or_exception_content(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)

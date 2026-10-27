@@ -16,6 +16,14 @@
 Запрос агрегированных production counts через SSH 24.10.2026 не прошёл banner exchange;
 пользовательские данные не читались. После появления production истории конверт сверяется с ней.
 
+Production-образ backend не содержит development seed entry points. Проверочный корпус
+переиспользует три исходных модуля существующего development seed: закреплённый Node 26
+удаляет их TypeScript-типы внутри уже зарегистрированного migration service и пишет результат
+только в отдельный свежий tmpfs на 1 MiB. Исходники монтируются только для чтения,
+bootstrap требует явного тестового переключателя и `NODE_ENV=development`.
+Новый образ или контейнер вне существующего supervisor не создаётся; production payload
+и набор зависимостей приложения не расширяются. Сам seed работает только с изолированной базой корпуса.
+
 В одном изолированном Compose project работают Web, API, Platform MCP, пять workers,
 RabbitMQ с теми же TLS/definitions, PostgreSQL 18 foundation и отдельная база Umami в том же
 кластере. Telegram запускается из текущего production Dockerfile со своими миграциями,
