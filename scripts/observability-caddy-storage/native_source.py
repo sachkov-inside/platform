@@ -27,11 +27,12 @@ def parse(raw):
 
 def scrape_registry(raw):
     """Private excluded registry facts, after validating every native identity."""
-    _,rows=_parse(raw,roles=ROLES,selected=('srv1','metrics'))
+    # Pinned Caddy instruments the outer compiled route, not its nested metrics handler.
+    _,rows=_parse(raw,roles=ROLES,selected=('srv1','subroute'))
     result={}
     for field,name in (('requests_total',status.TOTAL),('in_flight',status.FLIGHT)):
         key=tuple(sorted({'__name__':name,'job':'platform-caddy','instance':'pilot',
-            'server':'srv1','handler':'metrics'}.items()))
+            'server':'srv1','handler':'subroute'}.items()))
         if key not in rows:refuse()
         result[field]=int(rows[key])
     return result
