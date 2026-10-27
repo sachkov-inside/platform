@@ -249,7 +249,10 @@ export class PeopleDirectory {
     };
   }
 
-  /** The candidates that are people, with the facts that decided it; Telegram is not asked. */
+  /**
+   * The candidates that are people, with the facts that decided it: Account facts and Telegram
+   * bindings. Telegram contacts and names are not read here.
+   */
   private async selectPeople(candidates: readonly string[]): Promise<
     PeopleDirectoryResult<{
       readonly ids: readonly string[];
