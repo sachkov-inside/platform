@@ -118,6 +118,46 @@ test("isolated Bot API accepts only synthetic methods under the owned TLS identi
           },
         },
       );
+      for (const id of [1000001, 1000256]) {
+        assert.equal(
+          (
+            await call("/bot1566:synthetic/getChatMember", {
+              chat_id: -1000000000000,
+              user_id: id,
+            })
+          ).status,
+          200,
+        );
+        assert.equal(
+          (
+            await call("/bot1566:synthetic/sendMessage", {
+              chat_id: id,
+              text: "synthetic",
+            })
+          ).status,
+          200,
+        );
+      }
+      for (const id of [1000000, 1000257]) {
+        assert.equal(
+          (
+            await call("/bot1566:synthetic/getChatMember", {
+              chat_id: -1000000000000,
+              user_id: id,
+            })
+          ).status,
+          400,
+        );
+        assert.equal(
+          (
+            await call("/bot1566:synthetic/sendMessage", {
+              chat_id: id,
+              text: "synthetic",
+            })
+          ).status,
+          400,
+        );
+      }
       for (const body of [
         { chat_id: -1000000000001, user_id: 1566 },
         { chat_id: -1000000000000, user_id: 1567 },

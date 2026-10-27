@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "name": "platform-representative-v1",
-  "accounts": 128,
+  "accounts": 256,
   "materials": 512,
   "pairs": [
     ["off", "on"],
@@ -46,5 +46,5 @@
     "application_reserve_fraction": 0.25
   },
   "candidate_memory_gib": [4, 8],
-  "provenance": "Conservative synthetic envelope. Production aggregate SSH unavailable.128 Accounts/512 published Materials are explicit test inputs, not production counts."
+  "provenance": "Synthetic active-actor envelope: 256 Accounts/256 BotContacts and 512 published Materials. Read-only production aggregates on 2026-10-27: 180 Accounts, 190 BotContacts, 82 Materials (55 published). This bounds current cardinality only; production traffic, history and database bytes are not reproduced."
 }

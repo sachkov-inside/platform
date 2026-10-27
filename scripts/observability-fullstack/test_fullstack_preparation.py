@@ -1,6 +1,8 @@
 """Prepared full corpus and optional web-image lifetime use the existing owned boundary."""
 import importlib.util
 import json
+import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -13,20 +15,77 @@ class Preparation(unittest.TestCase):
     def test_readiness_failure_keeps_only_the_last_closed_observation_and_original_failure(self):
         import io
         from contextlib import redirect_stdout
-        for projected in ({'ok':False,'status':503,'cause':'membership_unavailable'},
-                          {'ok':False,'status':503,'cause':'private-sentinel'}):
+        for projected,outcome,output_kind in (
+                ({'ok':False,'status':503,'cause':'membership_unavailable'},'completed','valid'),
+                ({'ok':False,'status':503,'cause':'private-sentinel'},'completed','invalid_projection'),
+                ('private-sentinel','completed','invalid_json'),
+                (RuntimeError('private-sentinel'),'command_failed','empty'),
+                (subprocess.TimeoutExpired('private-sentinel',4,output=b'{"ok":true,"status":200,"cause":"ready"}'),'timeout','valid')):
             failure=RuntimeError('owned deadline')
             def await_fact(read,predicate,**options):
                 self.assertFalse(predicate(read()))
                 raise failure
             output=io.StringIO()
-            with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack,'invoke',return_value=json.dumps(projected)),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),redirect_stdout(output):
+            options={'side_effect':projected} if isinstance(projected,BaseException) else {'return_value':json.dumps(projected) if type(projected) is dict else projected}
+            with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack,'invoke',**options),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),redirect_stdout(output):
                 with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
             self.assertIs(caught.exception,failure)
             self.assertNotIn('private-sentinel',output.getvalue())
             value=json.loads(output.getvalue())['fullstack_readiness']
-            self.assertEqual(value['target'],'telegram')
-            self.assertEqual(value['cause'],'membership_unavailable' if projected['cause']=='membership_unavailable' else 'observation_unavailable')
+            self.assertEqual(value['target'],'telegram');self.assertFalse(value['ok'])
+            self.assertEqual(value['probe']['outcome'],outcome)
+            self.assertEqual(value['probe']['output'],output_kind)
+            self.assertEqual(value['containers'],{name:{'state':'unavailable'} for name in ('loadgen','telegram','bot-provider')})
+            # A valid ready prefix in a timed-out child is diagnostic evidence only.
+            if outcome=='timeout':self.assertTrue(value['probe']['observation']['ok'])
+
+        compose=['docker','compose','-p',fullstack.PREFIX+'a'*12,'-f','/owned/compose.json']
+        ids=['a'*64,'b'*64,'c'*64]
+        rows=[{'id':identity,'project':compose[3],'service':name,'state':'exited' if name=='telegram' else 'running',
+               'running':name!='telegram','oom':name=='telegram','exit_code':137 if name=='telegram' else 0,'restarts':0}
+              for identity,name in zip(ids,('loadgen','telegram','bot-provider'))]
+        for fault in (None,'foreign','duplicate','invalid','missing'):
+            current=json.loads(json.dumps(rows))
+            if fault=='foreign':current[1]['project']='private-sentinel'
+            if fault=='duplicate':current[1]['service']='loadgen'
+            if fault=='invalid':current[1]['exit_code']=True
+            if fault=='missing':current=current[:-1]
+            returned_ids=ids[:-1] if fault=='missing' else ids
+            with patch.object(fullstack,'invoke',side_effect=['\n'.join(returned_ids),'\n'.join(json.dumps(row) for row in current)]) as read:
+                states=fullstack.readiness_containers(compose)
+            self.assertEqual(read.call_count,2)
+            self.assertTrue(all(0<call.kwargs['timeout']<=4 for call in read.call_args_list))
+            self.assertNotIn('private-sentinel',json.dumps(states));self.assertNotIn(ids[0],json.dumps(states))
+            if fault in ('foreign','duplicate','invalid'):
+                self.assertTrue(all(value=={'state':'unavailable'} for value in states.values()))
+            else:
+                self.assertEqual(states['telegram'],{'state':'exited','running':False,'oom':True,'exit_code':137,'restarts':0})
+                if fault=='missing':self.assertEqual(states['bot-provider'],{'state':'missing'})
+        # Diagnostic lookup failure and print failure must not replace the original deadline.
+        for broken in ('inspect','print'):
+            output=io.StringIO();failure=RuntimeError('owned deadline')
+            with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack,'invoke',side_effect=RuntimeError('private-sentinel')),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),patch.object(fullstack,'readiness_containers',side_effect=KeyboardInterrupt() if broken=='inspect' else None,return_value={name:{'state':'unavailable'} for name in fullstack.READINESS_ROLES}),patch('builtins.print',side_effect=OSError('private-sentinel') if broken=='print' else None),redirect_stdout(output):
+                with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
+            self.assertIs(caught.exception,failure)
+
+        # Actual fixed client: its HTTP timer returns a safe observation at2s, but a
+        # fixture resolver handle keeps Node alive past the unchanged4s parent deadline.
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);pidfile=base/'pid';preload=base/'preload.mjs'
+            preload.write_text("import fs from 'node:fs';import dns from 'node:dns';import {syncBuiltinESMExports} from 'node:module';\n"
+                +"const read=fs.readFileSync;fs.readFileSync=(path,...args)=>read(path==='/resource/full-profile.json'?"+json.dumps(str(fullstack.PROFILE))+":path,...args);\n"
+                +"fs.writeFileSync("+json.dumps(str(pidfile))+",String(process.pid));dns.lookup=(host,options,callback)=>{const done=typeof options==='function'?options:callback;setTimeout(()=>done(Object.assign(new Error('fixture'),{code:'ENOTFOUND'})),8000);};syncBuiltinESMExports();")
+            node=shutil.which('node');self.assertIsNotNone(node)
+            def docker_args(args):
+                return [node,'--import',str(preload),str(fullstack.HERE/'client.mjs'),*args[args.index('/resource/fullstack.mjs')+1:]]
+            output=io.StringIO();failure=RuntimeError('owned deadline')
+            with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'docker_args',side_effect=docker_args),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),redirect_stdout(output):
+                with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
+            self.assertIs(caught.exception,failure)
+            value=json.loads(output.getvalue())['fullstack_readiness']
+            self.assertFalse(value['ok']);self.assertEqual(value['probe']['outcome'],'timeout')
+            self.assertEqual(value['probe']['observation'],{'ok':False,'status':0,'cause':'transport_unavailable'})
+            with self.assertRaises(ProcessLookupError):os.kill(int(pidfile.read_text()),0)
 
     def test_complete_generated_corpus_has_private_shared_pg_and_no_production_ingress(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -67,7 +126,7 @@ class Preparation(unittest.TestCase):
             self.assertTrue(all(mount.endswith(':ro') for mount in seeder['volumes']))
             self.assertNotIn('/app/dist/development:size=1m,mode=1777',plan['services']['api']['tmpfs'])
             self.assertEqual(len(plan['services']['volume-reader']['volumes']),9)
-            self.assertEqual(plan['services']['provider']['environment']['INSIDE_RESOURCE_ACCOUNT_COUNT'],'128')
+            self.assertEqual(plan['services']['provider']['environment']['INSIDE_RESOURCE_ACCOUNT_COUNT'],'256')
             self.assertIn('postgres:5432/umami',(output/'monitoring/umami.env').read_text())
             self.assertEqual((output/'monitoring/umami.database.password').stat().st_mode&0o777,0o600)
             for enabled in (False,True):

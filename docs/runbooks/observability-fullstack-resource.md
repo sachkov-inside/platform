@@ -11,10 +11,12 @@
 этот профиль не даёт принятой рекомендации по мощности сервера.
 
 `infra/observability/fullstack/profile.json` задаёт воспроизводимый синтетический конверт:
-128 отдельных доверенных Account, 512 опубликованных Material, 8 одновременных запросов,
+256 отдельных доверенных Account, 512 опубликованных Material, 8 одновременных запросов,
 полный sampling traces. Это тестовые значения, а не измеренная посещаемость production.
-Запрос агрегированных production counts через SSH 24.10.2026 не прошёл banner exchange;
-пользовательские данные не читались. После появления production истории конверт сверяется с ней.
+27.10.2026 read-only запросы вернули только агрегаты production: 180 Account, 190 BotContact,
+82 Material, из них 55 опубликованных. Идентификаторы и пользовательские данные не читались.
+256 тестовых участников и 512 опубликованных материалов превышают текущую численность;
+история, объём production баз и реальная посещаемость этим корпусом не воспроизводятся.
 
 Production-образ backend не содержит development seed entry points. Проверочный корпус
 переиспользует два исходных модуля существующего development seed: закреплённый Node 26
@@ -30,7 +32,7 @@ bootstrap требует явного тестового переключате�
 В одном изолированном Compose project работают Web, API, Platform MCP, пять workers,
 RabbitMQ с теми же TLS/definitions, PostgreSQL 18 foundation и отдельная база Umami в том же
 кластере. Telegram запускается из текущего production Dockerfile со своими миграциями,
-базой и рабочими циклами. 128 синтетических BotContact создаются через webhook.
+базой и рабочими циклами. 256 синтетических BotContact создаются через webhook.
 Logto собирается из закреплённого fork и выполняет реальные seed/alteration migrations.
 Web и API читаются через Caddy HTTPS с проверкой выданного им локального сертификата.
 Технический контур использует подготовленную production-топологию: VictoriaMetrics,
@@ -41,12 +43,16 @@ VictoriaLogs, VictoriaTraces, Alloy, vmauth, query gateway, Grafana и отде�
 фиксированные аналитические события в собственную Umami напрямую.
 Проверка `/ready` Telegram включает настоящий probe `getMe` → `getChatMember` самого bot.
 Тестовый peer подтверждает роль administrator только для bot `1566` в фиксированном
-синтетическом chat; для 128 тестовых контактов возвращает `left`. Это ответ изолированного
+синтетическом chat; для 256 тестовых контактов возвращает `left`. Это ответ изолированного
 peer, не проверка прав или изменение роли настоящего production bot.
-При отказе bootstrap readiness job сохраняет в своём выводе только последнюю проверенную
-проекцию: target, HTTP status и причину из закрытого каталога (сеть, БД, Membership provider
-либо неизвестный ответ). Тело ответа, исключение и provider text не публикуются. Эта запись
-уточняет место отказа и не изменяет readiness, срок ожидания или результат измерения.
+При отказе готовности `fullstack_readiness` сохраняет отдельно последний завершённый ответ и исход
+родительского probe: `completed`, `timeout`, `command_failed` либо `subprocess_failed`. Только закрытая
+проекция `ok/status/cause` может попасть в диагностику. Частичный JSON от незавершившегося child
+не доказывает готовность, даже если содержит `ok: true`. На terminal failure один ограниченный
+read-only lookup проверяет project/service/CID для `loadgen`, `telegram`, `bot-provider` и публикует
+только state/running/OOM/exit code/restarts. Raw stdout/stderr, provider responses, labels и IDs не
+публикуются; diagnostic failure не подменяет исходную ошибку. Лимиты HTTP 2 s, child 4 s и readiness 90 s
+не меняются, container lookup использует тот же предел 4 s в сумме и не запускает повторную проверку.
 
 Два порядка OFF/ON и ON/OFF дают четыре режима по 60 секунд. В каждом режиме: idle 10 секунд,
 steady 40 секунд при 10 запросах/с, spike 10 секунд при 40 запросах/с. Одновременно читаются

@@ -27,7 +27,8 @@ class Acceptance(unittest.TestCase):
         import json
         from pathlib import Path
         profile=json.loads((Path(__file__).resolve().parents[2]/'infra/observability/fullstack/profile.json').read_text())
+        self.assertEqual(profile["accounts"],256)
         acceptance.validate_profile(profile)
-        for field,value in (('materials',0),('accounts',1),('concurrency',1)):
+        for field,value in (('materials',0),('accounts',1),('accounts',128),('accounts',257),('concurrency',1)):
             with self.subTest(field=field),self.assertRaises(ValueError):
                 acceptance.validate_profile({**profile,field:value})

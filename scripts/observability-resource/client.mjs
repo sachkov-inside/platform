@@ -153,7 +153,7 @@ export async function serve(
       JSON.stringify({ alg: "ES384", kid: "resource-fixture" }),
     ).toString("base64url");
     const count = Number(process.env["INSIDE_RESOURCE_ACCOUNT_COUNT"] ?? "1");
-    if (!Number.isSafeInteger(count) || count < 1 || count > 128)
+    if (!Number.isSafeInteger(count) || count < 1 || count > 256)
       throw new Error("closed account count");
     const tokens = Array.from({ length: count }, (_, index) => {
       const payload = Buffer.from(

@@ -139,29 +139,99 @@ def mode(output,enabled):
     pilot.write_json(output/'compose.json',plan)
 
 
+READINESS_ROLES=('loadgen','telegram','bot-provider')
+READINESS_STATES=('created','running','paused','restarting','removing','exited','dead')
+
+
+def readiness_output(raw,outcome):
+    """Only a closed child observation survives. Parent outcome independently controls readiness."""
+    result={'outcome':outcome,'output':'empty','observation':None}
+    try:
+        if isinstance(raw,bytes):
+            if len(raw)>65536:return {**result,'output':'oversized'}
+            raw=raw.decode('utf-8',errors='strict')
+        if type(raw) is not str or not raw:return result
+        if len(raw.encode())>65536:return {**result,'output':'oversized'}
+        def pairs(items):
+            value={}
+            for key,item in items:
+                if key in value:raise ValueError()
+                value[key]=item
+            return value
+        value=json.loads(raw,object_pairs_hook=pairs)
+    except (ValueError,UnicodeError,RecursionError):return {**result,'output':'invalid_json'}
+    if (type(value) is not dict or set(value)!={'ok','status','cause'} or type(value['ok']) is not bool
+            or value['status'] is not None and (type(value['status']) is not int or not 0<=value['status']<=599)
+            or value['cause'] not in ('ready','transport_unavailable','http_unavailable','unexpected_response','database_unavailable','membership_unavailable')
+            or value['ok']!=(value['cause']=='ready') or value['ok'] and value['status']!=200):
+        return {**result,'output':'invalid_projection'}
+    return {**result,'output':'valid','observation':value}
+
+
+def readiness_containers(compose):
+    """Fixed disposable owner only; no logs, paths, labels, IDs or raw errors are published."""
+    unavailable={name:{'state':'unavailable'} for name in READINESS_ROLES}
+    if (type(compose) is not list or len(compose)!=6 or compose[:3]!=['docker','compose','-p']
+            or compose[4]!='-f' or type(compose[3]) is not str
+            or re.fullmatch(PREFIX+r'[0-9a-f]{12}',compose[3]) is None):return unavailable
+    deadline=time.monotonic()+4
+    def read(prefix,args):
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise TimeoutError()
+        return invoke(prefix,args,timeout=remaining)
+    try:
+        ids=read(compose,['ps','--all','--quiet',*READINESS_ROLES]).split()
+        if not ids:return {name:{'state':'missing'} for name in READINESS_ROLES}
+        if len(ids)>3 or len(set(ids))!=len(ids) or any(re.fullmatch(r'[a-f0-9]{64}',value) is None for value in ids):return unavailable
+        projection='{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"state":{{json .State.Status}},"running":{{json .State.Running}},"oom":{{json .State.OOMKilled}},"exit_code":{{json .State.ExitCode}},"restarts":{{json .RestartCount}}}'
+        raw=read(['docker'],['inspect','--format',projection,*ids])
+        if len(raw.encode())>4096:return unavailable
+        result={name:{'state':'missing'} for name in READINESS_ROLES};seen=set()
+        for line in raw.splitlines():
+            row=json.loads(line)
+            if (type(row) is not dict or set(row)!={'id','project','service','state','running','oom','exit_code','restarts'}
+                    or type(row['id']) is not str or row['id'] not in ids or row['id'] in seen
+                    or row['project']!=compose[3] or row['service'] not in READINESS_ROLES
+                    or result[row['service']]['state']!='missing' or row['state'] not in READINESS_STATES
+                    or type(row['running']) is not bool or type(row['oom']) is not bool
+                    or type(row['exit_code']) is not int or not -255<=row['exit_code']<=255
+                    or type(row['restarts']) is not int or not 0<=row['restarts']<=2147483647):return unavailable
+            seen.add(row['id'])
+            result[row['service']]={key:row[key] for key in ('state','running','oom','exit_code','restarts')}
+        return result if seen==set(ids) else unavailable
+    except (OSError,ValueError,RuntimeError,subprocess.SubprocessError):return unavailable
+
+
 def ready(compose,path,host='api',port=3001):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     if host not in (*BACKENDS,'telegram','web','logto','umami'):raise ValueError('fixed_readiness_target_required')
     last={'ok':False,'status':None,'cause':'observation_unavailable'}
+    probe=readiness_output(None,'unrun')
     def check():
-        nonlocal last
-        try:
-            value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','ready',host,str(port),path,source],timeout=4))
-            if (type(value) is not dict or set(value)!={'ok','status','cause'} or type(value['ok']) is not bool
-                    or value['status'] is not None and (type(value['status']) is not int or not 0<=value['status']<=599)
-                    or value['cause'] not in ('ready','transport_unavailable','http_unavailable','unexpected_response','database_unavailable','membership_unavailable')):
-                raise ValueError('readiness_projection')
-            last=value
-            return value['ok']
-        except (ValueError,RuntimeError,subprocess.SubprocessError):return False
+        nonlocal last,probe
+        try:raw=invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','ready',host,str(port),path,source],timeout=4)
+        except subprocess.TimeoutExpired as error:
+            probe=readiness_output(error.stdout,'timeout');return False
+        except subprocess.SubprocessError:
+            probe=readiness_output(None,'subprocess_failed');return False
+        except (RuntimeError,ValueError,OSError):
+            probe=readiness_output(None,'command_failed');return False
+        probe=readiness_output(raw,'completed')
+        if probe['observation'] is None:return False
+        last=probe['observation']
+        return last['ok']
     try:pilot.await_fact(check,bool,probe='fullstack_ready')
-    except BaseException:
-        try:print(json.dumps({'fullstack_readiness':{'target':host,**last}},sort_keys=True),flush=True)
-        except BaseException:pass
+    except BaseException as primary:
+        traceback=primary.__traceback__
+        try:
+            containers=readiness_containers(compose)
+            print(json.dumps({'fullstack_readiness':{'target':host,**last,'probe':probe,'containers':containers}},sort_keys=True),flush=True)
+        except BaseException:BaseException.__traceback__.__set__(primary,traceback)
         raise
 
 
 def seed(compose,output):
+    actors=acceptance.validate_profile(json.loads(PROFILE.read_text()))['accounts']
     resource_runtime.wait_ready(compose)
     invoke(compose,['run','--rm','--no-deps','migrations'],timeout=60)
     definitions=invoke(compose,['run','--rm','--no-deps','broker-config'],timeout=15)
@@ -180,10 +250,10 @@ def seed(compose,output):
     ready(compose,'/ready','telegram',3002)
     ready(compose,'/oidc/.well-known/openid-configuration','logto',3001)
     established_telegram=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','telegram-establish'],timeout=45))
-    if established_telegram!={'accepted':128}:raise ValueError('all_telegram_contacts_required')
-    pilot.await_fact(lambda:telegram.processed(compose,sql,1000000,1000128,128),bool,budget=30,probe='synthetic_telegram_seed_processed')
-    contacts=int(sql(compose,"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND 1000128;",role='telegram_owner',database='inside_telegram'))
-    if contacts!=128:raise ValueError('all_telegram_contacts_required')
+    if established_telegram!={'accepted':actors}:raise ValueError('all_telegram_contacts_required')
+    pilot.await_fact(lambda:telegram.processed(compose,sql,1000000,1000000+actors,actors),bool,budget=30,probe='synthetic_telegram_seed_processed')
+    contacts=int(sql(compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
+    if contacts!=actors:raise ValueError('all_telegram_contacts_required')
     from importlib.util import spec_from_file_location,module_from_spec
     spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
     # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
@@ -201,10 +271,10 @@ def seed(compose,output):
     (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
     (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
     established=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
-    if (set(established)!={'created','accounts'} or established['created']!=128 or not isinstance(established['accounts'],list) or len(established['accounts'])!=128 or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=128):raise ValueError('all_accounts_required')
+    if (set(established)!={'created','accounts'} or established['created']!=actors or not isinstance(established['accounts'],list) or len(established['accounts'])!=actors or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=actors):raise ValueError('all_accounts_required')
     (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
     corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
-    if corpus!={'accounts':128,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
+    if corpus!={'accounts':actors,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
     return guard_proof
 
 
