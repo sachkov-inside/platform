@@ -146,6 +146,32 @@ class AcquisitionBudget(unittest.TestCase):
         self.assertEqual(experiment.last_report['state'],'observed')
         self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
 
+        # Eight healthy fresh-cohort waits must share the original global cap.
+        # The producer exports a new frame every5s with1s visibility delay.
+        # Integer evaluation times and whole observation/journal checks are real.
+        from types import SimpleNamespace
+        import math
+        now=[100.1]
+        clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
+            sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
+        experiment=scenario.Scenario(None,'owned_token',None,Mock());experiment.deadline=700
+        def healthy(*args,**kwargs):
+            point=math.floor(now[0]);stamp=5*math.floor((point-1)/5)
+            values,stamps=acquisition(point=point,stamp=stamp)
+            now[0]+=.02
+            current={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),
+                     'evaluated_at':point,'completed_at':now[0]}
+            report=scenario.status.evaluate(**current);report['transport']['canonical']='passed'
+            return report,current
+        with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=healthy):
+            for _ in range(8):
+                cut=now[0];report,current=experiment.fresh_after(cut)
+                self.assertEqual(report['state'],'observed')
+                self.assertGreater(experiment.stamp(current),cut)
+                self.assertTrue(experiment.journal.boundary_clear(experiment.stamp(current)))
+        self.assertLessEqual(experiment.acquisitions,48)
+        self.assertLess(now[0],150)
+
     def test_classification_never_reads_foreign_metadata_or_matches_text(self):
         class Foreign(RuntimeError):
             def __getattribute__(self,name):raise AssertionError('foreign attribute inspected')

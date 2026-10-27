@@ -57,14 +57,14 @@ class Scenario:
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
-    def _until(self,read,predicate,*,deadline=None):
+    def _until(self,read,predicate,*,deadline=None,poll_seconds=.25):
         if deadline is None:deadline=time.monotonic()+min(60,self.remaining())
         while time.monotonic()<deadline:
             self.remaining()
             value=read()
             if time.monotonic()>=deadline:raise TimeoutError()
             if predicate(value):return value
-            time.sleep(min(.25,self.remaining(),max(0,deadline-time.monotonic())))
+            time.sleep(min(poll_seconds,self.remaining(),max(0,deadline-time.monotonic())))
         raise TimeoutError()
 
     def _one(self,case):
@@ -133,9 +133,11 @@ class Scenario:
         return next(iter(stamps.values()))
 
     def fresh_after(self,cut,previous=None,*,_partition=False):
+        # Queries evaluate at integer seconds; subsecond polling spends the shared cap
+        # on duplicate frames and repeatedly occupies source-sample boundaries.
         if not _partition:
             return self._until(lambda:self.snapshot(previous),lambda value:value[0]['state']=='observed'
-                and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])))
+                and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])),poll_seconds=1)
         self._partition_checkpoint('partition_initial_acquire')
         def check(value):
             if value[0]['state']!='observed':
@@ -146,7 +148,7 @@ class Scenario:
             if not self.journal.boundary_clear(self.stamp(value[1])):
                 self._partition_checkpoint('partition_initial_boundary');return False
             return True
-        return self._until(lambda:self.snapshot(previous),check)
+        return self._until(lambda:self.snapshot(previous),check,poll_seconds=1)
 
     def matching(self,canonical,*,previous=None,read=None):
         if read is None:
@@ -186,7 +188,7 @@ class Scenario:
                     self._partition_checkpoint('partition_compare_journal');return False
                 return True
             while True:
-                _,current=self._until(lambda:self.snapshot(baseline),check)
+                _,current=self._until(lambda:self.snapshot(baseline),check,poll_seconds=1)
                 if self.stamp(current)>status.clock(batch_cut):break
                 self._partition_checkpoint('partition_compare_after_cut')
                 baseline=current
@@ -278,7 +280,7 @@ class Scenario:
         self.phase('alloy_stale')
         self.targets.change('alloy','stop')
         try:
-            self._until(self.snapshot,lambda value:value[0]['state'] in ('stale','missing'))
+            self._until(self.snapshot,lambda value:value[0]['state'] in ('stale','missing'),poll_seconds=1)
             self.passed('alloy_stale')
         except BaseException as error:
             self.failed(error);raise

@@ -407,3 +407,12 @@ active failure, including when the callback raises an operator interrupt. Withou
 failure, an operator interrupt still propagates; the mandatory restart runs in either case.
 These phases do not prove a historical unknown failure's cause. Collection requires the current source-bound
 reader; no positive case, query oracle, freshness tolerance or acquisition budget is changed.
+
+Source-cohort polling waits one second after an unsuccessful fresh/partition/stale acquisition.
+Queries evaluate at integer seconds and the native producer scrapes every five seconds;
+subsecond reads can repeatedly acquire the same frame, consume the shared128 cap and occupy
+sample boundaries with their own request windows. The first acquisition remains immediate.
+Readiness and the frozen held-frame publication keep their existing quarter-second cadence.
+The sixty-second wait, ten-second query,600-second scenario,128 acquisitions and all whole
+source/privacy, freshness, accounting and reset/MCP comparisons remain unchanged. A rejected
+sample is never promoted; exhaustion or expiry still fails before acceptance.
