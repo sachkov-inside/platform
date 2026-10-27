@@ -339,7 +339,7 @@ test("reading progress appears on Home and the topic filter for video and other 
   }
 });
 
-test("reading progress counts a shared material in both real Series", async ({
+test("reading progress counts a shared material in both real Product", async ({
   page,
   context,
 }, testInfo) => {
@@ -353,30 +353,30 @@ test("reading progress counts a shared material in both real Series", async ({
   await expect(button).toHaveAttribute("aria-pressed", "true");
   const directory = await prepareEvidenceDirectory("issue-329");
   // Отметка живёт у материала, поэтому её видно в программе каждого руководства, где он опубликован.
-  for (const slug of ["demo-series-release", "demo-series-release-shared"]) {
+  for (const slug of ["demo-product-release", "demo-product-release-shared"]) {
     await page.goto(`/products/${slug}/programme`);
     // В маршруте изученное показывает не подпись на карточке, а галочка вместо номера строки.
     const row = page.locator(
       '[data-route-material="demo-podgotovka-prilozheniya-k-relizu"]:visible',
     );
-    await expect(row.locator('[data-series-marker-read="true"]')).toHaveCount(
+    await expect(row.locator('[data-product-marker-read="true"]')).toHaveCount(
       1,
     );
     await expect(
-      page.getByRole("main").locator('[data-series-marker-read="true"]'),
+      page.getByRole("main").locator('[data-product-marker-read="true"]'),
     ).toHaveCount(1);
     if (slug.endsWith("shared")) {
       await page.screenshot({
-        path: resolve(directory, `${testInfo.project.name}-series.png`),
+        path: resolve(directory, `${testInfo.project.name}-product.png`),
       });
     }
   }
   await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "false");
-  await page.goto("/products/demo-series-release-shared/programme");
+  await page.goto("/products/demo-product-release-shared/programme");
   await expect(
-    page.getByRole("main").locator('[data-series-marker-read="true"]'),
+    page.getByRole("main").locator('[data-product-marker-read="true"]'),
   ).toHaveCount(0);
 });
 

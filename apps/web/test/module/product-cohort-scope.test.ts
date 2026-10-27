@@ -2,14 +2,14 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({ cohorts: vi.fn() }));
 vi.mock("@/shared/api/backend/index.server", () => ({
-  requestProductCohorts: fakes.cohorts,
+  requestProductSalesStates: fakes.cohorts,
 }));
 vi.mock("@/shared/auth/index.server", () => ({
   getOptionalPlatformAccessToken: vi.fn(),
 }));
 import {
-  loadProductCohort,
-  loadProductCohorts,
+  loadProductSalesState,
+  loadProductSalesStates,
 } from "@/entities/subscription/api/billing-catalog.server";
 
 beforeEach(() => {
@@ -34,7 +34,7 @@ it("requests the scoped cohort even when its Product is after the global hundred
       response: new Response(),
     }),
   );
-  await expect(loadProductCohort(productId)).resolves.toEqual({
+  await expect(loadProductSalesState(productId)).resolves.toEqual({
     kind: "ready",
     cohort,
   });
@@ -64,7 +64,7 @@ it("completes the owner cohort list through the bounded continuation", async () 
       ok: true,
       body: { items: [cohort(101)], nextCursor: null },
     });
-  const result = await loadProductCohorts();
+  const result = await loadProductSalesStates();
   expect(result.kind).toBe("ready");
   if (result.kind !== "ready") throw new Error("Expected complete list");
   expect(result.cohorts).toHaveLength(101);
@@ -74,7 +74,9 @@ it("completes the owner cohort list through the bounded continuation", async () 
 
 it("rejects a global page missing its exhaustion or continuation field", async () => {
   fakes.cohorts.mockResolvedValue({ ok: true, body: { items: [] } });
-  await expect(loadProductCohorts()).resolves.toEqual({ kind: "unavailable" });
+  await expect(loadProductSalesStates()).resolves.toEqual({
+    kind: "unavailable",
+  });
 });
 
 it("accepts explicit null as exhausted global cohort history", async () => {
@@ -82,7 +84,7 @@ it("accepts explicit null as exhausted global cohort history", async () => {
     ok: true,
     body: { items: [], nextCursor: null },
   });
-  await expect(loadProductCohorts()).resolves.toEqual({
+  await expect(loadProductSalesStates()).resolves.toEqual({
     kind: "ready",
     cohorts: [],
   });

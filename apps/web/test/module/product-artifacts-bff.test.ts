@@ -80,7 +80,7 @@ const artifact = {
   sourceId: null,
   title: "Чек-лист",
   updatedAt: "2026-09-09T00:00:00.000Z",
-  version: 2,
+  version: 2 as const,
 };
 
 describe("Product artifacts BFF", () => {

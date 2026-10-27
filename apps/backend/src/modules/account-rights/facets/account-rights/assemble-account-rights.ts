@@ -1,22 +1,19 @@
 import { resolveMembershipForAccessAccounts } from "../../features/resolve-membership-for-access/resolve-membership-for-access-accounts.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { ActivationBindings } from "../../domain/subscription-activation.js";
+import type { ActivationBindings } from "../../domain/course-activation.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
-import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
-import { bindMembershipPrincipal } from "../../features/bind-principal/bind-membership-principal.js";
 import {
   resolveMembershipForAccess,
   resolveMembershipForAccessMany,
   resolveMembershipForAccessUnderEntitlementLock,
 } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
 import type {
-  AcceptMembershipEvidenceCommand,
   MembershipAccessState,
   AccountRights,
-  MembershipEvidenceAcceptance,
-  MembershipPrincipalBinding,
 } from "./account-rights.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
+
+import { accountRightsTransaction } from "../../infrastructure/prisma.js";
 
 export interface AccountRightsDependencies {
   readonly prisma: AccountRightsPrismaClient;
@@ -42,7 +39,9 @@ export function assembleAccountRights(
           clock(),
           productIds,
           materialId,
-          transaction,
+          transaction === undefined
+            ? undefined
+            : accountRightsTransaction(transaction),
         );
       } catch (error) {
         return dependencyFailure(
@@ -51,25 +50,6 @@ export function assembleAccountRights(
           new Map(
             accountIds.map((id) => [id, { kind: "unavailable" as const }]),
           ),
-        );
-      }
-    },
-    async bindPrincipal(
-      command,
-      transaction,
-    ): Promise<MembershipPrincipalBinding> {
-      try {
-        return await bindMembershipPrincipal(
-          dependencies.prisma,
-          command,
-          clock(),
-          transaction,
-        );
-      } catch (error) {
-        return dependencyFailure(
-          { module: "account-rights", operation: "bindPrincipal" },
-          error,
-          { ok: false, error: { code: "unavailable" } },
         );
       }
     },
@@ -107,7 +87,7 @@ export function assembleAccountRights(
     ): Promise<MembershipAccessState> {
       try {
         return await resolveMembershipForAccessUnderEntitlementLock(
-          transaction,
+          accountRightsTransaction(transaction),
           accountId,
           clock(),
         );
@@ -119,24 +99,6 @@ export function assembleAccountRights(
           },
           error,
           { kind: "unavailable" },
-        );
-      }
-    },
-    async acceptEvidence(
-      command: AcceptMembershipEvidenceCommand,
-    ): Promise<MembershipEvidenceAcceptance> {
-      try {
-        return await acceptMembershipEvidence(
-          dependencies.prisma,
-          command,
-          clock(),
-          dependencies.recipientLinks,
-        );
-      } catch (error) {
-        return dependencyFailure(
-          { module: "account-rights", operation: "acceptEvidence" },
-          error,
-          { ok: false, error: { code: "unavailable" } },
         );
       }
     },

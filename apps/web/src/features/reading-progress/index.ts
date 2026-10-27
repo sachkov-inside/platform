@@ -1,5 +1,5 @@
 export { ReadingAction } from "./ui/reading-action.client";
-export { SeriesMaterialMarker } from "./ui/series-material-marker.client";
+export { ProductMaterialMarker } from "./ui/product-material-marker.client";
 export type {
   ReadingActionProps,
   ReadingActionView,
@@ -11,12 +11,12 @@ export { VisibleMaterialOpen } from "./ui/visible-material-open.client";
 export { readingProgressChanges } from "./model/reading-progress-events";
 
 export {
-  seriesContinuationQueryKey,
-  seriesContinuationProjectionSchema,
+  productContinuationQueryKey,
+  productContinuationProjectionSchema,
   materialResumeSchema,
   continuationLabel,
-} from "./model/series-continuation-contract";
-export { loadSeriesContinuation } from "./api/series-continuation.browser";
+} from "./model/product-continuation-contract";
+export { loadProductContinuation } from "./api/product-continuation.browser";
 
 export {
   LearningContinuation,

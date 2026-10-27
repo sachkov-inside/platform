@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ProductProgrammePage } from "@/_pages/library-discovery.server";
-import { readPublicSeries } from "@/features/library-discovery.server";
+import { readPublicProduct } from "@/features/library-discovery.server";
 
 interface ProductProgrammeRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
@@ -18,7 +18,7 @@ export async function generateMetadata({
   params,
 }: ProductProgrammeRouteProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await readPublicSeries(slug);
+  const result = await readPublicProduct(slug);
   return result.kind === "ready" || result.kind === "empty"
     ? {
         title: `Программа · ${result.reference.name}`,

@@ -151,7 +151,7 @@ export function MaterialMetadataPanel({
           disabled={disabled}
           presentation={presentation}
         />
-        <SeriesSelector
+        <ProductSelector
           actions={actions}
           disabled={disabled}
           presentation={presentation}
@@ -413,15 +413,15 @@ export function MaterialFormGuidance({
   );
 }
 
-function SeriesSelector({
+function ProductSelector({
   actions,
   disabled,
   presentation,
 }: MaterialMetadataPanelProps & { readonly disabled: boolean }) {
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(20);
-  const matching = presentation.availableSeries.filter((series) =>
-    series.label
+  const matching = presentation.availableProduct.filter((product) =>
+    product.label
       .toLocaleLowerCase("ru")
       .includes(search.trim().toLocaleLowerCase("ru")),
   );
@@ -430,8 +430,8 @@ function SeriesSelector({
       <legend className="mb-2 text-sm font-medium">
         Продукты
         <span className="ml-1 text-muted-foreground">
-          {presentation.draft.seriesIds.length > 0
-            ? presentation.draft.seriesIds.length
+          {presentation.draft.productIds.length > 0
+            ? presentation.draft.productIds.length
             : ""}
         </span>
       </legend>
@@ -455,19 +455,19 @@ function SeriesSelector({
             setLimit((current) => Math.min(current + 20, matching.length));
         }}
       >
-        {matching.slice(0, limit).map((series) => {
-          const checked = presentation.draft.seriesIds.includes(series.value);
+        {matching.slice(0, limit).map((product) => {
+          const checked = presentation.draft.productIds.includes(product.value);
           return (
             <label
               className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-muted has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
-              key={series.value}
+              key={product.value}
             >
               <input
                 checked={checked}
-                disabled={disabled || (series.archived === true && !checked)}
+                disabled={disabled || (product.archived === true && !checked)}
                 onChange={(event) => {
-                  actions.onSeriesToggle(
-                    series.value,
+                  actions.onProductToggle(
+                    product.value,
                     event.currentTarget.checked,
                   );
                 }}
@@ -475,8 +475,8 @@ function SeriesSelector({
                 className="size-4 shrink-0 accent-primary"
               />
               <span className="truncate">
-                {series.label}
-                {series.archived === true ? " · архив" : ""}
+                {product.label}
+                {product.archived === true ? " · архив" : ""}
               </span>
             </label>
           );

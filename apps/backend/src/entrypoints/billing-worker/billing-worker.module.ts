@@ -1,6 +1,8 @@
 import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
+import { ProductAuthoringCompositionModule } from "../composition/product-authoring-composition.module.js";
+import { ContentAccessCompositionModule } from "../composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../../modules/web-telemetry/index.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
@@ -31,6 +33,8 @@ export class BillingWorkerModule {
         ProductTaskResourceFactsModule,
         CommunityEntitlementsModule,
         CoverageCatalogModule,
+        ContentAccessCompositionModule,
+        ProductAuthoringCompositionModule,
         RecipientLinksModule,
       ],
       providers: [OperationalReadiness],

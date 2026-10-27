@@ -81,7 +81,7 @@ function readyPage(
           item.formatSlug === state.formatSlugs[0]) &&
         item.title.toLowerCase().includes(state.q.toLowerCase()),
     ),
-    facets: { formats: [], series: [], topics },
+    facets: { formats: [], products: [], topics },
     nextCursor: null,
     totalCount: items.length,
   };
@@ -272,14 +272,14 @@ export const Unavailable: Story = {
 };
 export const NoPinnedProduct: Story = {
   args: {
-    result: { kind: "ready", value: { ...home, pinnedSeries: null } },
+    result: { kind: "ready", value: { ...home, pinnedProduct: null } },
     feed: feed(),
   },
 };
 
 export const AiFirstProduct: Story = {
   args: {
-    result: { kind: "ready", value: { ...home, pinnedSeries: aiFirstPin } },
+    result: { kind: "ready", value: { ...home, pinnedProduct: aiFirstPin } },
     feed: feed(),
   },
 };
@@ -292,7 +292,7 @@ export const AiEngineeringCourse: Story = {
   args: {
     result: {
       kind: "ready",
-      value: { ...home, pinnedSeries: aiEngineeringPin },
+      value: { ...home, pinnedProduct: aiEngineeringPin },
     },
     feed: feed(),
   },
@@ -515,7 +515,7 @@ export const FeedWithoutCovers: Story = {
     result: { kind: "ready", value: home },
     feed: feed({
       kind: "ready",
-      facets: { formats: [], series: [], topics: threeTopics },
+      facets: { formats: [], products: [], topics: threeTopics },
       nextCursor: null,
       totalCount: 3,
       items: [

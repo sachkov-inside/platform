@@ -1,8 +1,9 @@
-import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { productCapability } from "@inside/access-capabilities";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
@@ -92,35 +93,23 @@ describe("скидка респондентам анкеты: список ни�
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      contentCatalog: {
-        list: () =>
-          Promise.resolve([
-            {
-              kind: "product",
-              id: productId,
-              title: "Синтетический курс",
-              slug: "synthetic-course",
-              available: true,
-            },
-          ]),
-        resolve: () => Promise.resolve([]),
-        resolveMany: (scopes) => Promise.resolve(scopes.map(() => [])),
-      },
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
     });
     pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     operations = new BillingOperations({
-      sale: { subscriptions: true },
       prisma: db.prisma,
       accounts,
       pricing,
       // Выдача ссылок не трогает платежи и подписки.
       payments: { reconcile: () => Promise.reject(new Error("unused")) },
-      subscriptions: { cancel: () => Promise.reject(new Error("unused")) },
       grants,
       bank: undefined,
       clock: () => now,
@@ -130,42 +119,27 @@ describe("скидка респондентам анкеты: список ни�
 
   /** Разовое предложение курса и архивная акция-шаблон со скидкой на него. */
   async function courseWithTemplate() {
-    const offerId = randomUUID();
-    const optionId = randomUUID();
-    const templateId = randomUUID();
+    const optionId = productId,
+      offerId = productId,
+      templateId = randomUUID();
     const manage = (input: object) =>
       pricing.manage(owner, { operationId: randomUUID(), ...input });
+    await db.prisma.product.create({
+      data: {
+        id: productId,
+        slug: "synthetic-course",
+        name: "Синтетический курс",
+      },
+    });
     value(
       await manage({
-        operation: "offers.save",
+        operation: "productPrices.save",
         value: {
-          id: offerId,
+          productId,
           name: "Курс",
-          benefits: [productCapability(productId), "support"],
-          benefitPeriods: [
-            { capability: productCapability(productId), months: null },
-            { capability: "support", months: 6 },
-          ],
+          priceKopecks: 100000,
+          published: true,
         },
-      }),
-    );
-    value(
-      await manage({
-        operation: "paymentOptions.save",
-        value: {
-          id: optionId,
-          offerId,
-          months: 1,
-          mode: "one_time",
-          priceKopecks: 100_000,
-        },
-      }),
-    );
-    value(
-      await manage({
-        operation: "offers.publish",
-        expectedRevision: 1,
-        id: offerId,
       }),
     );
     value(
@@ -178,8 +152,7 @@ describe("скидка респондентам анкеты: список ни�
           code: null,
           startsAt: "2030-03-01T00:00:00Z",
           endsAt: "2030-05-01T00:00:00Z",
-          offerIds: [offerId],
-          paymentOptionIds: [],
+          productIds: [productId],
           usageLimit: null,
         },
       }),
@@ -268,15 +241,12 @@ describe("скидка респондентам анкеты: список ни�
 
     const buyer = randomUUID();
     const discounted = value(
-      await pricing.quote(
-        buyer,
-        await prepareInvitedQuote(db.prisma, buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-          promoCode: link.code,
-        }),
-      ),
+      await pricing.quote(buyer, {
+        operationId: randomUUID(),
+        productId: optionId,
+        priceRevision: 1,
+        promoCode: link.code,
+      }),
     );
     expect(discounted.snapshot.firstPriceKopecks).toBe(70_000);
     // Без кода и после архивации шаблона публичной скидки нет.
@@ -284,8 +254,8 @@ describe("скидка респондентам анкеты: список ни�
       value(
         await pricing.quote(randomUUID(), {
           operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
+          productId: optionId,
+          priceRevision: 1,
         }),
       ).snapshot.promotion,
     ).toBeNull();
@@ -305,8 +275,8 @@ describe("скидка респондентам анкеты: список ни�
       value(
         await pricing.quote(randomUUID(), {
           operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
+          productId: optionId,
+          priceRevision: 1,
           promoCode: link.code,
         }),
       ).snapshot.promotion,

@@ -50,13 +50,13 @@ describe("content write ownership", () => {
     "membership: %s with writer %s and member %s",
     (via, sourceId, owner, expected) => {
       const result = checkContentWrite({ via, sourceId }, [
-        { kind: "membership", sourceId: owner, path: "/seriesIds/0" },
+        { kind: "membership", sourceId: owner, path: "/productIds/0" },
       ]);
       expect(result?.code ?? null).toBe(expected);
       if (expected === "invalid_reference")
         expect(result).toEqual({
           code: "invalid_reference",
-          issues: [{ code: "material_source_mismatch", path: "/seriesIds/0" }],
+          issues: [{ code: "material_source_mismatch", path: "/productIds/0" }],
         });
     },
   );

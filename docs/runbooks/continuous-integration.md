@@ -38,6 +38,11 @@ Git diff with full history: PR merge-base to head, queue base to candidate. `--n
 both sides of a rename and does not truncate the file list. Missing source comparisons fail;
 an empty change set conservatively selects both applications. Agent labels never select coverage.
 Every PR push, including a draft, receives its affected plan.
+The planner exports a SHA-256 digest of the exact complete plan serialization. The gate independently
+recomputes that plan and requires the same digest before validating every job result. Its environment
+contains only that fixed-size digest and the explicit result of all thirteen dependencies, never
+the complete plan or nested job outputs. Large changed-file lists therefore retain full coverage
+without exceeding the runner's per-environment-string process limit.
 
 | Input category | Explicit paths | PR | Merge queue |
 |---|---|---|---|
@@ -489,7 +494,7 @@ level runs:
 |---|---|---|
 | Affected PR and Platform queue | Matrix completeness: every cited file exists and declares `test(` or `it(` with the cited name; every production cell that cites the production pass has a pass cell `<row>@<transport>` in `apps/web/test/production/pass-config.ts` (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
 | Affected PR and Platform queue | Production pass logic without network: request allowlist, cell verdict with deferred cells, report and secret redaction (`apps/web/test/module/production-access-*.test.ts`) | `unit` |
-| Affected PR and Platform queue | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
+| Affected PR and Platform queue | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `product-tasks`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
 | Affected PR and Platform queue | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
 | Platform merge queue and missing release coverage | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring`, `learning-practice` and `access-identities` in `apps/web/test/fullstack` | `fullstack` |
 | Before a release | Exact-source coverage receipts; reuse trusted successful CI or manual evidence | [verification evidence policy](../agents/release-evidence.md) |

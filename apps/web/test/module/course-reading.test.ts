@@ -10,7 +10,7 @@ const task = (code: string, afterMaterialId: string | null = null) => ({
   availability: "available" as const,
   lastSubmittedAt: null,
 });
-const series = {
+const product = {
   kind: "ready" as const,
   reference: { slug: "course", name: "Курс", hasModeVariants: true },
   items: [
@@ -47,11 +47,11 @@ const series = {
 describe("course reading composition", () => {
   it("lists only actual chapters and counts only their materials", () => {
     const context = courseReadingContext({
-      series: {
-        ...series,
+      product: {
+        ...product,
         items: [
           { materialId: "project", slug: "aie-project", title: "Проект" },
-          ...series.items,
+          ...product.items,
           { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
         ],
       },
@@ -72,9 +72,9 @@ describe("course reading composition", () => {
     (slug) => {
       expect(
         courseReadingContext({
-          series: {
-            ...series,
-            items: [...series.items, { materialId: slug, slug, title: slug }],
+          product: {
+            ...product,
+            items: [...product.items, { materialId: slug, slug, title: slug }],
           },
           current: { kind: "material", slug },
           returnTarget: parseMaterialReaderReturnTarget(
@@ -87,7 +87,7 @@ describe("course reading composition", () => {
 
   it("places leading, missing-anchor and adjacent tasks across chapters without renumbering materials", () => {
     const context = courseReadingContext({
-      series,
+      product,
       current: { kind: "task", code: "b" },
     });
     expect(
@@ -116,14 +116,14 @@ describe("course reading composition", () => {
 
   it("numbers tasks in authored chapter order, independently of lesson placement and titles", () => {
     const context = courseReadingContext({
-      series: {
-        ...series,
+      product: {
+        ...product,
         chapters: [
           {
-            ...series.chapters[0],
+            ...product.chapters[0],
             tasks: [task("authored-first", "first-id"), task("leading-second")],
           },
-          { ...series.chapters[1], tasks: [task("chapter-two-first")] },
+          { ...product.chapters[1], tasks: [task("chapter-two-first")] },
         ],
       },
       current: { kind: "task", code: "authored-first" },
@@ -158,10 +158,10 @@ describe("course reading composition", () => {
 
   it("marks only saved task submissions, independently of the currently open step", () => {
     const source = {
-      ...series,
+      ...product,
       chapters: [
         {
-          ...series.chapters[0],
+          ...product.chapters[0],
           tasks: [
             {
               ...task("saved", "first-id"),
@@ -174,7 +174,7 @@ describe("course reading composition", () => {
     };
     for (const code of ["saved", "not-submitted"]) {
       const context = courseReadingContext({
-        series: source,
+        product: source,
         current: { kind: "task", code },
       });
       expect(
@@ -191,14 +191,14 @@ describe("course reading composition", () => {
 
   it("retains a task-only empty product and does not invent a missing step", () => {
     const empty = {
-      ...series,
+      ...product,
       kind: "empty" as const,
       items: undefined,
-      chapters: [series.chapters[2]],
+      chapters: [product.chapters[2]],
     };
     expect(
       courseReadingContext({
-        series: empty,
+        product: empty,
         current: { kind: "task", code: "only" },
       }),
     ).toMatchObject({
@@ -209,7 +209,7 @@ describe("course reading composition", () => {
     });
     expect(
       courseReadingContext({
-        series,
+        product,
         current: { kind: "material", slug: "absent" },
       }),
     ).toBeNull();
@@ -217,7 +217,7 @@ describe("course reading composition", () => {
 
   it("keeps explicit material return context and task addresses", () => {
     const context = courseReadingContext({
-      series,
+      product,
       current: { kind: "material", slug: "first" },
       returnTarget: parseMaterialReaderReturnTarget(
         "/products/course/programme?at=first",
@@ -238,11 +238,11 @@ it("embedded practice remains one Material step with its saved submission, and l
     lastSubmittedAt: "2026-10-15T12:00:00.000Z",
   };
   const context = courseReadingContext({
-    series: {
-      ...series,
+    product: {
+      ...product,
       chapters: [
-        { ...series.chapters[0], tasks: [embedded] },
-        series.chapters[1],
+        { ...product.chapters[0], tasks: [embedded] },
+        product.chapters[1],
       ],
     },
     current: { kind: "material", slug: "first" },
@@ -262,10 +262,10 @@ it("embedded practice remains one Material step with its saved submission, and l
 });
 
 describe("supplementary Material navigation", () => {
-  const referenceSeries = {
-    ...series,
+  const referenceProduct = {
+    ...product,
     items: [
-      ...series.items,
+      ...product.items,
       { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
       { materialId: "project", slug: "aie-project", title: "Описание проекта" },
       { materialId: "extra", slug: "extra", title: "Другой материал" },
@@ -274,8 +274,11 @@ describe("supplementary Material navigation", () => {
 
   it("lists every non-programme Product member in Product order without changing chapter steps", () => {
     const current = { kind: "material" as const, slug: "first" };
-    const before = courseReadingContext({ series, current });
-    const context = courseReadingContext({ series: referenceSeries, current });
+    const before = courseReadingContext({ product, current });
+    const context = courseReadingContext({
+      product: referenceProduct,
+      current,
+    });
     expect(context?.references?.map(({ slug }) => slug)).toEqual([
       "first",
       "second",
@@ -291,7 +294,7 @@ describe("supplementary Material navigation", () => {
 
   it("opens a reference from the programme without claiming a curricular position", () => {
     const context = courseReadingContext({
-      series: referenceSeries,
+      product: referenceProduct,
       current: { kind: "material", slug: "aie-project" },
       returnTarget: parseMaterialReaderReturnTarget(
         "/products/course/programme",
@@ -313,7 +316,7 @@ describe("supplementary Material navigation", () => {
 
   it("does not invent a reference missing from published Product membership", () => {
     const context = courseReadingContext({
-      series,
+      product,
       current: { kind: "material", slug: "first" },
     });
     expect(
@@ -331,7 +334,7 @@ it.each([8, 9])(
       title: `Урок ${String(index + 1)}`,
     }));
     const context = courseReadingContext({
-      series: {
+      product: {
         kind: "ready",
         reference: { slug: "course", name: "Курс" },
         chapters: [
@@ -364,14 +367,14 @@ it.each([8, 9])(
 
 it("uses authored chapter attachments without slug conventions or extra steps", () => {
   const context = courseReadingContext({
-    series: {
-      ...series,
-      chapters: series.chapters.map((chapter, index) => ({
+    product: {
+      ...product,
+      chapters: product.chapters.map((chapter, index) => ({
         ...chapter,
         supplementaryMaterialIds: index === 1 ? ["reference-id"] : [],
       })),
       items: [
-        ...series.items,
+        ...product.items,
         {
           materialId: "reference-id",
           slug: "arbitrary-customer-document",
@@ -392,10 +395,10 @@ it("uses authored chapter attachments without slug conventions or extra steps", 
 
 it("keeps repeated Material positions distinct with a single shared Material identity", () => {
   const repeated = {
-    ...series,
+    ...product,
     chapters: [
       {
-        ...series.chapters[0],
+        ...product.chapters[0],
         materialIds: ["first-id", "second-id", "first-id"],
       },
     ],
@@ -406,7 +409,7 @@ it("keeps repeated Material positions distinct with a single shared Material ide
     ],
   };
   const context = courseReadingContext({
-    series: repeated,
+    product: repeated,
     current: { kind: "material", slug: "first", placementId: "a2" },
   });
   expect(context?.current.id).toBe("material:first:a2");

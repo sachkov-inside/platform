@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import { preProductCommand } from "../../../../infrastructure/contracts/pre-product-command.js";
 import { randomUUID } from "node:crypto";
@@ -13,7 +14,7 @@ import {
   type ProductTasksPrisma,
   type ProductTasksPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import type { ProductDirectory } from "../../../materials/index.js";
+import type { ProductDirectory } from "../../../products/index.js";
 import {
   taskDefinitionDigest,
   taskPublicationSchema,
@@ -203,7 +204,7 @@ export function assembleApplySourceTask(
             command.embeddedMaterialSourceId === undefined
               ? null
               : await dependencies.directory.lockPrimaryPlacement(
-                  transaction,
+                  transactionHandle(transaction),
                   command.productId,
                   command.embeddedMaterialSourceId,
                 );

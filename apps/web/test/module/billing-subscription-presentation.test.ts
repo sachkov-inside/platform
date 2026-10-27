@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   accessComposition,
+  accessSourceLabel,
+  accessGroundSchema,
   attemptStateLabel,
-  publicSubscriptionOffers,
   benefitLines,
   billingErrorMessage,
   capabilityLabel,
@@ -13,7 +14,6 @@ import {
   noticeLabel,
   offerCompositionLabel,
   promotionLabel,
-  subscriptionStateLabel,
 } from "@/entities/subscription";
 import {
   productOnlyOffer,
@@ -167,31 +167,6 @@ describe("состав доступа", () => {
   });
 });
 
-describe("что можно продать публично", () => {
-  it("оставляет только подписку на каталог", () => {
-    expect(
-      publicSubscriptionOffers([
-        materialsOffer,
-        supportOffer,
-        productOnlyOffer,
-      ]).map((snapshot) => snapshot.offer.name),
-    ).toEqual([materialsOffer.offer.name, supportOffer.offer.name]);
-  });
-
-  it("не выводит вид тарифа из состава прав: подписка на продукт тоже подписка", () => {
-    const productSubscription = {
-      ...productOnlyOffer,
-      paymentOption: {
-        ...productOnlyOffer.paymentOption,
-        mode: "subscription" as const,
-      },
-    };
-    expect(publicSubscriptionOffers([productSubscription])).toEqual([
-      productSubscription,
-    ]);
-  });
-});
-
 describe("состояния и ошибки", () => {
   it("отделяет отказ в праве от завершённой сессии", () => {
     expect(billingErrorMessage("forbidden")).toBe(
@@ -205,14 +180,13 @@ describe("состояния и ошибки", () => {
   it("отделяет банковское состояние попытки от состояния подписки", () => {
     expect(attemptStateLabel("unknown")).toBe("Результат ещё неизвестен");
     expect(attemptStateLabel("confirmed")).toBe("Оплата подтверждена");
-    expect(subscriptionStateLabel("canceled")).toBe("Продление отменено");
     expect(noticeLabel("payment_failed")).toBe("Списание не прошло");
   });
 
   it("объясняет ожидаемые исходы billing словами покупателя", () => {
     expect(billingErrorMessage("contact_required")).toContain("email");
     expect(billingErrorMessage("legacy_review_required")).toContain(
-      "прежняя подписка",
+      "заказ требует проверки",
     );
     expect(billingErrorMessage("payment_in_progress")).toContain(
       "новую покупку начинать не нужно",
@@ -222,7 +196,9 @@ describe("состояния и ошибки", () => {
     expect(billingErrorMessage("payment_in_progress")).toContain(
       "раздел «Покупки»",
     );
-    expect(billingErrorMessage("existing_access")).toContain("уже есть доступ");
+    expect(billingErrorMessage("existing_access")).toContain(
+      "Повторная покупка недоступна",
+    );
     // Прежняя редакция не принимается: покупатель читает действующую и нажимает кнопку снова.
     expect(billingErrorMessage("document_changed")).toBe(
       "Условия покупки обновились. Прочитайте действующую редакцию и нажмите кнопку оплаты снова.",
@@ -268,4 +244,21 @@ describe("состав предложения", () => {
     const offer = { ...productOnlyOffer.offer, benefits: [] };
     expect(offerCompositionLabel(offer)).toBe(offer.name);
   });
+});
+
+it("retains truthful course, unknown and historical provenance in the buyer reader", () => {
+  for (const [source, label] of [
+    ["course_activation", "Активация курса"],
+    ["unknown", "Источник не уточнён"],
+    ["legacy", "Ранее полученный доступ"],
+  ] as const) {
+    const ground = accessGroundSchema.parse({
+      source,
+      capabilities: ["materials"],
+      startsAt: null,
+      validUntil: null,
+      active: true,
+    });
+    expect(accessSourceLabel(ground.source)).toBe(label);
+  }
 });

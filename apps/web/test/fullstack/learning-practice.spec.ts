@@ -7,130 +7,110 @@ import { signInFullStack } from "../support/full-stack-session";
 
 function practiceSlug(): string {
   const slug = process.env["FULLSTACK_PRACTICE_SLUG"];
-  if (slug === undefined) throw new Error("Missing isolated practice fixture");
+  if (slug === undefined)
+    throw new Error("Missing isolated practical Task fixture");
   return slug;
 }
 
-test("practice Reader preserves the ready public body and closed practice geometry", async ({
+test("practical Task Reader preserves the ready public body while its personal workspace streams", async ({
   page,
   context,
 }) => {
   const slug = process.env["FULLSTACK_FREE_PRACTICE_SLUG"];
-  if (slug === undefined) throw new Error("Missing free practice fixture");
+  if (slug === undefined)
+    throw new Error("Missing free practical Task fixture");
   await signInFullStack(context, "MEMBER");
   await page.goto(`/materials/${slug}`, { waitUntil: "commit" });
-  await expect(page.locator("[data-reader-body]")).toBeVisible();
-  const actions = page.locator("[data-reader-practice-actions]");
-  const slot = actions.locator(
-    "[data-practice-loading], [data-practice-summary]",
-  );
-  const openPractice = actions.getByRole("button", {
-    name: "Открыть проверку практики",
+  const body = page.locator("[data-reader-body]");
+  await expect(body).toBeVisible();
+  const before = await body.boundingBox();
+  const workspace = page.getByRole("region", {
+    name: "Сдача задания",
     exact: true,
   });
-  if (Number(process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0") >= 1000) {
-    await expect(slot.getByRole("status")).toBeVisible();
-    const before = await actions.boundingBox();
-    await expect(openPractice).toBeVisible();
-    const after = await actions.boundingBox();
-    expect(before).not.toBeNull();
-    expect(after?.y).toBe(before?.y);
-    expect((await slot.boundingBox())?.height).toBe(44);
-  }
+  await expect(workspace).toBeVisible();
+  expect((await body.boundingBox())?.y).toBe(before?.y);
+  await expect(workspace.locator("[data-agent-phrase]")).toContainText(
+    "fullstack-practice-free",
+  );
+  await expect(
+    workspace.getByRole("button", { name: "Скопировать запрос", exact: true }),
+  ).toHaveCount(1);
   await expect(
     page.getByRole("dialog", { name: "Подключите Telegram" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Понятно", exact: true }).click();
-  await expect(
-    page.getByRole("region", { name: "Проверка практики" }),
-  ).not.toBeVisible();
-  await openPractice.click();
-  await expect(
-    page.getByRole("region", { name: "Проверка практики" }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByRole("region", { name: "Проверка практики" })
-      .getByRole("button", { name: "Копировать" }),
-  ).toHaveCount(1);
 });
 
-test("practice Reader offers pinned requests only to an authorized participant", async ({
+test("practical Task Reader offers the current agent request only to an authorized participant", async ({
   page,
   context,
 }, testInfo) => {
   await signInFullStack(context, "MEMBER");
   await page.goto(`/materials/${practiceSlug()}`, { waitUntil: "commit" });
-  if (Number(process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0") >= 1000) {
-    await expect(page.locator("[data-reader-body]")).toBeVisible();
-  }
+  await expect(page.locator("[data-reader-body]")).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: "Подключите Telegram" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
-  const region = page.getByRole("region", { name: "Проверка практики" });
+  const region = page.getByRole("region", {
+    name: "Сдача задания",
+    exact: true,
+  });
   await expect(region).toBeVisible();
-  await expect(region.getByRole("button", { name: "Копировать" })).toHaveCount(
-    1,
-  );
-  await expect(region).toContainText(
-    '"practiceId": "synthetic:fullstack-practice"',
-  );
-  await expect(region).toContainText('"expectedContextVersion"');
+  const phrase = region.locator("[data-agent-phrase]");
+  await expect(phrase).toContainText("fullstack-practice-closed");
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await region.getByRole("button", { name: "Копировать" }).first().click();
+  await phrase
+    .getByRole("button", { name: "Скопировать запрос", exact: true })
+    .click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toContain("synthetic:fullstack-practice");
-  expect(copied).toMatch(/"expectedContextVersion": "[a-f0-9]{64}"/u);
-  expect(copied).toContain("учебным MCP");
+  expect(copied).toBe(
+    "Проверь моё задание fullstack-practice-closed через учебный MCP Sachkov Dev и помоги его сдать.",
+  );
   expect(copied).not.toContain("FULLSTACK_PRIVATE_PRACTICE_BODY");
-  await region.getByText("Настройка проверки", { exact: true }).click();
-  await expect(
-    region.getByRole("link", {
-      name: "Открыть инструкцию для ручного подключения",
-    }),
-  ).toHaveAttribute("href", "/practice-review-setup.txt");
+  expect(copied).not.toContain("learning_practice_read");
+  await region
+    .getByRole("button", { name: "Настроить подключение", exact: true })
+    .click();
+  await expect(region.locator("[data-task-connection]")).toContainText(
+    "/mcp/learning",
+  );
   const setup = await page.request.get("/practice-review-setup.txt");
   expect(setup.status()).toBe(200);
-  expect(await setup.text()).toContain("/mcp/learning");
-  // Запрос подключения агента виден после раскрытия настройки и ведёт на ту же инструкцию.
+  expect(await setup.text()).toContain("learning_task_read");
+  await region
+    .getByText("Подробная инструкция и помощь", { exact: true })
+    .click();
   await expect(
-    region.getByText("Подключить агента", { exact: true }),
+    region.getByRole("status", { name: "Загружаем инструкцию…" }),
+  ).toHaveCount(0);
+  await expect(
+    region.getByText("Проверка подключения и помощь", { exact: true }),
   ).toBeVisible();
-  // Агент ученика скачивает инструкцию сам, поэтому адрес в запросе абсолютный.
-  await expect(region).toContainText(
-    new URL("/practice-review-setup.txt", page.url()).href,
-  );
-  const openSetupViolations = (
-    await new AxeBuilder({ page })
-      .include('[aria-label="Проверка практики"]')
-      .analyze()
-  ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-  expect(openSetupViolations).toEqual([]);
-  await region.getByText("Настройка проверки", { exact: true }).click();
   const violations = (
     await new AxeBuilder({ page })
-      .include('[aria-label="Проверка практики"]')
+      .include('[aria-labelledby="task-submit-heading"]')
       .analyze()
   ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(violations).toEqual([]);
-  const evidence = await prepareEvidenceDirectory("issue-785");
+  const evidence = await prepareEvidenceDirectory("issue-1710");
   await region.scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: resolve(evidence, `reader-${testInfo.project.name}.png`),
+    path: resolve(
+      evidence,
+      `practical-task-reader-${testInfo.project.name}.png`,
+    ),
     animations: "disabled",
     fullPage: false,
   });
   await writeFile(
-    resolve(evidence, `reader-${testInfo.project.name}.json`),
+    resolve(evidence, `practical-task-reader-${testInfo.project.name}.json`),
     JSON.stringify(
       {
         viewport: page.viewportSize(),
         violations,
-        delayedPracticeReadMs: Number(
-          process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0",
-        ),
-        copiedStablePracticeId: copied.includes("synthetic:fullstack-practice"),
+        currentTaskCode: "fullstack-practice-closed",
+        copied,
       },
       null,
       2,
@@ -145,31 +125,43 @@ test("practice Reader offers pinned requests only to an authorized participant",
   ).toBe(true);
 });
 
-test("practice Reader keeps assignment metadata and protected body out of guest and denied views", async ({
+test("practical Task Reader keeps protected requirements and body out of guest and denied views", async ({
   page,
   context,
   request,
 }) => {
   const api = process.env["FULLSTACK_API_BASE_URL"];
-  if (api === undefined) throw new Error("Missing isolated API URL");
+  const materialId = process.env["FULLSTACK_PRACTICE_MATERIAL_ID"];
+  if (api === undefined || materialId === undefined)
+    throw new Error("Missing isolated API/material fixture");
   const anonymous = await request.get(
-    `${api}/library/materials/${practiceSlug()}/practices`,
+    `${api}/library/materials/${materialId}/task`,
   );
-  expect(anonymous.status()).toBe(404);
-  expect(await anonymous.text()).not.toContain("Бриф консультаций");
+  expect(anonymous.status()).toBe(200);
+  expect(await anonymous.json()).toMatchObject({ access: "closed" });
+  expect(await anonymous.text()).not.toContain("Чужая заявка не раскрывается.");
+  expect(await anonymous.text()).not.toContain(
+    "FULLSTACK_PRIVATE_PRACTICE_BODY",
+  );
   await page.goto(`/materials/${practiceSlug()}`);
   await expect(
-    page.getByRole("region", { name: "Проверка практики" }),
+    page.getByRole("region", { name: "Сдача задания", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText(/FULLSTACK_PRIVATE_PRACTICE_BODY/u)).toHaveCount(
     0,
   );
+  await expect(
+    page.getByText("Чужая заявка не раскрывается.", { exact: true }),
+  ).toHaveCount(0);
   await signInFullStack(context, "NON_MEMBER");
   await page.goto(`/materials/${practiceSlug()}`);
   await expect(
-    page.getByRole("region", { name: "Проверка практики" }),
+    page.getByRole("region", { name: "Сдача задания", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText(/FULLSTACK_PRIVATE_PRACTICE_BODY/u)).toHaveCount(
     0,
   );
+  await expect(
+    page.getByText("Чужая заявка не раскрывается.", { exact: true }),
+  ).toHaveCount(0);
 });

@@ -24,8 +24,8 @@ import {
 
 import {
   ProfileAvatar,
-  type PrivateMemberProfile,
-} from "@/entities/member-profile";
+  type PrivateAccountProfile,
+} from "@/entities/account-profile";
 import { MAX_PROFILE_AVATAR_FILE_BYTES } from "@/shared/api/mutation-limits";
 import { Button } from "@/shared/ui/button";
 
@@ -76,8 +76,8 @@ export function ProfileAvatarEditor({
   profile,
 }: {
   readonly mutation?: ProfileAvatarMutation;
-  readonly onProfileChange: (profile: PrivateMemberProfile) => void;
-  readonly profile: PrivateMemberProfile;
+  readonly onProfileChange: (profile: PrivateAccountProfile) => void;
+  readonly profile: PrivateAccountProfile;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,7 +96,7 @@ export function ProfileAvatarEditor({
   const titleId = useId();
   const descriptionId = useId();
   const avatarMutation = useMutation<
-    PrivateMemberProfile,
+    PrivateAccountProfile,
     unknown,
     AvatarMutationVariables
   >({

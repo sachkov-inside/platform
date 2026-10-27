@@ -7,8 +7,8 @@ import {
 import { courseReadingContext } from "@/features/library-discovery";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
-  loadPublishedSeries,
-  readPublicSeries,
+  loadPublishedProduct,
+  readPublicProduct,
 } from "@/features/library-discovery.server";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -43,11 +43,11 @@ export async function ProductTaskPage({
   readonly params: Promise<{ readonly slug: string; readonly code: string }>;
 }) {
   const { slug, code } = await params;
-  const series = await loadPublicTaskProgramme(slug);
+  const product = await loadPublicTaskProgramme(slug);
   const programme =
-    (series?.kind === "ready" || series?.kind === "empty") &&
-    series.reference.slug === slug
-      ? courseReadingContext({ series, current: { kind: "task", code } })
+    (product?.kind === "ready" || product?.kind === "empty") &&
+    product.reference.slug === slug
+      ? courseReadingContext({ product, current: { kind: "task", code } })
       : null;
   return (
     <Suspense
@@ -86,7 +86,7 @@ async function PersonalProductTask({
     typeof query.attemptsAfter === "string" ? query.attemptsAfter : undefined;
   const accessToken = await getOptionalPlatformAccessToken();
   const client = getQueryClient();
-  const [result, personal, series] = await Promise.all([
+  const [result, personal, product] = await Promise.all([
     getProductTaskPage(slug, code, accessToken),
     prefetchOwnTaskSubmissions(client, code, accessToken, after),
     loadTaskProgramme(slug, accessToken),
@@ -95,12 +95,23 @@ async function PersonalProductTask({
   if (result.kind === "not-found") notFound();
   if (result.kind === "unavailable") return <ProductTaskUnavailable />;
   const programme =
-    (series?.kind === "ready" || series?.kind === "empty") &&
-    series.reference.slug === slug
-      ? courseReadingContext({ series, current: { kind: "task", code } })
+    (product?.kind === "ready" || product?.kind === "empty") &&
+    product.reference.slug === slug
+      ? courseReadingContext({ product, current: { kind: "task", code } })
       : null;
   if (result.kind === "closed")
-    return <ProductTaskClosed task={result.task} programme={programme} />;
+    return (
+      <HydrationBoundary state={dehydrate(client)}>
+        <ProductTaskClosed
+          task={result.task}
+          programme={programme}
+          history={submissions}
+          accountId={accountId}
+          attemptsAfter={after}
+          liveSubmissions
+        />
+      </HydrationBoundary>
+    );
   return (
     <HydrationBoundary state={dehydrate(client)}>
       <ProductTaskView
@@ -123,7 +134,7 @@ async function PersonalProductTask({
 /** Navigation is supplementary: a failed composition read leaves the authorized task and form usable. */
 async function loadTaskProgramme(slug: string, token: string | undefined) {
   try {
-    return await loadPublishedSeries(slug, token);
+    return await loadPublishedProduct(slug, token);
   } catch (error) {
     if (error instanceof BackendConnectionError) return null;
     throw error;
@@ -133,7 +144,7 @@ async function loadTaskProgramme(slug: string, token: string | undefined) {
 /** A failed guest composition must not hide an otherwise authorized task. */
 async function loadPublicTaskProgramme(slug: string) {
   try {
-    return await readPublicSeries(slug);
+    return await readPublicProduct(slug);
   } catch (error) {
     if (error instanceof BackendConnectionError) return null;
     throw error;

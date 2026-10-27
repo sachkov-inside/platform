@@ -37,7 +37,7 @@ it("names each accepted document with its date, button and permanent edition add
   });
   expect(items[0]?.acceptedAt).toMatch(/1 октября 2026/u);
   expect(items[0]?.shownTerms).toMatch(
-    /^следующее списание 990\s₽ — 1 ноября 2026 г\./u,
+    /^Исторические условия: 990\s₽, следующее списание 1 ноября 2026 г\./u,
   );
   expect(items[1]).toMatchObject({
     title: "Условия использования",

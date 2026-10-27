@@ -102,10 +102,10 @@ export async function getCurrentMaterialPreview(
     };
   }
   return {
-    products: mapped.data.seriesMemberships.map(({ seriesId }) => ({
-      id: seriesId,
+    products: mapped.data.productMemberships.map(({ productId }) => ({
+      id: productId,
       name:
-        references.references.series.find(({ value }) => value === seriesId)
+        references.references.products.find(({ value }) => value === productId)
           ?.label ?? "Руководство",
     })),
     kind: "ready",

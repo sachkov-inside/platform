@@ -24,7 +24,7 @@ import {
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
-  MATERIAL_CONTENT,
+  MATERIAL_PUBLICATION,
   type MaterialContent,
 } from "../modules/materials/index.js";
 import {
@@ -55,7 +55,10 @@ async function bootstrap(): Promise<void> {
   const maintenance = application.get<VideoDeletionMaintenance>(
     VIDEO_DELETION_MAINTENANCE,
   );
-  const materials = application.get<MaterialContent>(MATERIAL_CONTENT);
+  const materials =
+    application.get<Pick<MaterialContent, "containsVideoReference">>(
+      MATERIAL_PUBLICATION,
+    );
   const readiness = application.get(OperationalReadiness);
   const technicalTelemetry = technicalTelemetryFromEnvironment({
     environment: process.env,

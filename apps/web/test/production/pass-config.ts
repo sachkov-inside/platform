@@ -32,7 +32,9 @@ export const productA = {
 } as const;
 
 /** Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture. */
-export const freePracticeId = "inside-content:aie-github-app";
+export const retiredPracticeId = "inside-content:aie-github-app";
+/** Current positive coverage uses Product Tasks; no replacement code is inferred from a retired source. */
+export const freeTaskCode: string | null = null;
 /** Owner removed the only free practice in #1540; resume when the owner publishes a current one. */
 export const freePracticeDeferred =
   "отложено до публикации владельцем актуальной бесплатной практики (#1540)";

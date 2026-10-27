@@ -20,9 +20,9 @@ export interface MaterialReaderMetadata {
   readonly format: { readonly name: string; readonly slug: string };
   readonly materialId: string;
   readonly publishedAt: string;
-  readonly seriesMemberships: readonly {
+  readonly productMemberships: readonly {
     readonly ordinal: number;
-    readonly series: {
+    readonly product: {
       readonly id: string;
       readonly name: string;
       readonly slug: string;

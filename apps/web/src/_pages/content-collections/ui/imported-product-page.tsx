@@ -1,15 +1,14 @@
 import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { ProductCommunitySettings } from "@/features/product-community-settings";
-import { announceProductCommunityChange } from "@/features/community-entry";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
-import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
+import { HomeProductPin, ProductOrderPanel } from "@/features/product-order";
 import { hasText } from "@/shared/lib/text";
 
 import type { ContentCollection } from "../model/content-collections";
 import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-fields";
 import { ProductPageNavigation } from "./product-page-navigation.client";
-import { SeriesEditorPageFrame } from "./series-editor-page-frame";
+import { ProductEditorPageFrame } from "./product-editor-page-frame";
 
 /**
  * Страница продукта, перенесённого из источника (#844). Название, описание, блок «О продукте» и
@@ -29,7 +28,7 @@ export function ImportedProductPage({
     },
   );
   return (
-    <SeriesEditorPageFrame>
+    <ProductEditorPageFrame>
       <ProductPageNavigation>
         {collection.archived ? (
           <span className="text-sm text-muted-foreground">В архиве</span>
@@ -46,8 +45,8 @@ export function ImportedProductPage({
             id: "program",
             label: "Программа",
             panel: (
-              <SeriesOrderPanel
-                seriesId={collection.id}
+              <ProductOrderPanel
+                productId={collection.id}
                 archived={collection.archived}
                 readOnly
               />
@@ -103,7 +102,7 @@ export function ImportedProductPage({
                   <ContentCoverEditor
                     initialCover={collection.cover ?? null}
                     ownerId={collection.id}
-                    ownerKind="series"
+                    ownerKind="product"
                     ownerLabel={collection.name}
                   />
                 </div>
@@ -150,19 +149,16 @@ export function ImportedProductPage({
             label: "Настройки",
             panel: (
               <>
-                <HomeSeriesPin
-                  seriesId={collection.id}
+                <HomeProductPin
+                  productId={collection.id}
                   archived={collection.archived}
                 />
-                <ProductCommunitySettings
-                  productId={collection.id}
-                  onSaved={announceProductCommunityChange}
-                />
+                <ProductCommunitySettings productId={collection.id} />
               </>
             ),
           },
         ]}
       />
-    </SeriesEditorPageFrame>
+    </ProductEditorPageFrame>
   );
 }

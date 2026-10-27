@@ -24,7 +24,7 @@ function collectionsFailure(failure: MutationTransportFailure) {
       } as const);
 }
 
-/** Creates a Series or Topic. */
+/** Creates a Product or Topic. */
 export const createContentCollectionOperation = defineMutationOperation({
   input: createContentCollectionInputSchema,
   method: "POST",
@@ -33,7 +33,7 @@ export const createContentCollectionOperation = defineMutationOperation({
   transportFailure: collectionsFailure,
 });
 
-/** Saves the metadata of a Series or Topic at the version the author saw. */
+/** Saves the metadata of a Product or Topic at the version the author saw. */
 export const updateContentCollectionOperation = defineMutationOperation({
   input: updateContentCollectionInputSchema,
   method: "PUT",
@@ -42,7 +42,7 @@ export const updateContentCollectionOperation = defineMutationOperation({
   transportFailure: collectionsFailure,
 });
 
-/** Archives or restores a Series or Topic at the version the author saw. */
+/** Archives or restores a Product or Topic at the version the author saw. */
 export const setContentCollectionArchiveOperation = defineMutationOperation({
   input: setContentCollectionArchiveInputSchema,
   method: "PUT",

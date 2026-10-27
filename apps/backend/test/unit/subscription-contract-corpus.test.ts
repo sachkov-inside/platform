@@ -1,3 +1,4 @@
+import { historicalInvitationRequestSchema } from "../../src/modules/telegram-membership/domain/historical-invitation-codec.js";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { describe, expect, test } from "vitest";
@@ -10,16 +11,15 @@ import {
   bindingLookupQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
-  ownSubscriptionAccessQuerySchema,
-  redeemInvitationSchema,
+  ownCourseAccessQuerySchema,
 } from "../../src/modules/account-rights/index.js";
 import {
   announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
-  ownSubscriptionAccessResponseSchema,
+  ownCourseAccessResponseSchema,
   invitationRedeemResponseSchema,
-} from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+} from "../../src/modules/telegram-membership/domain/course-activation-wire.js";
 import {
   communitySetSchema,
   communityStatusQuerySchema,
@@ -35,12 +35,12 @@ const activationCodecs: Record<string, z.ZodType> = {
   announcementResponse: announcementResponseSchema,
   begin: beginActivationSchema,
   evidence: activationEvidenceSchema,
-  ownAccessQuery: ownSubscriptionAccessQuerySchema,
+  ownAccessQuery: ownCourseAccessQuerySchema,
   activationResponse: activationResponseSchema,
-  ownAccessResponse: ownSubscriptionAccessResponseSchema,
+  ownAccessResponse: ownCourseAccessResponseSchema,
   bindingQuery: bindingLookupQuerySchema,
   bindingResponse: bindingLookupResponseSchema,
-  invitationRedeem: redeemInvitationSchema,
+  invitationRedeem: historicalInvitationRequestSchema,
   invitationRedeemResponse: invitationRedeemResponseSchema,
 };
 const communityCodecs: Record<string, z.ZodType> = {

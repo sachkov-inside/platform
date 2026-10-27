@@ -18,8 +18,6 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETIC",
   password: "synthetic-password",
   bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1000000,
   returnUrl: "https://example.test/account",
@@ -56,7 +54,6 @@ describe("concrete bank boundary", () => {
         amount: 10000,
         name: "Synthetic purchase",
         email: "buyer@example.test",
-        initiator: "0",
       }),
     ).resolves.toMatchObject({ PaymentURL: paymentUrl, Status: "NEW" });
   });
@@ -87,7 +84,6 @@ describe("concrete bank boundary", () => {
       amount: 10000,
       name: "Product",
       email: "buyer@example.test",
-      initiator: "0",
     });
     expect(requests[0]).toMatchObject({
       SuccessURL: "https://example.test/account?purchaseRef=purchase-1442",

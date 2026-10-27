@@ -1,7 +1,7 @@
 import { productCapability } from "@inside/access-capabilities";
 import type {
   AccessGround,
-  Enrollment,
+  OwnedProduct,
   OwnPayment,
 } from "@/entities/subscription";
 
@@ -11,15 +11,23 @@ type Product = NonNullable<AccessGround["content"]>[number];
 export function accountProducts(
   grounds: readonly AccessGround[],
   payments: readonly OwnPayment[],
-  enrollments: readonly Enrollment[] = [],
+  owned: readonly OwnedProduct[] = [],
 ) {
   const purchases = payments.filter((payment) => payment.kind === "one_time");
   const products = new Map<string, Product>();
-  for (const source of [...grounds, ...purchases, ...enrollments])
+  for (const source of [...grounds, ...purchases])
     for (const entry of source.content ?? [])
       if (entry.kind === "product" && !products.has(entry.id))
         products.set(entry.id, entry);
 
+  for (const product of owned)
+    products.set(product.id, {
+      kind: "product",
+      id: product.id,
+      slug: product.slug,
+      title: product.name,
+      available: product.slug !== null,
+    });
   return [...products.values()].map((product) => {
     const bases = grounds.filter(
       (ground) =>
@@ -27,16 +35,7 @@ export function accountProducts(
           (entry) => entry.kind === "product" && entry.id === product.id,
         ) === true,
     );
-    const assignments = enrollments.filter(
-      (item) =>
-        item.content?.some(
-          (entry) => entry.kind === "product" && entry.id === product.id,
-        ) === true,
-    );
-    const retainedState = assignments.some((item) => item.state === "active")
-      ? undefined
-      : (assignments.find((item) => item.state === "scheduled")?.state ??
-        assignments[0]?.state);
+    const ownership = owned.find((item) => item.id === product.id);
     const history = purchases
       .filter(
         (payment) =>
@@ -49,7 +48,8 @@ export function accountProducts(
       history.find(
         (item) =>
           item.state === "confirmed" &&
-          item.refundedKopecks < item.amountKopecks,
+          (item.refundedKopecks === null ||
+            item.refundedKopecks < item.amountKopecks),
       ) ?? history[0];
     const granted = bases.some(
       (ground) =>
@@ -65,12 +65,18 @@ export function accountProducts(
         ?.access ?? payment?.access;
     return {
       product,
-      assignments,
-      retainedState,
+      ownership,
       bases,
       history,
       payment,
-      access: granted ? ("ready" as const) : paymentAccess,
+      access:
+        ownership !== undefined
+          ? ownership.materials.state === "available"
+            ? ("ready" as const)
+            : ("unavailable" as const)
+          : granted
+            ? ("ready" as const)
+            : paymentAccess,
     };
   });
 }

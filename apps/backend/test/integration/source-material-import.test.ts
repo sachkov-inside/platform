@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import {
   createMigratedTestDatabase,
@@ -12,7 +12,7 @@ const source = {
   id: "authoring-test-one",
   path: "materials/one.md",
   revision: "a".repeat(64),
-  showInFeed: false,
+  version: 2 as const,
 };
 const metadata = {
   title: "Imported",
@@ -23,7 +23,7 @@ const metadata = {
   topicId: null,
   formatId: "note" as const,
   tagIds: [],
-  seriesIds: [],
+  productIds: [],
 };
 
 describe("authoring source Material", () => {
@@ -114,7 +114,7 @@ describe("authoring source Material", () => {
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
-  test("feed includes every published free Material regardless of the legacy visibility flag", async () => {
+  test("feed includes every published free Material without a source visibility flag", async () => {
     const { authoring, publishedMaterialReader } = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
@@ -128,11 +128,10 @@ describe("authoring source Material", () => {
     });
     if (!topic.ok) throw new Error(topic.error.code);
     const ids: string[] = [];
-    for (const showInFeed of [false, true]) {
+    for (const identity of ["one", "two"]) {
       const feedSource = {
         ...source,
-        id: `feed-${String(showInFeed)}`,
-        showInFeed,
+        id: `feed-${identity}`,
       };
       const reserved = await authoring.reserveSourceMaterial({
         actor,
@@ -145,12 +144,12 @@ describe("authoring source Material", () => {
         source: feedSource,
         materialId: reserved.value.materialId,
         expectedContentVersion: 1,
-        idempotencyKey: `feed-${String(showInFeed)}`,
+        idempotencyKey: `feed-${identity}`,
         publicationState: "published",
         primaryVideoId: null,
         metadata: {
           ...metadata,
-          title: `Feed ${String(showInFeed)}`,
+          title: `Feed ${identity}`,
           summary: "Published import",
           topicId: topic.value.id,
         },
@@ -176,7 +175,7 @@ describe("authoring source Material", () => {
     const hiddenSearch = await publishedMaterialReader.listProjections({
       first: 12,
       feedOnly: true,
-      q: "false",
+      q: "one",
     });
     expect(hiddenSearch).toMatchObject({
       ok: true,
@@ -184,7 +183,7 @@ describe("authoring source Material", () => {
     });
   });
 
-  test("ordinary writes cannot change a source programme and removing the final paid feed placement fails", async () => {
+  test("ordinary writes cannot change a source programme and explicit catalogue removal keeps its access", async () => {
     const { authoring } = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
@@ -200,7 +199,7 @@ describe("authoring source Material", () => {
     const ordinary = await authoring.createDraft({
       actor,
       idempotencyKey: "ordinary-in-source-product",
-      metadata: { ...metadata, seriesIds: [product.value.id] },
+      metadata: { ...metadata, productIds: [product.value.id] },
       body: representativeDocument("Ordinary"),
     });
     expect(ordinary).toMatchObject({
@@ -208,7 +207,7 @@ describe("authoring source Material", () => {
       error: {
         code: "invalid_reference",
         issues: [
-          { code: "material_source_mismatch", path: "/metadata/seriesIds/0" },
+          { code: "material_source_mismatch", path: "/metadata/productIds/0" },
         ],
       },
     });
@@ -227,7 +226,7 @@ describe("authoring source Material", () => {
         expectedContentVersion: 1,
         publicationState: "draft",
         primaryVideoId: null,
-        metadata: { ...metadata, seriesIds: [product.value.id] },
+        metadata: { ...metadata, productIds: [product.value.id] },
         body: representativeDocument("Ordinary"),
       }),
     ).toMatchObject({
@@ -235,11 +234,15 @@ describe("authoring source Material", () => {
       error: {
         code: "invalid_reference",
         issues: [
-          { code: "material_source_mismatch", path: "/metadata/seriesIds/0" },
+          { code: "material_source_mismatch", path: "/metadata/productIds/0" },
         ],
       },
     });
-    const paidSource = { ...source, id: "paid-feed-lesson", showInFeed: true };
+    const paidSource = {
+      ...source,
+      id: "paid-feed-lesson",
+      version: 2 as const,
+    };
     const reserved = await authoring.reserveSourceMaterial({
       actor,
       source: paidSource,
@@ -267,42 +270,36 @@ describe("authoring source Material", () => {
           access: "closed",
           summary: "Paid lesson",
           topicId: topic.value.id,
-          seriesIds: [product.value.id],
+          productIds: [product.value.id],
         },
         body: representativeDocument("Protected body"),
       }),
     ).toMatchObject({ ok: true });
-    const order = await authoring.loadSeriesOrder({
+    const order = await authoring.loadProductOrder({
       actor,
-      seriesId: product.value.id,
+      productId: product.value.id,
     });
     if (!order.ok) throw new Error(order.error.code);
     expect(
       await authoring.reorderSourceProduct({
         actor,
         sourceId: "paid-product",
-        seriesId: product.value.id,
+        productId: product.value.id,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [],
       }),
-    ).toMatchObject({
-      ok: false,
-      error: {
-        code: "invalid_reference",
-        issues: [{ code: "standalone_feed_material_must_be_free" }],
-      },
-    });
+    ).toMatchObject({ ok: true });
     expect(
       await database.prisma.material.findUnique({
         where: { id: reserved.value.materialId },
-        select: { access: true, showInFeed: true },
+        select: { access: true },
       }),
-    ).toEqual({ access: "closed", showInFeed: true });
+    ).toEqual({ access: "closed" });
     expect(
       await database.prisma.productMembership.count({
         where: { materialId: reserved.value.materialId },
       }),
-    ).toBe(1);
+    ).toBe(0);
   });
 
   test("a composition names the Material whose source ownership differs from the Product", async () => {
@@ -325,21 +322,21 @@ describe("authoring source Material", () => {
 
     const editorProduct = await authoring.createContentCollection({
       actor,
-      kind: "series",
+      kind: "product",
       name: "Editor product",
       slug: "mismatch-editor-product",
       summary: "",
     });
     if (!editorProduct.ok) throw new Error(editorProduct.error.code);
-    const editorOrder = await authoring.loadSeriesOrder({
+    const editorOrder = await authoring.loadProductOrder({
       actor,
-      seriesId: editorProduct.value.id,
+      productId: editorProduct.value.id,
     });
     if (!editorOrder.ok) throw new Error(editorOrder.error.code);
     expect(
-      await authoring.reorderSeries({
+      await authoring.reorderProduct({
         actor,
-        seriesId: editorProduct.value.id,
+        productId: editorProduct.value.id,
         expectedOrderVersion: editorOrder.value.orderVersion,
         orderedMaterialIds: [plain.value.materialId, imported.value.materialId],
       }),
@@ -361,16 +358,16 @@ describe("authoring source Material", () => {
       summary: "",
     });
     if (!sourceProduct.ok) throw new Error(sourceProduct.error.code);
-    const sourceOrder = await authoring.loadSeriesOrder({
+    const sourceOrder = await authoring.loadProductOrder({
       actor,
-      seriesId: sourceProduct.value.id,
+      productId: sourceProduct.value.id,
     });
     if (!sourceOrder.ok) throw new Error(sourceOrder.error.code);
     expect(
       await authoring.reorderSourceProduct({
         actor,
         sourceId: "mismatch-source-product",
-        seriesId: sourceProduct.value.id,
+        productId: sourceProduct.value.id,
         expectedOrderVersion: sourceOrder.value.orderVersion,
         orderedMaterialIds: [plain.value.materialId, imported.value.materialId],
       }),
@@ -425,7 +422,7 @@ describe("authoring source Material", () => {
         access: "closed" as const,
         summary: "Retired lesson",
         topicId: topic.value.id,
-        seriesIds: [product.value.id],
+        productIds: [product.value.id],
       },
       body: representativeDocument("Retired protected body"),
     };
@@ -433,7 +430,7 @@ describe("authoring source Material", () => {
       ok: true,
       value: { contentVersion: 2 },
     });
-    const orphanedMetadata = { ...command.metadata, seriesIds: [] };
+    const orphanedMetadata = { ...command.metadata, productIds: [] };
     expect(
       await authoring.applySourceMaterial({
         ...command,
@@ -445,16 +442,16 @@ describe("authoring source Material", () => {
       ok: false,
       error: { code: "invalid_content" },
     });
-    const order = await authoring.loadSeriesOrder({
+    const order = await authoring.loadProductOrder({
       actor,
-      seriesId: product.value.id,
+      productId: product.value.id,
     });
     if (!order.ok) throw new Error(order.error.code);
     expect(
       await authoring.reorderSourceProduct({
         actor,
         sourceId: "retired-product",
-        seriesId: product.value.id,
+        productId: product.value.id,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [],
         confirmedProductRemovals: [product.value.id],

@@ -1,3 +1,4 @@
+import type { TransactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
 import type { coverageEntrySchema } from "@inside/access-capabilities";
 import type { z } from "zod";
 
@@ -12,9 +13,14 @@ export const COVERAGE_CATALOG_SCOPE_LIMIT = 1000;
  */
 export interface CoverageCatalog {
   list(): Promise<CoverageEntry[]>;
-  resolve(scope: unknown): Promise<CoverageEntry[]>;
+  resolve(scope: unknown, handle?: TransactionHandle): Promise<CoverageEntry[]>;
+  /** Exact Product identity, including archived Products; missing metadata is not a placeholder. */
+  hasProduct?(productId: string, handle?: TransactionHandle): Promise<boolean>;
   /** At most 1000 scopes and 2000 distinct entries; overflow fails explicitly. */
-  resolveMany(scopes: readonly unknown[]): Promise<CoverageEntry[][]>;
+  resolveMany(
+    scopes: readonly unknown[],
+    handle?: TransactionHandle,
+  ): Promise<CoverageEntry[][]>;
   /** Products that existed during bounded whole-platform access periods, including archived ones. */
   resolveWholePlatformProducts?(
     periods: readonly { startsAt: Date; endsAt: Date }[],

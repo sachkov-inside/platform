@@ -30,7 +30,7 @@ import {
 } from "../../../accounts/index.js";
 import { BillingPricing } from "../../facets/billing-pricing/billing-pricing.js";
 import { throwPricingError } from "../../shared/pricing-http.filter.js";
-import { quotePurchaseSchema, priceQuoteSchema } from "./quote-purchase.js";
+import { priceQuoteSchema, quotePurchaseSchema } from "./quote-purchase.js";
 @ApiTags("Billing")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
@@ -90,7 +90,7 @@ export class QuotePurchaseController {
   @HttpCode(200)
   @ApiOperation({
     operationId: "quoteBillingPurchase",
-    summary: "Save a price quote for a new subscription",
+    summary: "Save the Product price and best applicable discount",
   })
   @ApiBody({ schema: toOpenApiSchema(quotePurchaseSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(priceQuoteSchema) })

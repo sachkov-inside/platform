@@ -12,9 +12,20 @@ const hash = z.hash("sha256");
 const access = z.enum(["free", "closed"]);
 /** @typedef {z.infer<typeof access>} Access */
 // Validate consumed fields, preserving additional wire fields and exact replay bytes.
-const source = z
+const historicalSource = z
   .object({ id: text, path: text, revision: hash, showInFeed: z.boolean() })
-  .passthrough();
+  .passthrough()
+  .refine(
+    (value) => !Object.hasOwn(value, "version"),
+    "Historical source has no version",
+  );
+const source = z
+  .object({ version: z.literal(2), id: text, path: text, revision: hash })
+  .passthrough()
+  .refine(
+    (value) => !Object.hasOwn(value, "showInFeed"),
+    "Current source forbids showInFeed",
+  );
 export const materialReceiptSchema = z
   .object({ materialId: z.uuid(), contentVersion: version })
   .passthrough();
@@ -139,9 +150,9 @@ const productOrderSchema = orderSchema.extend({
   ),
 });
 export const assetReceiptSchema = z.object({ assetId: z.uuid() }).passthrough();
-const applyBodySchema = z
+const historicalApplyBodySchema = z
   .object({
-    source,
+    source: historicalSource,
     materialId: z.uuid(),
     expectedContentVersion: version,
     publicationState: publicationStateSchema,
@@ -169,6 +180,23 @@ const applyBodySchema = z
       .optional(),
   })
   .passthrough();
+
+const applyBodySchema = historicalApplyBodySchema.extend({
+  source,
+  metadata: historicalApplyBodySchema.shape.metadata
+    .omit({ seriesIds: true })
+    .extend({
+      productIds: z.array(z.uuid()),
+    })
+    .refine(
+      (value) => !Object.hasOwn(value, "seriesIds"),
+      "Current metadata forbids seriesIds",
+    ),
+});
+const replayableApplyBodySchema = z.union([
+  applyBodySchema,
+  historicalApplyBodySchema,
+]);
 
 const environmentSchema = z
   .object({
@@ -200,7 +228,7 @@ const materialStateSchema = z
               path: text,
               revision: hash,
               commit: sourceCommit.nullable(),
-              showInFeed: z.boolean(),
+              version: z.literal(2),
             })
             .passthrough(),
           memberships: z.array(
@@ -244,7 +272,7 @@ const taskStateSchema = z
   .passthrough();
 const validSchema = z.object({ valid: z.literal(true) }).passthrough();
 const homePinSchema = z
-  .object({ seriesId: z.uuid().nullable(), version })
+  .object({ productId: z.uuid().nullable(), version })
   .passthrough();
 const productArtifactsSchema = z
   .object({ artifacts: z.array(artifactSchema) })
@@ -327,7 +355,7 @@ const localResponseSchemas = {
  *   ? "taskState"
  *   : P extends "/authoring/import/practices/validate"
  *   ? "practiceValidation"
- *   : P extends "/authoring/import/practices/apply"
+ *   : P extends "/authoring/import/practices/apply" | "/authoring/history/practice-receipts"
  *   ? "practiceReceipt"
  *   : P extends "/authoring/import/tasks/validate"
  *   ? "taskValidation"
@@ -341,7 +369,7 @@ const localResponseSchemas = {
  *   ? "topic"
  *   : P extends "/authoring/import/materials/validate" | "/authoring/import/products/validate"
  *   ? "valid"
- *   : P extends "/authoring/import/materials/reserve" | "/authoring/import/materials/apply"
+ *   : P extends "/authoring/import/materials/reserve" | "/authoring/import/materials/apply" | "/authoring/history/material-receipts"
  *   ? "materialReceipt"
  *   : P extends "/authoring/import/products/reserve" | "/authoring/import/products/update"
  *   ? "product"
@@ -359,7 +387,7 @@ const localResponseSchemas = {
  *   ? "video"
  *   : P extends `/authoring/materials/${string}`
  *   ? "material"
- *   : P extends `/authoring/import/content-covers/${"material" | "series"}/${string}`
+ *   : P extends `/authoring/import/content-covers/${"material" | "product"}/${string}`
  *   ? "coverChange"
  *   : P extends `/authoring/import/products/${string}/artifacts`
  *   ? "artifactOutcome"
@@ -403,6 +431,7 @@ export function localResponseKind(path) {
   switch (path) {
     case "/authoring/import/practices/validate":
       return "practiceValidation";
+    case "/authoring/history/practice-receipts":
     case "/authoring/import/practices/apply":
       return "practiceReceipt";
     case "/authoring/import/tasks/validate":
@@ -421,6 +450,7 @@ export function localResponseKind(path) {
     case "/authoring/import/products/validate":
       return "valid";
     case "/authoring/import/materials/reserve":
+    case "/authoring/history/material-receipts":
     case "/authoring/import/materials/apply":
       return "materialReceipt";
     case "/authoring/import/products/reserve":
@@ -446,7 +476,7 @@ export function localResponseKind(path) {
       if (/^\/authoring\/videos\/[^/]+\/reconcile$/u.test(path)) return "video";
       if (/^\/authoring\/materials\/[^/]+$/u.test(path)) return "material";
       if (
-        /^\/authoring\/import\/content-covers\/(material|series)\/[^/]+$/u.test(
+        /^\/authoring\/import\/content-covers\/(material|product)\/[^/]+$/u.test(
           path,
         )
       )
@@ -640,7 +670,10 @@ export function isJournalOperation(entry) {
 
 const materialApplyPath = "/authoring/import/materials/apply";
 const materialApplyRequestSchema = z
-  .object({ path: z.literal(materialApplyPath), body: applyBodySchema })
+  .object({
+    path: z.literal(materialApplyPath),
+    body: replayableApplyBodySchema,
+  })
   .passthrough();
 
 /**

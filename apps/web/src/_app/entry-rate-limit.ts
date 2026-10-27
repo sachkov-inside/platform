@@ -34,8 +34,6 @@ export const entryRequestsPerWindow = {
  */
 const billingCommandPaths = [
   "/api/account/billing/purchase",
-  "/api/account/billing/payment-method/change",
-  "/api/account/billing/subscription/change",
   "/api/account/billing/contact/start",
   "/api/account/billing/contact/confirm",
 ] as const;

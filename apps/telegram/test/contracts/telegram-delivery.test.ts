@@ -43,7 +43,7 @@ describe("Telegram delivery across the repository transition", () => {
       identity:
         "sha256:0555b8ffc33ab438ecc321c8679ed4a8ed8fec79f769fa3d81e1d4ff36f5753e",
       count: 39,
-      latest: "038-confirmed-user-activity.ts",
+      latest: "039-confirmed-user-activity.ts",
     });
   });
 

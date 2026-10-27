@@ -21,7 +21,15 @@ export interface OneTimeOfferTerms {
 export function oneTimeOfferTerms(conditions: {
   readonly offer: BillingOffer;
   readonly paymentOption: BillingPaymentOption;
+  readonly product?: { readonly id: string } | undefined;
+  readonly supportMonths?: 3 | undefined;
 }): OneTimeOfferTerms {
+  if (conditions.product !== undefined)
+    return {
+      materialsMonths: null,
+      chatMonths: null,
+      supportMonths: conditions.supportMonths ?? 3,
+    };
   const terms = benefitTerms(conditions);
   const materials = terms.filter(
     ({ capability }) =>

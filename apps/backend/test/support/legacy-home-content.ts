@@ -18,14 +18,14 @@ import type {
 import { listPublishedMaterials } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.js";
 
 /** Закреплённый продукт с оформлением его карточки (ADR 0026). */
-export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
+export interface HomePinnedProductDto extends PublishedMaterialCatalogFacetDto {
   readonly presentation: string;
   readonly card: ProductPageCard | null;
   readonly hero: ProductPageHero | null;
 }
 
 export interface HomeContentDto {
-  readonly pinnedSeries: HomePinnedSeriesDto | null;
+  readonly pinnedProduct: HomePinnedProductDto | null;
   readonly topics: readonly PublishedMaterialCatalogFacetDto[];
   readonly playlists: readonly PublishedMaterialCatalogFacetDto[];
   readonly videos: readonly PublishedMaterialCatalogItemDto[];
@@ -47,7 +47,7 @@ const HOME_MATERIAL_LIMIT = 8;
 export async function readLegacyHomeContent(
   publishedMaterialReader: Pick<
     PublishedMaterialReader,
-    "listProjections" | "readHomePinnedSeries"
+    "listProjections" | "readHomePinnedProduct"
   >,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
@@ -83,7 +83,7 @@ export async function readLegacyHomeContent(
       subject,
       sort: "newest",
     }),
-    publishedMaterialReader.readHomePinnedSeries(),
+    publishedMaterialReader.readHomePinnedProduct(),
     resolveHomeMembership(accountRights, subscriptionForSale, subject),
   ]);
   for (const result of [catalog, videos, guides, notes]) {
@@ -96,13 +96,13 @@ export async function readLegacyHomeContent(
   const pinnedFacet =
     pin.value === null
       ? undefined
-      : catalog.value.facets.series.find(
-          (series) => series.id === pin.value?.id && series.count > 0,
+      : catalog.value.facets.products.find(
+          (product) => product.id === pin.value?.id && product.count > 0,
         );
   return {
     ok: true,
     value: {
-      pinnedSeries:
+      pinnedProduct:
         pin.value === null || pinnedFacet === undefined
           ? null
           : {
@@ -118,7 +118,7 @@ export async function readLegacyHomeContent(
               hero: pin.value.hero,
             },
       topics: catalog.value.facets.topics.slice(0, 8),
-      playlists: catalog.value.facets.series.slice(0, 4),
+      playlists: catalog.value.facets.products.slice(0, 4),
       videos: videos.value.items,
       guides: guides.value.items,
       notes: notes.value.items,

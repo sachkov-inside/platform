@@ -8,14 +8,12 @@ import {
   BillingSignIn,
   BillingHistory,
   useCurrentBilling,
-  useOwnEnrollments,
 } from "@/features/billing-subscription";
 import { ProductAccessList } from "@/features/billing-subscription";
 
 /** Existing billing capabilities stay on the same page, without empty sales sections. */
 export function AccountBilling() {
   const billing = useCurrentBilling();
-  const enrollments = useOwnEnrollments();
   const value = billing.data?.ok === true ? billing.data.value : null;
   const hasPurchases =
     (value?.payments.length ?? 0) > 0 || (value?.notices.length ?? 0) > 0;
@@ -28,7 +26,7 @@ export function AccountBilling() {
       />
     );
 
-  if (billing.isPending || enrollments.isPending)
+  if (billing.isPending)
     return (
       <p className="text-sm text-muted-foreground" role="status">
         Загружаем покупки…
@@ -36,8 +34,7 @@ export function AccountBilling() {
     );
 
   // Failure must not look like an account with no purchases or tariff assignments.
-  const readFailed =
-    billing.isError || enrollments.isError || billing.data?.ok !== true;
+  const readFailed = billing.isError || billing.data?.ok !== true;
   const failure = readFailed ? (
     <div className="py-4 text-sm" role="alert">
       <p>Не удалось загрузить покупки.</p>
@@ -45,7 +42,6 @@ export function AccountBilling() {
         className="mt-2 min-h-11 underline underline-offset-4"
         onClick={() => {
           void billing.refetch();
-          void enrollments.refetch();
         }}
         type="button"
       >
@@ -59,8 +55,8 @@ export function AccountBilling() {
     <div className="space-y-4">
       {failure}
       <ProductAccessList
-        enrollments={enrollments.data ?? []}
-        grounds={value.grounds}
+        products={value.products}
+        grounds={value.access.grounds}
         payments={value.payments}
         renderCommunityAction={(productId) => (
           <AccountProductCommunity productId={productId} />

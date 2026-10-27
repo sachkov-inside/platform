@@ -13,7 +13,7 @@ const freeMaterialReaderMetadata: MaterialReaderMetadata = {
   format: { name: "Гайд", slug: "guide" },
   materialId: "72000000-0000-4000-8000-000000000020",
   publishedAt: "2026-08-25T05:00:00.000Z",
-  seriesMemberships: [],
+  productMemberships: [],
   slug: "open-guide",
   summary: "Описание статьи",
   tags: [],

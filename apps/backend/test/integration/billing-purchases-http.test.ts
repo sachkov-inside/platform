@@ -1,4 +1,6 @@
-import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
@@ -40,8 +42,6 @@ const terminal = syntheticTbankConfig({
   terminalKey: "SYNTHETICPURCHASES",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1_000_000,
   returnUrl: "https://inside.example.test/account",
@@ -170,7 +170,7 @@ describe("Billing purchases HTTP", () => {
       fiscalization: "pending",
       confirmedAt: null,
       periodEndsAt: null,
-      snapshot: { firstPriceKopecks: 200_000, paymentOption: { months: 1 } },
+      snapshot: { firstPriceKopecks: 200_000, paymentOption: { months: 3 } },
     });
     expect(body.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
 
@@ -227,7 +227,7 @@ describe("Billing purchases HTTP", () => {
       prisma: database.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     const codes = new Map<string, string>();
     const contact = new BillingContact({
@@ -235,25 +235,18 @@ describe("Billing purchases HTTP", () => {
       protection: billingContactProtection(
         Buffer.alloc(32, 42).toString("base64"),
       ),
-      documents: syntheticConsentDocuments,
+      documents: syntheticConsentDocuments
+        .filter((d) => d.kind === "terms")
+        .map((d) => ({
+          ...d,
+          commercialModel: "product-lifetime-v1" as const,
+        })),
       now: () => now,
       sendCode: (message) => {
         codes.set(message.challengeRef, message.code);
         return Promise.resolve();
       },
     });
-    succeeds(
-      await grants.classifyLegacy(owner, {
-        operationId: randomUUID(),
-        accountId: buyer,
-        expectedRevision: 0,
-        classification: "confirmed_new",
-        sourceRef: buyer,
-        reason: "Synthetic new buyer",
-        bridgeEnabled: false,
-        tributeStopped: false,
-      }),
-    );
     const start = await contact.start(buyer, {
       operationId: randomUUID(),
       email: "buyer@example.test",
@@ -270,44 +263,28 @@ describe("Billing purchases HTTP", () => {
         code,
       }),
     );
-    const offerId = randomUUID();
-    const optionId = randomUUID();
+    const productId = randomUUID();
+    await database.prisma.product.create({
+      data: { id: productId, slug: productId, name: "Buyer HTTP Product" },
+    });
     value(
       await pricing.manage(owner, {
+        operation: "productPrices.save",
         operationId: randomUUID(),
-        operation: "offers.save",
         value: {
-          id: offerId,
-          name: "Synthetic subscription",
-          benefits: ["materials"],
-          coverage: { productIds: [randomUUID()], materialIds: [] },
+          productId,
+          name: "Buyer HTTP Product",
+          priceKopecks: 200000,
+          published: true,
         },
       }),
     );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "paymentOptions.save",
-        value: { id: optionId, offerId, months: 1, priceKopecks: 200_000 },
-      }),
-    );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.publish",
-        expectedRevision: 1,
-        id: offerId,
-      }),
-    );
     const quote = value(
-      await pricing.quote(
-        buyer,
-        await prepareInvitedQuote(database.prisma, buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
-      ),
+      await pricing.quote(buyer, {
+        operationId: randomUUID(),
+        productId,
+        priceRevision: 1,
+      }),
     );
     const consent = await contact.acceptConsents(
       buyer,
@@ -315,20 +292,26 @@ describe("Billing purchases HTTP", () => {
         {
           operationId: randomUUID(),
           contextRef: quote.quoteRef,
-          documents: syntheticConsentDocuments.map((document) => ({
-            kind: document.kind,
-            documentId: document.documentId,
-            version: document.version,
-            digest: document.digest,
-            accepted: true,
-          })),
+          documents: syntheticConsentDocuments
+            .filter((d) => d.kind === "terms")
+            .map((document) => ({
+              kind: document.kind,
+              documentId: document.documentId,
+              version: document.version,
+              digest: document.digest,
+              accepted: true,
+            })),
         },
         { snapshot: quote.snapshot },
       ),
     );
     if (!consent.ok) throw new Error(consent.error.code);
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      contentCatalog: new CoverageCatalog(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
+      sale: { payments: true },
       prisma: database.prisma,
       bank: new BankFixture(terminal).client(),
       contact,

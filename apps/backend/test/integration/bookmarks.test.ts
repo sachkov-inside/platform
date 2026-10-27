@@ -1,5 +1,10 @@
 import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
 import { activityTestClock } from "./setup/activity-test-clock.js";
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -11,9 +16,9 @@ import {
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   PublishedMaterialSelection,
 } from "../../src/modules/materials/index.js";
 import {
@@ -84,7 +89,10 @@ describe("Bookmarks on PostgreSQL", () => {
         },
         accountRights: membership,
       }),
-      selection: new PublishedMaterialSelection(prisma),
+      selection: new PublishedMaterialSelection({
+        prisma: prisma,
+        products: new ProductDiscovery(prisma),
+      }),
       videos: {
         loadReadyDurations: () =>
           Promise.resolve({ ok: true as const, value: [] }),
@@ -104,7 +112,7 @@ describe("Bookmarks on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: access === "closed" ? [closedProductId] : [],
+        productIds: access === "closed" ? [closedProductId] : [],
       },
       body: representativeDocument("Bookmark me."),
     });
@@ -139,45 +147,14 @@ describe("Bookmarks on PostgreSQL", () => {
   }
   async function memberWithAccess() {
     const memberId = checkedAccountId(randomUUID());
-    await membership.acceptEvidence({
-      accountId: memberId,
-      deliveryId: randomUUID(),
-      source: "link_time",
-      evidence: {
-        contractVersion: "inside.membership-evidence.v1",
-        principalRef: `principal-${memberId}`,
-        decision: "member",
-        reasonCode: "chat_member",
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        checkedAt: new Date().toISOString(),
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        validUntil: new Date(Date.now() + 240_000).toISOString(),
-        telegramIdentityRef: `telegram-${memberId}`,
-        evidenceRef: randomUUID(),
-        evidenceVersion: 1,
-      },
-    });
+    await grantProductFixture(database.prisma, memberId, closedProductId);
     return memberId;
   }
-  async function expireMembership(memberId: string, version: number) {
-    await membership.acceptEvidence({
-      accountId: checkedAccountId(memberId),
-      deliveryId: randomUUID(),
-      source: "member_status_event",
-      evidence: {
-        contractVersion: "inside.membership-evidence.v1",
-        principalRef: `principal-${memberId}`,
-        decision: "not_member",
-        reasonCode: "chat_not_member",
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        checkedAt: new Date().toISOString(),
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        validUntil: new Date(Date.now() + 240_000).toISOString(),
-        telegramIdentityRef: `telegram-${memberId}`,
-        evidenceRef: randomUUID(),
-        evidenceVersion: version,
-      },
-    });
+  async function expireMembership(memberId: string, _version: number) {
+    await revokeProductFixture(
+      database.prisma,
+      `${memberId}:${closedProductId}`,
+    );
   }
 
   test("add and remove are idempotent and isolated per Account", async () => {
@@ -243,12 +220,6 @@ describe("Bookmarks on PostgreSQL", () => {
       await bookmarks.addBookmark({ accountId, materialId: protectedId }),
     ).toEqual({ ok: false, error: { code: "access_denied" } });
     const memberId = await memberWithAccess();
-    await database.prisma.legacyClassification.update({
-      where: { accountId: memberId },
-      data: {
-        bridgeCoverage: { productIds: [], materialIds: [protectedId] },
-      },
-    });
     expect(
       await bookmarks.addBookmark({
         accountId: memberId,

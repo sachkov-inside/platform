@@ -17,6 +17,8 @@ import { ACCOUNTS, type Accounts } from "../modules/accounts/index.js";
 import { PgBossQueueDiagnostics } from "../infrastructure/pg-boss-queue-diagnostics.js";
 import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
 import { SalesFunnelModule } from "../modules/sales-funnel/index.js";
+import { ProductAuthoringCompositionModule } from "./composition/product-authoring-composition.module.js";
+import { ContentAccessCompositionModule } from "./composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
 import { BillingModule } from "../modules/billing/index.js";
 import { CommunicationsModule } from "../modules/communications/index.js";
@@ -105,6 +107,8 @@ export class McpModule {
         WebTelemetryModule,
         CommunicationsModule,
         MaterialsModule,
+        ContentAccessCompositionModule,
+        ProductAuthoringCompositionModule,
         BillingModule,
         SalesFunnelModule,
         ProductTasksModule,

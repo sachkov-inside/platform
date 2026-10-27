@@ -1449,7 +1449,7 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
     expect(materialMigrationIndex).toBeGreaterThan(0);
     expect(emailMigrationIndex).toBe(materialMigrationIndex + 2);
     expect(platformMigrations[materialMigrationIndex - 1]?.name).toBe(
-      "0108_submission_activity_period",
+      "0121_submission_activity_period",
     );
     const legacyRegistry = platformMigrations.slice(0, materialMigrationIndex);
     const throughCarriers = platformMigrations.slice(

@@ -28,7 +28,7 @@ const libraryCatalogPageSchema: z.ZodType<LibraryCatalogPage> =
         facets: z
           .object({
             formats: z.array(catalogFacetSchema),
-            series: z.array(catalogFacetSchema),
+            products: z.array(catalogFacetSchema),
             topics: z.array(catalogFacetSchema),
           })
           .strict(),

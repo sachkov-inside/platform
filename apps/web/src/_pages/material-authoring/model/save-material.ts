@@ -9,7 +9,7 @@ import { productRemovalSchema } from "@/shared/lib/product-removal";
 
 import {
   materialDocumentWireSchema,
-  materialSeriesIdsWireSchema,
+  materialProductIdsWireSchema,
 } from "./material-document-wire";
 
 const issueSchema = z
@@ -78,7 +78,7 @@ export const saveMaterialInputSchema = z.object({
     .default([]),
   primaryVideoId: z.uuid().nullable().default(null),
   publicationState: z.enum(["draft", "published", "unpublished"]),
-  seriesIds: materialSeriesIdsWireSchema,
+  productIds: materialProductIdsWireSchema,
   submissionId: z.uuid(),
   summary: z.string().trim().max(500),
   tagIds: z.array(z.uuid()).max(100).readonly().default([]),

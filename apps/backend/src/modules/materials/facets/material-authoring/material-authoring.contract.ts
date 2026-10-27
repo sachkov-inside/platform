@@ -10,10 +10,10 @@ import type {
   ValidationIssue,
 } from "../../domain/material-body/material-body.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
-import type { ContentCoverProjection } from "../content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 
 export interface ProductMembershipInput {
-  readonly seriesId: string;
+  readonly productId: string;
   readonly ordinal: number;
 }
 
@@ -26,15 +26,15 @@ export interface MaterialMetadataSelectionInput {
   readonly topicId: string | null;
   readonly formatId: string | null;
   readonly tagIds: readonly string[];
-  readonly seriesIds: readonly string[];
+  readonly productIds: readonly string[];
 }
 
 export interface MaterialMetadataDto extends Omit<
   MaterialMetadataSelectionInput,
-  "seriesIds"
+  "productIds"
 > {
   readonly slug: string | null;
-  readonly seriesMemberships: readonly ProductMembershipInput[];
+  readonly productMemberships: readonly ProductMembershipInput[];
 }
 
 export interface MaterialDto {
@@ -73,9 +73,9 @@ export type InvalidReferenceError = {
   readonly code: "invalid_reference";
   readonly issues: readonly ValidationIssue[];
 };
-export type SeriesOrdinalConflictError = {
-  readonly code: "series_ordinal_conflict";
-  readonly seriesId: string;
+export type ProductOrdinalConflictError = {
+  readonly code: "product_ordinal_conflict";
+  readonly productId: string;
   readonly ordinal: number;
 };
 export type SystemError =

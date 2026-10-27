@@ -1,6 +1,5 @@
 import { hasText } from "../../shared/text.js";
-import { MARKETING_CONSENT_CALLBACK } from "../../modules/communications/marketing-entry.js";
-import type { AccessAction } from "../../modules/subscription-activation/subscription-activation.js";
+import type { AccessAction } from "../../modules/course-activation/course-activation.js";
 import { createHash } from "node:crypto";
 
 import type { Update } from "grammy/types";
@@ -10,7 +9,7 @@ import type {
   VerifiedPrivateStart,
 } from "../../shared/telegram-contact.js";
 import type { CommunityJoinRequest } from "../../modules/community/community-provider.js";
-import type { DurableMembershipEnvelope } from "../../modules/membership-evidence/membership-evidence-provider.js";
+import type { DurableMembershipEnvelope } from "../../modules/community/membership-event.js";
 import type { VerifiedSignInDecision } from "../../modules/bot-sign-in/bot-sign-in.js";
 import type {
   TelegramUpdateCommand,
@@ -58,19 +57,9 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
       },
     };
   }
-  if (start.argument.startsWith("i_") && start.argument.length < 43) {
-    return {
-      ...payload,
-      message: {
-        ...message,
-        text: start.command,
-        _inside_invitation: {
-          code: /^i_[A-Za-z0-9_-]{1,40}$/.test(start.argument)
-            ? start.argument.slice(2)
-            : null,
-        },
-      },
-    };
+  if (start.argument.startsWith("i_")) {
+    // Retired invitation payloads are redacted and carry no application operation.
+    return { ...payload, message: { ...message, text: start.command } };
   }
   // Never reinterpret any legacy auth token, including ones starting with m_.
   if (start.argument.startsWith("m_") && start.argument.length < 43) {
@@ -236,20 +225,6 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
           enabled: preference.match[1] === "/resume",
           via: "command",
         },
-      };
-    }
-    const consent = privateCallback(
-      botIdentity,
-      updateId,
-      update,
-      observedAt,
-      MARKETING_CONSENT_CALLBACK,
-    );
-    if (consent) {
-      return {
-        kind: "marketing_preference",
-        value: { contact: consent.contact, enabled: true, via: "consent" },
-        callbackQueryId: consent.callbackQueryId,
       };
     }
     const start = this.privateStart(botIdentity, updateId, update, observedAt);
@@ -477,11 +452,6 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         typeof message["_inside_activation"]["code"] === "string")
         ? { activationCode: message["_inside_activation"]["code"] }
         : {}),
-      ...(isRecord(message["_inside_invitation"]) &&
-      (message["_inside_invitation"]["code"] === null ||
-        typeof message["_inside_invitation"]["code"] === "string")
-        ? { invitationCode: message["_inside_invitation"]["code"] }
-        : {}),
       ...(linkToken ? { linkToken } : {}),
       ...(signInToken ? { signInToken } : {}),
       ...(typeof message["_inside_marketing_source"] === "string"
@@ -567,44 +537,6 @@ function readLinkToken(
     return { digest: value["digest"], kind: "digest" };
   }
   return { kind: "malformed" };
-}
-
-/** A press of the given button by the person in their own private chat with the bot. */
-function privateCallback(
-  botIdentity: string,
-  updateId: string,
-  update: Partial<Update>,
-  observedAt: Date,
-  data: string,
-):
-  | {
-      readonly contact: VerifiedPrivateStart;
-      readonly callbackQueryId: string;
-    }
-  | undefined {
-  const callback = update.callback_query;
-  if (
-    !callback ||
-    !("data" in callback) ||
-    callback.data !== data ||
-    callback.from.is_bot ||
-    callback.message?.chat.type !== "private" ||
-    callback.from.id !== callback.message.chat.id ||
-    callback.id.length > 128
-  )
-    return undefined;
-  const user = telegramId(callback.from.id);
-  if (!hasText(user)) return undefined;
-  return {
-    contact: {
-      botIdentity,
-      updateId,
-      observedAt,
-      telegramUserId: user,
-      privateChatId: user,
-    },
-    callbackQueryId: callback.id,
-  };
 }
 
 function privateSignInDecision(

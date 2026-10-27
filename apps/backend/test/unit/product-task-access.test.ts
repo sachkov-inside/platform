@@ -24,7 +24,7 @@ function access(
   } = {},
 ) {
   const membershipRequests: (readonly string[] | undefined)[] = [];
-  const task = { taskId, productId, version: 2, ...facts };
+  const task = { taskId, productId, version: 2 as const, ...facts };
   const contentAccess = assembleContentAccess({
     materialResourceFacts: {
       findMany: () => Promise.resolve([]),
@@ -72,7 +72,7 @@ function access(
 
 describe("Content Access on a Product Task (#946)", () => {
   test("a free published task is open to everyone", async () => {
-    const free = access({ access: "free", published: true });
+    const free = access({ access: "free", published: true, archived: false });
     for (const subject of [anonymousSubject, learner]) {
       expect(await free.decide(subject)).toMatchObject({
         effect: "allow",
@@ -85,7 +85,7 @@ describe("Content Access on a Product Task (#946)", () => {
 
   test("a paid task opens through the Product of the task, which Membership Entitlements judge", async () => {
     const open = access(
-      { access: "closed", published: true },
+      { access: "closed", published: true, archived: false },
       { membership: { kind: "active", validUntil: null } },
     );
     expect(await open.decide(learner)).toMatchObject({
@@ -94,7 +94,11 @@ describe("Content Access on a Product Task (#946)", () => {
     });
     // `product:<id>` and a `materials` Coverage covering the Product both answer for this Product.
     expect(open.membershipRequests).toEqual([[productId]]);
-    const closed = access({ access: "closed", published: true });
+    const closed = access({
+      access: "closed",
+      published: true,
+      archived: false,
+    });
     expect(await closed.decide(learner)).toMatchObject({
       effect: "deny",
       reason: "membership_required",
@@ -109,7 +113,7 @@ describe("Content Access on a Product Task (#946)", () => {
   test("an unpublished task is closed to everyone except its author", async () => {
     for (const taskAccess of ["free", "closed"] as const) {
       const learnerView = access(
-        { access: taskAccess, published: false },
+        { access: taskAccess, published: false, archived: false },
         { membership: { kind: "active", validUntil: null } },
       );
       expect(await learnerView.decide(learner)).toMatchObject({
@@ -124,7 +128,7 @@ describe("Content Access on a Product Task (#946)", () => {
         "unavailable",
       );
       const author = access(
-        { access: taskAccess, published: false },
+        { access: taskAccess, published: false, archived: false },
         { manager: true },
       );
       expect(await author.decide(learner)).toMatchObject({
@@ -134,4 +138,34 @@ describe("Content Access on a Product Task (#946)", () => {
       expect(await author.availability(learner)).toBe("available");
     }
   });
+  test.each(["free", "closed"] as const)(
+    "an archived published %s Task requires whole-Product access, including for a manager",
+    async (taskAccess) => {
+      const denied = access(
+        { access: taskAccess, published: true, archived: true },
+        { manager: true },
+      );
+      for (const subject of [anonymousSubject, learner]) {
+        expect(await denied.decide(subject)).toMatchObject({
+          effect: "deny",
+          reason: "resource_not_found",
+        });
+        expect(await denied.availability(subject)).toBe("unavailable");
+      }
+      const holder = access(
+        { access: taskAccess, published: true, archived: true },
+        { membership: { kind: "active", validUntil: null } },
+      );
+      expect(await holder.decide(learner)).toMatchObject({
+        effect: "allow",
+        reason: "active_membership",
+      });
+      expect(await holder.availability(learner)).toBe("available");
+      expect(
+        holder.membershipRequests.every(
+          (ids) => ids?.length === 1 && ids[0] === productId,
+        ),
+      ).toBe(true);
+    },
+  );
 });

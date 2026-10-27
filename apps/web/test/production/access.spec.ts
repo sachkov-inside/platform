@@ -30,7 +30,8 @@ import {
 import {
   expiredGrantEndsAt,
   productA,
-  freePracticeId,
+  retiredPracticeId,
+  freeTaskCode,
   identityEmail,
   passCells,
   productionTarget,
@@ -130,7 +131,7 @@ test("production access observes every live cell in one isolated scenario", asyn
             productionTarget.learnerMcp,
             await learnerTokenOf(identity),
             "learning_practice_read",
-            { practiceId: freePracticeId, part: 0 },
+            { practiceId: retiredPracticeId, part: 0 },
           );
           expectDenial(identity, call, "practice_not_available");
           assertMcpDenial(call.raw, "practice_not_available");
@@ -518,23 +519,29 @@ test("production access observes every live cell in one isolated scenario", asyn
   async function observeFreePracticeThroughMcp(
     actor: Actor,
   ): Promise<Observation> {
+    if (freeTaskCode === null)
+      throw new Error(
+        "Current free Task publication is deferred by pass configuration",
+      );
     const token = await learnerTokenOf(actor);
     const call = await callMcpTool(
       productionTarget.learnerMcp,
       token,
-      "learning_practice_read",
-      { practiceId: freePracticeId, part: 0 },
+      "learning_task_read",
+      { code: freeTaskCode, part: 0 },
     );
     const context = await readContextParts(
       token,
-      "learning_practice_read",
-      { practiceId: freePracticeId },
+      "learning_task_read",
+      { code: freeTaskCode },
       call,
     );
     z.object({
       payload: z.object({
-        practice: z.unknown(),
-        referenceLesson: z.unknown(),
+        task: z.object({
+          code: z.literal(freeTaskCode),
+          definition: z.unknown(),
+        }),
       }),
     }).parse(context);
     return {

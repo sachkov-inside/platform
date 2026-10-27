@@ -40,7 +40,7 @@ function CourseLocationObserver({
   const from = params.getAll("from");
   const courseSlug = parseMaterialReaderReturnTarget(
     from.length === 1 ? from[0] : undefined,
-  ).seriesSlug;
+  ).productSlug;
   useLayoutEffect(() => {
     onChange({ pathname, courseSlug });
   }, [onChange, pathname, courseSlug]);
@@ -84,7 +84,7 @@ export function CourseReadingHost({
   const courseSlug =
     context == null
       ? undefined
-      : parseMaterialReaderReturnTarget(context.href).seriesSlug;
+      : parseMaterialReaderReturnTarget(context.href).productSlug;
   const targets =
     context == null
       ? []
@@ -139,7 +139,7 @@ export function CourseReadingHost({
             target.pathname.startsWith("/materials/") &&
             parseMaterialReaderReturnTarget(
               target.searchParams.get("from") ?? undefined,
-            ).seriesSlug !== courseSlug
+            ).productSlug !== courseSlug
           )
             return;
           const destination = [

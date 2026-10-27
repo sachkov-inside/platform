@@ -37,7 +37,7 @@ export function LearningContinuationView({
   continuation,
 }: {
   readonly continuation: {
-    readonly series?:
+    readonly product?:
       | {
           readonly collection: { readonly name: string; readonly slug: string };
           readonly read: number;
@@ -52,8 +52,8 @@ export function LearningContinuationView({
       | undefined;
   };
 }) {
-  const { series, video } = continuation;
-  if (series === undefined && video === undefined) return null;
+  const { product, video } = continuation;
+  if (product === undefined && video === undefined) return null;
   return (
     <div className="min-w-0" data-learning-continuation>
       <section
@@ -64,19 +64,19 @@ export function LearningContinuationView({
           Продолжить обучение
         </h2>
         <ul className="space-y-2">
-          {series === undefined ? null : (
+          {product === undefined ? null : (
             <li>
               <Link
                 className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:bg-background/70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                aria-label={`Продолжить продукт ${series.collection.name}`}
-                href={productProgrammeHref(series.collection.slug)}
+                aria-label={`Продолжить продукт ${product.collection.name}`}
+                href={productProgrammeHref(product.collection.slug)}
               >
                 <span className="min-w-0">
                   <strong className="line-clamp-2 text-sm font-semibold sm:text-base">
-                    {series.collection.name}
+                    {product.collection.name}
                   </strong>
                   <span className="block text-xs text-muted-foreground">
-                    Прочитано {series.read} из {series.total}
+                    Прочитано {product.read} из {product.total}
                   </span>
                 </span>
                 <ArrowRight aria-hidden="true" className="size-5 shrink-0" />

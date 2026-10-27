@@ -2,7 +2,7 @@ import type { ProductChapterTask } from "@/entities/product-task.model";
 import type { ProductLandingPage } from "@/entities/product-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
-export type LibraryDiscoveryKind = "related" | "series" | "topic";
+export type LibraryDiscoveryKind = "related" | "product" | "topic";
 
 /**
  * Author-written fields that tell a reader who a Product is for, what they will be
@@ -81,7 +81,7 @@ export type LibraryDiscoveryResult<
       readonly items: readonly MaterialPreview[];
       readonly kind: "ready";
       readonly reference: LibraryDiscoveryReference;
-      readonly relatedSeries: readonly RelatedPlaylist[];
+      readonly relatedProduct: readonly RelatedPlaylist[];
       readonly topics: readonly DiscoveryTopic[];
     }
   | {
@@ -90,14 +90,14 @@ export type LibraryDiscoveryResult<
       readonly discoveryKind: DiscoveryKind;
       readonly kind: "empty";
       readonly reference: LibraryDiscoveryReference;
-      readonly relatedSeries: readonly RelatedPlaylist[];
+      readonly relatedProduct: readonly RelatedPlaylist[];
       readonly topics: readonly DiscoveryTopic[];
     }
   | { readonly kind: "not-found" }
   | { readonly kind: "unavailable" };
 
 export type PublishedTopicResult = LibraryDiscoveryResult<"topic">;
-export type PublishedSeriesResult = LibraryDiscoveryResult<"series">;
+export type PublishedProductResult = LibraryDiscoveryResult<"product">;
 export type RelatedMaterialsResult = LibraryDiscoveryResult<"related">;
 
 /**

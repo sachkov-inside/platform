@@ -1,3 +1,4 @@
+import { decodeStoredBroadcastAudience } from "./historical-sequence-decoder.js";
 import { type WaitlistAuthorization } from "./waitlist-authorization.js";
 import { waitlistContacts, previewWaitlist } from "./waitlist-broadcasts.js";
 import { botContactRows } from "../bot-contacts/contact-access.js";
@@ -13,7 +14,7 @@ import {
   validateContent,
 } from "./communications-contract.js";
 import { lockContactRows, planDeliveries } from "./communication-state.js";
-import { cancelDelivery } from "./funnel-timeline.js";
+import { cancelDelivery } from "./sequence-timeline.js";
 import { nextCursor } from "./communication-queries.js";
 
 type Broadcast = Selectable<DatabaseSchema["communication_broadcasts"]>;
@@ -24,7 +25,7 @@ export function broadcastView(row: Broadcast) {
     revision: row.revision,
     state: row.state,
     parts: row.parts,
-    audience: row.audience,
+    audience: decodeStoredBroadcastAudience(row.audience),
     scheduledAt: row.scheduled_at?.toISOString() ?? null,
     audienceSnapshotId: row.audience_snapshot_id,
     snapshotSize: row.snapshot_size,
@@ -122,14 +123,14 @@ export async function applyBroadcast(
         (parts[0]?.sendAfterSeconds ?? 0) !== 0)
     )
       throw new CommunicationsError("malformed");
-    if (audience.kind === "funnels") {
-      const ids = [...new Set(audience.funnelIds)];
+    if (audience.kind === "sequences") {
+      const ids = [...new Set(audience.sequenceIds)];
       const owned = await tx
-        .selectFrom("communication_funnels")
-        .select("funnel_id")
+        .selectFrom("communication_sequences")
+        .select("sequence_id")
         .where("bot_identity", "=", bot)
         .where("owner_account_ref", "=", actor)
-        .where("funnel_id", "in", ids)
+        .where("sequence_id", "in", ids)
         .execute();
       if (owned.length !== ids.length)
         throw new CommunicationsError("not_found");
@@ -239,11 +240,11 @@ async function launchBroadcast(
     const contacts = await waitlistContacts(tx, row, waitlist);
     return snapshotBroadcast(tx, row, contacts, now);
   }
-  // All includes legacy contacts who never entered a marketing funnel. No enrollment is created.
+  // All includes legacy contacts who never entered a marketing sequence. No participation is created.
   await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id)
     select gen_random_uuid(),bot_identity,telegram_user_id from (${botContactRows(tx)}) b where bot_identity=${row.bot_identity}
     on conflict(bot_identity,telegram_user_id) do nothing`.execute(tx);
-  const audience = row.audience;
+  const audience = decodeStoredBroadcastAudience(row.audience);
   // Shared row locks order the snapshot with a concurrent stop or block: either that change
   // commits first and the contact is left out, or it waits and then cancels the new delivery.
   // The first part is due at its own offset, so the dispatch queue order matches send time.
@@ -260,14 +261,14 @@ async function launchBroadcast(
     .where("c.unavailable_since", "is", null)
     .where("b.contactability", "=", "reachable")
     .forShare("c");
-  if (audience.kind === "funnels")
+  if (audience.kind === "sequences")
     query = query.where((eb) =>
       eb.exists(
         eb
-          .selectFrom("communication_enrollments as e")
+          .selectFrom("communication_participations as e")
           .select("e.contact_id")
           .whereRef("e.contact_id", "=", "c.contact_id")
-          .where("e.funnel_id", "in", audience.funnelIds),
+          .where("e.sequence_id", "in", audience.sequenceIds),
       ),
     );
   const contacts = (await query.execute()).map((c) => c.contact_id);

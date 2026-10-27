@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 
 import type { CommunitySnapshot } from "../modules/community/community-provider.js";
-import type { ReconciliationBatchOutcome } from "../modules/membership-evidence/membership-reconciliation.js";
+
 import {
   RUNTIME_COUNTER_NAMES,
   type RuntimeCounter,
@@ -48,18 +48,6 @@ export class RuntimeMetrics implements RuntimeCounters {
 
   increment(counter: RuntimeCounter, amount = 1): void {
     this.counters.set(counter, (this.counters.get(counter) ?? 0) + amount);
-  }
-
-  recordReconciliation(outcome: ReconciliationBatchOutcome): void {
-    this.increment("reconciliation_success", outcome.succeeded);
-    this.increment("reconciliation_failure", outcome.failed);
-    this.increment("reconciliation_degraded", outcome.degraded);
-    this.gauges.set("reconciliation_due", outcome.dueRemaining);
-    this.gauges.set(
-      "reconciliation_oldest_due_seconds",
-      outcome.oldestDueAgeMs / 1000,
-    );
-    this.gauges.set("evidence_delivery_backlog", outcome.evidenceBacklog);
   }
 
   /** Community apply/reconcile lag is what makes an overdue right visible to an operator. */

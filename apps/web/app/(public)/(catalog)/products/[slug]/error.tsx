@@ -4,7 +4,7 @@ import { LibraryDiscoveryUnexpectedError } from "@/_pages/library-discovery";
 import { useRenderErrorReport } from "@/features/client-telemetry";
 
 /** `retry` перечитывает страницу с сервера; `reset` перерисовал бы тот же сбой без запроса. */
-export default function SeriesError({
+export default function ProductError({
   error,
   retry,
 }: {

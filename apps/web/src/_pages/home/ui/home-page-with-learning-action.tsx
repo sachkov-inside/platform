@@ -5,6 +5,10 @@ import { Suspense } from "react";
 import { CohortCallView } from "@/features/ai-engineering-course";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { hasText } from "@/shared/lib/text";
+import {
+  fillPinnedOfferTerms,
+  withoutPinnedOfferTerms,
+} from "../api/home-with-offer-terms.server";
 import { readHomeCourseAction } from "../api/home-course-action.server";
 import type { HomePinnedCollection, HomeResult } from "../model/home-view";
 import { HomePage } from "./home-page";
@@ -15,15 +19,29 @@ export function HomePageWithLearningAction({
 }: {
   readonly result: HomeResult;
 }) {
-  const series = result.kind === "ready" ? result.value.pinnedSeries : null;
+  return (
+    <Suspense
+      fallback={
+        <HomeWithLearningAction result={withoutPinnedOfferTerms(result)} />
+      }
+    >
+      <HomeWithOfferTerms result={result} />
+    </Suspense>
+  );
+}
+async function HomeWithOfferTerms({ result }: { readonly result: HomeResult }) {
+  return <HomeWithLearningAction result={await fillPinnedOfferTerms(result)} />;
+}
+function HomeWithLearningAction({ result }: { readonly result: HomeResult }) {
+  const product = result.kind === "ready" ? result.value.pinnedProduct : null;
   return (
     <HomePage
       result={result}
       courseCall={
-        series?.presentation === "ai-engineering-course" &&
-        series.hero !== null ? (
-          <Suspense fallback={<GuestCourseCall series={series} />}>
-            <PersonalCourseCall series={series} />
+        product?.presentation === "ai-engineering-course" &&
+        product.hero !== null ? (
+          <Suspense fallback={<GuestCourseCall product={product} />}>
+            <PersonalCourseCall product={product} />
           </Suspense>
         ) : undefined
       }
@@ -32,9 +50,9 @@ export function HomePageWithLearningAction({
 }
 
 function GuestCourseCall({
-  series,
+  product,
 }: {
-  readonly series: HomePinnedCollection;
+  readonly product: HomePinnedCollection;
 }) {
   return (
     <CohortCallView
@@ -42,9 +60,9 @@ function GuestCourseCall({
         banner: null,
         action: {
           kind: "programme",
-          href: collectionDiscoveryHref("series", series.slug, "/"),
-          label: hasText(series.card?.action)
-            ? series.card.action
+          href: collectionDiscoveryHref("product", product.slug, "/"),
+          label: hasText(product.card?.action)
+            ? product.card.action
             : "Открыть курс",
         },
       }}
@@ -53,13 +71,13 @@ function GuestCourseCall({
 }
 
 async function PersonalCourseCall({
-  series,
+  product,
 }: {
-  readonly series: HomePinnedCollection;
+  readonly product: HomePinnedCollection;
 }) {
-  const action = await readHomeCourseAction(series.id, series.slug);
+  const action = await readHomeCourseAction(product.id, product.slug);
   return action === null ? (
-    <GuestCourseCall series={series} />
+    <GuestCourseCall product={product} />
   ) : (
     <CohortCallView call={{ banner: null, action }} />
   );

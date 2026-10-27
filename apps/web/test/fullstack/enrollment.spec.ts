@@ -1,413 +1,218 @@
 import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { signInFullStack } from "../support/full-stack-session";
+import { z } from "zod";
+import {
+  fullStackBrowserJsonRequest,
+  signInFullStack,
+} from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
-import { backendFixtureInstant } from "../support/backend-fixture-clock";
-test("owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL", async ({
+
+test("owner issues, withdraws and explicitly restores one Product right through real BFF and PostgreSQL", async ({
   page,
   context,
 }, info) => {
   await signInFullStack(context, "OWNER");
   const owner = process.env["ENROLLMENT_OWNER_ID"];
-  if (owner === undefined || owner === "")
-    throw new Error("Missing enrollment owner fixture");
-  async function selectRecipient(surface: typeof page) {
-    await surface
-      .getByRole("tab", { name: "Назначения и перенос", exact: true })
-      .click();
-    await surface.getByRole("tab", { name: "Назначения", exact: true }).click();
-    await surface
-      .getByLabel("Подтверждённая Telegram identity получателя")
-      .fill("synthetic-owner-624");
-    await surface
-      .getByRole("button", { name: "Найти получателя", exact: true })
-      .click();
-    await expect(
-      surface.getByText(`Аккаунт: ${String(owner)}`, { exact: true }),
-    ).toBeVisible();
-    await surface
-      .getByRole("button", {
-        name: "Выбрать получателя и показать назначения",
-        exact: true,
-      })
-      .click();
+  const productId = process.env["ENROLLMENT_PRODUCT_ID"];
+  if (
+    owner === undefined ||
+    owner === "" ||
+    productId === undefined ||
+    productId === ""
+  )
+    throw new Error("Missing Product access owner fixture");
+  const pair = { accountId: owner, productId };
+  const stateSchema = z.object({
+    ok: z.literal(true),
+    value: z.object({
+      value: z.object({
+        access: z.enum(["active", "revoked"]),
+        revision: z.int(),
+        firstIssuedAt: z.iso.datetime().nullable(),
+        sources: z.array(z.object({ sourceRef: z.string() })),
+        actions: z.array(z.object({ kind: z.string() })),
+      }),
+    }),
+  });
+  async function read() {
+    const response = await fullStackBrowserJsonRequest(
+      page,
+      "/api/authoring/access/products/read",
+      "POST",
+      pair,
+    );
+    expect(response.status()).toBe(200);
+    return stateSchema.parse(await response.json()).value.value;
   }
-  await page.goto("/authoring/billing");
+  await page.goto("/authoring/access");
+  const section = page
+    .getByRole("heading", { name: "Доступ к продуктам", exact: true })
+    .locator("..");
+  await section.getByLabel("Account", { exact: true }).fill(owner);
+  await section.getByLabel("Продукт", { exact: true }).fill(productId);
+  const sourceRef = `synthetic-owner-${info.project.name}`;
+  await section.getByLabel("Основание выдачи").fill(sourceRef);
+  await section
+    .getByLabel("Причина выдачи")
+    .fill("Синтетическая ручная выдача Product");
+  await section
+    .getByRole("button", { name: "Выдать бессрочный доступ", exact: true })
+    .click();
+  await expect(section.getByRole("status")).toHaveText(
+    "Бессрочное право сохранено.",
+  );
+  const issued = await read();
+  expect(issued.access).toBe("active");
+  expect(
+    issued.sources.filter((source) => source.sourceRef === sourceRef),
+  ).toHaveLength(1);
+  const cabinet = await context.newPage();
+  await cabinet.goto("/account");
+  const cookieNotice = cabinet.getByRole("button", {
+    name: "Понятно",
+    exact: true,
+  });
+  if (await cookieNotice.isVisible()) await cookieNotice.click();
+  const card = cabinet.locator(`[data-account-product="${productId}"]`);
   await expect(
-    page.getByRole("heading", { name: "Продажи и платежи" }),
+    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
   ).toBeVisible();
-  const tierName = `Практика ${info.project.name}`;
-  await page.getByRole("tab", { name: "Предложения", exact: true }).click();
-  await page.getByRole("tab", { name: "Состав тарифа", exact: true }).click();
-  await page.getByRole("button", { name: "Новый тариф", exact: true }).click();
-  await page.getByLabel("Название", { exact: true }).first().fill(tierName);
-  await page
-    .getByRole("checkbox", { name: "Инженерная практика", exact: true })
-    .check();
-  await page
-    .getByRole("checkbox", { name: "Сообщество продукта", exact: true })
-    .check();
-  await page
-    .getByRole("checkbox", { name: "Вопросы автору и эфиры", exact: true })
-    .check();
-  await page
-    .getByRole("combobox", {
-      name: "Срок: Вопросы автору и эфиры",
+  // Repeating the same source preserves the first issuance and the source history.
+  await section
+    .getByRole("button", { name: "Выдать бессрочный доступ", exact: true })
+    .click();
+  await expect(
+    section.getByRole("button", {
+      name: "Выдать бессрочный доступ",
       exact: true,
-    })
-    .selectOption("months");
-  await page
-    .getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true })
-    .fill("6");
-  await page.getByLabel("Доступен для назначения").check();
-  await page
-    .getByLabel("Продукт: Инженерная практика", { exact: true })
-    .check();
-  await page
-    .getByRole("button", { name: "Сохранить предложение", exact: true })
+    }),
+  ).toBeEnabled();
+  const repeated = await read();
+  expect(repeated.firstIssuedAt).toBe(issued.firstIssuedAt);
+  expect(
+    repeated.sources.filter((source) => source.sourceRef === sourceRef),
+  ).toHaveLength(1);
+  const revoke = section.getByRole("region", {
+    name: `Отзыв доступа к продукту для Account ${owner}`,
+    exact: true,
+  });
+  await revoke
+    .getByRole("combobox", { name: "Продукт", exact: true })
+    .selectOption(productId);
+  await revoke
+    .getByRole("button", { name: "Проверить доступ", exact: true })
+    .click();
+  await revoke
+    .getByLabel("Причина", { exact: true })
+    .fill("Синтетический отзыв Product");
+  await revoke
+    .getByRole("button", { name: "Отозвать доступ к продукту", exact: true })
+    .click();
+  await expect(revoke.getByRole("status")).toContainText(
+    "Доступ к продукту отозван",
+  );
+  const withdrawn = await read();
+  expect(withdrawn.access).toBe("revoked");
+  await cabinet.reload();
+  await expect(card.getByText("Доступ отозван", { exact: true })).toBeVisible();
+  // Another source cannot silently undo withdrawal.
+  await section.getByLabel("Основание выдачи").fill(`${sourceRef}-other`);
+  await section
+    .getByRole("button", { name: "Выдать бессрочный доступ", exact: true })
     .click();
   await expect(
-    page.getByText("Предложение сохранено, редакция 1.", { exact: true }),
+    section.getByText(
+      "Доступ отозван. Для возврата права используйте явное восстановление.",
+      { exact: true },
+    ),
   ).toBeVisible();
-  await page
-    .getByRole("tab", { name: "Назначения и перенос", exact: true })
+  expect((await read()).access).toBe("revoked");
+  await section
+    .getByRole("button", { name: "Показать права", exact: true })
     .click();
+  await section
+    .getByRole("button", { name: "История права", exact: true })
+    .click();
+  await expect(
+    section.getByRole("heading", { name: "История права", exact: true }),
+  ).toBeVisible();
+  await section
+    .getByLabel("Причина восстановления")
+    .fill("Явное синтетическое решение владельца");
+  await section
+    .getByRole("button", { name: "Явно восстановить доступ", exact: true })
+    .click();
+  await expect(
+    section.getByText("Доступ явно восстановлен владельцем.", { exact: true }),
+  ).toBeVisible();
+  const restored = await read();
+  expect(restored.access).toBe("active");
+  expect(restored.firstIssuedAt).toBe(issued.firstIssuedAt);
+  expect(restored.actions.map((action) => action.kind)).toEqual(
+    expect.arrayContaining(["revoke", "restore"]),
+  );
+  await cabinet.reload();
+  await expect(
+    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
+  ).toBeVisible();
+  await expect(card.getByText("Доступ отозван", { exact: true })).toHaveCount(
+    0,
+  );
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await page.locator("main").focus();
+    await screenshotWholePage(page, {
+      path: info.outputPath("owner-product-access.png"),
+    });
+  }
+  // Activation Rule now binds directly to Product and a separate Course source.
+  await page.goto("/authoring/billing");
   await page.getByRole("tab", { name: "Активация курса", exact: true }).click();
   const rules = page
-    .getByRole("heading", {
-      name: "Ссылки активации курса",
-      exact: true,
-    })
+    .getByRole("heading", { name: "Ссылки активации курса", exact: true })
     .locator("..");
-  const code = randomUUID();
   await rules.getByLabel("Идентификатор нового правила").fill(randomUUID());
+  const ruleName = `Правило ${info.project.name}`;
+  await rules.getByLabel("Название правила").fill(ruleName);
+  await rules.getByLabel("Код активации").fill(randomUUID());
+  await rules.getByLabel("Идентификатор продукта").fill(productId);
   await rules
-    .getByLabel("Название правила")
-    .fill(`Правило ${info.project.name}`);
-  await rules.getByLabel("Код активации").fill(code);
-  await rules
-    .getByRole("combobox", { name: "Тариф", exact: true })
-    .selectOption({ label: tierName });
-  await rules
-    .getByLabel("Подтверждаемый источник")
+    .getByLabel("Подтверждаемый источник курса")
     .fill(`synthetic-course-${info.project.name}`);
   await rules
-    .getByLabel("Начало по Москве")
-    .fill(
-      new Date(
-        Date.parse(await backendFixtureInstant(page.request)) - 86_400_000,
-      )
-        .toISOString()
-        .slice(0, 16),
-    );
-  await rules
     .getByLabel("Причина", { exact: true })
-    .fill("Синтетическая публикация правила");
+    .fill("Синтетическая привязка курса к Product");
   await rules.getByLabel("Опубликовать правило").check();
   await rules
     .getByRole("button", { name: "Создать правило", exact: true })
-    .evaluate((element) => {
-      element.scrollIntoView({ block: "center" });
-    });
-  await rules
-    .getByRole("button", { name: "Создать правило", exact: true })
     .click();
   await expect(
-    rules.getByText(`Правило ${info.project.name} · Опубликовано`, {
-      exact: true,
-    }),
+    rules.getByText(`${ruleName} · Опубликовано`, { exact: true }),
   ).toBeVisible();
-  const cabinet = await context.newPage();
-  await cabinet.goto("/account");
-  async function expectProducts() {
-    await expect(
-      cabinet.getByRole("heading", { name: "Мои продукты", exact: true }),
-    ).toBeVisible();
+  for (const surface of [page, cabinet]) {
+    const scan = await new AxeBuilder({ page: surface })
+      .include("main")
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    expect(
+      scan.violations.filter(
+        (item) => item.impact === "serious" || item.impact === "critical",
+      ),
+    ).toEqual([]);
+    expect(
+      await surface.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
   }
-  await expect(
-    cabinet.getByRole("heading", { name: "Личный кабинет", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("tab", { name: "Назначения", exact: true }).click();
-  await page
-    .getByLabel("Подтверждённая Telegram identity получателя")
-    .fill("absent-synthetic-624");
-  await page
-    .getByRole("button", { name: "Найти получателя", exact: true })
-    .click();
-  await expect(
-    page.getByText(
-      "Подтверждённый аккаунт не найден. Проверьте точный идентификатор Telegram.",
-    ),
-  ).toBeVisible();
-  await selectRecipient(page);
-  const otherOwner = await context.newPage();
-  await otherOwner.goto("/authoring/billing");
-  await selectRecipient(otherOwner);
-  await page
-    .getByRole("heading", { name: "Назначить тариф", exact: true })
-    .locator("..")
-    .getByRole("combobox", { name: "Тариф", exact: true })
-    .selectOption({ label: `${tierName} · не продаётся` });
-  await page
-    .getByRole("combobox", { name: "Источник", exact: true })
-    .first()
-    .selectOption("course");
-  await page
-    .getByLabel("Постоянный источник")
-    .fill(`synthetic-course-${info.project.name}`);
-  await expect(
-    page.getByLabel("Подтверждённая Telegram identity", { exact: true }),
-  ).toHaveValue("synthetic-owner-624");
-  await page
-    .getByLabel("Причина и подтверждение")
-    .fill("Подтверждённый синтетический курс browser acceptance");
-  await page
-    .getByRole("button", { name: "Назначить без оплаты", exact: true })
-    .evaluate((element) => {
-      element.scrollIntoView({ block: "center" });
-    });
-  await page
-    .getByRole("button", { name: "Назначить без оплаты", exact: true })
-    .click();
-  await expect(
-    page.getByText(
-      "Тариф назначен. Платёж и расписание списаний не создавались.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect(
-    otherOwner.getByRole("article").filter({
-      has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
-    }),
-  ).toBeVisible();
-  await expectProducts();
-  await expect(cabinet).toHaveURL(/\/account$/u);
-  const card = cabinet.locator(
-    '[data-account-product="62000000-0000-4000-8000-000000000701"]',
-  );
-  await expect(
-    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
-  ).toBeVisible();
-  await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
-  await expect(
-    card.getByRole("link", { name: "Открыть продукт" }),
-  ).toHaveAttribute("href", "/products/engineering-practice/programme");
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await cabinet.locator("main").focus();
     await screenshotWholePage(cabinet, {
-      path: info.outputPath("cabinet-enrollment.png"),
+      path: info.outputPath("cabinet-product-access.png"),
     });
-  }
-  const changes = page
-    .getByRole("heading", { name: `Изменить «${tierName}»` })
-    .locator("..");
-  await changes
-    .getByRole("combobox", { name: "Действие" })
-    .selectOption("revoke");
-  await changes
-    .getByLabel("Причина", { exact: true })
-    .fill("Синтетический отзыв");
-  await changes.getByRole("button", { name: "Применить изменение" }).click();
-  await card
-    .getByRole("button", { name: "Доступ и покупка", exact: true })
-    .click();
-  await expect(
-    card.getByText(`${tierName} · Отозвано`, { exact: false }),
-  ).toBeVisible();
-  const otherCard = otherOwner.getByRole("article").filter({
-    has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
-  });
-  await expect(otherCard.getByText("Отозвано", { exact: true })).toBeVisible();
-  await cabinet.goto("/account");
-  await expectProducts();
-  await card
-    .getByRole("button", { name: "Доступ и покупка", exact: true })
-    .click();
-  await expect(
-    card.getByText(`${tierName} · Отозвано`, { exact: false }),
-  ).toBeVisible();
-  await changes
-    .getByRole("combobox", { name: "Действие" })
-    .selectOption("restore");
-  await changes
-    .getByLabel("Причина", { exact: true })
-    .fill("Синтетическое восстановление");
-  await changes.getByRole("button", { name: "Применить изменение" }).click();
-  await expect(
-    card.getByText(`${tierName} · Отозвано`, { exact: false }),
-  ).toHaveCount(0);
-  await expect(
-    card.getByText(`${tierName} · Действует`, { exact: false }),
-  ).toBeVisible();
-  await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
-  // Unrelated catalog edits preserve finite benefit periods through real tiers.list and save.
-  await page.getByRole("tab", { name: "Предложения", exact: true }).click();
-  await page.getByRole("tab", { name: "Состав тарифа", exact: true }).click();
-  const catalogRow = page
-    .getByText(`${tierName} · назначается`, { exact: true })
-    .locator("..");
-  await catalogRow
-    .getByRole("button", { name: "Редактировать состав" })
-    .click();
-  await expect(
-    page.getByRole("checkbox", { name: "Сообщество продукта", exact: true }),
-  ).toBeChecked();
-  await expect(
-    page.getByRole("checkbox", { name: "Инженерная практика", exact: true }),
-  ).toBeChecked();
-  await expect(
-    page.getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true }),
-  ).toHaveValue("6");
-  await page
-    .getByLabel("Название", { exact: true })
-    .first()
-    .fill(`${tierName} обновлён`);
-  await page
-    .getByRole("button", { name: "Сохранить предложение", exact: true })
-    .click();
-  await expect(
-    page.getByText("Предложение сохранено, редакция 2.", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("checkbox", { name: "Сообщество продукта", exact: true }),
-  ).toBeChecked();
-  await expect(
-    page.getByRole("checkbox", { name: "Инженерная практика", exact: true }),
-  ).toBeChecked();
-  await expect(
-    page.getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true }),
-  ).toHaveValue("6");
-  // Add scoped materials explicitly; expansion preserves the original support deadline.
-  await page
-    .getByRole("checkbox", {
-      name: "Все опубликованные материалы и продукты",
-      exact: true,
-    })
-    .check();
-  await page
-    .getByRole("button", { name: "Сохранить предложение", exact: true })
-    .click();
-  await expect(
-    page.getByText("Предложение сохранено, редакция 3.", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("tab", { name: "Назначения и перенос", exact: true })
-    .click();
-  await page.getByRole("tab", { name: "Назначения", exact: true }).click();
-  const expansion = page
-    .getByRole("heading", { name: "Расширить состав выбранных назначений" })
-    .locator("..");
-  await expansion
-    .getByRole("combobox", { name: "Новая редакция тарифа", exact: true })
-    .selectOption({ label: `${tierName} обновлён · редакция 3` });
-  await expansion
-    .getByLabel(`${tierName} · редакция 1 · course`, { exact: true })
-    .check();
-  await expansion
-    .getByLabel("Причина расширения")
-    .fill("Синтетическая проверка двух окон");
-  await expansion
-    .getByRole("button", { name: "Проверить расширение", exact: true })
-    .click();
-  await expansion
-    .getByRole("button", {
-      name: "Применить проверенное расширение",
-      exact: true,
-    })
-    .click();
-  await expect(
-    otherOwner.getByRole("article").filter({
-      has: otherOwner.getByRole("heading", {
-        name: `${tierName} обновлён`,
-        exact: true,
-      }),
-    }),
-  ).toBeVisible();
-  await expect(
-    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
-  ).toBeVisible();
-  if (process.env["CAPTURE_EVIDENCE"] === "1") {
-    await screenshotWholePage(cabinet, {
-      path: info.outputPath("cabinet-enrollment.png"),
-    });
-  }
-  await page.getByRole("tab", { name: "Активация курса", exact: true }).click();
-  const savedRule = rules
-    .getByText(`Правило ${info.project.name} · Опубликовано`, { exact: true })
-    .locator("..");
-  await savedRule
-    .getByRole("combobox", { name: "Новая редакция тарифа", exact: true })
-    .selectOption({ label: `${tierName} обновлён · редакция 3` });
-  await savedRule
-    .getByLabel("Причина обновления правила")
-    .fill("Явное обновление тарифа для прежней ссылки");
-  await savedRule
-    .getByRole("button", { name: "Обновить привязку тарифа", exact: true })
-    .evaluate((element) => {
-      element.scrollIntoView({ block: "center" });
-    });
-  await savedRule
-    .getByRole("button", { name: "Обновить привязку тарифа", exact: true })
-    .click();
-  await expect(
-    savedRule.getByText(/Закреплена редакция тарифа 3/u),
-  ).toBeVisible();
-  await expect(
-    savedRule.getByText(
-      `Код: ${code} · источник: synthetic-course-${info.project.name} · Проверка курса`,
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await savedRule.scrollIntoViewIfNeeded();
-  expect(
-    await savedRule.evaluate(
-      (element) => element.getBoundingClientRect().right <= window.innerWidth,
-    ),
-  ).toBe(true);
-  if (process.env["CAPTURE_EVIDENCE"] === "1") {
-    await savedRule.screenshot({
-      path: info.outputPath("activation-rule.png"),
-    });
-  }
-  await otherOwner.close();
-  const results = await new AxeBuilder({ page: cabinet })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(
-    results.violations.filter(
-      (item) => item.impact === "serious" || item.impact === "critical",
-    ),
-  ).toEqual([]);
-  expect(
-    await cabinet.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  const ownerAudit = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(
-    ownerAudit.violations.filter(
-      (item) => item.impact === "serious" || item.impact === "critical",
-    ),
-  ).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await page.getByRole("tab", { name: "Назначения", exact: true }).click();
-  const ownerSection = page
-    .getByRole("heading", { name: "Тарифы и назначения", exact: true })
-    .locator("..");
-  expect(
-    await ownerSection.evaluate(
-      (element) => element.getBoundingClientRect().right <= window.innerWidth,
-    ),
-  ).toBe(true);
-  if (process.env["CAPTURE_EVIDENCE"] === "1") {
-    await ownerSection.screenshot({
-      path: info.outputPath("owner-enrollment.png"),
+    await page.locator("main").focus();
+    await screenshotWholePage(page, {
+      path: info.outputPath("owner-course-activation.png"),
     });
   }
   await cabinet.close();

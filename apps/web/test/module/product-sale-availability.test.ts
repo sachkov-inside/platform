@@ -54,7 +54,7 @@ it.each([1, 10, 100])(
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const memberships = Array.from({ length: size }, (_, index) => ({
       ordinal: index + 1,
-      series: {
+      product: {
         id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
         slug: `product-${String(index + 1)}`,
         name: `Product ${String(index + 1)}`,
@@ -81,7 +81,7 @@ it.each([1, 10, 100])(
       });
       vi.stubGlobal("fetch", boundary);
       const result = await resolvePurchaseProduct(
-        { seriesMemberships: memberships },
+        { productMemberships: memberships },
         undefined,
       );
       expect(result).toEqual(
@@ -97,9 +97,9 @@ it.each([1, 10, 100])(
 it("keeps explicit return Product precedence without reading other membership programmes", async () => {
   vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
   const material = {
-    seriesMemberships: [1, 2].map((index) => ({
+    productMemberships: [1, 2].map((index) => ({
       ordinal: index,
-      series: {
+      product: {
         id: `20000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         slug: `product-${String(index)}`,
         name: "Product",
@@ -129,18 +129,18 @@ it.each(["malformed", "missing"])(
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const boundary = vi.fn(() => Promise.resolve(Response.json({ items: [] })));
     vi.stubGlobal("fetch", boundary);
-    const series = {
+    const product = {
       slug: "unknown",
       name: "Unknown",
       id: "not-a-product-id",
     };
-    if (input === "missing") Reflect.deleteProperty(series, "id");
+    if (input === "missing") Reflect.deleteProperty(product, "id");
     const result = await resolvePurchaseProduct(
       {
-        seriesMemberships: [
+        productMemberships: [
           {
             ordinal: 1,
-            series,
+            product,
           },
         ],
       },
@@ -158,10 +158,10 @@ it("keeps an unavailable sale transport retryable for default and explicit invit
     vi.fn(() => Promise.resolve(new Response(null, { status: 503 }))),
   );
   const material = {
-    seriesMemberships: [
+    productMemberships: [
       {
         ordinal: 1,
-        series: {
+        product: {
           id: "20000000-0000-4000-8000-000000000001",
           slug: "product-1",
           name: "Product",

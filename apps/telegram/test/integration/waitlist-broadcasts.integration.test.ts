@@ -33,7 +33,7 @@ import { migrateToLatest } from "../../src/database/migrator.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { AUTHOR_AUTHORIZATION } from "../../src/modules/communications/author-authorization.js";
 import { COMMUNICATION_TRANSPORT } from "../../src/modules/communications/communication-delivery.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import { CLOCK, MONOTONIC_CLOCK } from "../../src/shared/clock.js";
 import { hasText } from "../../src/shared/text.js";
 const databaseUrl = process.env["DATABASE_URL"];
@@ -84,10 +84,10 @@ let intakeId: string;
 function command(operation: string, payload: unknown, expectedRevision = 0) {
   return app.inject({
     method: "POST",
-    url: "/integrations/platform/v1/communications",
+    url: "/integrations/platform/v2/communications",
     headers: { authorization: `Bearer ${config.communicationsSecret}` },
     payload: {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       operation,
       operationId: randomUUID(),
       expectedRevision,
@@ -120,7 +120,7 @@ beforeAll(async () => {
   await app.getHttpAdapter().getInstance().ready();
 });
 async function clearOwnedHistory() {
-  await sql`truncate waitlist_confirmations, communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_funnels, communication_intro, platform_links, link_transactions cascade`.execute(
+  await sql`truncate waitlist_confirmations, communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_sequences, communication_intro, platform_links, link_transactions cascade`.execute(
     database,
   );
 }
@@ -200,7 +200,7 @@ test("owner can prepare an explicit waitlist draft without sending or enabling m
     ],
   });
   expect(saved.statusCode).toBe(200);
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
 });
 
@@ -248,7 +248,7 @@ test("explicit launch sends only the real waitlist audience with global marketin
   ).toBe(200);
   const launched = await command("broadcasts.launch", { broadcastId }, 1);
   expect(launched.statusCode).toBe(200);
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
   expect(transport.send).toHaveBeenCalledTimes(1);
   expect(transport.send).toHaveBeenCalledWith(
     expect.objectContaining({ chatId: "42" }),
@@ -301,7 +301,7 @@ test("withdrawal after snapshot suppresses dispatch; a second broadcast cannot n
     active: 0,
     members: [],
   });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
   const second = await prepared();
   expect(
@@ -332,7 +332,7 @@ test("closed sale and unavailable eligibility never dispatch", async () => {
     (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
   ).toBe(200);
   waitlist.read.mockResolvedValue({ status: "unavailable" });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
 });
 test("preview exposes active and eligible audience and closed sale without sending", async () => {
@@ -358,12 +358,12 @@ test("unknown transport result remains unknown after repeated worker runs and la
     (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
   ).toBe(200);
   transport.send.mockResolvedValueOnce({ kind: "transport_unknown" });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(
     (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
   ).toBe(409);
-  const restarted = new FunnelScheduler(
+  const restarted = new SequenceScheduler(
     database,
     config,
     { now: () => new Date(instant) },
@@ -393,7 +393,7 @@ test("current stop after snapshot suppresses notification without resetting the 
     },
     false,
   );
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
   const statistics = await command("statistics.read", { broadcastId });
   expect(statistics.json()).toMatchObject({
@@ -410,7 +410,7 @@ test("a changed local verified identity is never substituted into the snapshot",
     .set({ telegram_identity_ref: "replacement-identity" })
     .where("account_ref", "=", member.accountRef)
     .execute();
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
 });
 
@@ -423,8 +423,8 @@ test("confirmed Telegram block is reported as failure and never retried", async 
     kind: "api_rejected",
     providerErrorCode: 403,
   });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).toHaveBeenCalledTimes(1);
   expect(
     (await command("statistics.read", { broadcastId })).json(),
@@ -459,7 +459,7 @@ test("ordinary broadcasts remain pending while the explicitly launched waitlist 
   expect(
     (await command("broadcasts.launch", { broadcastId: all }, 1)).statusCode,
   ).toBe(200);
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   const launches = await Promise.all([
     command("broadcasts.launch", { broadcastId }, 1),
     command("broadcasts.launch", { broadcastId }, 1),
@@ -467,7 +467,7 @@ test("ordinary broadcasts remain pending while the explicitly launched waitlist 
   expect(launches.map((response) => response.statusCode).sort()).toEqual([
     200, 409,
   ]);
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
   expect(transport.send).toHaveBeenCalledTimes(1);
   expect(
     (await command("statistics.read", { broadcastId: all })).json(),
@@ -491,7 +491,7 @@ test("withdrawal after the first Platform check but before the local claim preve
       members: active ? [member] : [],
     });
   });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
   expect(
     (await command("statistics.read", { broadcastId })).json(),
@@ -557,7 +557,7 @@ test("final eligibility outage releases an unsent claim without unknown delivery
       members: [member],
     });
   });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
   expect(
     (await command("statistics.read", { broadcastId })).json(),
@@ -572,7 +572,7 @@ test("final eligibility outage releases an unsent claim without unknown delivery
     members: [member],
   });
   currentTime = new Date("2030-01-01T00:00:06Z");
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
   expect(transport.send).toHaveBeenCalledTimes(1);
 });
 
@@ -603,7 +603,7 @@ test("slow final Platform preflight respects a service sender's current transpor
       members: [member],
     };
   });
-  const processing = app.get(FunnelScheduler).processAvailable();
+  const processing = app.get(SequenceScheduler).processAvailable();
   let processed: number | undefined;
   try {
     await vi.waitFor(
@@ -632,7 +632,7 @@ test("slow final Platform preflight respects a service sender's current transpor
     members: [member],
   });
   currentTime = new Date("2030-01-01T00:00:08Z");
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
   expect(transport.send).toHaveBeenCalledTimes(1);
 });
 
@@ -689,7 +689,7 @@ test.each(["scheduler", "contact", "transport", "link"] as const)(
         members: withdrawn ? [] : [member],
       };
     });
-    const processing = app.get(FunnelScheduler).processAvailable();
+    const processing = app.get(SequenceScheduler).processAvailable();
     let processed: number | undefined;
     try {
       await vi.waitFor(
@@ -747,13 +747,13 @@ test.each(["before-admission", "before-commit", "after-commit"] as const)(
     if (edge === "after-commit") now.mockReturnValueOnce(0);
     now.mockReturnValue(251);
     try {
-      expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+      expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
       expect(transport.send).not.toHaveBeenCalled();
     } finally {
       now.mockRestore();
     }
     currentTime = new Date(instant.getTime() + 5000);
-    expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+    expect(await app.get(SequenceScheduler).processAvailable()).toBe(1);
     expect(reads).toBeGreaterThanOrEqual(4);
     expect(transport.send).toHaveBeenCalledTimes(1);
   },
@@ -769,7 +769,7 @@ test("a recovered lease cannot send or become pending after delayed final eligib
     if (first) first = false;
     else {
       currentTime = new Date(instant.getTime() + 60_001);
-      expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+      expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
     }
     return {
       status: "ok",
@@ -779,7 +779,7 @@ test("a recovered lease cannot send or become pending after delayed final eligib
       members: [member],
     };
   });
-  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(await app.get(SequenceScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
   const report = await command("statistics.read", { broadcastId });
   expect(report.json()).toMatchObject({
@@ -846,7 +846,7 @@ test("fixed service receipts require service authentication and reject caller te
   const post = (body: object, authorization?: string) =>
     app.inject({
       method: "POST",
-      url: "/integrations/platform/v1/communications",
+      url: "/integrations/platform/v2/communications",
       headers: authorization === undefined ? {} : { authorization },
       payload: body,
     });
@@ -913,6 +913,237 @@ test.each(["withdrawn", "transferred"])(
     expect(transport.send).not.toHaveBeenCalled();
   },
 );
+
+test("rechecks the join generation after the committed local claim before sending confirmation", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  const authorization = {
+    current: vi
+      .fn<() => Promise<"accepted" | "suppressed">>()
+      .mockResolvedValueOnce("accepted")
+      .mockResolvedValue("suppressed"),
+  };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  );
+  await receipts.receive(confirmation);
+  await receipts.processAvailable();
+  expect(transport.send).not.toHaveBeenCalled();
+  expect(await receipts.snapshot()).toMatchObject({ suppressed: 1 });
+});
+
+test.each(["transferred", "blocked", "expired-lease"] as const)(
+  "rechecks local %s after final confirmation authorization before external I/O",
+  async (edge) => {
+    await app.get(BotContacts).observeStart(
+      {
+        botIdentity: "inside",
+        telegramUserId: "42",
+        privateChatId: "42",
+        updateId: "1",
+        observedAt: instant,
+      },
+      "none",
+    );
+    const confirmation = {
+      contractVersion: "inside.waitlist-confirmation.v1" as const,
+      eventId: randomUUID(),
+      intakeId,
+      ...member,
+      linkRevision: 1,
+    };
+    let checks = 0;
+    const authorization = {
+      current: async () => {
+        if (++checks === 2) {
+          if (edge === "transferred")
+            await database
+              .updateTable("platform_links")
+              .set({ account_ref: "another-account" })
+              .where("telegram_identity_ref", "=", member.telegramIdentityRef)
+              .execute();
+          if (edge === "blocked")
+            await database
+              .updateTable("bot_contacts")
+              .set({ contactability: "blocked" })
+              .where("telegram_user_id", "=", "42")
+              .execute();
+          if (edge === "expired-lease") {
+            currentTime = new Date(instant.getTime() + 120_000);
+            await receipts.processAvailable();
+          }
+        }
+        return "accepted" as const;
+      },
+    };
+    const receipts = new WaitlistConfirmations(
+      database,
+      { ...config, deliveryMode: "live" },
+      clock,
+      authorization,
+      transport,
+    );
+    await receipts.receive(confirmation);
+    await receipts.processAvailable();
+    expect(transport.send).not.toHaveBeenCalled();
+    expect(await receipts.snapshot()).toMatchObject(
+      edge === "expired-lease" ? { unknown: 1 } : { suppressed: 1 },
+    );
+  },
+);
+
+test("known final authorization outages do not spend external-attempt retries or become unknown", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  let checks = 0;
+  let healthy = false;
+  const authorization = {
+    current: () =>
+      Promise.resolve(
+        healthy || ++checks % 2 === 1
+          ? ("accepted" as const)
+          : ("unavailable" as const),
+      ),
+  };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  );
+  await receipts.receive(confirmation);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    expect(await receipts.processAvailable()).toBe(0);
+    currentTime = new Date(currentTime.getTime() + 1000);
+  }
+  expect(transport.send).not.toHaveBeenCalled();
+  expect(await receipts.snapshot()).toMatchObject({ pending: 1 });
+  healthy = true;
+  await receipts.processAvailable();
+  expect(transport.send).toHaveBeenCalledTimes(1);
+  expect(await receipts.snapshot()).toMatchObject({ delivered: 1 });
+});
+
+test("an expired local admission deadline defers unsent confirmation for fresh eligibility", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  let calls = 0;
+  let expired = true;
+  const monotonic = { now: () => (expired && ++calls > 1 ? 251 : 0) };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    { current: () => Promise.resolve("accepted") },
+    transport,
+    monotonic,
+  );
+  await receipts.receive(confirmation);
+  expect(await receipts.processAvailable()).toBe(0);
+  expect(transport.send).not.toHaveBeenCalled();
+  expect(await receipts.snapshot()).toMatchObject({ pending: 1 });
+  expired = false;
+  currentTime = new Date(currentTime.getTime() + 1000);
+  await receipts.processAvailable();
+  expect(transport.send).toHaveBeenCalledTimes(1);
+});
+
+test("a rejoin generation replaces the queued service confirmation without resending the old receipt", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const previous = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  const current = { ...previous, eventId: randomUUID() };
+  const authorization = {
+    current: (command: typeof previous) =>
+      Promise.resolve(
+        command.eventId === current.eventId
+          ? ("accepted" as const)
+          : ("suppressed" as const),
+      ),
+  };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  );
+  await receipts.receive(previous);
+  await receipts.receive(current);
+  await receipts.receive(previous);
+  await receipts.processAvailable();
+  await receipts.processAvailable();
+  await receipts.processAvailable();
+  expect(await receipts.snapshot()).toMatchObject({
+    suppressed: 1,
+    delivered: 1,
+  });
+  expect(transport.send).toHaveBeenCalledTimes(1);
+});
 
 test("service receipt safely retries known rate limits and preserves uncertain attempts across worker restart", async () => {
   await app.get(BotContacts).observeStart(

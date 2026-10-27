@@ -202,7 +202,7 @@ export const SignedOut: Story = {
     initialPresentation: {
       ...emptyMaterialAuthoringPresentation,
       availableFormats: [],
-      availableSeries: [],
+      availableProduct: [],
       availableTags: [],
       availableTopics: [],
       authorization: { kind: "unauthorized" },

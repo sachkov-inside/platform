@@ -1,5 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
@@ -42,6 +43,12 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       resolve(cwd, "apps/web/runtime.md"),
       resolve(cwd, "docs/research/runtime.md"),
     );
+    const largePaths = Array.from(
+      { length: 1500 },
+      (_, index) =>
+        `docs/research/${String(index).padStart(4, "0")}-${"x".repeat(100)}.md`,
+    );
+    for (const path of largePaths) writeFileSync(resolve(cwd, path), "fixture");
     git(["add", "-A"]);
     git(["commit", "-qm", "rename"]);
     const head = git(["rev-parse", "HEAD"]);
@@ -69,8 +76,12 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       .parse(JSON.parse(serialized));
     assert.deepEqual(plan.paths, [
       "apps/web/runtime.md",
+      ...largePaths,
       "docs/research/runtime.md",
     ]);
+    assert.ok(Buffer.byteLength(serialized) > 131072);
+    const digest = createHash("sha256").update(serialized).digest("hex");
+    assert.ok(readFileSync(output, "utf8").includes(`plan_sha256=${digest}\n`));
     assert.ok(plan.required.includes("fullstack"));
     /** @type {Record<string, {result:string}>} */
     const results = { plan: { result: "success" } };
@@ -80,7 +91,7 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       };
     const gateEnv = {
       ...env,
-      SELECTED_PLAN: serialized,
+      SELECTED_PLAN_SHA256: digest,
       JOB_RESULTS: JSON.stringify(results),
     };
     const gate = spawnSync(process.execPath, [runner, "gate"], {
@@ -107,14 +118,60 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
     assert.equal(evidence.sourceSha, head);
     assert.equal(evidence.treeSha, git(["rev-parse", "HEAD^{tree}"]));
     assert.deepEqual(evidence.successfulCoverage, plan.required);
-    const forged = spawnSync(process.execPath, [runner, "gate"], {
+    for (const changed of [
+      { SELECTED_PLAN_SHA256: undefined },
+      { SELECTED_PLAN_SHA256: "malformed" },
+      { SELECTED_PLAN_SHA256: "0".repeat(64) },
+      { CI_EVENT: "pull_request" },
+      { BASE_SHA: head },
+      { HEAD_SHA: base },
+    ]) {
+      const forged = spawnSync(process.execPath, [runner, "gate"], {
+        cwd,
+        env: { ...gateEnv, ...changed },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.notEqual(forged.status, 0);
+      assert.match(forged.stderr, /does not match complete source/u);
+    }
+    for (const id of ["plan", ...coverageIds]) {
+      for (const result of [
+        undefined,
+        "failure",
+        "cancelled",
+        "success",
+        "skipped",
+      ]) {
+        if (result === results[id]?.result) continue;
+        const changed = { ...results };
+        if (result === undefined) delete changed[id];
+        else changed[id] = { result };
+        const rejected = spawnSync(process.execPath, [runner, "gate"], {
+          cwd,
+          env: { ...gateEnv, JOB_RESULTS: JSON.stringify(changed) },
+          encoding: "utf8",
+          timeout: 10_000,
+        });
+        assert.notEqual(rejected.status, 0, `${id}: ${String(result)}`);
+        assert.match(
+          rejected.stderr,
+          /did not succeed|must be explicitly skipped/u,
+        );
+      }
+    }
+    // Same selected buckets, different complete paths must not share the proof.
+    writeFileSync(resolve(cwd, "docs/research/another.md"), "fixture");
+    git(["add", "docs/research/another.md"]);
+    git(["commit", "-qm", "another path"]);
+    const changedPath = spawnSync(process.execPath, [runner, "gate"], {
       cwd,
-      env: { ...gateEnv, SELECTED_PLAN: "{}" },
+      env: { ...gateEnv, HEAD_SHA: git(["rev-parse", "HEAD"]) },
       encoding: "utf8",
       timeout: 10_000,
     });
-    assert.notEqual(forged.status, 0);
-    assert.match(forged.stderr, /does not match complete source/u);
+    assert.notEqual(changedPath.status, 0);
+    assert.match(changedPath.stderr, /does not match complete source/u);
     const incomplete = spawnSync(process.execPath, [runner, "plan"], {
       cwd,
       env: { ...env, BASE_SHA: "" },

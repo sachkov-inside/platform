@@ -413,36 +413,36 @@
       "name": "0102_material_telegram_announcements",
       "statement": "\nALTER TABLE materials.materials ADD COLUMN notify_telegram boolean;\nALTER TABLE materials.publication_announcements ADD COLUMN telegram_enabled boolean NOT NULL DEFAULT false, ADD COLUMN telegram_managed boolean NOT NULL DEFAULT false;\n"
     },
-    "0101_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497": {
-      "name": "0101_funnel_diagnostic_candidates",
+    "0114_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497": {
+      "name": "0114_funnel_diagnostic_candidates",
       "statement": "\ncreate index bot_events_link_account on sales_funnel.bot_events(account_id, contact_ref) where kind = 'account_linked';\ncreate index bot_events_link_identity on sales_funnel.bot_events(telegram_identity_ref, contact_ref) where kind = 'account_linked';\ncreate index bot_events_last_received on sales_funnel.bot_events(received_at desc);\n"
     },
-    "0102_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f": {
-      "name": "0102_billing_funnel_diagnostic_sources",
+    "0115_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f": {
+      "name": "0115_billing_funnel_diagnostic_sources",
       "statement": "\ncreate index price_quotes_product_coverage on billing.price_quotes using gin ((snapshot -> 'offer' -> 'coverage' -> 'productIds'));\ncreate index purchases_product_coverage_confirmed on billing.purchases using gin ((snapshot -> 'offer' -> 'coverage' -> 'productIds')) where state = 'confirmed' and kind in ('initial', 'one_time');\ncreate index survey_respondents_issued on billing.survey_respondents(issued_at) where issued_at is not null;\n"
     },
-    "0103_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d": {
-      "name": "0103_reading_funnel_diagnostic_sources",
+    "0116_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d": {
+      "name": "0116_reading_funnel_diagnostic_sources",
       "statement": "\ncreate index material_visits_material_first on reading_activity.material_visits(material_id, account_id, first_opened_at);\n"
     },
-    "0104_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a": {
-      "name": "0104_telegram_funnel_diagnostic_identities",
+    "0117_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a": {
+      "name": "0117_telegram_funnel_diagnostic_identities",
       "statement": "\ncreate index account_link_states_verified_identity on telegram_membership.account_link_states(identity_ref, account_id) where principal_ref is not null;\n"
     },
-    "0105_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979": {
-      "name": "0105_funnel_diagnostic_current_products",
+    "0118_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979": {
+      "name": "0118_funnel_diagnostic_current_products",
       "statement": "\ncreate index series_current_diagnostics on materials.series(name,id) where archived_at is null;\n"
     },
-    "0106_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf": {
-      "name": "0106_learning_activity_provenance",
+    "0119_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf": {
+      "name": "0119_learning_activity_provenance",
       "statement": "\nCREATE TABLE reading_activity.learning_started_events (\n  event_id uuid PRIMARY KEY,\n  account_id uuid NOT NULL,\n  product_id uuid NOT NULL,\n  command_id uuid NOT NULL,\n  occurred_at timestamptz NOT NULL,\n  UNIQUE (account_id, product_id)\n);\nCREATE INDEX learning_started_activity_period ON reading_activity.learning_started_events (occurred_at, event_id, account_id);\nCREATE INDEX reading_activity_period ON reading_activity.events (occurred_at, account_id, event_type);\n"
     },
-    "0107_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118": {
-      "name": "0107_bookmark_activity_provenance",
+    "0120_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118": {
+      "name": "0120_bookmark_activity_provenance",
       "statement": "\nCREATE TABLE bookmarks.activity_events (\n  event_id uuid PRIMARY KEY,\n  account_id uuid NOT NULL,\n  material_id uuid NOT NULL,\n  event_type text NOT NULL CHECK (event_type IN ('bookmark_added', 'bookmark_removed')),\n  occurred_at timestamptz NOT NULL\n);\nCREATE INDEX bookmark_activity_period ON bookmarks.activity_events (occurred_at, event_id, account_id, event_type);\n"
     },
-    "0108_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc": {
-      "name": "0108_submission_activity_period",
+    "0121_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc": {
+      "name": "0121_submission_activity_period",
       "statement": "\nCREATE INDEX submission_activity_period ON product_tasks.submissions (submitted_at, account_id);\n"
     },
     "0109_materials_notification_trace_context:ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b": {
@@ -461,8 +461,8 @@
       "name": "0112_communications_tracking_trace_context",
       "statement": "\nSET LOCAL lock_timeout = '5s';\nSET LOCAL statement_timeout = '15s';\nALTER TABLE communications.tracking_hits ADD COLUMN traceparent varchar(55);\n"
     },
-    "0113_waitlist_trace_context:d76376fadb8c0309fe52c3f216deca34c82c0da66541a9dcbc0d24f6ae3ea1b0": {
-      "name": "0113_waitlist_trace_context",
+    "0126_waitlist_trace_context:d76376fadb8c0309fe52c3f216deca34c82c0da66541a9dcbc0d24f6ae3ea1b0": {
+      "name": "0126_waitlist_trace_context",
       "statement": "\nSET LOCAL lock_timeout = '5s';\nSET LOCAL statement_timeout = '15s';\nALTER TABLE sales_funnel.product_waitlist_confirmations ADD COLUMN traceparent varchar(55);\n"
     },
     "0103_material_source_commit:6c2d3a6d4f3bd0e3799dfd52c74cb126988691ab12ae675348b933cfa4ac0703": {
@@ -900,14 +900,14 @@
         "0098_material_task:a8ef3d5671d102204504257368c1c43bfc87e658e698a42c606e947b25429398",
         "0099_chapter_supplementary_materials:d325563c4277a30965961f9e4552a73f2ddf32b1448fe112352df392d7f4269c",
         "0100_product_waitlists:73009b9c711a42b2535474c6c3c3dd9d986e1a548e02dc50ab890af01807a07c",
-        "0101_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
-        "0102_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
-        "0103_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
-        "0104_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
-        "0105_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
-        "0106_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
-        "0107_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
-        "0108_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc"
+        "0114_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
+        "0115_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
+        "0116_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
+        "0117_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
+        "0118_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
+        "0119_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
+        "0120_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
+        "0121_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc"
       ]
     },
     "legacy113": {
@@ -1016,14 +1016,14 @@
         "0099_chapter_supplementary_materials:d325563c4277a30965961f9e4552a73f2ddf32b1448fe112352df392d7f4269c",
         "0100_product_waitlists:73009b9c711a42b2535474c6c3c3dd9d986e1a548e02dc50ab890af01807a07c",
         "0101_waitlist_confirmations:129f22b4e840f78b836c762ad8465cb4c6b39d7779622c90dc8eb94d3d654e14",
-        "0101_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
-        "0102_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
-        "0103_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
-        "0104_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
-        "0105_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
-        "0106_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
-        "0107_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
-        "0108_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
+        "0114_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
+        "0115_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
+        "0116_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
+        "0117_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
+        "0118_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
+        "0119_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
+        "0120_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
+        "0121_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
         "0109_materials_notification_trace_context:ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b",
         "0110_notifications_notification_trace_context:d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
         "0111_notifications_email_trace_context:fb4ac34965f919b5086aa562637f11bafc8ec366950091e17e195f004d0fb679"
@@ -1135,14 +1135,14 @@
         "0099_chapter_supplementary_materials:d325563c4277a30965961f9e4552a73f2ddf32b1448fe112352df392d7f4269c",
         "0100_product_waitlists:73009b9c711a42b2535474c6c3c3dd9d986e1a548e02dc50ab890af01807a07c",
         "0101_waitlist_confirmations:129f22b4e840f78b836c762ad8465cb4c6b39d7779622c90dc8eb94d3d654e14",
-        "0101_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
-        "0102_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
-        "0103_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
-        "0104_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
-        "0105_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
-        "0106_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
-        "0107_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
-        "0108_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
+        "0114_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
+        "0115_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
+        "0116_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
+        "0117_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
+        "0118_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
+        "0119_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
+        "0120_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
+        "0121_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
         "0109_materials_notification_trace_context:ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b",
         "0110_notifications_notification_trace_context:d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
         "0111_notifications_email_trace_context:fb4ac34965f919b5086aa562637f11bafc8ec366950091e17e195f004d0fb679",
@@ -1255,19 +1255,19 @@
         "0099_chapter_supplementary_materials:d325563c4277a30965961f9e4552a73f2ddf32b1448fe112352df392d7f4269c",
         "0100_product_waitlists:73009b9c711a42b2535474c6c3c3dd9d986e1a548e02dc50ab890af01807a07c",
         "0101_waitlist_confirmations:129f22b4e840f78b836c762ad8465cb4c6b39d7779622c90dc8eb94d3d654e14",
-        "0101_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
-        "0102_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
-        "0103_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
-        "0104_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
-        "0105_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
-        "0106_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
-        "0107_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
-        "0108_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
+        "0114_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
+        "0115_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
+        "0116_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
+        "0117_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
+        "0118_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
+        "0119_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
+        "0120_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
+        "0121_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
         "0109_materials_notification_trace_context:ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b",
         "0110_notifications_notification_trace_context:d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
         "0111_notifications_email_trace_context:fb4ac34965f919b5086aa562637f11bafc8ec366950091e17e195f004d0fb679",
         "0112_communications_tracking_trace_context:bcb81200ac3b457f5c7650abf1f1348b17b04b7f76d9368a420b854e8eb41cbe",
-        "0113_waitlist_trace_context:d76376fadb8c0309fe52c3f216deca34c82c0da66541a9dcbc0d24f6ae3ea1b0"
+        "0126_waitlist_trace_context:d76376fadb8c0309fe52c3f216deca34c82c0da66541a9dcbc0d24f6ae3ea1b0"
       ]
     },
     "main104": {
@@ -1487,19 +1487,19 @@
         "0100_product_waitlists:73009b9c711a42b2535474c6c3c3dd9d986e1a548e02dc50ab890af01807a07c",
         "0101_waitlist_confirmations:129f22b4e840f78b836c762ad8465cb4c6b39d7779622c90dc8eb94d3d654e14",
         "0102_material_telegram_announcements:b4080cc15212c9d7f66d09df6f96c37021cb00708ae00a5106f5cfa3ef45fd19",
-        "0101_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
-        "0102_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
-        "0103_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
-        "0104_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
-        "0105_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
-        "0106_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
-        "0107_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
-        "0108_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
+        "0114_funnel_diagnostic_candidates:119ff7182376b2bcf0e888a0e443b9b84aa5a2135a42d2f94c901f91904e6497",
+        "0115_billing_funnel_diagnostic_sources:86efa84bf17330ada4b1313c56e22a3ec1f5164a02c76d712a544a67b422577f",
+        "0116_reading_funnel_diagnostic_sources:a8cbf52fe672bc0721bc78abcad353420a402f82e2ed44e575816c03d9579e9d",
+        "0117_telegram_funnel_diagnostic_identities:e79f2a06773f9f38af4d2715c0881bf017df149a4152137803f5fb387b9bbb8a",
+        "0118_funnel_diagnostic_current_products:ac436212ef4cc8f078a90322d2b72aaa6b073ab502fe60cf25920c7548700979",
+        "0119_learning_activity_provenance:95a50d78640db03cb5b3d5bd971fe0e78d7ba72a312fe6678f73446d37d0ebaf",
+        "0120_bookmark_activity_provenance:848490c09ba28712ddc38178c25392245628d93317564def12b691a996ee7118",
+        "0121_submission_activity_period:80e70b431620624b78a1502bb167525a6cff2351fde1c90bd285dea3c64f29cc",
         "0109_materials_notification_trace_context:ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b",
         "0110_notifications_notification_trace_context:d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
         "0111_notifications_email_trace_context:fb4ac34965f919b5086aa562637f11bafc8ec366950091e17e195f004d0fb679",
         "0112_communications_tracking_trace_context:bcb81200ac3b457f5c7650abf1f1348b17b04b7f76d9368a420b854e8eb41cbe",
-        "0113_waitlist_trace_context:d76376fadb8c0309fe52c3f216deca34c82c0da66541a9dcbc0d24f6ae3ea1b0"
+        "0126_waitlist_trace_context:d76376fadb8c0309fe52c3f216deca34c82c0da66541a9dcbc0d24f6ae3ea1b0"
       ]
     }
   }

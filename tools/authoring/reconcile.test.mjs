@@ -45,7 +45,7 @@ test("an adopted Material names its Products, so another Product's release never
               path: "lesson.md",
               revision: "b".repeat(64),
               commit: null,
-              showInFeed: false,
+              version: 2,
             },
             memberships: [{ productId, ordinal: 1, chapterId: null }],
           },

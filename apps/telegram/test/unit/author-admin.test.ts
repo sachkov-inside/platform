@@ -1,4 +1,4 @@
-import { parseFunnelDelay } from "../../src/modules/communications/author-funnels.js";
+import { parseSequenceDelay } from "../../src/modules/communications/author-sequences.js";
 import { describe, expect, it } from "vitest";
 import { translateAuthorInput } from "../../src/adapters/telegram/grammy-author-admin.adapter.js";
 import { snapshot } from "../../src/adapters/telegram/grammy-template-intake.adapter.js";
@@ -82,5 +82,5 @@ it.each([
   ["2 дня", 172800],
   ["10 секунд", 10],
 ])("parses human delay %s consistently", (value, seconds) => {
-  expect(parseFunnelDelay(value)).toBe(seconds);
+  expect(parseSequenceDelay(value)).toBe(seconds);
 });

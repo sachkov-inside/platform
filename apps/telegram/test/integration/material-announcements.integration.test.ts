@@ -18,7 +18,7 @@ import { migrateToLatest } from "../../src/database/migrator.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { MATERIAL_ANNOUNCEMENT_SOURCE } from "../../src/modules/communications/material-announcement-source.js";
 import { MaterialAnnouncements } from "../../src/modules/communications/material-announcements.js";
-import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import {
   COMMUNICATION_TRANSPORT,
   type CommunicationMessage,
@@ -74,7 +74,7 @@ const transport = {
 };
 let app: NestFastifyApplication;
 let announcements: MaterialAnnouncements;
-let scheduler: FunnelScheduler;
+let scheduler: SequenceScheduler;
 beforeAll(async () => {
   await migrateToLatest(db);
   const module = await Test.createTestingModule({
@@ -131,7 +131,7 @@ beforeEach(async () => {
     platformTrackingTargetPrefixes: undefined,
   });
   announcements = new MaterialAnnouncements(db, config, source, clock);
-  scheduler = new FunnelScheduler(
+  scheduler = new SequenceScheduler(
     db,
     config,
     clock,

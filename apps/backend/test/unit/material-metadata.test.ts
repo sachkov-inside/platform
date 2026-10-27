@@ -14,7 +14,7 @@ describe("MaterialMetadata", () => {
       difficulty: null,
       outcomes: [],
       tagIds: [],
-      seriesMemberships: [],
+      productMemberships: [],
     });
 
     expect(result.ok).toBe(true);
@@ -55,26 +55,26 @@ describe("MaterialMetadata", () => {
       return created.value.validateForPublication();
     };
 
-    expect(publication({ access: "closed", seriesMemberships: [] })).toEqual({
+    expect(publication({ access: "closed", productMemberships: [] })).toEqual({
       ok: false,
       error: {
         code: "invalid_content",
         issues: [
-          { code: "membership_outside_product", path: "/metadata/seriesIds" },
+          { code: "membership_outside_product", path: "/metadata/productIds" },
         ],
       },
     });
     expect(
       publication({
         access: "closed",
-        seriesMemberships: [
-          { seriesId: "72000000-0000-4000-8000-000000000003", ordinal: 1 },
+        productMemberships: [
+          { productId: "72000000-0000-4000-8000-000000000003", ordinal: 1 },
         ],
       }),
     ).toMatchObject({ ok: true });
     // Открытый материал вне руководства публикуется: открытое доступно всем.
     expect(
-      publication({ access: "free", seriesMemberships: [] }),
+      publication({ access: "free", productMemberships: [] }),
     ).toMatchObject({ ok: true });
   });
 });

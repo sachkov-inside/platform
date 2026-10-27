@@ -194,11 +194,11 @@ git restore --source bcb6a0723^ -- \
   apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/register-funnel-diagnostics-tool.ts
 git restore --source <accepted-release-sha> -- \
   apps/backend/src/migrations/index.ts \
-  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0101-funnel-diagnostic-candidates.ts \
-  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0102-billing-funnel-diagnostic-sources.ts \
-  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0103-reading-funnel-diagnostic-sources.ts \
-  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0104-telegram-funnel-diagnostic-identities.ts \
-  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0105-funnel-diagnostic-current-products.ts \
+  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0114-funnel-diagnostic-candidates.ts \
+  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0115-billing-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0116-reading-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0117-telegram-funnel-diagnostic-identities.ts \
+  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0118-funnel-diagnostic-current-products.ts \
   apps/backend/test/integration/migrations.test.ts
 ```
 
@@ -241,7 +241,7 @@ Account. Вход принимает строго `{}`: нельзя перед�
 Отчёт читает native metadata `pgboss.version`, `pgboss.queue`, `pgboss.job` и собственные
 факты `queue_observation.last_successful_handler` через
 [owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
-Десять известных имён имеют один
+Семь известных имён имеют один
 [contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
 не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
 retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
@@ -281,7 +281,7 @@ state `active` либо `completed`. Нативные строки не блок
 `nativeAck: not_proven` и `externalEffect: not_proven` остаются всегда. Потеря ACK или восстановление
 задания может вызвать retry, а идемпотентность платежей и доставки остаётся обязанностью их владельцев.
 Ошибочное задание, healthcheck и polling не записывают успех. Writer имеет один запрос в работе и не
-более одного ожидающего результата на фиксированную очередь (не более десяти). Он ждёт соединение
+более одного ожидающего результата на фиксированную очередь (не более семи). Он ждёт соединение
 не более 1 s, statement не более 1 s, lock не более 250 ms, transaction не более 2 s. Эти ожидания
 вынесены за native callback и не расширяют deadline задания. При shutdown после остановки jobs
 закрывается приём, отбрасывается незаписанное ожидание и завершается только текущий ограниченный

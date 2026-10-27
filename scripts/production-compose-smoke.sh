@@ -753,7 +753,7 @@ if [[ "$retired_library_status" != "404" ]]; then
   echo "Retired Library route should return 404, got $retired_library_status" >&2
   exit 1
 fi
-assert_public_status POST /integrations/telegram/v1/membership-evidence 401
+assert_public_status POST /integrations/telegram/v1/membership-evidence 404
 assert_public_status POST /integrations/telegram/v1/sign-in/linked-identity 401
 assert_public_status GET /integrations/telegram/v1/sign-in/linked-identity 404
 assert_public_status POST /integrations/telegram/v1/sign-in/complete 404
@@ -789,33 +789,34 @@ if grep -q '"probe":"production_verify"' <<<"$api_probe_logs"; then
   echo "Caddy forwarded an external production verification marker" >&2
   exit 1
 fi
-assert_public_status POST /integrations/tribute/v1/webhook 401
-assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
-assert_public_status POST /integrations/telegram/v1/invitations/redeem 401
+assert_public_status POST /integrations/tribute/v1/webhook 404
+assert_public_status POST /integrations/telegram/v1/course-activation/binding 401
+assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 404
+assert_public_status POST /integrations/telegram/v1/invitations/redeem 404
 assert_public_status POST /internal/billing-dispatch/authorize 401
 assert_public_status POST /internal/notifications/dispatch/authorize 401
-assert_public_status POST /integrations/telegram/v1/communications/authorize 401
-assert_public_status POST /integrations/telegram/v1/communications/validate-content 401
+assert_public_status POST /integrations/telegram/v2/communications/authorize 401
+assert_public_status POST /integrations/telegram/v2/communications/validate-content 401
 # The private waitlist service route is published only as exact POST on either API hostname.
 # Missing credentials reach the API rejection; other methods and subpaths stay at the edge's 404.
 for host in sachkov.dev inside.sachkov.dev; do
-  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host" \
+  assert_public_status POST /integrations/telegram/v2/communications/waitlist 401 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/waitlist 401 "$host" \
     --header 'Authorization: Bearer synthetic-wrong-waitlist-service-credential'
-  assert_public_status GET /integrations/telegram/v1/communications/waitlist 404 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/materials 401 "$host"
-  assert_public_status GET /integrations/telegram/v1/communications/materials 404 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/materials/unknown 404 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/waitlist/unknown 404 "$host"
+  assert_public_status GET /integrations/telegram/v2/communications/waitlist 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/materials 401 "$host"
+  assert_public_status GET /integrations/telegram/v2/communications/materials 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/materials/unknown 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/waitlist/unknown 404 "$host"
 done
-assert_public_status GET /integrations/telegram/v1/communications/authorize 404
+assert_public_status GET /integrations/telegram/v2/communications/authorize 404
 assert_public_status GET /integrations/tribute/v1/webhook 404
 assert_public_status GET /integrations/telegram/v1/subscription-activation/binding 404
 assert_public_status GET /integrations/telegram/v1/invitations/redeem 404
 # The bot reads the cohort start date without a credential; the API answers, not the web page.
-assert_public_status GET /billing/cohorts 200
+assert_public_status GET /billing/product-sales-states 200
 if ! grep -q '"items"' "$runtime_config_dir/public-response-body"; then
-  echo "Expected GET /billing/cohorts to return the API cohort list" >&2
+  echo "Expected GET /billing/product-sales-states to return the API cohort list" >&2
   exit 1
 fi
 for internal_path in /internal/billing-dispatch/authorize /internal/notifications/dispatch/authorize /internal/billing-dispatch/unknown; do
@@ -915,6 +916,12 @@ expect_sale_configuration_refusal() {
 catalog_sql() {
   "${foundation_compose[@]}" exec -T postgres psql --username postgres --dbname inside --set ON_ERROR_STOP=1 --command "$1" >/dev/null
 }
+# ProductPrice is the current sale-configuration owner. This disposable row exercises only
+# startup configuration; it neither approves legal terms nor executes a purchase.
+catalog_sql "insert into products.products (id, slug, name)
+  values ('$sale_offer_id', 'production-smoke-product', 'Production smoke Product');"
+catalog_sql "insert into billing.product_prices (product_id, revision, name, price_kopecks, published, archived, updated_at)
+  values ('$sale_offer_id', 1, 'Production smoke Product', 100000, true, false, now());"
 catalog_sql "insert into billing.offers (id, revision, name, benefits, published) values ('$sale_offer_id', 1, 'Production smoke sale', array['materials'], true);
   insert into billing.payment_options (id, revision, offer_id, months, price_kopecks, mode) values ('00000000-0000-4000-8000-000000000528', 1, '$sale_offer_id', 1, 100000, 'one_time');"
 grep -v '^TBANK_CONFIG_JSON=' "$runtime_config_dir/api.env" >"$runtime_config_dir/api-without-terminal.env"
@@ -925,7 +932,8 @@ catalog_sql "insert into billing.payment_options (id, revision, offer_id, months
 # reconciliation of old payments when the worker restarts on a non-recurring terminal.
 "${application_compose[@]}" restart billing-worker
 wait_for_worker_health healthy
-catalog_sql "update billing.offers set published = false where id = '$sale_offer_id';"
+catalog_sql "update billing.product_prices set published = false where product_id = '$sale_offer_id';
+  update billing.offers set published = false where id = '$sale_offer_id';"
 
 record_stage_timing routes-and-sale-configuration
 

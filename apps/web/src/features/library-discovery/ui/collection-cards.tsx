@@ -96,7 +96,7 @@ export function PlaylistCard({
       // Непрочитанное открывается со страницы продукта, где руководство сначала рассказывает о себе.
       href={
         playlist.continuation === undefined
-          ? collectionDiscoveryHref("series", playlist.slug, returnHref)
+          ? collectionDiscoveryHref("product", playlist.slug, returnHref)
           : productProgrammeHref(playlist.slug)
       }
     >

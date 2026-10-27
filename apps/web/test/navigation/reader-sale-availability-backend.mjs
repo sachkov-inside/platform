@@ -36,7 +36,7 @@ function fixture(slug) {
     scenario,
     memberships: Array.from({ length: size }, (_, index) => ({
       ordinal: index + 1,
-      series: {
+      product: {
         id: `50001466-0000-4000-8000-${String((mobile ? 10000000 : 0) + caseNumber * 100000 + size * 100 + index).padStart(12, "0")}`,
         name: `Reader sale Product ${String(index + 1)}`,
         slug: `reader-sale-product-${mobile ? "mobile-" : ""}${String(size)}-${scenario}-${String(index + 1)}`,
@@ -57,7 +57,9 @@ const fixtures = ["", "mobile-"].flatMap((variant) =>
 /** @param {string} id */
 function productOf(id) {
   for (const value of fixtures) {
-    const membership = value.memberships.find(({ series }) => series.id === id);
+    const membership = value.memberships.find(
+      ({ product }) => product.id === id,
+    );
     if (membership !== undefined) return { value, membership };
   }
   return undefined;
@@ -113,11 +115,11 @@ export async function readerSaleAvailabilityRoute(
       if (material.scenario === "malformed")
         return {
           ...membership,
-          series: { ...membership.series, id: "bad-id" },
+          product: { ...membership.product, id: "bad-id" },
         };
       if (material.scenario === "missing") {
-        const { id: _id, ...series } = membership.series;
-        return { ...membership, series };
+        const { id: _id, ...product } = membership.product;
+        return { ...membership, product };
       }
       return membership;
     });
@@ -131,7 +133,7 @@ export async function readerSaleAvailabilityRoute(
         materialId: "50001466-0000-4000-8000-000000009999",
         slug: material.slug,
         title: `Reader sale ${String(material.size)} ${material.scenario}`,
-        seriesMemberships: memberships,
+        productMemberships: memberships,
       },
     });
   }
@@ -152,7 +154,7 @@ export async function readerSaleAvailabilityRoute(
       items: products.flatMap((product) =>
         product === undefined
           ? []
-          : [{ productId: product.membership.series.id, sold: sold(product) }],
+          : [{ productId: product.membership.product.id, sold: sold(product) }],
       ),
     });
   }
@@ -162,12 +164,12 @@ export async function readerSaleAvailabilityRoute(
       .flatMap((value) =>
         value.memberships.map((membership) => ({ value, membership })),
       )
-      .find(({ membership }) => membership.series.slug === slug);
+      .find(({ membership }) => membership.product.slug === slug);
     if (product === undefined) return null;
     return reply({
-      kind: "series",
+      kind: "product",
       reference: {
-        ...product.membership.series,
+        ...product.membership.product,
         cover: null,
         hasModeVariants: false,
         introduction: null,
@@ -180,11 +182,11 @@ export async function readerSaleAvailabilityRoute(
           slug: product.value.slug,
           title: `Reader sale ${String(product.value.size)} ${product.value.scenario}`,
           availability: "locked",
-          seriesMemberships: product.value.memberships,
+          productMemberships: product.value.memberships,
         },
       ],
       hasNext: false,
-      relatedSeries: [],
+      relatedProduct: [],
       topics: [],
     });
   }
@@ -200,7 +202,7 @@ export async function readerSaleAvailabilityRoute(
         ? productOf(capability.slice(8))
         : undefined;
     if (product === undefined) return null;
-    const id = product.membership.series.id;
+    const id = product.membership.product.id;
     return reply({
       items: sold(product)
         ? [
@@ -214,7 +216,7 @@ export async function readerSaleAvailabilityRoute(
                 archived: false,
                 published: true,
                 id,
-                name: product.membership.series.name,
+                name: product.membership.product.name,
                 revision: 1,
                 benefits: [`product:${id}`],
                 benefitPeriods: [{ capability: `product:${id}`, months: null }],

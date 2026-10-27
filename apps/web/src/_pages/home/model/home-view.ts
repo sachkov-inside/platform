@@ -26,7 +26,7 @@ export interface HomePinnedCollection extends HomeCollection {
 }
 
 export interface HomeView {
-  readonly pinnedSeries: HomePinnedCollection | null;
+  readonly pinnedProduct: HomePinnedCollection | null;
   /** Existing backend home projection; purchase calls to action are not rendered here. */
   readonly membership:
     | { readonly kind: "active" }

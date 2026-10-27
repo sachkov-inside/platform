@@ -215,7 +215,7 @@ export async function readLearningTask(
       subject,
       task.relatedMaterialSourceIds,
     );
-    const view = await taskPageView(dependencies, task, product.slug);
+    const view = await taskPageView(dependencies, task, product.slug, subject);
     if (!view.ok) return view;
     const serialized = serializeLearningTaskContext({
       task: { ...task, definition: view.value.definition },

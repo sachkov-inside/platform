@@ -26,12 +26,9 @@ import {
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
-  TributeConvergence,
-  BillingNotices,
   BillingOperations,
   BillingPayments,
   BillingPricing,
-  BillingSubscriptions,
 } from "../modules/billing/index.js";
 import {
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
@@ -41,9 +38,7 @@ import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 import {
   runActivityRetentionJob,
-  runRenewalJob,
   runRecoveryJob,
-  runNoticeJob,
 } from "./billing-worker/jobs.js";
 
 const activityRetentionQueue = jobQueues.activityRetention;
@@ -51,9 +46,6 @@ const telemetryCleanupQueue = jobQueues.telemetryRetention;
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
 const telemetryReceiptRetentionSeconds = 172_800;
 const recoveryQueue = jobQueues.paymentRecovery;
-const renewalQueue = jobQueues.subscriptionRenewal;
-const noticeQueue = jobQueues.subscriptionNotices;
-const tributeQueue = jobQueues.tributeReconciliation;
 const communityQueue = jobQueues.communityDelivery;
 const communityBatchSize = 50;
 const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
@@ -77,10 +69,7 @@ async function bootstrap(): Promise<void> {
     throw error;
   }
   const telemetry = application.get(WebTelemetry);
-  const tribute = application.get(TributeConvergence);
   const payments = application.get(BillingPayments);
-  const subscriptions = application.get(BillingSubscriptions);
-  const notices = application.get(BillingNotices);
   const operations = application.get(BillingOperations);
   const community = application.get(CommunityEntitlements);
   const technicalTelemetry = technicalTelemetryFromEnvironment({
@@ -100,9 +89,6 @@ async function bootstrap(): Promise<void> {
         activityRetentionQueue,
         telemetryCleanupQueue,
         recoveryQueue,
-        renewalQueue,
-        noticeQueue,
-        tributeQueue,
         communityQueue,
       ]),
       connectionString: config.database.url,
@@ -211,82 +197,7 @@ async function bootstrap(): Promise<void> {
             work,
           ),
         );
-        await jobs.createQueue(renewalQueue, {
-          deleteAfterSeconds: jobRetentionSeconds,
-          expireInSeconds: jobTimeoutSeconds,
-          retryLimit: 0,
-        });
-        await jobs.schedule(renewalQueue, "* * * * *", {});
-        await jobs.send(
-          renewalQueue,
-          {},
-          { singletonSeconds: jobIntervalSeconds },
-        );
-        await jobs.work(
-          renewalQueue,
-          observeJob(
-            "billing-worker",
-            renewalQueue,
-            async () => {
-              return runRenewalJob(payments, subscriptions);
-            },
-            technicalTelemetry,
-            work,
-          ),
-        );
-        await jobs.createQueue(noticeQueue, {
-          deleteAfterSeconds: jobRetentionSeconds,
-          expireInSeconds: jobTimeoutSeconds,
-          retryLimit: 0,
-        });
-        await jobs.schedule(noticeQueue, "* * * * *", {});
-        await jobs.send(
-          noticeQueue,
-          {},
-          { singletonSeconds: jobIntervalSeconds },
-        );
-        await jobs.work(
-          noticeQueue,
-          observeJob(
-            "billing-worker",
-            noticeQueue,
-            async () => {
-              // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
-              return runNoticeJob(notices);
-            },
-            technicalTelemetry,
-            work,
-          ),
-        );
-        // Community delivery only runs where the provider direction is actually configured.
-        await jobs.createQueue(tributeQueue, {
-          deleteAfterSeconds: jobRetentionSeconds,
-          expireInSeconds: jobTimeoutSeconds,
-          retryLimit: 0,
-        });
-        await jobs.schedule(tributeQueue, "* * * * *", {});
-        await jobs.send(
-          tributeQueue,
-          {},
-          { singletonSeconds: jobIntervalSeconds },
-        );
-        await jobs.work(
-          tributeQueue,
-          observeJob(
-            "billing-worker",
-            tributeQueue,
-            async () => {
-              const report = await tribute.sweep(50);
-              if (report.pending > 0)
-                writeLog("warn", "queue_attention", {
-                  status: "operator_attention",
-                  pending: report.pending,
-                });
-            },
-            technicalTelemetry,
-            work,
-          ),
-        );
+        // Community delivery only runs where the provider direction is configured.
         if (!config.communityEntitlements) return;
         await jobs.createQueue(communityQueue, {
           deleteAfterSeconds: jobRetentionSeconds,

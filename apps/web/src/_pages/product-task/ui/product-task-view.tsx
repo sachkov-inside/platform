@@ -16,7 +16,10 @@ import styles from "./product-task-view.module.css";
 import { TaskPageBody } from "./task-page-body";
 import { TaskRelatedMaterials } from "./task-related-materials.client";
 
-import { TaskSubmissionWorkspace } from "@/features/product-task-submission";
+import {
+  TaskSubmissionWorkspace,
+  TaskSubmissionHistory,
+} from "@/features/product-task-submission";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import {
@@ -196,9 +199,17 @@ export function ProductTaskView({
 export function ProductTaskClosed({
   task,
   programme = null,
+  history,
+  accountId = null,
+  attemptsAfter,
+  liveSubmissions = false,
 }: {
   readonly task: ProductTaskPlace;
   readonly programme?: CourseReadingContext | null;
+  readonly history?: OwnSubmissionsView;
+  readonly accountId?: string | null;
+  readonly attemptsAfter?: string | undefined;
+  readonly liveSubmissions?: boolean;
 }) {
   return (
     <CourseReadingLayout context={programme}>
@@ -271,6 +282,28 @@ export function ProductTaskClosed({
             </Button>
           </div>
         </section>
+        {history?.kind === "ready" ? (
+          <section
+            className="mt-10 grid gap-5"
+            id="task-history"
+            aria-labelledby="task-history-heading"
+          >
+            <h2 className="text-2xl font-semibold" id="task-history-heading">
+              Мои сдачи
+            </h2>
+            <TaskSubmissionHistory
+              initial={history}
+              code={task.code}
+              currentVersion={history.currentVersion}
+              returnTo={productTaskHref(task.product.slug, task.code)}
+              historyAnchor="task-history"
+              accountId={accountId}
+              live={liveSubmissions}
+              after={attemptsAfter}
+              headingLevel={3}
+            />
+          </section>
+        ) : null}
         {programme === null ? null : (
           <CourseReadingFooter context={programme} />
         )}

@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { Server } from "node:http";
-import { canonical, materialRevision } from "../authoring/package.mjs";
+import { canonical } from "../authoring/package.mjs";
 
 const execFile = promisify(execFileCallback);
 const business =
@@ -349,26 +349,56 @@ export async function buildFixtures(root) {
       complete: true,
     },
     materials,
-    products: [],
+    products: [
+      {
+        sourceId: "review-course",
+        title: "Synthetic review course",
+        summary: "",
+        complete: true,
+        chapters: [
+          {
+            sourceId: "review-chapter",
+            title: "Review",
+            summary: "",
+            materialIds: [...kinds],
+          },
+        ],
+        materialIds: [...kinds],
+        supplementaryMaterialIds: [],
+      },
+    ],
     assets: [],
     diagnostics: [],
   };
-  manifest.practiceDefinitions = materials.map((material) => ({
-    practiceId: `synthetic:${material.sourceId}`,
-    definition: practiceDefinition(
+  manifest.tasks = materials.map((material) => {
+    const legacy = practiceDefinition(
       z.enum(["brief", "spec", "feature"]).parse(material.sourceId),
-    ),
-    sourceReference: {
-      materialSourceId: `synthetic:${material.sourceId}`,
-      materialSourceRevision: materialRevision(manifest, material),
-    },
-    provenance: {
-      repository: "synthetic/fixture",
-      commit: sourceCommit,
-      path: `${material.sourceId}.json`,
-    },
-    publicationState: "published",
-  }));
+    );
+    return {
+      sourceId: `review-${material.sourceId}`,
+      productId: "review-course",
+      chapterId: "review-chapter",
+      title: legacy.title,
+      access: "free",
+      definition: {
+        schemaVersion: 1,
+        situation: legacy.businessInputs,
+        result: [legacy.expectedOutcome],
+        freedom: legacy.allowedFreedom,
+        criteria: legacy.criteria.map((criterion) => ({
+          ...criterion,
+          level: "required",
+        })),
+      },
+      relatedMaterialIds: [material.sourceId],
+      publicationState: "published",
+      provenance: {
+        repository: "synthetic/fixture",
+        commit: sourceCommit,
+        path: `${material.sourceId}.json`,
+      },
+    };
+  });
   const packagePath = join(root, "package.json");
   await writeFile(packagePath, canonical(manifest));
   const cases = [];
@@ -463,7 +493,7 @@ export async function buildFixtures(root) {
         id: `${kind}-${variant}`,
         kind,
         projectDir,
-        practiceId: `synthetic:${kind}`,
+        code: `review-${kind}`,
         expected,
       });
     }
@@ -512,7 +542,7 @@ export async function buildFixtures(root) {
     id: "brief-multiple",
     kind: "brief",
     projectDir,
-    practiceId: "synthetic:brief",
+    code: "review-brief",
     expected: { action: "clarify_one_scope" },
   });
   await writeFile(

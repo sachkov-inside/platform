@@ -1,7 +1,7 @@
 "use client";
 import { productCapability } from "@inside/access-capabilities";
 import { useMaterialReading } from "@/entities/material";
-import { initialPaymentOptionId } from "../model/initial-selection";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,8 +11,6 @@ import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 import {
   billingErrorMessage,
-  formatKopecks,
-  offerCompositionLabel,
   type PreorderTerms,
   type PriceSnapshot,
   type PaymentLinkDetail,
@@ -27,7 +25,6 @@ import {
   useCurrentBilling,
   announceCurrentBillingChange,
 } from "@/features/billing-subscription";
-import { cn } from "@/shared/lib/utils";
 
 import { ProductPurchaseView } from "./product-purchase-view";
 
@@ -64,9 +61,6 @@ export function ProductPurchase({
   accountId = null,
   individualLink,
 }: ProductPurchaseProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialPaymentOptionId(offers, offerId),
-  );
   const billing = useCurrentBilling({ enabled: signedIn });
   // Контакт подставляет email, а редакции документов нужны для согласия при оплате.
   const contact = useBillingContact({ enabled: signedIn });
@@ -118,7 +112,7 @@ export function ProductPurchase({
   const alreadyOpen =
     productId !== undefined &&
     billing.data?.ok === true &&
-    billing.data.value.grounds.some(
+    billing.data.value.access.grounds.some(
       (ground) =>
         ground.active &&
         (ground.capabilities.includes(productCapability(productId)) ||
@@ -126,9 +120,7 @@ export function ProductPurchase({
             ground.content?.some((entry) => entry.id === productId) === true)),
     );
   const selected =
-    offers.find((offer) => offer.paymentOption.id === selectedId) ??
-    offers[0] ??
-    null;
+    offers.find((item) => item.product?.id === productId) ?? null;
 
   return (
     <ProductPurchaseView
@@ -207,51 +199,6 @@ export function ProductPurchase({
         </section>
       ) : (
         <>
-          {offers.length < 2 ? null : (
-            <fieldset className="mb-6">
-              <legend className="text-sm font-semibold text-muted-foreground">
-                Что берёте
-              </legend>
-              <ul className="mt-3 grid gap-3">
-                {offers.map((offer) => (
-                  <li key={offer.paymentOption.id}>
-                    <label
-                      className={cn(
-                        "flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border p-4",
-                        offer.paymentOption.id === selected.paymentOption.id
-                          ? "border-accent"
-                          : "border-border",
-                      )}
-                    >
-                      <input
-                        checked={
-                          offer.paymentOption.id === selected.paymentOption.id
-                        }
-                        className="size-4 shrink-0 sm:size-5 accent-primary"
-                        name="product-offer"
-                        onChange={() => {
-                          setSelectedId(offer.paymentOption.id);
-                        }}
-                        type="radio"
-                        value={offer.paymentOption.id}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block break-words font-semibold leading-6">
-                          {offerCompositionLabel(offer.offer)}
-                        </span>
-                        <span className="block text-sm text-muted-foreground">
-                          {offer.offer.name}
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-mono tabular-nums font-semibold">
-                        {formatKopecks(offer.firstPriceKopecks)}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </fieldset>
-          )}
           <CheckoutFlow
             contact={contactState?.contact ?? null}
             initialEmail={contactState?.initialEmail}

@@ -1,3 +1,7 @@
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   BillingPayments,
@@ -199,28 +203,25 @@ const unused = () =>
   Promise.reject(new Error("Unexpected external boundary in history read"));
 test("recent cabinet windows retain latest 50 payments and 20 notices with Account isolation", async () => {
   const payments = new BillingPayments({
-    sale: { payments: true, subscriptions: true },
+    contentCatalog: new CoverageCatalog(
+      observer.prisma,
+      new ProductDiscovery(observer.prisma),
+    ),
+    sale: { payments: true },
     prisma: observer.prisma,
     bank: undefined,
     contact: { read: unused, readConsents: unused },
-    grants: {
-      readCompatibilityCoverage: unused,
-      readLegacyClassification: unused,
-      readPurchaseGrounds: unused,
-      resolveCapabilities: unused,
-      resolveCapabilitiesMany: unused,
-      applyPaidPeriod: unused,
-    },
+    grants: assembleAccessGrants({
+      prisma: observer.prisma,
+      accounts: assembleAccounts({
+        prisma: observer.prisma,
+        emailFingerprintKey: "billing-history-fingerprint-key-000000",
+      }),
+    }),
     clock: () => now,
   });
   const notices = new BillingNotices({
-    sale: { subscriptions: true },
     prisma: observer.prisma,
-    enrollments: {
-      listEnrollmentEndings: unused,
-      readEnrollmentEnding: unused,
-      readSubscriptionContinuation: unused,
-    },
     clock: () => now,
   });
   const money = await observer.measure(() => payments.history(id(600, 2)));
@@ -234,7 +235,10 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
   expect(messages.result.map((entry) => entry.noticeRef)).toEqual(
     Array.from({ length: 20 }, (_, index) => id(612, 21 - index)),
   );
-  expect(money.statements).toHaveLength(3);
+  expect(money.statements).toHaveLength(4);
+  expect(
+    money.statements.filter((sql) => /^\s*SELECT\b/iu.test(sql)),
+  ).toHaveLength(4);
   expect(
     money.statements.filter((sql) =>
       sql.includes('"billing"."fulfillment_outbox"'),

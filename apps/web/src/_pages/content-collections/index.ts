@@ -1,1 +1,1 @@
-export { SeriesEditorPageFrame } from "./ui/series-editor-page-frame";
+export { ProductEditorPageFrame } from "./ui/product-editor-page-frame";

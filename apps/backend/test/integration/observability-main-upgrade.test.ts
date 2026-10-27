@@ -68,14 +68,14 @@ it.each(["main101", "main102", "main103", "main104"] as const)(
         await runMigrationsToLatest(database.url, [...platformMigrations]),
       ).toEqual({ appliedMigrations: [] });
       const changedSql = platformMigrations.map((migration) =>
-        migration.name === "0101_funnel_diagnostic_candidates"
+        migration.name === "0114_funnel_diagnostic_candidates"
           ? { ...migration, statement: migration.statement + "\n-- changed" }
           : migration,
       );
       await expect(
         runMigrationsToLatest(database.url, changedSql),
       ).rejects.toThrow(
-        "Migration checksum mismatch: 0101_funnel_diagnostic_candidates",
+        "Migration checksum mismatch: 0114_funnel_diagnostic_candidates",
       );
       expect(await ledger()).toEqual(after);
     } finally {
@@ -159,7 +159,7 @@ it("retains the frozen historical root0108 upgrade and rejects its divergent led
   expect(
     createHash("sha256").update(JSON.stringify(rootRegistry)).digest("hex"),
   ).toBe(preparedRootDigest);
-  expect(rootRegistry.at(-1)?.name).toBe("0108_submission_activity_period");
+  expect(rootRegistry.at(-1)?.name).toBe("0121_submission_activity_period");
   expect(
     preparedRegistry
       .slice(preparedRootCount)
@@ -299,7 +299,7 @@ it.each([
       expect(await runMigrationsToLatest(database.url, target)).toEqual({
         appliedMigrations: [
           "0112_communications_tracking_trace_context",
-          "0113_waitlist_trace_context",
+          "0126_waitlist_trace_context",
         ],
       });
       const after = parseAppliedMigrations(
@@ -379,7 +379,7 @@ it.each([
         );
       const before = await ledger();
       expect(await runMigrationsToLatest(database.url, target)).toEqual({
-        appliedMigrations: ["0113_waitlist_trace_context"],
+        appliedMigrations: ["0126_waitlist_trace_context"],
       });
       const after = await ledger();
       expect(after.slice(0, prefix.length)).toEqual(before);

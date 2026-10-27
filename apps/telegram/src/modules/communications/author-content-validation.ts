@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { externalRead } from "../../database/external-reads.js";
 import type { AuthorSubject } from "./author-authorization.js";
-import type { MessagePart } from "./funnel-types.js";
+import type { MessagePart } from "./sequence-types.js";
 
 export const AUTHOR_CONTENT_VALIDATION = Symbol("AUTHOR_CONTENT_VALIDATION");
 export interface ContentTargetError {

@@ -3,14 +3,14 @@ import {
   anchoredMaterialHref,
   parseReaderCourseAnchor,
 } from "@/shared/routing/reader-course-anchor";
-import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
+import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { courseSource } from "@/storybook/course-reading.fixtures";
 
 const returnTarget = parseMaterialReaderReturnTarget(
   "/products/ai-engineering/programme?at=course-intro",
 );
-const series = {
+const product = {
   ...courseSource,
   chapters: courseSource.chapters.map((chapter) => ({
     ...chapter,
@@ -49,10 +49,10 @@ describe("Supplementary reading anchored to a primary course step", () => {
   it.each(["material:course-intro", "task:aie-ch1-onboarding"])(
     "uses %s only as a sidebar anchor",
     (value) => {
-      const context = resolveSeriesReaderContext({
+      const context = resolveProductReaderContext({
         currentMaterialSlug: "aie-product-brief",
         returnTarget,
-        series,
+        product,
         anchor: parseReaderCourseAnchor(value),
       });
       expect(context).toMatchObject({
@@ -73,10 +73,10 @@ describe("Supplementary reading anchored to a primary course step", () => {
     "uses standalone fallback for inaccessible or missing anchor %s",
     (value) => {
       expect(
-        resolveSeriesReaderContext({
+        resolveProductReaderContext({
           currentMaterialSlug: "aie-product-brief",
           returnTarget,
-          series,
+          product,
           anchor: parseReaderCourseAnchor(value),
         }),
       ).toBeNull();
@@ -85,28 +85,28 @@ describe("Supplementary reading anchored to a primary course step", () => {
   it("does not lend an anchor to an unrelated document and ignores it on primary navigation", () => {
     const anchor = parseReaderCourseAnchor("task:aie-ch1-onboarding");
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "outside",
         returnTarget,
-        series,
+        product,
         anchor,
       }),
     ).toBeNull();
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "course-intro",
         returnTarget,
-        series,
+        product,
         anchor,
       }),
     ).toMatchObject({
       programme: { current: { id: "material:course-intro" } },
     });
     expect(
-      resolveSeriesReaderContext({
+      resolveProductReaderContext({
         currentMaterialSlug: "course-intro",
         returnTarget,
-        series,
+        product,
         anchor,
       })?.supplementary,
     ).toBeUndefined();

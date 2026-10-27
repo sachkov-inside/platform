@@ -73,7 +73,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
     beginWaitlistIntentOperation,
     {
       invalidInput: () => Response.json(unavailable(), { status: 400 }),
-      execute: async ({ productId, source }, accessToken) => {
+      execute: async ({ productId, productSlug, source }, accessToken) => {
         const result = await requestProductWaitlistIntake(productId);
         if (!result.ok)
           return Response.json(unavailable(), {
@@ -89,6 +89,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
         const token = signWaitlistIntent(
           {
             productId,
+            productSlug,
             intakeId: intake.data.intakeId,
             accountId: account?.accountId ?? null,
             source: source ?? null,
@@ -105,7 +106,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
         });
         return Response.json({
           kind: accessToken === undefined ? "sign-in" : "continue",
-          returnTo: `/products/ai-engineering?waitlist=${verifyWaitlistIntent(token, config.cookieSecret, now)?.operationId ?? ""}`,
+          returnTo: `/products/${productSlug}?waitlist=${verifyWaitlistIntent(token, config.cookieSecret, now)?.operationId ?? ""}`,
         });
       },
     },

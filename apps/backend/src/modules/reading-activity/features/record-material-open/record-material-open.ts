@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -116,7 +117,7 @@ export async function recordMaterialOpen(
           };
         const facts = await dependencies.materialContent.findAccessFacts(
           materialId(command.materialId),
-          transaction,
+          transactionHandle(transaction),
         );
         if (!facts.ok)
           return { ok: false, error: { code: "dependency_unavailable" } };

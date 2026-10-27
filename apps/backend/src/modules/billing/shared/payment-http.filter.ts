@@ -1,5 +1,5 @@
 import { problemException } from "../../../infrastructure/http/problem-details.js";
-import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
+import type { PaymentFailureCode } from "../features/purchase-product/purchase-product.contract.js";
 
 export function throwPaymentError(code: PaymentFailureCode): never {
   let status: number;

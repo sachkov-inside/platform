@@ -1,0 +1,96 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { lockProduct } from "../../infrastructure/postgres/product-order.js";
+import { z } from "zod";
+
+import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
+import { authorizeManager } from "../../../../infrastructure/content-authoring/author-policy.js";
+import {
+  executeAuthoringTransaction,
+  failure,
+} from "../../shared/application-result.js";
+import {
+  accountId,
+  entityId,
+  parseCommand,
+} from "../../shared/command-validation.js";
+import { mapPostgresReadError } from "../../../../infrastructure/content-authoring/postgres-error-mapping.js";
+import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
+import type {
+  SetContentCollectionArchiveError,
+  SetContentCollectionArchiveOperation,
+} from "./set-content-collection-archive.contract.js";
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../../../infrastructure/content-authoring/content-write-policy.js";
+
+const commandSchema = z
+  .object({
+    actor: accountId,
+    archived: z.boolean(),
+    collectionId: entityId,
+    expectedVersion: z.number().int().positive(),
+    kind: z.enum(["product", "topic"]),
+  })
+  .strict();
+
+export function assembleSetContentCollectionArchive(
+  dependencies: ProductAuthoringDependencies,
+): SetContentCollectionArchiveOperation {
+  return async (input) => {
+    const parsed = parseCommand(commandSchema, input);
+    if (!parsed.ok) return failure(parsed.error);
+    const command = parsed.value;
+
+    return executeAuthoringTransaction(
+      dependencies.prisma,
+      async (transaction, rollback) => {
+        const permission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!permission.ok) return rollback(permission.error);
+
+        if (command.kind !== "topic") {
+          await lockProduct(transaction, [command.collectionId]);
+          const source = await transaction.product.findUnique({
+            where: { id: command.collectionId },
+            select: { sourceId: true },
+          });
+          const sourceError = checkContentWrite(contentWriter(), [
+            {
+              kind: "archive",
+              sourceId: source?.sourceId ?? null,
+              path: "/collectionId",
+            },
+          ]);
+          if (sourceError !== null) return rollback(sourceError);
+        }
+        const persistence = contentCollectionPersistence(
+          transaction,
+          command.kind,
+          dependencies.loadCovers,
+        );
+        const updated = await persistence.setArchive({
+          archived: command.archived,
+          expectedVersion: command.expectedVersion,
+          id: command.collectionId,
+        });
+        if (updated === 0) {
+          const current = await persistence.load(command.collectionId);
+          return current === undefined
+            ? rollback({ code: "content_collection_not_found" })
+            : rollback({
+                code: "stale_content_collection_version",
+                currentVersion: current.version,
+              });
+        }
+        const collection = await persistence.load(command.collectionId);
+        return collection ?? rollback({ code: "content_collection_not_found" });
+      },
+      (error): SetContentCollectionArchiveError => mapPostgresReadError(error),
+      "setContentCollectionArchive",
+    );
+  };
+}

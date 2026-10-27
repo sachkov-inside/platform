@@ -1,7 +1,7 @@
 /** Server-only public interface for Product and related Material views. */
 export {
   ProductProgrammePage,
-  PublishedSeriesPage,
+  PublishedProductPage,
 } from "./library-discovery/index.server";
 
 export {

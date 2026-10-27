@@ -1,81 +1,41 @@
 export {
-  handleApplyGrantBatch,
-  handleArchiveOffer,
-  handleArchivePaymentOption,
   handleArchivePromotion,
-  handleCancelOwnerSubscription,
-  handleClassifyAccount,
-  handleDecideRefund,
-  handleExecuteRefund,
-  handleExtendGrant,
   handleListPayments,
-  handlePreviewGrantBatch,
-  handlePublishOffer,
-  handleReadAccountClassification,
-  handleReadGrants,
   handleReadPayment,
   handleReadRefunds,
   handleReconcilePayment,
-  handleRevokeGrant,
-  handleSaveOffer,
-  handleSavePaymentOption,
   handleSavePromotion,
   handleSaveCohort,
-  handleUnpublishOffer,
   loadBillingOffersForOwner,
   handleOwnerCatalogRead,
 } from "./billing-admin/api/billing-admin.server";
-
 export {
-  handleListSubscriptionTiers,
-  handleReadTariffAssignments,
-  handleAssignTariffAssignment,
-  handleChangeTariffAssignment,
+  handleListActivationRules,
+  handleSaveActivationRule,
+  handleReadContentCatalog,
+  handleLookupSubscriptionRecipient,
 } from "./billing-admin/api/enrollments.server";
-
-export { handleListActivationRules } from "./billing-admin/api/enrollments.server";
-
-export { handleSaveActivationRule } from "./billing-admin/api/enrollments.server";
-
-export { handlePreviewEnrollmentExpansion } from "./billing-admin/api/enrollments.server";
-
-export { handleApplyEnrollmentExpansion } from "./billing-admin/api/enrollments.server";
-
-export { handleReadContentCatalog } from "./billing-admin/api/enrollments.server";
-
-export { handleRegisterSubscriptionSource } from "./billing-admin/api/enrollments.server";
-
-export { handleLookupSubscriptionRecipient } from "./billing-admin/api/enrollments.server";
-export { handleTributeStatus } from "./billing-admin/api/tribute.server";
-export { handleTributeSavePolicy } from "./billing-admin/api/tribute.server";
-export { handleTributePreview } from "./billing-admin/api/tribute.server";
-export { handleTributeApply } from "./billing-admin/api/tribute.server";
-export { handleTributeReconcile } from "./billing-admin/api/tribute.server";
-export { handleTributeRetryEvent } from "./billing-admin/api/tribute.server";
-
-export { handleTributeDismissImport } from "./billing-admin/api/tribute.server";
 export {
   handleImportRespondents,
   handleIssueRespondentLink,
   handleRespondentsStatus,
 } from "./billing-admin/api/respondents.server";
 export {
-  handleIssueInvitation,
-  handleListInvitations,
-  handleRevokeInvitation,
-} from "./billing-admin/api/invitations.server";
-export {
-  handleAccessSummary,
-  handleListPeople,
-} from "./billing-admin/api/access.server";
-
-export {
   handlePreviewProductRevocation,
   handleRevokeProductAccess,
 } from "./billing-admin/api/product-revocation.server";
-
 export {
   handleCreatePaymentLink,
   handleRevokePaymentLink,
   handleListPaymentLinks,
 } from "./billing-admin/api/payment-links.server";
+export {
+  handleListProductAccess,
+  handleReadProductAccess,
+  handleIssueProductAccess,
+  handleRestoreProductAccess,
+} from "./billing-admin/api/product-access.server";
+export {
+  handleSaveProductPrice,
+  handleArchiveProductPrice,
+} from "./billing-admin/api/product-prices.server";

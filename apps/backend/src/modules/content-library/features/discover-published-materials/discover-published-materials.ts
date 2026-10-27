@@ -15,7 +15,7 @@ import type {
 const querySchema = z
   .object({
     first: z.number().int().min(0).max(10_000).nullable(),
-    kind: z.enum(["related", "series", "topic"]),
+    kind: z.enum(["related", "product", "topic"]),
     slug: z.string().min(1).max(120),
     subject: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("anonymous") }).strict(),
@@ -23,9 +23,9 @@ const querySchema = z
     ]),
   })
   .strict()
-  .refine(({ first, kind }) => first !== null || kind === "series", {
+  .refine(({ first, kind }) => first !== null || kind === "product", {
     path: ["first"],
-    message: "Only complete Series discovery may omit a page size",
+    message: "Only complete Product discovery may omit a page size",
   })
   .refine(
     ({ first, kind }) => kind !== "related" || (first !== null && first > 0),
@@ -37,7 +37,7 @@ const querySchema = z
 
 /**
  * A generated catalog view. A Product programme also places its published tasks in chapters when the
- * caller passes `tasks`; a caller that only needs the main path, such as the series continuation,
+ * caller passes `tasks`; a caller that only needs the main path, such as the product continuation,
  * leaves it out and every chapter then lists no tasks.
  */
 export async function discoverPublishedMaterials(
@@ -63,7 +63,7 @@ export async function discoverPublishedMaterials(
   const tasksByChapter = new Map<string, ProductChapterTaskDto[]>();
   if (
     tasks !== undefined &&
-    parsed.data.kind === "series" &&
+    parsed.data.kind === "product" &&
     page.value.chapters.length > 0
   ) {
     const listed = await tasks.chapterTasks({
@@ -130,7 +130,7 @@ export async function discoverPublishedMaterials(
           items: projected.items,
           kind: page.value.kind,
           reference: page.value.reference,
-          relatedSeries: page.value.relatedSeries,
+          relatedProduct: page.value.relatedProduct,
           topics: page.value.topics,
         },
       }

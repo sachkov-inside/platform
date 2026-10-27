@@ -147,8 +147,11 @@ describe("author menu pages", () => {
 describe("stored author session", () => {
   it("restores a session saved by the current version", () => {
     const state: AuthorState = {
-      ...stateWith([{ kind: "f:list" }, { kind: "home" }]),
-      menu: { text: "Воронки", buttons: [["В меню", { kind: "home" }]] },
+      ...stateWith([{ kind: "seq:list" }, { kind: "home" }]),
+      menu: {
+        text: "Последовательности",
+        buttons: [["В меню", { kind: "home" }]],
+      },
       prompt: { kind: "button-url", buttonTitle: "Купить" },
       batch: "broadcast",
     };
@@ -166,7 +169,7 @@ describe("stored author session", () => {
       { ...current, actions: [{ kind: "read-post", id: 7 }] },
       { ...current, menu: { text: "Меню", buttons: [["В меню"]] } },
       { ...current, prompt: { kind: "button-url" } },
-      { ...current, batch: "funnels" },
+      { ...current, batch: "sequences" },
       { ...current, token: undefined },
       { ...current, composing: { destination: { kind: "post", id: "p" } } },
     ])
@@ -202,8 +205,8 @@ describe("stored author session", () => {
     const current = storedCopy(stateWith([]));
     for (const actions of [
       [{ kind: "read-post" }],
-      [{ kind: "f:message", id: "part" }],
-      [{ kind: "f:life", value: "delete" }],
+      [{ kind: "seq:message", id: "part" }],
+      [{ kind: "seq:life", value: "delete" }],
       [{ kind: "menu:page", value: 1 }],
       [{ kind: "posts", id: 7 }],
     ])
@@ -214,8 +217,8 @@ describe("stored author session", () => {
     const valid: AuthorAction[] = [
       { kind: "posts" },
       { kind: "posts", id: "cursor" },
-      { kind: "f:message", id: "part", value: "entry" },
-      { kind: "f:life", value: "archive" },
+      { kind: "seq:message", id: "part", value: "entry" },
+      { kind: "seq:life", value: "archive" },
     ];
     expect(parseAuthorState({ ...current, actions: valid })?.actions).toEqual(
       valid,
@@ -226,7 +229,7 @@ describe("stored author session", () => {
       // @ts-expect-error Home carries no selection.
       { kind: "home", id: "post" },
       // @ts-expect-error A lifecycle button names one of the known changes.
-      { kind: "f:life", value: "delete" },
+      { kind: "seq:life", value: "delete" },
     ];
     expect(typed).toHaveLength(3);
   });
@@ -243,7 +246,7 @@ describe("stored author session", () => {
       ...stateWith([]),
       composing: {
         destination: {
-          kind: "funnel",
+          kind: "sequence",
           id: broadcastId,
           target: "entry",
           expectedRevision: 1,
@@ -251,10 +254,10 @@ describe("stored author session", () => {
         sequence: { lastOffset: 0, firstEntry: true },
         content,
       },
-      funnelAuthor: {
-        funnel: {
-          funnelId: broadcastId,
-          name: "Новая воронка",
+      sequenceAuthor: {
+        sequence: {
+          sequenceId: broadcastId,
+          name: "Новая последовательность",
           isDefault: false,
           entryResponse: { stepId: broadcastId, parts: [part] },
           steps: [{ stepId: broadcastId, delaySeconds: 60, parts: [] }],
@@ -292,14 +295,18 @@ describe("stored author session", () => {
       replaced(stored, ["composing", "destination", "expectedRevision"], "1"),
       replaced(
         stored,
-        ["funnelAuthor", "funnel", "steps", 0, "parts"],
+        ["sequenceAuthor", "sequence", "steps", 0, "parts"],
         [{ partId: 1 }],
       ),
-      replaced(stored, ["funnelAuthor", "funnel", "lifecycle"], "deleted"),
-      replaced(stored, ["funnelAuthor", "funnel", "sources"], [{ code: "x" }]),
-      replaced(stored, ["funnelAuthor", "prompt"], "title"),
+      replaced(stored, ["sequenceAuthor", "sequence", "lifecycle"], "deleted"),
+      replaced(
+        stored,
+        ["sequenceAuthor", "sequence", "sources"],
+        [{ code: "x" }],
+      ),
+      replaced(stored, ["sequenceAuthor", "prompt"], "title"),
       replaced(stored, ["broadcast", "parts", 0, "partId"], "not-an-id"),
-      replaced(stored, ["broadcast", "audience"], { kind: "funnels" }),
+      replaced(stored, ["broadcast", "audience"], { kind: "sequences" }),
       removed(stored, ["template", "botIdentity"]),
     ])
       expect(parseAuthorState(untrusted)).toBeUndefined();

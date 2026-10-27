@@ -1,9 +1,8 @@
-import type { PrivateMemberProfile } from "@/entities/member-profile";
+import type { PrivateAccountProfile } from "@/entities/account-profile";
 import type { AccountTelegramMembership } from "@/features/account-access";
 
 import {
   accessGrounds,
-  activeSubscription,
   billingNotices,
   currentBillingResponse,
   enrollmentsResponse,
@@ -52,7 +51,7 @@ export const memberProfile = {
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 3,
-} as const satisfies PrivateMemberProfile;
+} as const satisfies PrivateAccountProfile;
 
 /** Аккаунт участника, которым story открывает оболочку и кабинет. */
 export const memberAccountId = "00000000-0000-4000-8000-00000000a001";
@@ -66,7 +65,7 @@ export function accountPresentationResponse({
   profile = memberProfile,
 }: {
   readonly link?: AccountTelegramMembership["link"];
-  readonly profile?: PrivateMemberProfile | null;
+  readonly profile?: PrivateAccountProfile | null;
 } = {}): Response {
   return Response.json({
     profile:
@@ -111,7 +110,7 @@ export const subscribedMemberRoutes: Readonly<Record<string, RouteResponse>> = {
   "/api/account/email": () =>
     Response.json({ ok: true, email: "member@example.test" }),
   "/api/account/billing": () =>
-    currentBillingResponse(activeSubscription, {
+    currentBillingResponse(null, {
       grounds: accessGrounds,
       notices: billingNotices,
       payments: ownPayments,

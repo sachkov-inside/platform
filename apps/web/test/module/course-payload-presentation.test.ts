@@ -3,7 +3,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProductLandingView } from "@/_pages/library-discovery/ui/product-landing-view";
-import { getPublishedSeries } from "@/features/library-discovery.server";
+import { getPublishedProduct } from "@/features/library-discovery.server";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 import { performanceProductPage } from "../navigation/course-payload.fixtures.mjs";
@@ -18,7 +18,7 @@ describe("Course payload navigation fixture", () => {
           chapters: [],
           hasNext: false,
           items: [],
-          kind: "series",
+          kind: "product",
           reference: {
             cover: null,
             id: "11111111-1111-4111-8111-111111111115",
@@ -27,13 +27,13 @@ describe("Course payload navigation fixture", () => {
             slug: "performance-course",
             summary: "Синтетический продукт для проверки мгновенных переходов.",
           },
-          relatedSeries: [],
+          relatedProduct: [],
           topics: [],
         }),
       ),
     );
 
-    const result = await getPublishedSeries("performance-course");
+    const result = await getPublishedProduct("performance-course");
     if (result.kind !== "empty")
       throw new Error("Expected the Product fixture");
     const html = renderToString(

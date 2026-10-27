@@ -25,7 +25,7 @@ const collection = {
   name: "Platform",
   slug: "platform",
   summary: "Architecture and delivery.",
-  version: 2,
+  version: 2 as const,
 } as const;
 
 describe("Content collection web adapters", () => {
@@ -72,7 +72,7 @@ describe("Content collection web adapters", () => {
     // Since #672 each collection carries its page description, presentation and source key.
     const product = {
       ...collection,
-      kind: "series",
+      kind: "product",
       page: { heading: "Product" },
       pageRejected: false,
       presentation: "default",
@@ -84,13 +84,13 @@ describe("Content collection web adapters", () => {
       response: Response.json({}),
     });
     await expect(
-      getContentCollections("series", "token", list),
+      getContentCollections("product", "token", list),
     ).resolves.toMatchObject({
       collections: [{ id: collectionId, presentation: "default" }],
       kind: "ready",
     });
     const input = createContentCollectionOperation.input.parse({
-      kind: "series",
+      kind: "product",
       name: "Platform",
       slug: "platform",
       summary: "Architecture and delivery.",

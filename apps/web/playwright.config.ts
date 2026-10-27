@@ -20,6 +20,7 @@ export default defineConfig({
         "link-indexing.spec.ts",
         "mobile-navigation.spec.ts",
         "subscription.spec.ts",
+        "retired-commerce.spec.ts",
       ],
   fullyParallel: true,
   workers: 2,

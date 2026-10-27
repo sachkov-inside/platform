@@ -1,3 +1,4 @@
+import { ProductDirectory } from "../../../products/index.js";
 import { Controller, Get, Inject, Param } from "@nestjs/common";
 import {
   ApiOkResponse,
@@ -26,10 +27,7 @@ import {
   anonymousSubject,
   type ContentAccess,
 } from "../../../content-access/index.js";
-import {
-  ProductDirectory,
-  PublishedMaterialSelection,
-} from "../../../materials/index.js";
+import { PublishedMaterialSelection } from "../../../materials/index.js";
 import {
   readerReferenceIdSchema,
   readerReferenceSchema,

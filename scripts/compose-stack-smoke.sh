@@ -44,21 +44,22 @@ if [[ "$catalog_response" == *"Закрытое содержимое для уч
   exit 1
 fi
 
-# Публичная витрина отдаёт только включённое в продажу, поэтому один ответ доказывает и то, что
-# каталог засеян, и то, что продажа включена. Лишние предложения владельца проверке не мешают.
-offers_response="$(curl --fail --silent --show-error "$api_base_url/billing/offers")"
-for seeded_offer in '"name":"Руководство «Создание Platform Inside»"' '"mode":"one_time"'; do
-  if [[ "$offers_response" != *"$seeded_offer"* ]]; then
-    echo "Seeded offer catalog is missing $seeded_offer on the public storefront" >&2
-    exit 1
-  fi
-done
-for hidden_subscription in '"name":"Материалы"' '"name":"Материалы + сопровождение"' '"mode":"subscription"'; do
-  if [[ "$offers_response" == *"$hidden_subscription"* ]]; then
-    echo "Subscription sales must remain hidden during enrollment transition: $hidden_subscription" >&2
-    exit 1
-  fi
-done
+# Публичная витрина использует текущий Product API. Текущая редакция условий ещё не
+# разрешает новые Product-покупки, поэтому сборка Billing скрывает цены через saleCapability.
+# Сам засеянный Product и его цена проверяются отдельно в PostgreSQL ниже.
+retired_offers_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_base_url/billing/offers")"
+if [[ "$retired_offers_status" != "404" ]]; then
+  echo "Retired Offer route should return 404, got $retired_offers_status" >&2
+  exit 1
+fi
+prices_response="$(curl --fail --silent --show-error "$api_base_url/billing/product-prices")"
+python3 - "$prices_response" <<'PYTHON'
+import json
+import sys
+
+page = json.loads(sys.argv[1])
+assert page == {'items': [], 'nextCursor': None}, 'Expected no public Product prices under the current unapproved Product terms'
+PYTHON
 
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
 retired_library_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$web_base_url/library")"
@@ -96,6 +97,18 @@ if [[ "$mcp_logs" != *'"process":"mcp","status":"ready","database":"reachable"'*
   exit 1
 fi
 
+seed_price_snapshot="$(
+  docker compose exec -T postgres psql \
+    --username "${POSTGRES_USER:-inside}" \
+    --dbname "${POSTGRES_DB:-inside}" \
+    --tuples-only --no-align \
+    --command "select product.id::text || ':' || price.price_kopecks::text || ':' || price.published::text || ':' || price.archived::text || ':' || price.name from billing.product_prices price join products.products product on product.id = price.product_id where product.id = '72000000-0000-4000-8000-000000000007';"
+)"
+if [[ "$seed_price_snapshot" != '72000000-0000-4000-8000-000000000007:3000:true:false:Руководство «Создание Platform Inside»' ]]; then
+  echo "Unexpected seeded Product price: $seed_price_snapshot" >&2
+  exit 1
+fi
+
 seed_snapshot="$(
   docker compose exec -T postgres psql \
     --username "${POSTGRES_USER:-inside}" \
@@ -122,4 +135,4 @@ if [[ "$mail_capture_inbox" != *'"messages"'* ]]; then
   exit 1
 fi
 
-echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale, bank double and mail capture ready"
+echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded Product price preserved, public price gate closed, bank double and mail capture ready"

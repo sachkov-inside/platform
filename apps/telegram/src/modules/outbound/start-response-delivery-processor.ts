@@ -79,6 +79,7 @@ export class StartResponseDeliveryProcessor {
           });
       if (
         hasText(delivery.editMessageId) &&
+        !hasText(delivery.signInRequestRef) &&
         result.kind === "api_rejected" &&
         result.providerErrorCode === 400
       ) {

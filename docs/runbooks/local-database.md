@@ -68,9 +68,13 @@ rebuilds the workspace packages and the Prisma client. Type-aware lint reads bot
 or client reports unsafe `any` errors in files the change never touched. `pnpm check:static` runs it
 before lint.
 
-The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
+The Prisma schema maps the product-owned `products`, `content_covers`, `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
 `account_rights`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
-append-only SQL migrations remain the database authority. Their explicit positions and checksums
+append-only SQL migrations remain the database authority. Account Profiles uses the historical
+`member_profiles` physical mapping; the runtime Module and scoped clients use Account Profiles names.
+Products migrations preserve table identities and source/UUID references while moving schemas,
+backfill automatic programmes before removing duplicate catalogue order, and replace cross-owner
+foreign keys with interface checks in the shared opaque transaction. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
 with the [destructive reset](local-stand.md#destructive-reset) rather than supported by application compatibility code.

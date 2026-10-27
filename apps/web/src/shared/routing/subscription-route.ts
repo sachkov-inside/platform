@@ -133,8 +133,8 @@ export type PurchaseInvitation =
  */
 export function purchaseInvitation({
   product,
-  subscriptionOffered,
-  from,
+  subscriptionOffered: _subscriptionOffered,
+  from: _from,
 }: {
   /** Руководство, которое человек сейчас смотрит, и продаётся ли оно отдельно. */
   readonly product?:
@@ -147,12 +147,5 @@ export function purchaseInvitation({
   if (product?.sold === true) {
     return { kind: "product", href: productPurchaseHref(product.slug) };
   }
-  if (!subscriptionOffered) return null;
-  return {
-    kind: "subscription",
-    href:
-      from === undefined
-        ? internalRoute("/payment/checkout")
-        : subscriptionHrefFrom(from),
-  };
+  return null;
 }
