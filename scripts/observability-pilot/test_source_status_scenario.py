@@ -87,12 +87,13 @@ class ScenarioTests(unittest.TestCase):
                     self.assertNotIn('private boundary diagnostic', json.dumps(report))
 
     def test_real_worker_cli_withholds_boundary_diagnostics_paths_and_command_details(self):
-        for mode in ('cli_failure', 'cli_command_failure'):
-            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+        for mode, slow_profile_write in ((mode, slow) for mode in ('cli_failure', 'cli_command_failure') for slow in (False,True)):
+            with self.subTest(mode=mode,slow_profile_write=slow_profile_write), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory).resolve()
-                with owned_scenario_process(output, mode) as process:
+                with owned_scenario_process(output, mode,slow_profile_write=slow_profile_write) as process:
                     stdout, stderr = process.communicate(timeout=8)
                     self.assertEqual(process.returncode, 1, stderr)
+                    self.assertTrue((output/('command-failed' if mode=='cli_command_failure' else 'boundary-entered')).is_file())
                     report = json.loads((output / 'source-freshness.json').read_text())
                     self.assertEqual(report['state'], 'failed')
                     self.assertIn('ScenarioFailed', stderr)
