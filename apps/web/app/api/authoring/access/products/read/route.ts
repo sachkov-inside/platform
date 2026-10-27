@@ -1,2 +1,2 @@
-import { handleReadProductAccess } from "@/features/billing-admin.server";
+import { handleReadProductAccess } from "@/entities/subscription.server";
 export const POST = handleReadProductAccess;

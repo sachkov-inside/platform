@@ -15,11 +15,9 @@ import {
   readProductAccessOperation,
   issueProductAccessOperation,
   restoreProductAccessOperation,
-} from "../api/product-access.operation";
-import type {
-  accessPairSchema,
-  listProductAccessSchema,
-} from "../model/product-access";
+  type accessPairSchema,
+  type listProductAccessSchema,
+} from "@/entities/subscription";
 import { AdminField, AdminSection, formText } from "./admin-form.client";
 import { ProductRevocationPanel } from "./product-revocation-panel.client";
 

@@ -6,14 +6,12 @@ import {
   accessSourceLabel,
   billingErrorMessage,
   formatBillingDate,
+  previewProductRevocation,
+  revokeProductAccess,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import { readContentCatalog } from "../api/enrollments.browser";
-import {
-  previewProductRevocation,
-  revokeProductAccess,
-} from "../api/product-revocation.browser";
 
 export function ProductRevocationPanel({
   accountId,
