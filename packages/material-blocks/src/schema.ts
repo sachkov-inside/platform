@@ -116,7 +116,8 @@ export function materialDocumentExtensions(
     Node.create({
       name: "doc",
       topNode: true,
-      content: "(block+ | block* topLevelBlock block*)",
+      // Keep the paragraph path first: ProseMirror uses this order when it fills a document.
+      content: "(block+ topLevelBlock? block* | topLevelBlock block*)",
     }),
     StarterKit.configure({
       document: false,

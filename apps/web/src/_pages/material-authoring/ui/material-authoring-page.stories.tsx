@@ -1634,9 +1634,11 @@ export const InlineVideoEditing: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Убрать блок видео" }),
     );
-    await expect(
-      canvas.queryByLabelText("Описание видео"),
-    ).not.toBeInTheDocument();
+    await waitFor(async () => {
+      await expect(
+        canvas.queryByLabelText("Описание видео"),
+      ).not.toBeInTheDocument();
+    });
     await expect(canvas.getByText("Перед видео")).toBeVisible();
     await expect(canvas.getByText("После видео")).toBeVisible();
   },
@@ -1677,6 +1679,12 @@ export const InlineVideoInsert: Story = {
     const insertion = textbox.querySelectorAll("p")[1];
     if (insertion === undefined) throw new Error("Missing insertion paragraph");
     await userEvent.click(insertion);
+    // Finish native selection after the click wrapper restores its previous caret.
+    const document = canvasElement.ownerDocument;
+    const selection = document.getSelection();
+    if (selection === null) throw new Error("Selection is unavailable");
+    selection.collapse(insertion, 0);
+    document.dispatchEvent(new Event("selectionchange"));
     await userEvent.click(
       canvas.getByRole("button", { name: "Добавить блок" }),
     );
