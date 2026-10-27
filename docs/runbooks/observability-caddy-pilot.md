@@ -170,7 +170,8 @@ and protocol fixtures do not replace actual Linux Caddy evidence.
 
 The held socket proves native collection separately from asynchronous storage visibility.
 After the independent public gauge witness, the worker reads the validated private
-`srv1/metrics` registry. It first waits for that role's in-flight gauge to be exactly one
+`srv1/subroute` registry. Pinned Caddy instruments the outer compiled route rather than
+the nested `metrics` handler. It first waits for that role's in-flight gauge to be exactly one
 (the worker's own read), excluding an already running pre-R scrape. Only Alloy and this worker
 read this registry in the owned topology. Each subsequent native read accounts for its preceding
 completed owned read; a completed-request counter increase beyond that exact count proves an
