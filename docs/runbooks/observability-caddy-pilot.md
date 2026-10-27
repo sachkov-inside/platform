@@ -426,5 +426,7 @@ After a rejected baseline read, the last whole
 observed frame's clock may schedule the next query at an integer evaluation time strictly after
 a projected five-second frame, following the full quiet interval. This is a timing hint, never
 sample evidence: the returned whole vector, actual source timestamp, freshness and journal
-checks still decide. Missing/incomplete frames use the ordinary quiet wait. The baseline stays
-fixed once the substantive seed starts; no request window, counter or cohort-gap rule is reset.
+checks still decide. Missing/incomplete frames use the ordinary quiet wait. The existing
+rollover remains available only after the whole journal comparison passes and the source stamp
+has not yet passed the batch cut. No new rollover across an unverified business interval is
+added; no request window, counter or cohort-gap rule is reset.
