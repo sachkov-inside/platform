@@ -75,12 +75,15 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   in every selection state so their wrapping stays stable. Distinguish the current step with
   foreground text and a subtle action-coloured glow at its left marker; omit selected-row fill
   and visible status badges.
+  The rail heading names the shown chapter, wrapping up to three lines at 1.4 line height, with
+  its ordinal out of the chapter count.
+  Activating it replaces the step list in place with the chapter list, drawn as rail rows with
+  the same markers, and never overlays the reading column. Choosing a chapter or pressing Escape
+  restores the step list and returns focus to the heading. The reading chapter carries a
+  visually hidden «Вы здесь» label.
   Strike through a Task title only when its persisted submission timestamp is present, including
   the currently open Task. Keep the submitted state accessible without a visible label or date;
   an unsent review report does not count as a submission or imply acceptance by the author.
-  Chapter options use a subtle muted background for pointer and keyboard highlight, without
-  underlines or a surrounding focus ring. Retain the selection check and a forced-colors focus
-  outline. Allow the chapter menu up to 32rem within available viewport height.
   Chapter titles wrap without clipping the chevron.
   The header shows the authored chapter ordinal and its mixed step position/count. Keep the legal
   footer only on course landing, purchase, payment and legal routes. Navigation rows make no personal access claim from guest-cached composition; target
