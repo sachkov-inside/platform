@@ -67,7 +67,7 @@ export async function listCommunityProblemAccounts(
       return dependencyFailure(
         {
           module: "telegram-membership",
-          operation: "listCommunityProblemAccounts",
+          operation: "listProblemAccounts",
         },
         new RangeError("Community problem Account set exceeds its bound"),
         { ok: false } as const,
@@ -77,7 +77,7 @@ export async function listCommunityProblemAccounts(
     return dependencyFailure(
       {
         module: "telegram-membership",
-        operation: "listCommunityProblemAccounts",
+        operation: "listProblemAccounts",
       },
       error,
       { ok: false } as const,
