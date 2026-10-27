@@ -149,7 +149,7 @@ export const ChapterNavigation: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const selector = canvas.queryByRole("combobox", { name: "Глава курса" });
+    const selector = canvas.queryByRole("button", { name: /^Глава \d+ из/ });
     if (selector === null || selector.getClientRects().length === 0) return;
     const chevron = selector.querySelector("svg");
     if (chevron === null) throw new Error("Chapter chevron missing");
@@ -157,26 +157,86 @@ export const ChapterNavigation: Story = {
       selector.getBoundingClientRect().right,
     );
     await userEvent.click(selector);
+    await expect(selector).toHaveAttribute("aria-expanded", "true");
+    const chapters = canvas.getByRole("navigation", { name: "Главы курса" });
     await expect(
-      within(document.body)
-        .getAllByRole("option")
+      within(chapters)
+        .getAllByRole("button")
         .map((option) => option.textContent),
     ).toEqual([
-      "Глава 1 Подготовь проект к разработке с агентом и проверь настройку",
-      "Глава 2 Продолжение",
-      "Глава 3 Следующая глава",
+      "Глава 1Подготовь проект к разработке с агентом и проверь настройкуВы здесь",
+      "Глава 2Продолжение",
+      "Глава 3Следующая глава",
     ]);
-    const nextChapter = within(document.body).getByRole("option", {
+    const nextChapter = within(chapters).getByRole("button", {
       name: "Глава 2 Продолжение",
     });
     await userEvent.hover(nextChapter);
-    await expect(getComputedStyle(nextChapter).outlineStyle).toBe("none");
     await expect(getComputedStyle(nextChapter).textDecorationLine).toBe("none");
     await userEvent.click(nextChapter);
+    await expect(selector).toHaveAttribute("aria-expanded", "false");
+    await expect(selector).toHaveFocus();
     await expect(selector).toHaveTextContent("Продолжение");
     await expect(canvas.getByLabelText("Текущая глава")).toHaveTextContent(
       "Следующий урок",
     );
+  },
+};
+export const LongChapterTitles: Story = {
+  render: () => {
+    const names = [
+      "Подготовь проект к разработке: harness, skills и AI-first процесс",
+      "Разработка с агентом на практике: аккаунты и MCP",
+      "Релиз в продакшен: CI/CD, развёртывание и мониторинг",
+      "Инфраструктура агентов в AI-first платформе: MCP, skills и управление контекстом",
+      "Разработка своего агента для AI-first платформы: tool calling, сессии и память",
+      "Оценка качества агента: evals, трассировка и регрессии",
+      "Командная работа с агентами: ревью, роли и границы ответственности",
+    ];
+    const [first, second] = courseGuide.chapters;
+    if (first === undefined || second === undefined)
+      throw new Error("Course fixture must contain two chapters");
+    const chapters = names.map((name, index) => ({
+      ...(index === 1 ? first : second),
+      id: `long-title-${String(index)}`,
+      name,
+      ordinal: index + 1,
+    }));
+    const context = {
+      ...courseGuide,
+      chapters,
+      currentChapterId: "long-title-1",
+    };
+    return (
+      <CourseReadingLayout context={context}>
+        <CourseReadingHeader
+          context={context}
+          title="Как спроектировать аккаунты и доступ"
+          metadata={null}
+        />
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.queryByRole("button", { name: /^Глава 2 из 7/ });
+    if (heading === null || heading.getClientRects().length === 0) return;
+    const rail = canvas.getByRole("complementary", { name: "Текущая глава" });
+    await userEvent.click(heading);
+    const chapters = canvas.getByRole("navigation", { name: "Главы курса" });
+    await expect(
+      within(chapters).getByRole("button", { current: true }),
+    ).toHaveTextContent("Разработка с агентом на практике");
+    await expect(within(chapters).getByText("Вы здесь")).toBeInTheDocument();
+    await expect(chapters.getBoundingClientRect().right).toBeLessThanOrEqual(
+      rail.getBoundingClientRect().right,
+    );
+    await userEvent.keyboard("{Escape}");
+    await expect(heading).toHaveAttribute("aria-expanded", "false");
+    await expect(heading).toHaveFocus();
+    await expect(
+      canvas.getByRole("navigation", { name: "Шаги текущей главы" }),
+    ).toBeVisible();
   },
 };
 export const ServerStepChanges: Story = {
@@ -210,13 +270,11 @@ export const ServerStepChanges: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const selector = canvas.queryByRole("combobox", { name: "Глава курса" });
+    const selector = canvas.queryByRole("button", { name: /^Глава \d+ из/ });
     if (selector === null || selector.getClientRects().length === 0) return;
     await userEvent.click(selector);
     await userEvent.click(
-      within(document.body).getByRole("option", {
-        name: "Глава 2 Продолжение",
-      }),
+      canvas.getByRole("button", { name: "Глава 2 Продолжение" }),
     );
     await userEvent.click(
       await canvas.findByRole("button", { name: "Следующий урок" }),
@@ -466,7 +524,7 @@ export const NumberedAssignments: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const selector = canvas.queryByRole("combobox", { name: "Глава курса" });
+    const selector = canvas.queryByRole("button", { name: /^Глава \d+ из/ });
     if (selector === null || selector.getClientRects().length === 0) return;
     await expect(
       canvas.getByRole("link", {
@@ -492,9 +550,7 @@ export const NumberedAssignments: Story = {
     );
     await userEvent.click(selector);
     await userEvent.click(
-      within(document.body).getByRole("option", {
-        name: "Глава 2 Продолжение",
-      }),
+      canvas.getByRole("button", { name: "Глава 2 Продолжение" }),
     );
     await expect(
       await canvas.findByRole("link", { name: "Задание 1 Спроектируй MVP" }),
