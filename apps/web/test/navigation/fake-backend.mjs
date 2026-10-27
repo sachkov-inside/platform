@@ -1121,10 +1121,11 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   const search = authoringSearchRoute(request, url);
   if (search !== null) return send(search.status, search.value);
-  const peopleRead = await peopleRoute(request, url, readBody);
-  if (peopleRead !== null) return send(peopleRead.status, peopleRead.value);
+  // Ученики продукта (#1718) раньше людей (#1721): выдачу своего продукта ведёт двойник учеников.
   const learners = await productLearnersRoute(request, url, readBody);
   if (learners !== null) return send(learners.status, learners.value);
+  const peopleRead = await peopleRoute(request, url, readBody);
+  if (peopleRead !== null) return send(peopleRead.status, peopleRead.value);
   const materials = await authoringMaterialsRoute(request, url, readBody);
   if (materials !== null) return send(materials.status, materials.value);
   const collections = await contentCollectionsRoute(request, url, readBody);

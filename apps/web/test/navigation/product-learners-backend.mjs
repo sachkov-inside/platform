@@ -4,7 +4,8 @@ import { z } from "zod";
 /**
  * Подставные ученики продукта и ручная выдача для вкладки «Ученики» (#1718): HTTP-двойник
  * `GET /admin/products/:productId/holders` и `POST /admin/access/products/issue`, а не проверка
- * прав. Отвечает только за продукт «Архитектура приложения» страницы «Продукты». Первая попытка
+ * прав. Отвечает только за продукт «Архитектура приложения» страницы «Продукты»; стоит в
+ * `fake-backend.mjs` раньше двойника людей. Первая попытка
  * выдачи аккаунту `failingAccountId` отвечает сбоем зависимости; повтор с той же `sourceRef`
  * выдаёт продукт, как идемпотентная команда Product Access. `POST /__product-learners/reset`
  * возвращает исходных учеников, `GET /__product-learners/commands` отдаёт принятые выдачи.
@@ -120,10 +121,13 @@ export async function productLearnersRoute(request, url, readBody) {
     request.method !== "POST"
   )
     return null;
+  const parsed = issueSchema.safeParse(JSON.parse(await readBody(request)));
+  // Выдачи других продуктов ведёт двойник людей (`people-backend.mjs`, #1721).
+  if (!parsed.success || parsed.data.productId !== learnersProductId)
+    return null;
   if (request.headers.authorization === undefined)
     return problem(401, "invalid_proof");
-  const command = issueSchema.parse(JSON.parse(await readBody(request)));
-  if (command.productId !== learnersProductId) return problem(404, "not_found");
+  const command = parsed.data;
   commands.push(command);
   if (
     command.accountId === failingAccountId &&

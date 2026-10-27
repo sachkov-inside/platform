@@ -122,7 +122,7 @@ test("products list opens a product whose tabs live in the address and keep the 
 
   // Строка открывает продукт: на компьютере щелчок по любой ячейке, на телефоне по строке.
   const row = products.filter({ hasText: "Архитектура приложения" });
-  if (phone(info)) await row.getByText("Опубликовано: 5").click();
+  if (phone(info)) await row.getByText(/опубликовано 5/u).click();
   else await row.locator("td").nth(2).click();
   await expect(page).toHaveURL(`/authoring/products/${architectureId}`);
   const tab = (name: string) => page.getByRole("tab", { name, exact: true });
