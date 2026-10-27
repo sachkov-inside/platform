@@ -4,8 +4,8 @@ Which accounts the stand offers, how to pass the owner's purchase order, and whe
 
 ## Owner order
 
-The catalog is already on sale: the development seed publishes the product and both subscriptions, so
-no manual setup is needed before buying. See [Seeded offer catalog](local-acceptance-sale.md#development-product-price).
+The catalog is already on sale: the development seed publishes the product, so no manual setup is
+needed before buying. See [Seeded offer catalog](local-acceptance-sale.md#development-product-price).
 
 1. Run `pnpm local:stand` and wait for the addresses.
 2. Open <http://127.0.0.1:3000>. A fresh browser context immediately uses the local owner,
@@ -22,16 +22,8 @@ no manual setup is needed before buying. See [Seeded offer catalog](local-accept
 5. Buy the product and choose «Оплата прошла» on the bank double. The grant and progress belong
    to that learner Account. Bootstrap and account switching never reset purchases or progress;
    an account that bought access keeps it.
-6. Return to owner before checking `/authoring/billing`; the owner already has `platform:admin`.
-
-7. Classify the account as a new buyer before subscribing. Open `/authoring/billing`, find «Кто
-   этот покупатель», paste the Account id from the same row into «Определить Account», set
-   «Ожидаемая редакция» to `0` for an account with no decision yet, pick «Новый покупатель» in
-   «Состояние», fill «Источник» and «Основание», then press «Записать решение». Without that
-   decision the subscription refuses, and the refusal looks like a broken payment although it is
-   a sales rule.
-8. Select the buyer again and subscribe on the storefront. When the product is already bought, the larger plan asks to confirm
-   the overlap with a checkbox, which is intended.
+6. Return to owner to see the purchase in «Платежи» (`/authoring/sales/payments`); the owner
+   already has `platform:admin`.
 
 ## Local account boundary and recovery (#1641)
 

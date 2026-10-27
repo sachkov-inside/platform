@@ -14,6 +14,10 @@ A proven unsent prepared subscription attempt is closed and its reservation rele
 uncertain provider outcomes still reconcile. The historical contracts and snapshots below remain
 for recovery and audit, not as permission to re-enable Product subscriptions.
 
+Владельческая страница `/authoring/billing`, которую называют разделы ниже, удалена в
+[#1718](https://github.com/sachkov-inside/platform/issues/1718): продажи владельца живут на
+страницах `/authoring/sales/*` и вкладке «Продажа» страницы продукта по
+[спецификации админки](authoring-admin-redesign-v1.md), а прежний адрес ведёт в «Платежи».
 
 Статус: **принятая спецификация #403** ([PR #417](https://github.com/sachkov-inside/platform/pull/417)).
 Access foundation поставлен в #404, pricing — в #405; остальные billing slices остаются
@@ -777,12 +781,13 @@ username при входе (раздел «Telegram sign-in» в
 **Сводка и журнал.** `respondents.status` показывает владельцу размер списка, выданные ссылки и
 подтверждённые покупки по ним. Импорт и выдача пишутся в `billing.owner_commands` как обычные
 владельческие команды: результат импорта содержит только счётчики, объект выдачи — личная акция,
-и ни одна запись журнала не называет ник. Операции доступны в `/authoring/billing` и через MCP
-(`billing_respondents_*`).
+и ни одна запись журнала не называет ник. Импорт и выдача доступны через MCP
+(`billing_respondents_*`); админка показывает анкетные скидки только архивом в «Скидках» и
+респондентов в отчёте «Воронка продаж».
 
 Правила исполняются наборами `survey-respondents` (PostgreSQL), `survey-respondent-usernames`,
-`billing-checkout-promo`, `billing-admin-bff` и историями Storybook `Survey respondents` и
-`Product/Payment/Flow`.
+`billing-checkout-promo`, `sales-catalog-bff` и историями Storybook
+`Pages/Authoring/Sales funnel report` и `Pages/Product/Payment/Flow`.
 
 ## Историческая поставка #908
 

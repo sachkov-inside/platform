@@ -2,7 +2,7 @@
 version: 1
 slug: "admin-workspace"
 primary_target: "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx"
-related_targets: ["apps/web/src/shared/ui/workspace-tabs.client.tsx", "apps/web/src/_pages/content-collections/ui/product-editor-page.client.tsx", "apps/web/src/widgets/material-authoring/ui/material-authoring-workspace.client.tsx", "apps/web/src/features/billing-admin/ui/billing-admin-view.client.tsx", "apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.tsx"]
+related_targets: ["apps/web/src/shared/ui/workspace-tabs.client.tsx", "apps/web/src/_pages/content-collections/ui/product-editor-page.client.tsx", "apps/web/src/widgets/material-authoring/ui/material-authoring-workspace.client.tsx", "apps/web/src/_pages/sales-payments/ui/sales-payments-page.tsx", "apps/web/src/_pages/sales-links/ui/sales-links-page.client.tsx", "apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.client.tsx"]
 ---
 
 # Admin workspace
@@ -52,22 +52,24 @@ graphite buttons carry primary actions, and orange stays a restrained task/focus
 Drafts, preview state and retry identities survive a local task switch. Tabs wrap on mobile,
 use a 44px minimum target, and support ArrowLeft/ArrowRight, Home and End with roving focus.
 
-- Product editor: «Программа», «Описание и обложка», «Материалы продукта», «Настройки».
-  ImportedProduct source-owned restrictions remain in force.
+- Product editor: «Программа», «Описание и витрина», «Продажа» (price, sale state and the
+  product's payment links), «Ученики», «Сообщество и активация». The tab lives in the address
+  (`?tab=`). ImportedProduct source-owned restrictions remain in force.
 - Material editor: «Содержимое», «Параметры», «Обложка и видео», «Карточка ссылки».
   Save, publication and Preview retain their application contracts.
 - People/access: «Люди и доступ», «Тарифы», «Приглашения», «Сводка».
-- Sales/payments: «Платежи», «Предложения», «Ссылки на оплату», «Наборы»,
-  «Назначения и перенос», «Служебные операции». The last group separates grant/bulk actions
-  from account classification. Offer benefits use readable named choices.
-- Sales funnel: «Воронка», «Ожидание набора», «Анкетные скидки».
+- Sales (#1718): separate pages under `/authoring/sales` rather than tabs. «Платежи» lists
+  payments and opens one payment at `/authoring/sales/payments/[purchaseRef]`; «Ссылки на оплату»
+  and «Скидки» are lists with a create dialog, and questionnaire discounts are a read-only
+  archive in «Скидки». Prices, sale state and activation rules live on the product page.
+- Sales funnel: one page at `/authoring/sales/funnel` with product, chapter and period filters;
+  bot steps, waitlist demand and questionnaire respondents are sections of it, and consent is a
+  separate historical metric, never a step.
 
-Payment state filtering stays visible. Account, kind and row limit live in a native additional
-filters disclosure; collapsing it preserves field values. Below the `sm` breakpoint, a payment
-row presents state and amount first, kind and access second, and a wrapping opening action last.
-Larger screens retain the table. Banking state, access and receipt remain distinct facts.
-The [operation inventory](../../../../docs/research/2026-10-20-admin-operations.md) maps the existing
-operations retained by this grouping.
+The payments list keeps its state, product and period filters in the address. Banking state,
+access and receipt remain distinct facts. The
+[operation inventory](../../../../docs/research/2026-10-20-admin-operations.md) records the
+operations of the earlier grouping that these pages retain.
 
 ## Evidence and limits
 

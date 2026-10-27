@@ -65,9 +65,9 @@ Account `no-entitlement` также читает все закреплённые
   публичных маршрутов к API для ученика нет
   ([таблица маршрутов](production-release.md#public-api-routes)). Поэтому клетки «через API»
   проверяются через learner MCP. Токен Platform API принимает владельческий MCP `/mcp`: через него
-  Billing-only и Materials-only читают каталог тарифов. В BFF нет GET-маршрута Billing: страница
-  `/authoring/billing` читает каталог на сервере и любой отказ показывает пустым списком, поэтому
-  отказ на ней не отличить от пустого каталога.
+  Billing-only и Materials-only читают каталог тарифов. В web каталог цен владельца читает
+  `GET /api/authoring/billing/catalog`; роли без `billing:manage` он отвечает отказом 403, а не
+  пустым списком.
 - **Первое установление Account.** Platform создаёт Account только по подтверждённому email
   (`inside_verified_email`). Вход по one-time token этот claim не даёт, поэтому Account без прав и
   учеников однажды входят по коду из письма. Accounts с правами создаёт owner bootstrap. Дальше хватает
@@ -101,7 +101,7 @@ Account `no-entitlement` также читает все закреплённые
 5. Для остальных identities однажды войти в Platform по коду из письма в ящик владельца.
 6. Каждой identity однажды пройти вход и принять условия использования.
 7. Выдать доступ учеников от имени `billing-only` существующими операциями `grants.previewBatch` и
-   `grants.applyBatch` (MCP `/mcp` или `/authoring/billing`): `product:<Product A>` для
+   `grants.applyBatch` (MCP `/mcp`): `product:<Product A>` для
    `learner-product-a` без срока и для `expired` со сроком в один час.
 
 Новых публичных путей записи настройка не добавляет.
