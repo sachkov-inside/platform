@@ -35,6 +35,7 @@ function signInFingerprint(seed: string): string {
 
 const productA = "98000000-0000-4000-8000-00000000000a";
 const productB = "98000000-0000-4000-8000-00000000000b";
+const archivedProduct = "98000000-0000-4000-8000-00000000000c";
 
 /** Every personal fact the fixtures carry: none of them may reach a refused answer. */
 const personalFacts = [
@@ -72,6 +73,12 @@ describe("People list", () => {
       data: [
         { id: productA, name: "Альфа", slug: "people-alpha" },
         { id: productB, name: "Бета", slug: "people-beta" },
+        {
+          id: archivedProduct,
+          name: "Архивный",
+          slug: "people-archived",
+          archivedAt: new Date("2026-08-01T00:00:00.000Z"),
+        },
       ],
     });
     // Visitors registered last: newest, yet never listed.
@@ -453,6 +460,45 @@ describe("People list", () => {
       expect(rejected.statusCode, query).toBe(400);
       expect(rejected.json()).toMatchObject({ code: "invalid_request" });
     }
+  });
+
+  test("product choices list every Product by name, archived ones flagged, under billing:manage only", async () => {
+    const response = await api.server.inject({
+      method: "GET",
+      url: "/authoring/people/product-choices",
+      headers: owner,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toEqual({
+      items: [
+        { productId: productA, name: "Альфа", archived: false },
+        { productId: archivedProduct, name: "Архивный", archived: true },
+        { productId: productB, name: "Бета", archived: false },
+      ],
+    });
+    for (const permission of [
+      "materials:manage",
+      "communications:manage",
+      null,
+    ] as const) {
+      const refused = await api.server.inject({
+        method: "GET",
+        url: "/authoring/people/product-choices",
+        headers: (await api.signedIn(permission)).headers,
+      });
+      expect(refused.statusCode).toBe(403);
+      expect(refused.json()).toMatchObject({ code: "forbidden" });
+      expect(refused.body).not.toContain("Альфа");
+    }
+    expect(
+      (
+        await api.server.inject({
+          method: "GET",
+          url: "/authoring/people/product-choices",
+        })
+      ).statusCode,
+    ).toBe(401);
   });
 
   test("platform:admin holds every permission and lists people", async () => {

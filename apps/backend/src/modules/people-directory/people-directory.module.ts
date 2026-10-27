@@ -31,6 +31,7 @@ import {
 } from "../telegram-membership/index.js";
 import { PeopleDirectory } from "./facets/people-directory/people-directory.js";
 import { ListPeopleController } from "./features/list-people/list-people.controller.js";
+import { ListProductChoicesController } from "./features/list-product-choices/list-product-choices.controller.js";
 import { ReadPeopleIdentitiesController } from "./features/read-people-identities/read-people-identities.controller.js";
 import { ReadPersonController } from "./features/read-person/read-person.controller.js";
 import { SearchPeopleController } from "./features/search-people/search-people.controller.js";
@@ -52,9 +53,11 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
     SalesFunnelModule,
     TelegramAccountLinksModule,
   ],
-  // Static paths (`search`, `identities`) precede the parametric card path in the router.
+  // Static paths (`search`, `identities`, `product-choices`) precede the parametric card path in
+  // the router.
   controllers: [
     ListPeopleController,
+    ListProductChoicesController,
     SearchPeopleController,
     ReadPeopleIdentitiesController,
     ReadPersonController,
