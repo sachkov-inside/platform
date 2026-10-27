@@ -22,16 +22,18 @@ class BeforeDeletion(unittest.TestCase):
         self.assertEqual(parsed['in_flight'],1)
         import inflight
         def registry(count):
-            return wire()+f'caddy_http_requests_total{{server="srv1",handler="metrics"}} {count}\ncaddy_http_requests_in_flight{{server="srv1",handler="metrics"}} 1\n'.encode()
+            return wire().replace(b'caddy_http_requests_total{server="srv1",handler="subroute"} 8\n',b'')+f'caddy_http_requests_total{{server="srv1",handler="subroute"}} {count}\ncaddy_http_requests_in_flight{{server="srv1",handler="subroute"}} 1\n'.encode()
         self.assertEqual(native_source.scrape_registry(registry(10)),{'requests_total':10,'in_flight':1})
         self.assertFalse(inflight.scraped(registry(10),registry(11),1))
         self.assertTrue(inflight.scraped(registry(10),registry(12),1))
         for current,own in ((10,1),(9,1),(12,True),(50,33)):
             with self.assertRaises(ValueError):inflight.scraped(registry(10),registry(current),own)
         with self.assertRaises(ValueError):native_source.scrape_registry(wire())
-        busy=registry(10).replace(b'caddy_http_requests_in_flight{server="srv1",handler="metrics"} 1',b'caddy_http_requests_in_flight{server="srv1",handler="metrics"} 2')
+        absent=registry(10).replace(b'server="srv1",handler="subroute"',b'server="srv1",handler="metrics"')
+        with self.assertRaises(ValueError):native_source.scrape_registry(absent)
+        busy=registry(10).replace(b'caddy_http_requests_in_flight{server="srv1",handler="subroute"} 1',b'caddy_http_requests_in_flight{server="srv1",handler="subroute"} 2')
         with self.assertRaises(ValueError):inflight.scraped(busy,registry(12),1)
-        poisoned=registry(12)+b'caddy_http_requests_total{server="srv1",handler="metrics",private="bad"} 1\n'
+        poisoned=registry(12)+b'caddy_http_requests_total{server="srv1",handler="subroute",private="bad"} 1\n'
         with self.assertRaises(ValueError):inflight.scraped(registry(10),poisoned,1)
 
         for extra in (b'private="private-caddy-sentinel"',b'host="unrecognized-host"'):

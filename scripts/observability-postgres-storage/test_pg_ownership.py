@@ -92,13 +92,17 @@ class PrivatePlan(unittest.TestCase):
 
     def test_exact_private_metrics_env_and_local_bridge_admission_refuse_foreign_state(self):
         import pg_ownership
-        for fault in (None,'logging','env','extra_env','command','image','network','driver','internal','attachment','ip','gateway','bridge','remote','nonlinux','alloy_user','alloy_caps','alloy_readonly','alloy_command','alloy_state'):
+        for fault in (None,'explicit_gateway','missing_gateway','null_gateway','logging','env','extra_env','command','image','network','driver','internal','attachment','ip','gateway','bridge','remote','nonlinux','alloy_user','alloy_caps','alloy_readonly','alloy_command','alloy_state'):
             with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
                 target,fake=self.targets(Path(directory).resolve()/'private');original=target.read;project=target.project;network='b'*64
                 config={'Id':network,'Name':project+'_pilot','Driver':'bridge','Internal':True,
                     'Labels':{'com.docker.compose.project':project,'com.docker.compose.network':'pilot'},'Options':{},
                     'IPAM':{'Config':[{'Subnet':'172.18.0.0/16','Gateway':'172.18.0.1'}]}}
-                attachment={'NetworkID':network,'IPAddress':'172.18.0.2','IPPrefixLen':16,'Gateway':'172.18.0.1'}
+                attachment={'NetworkID':network,'IPAddress':'172.18.0.2','IPPrefixLen':16,'Gateway':''}
+                # Actual Docker internal endpoints retain an empty attachment gateway.
+                if fault=='explicit_gateway':attachment['Gateway']='172.18.0.1'
+                if fault=='missing_gateway':del attachment['Gateway']
+                if fault=='null_gateway':attachment['Gateway']=None
                 if fault=='network':config['Id']='d'*64
                 if fault=='driver':config['Driver']='overlay'
                 if fault=='internal':config['Internal']=False
@@ -132,7 +136,7 @@ class PrivatePlan(unittest.TestCase):
                         patch.object(pg_ownership.pilot,'FROZEN_DOCKER_ENDPOINT',endpoint),patch.object(pg_ownership.pilot,'FROZEN_DOCKER_IDENTITY',identity), \
                         patch.object(pg_ownership.pilot,'assert_docker_identity'),patch.object(pg_ownership.socket,'if_nametoindex',return_value=12), \
                         patch.object(pg_ownership.fcntl,'ioctl',return_value=packed):
-                    if fault is None:self.assertEqual(target.flush_target(time.monotonic()+5),('172.18.0.2','172.18.0.1',12))
+                    if fault in (None,'explicit_gateway'):self.assertEqual(target.flush_target(time.monotonic()+5),('172.18.0.2','172.18.0.1',12))
                     else:
                         with self.assertRaises((ValueError,RuntimeError)):target.flush_target(time.monotonic()+5)
 

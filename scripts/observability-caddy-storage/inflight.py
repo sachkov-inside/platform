@@ -4,7 +4,7 @@ import native_source
 
 
 def scraped(previous,current,owned_reads):
-    """Only Alloy and this single worker read the private srv1/metrics registry.
+    """Only Alloy and this single worker read the private srv1/subroute registry.
 
     Its total counts completed requests. Each next read sees the preceding owned
     read complete, so subtract all of those before proving a foreign scrape.

@@ -26,7 +26,7 @@ class WarmMatching(unittest.TestCase):
                         if fault=='registry_contract' and registry[0]==13:raise ValueError('private-counterexample')
                         extra=(int(now[0]>=100.5)+int(now[0]>=105)) if fault=='prior_scrape' else int(fault!='no_scrape' and now[0]>=105)
                         busy=2 if fault=='prior_scrape' and now[0]<101 else 1
-                        raw=wire()+f'caddy_http_requests_total{{server="srv1",handler="metrics"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="metrics"}} {busy}\n'.encode()
+                        raw=wire().replace(b'caddy_http_requests_total{server="srv1",handler="subroute"} 8\n',b'')+f'caddy_http_requests_total{{server="srv1",handler="subroute"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="subroute"}} {busy}\n'.encode()
                         if not events:raw=raw.replace(b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 1',b'caddy_http_requests_in_flight{server="srv0",handler="subroute"} 0')
                         return raw
                 class Held:
@@ -100,7 +100,7 @@ class WarmMatching(unittest.TestCase):
                 raw=baseline if not events else held_wire
                 registry[0]+=1
                 extra=int(registry[0]>102)
-                return raw+f'caddy_http_requests_total{{server="srv1",handler="metrics"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="metrics"}} 1\n'.encode()
+                return raw.replace(b'caddy_http_requests_total{server="srv1",handler="subroute"} 8\n',b'')+f'caddy_http_requests_total{{server="srv1",handler="subroute"}} {registry[0]+extra}\ncaddy_http_requests_in_flight{{server="srv1",handler="subroute"}} 1\n'.encode()
         class Held:
             started_at=98;finished_at=None
             def __init__(self,token):pass

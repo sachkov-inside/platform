@@ -236,8 +236,10 @@ class Targets(source_status_scenario.OwnedTargets):
         try:
             subnet=ipaddress.IPv4Network(entry['Subnet'],strict=True);gateway=ipaddress.IPv4Address(entry['Gateway']);address=ipaddress.IPv4Address(attachment['IPAddress'])
             prefix=attachment['IPPrefixLen']
+            # Docker may leave an internal endpoint's attachment Gateway empty.
+            # The owned IPAM gateway is still verified against the host bridge below.
             if (type(prefix) is not int or prefix!=subnet.prefixlen or gateway not in subnet or address not in subnet
-                    or attachment.get('Gateway')!=str(gateway) or address in (subnet.network_address,subnet.broadcast_address,gateway)
+                    or attachment.get('Gateway') not in ('',str(gateway)) or address in (subnet.network_address,subnet.broadcast_address,gateway)
                     or not address.is_private or any((address.is_loopback,address.is_link_local,address.is_multicast,address.is_unspecified,address.is_reserved))):refuse()
         except (ValueError,KeyError,TypeError):refuse()
         bridge='br-'+network[:12];index=socket.if_nametoindex(bridge)
