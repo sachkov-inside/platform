@@ -244,7 +244,7 @@ export function CheckoutFlow({
       }
       setPaymentError(
         waitingWithoutForm
-          ? "Форма оплаты пока недоступна. Проверьте статус ещё раз. Повторная проверка не создаст новую оплату."
+          ? "Форма оплаты пока недоступна. Попробуйте продолжить оплату ещё раз. Повторная покупка не создаётся."
           : undefined,
       );
       updateSelection(identity, { error: undefined });
@@ -398,15 +398,18 @@ export function CheckoutFlow({
       {panel}
       {attempt === null ? null : (
         <section
-          aria-label="Проверка начатой покупки"
+          aria-label="Начатая покупка"
           className="mt-5 rounded-xl border border-border p-4 text-sm leading-6"
         >
           <p>
-            Проверяем начатую покупку:{" "}
+            Начатая покупка:{" "}
             {attempt.snapshot.product?.name ?? attempt.snapshot.offer.name}.{" "}
             {checkoutButtonLabel(attempt.snapshot)}. Чек на {attempt.email}.
           </p>
-          <p>Проверьте статус ещё раз. Новая покупка не создаётся.</p>
+          <p>
+            Продолжите оплату на прежних условиях. Повторная покупка не
+            создаётся.
+          </p>
           <Button
             className="mt-3"
             disabled={payMutation.isPending}
@@ -417,7 +420,7 @@ export function CheckoutFlow({
             type="button"
             variant="outline"
           >
-            Проверить покупку
+            Продолжить оплату
           </Button>
         </section>
       )}

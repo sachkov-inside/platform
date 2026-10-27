@@ -280,7 +280,7 @@ export const LostResponseThenContactChange: Story = {
       canvas.getByRole("button", { name: "Новый контакт" }),
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     );
     await waitFor(() =>
       expect(args.onPurchase).toHaveBeenCalledWith(
@@ -378,7 +378,7 @@ function retryChangedConditions(
       ).toBeDisabled();
       await userEvent.click(
         canvas.getByRole("button", {
-          name: "Проверить покупку",
+          name: "Продолжить оплату",
         }),
       );
       await waitFor(() =>
@@ -395,7 +395,7 @@ function retryChangedConditions(
       if (state === "unknown") {
         await expect(
           canvas.getByRole("button", {
-            name: "Проверить покупку",
+            name: "Продолжить оплату",
           }),
         ).toBeEnabled();
         await expect(
@@ -407,7 +407,7 @@ function retryChangedConditions(
       } else {
         await expect(
           canvas.queryByRole("button", {
-            name: "Проверить покупку",
+            name: "Продолжить оплату",
           }),
         ).not.toBeInTheDocument();
         await waitFor(() =>
@@ -534,14 +534,14 @@ export const UnavailableMethodKeepsOriginalCommand: Story = {
     );
     await userEvent.click(canvas.getByRole("button", { name: "Вариант B" }));
     await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     );
     await canvas.findByRole("alert");
     await expect(
       canvas.getByRole("button", { name: /^Оплатить /u }),
     ).toBeDisabled();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     );
     await waitFor(() =>
       expect(args.onPurchase).toHaveBeenCalledWith(
@@ -570,14 +570,14 @@ export const UnavailableBankKeepsOriginalCommand: Story = {
     await canvas.findByRole("alert");
     const original: unknown = purchaseRequest.mock.calls[0]?.[0];
     await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     );
     await canvas.findByText("Банк не отвечает. Попробуйте позже.");
     await expect(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     ).toBeEnabled();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     );
     await waitFor(() =>
       expect(args.onNavigate).toHaveBeenCalledWith(pendingPurchase.paymentUrl),
@@ -710,7 +710,7 @@ export const OriginalPurchaseResponseLost: Story = {
     await userEvent.click(canvas.getByRole("button", { name: /^Оплатить /u }));
     await canvas.findByRole("alert");
     await expect(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     ).toBeEnabled();
     await expect(
       canvas.getByRole("button", { name: /^Оплатить /u }),
@@ -727,11 +727,11 @@ export const MissingFormKeepsStateRetry: Story = {
     await waitFor(() => expect(pay).toBeEnabled());
     await userEvent.click(pay);
     await canvas.findByText(
-      "Форма оплаты пока недоступна. Проверьте статус ещё раз. Повторная проверка не создаст новую оплату.",
+      "Форма оплаты пока недоступна. Попробуйте продолжить оплату ещё раз. Повторная покупка не создаётся.",
     );
     await expect(pay).toBeDisabled();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить покупку" }),
+      canvas.getByRole("button", { name: "Продолжить оплату" }),
     );
     await waitFor(() =>
       expect(args.onNavigate).toHaveBeenCalledWith("/payment/return"),
