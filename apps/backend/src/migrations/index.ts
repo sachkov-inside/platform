@@ -1,4 +1,8 @@
 import {
+  name as billingContactEmailFingerprintName,
+  statement as billingContactEmailFingerprintStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0114-billing-contact-email-fingerprint.js";
+import {
   name as historicalAuthoringContractName,
   statement as historicalAuthoringContractStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0113-historical-authoring-contract.js";
@@ -730,6 +734,10 @@ export const platformMigrations = [
   {
     name: historicalAuthoringContractName,
     statement: historicalAuthoringContractStatement,
+  },
+  {
+    name: billingContactEmailFingerprintName,
+    statement: billingContactEmailFingerprintStatement,
   },
 ] as const;
 
