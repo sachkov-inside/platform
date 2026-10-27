@@ -300,3 +300,78 @@ Caddy public server выбирается по фактическому `caddy ad
 `remaining_auto_https_redirects` проверяется и исключается из public counts. Cache сохраняет
 только public/subroute, закрытые method/code/bucket и process epoch. Это не покрывает
 pre-route parse, TCP/TLS/HTTP3 отказы и не означает непрерывность через reset.
+
+### Подготовленный host producer, OFF по умолчанию
+
+`native_sources.py` выполняет один bounded read cycle. У него нет сервера или credentials агента.
+Host PostgreSQL transport разрешает только `/var/run/docker.sock`, один running postgres container
+точного Compose project, проверяет ID/labels до и после exec и запускает только фиксированный
+ordinary-role `psql -X -qAt -w -U postgres_source_reader -d inside`. SQL идёт stdin, ответ ≤4096 B,
+общий Docker/read deadline 3 s. SQL statement timeout 2 s, lock 250 ms, idle transaction 3 s;
+role CONNECTION LIMIT 1 ограничивает зависшую сессию. Роль не получает пароль или application
+SELECT. Local authentication внутри действующей foundation должна позволять этот root-owned
+Docker exec; если она не позволяет, source unavailable. Нельзя выдавать sampler superuser или
+`pg_monitor` вместо устранения неверного transport/permission contract.
+
+Caddy reader делает только loopback GET `/metrics` и transient GET `/config/` на `127.0.0.1:2019`.
+Второй нужен для фактического public-server mapping и проверки неизменности selected role вокруг
+scrape. Raw config, hostnames, routes, tokens, SQL и error text не сохраняются и не публикуются.
+Proxy/redirect запрещены, каждый HTTP read ≤1 s/1 MiB. Admin URL не попадает в vmauth, Grafana,
+MCP или principal агента. Сам действующий Caddy admin остаётся loopback; источник не меняет его.
+Для native HTTP metrics оператор при разрешённом rollout добавляет `metrics` в существующий
+Caddy global block, проверяет `caddy adapt`/`caddy validate` текущего config и выполняет штатный
+reload. При выключенных metrics или неизвестной adaptation источник UNKNOWN/unavailable.
+
+До rollout подготовить immutable source checkout принятого COMMIT. Сначала выполнить optional
+Umami database setup, если он входит в этот rollout, затем dedicated source reader bootstrap:
+Umami setup сохраняет права существующих ролей при отзыве PUBLIC CONNECT, поэтому обратный порядок
+может расширить direct CONNECT reader и будет честно отклонён guard. Bootstrap не включён в timer:
+
+```bash
+INSIDE_PRODUCTION_SOURCE_SETUP_ENABLED=true python3 \
+  /srv/inside/observability/source/COMMIT/scripts/observability-production/native_sources.py \
+  setup-postgres --project inside-production-database
+```
+
+Уже существующая роль с чужими ownership/ACL/memberships или без собственного marker вызывает
+`P1567` до изменения роли. Не удалять эту роль и не ослаблять проверку ради успешного setup.
+Если Umami впервые подключают позже, перепроверить dedicated source grants после его provisioning;
+неожиданный direct CONNECT в другую базу требует отдельного разбора и не принимается за норму.
+Production statistics не сбрасываются для получения ненулевого reset epoch. Неизвестный epoch
+после старта БД остаётся UNKNOWN до настоящего наблюдаемого значения.
+
+Подготовлены `systemd/inside-monitoring-sources.service`, `.timer` и `sources.env.example`.
+Установка файлов сама по себе не включает timer; example содержит `INSIDE_PRODUCTION_SOURCES_ENABLED=false`.
+В разрешённом rollout оператор копирует env в `/etc/inside/observability/sources.env` (root:root0600),
+устанавливает immutable source path и только после проверки ставит флаг true. Unit работает от root
+ради существующего Docker daemon, отдельный docker-group account не создаётся. Это доверенная
+операторская capability, отличная от query key агента. Только root/code/config владельца имеет её.
+Unit имеет внешний timeout 8 s, MemoryMax64M, CPUQuota20%, Nice15, PrivateTmp/ProtectSystem и доступ
+по сети только к loopback. Эти значения являются пределами, не измеренной потребностью сервера.
+Timer просит цикл каждые 5 s; фактический возраст остаётся частью query acceptance и не скрывает
+задержки. При нормальном выполнении producer заменяет только свои два `.prom` файла атомарно.
+
+Проверить оба native источника, их epochs, source timestamp age0..10 и отсутствие raw fields в
+хранилище, затем включать host-agent. При disable сначала остановить/disable этот timer,
+оставить старые snapshots со старым timestamp (они станут UNKNOWN), затем выключать host-agent.
+Откат использует прежний immutable source/unit/config; не удаляет приложение или чужие данные.
+Готовность Linux fixture не подтверждает установку systemd или private Caddy config на production.
+
+### Закрытая диагностика startup в synthetic proof
+
+Если optional host-agent завершился до первого подтверждённого stored observation, proof остаётся
+неуспешным. В пределах того же зарегистрированного CI project worker проверяет точный container ID,
+project и service, останавливает только этот контейнер с grace 2 секунды и один раз запускает
+`docker start --attach` для того же ID. Новый service, контейнер или image не создаётся. Attached
+read ограничен 8 секундами и 4096 байтами совокупного stdout/stderr, вся процедура 12 секундами;
+прежний внешний supervisor и его предел 600 секунд сохраняются. Последующая очистка остаётся
+обязанностью того же supervisor.
+
+Содержимое output существует только в ограниченной памяти и преобразуется в один код причины
+из фиксированного перечня и exit code. Файлы, public artifacts и job log не получают исходный
+output, текст ошибки, command или environment. `host_startup_diagnostic` публикует только эти
+два поля. `unknown` и `unavailable` не объясняют причину; совпадение фиксированного сообщения
+показывает класс отказа, который требуется проверить исправлением и повторным native запуском.
+Диагностика не запускается после успешного startup, при исходном interrupt или exit и никогда
+не превращает исходный failure в PASS. Эта процедура относится только к disposable synthetic
+proof, её код не устанавливается на production host и не запускает production контейнеры.

@@ -59,6 +59,13 @@ def inputs(output, images):
         found=pilot.command(['docker','image','inspect',pins['owner']+'-'+role+':v1','--format','{{.Id}}']).strip()
         if found!=pins[role]:raise ValueError('application_source_identity')
     plan=json.loads((output/'compose.json').read_text())
+    # Production intentionally omits development entry points. Reuse the owning corpus
+    # only inside this already supervised migration service's separate ephemeral tmpfs.
+    seeder=plan['services']['migrations']
+    seeder['tmpfs'].append('/app/dist/development:size=1m,mode=1777')
+    seeder['volumes']=[str(HERE/'seed-runtime.mjs')+':/resource/seed-runtime.mjs:ro',
+        *(str(ROOT/'apps/backend/src/development'/(name+'.ts'))+':/resource/development/'+name+'.ts:ro'
+          for name in ('seed-local','seed-local-development','seed-local-offer-catalog'))]
     settings=acceptance.validate_profile(json.loads(PROFILE.read_text()))
     monitor=output/'monitoring'
     production.prepare(monitor,data=output/'monitoring-data',project='inside-observability-full-'+os.urandom(6).hex())
@@ -146,7 +153,8 @@ def seed(compose,output):
     (output/'runtime/rabbitmq/definitions.json').chmod(0o644)
     invoke(compose,['up','-d','rabbitmq','provider','loadgen','api'],timeout=30)
     ready(compose,'/health/ready')
-    invoke(compose,['exec','-T','api','env','NODE_ENV=development','LOCAL_SEED_DEMO=published','node','dist/development/seed-local.js'],timeout=30)
+    invoke(compose,['run','--rm','--no-deps','-e','NODE_ENV=development','-e','LOCAL_SEED_DEMO=published',
+        '-e','INSIDE_RESOURCE_SEED_ENABLED=true','migrations','node','/resource/seed-runtime.mjs'],timeout=30)
     sql(compose,(ROOT/'infra/observability/fullstack/corpus.sql').read_text(),role='platform',database='inside')
     extra.initialize(output,compose,invoke)
     adapted=invoke(compose,['exec','-T','caddy','caddy','adapt','--config','/etc/caddy/Caddyfile','--adapter','caddyfile'],timeout=3).encode()

@@ -6,6 +6,7 @@ import {
   StorageAndAnalyticsNotice,
 } from "@/features/storage-notice";
 import type { AnalyticsEvent } from "@/features/storage-notice/model/analytics-contract";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 function Flow() {
   const [event, setEvent] = useState<AnalyticsEvent>("product_view");
   const [entityId, setEntityId] = useState(
@@ -70,7 +71,10 @@ function Flow() {
         К покупке
       </button>
       <AnalyticsSettingsLink />
-      <StorageAndAnalyticsNotice edition={2} policyHref="/legal/cookies" />
+      <StorageAndAnalyticsNotice
+        edition={2}
+        policyHref={legalDocumentPath("cookies")}
+      />
     </main>
   );
 }

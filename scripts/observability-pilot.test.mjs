@@ -47,8 +47,20 @@ if (
     );
     assert.ok(
       Array.isArray(raw) &&
-        raw.length === 274 &&
+        raw.length === 276 &&
         raw.every((value) => typeof value === "string"),
+    );
+    const additions = [
+      "test_pilot.PilotPreparationTest.test_cleanup_captures_native_host_failure_before_down_without_reading_logs",
+      "test_pilot.PilotPreparationTest.test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner",
+    ];
+    assert.ok(additions.every((id) => raw.includes(id)));
+    const baseline = raw.filter((id) => !additions.includes(id));
+    assert.equal(baseline.length, 274);
+    const { createHash } = await import("node:crypto");
+    assert.equal(
+      createHash("sha256").update(JSON.stringify(baseline)).digest("hex"),
+      "e0fac579823df0df2d5658f678db37241c367c0dcdfe7f840262a903d2512051",
     );
     const first = raw[0];
     const second = raw[1];
@@ -70,8 +82,8 @@ if (
         (id) => `CORE_SOURCE_V1 start ${id}\nCORE_SOURCE_V1 completed ${id}\n`,
       )
       .join("");
-    assert.equal(Buffer.byteLength(full), 72932);
-    assert.equal(sourceProgress(full)?.completedCount, 274);
+    assert.equal(Buffer.byteLength(full), 73454);
+    assert.equal(sourceProgress(full)?.completedCount, 276);
     for (const invalid of [
       "",
       "legacy private-canary",
@@ -108,7 +120,7 @@ if (
       sourceProgress(start + "x".repeat(1_048_576 - Buffer.byteLength(start))),
       { lastStarted: first, lastCompleted: null, completedCount: 0 },
     );
-    // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the original274 fixtures.
+    // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the original276 fixtures.
     assertCoreProtocolContracts(
       spawnSync(
         "python3",
@@ -481,7 +493,7 @@ if (
         throw new Error("never inspect getter");
       },
     });
-    assert.equal(sourceProgress(full)?.completedCount, 274);
+    assert.equal(sourceProgress(full)?.completedCount, 276);
   });
 
   test("Core passive dispatch retains exact legacy platform and flag branches", async () => {

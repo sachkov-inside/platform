@@ -179,8 +179,39 @@ def worker(output):
         pilot.write_json(output / 'evidence.json', evidence)
 
 
+HOST_STARTUP_CAUSES = (
+    ('cgroup_mount_missing', (b'mountpoint for cpu not found', b'cgroup mountpoint does not exist', b'failed to get cgroup')),
+    ('permission_denied', (b'permission denied', b'operation not permitted')),
+    ('read_only_storage', (b'read-only file system',)),
+    ('storage_full', (b'no space left on device',)),
+    ('invalid_metric', (b'unsupported metric', b'unknown metric', b'unrecognized metric')),
+    ('thread_limit', (b'pthread_create failed', b'failed to create new os thread', b'resource temporarily unavailable')),
+    ('address_in_use', (b'address already in use',)),
+    ('missing_path', (b'no such file or directory',)),
+    ('cadvisor_manager_failed', (b'failed to create a manager', b'failed to start manager')),
+    ('component_configuration', (b'building component', b'failed to build component', b'error during the initial load')),
+)
+
+
+def startup_cause(raw):
+    """Transient bounded synthetic startup output becomes one fixed cause, never text."""
+    if type(raw) is not bytes or len(raw) > 4096: raise ValueError('host_startup_size')
+    lowered = raw.lower()
+    return next((cause for cause, patterns in HOST_STARTUP_CAUSES if any(pattern in lowered for pattern in patterns)), 'unknown')
+
+
 def feedback(public):
     """Closed startup facts in job logs as well as artifacts; never read vendor logs or bodies."""
+    measured = public / 'production-measurements.json'
+    if measured.is_file() and measured.stat().st_size <= 1_048_576:
+        report = json.loads(measured.read_bytes())
+        diagnostic = report.get('host_startup_diagnostic') if type(report) is dict else None
+        if diagnostic is not None:
+            if (type(diagnostic) is not dict or set(diagnostic) != {'cause', 'exit_code'} or
+                    diagnostic['cause'] not in ('unknown', 'unavailable', *(cause for cause, _ in HOST_STARTUP_CAUSES)) or
+                    diagnostic['exit_code'] is not None and (type(diagnostic['exit_code']) is not int or not -128 <= diagnostic['exit_code'] <= 255)):
+                raise ValueError('feedback_host_startup')
+            print(json.dumps({'host_startup_diagnostic': diagnostic}))
     for name in ('readiness.json', 'container-states.json', 'cleanup.json'):
         path = public / name
         if not path.exists():
@@ -199,6 +230,14 @@ def feedback(public):
                 rows.append({'service': row['service'], 'state': row.get('state') if row.get('state') in (
                     'created','restarting','running','removing','paused','exited','dead','unknown') else 'unknown',
                     'exit_code': row.get('exit_code') if type(row.get('exit_code')) is int and 0 <= row['exit_code'] <= 255 else None})
+            for original, row in zip(value, rows):
+                if row['service'] == 'host-agent' and 'native_failure_state' in original:
+                    state = original.get('native_failure_state')
+                    if state == 'observed':
+                        native = {key: original.get(key) for key in ('actual_exit_code', 'oom_killed', 'restart_count', 'runtime_error_present', 'has_process')}
+                        # Apply the same finite schema as the original owning capture.
+                        row.update(pilot.native_host_state(json.dumps({'id': 'feedback', 'project': 'feedback', 'service': 'host-agent', **native}), 'feedback', 'feedback'))
+                    row['native_failure_state'] = state if state in ('observed', 'unavailable') else 'unavailable'
             print(json.dumps({'container_states': rows}))
         elif name == 'readiness.json':
             if type(value) is not list or len(value) > 32:

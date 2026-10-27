@@ -311,9 +311,28 @@ class Driver(unittest.TestCase):
                 self.assertEqual([(m['name'],m['gauge']['dataPoints'][0]) for m in metrics],
                     [('inside.postgresql.server.available',{'attributes':[],'timeUnixNano':'1790000000000000000','asInt':'0'})])
             if fault is None:
-                self.assertEqual(calls[:3],['close','verify',['docker','stop','--time','2',cid]])
+                self.assertEqual(calls[:3],['close','verify',['docker','stop','--timeout','2',cid]])
                 self.assertEqual(calls[3],'inspect');self.assertEqual(len(calls),5)
             self.assertIsNone(driver.ledger.last)
+
+    def test_current_docker_cli_stop_output_is_only_the_owned_identity(self):
+        from types import SimpleNamespace
+        driver=scenario.Scenario(None,[],'fixed',None);driver.end=time.monotonic()+150
+        cid='a'*64;target={'id':cid};uploads=[]
+        driver.actors=SimpleNamespace(close=lambda deadline:None,process=None)
+        driver.targets=SimpleNamespace(targets={'postgres':target},inspect=lambda role,identity:target)
+        def cli(args):
+            if args[:2]==['docker','stop']:
+                # Captured from the actual Docker CLI's harmless `stop --time 2 --help`:
+                # the deprecated alias writes its warning to stdout even on success.
+                warning='Flag --time has been deprecated, use --timeout instead\n' if '--time' in args else ''
+                return warning+cid+'\n'
+            return 'stopped\n'
+        with patch.object(driver,'verify_pg'),patch.object(driver,'read',side_effect=cli), \
+             patch.object(driver,'upload',side_effect=lambda value,**options:uploads.append(value)), \
+             patch.object(scenario.pilot,'assert_docker_identity'):
+            self.assertEqual(driver.stop_postgres(),cid)
+        self.assertEqual(len(uploads),1)
 
     def test_real_stop_upload_composition_has_one_alarm_and_the_original_decreasing_deadline(self):
         import json
@@ -334,7 +353,7 @@ class Driver(unittest.TestCase):
                 self.assertLessEqual(kwargs['timeout'],10)
                 if args[:6]==driver.compose:return ids[args[-1]]
                 if args[:2]==['docker','stop']:
-                    self.assertEqual(args,['docker','stop','--time','2',ids['postgres']]);stopped[0]=True;clock[0]=102;return ids['postgres']+'\n'
+                    self.assertEqual(args,['docker','stop','--timeout','2',ids['postgres']]);stopped[0]=True;clock[0]=102;return ids['postgres']+'\n'
                 self.assertEqual(args[:3],['docker','inspect','--format'])
                 role=next(role for role in roles if ids[role]==args[-1])
                 if args[3]==scenario.STOPPED:

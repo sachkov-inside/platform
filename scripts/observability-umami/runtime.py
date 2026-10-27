@@ -166,6 +166,22 @@ def fixture_proof(value):
     return value
 
 
+def browser_progress(path):
+    """Closed completed milestones only; never publish an assertion, stack or private body."""
+    phases=('started','listener_ready','choice_visible','native_export_started','native_export_accepted','native_export_failed','observations_exported',
+            'native_events_verified','identity_reset_verified','revocation_verified')
+    if path.is_symlink() or not path.is_file():return 'not_started',None
+    try:
+        with path.open('rb') as stream:raw=stream.read(129)
+        if len(raw)>128:return 'unavailable',None
+        value=json.loads(raw)
+    except (OSError,ValueError):return 'unavailable',None
+    if type(value) is not dict or not {'phase'}<=set(value)<={'phase','native_export_milliseconds'} or value['phase'] not in phases:return 'unavailable',None
+    duration=value.get('native_export_milliseconds')
+    if duration is not None and (type(duration) is not int or not 0<=duration<=60_000):return 'unavailable',None
+    return value['phase'],duration
+
+
 def browser_proof(output, compose, state):
     """Explicit synthetic browser/native proof, using only this registered private project."""
     if os.environ.get('INSIDE_UMAMI_BROWSER_PROOF') != 'true':return
@@ -182,17 +198,23 @@ def browser_proof(output, compose, state):
     with private.open('x') as stream:
         os.chmod(private,0o600)
         json.dump({'schema':1,'site':site,'key':state['key'],'project':compose[3],
-                   'endpoint':pilot.FROZEN_DOCKER_IDENTITY['endpoint'],'compose':str(Path(compose[5]).resolve())},stream)
+                   'endpoint':prepare.BROWSER_INGEST_URL},stream)
     try:
+        progress=output/'browser-proof.progress.json'
         result=subprocess.run(['pnpm','--filter','@inside/web','exec','vitest','run','--config','vitest.native-analytics.config.mts'],
-            cwd=ROOT,env={**os.environ,'INSIDE_UMAMI_BROWSER_PROOF_INPUT':str(private)},
+            cwd=ROOT,env={**os.environ,'INSIDE_UMAMI_BROWSER_PROOF_INPUT':str(private),
+                'INSIDE_UMAMI_BROWSER_PROOF_PROGRESS':str(progress)},
             capture_output=True,text=True,timeout=120)
         log=output/'browser-proof.private.log'
         log.write_text((result.stdout+result.stderr)[:65536]);log.chmod(0o600)
-        pilot.write_json(output/'browser-analytics-proof.json',{'schema':1,'state':'passed' if result.returncode==0 else 'failed',
-            'returncode':result.returncode,'scope':'synthetic Chromium to production Web operation to pinned native Umami and bounded reader',
+        last_completed,native_export_milliseconds=browser_progress(progress)
+        passed=result.returncode==0 and last_completed=='revocation_verified'
+        pilot.write_json(output/'browser-analytics-proof.json',{'schema':1,'state':'passed' if passed else 'failed',
+            'returncode':result.returncode,'last_completed':last_completed,
+            'native_export_milliseconds':native_export_milliseconds,
+            'scope':'synthetic Chromium to production Web operation to pinned native Umami and bounded reader',
             'production':'not_executed'})
-        if result.returncode!=0:raise RuntimeError('browser_native_proof_failed')
+        if not passed:raise RuntimeError('browser_native_proof_failed')
     finally:private.unlink(missing_ok=True)
 
 
@@ -269,8 +291,10 @@ def main():
     elif args.action == 'recover':
         core_ci.recover(output, project_prefix=PROJECT_PREFIX, services=SERVICES)
     else:
+        browser=os.environ.get('INSIDE_UMAMI_BROWSER_PROOF')=='true'
         try:
-            pilot.run(output, prepare_inputs=prepare.prepare, worker_script=Path(__file__).resolve(), ports=(13301,),
+            pilot.run(output, prepare_inputs=lambda path:prepare.prepare(path,browser=browser), worker_script=Path(__file__).resolve(),
+                      ports=(13301,prepare.BROWSER_INGEST_PORT) if browser else (13301,),
                       project_prefix=PROJECT_PREFIX, services=SERVICES, scope='synthetic Umami API/MCP and retention compatibility only',
                       missing=['PostgreSQL retention scheduling/isolated restore/deletion replay/pgBackRest', 'browser consent/identity integration',
                                'complete analytics catalog', 'resource acceptance', 'production and seven days'])

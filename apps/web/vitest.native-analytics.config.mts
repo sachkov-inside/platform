@@ -15,6 +15,8 @@ export default defineConfig({
   test: {
     include: ["test/native-analytics/**/*.test.ts"],
     environment: "node",
+    // Use Vite for the SDK's extensionless Next imports, as in the module suite.
+    server: { deps: { inline: ["@logto/next"] } },
     maxWorkers: 1,
     testTimeout: 45_000,
     hookTimeout: 30_000,

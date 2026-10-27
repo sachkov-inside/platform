@@ -41,6 +41,11 @@ class Preparation(unittest.TestCase):
             self.assertEqual(plan['services']['bot-provider']['networks'],{'pilot':{'aliases':['api.telegram.org']}})
             self.assertEqual(plan['services']['telegram']['image'],pins['telegram'])
             self.assertIn('logto',plan['services'])
+            seeder=plan['services']['migrations']
+            self.assertIn('/app/dist/development:size=1m,mode=1777',seeder['tmpfs'])
+            self.assertEqual(len(seeder['volumes']),4)
+            self.assertTrue(all(mount.endswith(':ro') for mount in seeder['volumes']))
+            self.assertNotIn('/app/dist/development:size=1m,mode=1777',plan['services']['api']['tmpfs'])
             self.assertEqual(len(plan['services']['volume-reader']['volumes']),9)
             self.assertEqual(plan['services']['provider']['environment']['INSIDE_RESOURCE_ACCOUNT_COUNT'],'128')
             self.assertIn('postgres:5432/umami',(output/'monitoring/umami.env').read_text())

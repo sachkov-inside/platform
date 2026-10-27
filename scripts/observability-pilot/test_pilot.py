@@ -45,6 +45,47 @@ class PilotPreparationTest(unittest.TestCase):
             "service": "metrics", "state": "exited", "health": "", "exit_code": 2,
         }])
 
+    def test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner(self):
+        identity = 'a' * 64
+        raw = {'id': identity, 'project': 'owned', 'service': 'host-agent',
+            'actual_exit_code': 137, 'oom_killed': True, 'restart_count': 4,
+            'runtime_error_present': False, 'has_process': False}
+        expected = {key: value for key, value in raw.items() if key not in ('id', 'project', 'service')}
+        self.assertEqual(pilot.native_host_state(json.dumps(raw), identity, 'owned'), expected)
+        for key, value in (('id', 'b'*64), ('project', 'foreign'), ('service', 'api'),
+                           ('actual_exit_code', True), ('oom_killed', 'private-sentinel')):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                pilot.native_host_state(json.dumps({**raw, key: value}), identity, 'owned')
+        with self.assertRaises(ValueError):
+            pilot.native_host_state(json.dumps({**raw, 'Error': 'private-sentinel'}), identity, 'owned')
+
+    def test_cleanup_captures_native_host_failure_before_down_without_reading_logs(self):
+        identity = 'a' * 64
+        observed = {'id': identity, 'project': 'owned', 'service': 'host-agent',
+            'actual_exit_code': 137, 'oom_killed': True, 'restart_count': 4,
+            'runtime_error_present': False, 'has_process': False}
+        calls = []
+        def command(args, **options):
+            calls.append(args)
+            if args[:2] == ['compose', 'ps']:
+                return json.dumps([{'Service':'host-agent','State':'restarting','ExitCode':0}])
+            if args[:2] == ['docker', 'inspect']:
+                self.assertNotIn('json .State.Error', args[-1])
+                return json.dumps(observed)
+            if '--no-trunc' in args: return identity + '\n'
+            return ''
+        with tempfile.TemporaryDirectory() as directory, patch.object(pilot,'command',side_effect=command), patch.object(pilot,'assert_docker_identity'):
+            output = Path(directory)
+            result = pilot.cleanup_project(['compose'],output,'owned',services=('host-agent',))
+            state = json.loads((output/'container-states.json').read_text())[0]
+            self.assertEqual(state['exit_code'], 0)
+            self.assertEqual(state['actual_exit_code'], 137)
+            self.assertTrue(state['oom_killed'])
+            self.assertEqual(state['native_failure_state'], 'observed')
+            self.assertEqual(result['down'], 'passed')
+            self.assertLess(next(i for i,args in enumerate(calls) if args[:2]==['docker','inspect']), next(i for i,args in enumerate(calls) if 'down' in args))
+            self.assertFalse(any('logs' in args for args in calls))
+
     def test_transport_diagnostics_keep_only_error_type(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
