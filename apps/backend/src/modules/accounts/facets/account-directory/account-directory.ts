@@ -118,7 +118,8 @@ const directoryQuerySchema = z.strictObject({
       accountId: z.uuid().toLowerCase(),
     })
     .optional(),
-  limit: z.int().min(1).max(ACCOUNT_DIRECTORY_PAGE_LIMIT),
+  /** `0` reads only the total: no Billing Contact is opened. */
+  limit: z.int().min(0).max(ACCOUNT_DIRECTORY_PAGE_LIMIT),
   restrictTo: accountIdSetSchema.optional(),
   linkedAccountIds: accountIdSetSchema,
 });

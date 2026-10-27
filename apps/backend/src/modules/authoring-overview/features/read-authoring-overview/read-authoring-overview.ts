@@ -284,8 +284,9 @@ async function countPeople(
   if (!linked.ok || !set.ok) return unavailable;
   if (set.accountIds.length === 0) return { state: "ready", count: 0 };
   const linkedSet = new Set(linked.accountIds);
+  // Only the total: a zero page opens no Billing Contact.
   const page = await dependencies.directory.listDirectory({
-    limit: 1,
+    limit: 0,
     restrictTo: set.accountIds,
     linkedAccountIds: set.accountIds.filter((id) => linkedSet.has(id)),
   });
