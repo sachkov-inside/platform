@@ -3,16 +3,14 @@
 import {
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import {
-  ownerPriceCatalogQueryKey,
   productPriceChoices,
-  readOwnerPriceCatalog,
+  useOwnerPriceCatalog,
 } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import {
@@ -93,16 +91,7 @@ export function PromotionsPanel({
   } | null>(null);
   const [status, setStatus] = useState("");
 
-  const catalog = useQuery({
-    queryKey: ownerPriceCatalogQueryKey,
-    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
-    retry: false,
-    queryFn: async () => {
-      const result = await readOwnerPriceCatalog();
-      if (!result.ok) throw new Error(result.code);
-      return result.value;
-    },
-  });
+  const catalog = useOwnerPriceCatalog();
   const choices =
     catalog.data === undefined ? [] : productPriceChoices(catalog.data);
   const productName = (id: string) =>

@@ -25,7 +25,7 @@ import { archiveProductPriceOperation } from "../api/archive-product-price.opera
 import { saveProductPriceOperation } from "../api/save-product-price.operation";
 import { saveProductSalesStateOperation } from "../api/save-product-sales-state.operation";
 import {
-  catalogSaleQueryKey,
+  catalogSalesStatesQueryKey,
   deriveSaleStatus,
   priceBounds,
   priceCommand,
@@ -96,7 +96,7 @@ export function ProductSalePanel({
     setNotice(done);
     setDialog(null);
     void cache.invalidateQueries({ queryKey: productSaleQueryKey(productId) });
-    void cache.invalidateQueries({ queryKey: catalogSaleQueryKey() });
+    void cache.invalidateQueries({ queryKey: catalogSalesStatesQueryKey });
     // Новая ревизия цены меняет выбор цены для ссылки и состояние уже созданных ссылок.
     void cache.invalidateQueries({ queryKey: ownerPriceCatalogQueryKey });
     void cache.invalidateQueries({ queryKey: paymentLinksQueryKey });

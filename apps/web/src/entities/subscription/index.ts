@@ -164,9 +164,13 @@ export {
   type ProductAccessIssueOutcome,
 } from "./model/product-access-outcome";
 
-export { readOwnerPriceCatalog } from "./api/owner-price-catalog.browser";
 export {
   ownerPriceCatalogQueryKey,
   productPriceChoices,
   type ProductPriceChoice,
 } from "./model/owner-price-catalog";
+export { ownerPriceCatalogChanged } from "./model/owner-price-catalog-events";
+export {
+  OwnerPriceCatalogReadError,
+  useOwnerPriceCatalog,
+} from "./model/use-owner-price-catalog.client";

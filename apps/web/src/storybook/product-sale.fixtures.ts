@@ -292,8 +292,8 @@ export interface CatalogSaleFake {
 }
 
 /**
- * Ответ BFF продаж каталога для списка продуктов (`product-prices/list`, `product-sales-states`);
- * `null`, когда запрос не к ним. Каталог помещается в одну страницу.
+ * Ответ BFF продаж каталога для списка продуктов (каталог цен владельца `catalog` и
+ * `product-sales-states`); `null`, когда запрос не к ним.
  */
 export function catalogSaleResponse(
   input: RequestInfo | URL,
@@ -304,7 +304,7 @@ export function catalogSaleResponse(
     window.location.origin,
   ).pathname;
   if (
-    path !== "/api/authoring/billing/product-prices/list" &&
+    path !== "/api/authoring/billing/catalog" &&
     path !== "/api/authoring/billing/product-sales-states"
   )
     return null;
@@ -314,15 +314,10 @@ export function catalogSaleResponse(
   if (fake.pricesFailure !== undefined)
     return Promise.resolve(refused(fake.pricesFailure));
   return Promise.resolve(
-    ok({
-      operationRef,
-      result: {
-        outcome: "catalogOffers",
-        items: Object.entries(fake.prices).map(([productId, price]) =>
-          priceSnapshot(price, productId),
-        ),
-        nextCursor: null,
-      },
-    }),
+    ok(
+      Object.entries(fake.prices).map(([productId, price]) =>
+        priceSnapshot(price, productId),
+      ),
+    ),
   );
 }

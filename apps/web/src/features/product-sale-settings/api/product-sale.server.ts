@@ -16,9 +16,8 @@ import {
   handleMutationOperation,
 } from "@/shared/auth/index.server";
 
-import { CATALOG_PRICES_PAGE_SIZE, ownerPriceOf } from "../model/product-sale";
+import { ownerPriceOf } from "../model/product-sale";
 import { archiveProductPriceOperation } from "./archive-product-price.operation";
-import { listOwnerProductPricesOperation } from "./list-owner-product-prices.operation";
 import { readOwnerProductPriceOperation } from "./read-owner-product-price.operation";
 import { saveProductPriceOperation } from "./save-product-price.operation";
 import { saveProductSalesStateOperation } from "./save-product-sales-state.operation";
@@ -55,22 +54,6 @@ export function handleReadOwnerProductPrice(
       return result;
     },
   });
-}
-
-/** Страница цен всех продуктов владельца: одно чтение `productPrices.list` без продукта. */
-export function handleListOwnerProductPrices(
-  request: Request,
-): Promise<Response> {
-  return ownerBillingCommand(
-    request,
-    listOwnerProductPricesOperation,
-    (input) => ({
-      operation: "productPrices.list",
-      operationId: input.operationId,
-      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-      limit: CATALOG_PRICES_PAGE_SIZE,
-    }),
-  );
 }
 
 const productSalesStatesQuerySchema = z.strictObject({

@@ -22,7 +22,11 @@ import type {
   BillingFailureCode,
   PriceSnapshot,
 } from "../model/billing-contract";
-import { ownerPriceCatalogPageSchema } from "../model/owner-price-catalog";
+import {
+  OWNER_PRICE_CATALOG_PAGE_BUDGET,
+  OWNER_PRICE_CATALOG_PAGE_SIZE,
+  ownerPriceCatalogPageSchema,
+} from "../model/owner-price-catalog";
 
 /**
  * Одна владельческая операция billing за маршрут BFF: дискриминатор `operation` ставит сервер, и
@@ -49,7 +53,8 @@ export function ownerBillingCommand<
 /**
  * Полный каталог цен продуктов для владельца: все страницы `productPrices.list`, включая снятые с
  * продажи цены. Список ограничен числом продуктов, поэтому читается целиком; выбор продукта
- * ограничивает отрисовку сам.
+ * ограничивает отрисовку сам. Каталог длиннее `OWNER_PRICE_CATALOG_PAGE_BUDGET` страниц отвечает
+ * недоступностью, а не обрезанным списком.
  */
 export function handleOwnerPriceCatalogRead(): Promise<Response> {
   return handleAuthenticatedRead(async (accessToken) => {
@@ -69,14 +74,13 @@ async function readOwnerPriceCatalog(accessToken: string): Promise<
     }
 > {
   const items: PriceSnapshot[] = [];
-  const seen = new Set<string>();
   let cursor: string | undefined;
-  for (;;) {
+  for (let page = 0; page < OWNER_PRICE_CATALOG_PAGE_BUDGET; page += 1) {
     const result = await requestManageBilling(
       {
         operation: "productPrices.list",
         operationId: randomUUID(),
-        limit: 100,
+        limit: OWNER_PRICE_CATALOG_PAGE_SIZE,
         ...(cursor === undefined ? {} : { cursor }),
       },
       accessToken,
@@ -92,9 +96,7 @@ async function readOwnerPriceCatalog(accessToken: string): Promise<
     items.push(...parsed.data.result.items);
     const nextCursor = parsed.data.result.nextCursor;
     if (nextCursor === null) return { ok: true, items };
-    if (seen.has(nextCursor))
-      return { ok: false, code: "unavailable", status: 502 };
-    seen.add(nextCursor);
     cursor = nextCursor;
   }
+  return { ok: false, code: "unavailable", status: 502 };
 }

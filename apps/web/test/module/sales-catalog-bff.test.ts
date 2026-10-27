@@ -16,6 +16,7 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 }));
 
 import { handleOwnerPriceCatalogRead } from "@/entities/subscription.server";
+import { OWNER_PRICE_CATALOG_PAGE_BUDGET } from "@/entities/subscription/model/owner-price-catalog";
 import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.server";
 import {
   handleCreatePaymentLink,
@@ -257,6 +258,19 @@ it("reads every page of the owner price catalog and refuses for another role", a
   const refused = await handleOwnerPriceCatalogRead();
   expect(refused.status).toBe(403);
   expect(await refused.json()).toEqual({ ok: false, code: "forbidden" });
+});
+
+it("reads at most the page budget of the owner price catalog and reports the overflow as unavailable", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: { outcome: "catalogOffers", items: [], nextCursor: cursor },
+    }),
+  );
+  const response = await handleOwnerPriceCatalogRead();
+  expect(fakes.manage).toHaveBeenCalledTimes(OWNER_PRICE_CATALOG_PAGE_BUDGET);
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ ok: false, code: "unavailable" });
 });
 
 it("does not report an empty owner price catalog when a continuation fails", async () => {

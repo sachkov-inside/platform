@@ -33,25 +33,12 @@ export const ownerProductPriceOutcomeSchema = z.object({
   }),
 });
 
-/**
- * Продажи всего каталога для списка продуктов: страница цен владельца (`productPrices.list` без
- * продукта) и страница публичных состояний продажи. Обе идут по продуктам и продолжаются курсором.
- */
-export function catalogSaleQueryKey(part?: "prices" | "states") {
-  return part === undefined
-    ? (["product-sale", "catalog"] as const)
-    : (["product-sale", "catalog", part] as const);
-}
-
-/** Страница цен каталога за одно чтение: столько принимает `productPrices.list`. */
-export const CATALOG_PRICES_PAGE_SIZE = 100;
-/** Больше страниц одного чтения список не просит: такой каталог читается как недоступный. */
-export const CATALOG_SALE_PAGES_LIMIT = 20;
-
-export const listOwnerProductPricesInputSchema = z.strictObject({
-  operationId,
-  cursor: z.uuid().optional(),
-});
+/** Публичные состояния продажи всего каталога для колонки продажи в списке продуктов. */
+export const catalogSalesStatesQueryKey = [
+  "product-sale",
+  "catalog",
+  "states",
+] as const;
 
 // Записи: те же команды и проверки ревизии, что и у прежнего раздела продаж.
 

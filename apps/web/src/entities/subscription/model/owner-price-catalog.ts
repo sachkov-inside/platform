@@ -16,6 +16,14 @@ export const ownerPriceCatalogSchema = z.array(priceSnapshotSchema);
 /** Ключ полного каталога цен владельца в TanStack Query: один на все поверхности админки. */
 export const ownerPriceCatalogQueryKey = ["owner-price-catalog"] as const;
 
+/** Страница `productPrices.list` за одно чтение каталога: столько принимает команда. */
+export const OWNER_PRICE_CATALOG_PAGE_SIZE = 100;
+/**
+ * Больше страниц каталог не читает: такой каталог отвечает недоступностью, и экран показывает
+ * «неизвестно», а не молча обрезанный список.
+ */
+export const OWNER_PRICE_CATALOG_PAGE_BUDGET = 20;
+
 /** Продукт с действующей ценой: то, что можно выбрать для ссылки на оплату или скидки. */
 export interface ProductPriceChoice {
   readonly productId: string;

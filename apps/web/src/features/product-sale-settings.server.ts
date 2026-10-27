@@ -1,6 +1,5 @@
 export {
   handleArchiveProductPrice,
-  handleListOwnerProductPrices,
   handleReadOwnerProductPrice,
   handleReadProductSalesStates,
   handleSaveProductPrice,

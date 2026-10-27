@@ -2,54 +2,17 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import type { PriceSnapshot, ProductSalesState } from "@/entities/subscription";
+import {
+  useOwnerPriceCatalog,
+  type ProductSalesState,
+} from "@/entities/subscription";
 
-import { listOwnerProductPricesOperation } from "../api/list-owner-product-prices.operation";
 import { readProductSalesStates } from "../api/product-sales-states.browser";
 import {
-  CATALOG_SALE_PAGES_LIMIT,
-  catalogSaleQueryKey,
+  catalogSalesStatesQueryKey,
   ownerPricesByProduct,
   type CatalogSaleReads,
-  type OwnerProductPrice,
 } from "./product-sale";
-
-/**
- * Все страницы одного чтения каталога по курсору. Обычный каталог помещается в одну страницу;
- * слишком длинный читается как недоступный, а не обрезается молча.
- */
-async function readAllPages<Item>(
-  readPage: (cursor: string | undefined) => Promise<{
-    readonly items: readonly Item[];
-    readonly nextCursor: string | null;
-  } | null>,
-): Promise<Item[] | null> {
-  const items: Item[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < CATALOG_SALE_PAGES_LIMIT; page += 1) {
-    const result = await readPage(cursor);
-    if (result === null) return null;
-    items.push(...result.items);
-    if (result.nextCursor === null) return items;
-    cursor = result.nextCursor;
-  }
-  return null;
-}
-
-/** Цены владельца по продуктам; `null`, когда права нет или чтение не удалось. */
-export async function readCatalogPrices(): Promise<ReadonlyMap<
-  string,
-  OwnerProductPrice
-> | null> {
-  const items = await readAllPages<PriceSnapshot>(async (cursor) => {
-    const result = await listOwnerProductPricesOperation.send({
-      operationId: crypto.randomUUID(),
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    return result.ok ? result.value.result : null;
-  });
-  return items === null ? null : ownerPricesByProduct(items);
-}
 
 /** Публичные состояния продажи по продуктам; `null`, когда чтение не удалось. */
 export async function readCatalogSalesStates(): Promise<ReadonlyMap<
@@ -64,18 +27,16 @@ export async function readCatalogSalesStates(): Promise<ReadonlyMap<
 
 /**
  * Продажи каталога для списка продуктов: два чтения на весь список, а не по запросу на строку.
- * Пока хоть одно идёт, вид `loading`; отказ одного из них оставляет известное другим.
+ * Цены приходят из общего каталога цен владельца (`useOwnerPriceCatalog`), состояния продажи из
+ * публичного чтения. Пока хоть одно идёт, вид `loading`; отказ одного из них оставляет известное
+ * другим.
  */
 export function useCatalogSale():
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly reads: CatalogSaleReads } {
-  const prices = useQuery({
-    queryKey: catalogSaleQueryKey("prices"),
-    queryFn: readCatalogPrices,
-    retry: false,
-  });
+  const prices = useOwnerPriceCatalog();
   const salesStates = useQuery({
-    queryKey: catalogSaleQueryKey("states"),
+    queryKey: catalogSalesStatesQueryKey,
     queryFn: readCatalogSalesStates,
     retry: false,
   });
@@ -83,7 +44,7 @@ export function useCatalogSale():
   return {
     kind: "ready",
     reads: {
-      prices: prices.data ?? null,
+      prices: prices.isSuccess ? ownerPricesByProduct(prices.data) : null,
       salesStates: salesStates.data ?? null,
     },
   };

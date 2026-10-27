@@ -22,7 +22,6 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 import * as readPriceRoute from "../../app/api/authoring/billing/product-prices/read/route";
 import * as savePriceRoute from "../../app/api/authoring/billing/product-prices/save/route";
 import * as archivePriceRoute from "../../app/api/authoring/billing/product-prices/archive/route";
-import * as listPricesRoute from "../../app/api/authoring/billing/product-prices/list/route";
 import * as salesStatesRoute from "../../app/api/authoring/billing/product-sales-states/route";
 import * as saveStateRoute from "../../app/api/authoring/billing/product-sales-states/save/route";
 import { archiveProductPriceOperation } from "@/features/product-sale-settings/api/archive-product-price.operation";
@@ -42,10 +41,7 @@ import {
   type OwnerProductPrice,
 } from "@/features/product-sale-settings/model/product-sale";
 import { readProductSale } from "@/features/product-sale-settings/model/use-product-sale.client";
-import {
-  readCatalogPrices,
-  readCatalogSalesStates,
-} from "@/features/product-sale-settings/model/use-catalog-sale.client";
+import { readCatalogSalesStates } from "@/features/product-sale-settings/model/use-catalog-sale.client";
 import {
   productSalesStatesSchema,
   type PriceSnapshot,
@@ -121,7 +117,6 @@ const routes = {
   "/api/authoring/billing/product-prices/archive": archivePriceRoute,
   "/api/authoring/billing/product-sales-states": salesStatesRoute,
   "/api/authoring/billing/product-sales-states/save": saveStateRoute,
-  "/api/authoring/billing/product-prices/list": listPricesRoute,
 };
 
 beforeEach(() => {
@@ -504,7 +499,6 @@ describe("маршруты продажи", () => {
 });
 
 describe("продажи каталога в списке продуктов", () => {
-  const anyOperationId: unknown = expect.any(String);
   const thirdProductId = "00000000-0000-4000-8000-000000001720";
   const prices = new Map([
     [productId, price],
@@ -546,53 +540,6 @@ describe("продажи каталога в списке продуктов", (
         snapshot(otherProductId),
       ]),
     ).toEqual(prices);
-  });
-
-  it("читает весь каталог цен страницами по 100 без продукта", async () => {
-    routeBrowserMutations(routes);
-    const cursor = "00000000-0000-4000-8000-0000000017ff";
-    fakes.manage
-      .mockResolvedValueOnce(
-        ok({
-          operationRef: operationId,
-          result: {
-            outcome: "catalogOffers",
-            items: [snapshot(productId, true)],
-            nextCursor: cursor,
-          },
-        }),
-      )
-      .mockResolvedValueOnce(catalog([snapshot(otherProductId)]));
-
-    await expect(readCatalogPrices()).resolves.toEqual(prices);
-    expect(fakes.manage).toHaveBeenCalledTimes(2);
-    expect(fakes.manage).toHaveBeenNthCalledWith(
-      1,
-      {
-        operation: "productPrices.list",
-        operationId: anyOperationId,
-        limit: 100,
-      },
-      "owner-token",
-      {},
-    );
-    expect(fakes.manage).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        operation: "productPrices.list",
-        cursor,
-        limit: 100,
-      }),
-      "owner-token",
-      {},
-    );
-  });
-
-  it("отказ владельцу в ценах читается как неизвестные цены, а не пустой каталог", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(problem("forbidden", 403));
-
-    await expect(readCatalogPrices()).resolves.toBeNull();
   });
 
   it("читает публичные состояния продажи всех продуктов страницами", async () => {

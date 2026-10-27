@@ -3,18 +3,16 @@
 import {
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
-  ownerPriceCatalogQueryKey,
   paymentLinkHref,
   paymentLinksQueryKey,
   productPriceChoices,
-  readOwnerPriceCatalog,
+  useOwnerPriceCatalog,
   type PaymentLink,
   type ProductPriceChoice,
 } from "@/entities/subscription";
@@ -104,16 +102,7 @@ export function PaymentLinksPanel({
   // Своё объявление уже перечитало список здесь: подписка его пропускает.
   const ownAnnouncement = useRef<string | null>(null);
 
-  const catalog = useQuery({
-    queryKey: ownerPriceCatalogQueryKey,
-    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
-    retry: false,
-    queryFn: async () => {
-      const result = await readOwnerPriceCatalog();
-      if (!result.ok) throw new Error(result.code);
-      return result.value;
-    },
-  });
+  const catalog = useOwnerPriceCatalog();
   const choices: readonly ProductPriceChoice[] =
     catalog.data === undefined ? [] : productPriceChoices(catalog.data);
   const products: ProductChoicesState = catalog.isSuccess
