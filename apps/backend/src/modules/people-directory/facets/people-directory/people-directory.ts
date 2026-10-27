@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { parsePersonSearchTerm } from "../../domain/person-search-term.js";
 import { listPeople } from "../../features/list-people/list-people.js";
+import { listProductChoices } from "../../features/list-product-choices/list-product-choices.js";
 import { readPerson } from "../../features/read-person/read-person.js";
 import {
   authorizePeopleRead,
@@ -98,6 +99,11 @@ export class PeopleDirectory {
   /** One page of people with their products, filtered and searched; see `listPeople`. */
   listPeople(actorId: string, input: unknown) {
     return listPeople(this.dependencies, actorId, input);
+  }
+
+  /** Every Product to choose in the list filter and the grant dialog; see `listProductChoices`. */
+  listProductChoices(actorId: string) {
+    return listProductChoices(this.dependencies, actorId);
   }
 
   /** The person card: every block answers on its own; see `readPerson`. */

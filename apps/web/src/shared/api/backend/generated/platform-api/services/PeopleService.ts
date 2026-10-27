@@ -229,6 +229,23 @@ export class PeopleService {
     });
   }
   /**
+   * List every Product, archived ones flagged, sorted by name, for the people list filter and the grant dialog; requires billing:manage
+   * @returns any
+   * @throws ApiError
+   */
+  public listPeopleProductChoices(): CancelablePromise<{
+    items: Array<{
+      archived: boolean;
+      name: string;
+      productId: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/people/product-choices',
+    });
+  }
+  /**
    * Find people for the owner by Account ID, by exact email or by Telegram name and @username; Accounts without a Sign-in Email, verified Billing Contact or Telegram link are never found
    * @returns any
    * @throws ApiError
