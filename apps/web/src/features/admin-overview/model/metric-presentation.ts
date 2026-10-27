@@ -1,4 +1,5 @@
 import {
+  formatCount,
   formatCountRu,
   formatMoscowShortDay,
   formatRubles,
@@ -78,13 +79,7 @@ export const overviewMetrics: Readonly<
   },
 };
 
-const countFormat = new Intl.NumberFormat("ru-RU");
 const minus = "−";
-
-/** Число без слова: «1 234». */
-export function formatCount(value: number): string {
-  return countFormat.format(value);
-}
 
 /** Копейки → целые рубли: Обзор показывает суммы без копеек. */
 function wholeRubles(kopecks: number): number {
@@ -95,7 +90,7 @@ function wholeRubles(kopecks: number): number {
 export function metricValueText(id: OverviewMetricId, value: number): string {
   if (overviewMetrics[id].forms === null)
     return formatRubles(wholeRubles(value) * 100);
-  return countFormat.format(value);
+  return formatCount(value);
 }
 
 /** Значение со словом для описаний: «148 700 ₽», «31 продажа». */

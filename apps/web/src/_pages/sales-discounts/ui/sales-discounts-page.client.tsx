@@ -4,11 +4,11 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
 import { PromotionsPanel, type PromotionsFilter } from "@/features/promotions";
+import { authoringDiscountsHref } from "@/shared/routing/authoring";
 
 import {
   parseSalesDiscountsQuery,
   salesDiscountsHref,
-  salesDiscountsRootHref,
 } from "../model/sales-discounts-query";
 import { SalesDiscountsFrame } from "./sales-discounts-frame";
 
@@ -22,7 +22,7 @@ export function SalesDiscountsPageQuery() {
   );
   const changeFilter = useCallback((next: PromotionsFilter) => {
     // Скрытая, но смонтированная прежняя страница (ADR 0027) не пишет чужой адрес.
-    if (window.location.pathname !== salesDiscountsRootHref) return;
+    if (window.location.pathname !== authoringDiscountsHref) return;
     const href = salesDiscountsHref(next);
     if (`${window.location.pathname}${window.location.search}` === href) return;
     window.history.pushState(null, "", href);

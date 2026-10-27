@@ -25,9 +25,9 @@ import {
   productHoldersQueryOptions,
 } from "../model/product-holders-query-options";
 import {
-  GrantProductDialog,
+  BulkGrantProductDialog,
   type UseGrantPeopleSearch,
-} from "./grant-product-dialog.client";
+} from "./bulk-grant-product-dialog.client";
 import {
   ProductHoldersTable,
   type ProductHoldersViewState,
@@ -98,7 +98,7 @@ export function ProductLearnersTab({
         refreshing={holders.isPlaceholderData}
         state={state}
       />
-      <GrantProductDialog
+      <BulkGrantProductDialog
         onGranted={() => {
           void invalidateProductHolders(queryClient, productId);
           announceEnrollmentChange();

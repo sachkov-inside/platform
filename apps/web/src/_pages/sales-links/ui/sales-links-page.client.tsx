@@ -7,11 +7,11 @@ import {
   PaymentLinksPanel,
   type PaymentLinksFilter,
 } from "@/features/payment-links";
+import { authoringPaymentLinksHref } from "@/shared/routing/authoring";
 
 import {
   parseSalesLinksQuery,
   salesLinksHref,
-  salesLinksRootHref,
 } from "../model/sales-links-query";
 import { SalesLinksFrame } from "./sales-links-frame";
 
@@ -28,7 +28,7 @@ export function SalesLinksPageQuery() {
   );
   const changeFilter = useCallback((next: PaymentLinksFilter) => {
     // Скрытая, но смонтированная прежняя страница (ADR 0027) не пишет чужой адрес.
-    if (window.location.pathname !== salesLinksRootHref) return;
+    if (window.location.pathname !== authoringPaymentLinksHref) return;
     const href = salesLinksHref(next);
     if (`${window.location.pathname}${window.location.search}` === href) return;
     window.history.pushState(null, "", href);

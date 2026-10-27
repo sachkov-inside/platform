@@ -5,6 +5,7 @@ import { attemptStateSchema } from "@/entities/subscription";
 import { addMoscowDays, moscowDayStart } from "@/shared/lib/moscow-day";
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
 import { authoringPaymentsHref } from "@/shared/routing/authoring";
+import { internalRoute } from "@/shared/routing/internal-route";
 
 /** Банковское состояние попытки оплаты: закрытый список владельца billing. */
 export type PaymentState = z.infer<typeof attemptStateSchema>;
@@ -29,6 +30,11 @@ export interface PaymentsQuery {
    * из «Требует внимания» Обзора (#1719).
    */
   readonly fulfillment?: PaymentFulfillmentFilter;
+  /**
+   * Покупатель (`?person=`): все платежи одного человека. Список открывается с ним из карточки
+   * человека, которая сама показывает только последние оплаты.
+   */
+  readonly accountId?: string;
   /** Позиция продолжения из ответа backend, а не номер страницы. */
   readonly cursor?: string;
 }
@@ -38,7 +44,6 @@ export const emptyPaymentsQuery: PaymentsQuery = { states: [] };
 const fulfillmentSchema = z.literal("incomplete");
 export type PaymentFulfillmentFilter = z.infer<typeof fulfillmentSchema>;
 export const fulfillmentFilterLabel = "Выдача не завершена";
-export const salesPaymentsHref = authoringPaymentsHref;
 
 /** Сколько строк просит одна страница списка. */
 export const paymentsPageSize = 50;
@@ -63,6 +68,7 @@ export function parsePaymentsSearchParams(
     parsedTo !== undefined && from !== undefined && parsedTo < from
       ? undefined
       : parsedTo;
+  const accountId = uuidSchema.safeParse(params.get("person")).data;
   const cursor = uuidSchema.safeParse(params.get("cursor")).data;
   const fulfillment = fulfillmentSchema.safeParse(
     params.get("fulfillment"),
@@ -73,6 +79,7 @@ export function parsePaymentsSearchParams(
     ...(from === undefined ? {} : { from }),
     ...(to === undefined ? {} : { to }),
     ...(fulfillment === undefined ? {} : { fulfillment }),
+    ...(accountId === undefined ? {} : { accountId }),
     ...(cursor === undefined ? {} : { cursor }),
   };
 }
@@ -85,6 +92,7 @@ export function serializePaymentsQuery(query: PaymentsQuery): string {
   if (query.to !== undefined) params.set("to", query.to);
   if (query.fulfillment !== undefined)
     params.set("fulfillment", query.fulfillment);
+  if (query.accountId !== undefined) params.set("person", query.accountId);
   if (query.cursor !== undefined) params.set("cursor", query.cursor);
   return params.toString();
 }
@@ -92,17 +100,28 @@ export function serializePaymentsQuery(query: PaymentsQuery): string {
 /** Адрес страницы платежей с этим выбором. */
 export function salesPaymentsQueryHref(query: PaymentsQuery): Route {
   const search = serializePaymentsQuery(query);
-  return search === "" ? salesPaymentsHref : `${salesPaymentsHref}?${search}`;
+  return search === ""
+    ? authoringPaymentsHref
+    : internalRoute(`${authoringPaymentsHref}?${search}`);
 }
 
-/** Состояние, продукт, период или выдача сужают список; позиция продолжения сама по себе нет. */
+/** Все платежи одного человека: ссылка «Все оплаты» его карточки. */
+export function personPaymentsHref(accountId: string): Route {
+  return salesPaymentsQueryHref({ states: [], accountId });
+}
+
+/**
+ * Состояние, продукт, период, выдача или покупатель сужают список; позиция продолжения сама по
+ * себе нет.
+ */
 export function hasPaymentsFilters(query: PaymentsQuery): boolean {
   return (
     query.states.length > 0 ||
     query.productId !== undefined ||
     query.from !== undefined ||
     query.to !== undefined ||
-    query.fulfillment !== undefined
+    query.fulfillment !== undefined ||
+    query.accountId !== undefined
   );
 }
 
@@ -112,7 +131,8 @@ export type PaymentsFilterChange =
   | { readonly key: "from"; readonly value: string | undefined }
   | { readonly key: "to"; readonly value: string | undefined }
   | { readonly key: "period"; readonly value: undefined }
-  | { readonly key: "fulfillment"; readonly value: undefined };
+  | { readonly key: "fulfillment"; readonly value: undefined }
+  | { readonly key: "accountId"; readonly value: undefined };
 
 /**
  * Выбор после одного изменения фильтра. Любое изменение возвращает к началу списка: прежняя
@@ -154,6 +174,10 @@ export function withPaymentsFilter(
       const { fulfillment: _fulfillment, ...withoutFulfillment } = rest;
       return withoutFulfillment;
     }
+    case "accountId": {
+      const { accountId: _accountId, ...withoutPerson } = rest;
+      return withoutPerson;
+    }
   }
 }
 
@@ -186,13 +210,10 @@ export interface PaymentsListRequest {
 }
 
 /** Выбор страницы → запрос: московские дни становятся полуоткрытым промежутком мгновений. */
-export function paymentsListRequest(
-  query: PaymentsQuery,
-  accountId?: string,
-): PaymentsListRequest {
+export function paymentsListRequest(query: PaymentsQuery): PaymentsListRequest {
   return {
     limit: paymentsPageSize,
-    ...(accountId === undefined ? {} : { accountId }),
+    ...(query.accountId === undefined ? {} : { accountId: query.accountId }),
     ...(query.states.length === 0 ? {} : { states: query.states }),
     ...(query.productId === undefined ? {} : { productId: query.productId }),
     ...(query.from === undefined

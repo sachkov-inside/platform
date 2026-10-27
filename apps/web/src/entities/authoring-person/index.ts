@@ -5,6 +5,7 @@
 export {
   personIdentitySchema,
   personLabel,
+  shortAccountId,
   type PersonIdentity as PersonIdentityValue,
   type PersonLabel,
 } from "./model/person-identity";
@@ -26,6 +27,11 @@ export {
 } from "./model/use-people-reads.client";
 export { PersonIdentity, type PersonIdentityProps } from "./ui/person-identity";
 export { CopyAccountId } from "./ui/copy-account-id.client";
+export {
+  personRowTitle,
+  usePersonTitleText,
+  usePersonTitles,
+} from "./ui/person-titles.client";
 export {
   PeopleSearchCombobox,
   type PeopleSearchComboboxProps,

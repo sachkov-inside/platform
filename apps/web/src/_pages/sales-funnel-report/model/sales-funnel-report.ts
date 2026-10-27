@@ -5,11 +5,11 @@ import {
   moscowDayOf,
   moscowDayStart,
 } from "@/shared/lib/moscow-day";
-
+import { MOSCOW_TIME_ZONE } from "@/shared/lib/moscow-format";
 import {
-  defaultFunnelPeriodPreset,
-  type FunnelPeriodPreset,
-} from "./sales-funnel-query";
+  defaultSalesFunnelPeriodPreset,
+  type SalesFunnelPeriodPreset,
+} from "@/shared/routing/authoring";
 
 const amountSchema = z.int().nonnegative();
 const countSchema = amountSchema.nullable();
@@ -129,7 +129,7 @@ export interface SalesFunnelReportView {
    */
   readonly historicalConsent: number | null;
   /** Готовый период в днях или `null` для своего периода. */
-  readonly preset: FunnelPeriodPreset | null;
+  readonly preset: SalesFunnelPeriodPreset | null;
   /** `null` — список анкеты ещё не загружен: доли нет, а не ноль купивших. */
   readonly surveyRespondents: SurveyRespondentsView | null;
   readonly notice: string | null;
@@ -151,8 +151,7 @@ export interface SurveyRespondentsView {
   } | null;
 }
 
-const MOSCOW = "Europe/Moscow";
-export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(defaultFunnelPeriodPreset)} дней.`;
+export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(defaultSalesFunnelPeriodPreset)} дней.`;
 const dateSchema = z.iso.date();
 
 /**
@@ -164,7 +163,7 @@ export function readReportPeriod(
   params: {
     readonly from?: string;
     readonly to?: string;
-    readonly preset?: FunnelPeriodPreset;
+    readonly preset?: SalesFunnelPeriodPreset;
   },
   now: Date,
 ): {
@@ -172,7 +171,7 @@ export function readReportPeriod(
   readonly to: string;
   readonly query: { readonly from: string; readonly to: string };
   readonly corrected: boolean;
-  readonly preset: FunnelPeriodPreset | null;
+  readonly preset: SalesFunnelPeriodPreset | null;
 } {
   const today = moscowDayOf(now);
   const startFor = (days: number) => addMoscowDays(today, -(days - 1));
@@ -187,10 +186,10 @@ export function readReportPeriod(
     (requested.from ?? "") <= (requested.to ?? "");
   const preset =
     requested === undefined
-      ? (params.preset ?? defaultFunnelPeriodPreset)
+      ? (params.preset ?? defaultSalesFunnelPeriodPreset)
       : valid
         ? null
-        : defaultFunnelPeriodPreset;
+        : defaultSalesFunnelPeriodPreset;
   const from = preset === null ? (requested?.from ?? today) : startFor(preset);
   const to = preset === null ? (requested?.to ?? today) : today;
   return {
@@ -208,7 +207,7 @@ export function readReportPeriod(
 const moscowDateTime = new Intl.DateTimeFormat("ru-RU", {
   dateStyle: "long",
   timeStyle: "short",
-  timeZone: MOSCOW,
+  timeZone: MOSCOW_TIME_ZONE,
 });
 
 function sourceLabel(source: SalesFunnelReport["rows"][number]["source"]) {
@@ -260,7 +259,7 @@ export function presentSalesFunnelReport(
     readonly from: string;
     readonly to: string;
     readonly corrected: boolean;
-    readonly preset: FunnelPeriodPreset | null;
+    readonly preset: SalesFunnelPeriodPreset | null;
   },
 ): SalesFunnelReportView {
   const product = report.products.find(

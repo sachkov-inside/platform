@@ -1,8 +1,6 @@
 "use client";
 
-import type { Route } from "next";
 import Link from "next/link";
-import type { ReactNode } from "react";
 
 import {
   CopyAccountId,
@@ -10,31 +8,12 @@ import {
   personRowLabel,
   usePersonIdentities,
 } from "@/entities/authoring-person";
-import { internalRoute } from "@/shared/routing/internal-route";
-
-/**
- * Покупатель платежа: имя Telegram, затем @username, затем email (`@/entities/authoring-person`).
- * Подписи страницы списка читаются одним чтением; пока оно идёт, при отказе, сбое или у аккаунта
- * без контактов вместо имени стоит нейтральный текст, а не номер аккаунта.
- */
-export function usePaymentBuyerTitles(
-  accountIds: readonly string[],
-): (accountId: string) => ReactNode {
-  const identities = usePersonIdentities(accountIds);
-  return (accountId) => {
-    const label = personRowLabel(identities, accountId);
-    return (
-      label.title ?? (
-        <span className="text-muted-foreground">{label.missing}</span>
-      )
-    );
-  };
-}
+import { authoringPersonHref } from "@/shared/routing/authoring";
 
 /** Покупатель на странице платежа: подпись со ссылкой в карточку человека и ID с копированием. */
 export function PaymentBuyer({ accountId }: { readonly accountId: string }) {
   const identities = usePersonIdentities([accountId]);
-  const href = buyerHref(accountId);
+  const href = authoringPersonHref(accountId);
   const identity =
     identities.kind === "ready"
       ? identities.byId.get(accountId.toLowerCase())
@@ -55,8 +34,4 @@ export function PaymentBuyer({ accountId }: { readonly accountId: string }) {
       <CopyAccountId accountId={accountId} />
     </span>
   );
-}
-
-function buyerHref(accountId: string): Route {
-  return internalRoute(`/authoring/people/${encodeURIComponent(accountId)}`);
 }

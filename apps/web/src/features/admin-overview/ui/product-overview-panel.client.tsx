@@ -5,12 +5,11 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useId, type ReactNode } from "react";
 
-import { formatCountRu } from "@/shared/lib/moscow-format";
+import { formatCount, formatCountRu } from "@/shared/lib/moscow-format";
 import { AdminErrorState, MetricCard } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
 import {
-  formatCount,
   metricChange,
   metricValueText,
   periodLabel,

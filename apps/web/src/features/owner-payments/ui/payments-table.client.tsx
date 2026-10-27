@@ -5,12 +5,18 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { usePersonTitles } from "@/entities/authoring-person";
+
 import {
   formatCountRu,
   formatMoscowDateTime,
   formatRubles,
 } from "@/shared/lib/moscow-format";
 import { cn } from "@/shared/lib/utils";
+import {
+  authoringPaymentHref,
+  authoringPaymentLinksHref,
+} from "@/shared/routing/authoring";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -35,16 +41,13 @@ import {
 import {
   paymentAccessBadge,
   paymentKindLabels,
-  paymentLinksHref,
   paymentProductName,
   paymentStateBadge,
-  salesPaymentHref,
 } from "../model/payment-presentation";
 import {
   ownerPaymentProductsQueryOptions,
   ownerPaymentsQueryOptions,
 } from "../model/owner-payments-query";
-import { usePaymentBuyerTitles } from "./payment-buyer.client";
 import { PaymentFilters } from "./payment-filters.client";
 import type { ProductChoices } from "./product-filter.client";
 
@@ -53,31 +56,18 @@ import "./owner-payments.css";
 const paymentForms = ["платёж", "платежа", "платежей"] as const;
 
 export interface PaymentsTableProps {
-  /** Платежи одного человека: карточка человека (#1721) передаёт его аккаунт. */
-  readonly accountId?: string;
-  /**
-   * Выбор, которым владеет страница, обычно её адрес. Без него таблица хранит выбор сама,
-   * например внутри карточки человека.
-   */
-  readonly query?: PaymentsQuery;
-  readonly onQueryChange?: (query: PaymentsQuery) => void;
+  /** Выбор, которым владеет страница: её адрес, включая покупателя `?person=`. */
+  readonly query: PaymentsQuery;
+  readonly onQueryChange: (query: PaymentsQuery) => void;
 }
 
 /**
  * Список платежей владельца: фильтры, таблица (на телефоне список), продолжение и состояния.
- * Читает `payments.list` через BFF billing; email заказа сюда не попадает.
+ * Читает `payments.list` через BFF billing; email заказа сюда не попадает. Платежи одного
+ * человека показывает этот же список с фильтром покупателя: в него ведёт «Все оплаты» карточки.
  */
-export function PaymentsTable({
-  accountId,
-  query,
-  onQueryChange,
-}: PaymentsTableProps) {
-  const [ownQuery, setOwnQuery] = useState<PaymentsQuery>(emptyPaymentsQuery);
-  const current = query ?? ownQuery;
-  const request = useMemo(
-    () => paymentsListRequest(current, accountId),
-    [current, accountId],
-  );
+export function PaymentsTable({ query, onQueryChange }: PaymentsTableProps) {
+  const request = useMemo(() => paymentsListRequest(query), [query]);
   const list = useQuery({
     ...ownerPaymentsQueryOptions(request),
     placeholderData: keepPreviousData,
@@ -92,14 +82,13 @@ export function PaymentsTable({
 
   return (
     <PaymentsTableView
-      {...(accountId === undefined ? {} : { accountId })}
       isRefreshing={list.isFetching && !list.isPending}
-      onQueryChange={onQueryChange ?? setOwnQuery}
+      onQueryChange={onQueryChange}
       onRetry={() => {
         void list.refetch();
       }}
       products={productChoices}
-      query={current}
+      query={query}
       state={
         list.isPending
           ? { kind: "loading" }
@@ -114,7 +103,6 @@ export type PaymentsListState =
 
 /** Таблица платежей по готовому состоянию: её показывают и маршрут, и Storybook. */
 export function PaymentsTableView({
-  accountId,
   isRefreshing = false,
   onQueryChange,
   onRetry,
@@ -122,7 +110,6 @@ export function PaymentsTableView({
   query,
   state,
 }: {
-  readonly accountId?: string;
   readonly isRefreshing?: boolean;
   readonly onQueryChange: (query: PaymentsQuery) => void;
   readonly onRetry: () => void;
@@ -142,17 +129,11 @@ export function PaymentsTableView({
     return (
       <AdminEmptyState
         action={
-          accountId === undefined ? (
-            <Button asChild className="min-h-11 px-4" variant="outline">
-              <Link href={paymentLinksHref}>Ссылки на оплату</Link>
-            </Button>
-          ) : undefined
+          <Button asChild className="min-h-11 px-4" variant="outline">
+            <Link href={authoringPaymentLinksHref}>Ссылки на оплату</Link>
+          </Button>
         }
-        description={
-          accountId === undefined
-            ? "Оплаты появятся здесь, как только покупатель оплатит продукт на сайте или по ссылке на оплату."
-            : "Оплаты этого человека появятся здесь, как только он оплатит продукт."
-        }
+        description="Оплаты появятся здесь, как только покупатель оплатит продукт на сайте или по ссылке на оплату."
         title="Платежей пока нет"
       />
     );
@@ -170,7 +151,6 @@ export function PaymentsTableView({
         }
       />
       <PaymentsResults
-        accountId={accountId}
         isRefreshing={isRefreshing}
         onCopied={setCopied}
         onQueryChange={onQueryChange}
@@ -191,7 +171,6 @@ interface PaymentRow {
 }
 
 function PaymentsResults({
-  accountId,
   isRefreshing,
   onCopied,
   onQueryChange,
@@ -199,7 +178,6 @@ function PaymentsResults({
   query,
   state,
 }: {
-  readonly accountId: string | undefined;
   readonly isRefreshing: boolean;
   readonly onCopied: (message: string) => void;
   readonly onQueryChange: (query: PaymentsQuery) => void;
@@ -210,7 +188,7 @@ function PaymentsResults({
   if (state.kind === "loading")
     return (
       <AdminTableSkeleton
-        columns={columnsFor(accountId).length + 1}
+        columns={paymentColumns.length + 1}
         label="Загружаем платежи"
       />
     );
@@ -254,7 +232,7 @@ function PaymentsResults({
           />
         ) : (
           <AdminNoResults
-            description="Под выбранные состояние, продукт и период платежей нет. Сбросьте фильтры, чтобы увидеть все платежи."
+            description="Под выбранные фильтры платежей нет. Сбросьте их, чтобы увидеть все платежи."
             onReset={() => {
               onQueryChange(emptyPaymentsQuery);
             }}
@@ -268,7 +246,6 @@ function PaymentsResults({
   return (
     <>
       <PaymentsRows
-        accountId={accountId}
         isRefreshing={isRefreshing}
         items={items}
         onCopied={onCopied}
@@ -279,23 +256,19 @@ function PaymentsResults({
 }
 
 /**
- * Строки платежей страницы. В общем списке первая колонка называет покупателя: подписи всех
- * покупателей страницы читаются одним чтением. В платежах одного человека он уже известен.
+ * Строки платежей страницы. Первая колонка называет покупателя: подписи всех покупателей страницы
+ * читаются одним чтением.
  */
 function PaymentsRows({
-  accountId,
   isRefreshing,
   items,
   onCopied,
 }: {
-  readonly accountId: string | undefined;
   readonly isRefreshing: boolean;
   readonly items: readonly PaymentView[];
   readonly onCopied: (message: string) => void;
 }) {
-  const buyer = usePaymentBuyerTitles(
-    accountId === undefined ? items.map((payment) => payment.accountId) : [],
-  );
+  const buyer = usePersonTitles(items.map((payment) => payment.accountId));
   const rows: PaymentRow[] = items.map((payment) => ({
     payment,
     productName: paymentProductName(payment),
@@ -304,21 +277,18 @@ function PaymentsRows({
     <AdminTable
       busy={isRefreshing}
       caption="Платежи"
-      columns={columnsFor(accountId)}
+      columns={paymentColumns}
       mobileItem={(row) => ({
         badge: <StateBadge state={paymentStateBadge(row.payment.state)} />,
         caption: `${row.productName} · ${formatMoscowDateTime(row.payment.createdAt)}`,
         metric: formatRubles(row.payment.amountKopecks),
-        title:
-          accountId === undefined
-            ? buyer(row.payment.accountId)
-            : row.productName,
+        title: buyer(row.payment.accountId),
       })}
       rowActions={(row) => (
         <AdminRowMenu
           items={[
             {
-              href: salesPaymentHref(row.payment.purchaseRef),
+              href: authoringPaymentHref(row.payment.purchaseRef),
               id: "open",
               label: "Открыть платёж",
             },
@@ -342,11 +312,9 @@ function PaymentsRows({
           label={`Действия с платежом от ${formatMoscowDateTime(row.payment.createdAt)}`}
         />
       )}
-      rowHref={(row) => salesPaymentHref(row.payment.purchaseRef)}
+      rowHref={(row) => authoringPaymentHref(row.payment.purchaseRef)}
       rowKey={(row) => row.payment.purchaseRef}
-      rowTitle={(row) =>
-        accountId === undefined ? buyer(row.payment.accountId) : row.productName
-      }
+      rowTitle={(row) => buyer(row.payment.accountId)}
       rows={rows}
     />
   );
@@ -384,8 +352,11 @@ const timeColumn: AdminTableColumn<PaymentRow> = {
   width: "10.5rem",
 };
 
-/** Все платежи: человек, продукт, сумма, состояние, время. */
-const ownerColumns: readonly AdminTableColumn<PaymentRow>[] = [
+/**
+ * Покупатель, продукт, сумма, состояние, время. Первая колонка показывает покупателя из `rowTitle`,
+ * а под ним вид платежа из своей ячейки.
+ */
+const paymentColumns: readonly AdminTableColumn<PaymentRow>[] = [
   {
     cell: (row) => paymentKindLabels[row.payment.kind],
     header: "Покупатель",
@@ -401,24 +372,6 @@ const ownerColumns: readonly AdminTableColumn<PaymentRow>[] = [
   stateColumn,
   timeColumn,
 ];
-
-/** Платежи одного человека: человек известен, первая колонка — продукт. */
-const personColumns: readonly AdminTableColumn<PaymentRow>[] = [
-  {
-    cell: (row) => paymentKindLabels[row.payment.kind],
-    header: "Продукт",
-    id: "product",
-  },
-  amountColumn,
-  stateColumn,
-  timeColumn,
-];
-
-function columnsFor(
-  accountId: string | undefined,
-): readonly AdminTableColumn<PaymentRow>[] {
-  return accountId === undefined ? ownerColumns : personColumns;
-}
 
 const stepClass = cn(
   buttonVariants({ variant: "outline" }),

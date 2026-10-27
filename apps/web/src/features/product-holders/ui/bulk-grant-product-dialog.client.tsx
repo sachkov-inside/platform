@@ -12,11 +12,21 @@ import {
   type SubmitEvent,
 } from "react";
 
-import type { NameSearchState } from "@/entities/authoring-person";
+import {
+  personLabel,
+  shortAccountId,
+  type NameSearchState,
+  type PersonIdentityValue,
+} from "@/entities/authoring-person";
+import {
+  encodeAccessReason,
+  grantReasons,
+  otherReason,
+  reasonNoteMaxCharacters,
+} from "@/entities/product-access";
 import { formatCountRu, pluralRu } from "@/shared/lib/moscow-format";
-import { hasText, presentText } from "@/shared/lib/text";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
-import { StateBadge, type ReasonOption } from "@/shared/ui/admin";
+import { StateBadge } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
 import {
@@ -35,17 +45,6 @@ import type { HolderAccess } from "../model/product-holders";
 import { productHoldersQueryOptions } from "../model/product-holders-query-options";
 
 /**
- * Человек из поиска в форме `PersonIdentity` (#1721, `@/entities/authoring-person`): имя Telegram,
- * @username и email приходят, только если у читающего есть право; любое из них может отсутствовать.
- */
-export interface GrantPerson {
-  readonly accountId: string;
-  readonly displayName: string | null;
-  readonly username: string | null;
-  readonly email: string | null;
-}
-
-/**
  * Состояние поиска людей для выбора; поиск принадлежит #1721, диалог его только показывает.
  * `nameSearch: "unavailable"`: по имени сейчас искать нельзя, по email и ID можно; `truncated`:
  * совпало больше людей, чем показано.
@@ -55,7 +54,7 @@ export type GrantPeopleSearchState =
   | { readonly kind: "loading" }
   | {
       readonly kind: "ready";
-      readonly items: readonly GrantPerson[];
+      readonly items: readonly PersonIdentityValue[];
       readonly nameSearch: NameSearchState;
     }
   | { readonly kind: "unavailable" };
@@ -63,7 +62,7 @@ export type GrantPeopleSearchState =
 /** Хук поиска людей. Получает уже устоявшийся запрос (после паузы ввода), пустой до ввода. */
 export type UseGrantPeopleSearch = (query: string) => GrantPeopleSearchState;
 
-export interface GrantProductDialogProps {
+export interface BulkGrantProductDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly productId: string;
@@ -75,15 +74,6 @@ export interface GrantProductDialogProps {
   readonly onGranted: () => void;
 }
 
-const otherReason = "other";
-export const grantReasons: readonly ReasonOption[] = [
-  { value: "gift", label: "Подарок" },
-  { value: "support", label: "Компенсация или решение поддержки" },
-  { value: "offline-payment", label: "Оплата вне сайта" },
-  { value: "team", label: "Команда и партнёры" },
-  { value: otherReason, label: "Другое" },
-];
-
 const peopleForms = ["человеку", "людям", "людям"] as const;
 
 /**
@@ -91,7 +81,7 @@ const peopleForms = ["человеку", "людям", "людям"] as const;
  * заранее и итог по каждому человеку. Выполняет `runBulkGrant`; повтор отправляет только строки
  * с ошибкой с теми же ссылками. Пока выдача идёт, диалог не закрывается.
  */
-export function GrantProductDialog(props: GrantProductDialogProps) {
+export function BulkGrantProductDialog(props: BulkGrantProductDialogProps) {
   const { open, onOpenChange } = props;
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -150,12 +140,12 @@ function GrantForm({
   usePeopleSearch,
   send,
   onGranted,
-}: GrantProductDialogProps & {
+}: BulkGrantProductDialogProps & {
   readonly dialogId: string;
   readonly onBusy: (busy: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<readonly GrantPerson[]>([]);
+  const [selected, setSelected] = useState<readonly PersonIdentityValue[]>([]);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -188,9 +178,13 @@ function GrantForm({
   const full = selected.length >= BULK_GRANT_LIMIT;
 
   const noteRequired = reason === otherReason;
-  const reasonError = reason === "" ? "Выберите причину" : null;
+  const encoded = encodeAccessReason(grantReasons, { reason, note });
+  const reasonError =
+    !encoded.ok && encoded.error === "reason_required"
+      ? "Выберите причину"
+      : null;
   const noteError =
-    noteRequired && note.trim() === "" ? "Опишите причину" : null;
+    !encoded.ok && encoded.error === "note_required" ? "Опишите причину" : null;
 
   const headingId = `${dialogId}-heading`;
   const descriptionId = `${dialogId}-description`;
@@ -223,20 +217,15 @@ function GrantForm({
     if (run !== null || !precheckSettled || refused || toSend.length === 0)
       return;
     setSubmitted(true);
-    if (reasonError !== null) {
-      firstReason.current?.focus();
+    if (!encoded.ok) {
+      if (encoded.error === "reason_required") firstReason.current?.focus();
+      else noteField.current?.focus();
       return;
     }
-    if (noteError !== null) {
-      noteField.current?.focus();
-      return;
-    }
-    const label =
-      grantReasons.find((option) => option.value === reason)?.label ?? reason;
     const batch = createBulkGrantBatch({
       batchId: crypto.randomUUID(),
       productId,
-      reason: hasText(note.trim()) ? `${label}: ${note.trim()}` : label,
+      reason: encoded.text,
       accountIds: toSend.map((person) => person.accountId),
     });
     setRun({
@@ -373,7 +362,7 @@ function GrantForm({
           aria-invalid={submitted && noteError !== null}
           className="admin-field-textarea"
           id={`${dialogId}-note`}
-          maxLength={500}
+          maxLength={reasonNoteMaxCharacters(grantReasons)}
           onChange={(event) => {
             setNote(event.currentTarget.value);
           }}
@@ -415,22 +404,21 @@ function GrantForm({
   );
 }
 
-/** Чем назвать человека: имя, затем @username, email и в конце короткий ID аккаунта. */
-function personName(person: GrantPerson): string {
-  return (
-    presentText(person.displayName) ??
-    (hasText(person.username) ? `@${person.username}` : undefined) ??
-    presentText(person.email) ??
-    `Аккаунт ${person.accountId.slice(0, 8)}`
-  );
+/**
+ * Чем назвать человека: подпись `@/entities/authoring-person` (имя, затем @username, затем email).
+ * У аккаунта без контактов заголовок нейтральный, а не его ID.
+ */
+function personName(person: PersonIdentityValue): string {
+  const label = personLabel(person);
+  return label.title ?? label.missing;
 }
 
-/** Подстрока, по которой человека узнают: то, что не стало его именем. */
-function personDetail(person: GrantPerson): string {
-  const name = personName(person);
-  return [hasText(person.username) ? `@${person.username}` : null, person.email]
-    .filter((part): part is string => hasText(part) && part !== name)
-    .join(" · ");
+/** Подстрока, по которой человека узнают: остальные контакты и короткий ID аккаунта. */
+function personDetail(person: PersonIdentityValue): string {
+  return [
+    ...personLabel(person).context,
+    `ID ${shortAccountId(person.accountId)}`,
+  ].join(" · ");
 }
 
 function submitLabel(
@@ -457,7 +445,7 @@ function PeopleSearch({
   readonly search: GrantPeopleSearchState;
   readonly selectedIds: readonly string[];
   readonly disabled: boolean;
-  readonly onAdd: (person: GrantPerson) => void;
+  readonly onAdd: (person: PersonIdentityValue) => void;
 }) {
   const id = useId();
   const chosen = new Set(selectedIds);
@@ -509,11 +497,9 @@ function PeopleSearch({
                     <span className="truncate font-medium">
                       {personName(person)}
                     </span>
-                    {hasText(personDetail(person)) ? (
-                      <span className="truncate text-xs text-muted-foreground">
-                        {personDetail(person)}
-                      </span>
-                    ) : null}
+                    <span className="truncate text-xs text-muted-foreground">
+                      {personDetail(person)}
+                    </span>
                   </span>
                   <span className="shrink-0 text-xs font-medium text-muted-foreground">
                     {isChosen ? "Выбран" : "Добавить"}
@@ -574,7 +560,7 @@ function SelectedPeople({
   full,
   onRemove,
 }: {
-  readonly selected: readonly GrantPerson[];
+  readonly selected: readonly PersonIdentityValue[];
   readonly flags: ReadonlyMap<string, HolderAccess>;
   readonly full: boolean;
   readonly onRemove: (accountId: string) => void;

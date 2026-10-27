@@ -4,19 +4,21 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
+import {
+  authoringSalesFunnelAddressHref,
+  defaultSalesFunnelPeriodPreset,
+  salesFunnelPeriodPresets,
+  type SalesFunnelAddress,
+  type SalesFunnelPeriod,
+} from "@/shared/routing/authoring";
 import { AdminFilterBar, DateField } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
 import {
-  defaultFunnelPeriodPreset,
-  funnelPeriodPresets,
   isValidCustomPeriod,
-  salesFunnelHref,
   withFunnelChapter,
   withFunnelPeriod,
   withFunnelProduct,
-  type FunnelPeriod,
-  type SalesFunnelQuery,
 } from "../model/sales-funnel-query";
 import type { SalesFunnelReportView } from "../model/sales-funnel-report";
 
@@ -34,8 +36,8 @@ export function funnelPeriodLabel(view: SalesFunnelReportView): string {
 }
 
 /** Что показано сейчас, в форме адреса: отсюда фильтр строит следующий адрес. */
-function currentQuery(view: SalesFunnelReportView): SalesFunnelQuery {
-  const period: FunnelPeriod =
+function currentQuery(view: SalesFunnelReportView): SalesFunnelAddress {
+  const period: SalesFunnelPeriod =
     view.preset === null
       ? { kind: "custom", from: view.from, to: view.to }
       : { kind: "preset", days: view.preset };
@@ -60,19 +62,19 @@ export function SalesFunnelFilters({
   const product = view.products.find((item) => item.id === view.productId);
   const firstProduct = view.products[0];
   const isDefault =
-    view.preset === defaultFunnelPeriodPreset &&
+    view.preset === defaultSalesFunnelPeriodPreset &&
     (firstProduct === undefined || view.productId === firstProduct.id) &&
     (product === undefined ||
       view.chapterId === (product.chapters[0]?.id ?? null));
-  const go = (next: SalesFunnelQuery) => {
-    router.push(salesFunnelHref(next));
+  const go = (next: SalesFunnelAddress) => {
+    router.push(authoringSalesFunnelAddressHref(next));
   };
 
   return (
     <div className="grid gap-3" data-sales-funnel-filters>
       <AdminFilterBar
         chips={
-          view.preset === defaultFunnelPeriodPreset
+          view.preset === defaultSalesFunnelPeriodPreset
             ? []
             : [
                 {
@@ -82,7 +84,7 @@ export function SalesFunnelFilters({
                     go(
                       withFunnelPeriod(query, {
                         kind: "preset",
-                        days: defaultFunnelPeriodPreset,
+                        days: defaultSalesFunnelPeriodPreset,
                       }),
                     );
                   },
@@ -130,7 +132,7 @@ export function SalesFunnelFilters({
                 setCustomOpen(true);
                 return;
               }
-              const days = funnelPeriodPresets.find(
+              const days = salesFunnelPeriodPresets.find(
                 (preset) => String(preset) === value,
               );
               if (days === undefined) return;
@@ -138,7 +140,7 @@ export function SalesFunnelFilters({
               go(withFunnelPeriod(query, { kind: "preset", days }));
             },
             options: [
-              ...funnelPeriodPresets.map((days) => ({
+              ...salesFunnelPeriodPresets.map((days) => ({
                 label: presetLabel(days),
                 value: String(days),
               })),
@@ -156,10 +158,13 @@ export function SalesFunnelFilters({
             : () => {
                 setCustomOpen(false);
                 router.push(
-                  salesFunnelHref({
+                  authoringSalesFunnelAddressHref({
                     productId: null,
                     chapterId: null,
-                    period: { kind: "preset", days: defaultFunnelPeriodPreset },
+                    period: {
+                      kind: "preset",
+                      days: defaultSalesFunnelPeriodPreset,
+                    },
                   }),
                 );
               }

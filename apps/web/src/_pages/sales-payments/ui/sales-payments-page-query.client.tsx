@@ -6,10 +6,10 @@ import { useCallback, useMemo } from "react";
 import {
   PaymentsTable,
   parsePaymentsSearchParams,
-  salesPaymentsHref,
   salesPaymentsQueryHref,
   type PaymentsQuery,
 } from "@/features/owner-payments";
+import { authoringPaymentsHref } from "@/shared/routing/authoring";
 
 import { SalesPaymentsFrame } from "./sales-payments-frame";
 
@@ -37,7 +37,7 @@ export function SalesPaymentsPageQuery() {
  * меняет только список, который сейчас открыт.
  */
 function writePaymentsUrl(next: PaymentsQuery): void {
-  if (window.location.pathname !== salesPaymentsHref) return;
+  if (window.location.pathname !== authoringPaymentsHref) return;
   const href = salesPaymentsQueryHref(next);
   if (`${window.location.pathname}${window.location.search}` === href) return;
   window.history.pushState(null, "", href);

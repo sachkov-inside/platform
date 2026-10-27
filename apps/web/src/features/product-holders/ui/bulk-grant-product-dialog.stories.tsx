@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
+import type { PersonIdentityValue } from "@/entities/authoring-person";
 import { touchTarget } from "@/shared/ui/admin/admin.fixtures";
 import { Button } from "@/shared/ui/button";
 import { desktop, mobile } from "@/storybook/loads-in-place";
@@ -13,11 +14,10 @@ import type {
   BulkGrantIssueResult,
 } from "../model/bulk-grant";
 import {
-  GrantProductDialog,
+  BulkGrantProductDialog,
+  type BulkGrantProductDialogProps,
   type GrantPeopleSearchState,
-  type GrantPerson,
-  type GrantProductDialogProps,
-} from "./grant-product-dialog.client";
+} from "./bulk-grant-product-dialog.client";
 import {
   storyAccountId,
   storyProductId,
@@ -25,31 +25,40 @@ import {
   storyProductPath,
 } from "./product-holders.fixtures";
 
-const anna: GrantPerson = {
+const anna: PersonIdentityValue = {
   accountId: storyAccountId(40),
   displayName: "Анна Королёва",
   username: "anna_koroleva",
   email: "anna.koroleva@example.test",
+  contactsState: "complete",
 };
-const andrey: GrantPerson = {
+const andrey: PersonIdentityValue = {
   accountId: storyAccountId(41),
   displayName: "Андрей Смирнов",
   username: "smirnov_dev",
   email: null,
+  contactsState: "complete",
 };
-const anastasia: GrantPerson = {
+const anastasia: PersonIdentityValue = {
   accountId: storyAccountId(42),
   displayName: "Анастасия Белова-Константинопольская",
   username: null,
   email: "a.belova@example.test",
+  contactsState: "complete",
 };
-const antonio: GrantPerson = {
+const antonio: PersonIdentityValue = {
   accountId: storyAccountId(43),
   displayName: null,
   username: "antonio_m",
   email: "antonio@example.test",
+  contactsState: "complete",
 };
-const people: readonly GrantPerson[] = [anna, andrey, anastasia, antonio];
+const people: readonly PersonIdentityValue[] = [
+  anna,
+  andrey,
+  anastasia,
+  antonio,
+];
 
 /** Поиск #1721 в историях: тот же ответ, что даст `usePeopleSearch`, без сервера. */
 function usePeopleSearchFake(query: string): GrantPeopleSearchState {
@@ -141,7 +150,7 @@ const title = `Выдать «${storyProductName}»`;
 const environment = authoringPageEnvironment(storyProductPath);
 
 /** Страница держит открытие диалога; кнопка открывает его снова после закрытия. */
-function DialogHost(props: GrantProductDialogProps) {
+function DialogHost(props: BulkGrantProductDialogProps) {
   const [open, setOpen] = useState(props.open);
   return (
     <>
@@ -154,7 +163,7 @@ function DialogHost(props: GrantProductDialogProps) {
       >
         Выдать продукт
       </Button>
-      <GrantProductDialog {...props} onOpenChange={setOpen} open={open} />
+      <BulkGrantProductDialog {...props} onOpenChange={setOpen} open={open} />
     </>
   );
 }
@@ -162,7 +171,7 @@ function DialogHost(props: GrantProductDialogProps) {
 const meta = {
   ...environment,
   title: "Pages/Authoring/Продукт/Выдать продукт",
-  component: GrantProductDialog,
+  component: BulkGrantProductDialog,
   render: (args) => <DialogHost {...args} />,
   args: {
     open: true,
@@ -192,7 +201,7 @@ const meta = {
       },
     },
   },
-} satisfies Meta<typeof GrantProductDialog>;
+} satisfies Meta<typeof BulkGrantProductDialog>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

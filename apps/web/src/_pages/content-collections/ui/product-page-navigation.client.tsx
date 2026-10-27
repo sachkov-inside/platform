@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
+import { authoringProductsHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
 /**
@@ -24,7 +25,7 @@ export function ProductPageNavigation({
       <Button
         onClick={() => {
           void flushPendingEdits().then((ok) => {
-            if (ok) router.push("/authoring/products");
+            if (ok) router.push(authoringProductsHref);
           });
         }}
         type="button"

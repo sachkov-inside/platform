@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { usePersonTitleText } from "@/entities/authoring-person";
 import {
   AdminFilterBar,
   DateField,
@@ -31,8 +32,8 @@ const severalStates = "several";
 
 /**
  * Фильтры списка платежей: продукт по названию, период по московским дням и состояние. Выбор
- * хранит владелец списка (адрес страницы или карточка человека); модуль только показывает его и
- * сообщает об изменении.
+ * хранит адрес страницы; модуль только показывает его и сообщает об изменении. Покупатель
+ * (`?person=` из карточки человека) виден плашкой, которую можно снять.
  */
 export function PaymentFilters({
   query,
@@ -46,6 +47,7 @@ export function PaymentFilters({
   readonly resultLabel?: string | undefined;
 }) {
   const filtered = hasPaymentsFilters(query);
+  const personTitle = usePersonTitleText(query.accountId);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <div className="owner-payments-fields">
@@ -78,12 +80,14 @@ export function PaymentFilters({
         />
       </div>
       <AdminFilterBar
-        chips={paymentsFilterChips(query, products).map((chip) => ({
-          ...chip,
-          onRemove: () => {
-            onQueryChange(chip.next);
-          },
-        }))}
+        chips={paymentsFilterChips(query, products, personTitle).map(
+          (chip) => ({
+            ...chip,
+            onRemove: () => {
+              onQueryChange(chip.next);
+            },
+          }),
+        )}
         filters={[
           {
             id: "state",
@@ -138,10 +142,14 @@ interface PaymentsFilterChip extends Omit<AdminFilterChip, "onRemove"> {
   readonly next: PaymentsQuery;
 }
 
-/** Плашка на каждое состояние, продукт и период; снятие плашки убирает только её выбор. */
+/**
+ * Плашка на каждое состояние, продукт, период, выдачу и покупателя; снятие плашки убирает только
+ * её выбор. Покупатель назван подписью человека, а не номером аккаунта.
+ */
 export function paymentsFilterChips(
   query: PaymentsQuery,
   products: ProductChoices,
+  personTitle: string | null = null,
 ): readonly PaymentsFilterChip[] {
   const chips: PaymentsFilterChip[] = query.states.map((state) => ({
     id: `state-${state}`,
@@ -169,6 +177,12 @@ export function paymentsFilterChips(
       id: "fulfillment",
       label: fulfillmentFilterLabel,
       next: withPaymentsFilter(query, { key: "fulfillment", value: undefined }),
+    });
+  if (query.accountId !== undefined)
+    chips.push({
+      id: "person",
+      label: `Покупатель: ${personTitle ?? "выбранный человек"}`,
+      next: withPaymentsFilter(query, { key: "accountId", value: undefined }),
     });
   return chips;
 }

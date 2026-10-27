@@ -28,11 +28,4 @@ export {
   type AccessProduct,
   type AccessProductCatalog,
 } from "./model/product-catalog";
-export {
-  encodeAccessReason,
-  encodeRestoreReason,
-  grantReasons,
-  otherReason,
-  revokeReasons,
-} from "./model/access-reasons";
 export { revocationConsequence } from "./model/revocation-consequence";

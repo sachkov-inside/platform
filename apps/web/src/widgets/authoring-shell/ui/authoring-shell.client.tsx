@@ -26,6 +26,7 @@ import {
   AuthoringSearchTrigger,
 } from "@/features/authoring-search";
 import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
+import { authoringOverviewHref } from "@/shared/routing/authoring";
 import { FullLoadLink } from "@/shared/ui/full-load-link.client";
 
 import {
@@ -33,7 +34,6 @@ import {
   authoringMobileTabs,
   authoringMoreGroups,
   authoringNavigation,
-  authoringOverviewHref,
   type AuthoringNavigationIcon,
   type AuthoringNavigationItem,
 } from "../model/navigation";

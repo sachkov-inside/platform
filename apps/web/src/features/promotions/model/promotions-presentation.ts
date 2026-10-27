@@ -1,5 +1,5 @@
 import type { BillingFailureCode } from "@/entities/subscription";
-import { formatMoscowDate } from "@/shared/lib/moscow-format";
+import { formatCount, formatMoscowDate } from "@/shared/lib/moscow-format";
 
 import { promotionEndDate, promotionStartDate } from "./promotion-form";
 import type { PromotionListItem } from "./promotion-operations";
@@ -73,15 +73,13 @@ export function promotionReadOnlyReason(
   return "Анкетная скидка. Её можно только посмотреть: анкетные скидки из админки больше не меняются.";
 }
 
-const countFormat = new Intl.NumberFormat("ru-RU");
-
 /** «12 из 50» или «12, без лимита». */
 export function promotionUsageLabel(
   promotion: Pick<PromotionListItem, "usedCount" | "usageLimit">,
 ): string {
   return promotion.usageLimit === null
-    ? `${countFormat.format(promotion.usedCount)}, без лимита`
-    : `${countFormat.format(promotion.usedCount)} из ${countFormat.format(promotion.usageLimit)}`;
+    ? `${formatCount(promotion.usedCount)}, без лимита`
+    : `${formatCount(promotion.usedCount)} из ${formatCount(promotion.usageLimit)}`;
 }
 
 type FailureMessages = Partial<Record<BillingFailureCode, string>>;

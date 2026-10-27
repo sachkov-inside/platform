@@ -6,6 +6,7 @@ import {
   requestSalesFunnelReport,
 } from "@/shared/api/backend/index.server";
 import { readAuthenticatedSession } from "@/shared/auth/index.server";
+import type { SalesFunnelPeriodPreset } from "@/shared/routing/authoring";
 
 import {
   presentSalesFunnelReport,
@@ -14,7 +15,6 @@ import {
   type SalesFunnelReport,
   type SalesFunnelReportView,
 } from "../model/sales-funnel-report";
-import type { FunnelPeriodPreset } from "../model/sales-funnel-query";
 
 export type SalesFunnelReportOutcome =
   | { readonly kind: "ready"; readonly view: SalesFunnelReportView }
@@ -25,7 +25,7 @@ export type SalesFunnelReportOutcome =
 export interface SalesFunnelReportParams {
   readonly from?: string;
   readonly to?: string;
-  readonly preset?: FunnelPeriodPreset;
+  readonly preset?: SalesFunnelPeriodPreset;
   readonly productId?: string;
   readonly chapterId?: string;
 }

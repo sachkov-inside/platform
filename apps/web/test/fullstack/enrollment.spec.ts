@@ -91,7 +91,7 @@ test("owner issues, withdraws and explicitly restores one Product right through 
     }),
   ).toBeVisible();
   // A second grant of an active Product changes nothing, the dialog says so before sending.
-  const repeat = await grant("Компенсация");
+  const repeat = await grant("Компенсация или решение поддержки");
   await expect(repeat.getByText(/Выдача ничего не изменит/u)).toBeVisible();
   await repeat
     .getByRole("button", { name: "Выдать продукт", exact: true })

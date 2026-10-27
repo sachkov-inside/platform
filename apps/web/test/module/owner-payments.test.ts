@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { PaymentView } from "@/features/owner-payments/model/payment-contract";
 import {
   emptyPaymentsQuery,
+  hasPaymentsFilters,
   parsePaymentsListRequest,
   parsePaymentsSearchParams,
   paymentStates,
+  personPaymentsHref,
   paymentsListRequest,
   paymentsPeriodLabel,
   salesPaymentsQueryHref,
@@ -22,8 +24,12 @@ import {
   paymentStateBadge,
   paymentStateLabels,
   refundAmountText,
-  salesPaymentHref,
 } from "@/features/owner-payments/model/payment-presentation";
+import { paymentsFilterChips } from "@/features/owner-payments/ui/payment-filters.client";
+import {
+  authoringPaymentHref,
+  authoringPersonHref,
+} from "@/shared/routing/authoring";
 import { adminStates } from "@/shared/ui/admin";
 import { ownerPayment } from "@/storybook/owner-payments.fixtures";
 import {
@@ -123,19 +129,68 @@ describe("payment filters live in the address", () => {
   });
 });
 
+describe("payments of one person (#1717)", () => {
+  it("keeps the person in the address and sends it to payments.list", () => {
+    const chosen: PaymentsQuery = { states: ["confirmed"], accountId };
+    expect(serializePaymentsQuery(chosen)).toBe(
+      `state=confirmed&person=${accountId}`,
+    );
+    expect(query(`state=confirmed&person=${accountId}`)).toEqual(chosen);
+    expect(query("person=me")).toEqual(emptyPaymentsQuery);
+    expect(hasPaymentsFilters({ states: [], accountId })).toBe(true);
+    expect(paymentsListRequest({ states: [], accountId })).toEqual({
+      limit: 50,
+      accountId,
+    });
+  });
+
+  it("opens the payments list of a person from their card", () => {
+    expect(personPaymentsHref(accountId)).toBe(
+      `/authoring/sales/payments?person=${accountId}`,
+    );
+  });
+
+  it("names the person in a chip whose removal keeps the other filters", () => {
+    const chosen: PaymentsQuery = { states: ["failed"], accountId, cursor };
+    expect(
+      paymentsFilterChips(chosen, { kind: "pending" }, "Анна Петрова").at(-1),
+    ).toEqual({
+      id: "person",
+      label: "Покупатель: Анна Петрова",
+      next: { states: ["failed"] },
+    });
+    expect(
+      paymentsFilterChips(chosen, { kind: "pending" }, null).at(-1)?.label,
+    ).toBe("Покупатель: выбранный человек");
+    expect(
+      withPaymentsFilter(chosen, { key: "accountId", value: undefined }),
+    ).toEqual({ states: ["failed"] });
+  });
+});
+
+describe("authoring addresses encode their identifiers (#1717)", () => {
+  it("encodes the account and the purchase reference as one path segment", () => {
+    expect(authoringPersonHref("a/b?c")).toBe("/authoring/people/a%2Fb%3Fc");
+    expect(authoringPaymentHref("a/b?c")).toBe(
+      "/authoring/sales/payments/a%2Fb%3Fc",
+    );
+    expect(authoringPersonHref(accountId)).toBe(
+      `/authoring/people/${accountId}`,
+    );
+  });
+});
+
 describe("the list request turns Moscow days into the half-open range [from, to)", () => {
   it("starts at Moscow midnight and ends at the next Moscow midnight", () => {
     expect(
-      paymentsListRequest(
-        {
-          states: ["confirmed"],
-          productId,
-          from: "2026-10-01",
-          to: "2026-10-20",
-          cursor,
-        },
+      paymentsListRequest({
+        states: ["confirmed"],
+        productId,
+        from: "2026-10-01",
+        to: "2026-10-20",
         accountId,
-      ),
+        cursor,
+      }),
     ).toEqual({
       limit: 50,
       accountId,
@@ -149,10 +204,12 @@ describe("the list request turns Moscow days into the half-open range [from, to)
   });
 
   it("crosses the BFF address unchanged", () => {
-    const request = paymentsListRequest(
-      { states: ["unknown", "failed"], from: "2026-10-01", productId },
+    const request = paymentsListRequest({
+      states: ["unknown", "failed"],
+      from: "2026-10-01",
+      productId,
       accountId,
-    );
+    });
     expect(
       parsePaymentsListRequest(
         new URLSearchParams(serializePaymentsListRequest(request)),
@@ -234,7 +291,7 @@ describe("payment presentation", () => {
   });
 
   it("links a row to its payment page", () => {
-    expect(salesPaymentHref(payment.purchaseRef)).toBe(
+    expect(authoringPaymentHref(payment.purchaseRef)).toBe(
       `/authoring/sales/payments/${payment.purchaseRef}`,
     );
   });

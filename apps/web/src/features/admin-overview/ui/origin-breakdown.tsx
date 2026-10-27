@@ -1,7 +1,7 @@
+import { formatCount } from "@/shared/lib/moscow-format";
+
 import { originBreakdown } from "../model/metric-presentation";
 import type { OverviewByOrigin } from "../model/overview-contract";
-
-const countFormat = new Intl.NumberFormat("ru-RU");
 
 /**
  * Разбивка по способу получения доступа под значением карточки: только способы, которые были.
@@ -18,7 +18,7 @@ export function OriginBreakdown({
     <>
       {parts.map((part) => (
         <span key={part.origin}>
-          {part.label}: {countFormat.format(part.count)}
+          {part.label}: {formatCount(part.count)}
         </span>
       ))}
     </>

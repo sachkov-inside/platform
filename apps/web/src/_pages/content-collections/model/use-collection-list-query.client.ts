@@ -3,6 +3,11 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+import {
+  authoringProductsHref,
+  authoringTopicsHref,
+} from "@/shared/routing/authoring";
+
 import type { ContentCollectionKind } from "./content-collections";
 import {
   parseCollectionListQuery,
@@ -11,8 +16,8 @@ import {
 } from "./collection-list";
 
 const listPaths: Record<ContentCollectionKind, readonly string[]> = {
-  product: ["/authoring/products"],
-  topic: ["/authoring/topics"],
+  product: [authoringProductsHref],
+  topic: [authoringTopicsHref],
 };
 
 export interface CollectionListNavigation {

@@ -10,14 +10,14 @@ import {
   type SubmitEvent,
 } from "react";
 
-import { Button } from "@/shared/ui/button";
-
 import {
   encodeAccessReason,
   grantReasons,
   otherReason,
   reasonNoteMaxCharacters,
-} from "../model/access-reasons";
+} from "@/entities/product-access";
+import { Button } from "@/shared/ui/button";
+
 import {
   accessProductLabel,
   type AccessProduct,
