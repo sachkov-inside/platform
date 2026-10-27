@@ -26,7 +26,7 @@ class TrackingOwnership(unittest.TestCase):
             self.assertTrue(ownership.postgres_ready(targets))
 
     def test_exact_plan_is_eight_services_five_volumes_two_networks_without_ryuk(self):
-        # Retain the original method inventory; Core now has8 roles plus PostgreSQL.
+        # Historical stable identifier; assertions require Core8 plus PostgreSQL (9 services).
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'private'
             ownership.prepare(output)
