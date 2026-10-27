@@ -123,7 +123,8 @@ and remaining Platform integration gates are in
   `X-Inside-Membership-Evidence-Source`. `PLATFORM_EVIDENCE_DELIVERY_MODE=live` requires a separate
   endpoint and Bearer credential.
 - A separate Telegram delivery intent reports linked member, non-member, or temporary unavailable
-  state without promising content access before Platform accepts the evidence.
+  state without promising content access before Platform accepts the evidence. Bot sign-in keeps
+  its edited confirmation message and suppresses this additional link notification.
 
 ## Durable member-status events
 
