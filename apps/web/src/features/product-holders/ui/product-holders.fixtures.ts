@@ -1,3 +1,5 @@
+import type { StoryPerson } from "@/storybook/people.fixtures";
+
 import type { ProductHolder } from "../model/product-holders";
 
 /** Продукт историй «Учеников»: те же поля, что даст страница продукта. */
@@ -35,4 +37,39 @@ export function storyHolders(count: number): ProductHolder[] {
       },
     };
   });
+}
+
+const storyNames = [
+  "Анна Королёва",
+  "Дмитрий Соколов",
+  "Екатерина Константинопольская-Задунайская",
+  null,
+  "Михаил Орлов",
+  "Ольга Смирнова",
+  null,
+  "Сергей Волков",
+] as const;
+
+/**
+ * Подписи учеников для подставного чтения людей. Каждый восьмой ученик без контактов (его нет в
+ * ответе), у одного только @username, у одного контакты временно не прочитались.
+ */
+export function storyHolderPeople(count: number): StoryPerson[] {
+  return Array.from({ length: count }, (_, index) => index).flatMap(
+    (index): StoryPerson[] => {
+      if (index % 8 === 3) return [];
+      const displayName = storyNames[index % storyNames.length] ?? null;
+      return [
+        {
+          accountId: storyAccountId(index),
+          displayName,
+          username:
+            index === 6 ? "only_username" : `learner_${String(index + 1)}`,
+          email:
+            index % 8 === 7 ? null : `learner${String(index + 1)}@example.test`,
+          contactsState: index === 6 ? "partial" : "complete",
+        },
+      ];
+    },
+  );
 }

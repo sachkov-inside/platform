@@ -44,7 +44,7 @@ import {
   ownerPaymentProductsQueryOptions,
   ownerPaymentsQueryOptions,
 } from "../model/owner-payments-query";
-import { PaymentBuyer } from "./payment-buyer";
+import { usePaymentBuyerTitles } from "./payment-buyer.client";
 import { PaymentFilters } from "./payment-filters.client";
 import type { ProductChoices } from "./product-filter.client";
 
@@ -265,68 +265,90 @@ function PaymentsResults({
       </>
     );
 
+  return (
+    <>
+      <PaymentsRows
+        accountId={accountId}
+        isRefreshing={isRefreshing}
+        items={items}
+        onCopied={onCopied}
+      />
+      {pagination}
+    </>
+  );
+}
+
+/**
+ * Строки платежей страницы. В общем списке первая колонка называет покупателя: подписи всех
+ * покупателей страницы читаются одним чтением. В платежах одного человека он уже известен.
+ */
+function PaymentsRows({
+  accountId,
+  isRefreshing,
+  items,
+  onCopied,
+}: {
+  readonly accountId: string | undefined;
+  readonly isRefreshing: boolean;
+  readonly items: readonly PaymentView[];
+  readonly onCopied: (message: string) => void;
+}) {
+  const buyer = usePaymentBuyerTitles(
+    accountId === undefined ? items.map((payment) => payment.accountId) : [],
+  );
   const rows: PaymentRow[] = items.map((payment) => ({
     payment,
     productName: paymentProductName(payment),
   }));
   return (
-    <>
-      <AdminTable
-        busy={isRefreshing}
-        caption="Платежи"
-        columns={columnsFor(accountId)}
-        mobileItem={(row) => ({
-          badge: <StateBadge state={paymentStateBadge(row.payment.state)} />,
-          caption: `${row.productName} · ${formatMoscowDateTime(row.payment.createdAt)}`,
-          metric: formatRubles(row.payment.amountKopecks),
-          title:
-            accountId === undefined ? (
-              <PaymentBuyer accountId={row.payment.accountId} />
-            ) : (
-              row.productName
-            ),
-        })}
-        rowActions={(row) => (
-          <AdminRowMenu
-            items={[
-              {
-                href: salesPaymentHref(row.payment.purchaseRef),
-                id: "open",
-                label: "Открыть платёж",
+    <AdminTable
+      busy={isRefreshing}
+      caption="Платежи"
+      columns={columnsFor(accountId)}
+      mobileItem={(row) => ({
+        badge: <StateBadge state={paymentStateBadge(row.payment.state)} />,
+        caption: `${row.productName} · ${formatMoscowDateTime(row.payment.createdAt)}`,
+        metric: formatRubles(row.payment.amountKopecks),
+        title:
+          accountId === undefined
+            ? buyer(row.payment.accountId)
+            : row.productName,
+      })}
+      rowActions={(row) => (
+        <AdminRowMenu
+          items={[
+            {
+              href: salesPaymentHref(row.payment.purchaseRef),
+              id: "open",
+              label: "Открыть платёж",
+            },
+            {
+              id: "copy",
+              label: "Скопировать номер заказа",
+              onSelect: () => {
+                void navigator.clipboard
+                  .writeText(row.payment.purchaseRef)
+                  .then(
+                    () => {
+                      onCopied("Номер заказа скопирован");
+                    },
+                    () => {
+                      onCopied("Не удалось скопировать номер заказа");
+                    },
+                  );
               },
-              {
-                id: "copy",
-                label: "Скопировать номер заказа",
-                onSelect: () => {
-                  void navigator.clipboard
-                    .writeText(row.payment.purchaseRef)
-                    .then(
-                      () => {
-                        onCopied("Номер заказа скопирован");
-                      },
-                      () => {
-                        onCopied("Не удалось скопировать номер заказа");
-                      },
-                    );
-                },
-              },
-            ]}
-            label={`Действия с платежом от ${formatMoscowDateTime(row.payment.createdAt)}`}
-          />
-        )}
-        rowHref={(row) => salesPaymentHref(row.payment.purchaseRef)}
-        rowKey={(row) => row.payment.purchaseRef}
-        rowTitle={(row) =>
-          accountId === undefined ? (
-            <PaymentBuyer accountId={row.payment.accountId} />
-          ) : (
-            row.productName
-          )
-        }
-        rows={rows}
-      />
-      {pagination}
-    </>
+            },
+          ]}
+          label={`Действия с платежом от ${formatMoscowDateTime(row.payment.createdAt)}`}
+        />
+      )}
+      rowHref={(row) => salesPaymentHref(row.payment.purchaseRef)}
+      rowKey={(row) => row.payment.purchaseRef}
+      rowTitle={(row) =>
+        accountId === undefined ? buyer(row.payment.accountId) : row.productName
+      }
+      rows={rows}
+    />
   );
 }
 

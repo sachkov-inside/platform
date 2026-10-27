@@ -1,9 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { getQueryClient } from "@/shared/api/query-client";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { touchTarget } from "@/shared/ui/admin/admin.fixtures";
 import { desktop, mobile } from "@/storybook/loads-in-place";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
+import {
+  peopleIdentitiesResponse,
+  type PeopleIdentitiesFake,
+} from "@/storybook/people.fixtures";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 import {
@@ -12,6 +18,7 @@ import {
 } from "../model/product-holders";
 import {
   storyAccountId,
+  storyHolderPeople,
   storyHolders,
   storyProductPath,
 } from "./product-holders.fixtures";
@@ -21,6 +28,20 @@ const environment = authoringPageEnvironment(storyProductPath);
 const addressChanged = fn();
 const retried = fn();
 const grantOpened = fn();
+
+/** Подписи учеников приходят отдельным чтением людей, как на маршруте. */
+function peopleRead(fake: Partial<PeopleIdentitiesFake> = {}) {
+  return () => {
+    getQueryClient().removeQueries({ queryKey: ["authoring", "people"] });
+    return fetchBeforeRender(
+      (input) =>
+        peopleIdentitiesResponse(input, {
+          people: storyHolderPeople(20),
+          ...fake,
+        }) ?? Promise.resolve(new Response(null, { status: 404 })),
+    )();
+  };
+}
 
 const hrefFor = (address: HoldersAddress) =>
   internalRoute(
@@ -39,18 +60,21 @@ const meta = {
     onRetry: retried,
     onGrant: grantOpened,
   },
-  beforeEach: () => {
-    addressChanged.mockClear();
-    retried.mockClear();
-    grantOpened.mockClear();
-    return environment.beforeEach();
-  },
+  beforeEach: [
+    () => {
+      addressChanged.mockClear();
+      retried.mockClear();
+      grantOpened.mockClear();
+      return environment.beforeEach();
+    },
+    peopleRead(),
+  ],
   parameters: {
     ...environment.parameters,
     docs: {
       description: {
         component:
-          "Вкладка «Ученики» страницы продукта: обладатели с прогрессом и последней активностью, фильтр по доступу и страницы в адресе. Отказ в праве показан отказом, а не пустым списком. Storybook передаёт состояние чтения напрямую.",
+          "Вкладка «Ученики» страницы продукта: обладатели с прогрессом и последней активностью, фильтр по доступу и страницы в адресе. Отказ в праве показан отказом, а не пустым списком. Storybook передаёт состояние списка напрямую, а подписи людей отвечает подставное чтение `/api/authoring/people/identities`.",
       },
     },
   },
@@ -78,10 +102,14 @@ export const OneLearnerDesktop: Story = {
       "Последняя активность",
     ]);
     await expect(
-      within(table).getByRole("link", {
-        name: `Аккаунт ${storyAccountId(0).slice(0, 8)}`,
-      }),
+      await within(table).findByRole("link", { name: "Анна Королёва" }),
     ).toHaveAttribute("href", `/authoring/people/${storyAccountId(0)}`);
+    await expect(
+      within(table).getByText("@learner_1 · learner1@example.test"),
+    ).toBeVisible();
+    await expect(
+      within(table).getByText(`ID ${storyAccountId(0).slice(0, 8)}`),
+    ).toBeVisible();
     await expect(within(table).getByText("Доступ есть")).toBeVisible();
     await expect(within(table).getByText("0 из 40")).toBeVisible();
     // Получен и начал обучение в один день.
@@ -103,6 +131,9 @@ export const OneLearnerMobile: Story = {
     const page = within(canvasElement);
     const list = page.getByRole("list", { name: "Ученики продукта" });
     const item = within(list).getByRole("listitem");
+    await expect(
+      await within(item).findByRole("link", { name: "Анна Королёва" }),
+    ).toBeVisible();
     await expect(within(item).getByText("Получен 24 окт. 2026")).toBeVisible();
     await expect(within(item).getByText("0 из 40")).toBeVisible();
     await expect(page.queryByRole("table")).toBeNull();
@@ -132,6 +163,18 @@ export const LongListDesktop: Story = {
     const page = within(canvasElement);
     const table = page.getByRole("table", { name: "Ученики продукта" });
     await expect(within(table).getAllByRole("row")).toHaveLength(21);
+    // Подписи всей страницы читаются одним запросом; аккаунт без контактов назван словами.
+    await expect(
+      await within(table).findAllByRole("link", {
+        name: "Екатерина Константинопольская-Задунайская",
+      }),
+    ).toHaveLength(3);
+    await expect(
+      within(table).getAllByRole("link", { name: "Аккаунт без контактов" }),
+    ).toHaveLength(3);
+    await expect(
+      within(table).getByRole("link", { name: "@only_username" }),
+    ).toBeVisible();
     await expect(within(table).getAllByText("Доступ отозван")).toHaveLength(2);
     await expect(within(table).getAllByText("Не начал").length).toBeGreaterThan(
       0,
@@ -272,4 +315,58 @@ export const LoadingMobile: Story = {
   ...LoadingDesktop,
   globals: mobile.globals,
   name: "Загрузка · телефон",
+};
+
+export const PeopleUnavailableDesktop: Story = {
+  args: { state: { kind: "ready", items: storyHolders(3), nextCursor: null } },
+  beforeEach: peopleRead({ failure: "unavailable" }),
+  globals: desktop.globals,
+  name: "Подписи людей не прочитались · широкий экран",
+  play: async ({ canvasElement }) => {
+    const table = within(canvasElement).getByRole("table", {
+      name: "Ученики продукта",
+    });
+    await expect(
+      await within(table).findAllByRole("link", {
+        name: "Контакты временно недоступны",
+      }),
+    ).toHaveLength(3);
+    // Строки остаются: прогресс и доступ видны, ID копируется.
+    await expect(within(table).getAllByText("Доступ есть")).toHaveLength(3);
+    await expect(within(table).queryByText(storyAccountId(0))).toBeNull();
+  },
+};
+
+export const PeopleUnavailableMobile: Story = {
+  ...PeopleUnavailableDesktop,
+  globals: mobile.globals,
+  name: "Подписи людей не прочитались · телефон",
+  play: async ({ canvasElement }) => {
+    const list = within(canvasElement).getByRole("list", {
+      name: "Ученики продукта",
+    });
+    await expect(
+      await within(list).findAllByRole("link", {
+        name: "Контакты временно недоступны",
+      }),
+    ).toHaveLength(3);
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
+  },
+};
+
+export const PeopleLoadingDesktop: Story = {
+  args: { state: { kind: "ready", items: storyHolders(2), nextCursor: null } },
+  beforeEach: peopleRead({ pending: true }),
+  globals: desktop.globals,
+  name: "Подписи людей читаются · широкий экран",
+  play: async ({ canvasElement }) => {
+    const table = within(canvasElement).getByRole("table", {
+      name: "Ученики продукта",
+    });
+    await expect(
+      within(table).getAllByRole("link", { name: "Загружаем контакты" }),
+    ).toHaveLength(2);
+  },
 };

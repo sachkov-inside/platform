@@ -136,12 +136,7 @@ export function SalesPaymentView({
         </h2>
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[13rem_minmax(0,1fr)]">
           <Fact label="Покупатель">
-            <span className="grid gap-1">
-              <span className="font-medium">
-                <PaymentBuyer accountId={payment.accountId} />
-              </span>
-              <CopyValue label="номер аккаунта" value={payment.accountId} />
-            </span>
+            <PaymentBuyer accountId={payment.accountId} />
           </Fact>
           <Fact label="Номер заказа">
             <CopyValue label="номер заказа" value={payment.purchaseRef} />

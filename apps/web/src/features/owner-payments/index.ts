@@ -3,7 +3,7 @@ export {
   PaymentsTable,
   type PaymentsTableProps,
 } from "./ui/payments-table.client";
-export { PaymentBuyer } from "./ui/payment-buyer";
+export { PaymentBuyer } from "./ui/payment-buyer.client";
 export {
   parsePaymentsSearchParams,
   salesPaymentsHref,

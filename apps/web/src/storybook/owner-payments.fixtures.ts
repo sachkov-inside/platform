@@ -5,6 +5,8 @@ import type {
   PaymentView,
 } from "@/features/owner-payments/model/payment-contract";
 
+import type { StoryPerson } from "./people.fixtures";
+
 /** Детерминированные платежи владельца (#1718): без случайности и текущих часов. */
 
 function uuid(group: string, index: number): string {
@@ -190,3 +192,34 @@ export const unknownPaymentPage: PaymentPage = {
   audit: [],
   nextAuditAfter: null,
 };
+
+const buyerNames = [
+  "Анна Петрова",
+  "Константин Константинопольский-Задунайский",
+  null,
+  "Мария Иванова",
+  "Илья Кузнецов",
+] as const;
+
+/**
+ * Подписи покупателей `ownerPayment(index)` для подставного чтения людей. У первого покупателя нет
+ * email, поэтому страница платежа не показывает адрес до запроса email заказа. Каждый пятый
+ * покупатель без контактов и в ответе отсутствует.
+ */
+export function ownerPaymentBuyers(count: number): StoryPerson[] {
+  return Array.from({ length: count }, (_, index) => index).flatMap(
+    (index): StoryPerson[] =>
+      index % 5 === 2
+        ? []
+        : [
+            {
+              accountId: ownerPayment(index).accountId,
+              displayName: buyerNames[index % buyerNames.length] ?? null,
+              username: index === 0 ? "anna_petrova" : null,
+              email:
+                index === 0 ? null : `buyer${String(index + 1)}@example.test`,
+              contactsState: "complete",
+            },
+          ],
+  );
+}

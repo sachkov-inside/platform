@@ -7,12 +7,19 @@ import {
 } from "@/features/owner-payments/ui/payments-table.client";
 import type { ProductChoices } from "@/features/owner-payments/ui/product-filter.client";
 import type { PaymentsQuery } from "@/features/owner-payments";
+import { getQueryClient } from "@/shared/api/query-client";
 import { desktop, mobile } from "@/storybook/loads-in-place";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import {
   ownerPayment,
+  ownerPaymentBuyers,
   ownerPayments,
   paymentProducts,
 } from "@/storybook/owner-payments.fixtures";
+import {
+  peopleIdentitiesResponse,
+  type PeopleIdentitiesFake,
+} from "@/storybook/people.fixtures";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -33,6 +40,20 @@ function ready(
   return {
     kind: "ready",
     value: { items: ownerPayments(count), nextCursor },
+  };
+}
+
+/** Подписи покупателей приходят отдельным чтением людей, одним на страницу списка. */
+function buyersRead(fake: Partial<PeopleIdentitiesFake> = {}) {
+  return () => {
+    getQueryClient().removeQueries({ queryKey: ["authoring", "people"] });
+    return fetchBeforeRender(
+      (input) =>
+        peopleIdentitiesResponse(input, {
+          people: ownerPaymentBuyers(50),
+          ...fake,
+        }) ?? Promise.resolve(new Response(null, { status: 404 })),
+    )();
   };
 }
 
@@ -59,11 +80,14 @@ function PaymentsPage({ state, query }: Args) {
 const meta = {
   ...environment,
   args: { state: ready(1), query: { states: [] } },
-  beforeEach: () => {
-    queryChanged.mockClear();
-    retried.mockClear();
-    return environment.beforeEach();
-  },
+  beforeEach: [
+    () => {
+      queryChanged.mockClear();
+      retried.mockClear();
+      return environment.beforeEach();
+    },
+    buyersRead(),
+  ],
   component: PaymentsPage,
   parameters: {
     ...environment.parameters,
@@ -102,7 +126,7 @@ export const OneSale: Story = {
     await expect(within(table).getByText("Оплачен")).toBeVisible();
     await expect(within(table).getByText("Доступ открыт")).toBeVisible();
     await expect(
-      within(table).getByRole("link", { name: "Покупатель 33333333" }),
+      await within(table).findByRole("link", { name: "Анна Петрова" }),
     ).toHaveAttribute(
       "href",
       `/authoring/sales/payments/${ownerPayment(0).purchaseRef}`,
@@ -120,6 +144,9 @@ export const OneSaleMobile: Story = {
     const item = within(page.getByRole("list", { name: "Платежи" })).getByRole(
       "listitem",
     );
+    await expect(
+      await within(item).findByRole("link", { name: "Анна Петрова" }),
+    ).toBeVisible();
     await expect(within(item).getByText("19 900 ₽")).toBeVisible();
     await expect(within(item).getByText("Оплачен")).toBeVisible();
     await expect(document.documentElement.scrollWidth).toBe(
@@ -134,9 +161,17 @@ export const LongList: Story = {
   name: "Длинный список · широкий экран",
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
+    const table = page.getByRole("table", { name: "Платежи" });
+    await expect(within(table).getAllByRole("row")).toHaveLength(51);
+    // Покупатель без контактов назван словами, а не номером аккаунта.
     await expect(
-      within(page.getByRole("table", { name: "Платежи" })).getAllByRole("row"),
-    ).toHaveLength(51);
+      await within(table).findAllByRole("link", {
+        name: "Аккаунт без контактов",
+      }),
+    ).toHaveLength(10);
+    await expect(
+      within(table).getAllByRole("link", { name: "Мария Иванова" }).length,
+    ).toBeGreaterThan(0);
     await expect(
       page.getAllByText("Неизвестно, нужна сверка").length,
     ).toBeGreaterThan(0);
@@ -159,6 +194,43 @@ export const LongListMobile: Story = {
         "listitem",
       ),
     ).toHaveLength(50);
+  },
+};
+
+export const BuyersUnavailable: Story = {
+  args: { state: ready(3) },
+  beforeEach: buyersRead({ failure: "unavailable" }),
+  globals: desktop.globals,
+  name: "Подписи покупателей не прочитались · широкий экран",
+  play: async ({ canvasElement }) => {
+    const table = routeContent(canvasElement).getByRole("table", {
+      name: "Платежи",
+    });
+    await expect(
+      await within(table).findAllByRole("link", {
+        name: "Контакты временно недоступны",
+      }),
+    ).toHaveLength(3);
+    await expect(within(table).queryByText(/^3{8}/u)).toBeNull();
+  },
+};
+
+export const BuyersUnavailableMobile: Story = {
+  ...BuyersUnavailable,
+  globals: mobile.globals,
+  name: "Подписи покупателей не прочитались · телефон",
+  play: async ({ canvasElement }) => {
+    const list = routeContent(canvasElement).getByRole("list", {
+      name: "Платежи",
+    });
+    await expect(
+      await within(list).findAllByRole("link", {
+        name: "Контакты временно недоступны",
+      }),
+    ).toHaveLength(3);
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
   },
 };
 

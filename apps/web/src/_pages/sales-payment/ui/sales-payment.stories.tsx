@@ -2,11 +2,18 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import type { PaymentPage } from "@/features/owner-payments";
+import { getQueryClient } from "@/shared/api/query-client";
 import { desktop, mobile } from "@/storybook/loads-in-place";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import {
+  ownerPaymentBuyers,
   refundedPaymentPage,
   unknownPaymentPage,
 } from "@/storybook/owner-payments.fixtures";
+import {
+  peopleIdentitiesResponse,
+  type PeopleIdentitiesFake,
+} from "@/storybook/people.fixtures";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -25,6 +32,20 @@ const environment = authoringPageEnvironment(
 const loadMore = fn();
 const confirmed = fn();
 const openChanged = fn();
+
+/** Подпись покупателя приходит отдельным чтением людей, как на маршруте. */
+function buyerRead(fake: Partial<PeopleIdentitiesFake> = {}) {
+  return () => {
+    getQueryClient().removeQueries({ queryKey: ["authoring", "people"] });
+    return fetchBeforeRender(
+      (input) =>
+        peopleIdentitiesResponse(input, {
+          people: ownerPaymentBuyers(5),
+          ...fake,
+        }) ?? Promise.resolve(new Response(null, { status: 404 })),
+    )();
+  };
+}
 
 interface Args {
   readonly page: PaymentPage;
@@ -88,12 +109,15 @@ const meta = {
     notice: null,
     orderEmail: { kind: "hidden" },
   },
-  beforeEach: () => {
-    loadMore.mockClear();
-    confirmed.mockClear();
-    openChanged.mockClear();
-    return environment.beforeEach();
-  },
+  beforeEach: [
+    () => {
+      loadMore.mockClear();
+      confirmed.mockClear();
+      openChanged.mockClear();
+      return environment.beforeEach();
+    },
+    buyerRead(),
+  ],
   component: PaymentScreen,
   parameters: {
     ...environment.parameters,
@@ -134,8 +158,15 @@ export const WithRefunds: Story = {
     await expect(
       page.getByText("Решение о возврате", { exact: false }),
     ).toBeVisible();
+    await expect(
+      await page.findByRole("link", { name: "Анна Петрова" }),
+    ).toHaveAttribute(
+      "href",
+      `/authoring/people/${refundedPaymentPage.value.accountId}`,
+    );
+    await expect(page.getByText("@anna_petrova")).toBeVisible();
     // Email заказа не читается, пока его не попросили.
-    await expect(page.queryByText(/@/u)).toBeNull();
+    await expect(page.queryByText(/@[\w.-]+\.test/u)).toBeNull();
     await expect(
       page.getByRole("button", { name: "Показать email" }),
     ).toBeVisible();
@@ -156,6 +187,39 @@ export const WithRefundsMobile: Story = {
       }),
     ).toBeVisible();
   },
+};
+
+const buyerWithoutContacts: PaymentPage = {
+  ...unknownPaymentPage,
+  value: {
+    ...unknownPaymentPage.value,
+    accountId: "55555555-0000-4000-8000-000000000003",
+  },
+};
+
+export const BuyerWithoutContacts: Story = {
+  args: { page: buyerWithoutContacts },
+  globals: desktop.globals,
+  name: "Покупатель без контактов · широкий экран",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      await page.findByRole("link", { name: "Аккаунт без контактов" }),
+    ).toHaveAttribute(
+      "href",
+      `/authoring/people/${buyerWithoutContacts.value.accountId}`,
+    );
+    await expect(page.getByText("ID 55555555")).toBeVisible();
+    await expect(
+      page.queryByText(buyerWithoutContacts.value.accountId),
+    ).toBeNull();
+  },
+};
+
+export const BuyerWithoutContactsMobile: Story = {
+  ...BuyerWithoutContacts,
+  globals: mobile.globals,
+  name: "Покупатель без контактов · телефон",
 };
 
 export const UnknownState: Story = {

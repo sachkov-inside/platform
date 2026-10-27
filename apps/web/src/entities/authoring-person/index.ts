@@ -8,6 +8,7 @@ export {
   type PersonIdentity as PersonIdentityValue,
   type PersonLabel,
 } from "./model/person-identity";
+export { personRowLabel } from "./model/person-row-label";
 export type { NameSearchState, PeopleSearchState } from "./model/people-reads";
 export {
   usePeopleSearch,

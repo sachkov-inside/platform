@@ -1,16 +1,19 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
 import type { Route } from "next";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
+import {
+  CopyAccountId,
+  personRowLabel,
+  usePersonIdentities,
+} from "@/entities/authoring-person";
 import { internalRoute } from "@/shared/routing/internal-route";
 
 /**
- * Человек в строке «Учеников». Имя, @username и email даёт `PersonIdentity` из
- * `@/entities/authoring-person` (#1721, `usePersonIdentities`); пока его нет, строка показывает
- * нейтральную замену: короткий ID аккаунта с копированием и ссылку в карточку человека. Замена на
- * `PersonIdentity` делается только в этом файле: таблица берёт отсюда заголовок и подстроку.
+ * Человек в строке «Учеников»: имя Telegram, затем @username, затем email (`@/entities/authoring-person`).
+ * Подписи всей страницы читаются одним чтением; пока оно идёт, при отказе, сбое или у аккаунта без
+ * контактов заголовок нейтральный, а ID стоит мелко в подстроке с копированием.
  */
 export interface HolderPersonCells {
   /** Текст ссылки строки в карточку человека. */
@@ -20,54 +23,32 @@ export interface HolderPersonCells {
 }
 
 export function useHolderPersonCells(
-  _accountIds: readonly string[],
+  accountIds: readonly string[],
 ): HolderPersonCells {
+  const identities = usePersonIdentities(accountIds);
   return {
-    title: (accountId) => (
-      <>
-        Аккаунт <span className="font-mono">{shortAccountId(accountId)}</span>
-      </>
-    ),
-    caption: (accountId) => <CopyAccountId accountId={accountId} />,
+    title: (accountId) => {
+      const label = personRowLabel(identities, accountId);
+      return (
+        label.title ?? (
+          <span className="text-muted-foreground">{label.missing}</span>
+        )
+      );
+    },
+    caption: (accountId) => {
+      const { context } = personRowLabel(identities, accountId);
+      return (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          {context.length > 0 ? (
+            <span className="truncate">{context.join(" · ")}</span>
+          ) : null}
+          <CopyAccountId accountId={accountId} />
+        </span>
+      );
+    },
   };
 }
 
 export function holderPersonHref(accountId: string): Route {
   return internalRoute(`/authoring/people/${encodeURIComponent(accountId)}`);
-}
-
-function shortAccountId(accountId: string): string {
-  return accountId.slice(0, 8);
-}
-
-function CopyAccountId({ accountId }: { readonly accountId: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      aria-label={
-        copied
-          ? "ID аккаунта скопирован"
-          : `Скопировать ID аккаунта ${shortAccountId(accountId)}`
-      }
-      className="admin-text-button inline-flex items-center gap-1.5 px-0 text-xs font-normal text-muted-foreground no-underline"
-      onClick={() => {
-        void navigator.clipboard.writeText(accountId).then(
-          () => {
-            setCopied(true);
-          },
-          () => {
-            setCopied(false);
-          },
-        );
-      }}
-      type="button"
-    >
-      {copied ? (
-        <Check aria-hidden="true" className="size-3.5" />
-      ) : (
-        <Copy aria-hidden="true" className="size-3.5" />
-      )}
-      {copied ? "Скопирован" : "Скопировать ID"}
-    </button>
-  );
 }
