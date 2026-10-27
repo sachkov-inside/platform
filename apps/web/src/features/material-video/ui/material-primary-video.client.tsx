@@ -188,7 +188,29 @@ export function MaterialPrimaryVideo({
         );
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
-        const duration = Math.max(1, Math.round(await player.getDuration()));
+        let metadataDuration = await player.getDuration();
+        if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
+          let resolveLoaded: (() => void) | undefined;
+          const metadataLoaded = new Promise<void>((resolve) => {
+            resolveLoaded = resolve;
+          });
+          const onLoaded = () => resolveLoaded?.();
+          player.on(player.Events.Loaded, onLoaded);
+          try {
+            // Metadata may arrive between the first read and subscribing to Loaded.
+            metadataDuration = await player.getDuration();
+            if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
+              await metadataLoaded;
+              metadataDuration = await player.getDuration();
+            }
+          } finally {
+            player.off(player.Events.Loaded, onLoaded);
+          }
+        }
+        if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
+          throw new Error("Video duration is unavailable");
+        }
+        const duration = Math.max(1, Math.round(metadataDuration));
         if (!isActive()) return;
         const playbackProgress = resolveVideoPlaybackProgress(
           savedPositionSeconds,
