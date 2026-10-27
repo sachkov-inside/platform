@@ -1,7 +1,7 @@
 import "server-only";
 
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
-import { webHttpSourceReadyKey } from "../../../runtime/http-metrics-config";
+import { webHttpSourceReadyKey } from "../../../server/http-metrics-config";
 
 /** Enabled metrics must precede the first Node HTTP request, including startup queues. */
 export function registerWebHttpSource(): void {

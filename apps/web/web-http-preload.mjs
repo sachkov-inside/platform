@@ -9,11 +9,11 @@ import { z } from "zod";
 import {
   parseWebHttpMetricsConfig,
   webHttpSourceReadyKey,
-} from "./runtime/http-metrics-config.ts";
+} from "./server/http-metrics-config.ts";
 import {
   startWebHttpMetrics,
   webHttpRoutes,
-} from "./runtime/web-http-metrics.ts";
+} from "./server/web-http-metrics.ts";
 
 const config = parseWebHttpMetricsConfig(process.env, "production");
 if (config.enabled) {
