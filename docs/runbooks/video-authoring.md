@@ -45,8 +45,8 @@ values fall back to normal resume. Changing the hash on the same page seeks the 
 The link does not grant playback access: the normal session and DRM authorization still apply.
 
 Imported Materials persist video chapters from their original, and the reader lists them beside
-the player with the current chapter highlighted. Editor controls for chapters and Kinescope
-chapter synchronization do not exist.
+the player with the current chapter highlighted. The editor’s «Видео» document block can override chapters and add a description. Kinescope
+chapter synchronization does not exist.
 A local editorial list is not evidence of chapter accuracy on the provider recording.
 
 ## Verification and remaining acceptance
@@ -56,3 +56,29 @@ Videos ownership, with a local provider double. Browser playback checks replace 
 SDK; real BFF/API authorization and progress persistence remain in the path. Neither proves real
 Kinescope playback. Provider acceptance remains #184; deploy and publishing require owner approval.
 The first generated cover stays an unapproved editorial asset until the owner accepts it.
+
+## Position within a Material (#1741)
+
+The Material still owns one primary Video through the existing attachment/upload flow. In the editor,
+insert «Видео» from the block menu at the desired position between paragraphs. Move it with the
+ordinary block controls. Its description and chapters belong to the saved document; chapters must
+have nonempty titles and increasing nonnegative whole-second starts within the recording duration.
+Only one top-level video block is accepted. Removing the block keeps the attached recording and
+restores the legacy placement above the text. Detachment and deletion remain in the Video panel.
+A document with only a video block is a video lesson; surrounding ordinary blocks make it a mixed lesson.
+
+For source-authored Markdown, a `video` fence carries the same context and no provider URL or ID:
+
+````markdown
+Introduction.
+
+```video
+{"description":"Demonstration recording","chapters":[{"start":0,"title":"Introduction"},{"start":37,"title":"Example"}]}
+```
+
+Continue reading here.
+````
+
+The fence controls placement of the primary Video selected through `platform_video` or attachment.
+Omitted chapter metadata retains imported chapters; an explicit empty chapter list hides them.
+Old documents without the block keep their primary Video above the text.

@@ -259,3 +259,21 @@ test("multiple-answer conversion keeps the complete key without legacy key", () 
   assert.equal(quiz.selectionMode, "multiple");
   assert.equal(Object.hasOwn(quiz, "correctOptionId"), false);
 });
+
+test("video fence places the primary recording between prose with its context", () => {
+  const doc = convert(
+    'Before\n\n```video\n{"description":"Watch this example","chapters":[{"start":0,"title":"Start"},{"start":37,"title":"Example"}]}\n```\n\nAfter',
+  );
+  assert.deepEqual(
+    doc.content.map((node) => node.type),
+    ["paragraph", "video", "paragraph"],
+  );
+  assert.equal(doc.content[1]?.attrs?.["description"], "Watch this example");
+  assert.deepEqual(doc.content[1]?.attrs?.["chapters"], [
+    { start: 0, title: "Start" },
+    { start: 37, title: "Example" },
+  ]);
+  assert.throws(() =>
+    convert('```video\n{"providerVideoId":"another-recording"}\n```'),
+  );
+});

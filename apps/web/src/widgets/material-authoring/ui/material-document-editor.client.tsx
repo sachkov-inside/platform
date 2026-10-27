@@ -5,6 +5,7 @@ import { withMaterialNodeIds } from "../model/material-document-identifiers";
 
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
+  Video,
   Bold,
   ExternalLink,
   Heading2,
@@ -300,6 +301,26 @@ function MaterialDocumentEditorView({
     },
   ];
   const richBlocks: readonly BlockOption[] = [
+    {
+      name: "Видео",
+      icon: Video,
+      run: () => {
+        let existing: number | undefined;
+        editor.state.doc.descendants((node, position) => {
+          if (node.type.name === "video") existing = position;
+        });
+        if (existing !== undefined)
+          return editor.chain().focus().setNodeSelection(existing).run();
+        const { $from } = editor.state.selection;
+        const position =
+          $from.depth > 1 ? $from.after(1) : editor.state.selection.from;
+        return editor
+          .chain()
+          .focus()
+          .insertContentAt(position, { type: "video" })
+          .run();
+      },
+    },
     {
       name: "Список",
       icon: List,

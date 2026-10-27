@@ -87,3 +87,5 @@ export {
 } from "./quiz-document.js";
 
 export { resourceCardUrlValid } from "./blocks/resource-card.js";
+
+export { videoChaptersSchema } from "./blocks/video.js";

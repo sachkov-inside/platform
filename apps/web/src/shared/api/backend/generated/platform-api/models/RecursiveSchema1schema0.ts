@@ -182,4 +182,11 @@ export type RecursiveSchema1schema0 = ({
   }>;
   prompt: Array<RecursiveSchema1schema0>;
   selectionMode: 'multiple';
-}));
+}) | {
+  chapters?: Array<{
+    start: number;
+    title: string;
+  }>;
+  description?: string;
+  kind: 'video';
+});

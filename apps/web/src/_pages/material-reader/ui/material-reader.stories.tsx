@@ -2200,3 +2200,100 @@ export const ClosedPendingWithoutSharing: Story = {
     ).not.toBeInTheDocument();
   },
 };
+
+export const InlineVideo: Story = {
+  args: {
+    primaryVideo: readyVideo,
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Перед просмотром запишите свой вопрос к уроку.",
+            marks: [],
+          },
+        ],
+      },
+      {
+        kind: "video",
+        description:
+          "Демонстрационная запись. После просмотра продолжите читать урок.",
+        chapters: [
+          { start: 0, title: "Начало урока" },
+          { start: 37, title: "Разбор примера" },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "После видео попробуйте повторить пример самостоятельно.",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const player = canvasElement.querySelector("[data-video-id]");
+    if (player === null) throw new Error("Video is missing");
+    await expect(
+      canvasElement.querySelectorAll("[data-video-id]"),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getByText(
+        "Демонстрационная запись. После просмотра продолжите читать урок.",
+      ),
+    ).toBeVisible();
+    await expect(
+      Boolean(
+        canvas
+          .getByText("Перед просмотром запишите свой вопрос к уроку.")
+          .compareDocumentPosition(player) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    await expect(
+      Boolean(
+        player.compareDocumentPosition(
+          canvas.getByText(
+            "После видео попробуйте повторить пример самостоятельно.",
+          ),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    await expect(
+      canvas.getByRole("link", { name: /Разбор примера/u }),
+    ).toHaveAttribute("href", "#t=37");
+  },
+};
+export const InlineVideoMobile: Story = {
+  ...InlineVideo,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+export const VideoOnly: Story = {
+  args: {
+    primaryVideo: readyVideo,
+    body: [
+      {
+        kind: "video",
+        description: "Урок в формате видео.",
+        chapters: [{ start: 0, title: "Начало" }],
+      },
+    ],
+  },
+};
+export const InlineVideoMissing: Story = {
+  ...InlineVideo,
+  args: { ...InlineVideo.args, primaryVideo: null },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Видео к материалу не прикреплено."),
+    ).toHaveTextContent("Видео к материалу не прикреплено.");
+    await expect(
+      canvasElement.querySelectorAll("[data-video-id]"),
+    ).toHaveLength(0);
+  },
+};

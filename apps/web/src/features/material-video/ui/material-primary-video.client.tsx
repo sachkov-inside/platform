@@ -41,10 +41,13 @@ interface MaterialPrimaryVideoProps {
    */
   readonly preview?: boolean;
   readonly video: {
-    readonly chapters?: readonly {
-      readonly start: number;
-      readonly title: string;
-    }[];
+    readonly description?: string | undefined;
+    readonly chapters?:
+      | readonly {
+          readonly start: number;
+          readonly title: string;
+        }[]
+      | undefined;
     readonly durationSeconds?: number | undefined;
     readonly failureCode?: string | undefined;
     readonly state: "uploading" | "processing" | "ready" | "failed";
@@ -361,6 +364,7 @@ export function MaterialPrimaryVideo({
 
   return (
     <MaterialVideoPlayerView
+      description={video.description}
       chapters={video.chapters ?? []}
       activeChapter={activeChapter}
       onLoad={() => {
@@ -386,6 +390,7 @@ export function MaterialPrimaryVideo({
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly description?: string | undefined;
   readonly chapters?: readonly {
     readonly start: number;
     readonly title: string;
@@ -405,6 +410,7 @@ export interface MaterialVideoPlayerViewProps {
 
 /** Production player shell shared with Storybook state fixtures. */
 export function MaterialVideoPlayerView({
+  description,
   chapters = [],
   activeChapter = null,
   className,
@@ -456,6 +462,11 @@ export function MaterialVideoPlayerView({
           </div>
         )}
       </div>
+      {description === undefined ? null : (
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+      )}
       {chapters.length === 0 ? null : (
         <nav className="mt-4" aria-label="Главы видео">
           <ol className="space-y-1">
