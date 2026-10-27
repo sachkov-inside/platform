@@ -2051,6 +2051,7 @@ model QueueWorkObservation {
   queue      String   @id @map("queue_name")
   worker     String   @map("worker_name")
   recordedAt DateTime @map("recorded_at") @db.Timestamptz(6)
+  handlerReturnedAt DateTime @map("handler_returned_at") @db.Timestamptz(6)
   release    String   @db.VarChar(18)
   sourceSha  String   @map("source_sha") @db.VarChar(40)
   attemptKey String   @map("attempt_key") @db.VarChar(64)

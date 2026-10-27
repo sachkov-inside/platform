@@ -64,14 +64,18 @@ export function observeJob<
         try {
           const result = await handler(jobs);
           try {
-            await work?.completed(queue, jobs);
+            work?.completed(queue, jobs);
           } catch (error) {
             // Observation loss must not retry an already successful business handler.
-            dependencyFailure(
-              { module: "PgBossWorkObservation", operation: "completed" },
-              error,
-              undefined,
-            );
+            try {
+              dependencyFailure(
+                { module: "PgBossWorkObservation", operation: "completed" },
+                error,
+                undefined,
+              );
+            } catch {
+              // Even unavailable diagnostic logging cannot replace a successful handler result.
+            }
           }
           return result;
         } catch (error) {

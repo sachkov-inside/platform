@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { dependencyFailure } from "./observability/dependency-failure.js";
 
 import { runtimeIdentitySchema } from "@inside/runtime-identity";
+import { context, ROOT_CONTEXT } from "@opentelemetry/api";
 import { z } from "zod";
 
 import { jobQueues } from "./job-queues.js";
@@ -50,6 +53,7 @@ const observationSchema = z.strictObject({
   queue: queueSchema,
   worker: workerSchema,
   recordedAt: z.date(),
+  handlerReturnedAt: z.date(),
   release: z.string(),
   sourceSha: z.string(),
 });
@@ -64,7 +68,7 @@ const observationTransaction = {
 
 type WorkPrisma = TransactionClient<Pick<PlatformPrisma, "$queryRaw">>;
 export interface PgBossWorkObserver {
-  completed(queue: string, jobs: readonly unknown[]): Promise<void>;
+  completed(queue: string, jobs: readonly unknown[]): undefined;
 }
 
 /** One latest handler-result observation per fixed queue, independent of job-history deletion.
@@ -72,6 +76,12 @@ export interface PgBossWorkObserver {
  */
 export class PgBossWorkObservation implements PgBossWorkObserver {
   private readonly identity: RuntimeIdentity;
+  private readonly pending = new Map<
+    z.infer<typeof queueSchema>,
+    () => Promise<void>
+  >();
+  private running: Promise<void> | undefined;
+  private closed = false;
   constructor(
     private readonly prisma: WorkPrisma,
     identity: RuntimeIdentity,
@@ -81,7 +91,9 @@ export class PgBossWorkObservation implements PgBossWorkObserver {
     workerSchema.parse(worker);
   }
 
-  async completed(queue: string, jobs: readonly unknown[]): Promise<void> {
+  completed(queue: string, jobs: readonly unknown[]): undefined {
+    const returnedAt = new Date();
+    if (this.closed) throw new Error("queue_work_closed");
     const name = queueSchema.parse(queue);
     if (workers[name] !== this.worker) throw new Error("queue_work_owner");
     const attempts = attemptsSchema
@@ -90,24 +102,89 @@ export class PgBossWorkObservation implements PgBossWorkObserver {
     const key = createHash("sha256")
       .update(JSON.stringify(attempts))
       .digest("hex");
+    if (
+      this.pending.has(name) ||
+      this.pending.size >= Object.values(jobQueues).length
+    )
+      throw new Error("queue_work_buffer_full");
+    const run = AsyncLocalStorage.snapshot();
+    this.pending.set(name, () =>
+      // Preserve the owned job log scope, but never make background SQL a child
+      // of the business span which has already returned and may have ended.
+      run(() =>
+        context.with(ROOT_CONTEXT, async () => {
+          try {
+            await this.persist(name, attempts, key, returnedAt);
+          } catch (error) {
+            try {
+              dependencyFailure(
+                { module: "PgBossWorkObservation", operation: "completed" },
+                error,
+                undefined,
+              );
+            } catch {
+              /* Diagnostic logging cannot reject the owned observation task. */
+            }
+          }
+        }),
+      ),
+    );
+    if (this.running === undefined) this.start();
+    return undefined;
+  }
+
+  /** Tests and explicit callers can await all admitted facts without extending a native handler. */
+  async flush(): Promise<void> {
+    while (this.running !== undefined) await this.running;
+  }
+
+  /** Stop admission, discard unrecorded pending facts and settle only the bounded current write. */
+  async close(): Promise<void> {
+    this.closed = true;
+    this.pending.clear();
+    await this.running;
+  }
+
+  private start(): void {
+    this.running = new Promise<void>((resolve) => setImmediate(resolve))
+      .then(async () => {
+        while (!this.closed) {
+          const next = this.pending.entries().next().value;
+          if (next === undefined) return;
+          this.pending.delete(next[0]);
+          await next[1]();
+        }
+      })
+      .finally(() => {
+        this.running = undefined;
+        if (!this.closed && this.pending.size > 0) this.start();
+      });
+  }
+
+  private async persist(
+    name: z.infer<typeof queueSchema>,
+    attempts: z.infer<typeof attemptsSchema>,
+    key: string,
+    returnedAt: Date,
+  ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw(Prisma.sql`select
         set_config('statement_timeout', ${String(OBSERVATION_STATEMENT_TIMEOUT_MILLISECONDS)}, true),
         set_config('lock_timeout', ${String(OBSERVATION_LOCK_TIMEOUT_MILLISECONDS)}, true)`);
       const result: unknown = await transaction.$queryRaw(Prisma.sql`
         with admitted as materialized (
-          select id from pgboss.job where name=${name} and state='active'
+          select id from pgboss.job where name=${name} and state in ('active','completed')
             and (id,retry_count) in (${Prisma.join(attempts.map((job) => Prisma.sql`(${job.id}::uuid,${job.retryCount}::integer)`))})
-          order by id for update
+          order by id
         ), instant as materialized (select clock_timestamp() as recorded_at), written as (
           insert into queue_observation.last_successful_handler as previous
-            (queue_name,worker_name,recorded_at,release,source_sha,attempt_key)
-          select ${name},${this.worker},instant.recorded_at,${this.identity.release},${this.identity.sourceSha},${key}
-          from instant where (select count(*) from admitted)=${attempts.length}
+            (queue_name,worker_name,handler_returned_at,recorded_at,release,source_sha,attempt_key)
+          select ${name},${this.worker},${returnedAt},instant.recorded_at,${this.identity.release},${this.identity.sourceSha},${key}
+          from instant where (select count(*) from admitted)=${attempts.length} and ${returnedAt}<=instant.recorded_at
           on conflict (queue_name) do update set
-            worker_name=excluded.worker_name,recorded_at=excluded.recorded_at,
+            worker_name=excluded.worker_name,handler_returned_at=excluded.handler_returned_at,recorded_at=excluded.recorded_at,
             release=excluded.release,source_sha=excluded.source_sha,attempt_key=excluded.attempt_key
-          where previous.attempt_key<>excluded.attempt_key and previous.recorded_at<excluded.recorded_at
+          where previous.attempt_key<>excluded.attempt_key and previous.handler_returned_at<excluded.handler_returned_at
           returning 1
         ) select count(*)::integer as recorded from written
       `);
@@ -128,6 +205,7 @@ export async function readPgBossWorkObservations(
       queue: true,
       worker: true,
       recordedAt: true,
+      handlerReturnedAt: true,
       release: true,
       sourceSha: true,
     },
@@ -154,18 +232,22 @@ export function decodePgBossWorkObservations(value: unknown, asOf: Date) {
       });
       if (
         workers[row.queue] !== row.worker ||
-        row.recordedAt.getTime() <= 0 ||
+        row.handlerReturnedAt.getTime() <= 0 ||
+        row.handlerReturnedAt > row.recordedAt ||
         row.recordedAt > asOf
       )
         throw new Error("queue_work_source");
-      const ageSeconds = (asOf.getTime() - row.recordedAt.getTime()) / 1_000;
+      const ageSeconds =
+        (asOf.getTime() - row.handlerReturnedAt.getTime()) / 1_000;
       return [
         row.queue,
         {
           status: "known" as const,
           meaning: "handler_result_committed" as const,
           worker: row.worker,
-          at: row.recordedAt.toISOString(),
+          at: row.handlerReturnedAt.toISOString(),
+          observedAt: row.recordedAt.toISOString(),
+          clock: "process_wall_clock" as const,
           ageSeconds,
           freshness:
             ageSeconds <= WORK_RESULT_FRESH_SECONDS

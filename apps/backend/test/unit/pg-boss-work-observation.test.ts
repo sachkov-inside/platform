@@ -9,6 +9,7 @@ const previous = {
   queue: "billing.payment-recovery",
   worker: "billing-worker",
   recordedAt: new Date("2026-10-27T11:55:00.000Z"),
+  handlerReturnedAt: new Date("2026-10-27T11:55:00.000Z"),
   release: "v1566",
   sourceSha: "a".repeat(40),
 } as const;
@@ -27,11 +28,18 @@ it("distinguishes no history, recent committed handler work and an old observati
   const recent = decodePgBossWorkObservations([previous], asOf).get(
     previous.queue,
   );
+  expect(
+    decodePgBossWorkObservations([{ ...previous, recordedAt: asOf }], asOf).get(
+      previous.queue,
+    )?.ageSeconds,
+  ).toBe(300);
   expect(recent).toEqual({
     status: "known",
     meaning: "handler_result_committed",
     worker: "billing-worker",
     at: "2026-10-27T11:55:00.000Z",
+    observedAt: "2026-10-27T11:55:00.000Z",
+    clock: "process_wall_clock",
     ageSeconds: 300,
     freshness: "recent",
     release: { release: "v1566", sourceSha: "a".repeat(40) },
@@ -55,6 +63,7 @@ it("refuses overflowing, duplicate, foreign, future or malformed observations be
     [{ ...previous, recordedAt: new Date("2026-10-27T12:00:00.001Z") }],
     [{ ...previous, recordedAt: new Date(Number.NaN) }],
     [{ ...previous, recordedAt: new Date(0) }],
+    [{ ...previous, handlerReturnedAt: new Date("2026-10-27T11:55:00.001Z") }],
     [{ ...previous, release: "v9007199254740992" }],
     [{ ...previous, sourceSha: "private-value" }],
     [{ ...previous, private: "never-exported" }],

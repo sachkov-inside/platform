@@ -265,28 +265,34 @@ scheduled/blocked. `retrying` означает незавершённые `creat
 платежу. `failed` не доказывает денежную ошибку, а `completed` не доказывает успешный внешний эффект.
 
 `workerFreshness: per_queue` показывает отдельный `lastSuccessfulWork` для каждой фиксированной
-очереди. После успешного возврата обработчика worker записывает в собственную
-`queue_observation.last_successful_handler` время PostgreSQL, worker и точную release/source identity.
-Проверяются одновременно имя очереди, её worker и исходные `id/retryCount` всё ещё активной попытки
-pg-boss; payload, output, job ID и attempt key в отчёт не попадают. Повтор той же последней попытки не
-обновляет время. Остаётся не более одной записи на очередь, десять записей всего. Это последняя
-наблюдавшаяся успешная работа, а не журнал событий: запись заменяется следующим результатом и
-сохраняется после удаления native job history и перезапуска worker. Миграция не создаёт прошлых фактов.
+очереди. После успешного возврата обработчика worker синхронно принимает только ограниченные
+`id/retryCount` для отдельного owned writer, без ожидания диагностического I/O в native callback.
+В `queue_observation.last_successful_handler` остаются worker, release/source identity, время возврата
+`at` (`clock: process_wall_clock`) и более позднее время наблюдения `observedAt` по PostgreSQL.
+Одна SQL statement snapshot проверяет имя очереди, worker и исходные `id/retryCount` попытки в native
+state `active` либо `completed`. Нативные строки не блокируются и не изменяются; `failed`/`retry`,
+другая попытка и уже удалённая история не дают нового факта. Payload, output, job ID и attempt key
+в отчёт не попадают. Повтор той же последней попытки не обновляет время. Остаётся не более одной
+записи на очередь, десять записей всего; следующая работа заменяет её. История native jobs и
+перезапуск worker не удаляют этот факт. Миграция не создаёт прошлых фактов.
 
 `meaning: handler_result_committed` означает возврат обработчика после его собственных ожидаемых
-операций и успешный commit записи наблюдения. Она выполняется **до** native ACK, поэтому
+операций и успешный commit записи наблюдения. Запись может произойти после native ACK, однако
 `nativeAck: not_proven` и `externalEffect: not_proven` остаются всегда. Потеря ACK или восстановление
 задания может вызвать retry, а идемпотентность платежей и доставки остаётся обязанностью их владельцев.
-Ошибочное задание, healthcheck и polling не записывают успех. Новая запись ждёт соединение не более
-1 s, statement не более 1 s, lock не более 250 ms, transaction не более 2 s внутри существующего срока
-обработчика. Отказ записи диагностируется, но не меняет успешный business result и не вызывает retry;
-предыдущий факт или `unknown / no_history` сохраняется. Существующий generation lease и native
-settlement, concurrency и retry policy не меняются.
+Ошибочное задание, healthcheck и polling не записывают успех. Writer имеет один запрос в работе и не
+более одного ожидающего результата на фиксированную очередь (не более десяти). Он ждёт соединение
+не более 1 s, statement не более 1 s, lock не более 250 ms, transaction не более 2 s. Эти ожидания
+вынесены за native callback и не расширяют deadline задания. При shutdown после остановки jobs
+закрывается приём, отбрасывается незаписанное ожидание и завершается только текущий ограниченный
+запрос, до закрытия Prisma и освобождения generation lease. Незавершённое наблюдение при crash,
+полный buffer или отказ записи сохраняют предыдущий факт либо `unknown / no_history`, а не создают
+новый успех и не вызывают business retry. Native settlement, concurrency и retry policy не меняются.
 
 `lastSuccessfulWorkAt` содержит самое позднее подтверждённое время среди очередей или `null`, если
-истории нет. В каждой очереди `ageSeconds` считается от UTC `asOf` того же read-only snapshot;
+истории нет. В каждой очереди `ageSeconds` считается от process-clock `at` до UTC `asOf` того же read-only snapshot;
 `freshness: recent` означает возраст до 300 s включительно, затем `stale`. Этот порог описывает возраст
-факта и не является обещанием частоты выполнения: hourly/daily job может быть штатно stale.
+факта, а задержка записи `observedAt` не омолаживает работу. Он не является обещанием частоты выполнения: hourly/daily job может быть штатно stale.
 Отсутствие истории остаётся UNKNOWN, не нулём. Неполный, будущий, переполненный или повреждённый
 источник делает весь query `source_unavailable`, без частичного PASS. Отчёт не заменяет worker liveness,
 readiness или source freshness. RabbitMQ, доменные outbox и email delivery в этом bounded этапе ещё

@@ -64,8 +64,8 @@ it("records a successful handler result after its work settles and preserves the
   const completed = vi.fn((queue, batch) => {
     expect(queue).toBe("billing.payment-recovery");
     expect(batch).toBe(jobs);
-    events.push("observation_committed");
-    return Promise.resolve();
+    events.push("observation_admitted");
+    return undefined;
   });
   const handler = observeJob(
     "billing-worker",
@@ -78,15 +78,15 @@ it("records a successful handler result after its work settles and preserves the
     { completed },
   );
   expect(await handler(jobs)).toBe(result);
-  expect(events).toEqual(["business_committed", "observation_committed"]);
+  expect(events).toEqual(["business_committed", "observation_admitted"]);
 });
 
 it("an observation failure cannot retry successful business work or replace a handler error", async () => {
   const lines = vi.spyOn(console, "error").mockImplementation(() => undefined);
   try {
-    const completed = vi
-      .fn()
-      .mockRejectedValue(new Error("observer_unavailable"));
+    const completed = vi.fn().mockImplementation(() => {
+      throw new Error("observer_unavailable");
+    });
     const result = { ok: true };
     const success = observeJob(
       "billing-worker",
@@ -120,6 +120,12 @@ it("an observation failure cannot retry successful business work or replace a ha
     expect(
       records.filter((row) => row["event"] === "dependency_failure"),
     ).toHaveLength(1);
+    lines.mockImplementationOnce(() => {
+      throw new Error("diagnostic_log_unavailable");
+    });
+    expect(
+      await success([{ id: "0b8a5b9e-5c43-4f53-9d0a-2f1c9e7d6a11" }]),
+    ).toBe(result);
   } finally {
     lines.mockRestore();
   }

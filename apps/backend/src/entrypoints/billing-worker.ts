@@ -115,6 +115,7 @@ async function bootstrap(): Promise<void> {
     );
     await runWorker({
       application,
+      workObservations: work,
       databaseUrl: config.database.url,
       jobs,
       process: "billing-worker",

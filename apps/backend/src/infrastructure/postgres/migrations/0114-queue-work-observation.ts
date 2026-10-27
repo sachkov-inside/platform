@@ -10,7 +10,8 @@ CREATE TABLE queue_observation.last_successful_handler (
     'community.entitlement-delivery','material-assets.cleanup','profile-avatars.cleanup','videos.deletions'
   )),
   worker_name text NOT NULL,
-  recorded_at timestamptz NOT NULL CHECK (recorded_at > '1970-01-01T00:00:00Z'),
+  handler_returned_at timestamptz NOT NULL CHECK (handler_returned_at > '1970-01-01T00:00:00Z'),
+  recorded_at timestamptz NOT NULL CHECK (recorded_at >= handler_returned_at),
   release varchar(18) NOT NULL CHECK (release IN ('development','test') OR CASE
     WHEN release ~ '^v[1-9][0-9]{0,15}$' THEN substring(release FROM 2)::numeric <= 9007199254740991 ELSE false END),
   source_sha varchar(40) NOT NULL CHECK (source_sha ~ '^[0-9a-f]{40}$'),
