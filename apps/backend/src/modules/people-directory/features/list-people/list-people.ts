@@ -58,12 +58,24 @@ export type ListPeopleResult = PeopleDirectoryResult<{
   readonly nameSearch: NameSearchState;
 }>;
 
+/**
+ * `community_failed`: the latest community operation of the Account was rejected, failed or is
+ * overdue. `delivery_failed`: a recent Telegram delivery to the Account failed or its result is
+ * unknown. The same Account sets the Overview counts.
+ */
+export const peopleTelegramFilterSchema = z.enum([
+  "community_failed",
+  "delivery_failed",
+]);
+
 const listInputSchema = z.strictObject({
   query: z.string().optional(),
   productId: z.uuid().toLowerCase().optional(),
   /** The origin of the first acquisition of a Product Access. */
   origin: productAccessOriginSchema.optional(),
   state: z.enum(["active", "revoked"]).optional(),
+  /** The Accounts behind one Telegram attention item of the Overview (#1719). */
+  telegram: peopleTelegramFilterSchema.optional(),
   cursor: z.string().min(1).max(PEOPLE_CURSOR_MAX_CHARACTERS).optional(),
   limit: z.coerce.number().int().min(1).max(PEOPLE_PAGE_LIMIT).optional(),
 });
@@ -81,6 +93,7 @@ interface ListScope {
   readonly productId: string | undefined;
   readonly origin: ProductAccessOrigin | undefined;
   readonly state: "active" | "revoked" | undefined;
+  readonly telegram: z.infer<typeof peopleTelegramFilterSchema> | undefined;
 }
 
 /**
@@ -103,11 +116,11 @@ export async function listPeople(
   if (refused !== undefined) return refused;
   const parsed = listInputSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
-  const { query, productId, origin, state, cursor } = parsed.data;
+  const { query, productId, origin, state, telegram, cursor } = parsed.data;
   const term = query === undefined ? undefined : parsePersonSearchTerm(query);
   if (query !== undefined && term === undefined)
     return failure("invalid_request");
-  const scope = scopeDigest({ term, productId, origin, state });
+  const scope = scopeDigest({ term, productId, origin, state, telegram });
   const after = cursor === undefined ? undefined : decodeCursor(cursor);
   if (after === null || (after !== undefined && after.scope !== scope))
     return failure("invalid_request");
@@ -145,6 +158,8 @@ export async function listPeople(
         ? holders.accountIds
         : restrictTo.filter((id) => held.has(id));
   }
+  // Contract first (#1719): the Telegram sets arrive with the Overview's owner reads.
+  if (telegram !== undefined) return failure("dependency_unavailable");
   const empty = {
     ok: true,
     value: { items: [], total: 0, nextCursor: null, nameSearch },
@@ -260,6 +275,7 @@ function scopeDigest(scope: ListScope): string {
         scope.productId ?? null,
         scope.origin ?? null,
         scope.state ?? null,
+        scope.telegram ?? null,
       ]),
     )
     .digest("hex")

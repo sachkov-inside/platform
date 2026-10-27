@@ -16,6 +16,7 @@ export type { RecursiveSchema3schema0 } from './models/RecursiveSchema3schema0';
 export { AccessService } from './services/AccessService';
 export { AccountProfilesService } from './services/AccountProfilesService';
 export { AccountsService } from './services/AccountsService';
+export { AuthoringOverviewService } from './services/AuthoringOverviewService';
 export { AuthoringSearchService } from './services/AuthoringSearchService';
 export { BillingService } from './services/BillingService';
 export { BookmarksService } from './services/BookmarksService';
