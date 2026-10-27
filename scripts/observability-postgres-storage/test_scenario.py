@@ -439,7 +439,7 @@ class Driver(unittest.TestCase):
         from pathlib import Path
         import postgres_source
         import source_status_scenario
-        for fault in (None,'poisoned_state','poisoned_owner','expired','http_failure','http_status','expired_response'):
+        for fault in (None,'poisoned_state','poisoned_owner','expired','http_failure','http_status','expired_response','flush_failure','expired_flush'):
             clock=[100.0];requests=[];identity_deadlines=[];stopped=[False];primary=RuntimeError('controlled HTTP first')
             driver=scenario.Scenario(None,['docker','compose','-p','inside-observability-pilot-'+'a'*12,'-f','/task/compose.json'],'fixed',None)
             driver.end=250;driver.clock_deadline=110
@@ -482,7 +482,14 @@ class Driver(unittest.TestCase):
                     if fault=='http_failure':raise primary
                     if fault=='http_status':raise scenario.urllib.error.HTTPError('private-url',400,'private-body',{},None)
                     return Response()
-            with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',side_effect=lambda:clock[0]), \
+            flushes=[]
+            def publish(source,deadline):
+                self.assertIs(source,driver);self.assertEqual(deadline,110)
+                self.assertEqual(driver.upload_operation['http_status'],200)
+                flushes.append(deadline)
+                if fault=='flush_failure':raise primary
+                if fault=='expired_flush':clock[0]=111
+            with self.subTest(fault=fault),patch.object(scenario.completion,'_flush',side_effect=publish),patch.object(scenario.time,'monotonic',side_effect=lambda:clock[0]), \
                  patch.object(scenario.pilot,'command',side_effect=daemon),patch.object(scenario.pilot,'assert_docker_identity',side_effect=identity), \
                  patch.object(scenario.urllib.request,'build_opener',return_value=Opener()):
                 for role in roles:targets.targets[role]=targets.inspect(role,ids[role])
@@ -495,11 +502,14 @@ class Driver(unittest.TestCase):
                             self.assertEqual(driver.upload_operation,{'schema':1,'phase':'restart_unavailable_upload','step':'http_open','outcome':'failed','error':'http_status','http_status':400,'returncode':None})
                             self.assertNotIn('private',json.dumps(driver.upload_operation))
                             error.close()
+                        if fault=='flush_failure':
+                            self.assertIs(error,primary);self.assertEqual(driver.upload_operation['step'],'controlled_flush')
                         if fault=='http_failure':
                             self.assertIs(error,primary)
                             self.assertEqual(driver.upload_operation,{'schema':1,'phase':'restart_unavailable_upload','step':'http_open','outcome':'failed','error':'operation_failed','http_status':None,'returncode':None})
                     else:self.fail('invalid composed stop returned success')
-            self.assertEqual(requests!=[],fault in (None,'http_failure','http_status','expired_response'))
+            self.assertEqual(requests!=[],fault in (None,'http_failure','http_status','expired_response','flush_failure','expired_flush'))
+            self.assertEqual(flushes,[110] if fault in (None,'flush_failure','expired_flush') else [])
             self.assertTrue(all(deadline==110 for deadline in identity_deadlines))
             self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
 

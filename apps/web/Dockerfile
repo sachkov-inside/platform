@@ -77,9 +77,11 @@ COPY --from=production-build --chown=node:node /workspace/apps/web/public ./apps
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./apps/web/release-identity.json
 COPY --chown=node:node apps/web/web-http-preload.mjs ./apps/web/
 COPY --chown=node:node apps/web/runtime ./apps/web/runtime
+# The Node preload runs outside Next's traced module graph, including when metrics are disabled.
+COPY --chown=node:node packages/runtime-identity/package.json packages/runtime-identity/index.mjs ./apps/web/node_modules/@inside/runtime-identity/
 
 COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./apps/web/healthcheck/
-COPY --from=dependencies --chown=node:node /workspace/node_modules/zod ./apps/web/healthcheck/node_modules/zod
+COPY --from=dependencies --chown=node:node /workspace/node_modules/zod ./apps/web/node_modules/zod
 
 EXPOSE 3000
 USER node
