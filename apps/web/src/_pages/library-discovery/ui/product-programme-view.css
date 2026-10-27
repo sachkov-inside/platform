@@ -117,95 +117,6 @@
   }
 }
 
-/* Floating programme navigation: the active item expands with its label; the other stays compact. */
-.product-bottom-bar {
-  position: fixed;
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  left: 50%;
-  width: min(calc(100% - 2rem), 13rem);
-  transform: translateX(-50%);
-  z-index: 40;
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.1875rem;
-  border: 1px solid rgb(0 0 0 / 8%);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 90%);
-  box-shadow: var(--shadow-floating-nav);
-}
-.product-bottom-bar-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  flex: 0 0 2.75rem;
-  min-width: 0;
-  min-height: 2.75rem;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted-foreground);
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    flex-grow var(--motion-duration-shell) var(--motion-ease-out),
-    background-color 200ms ease,
-    color 200ms ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.product-bottom-bar-item svg {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  transition: transform 200ms ease;
-}
-.product-bottom-bar-item:active svg {
-  transform: scale(0.9);
-}
-.product-bottom-bar-item[data-current="true"] {
-  flex-grow: 1;
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-.product-bottom-bar-label {
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  white-space: nowrap;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition:
-    max-width var(--motion-duration-shell) var(--motion-ease-out),
-    opacity 200ms ease,
-    margin var(--motion-duration-shell) var(--motion-ease-out);
-}
-.product-bottom-bar-item[data-current="true"] .product-bottom-bar-label {
-  max-width: 8rem;
-  opacity: 1;
-  margin-left: 0.5rem;
-}
-.product-bottom-bar-item[data-current="true"] svg {
-  color: var(--accent-bright);
-}
-@media (prefers-reduced-motion: reduce) {
-  .product-bottom-bar-label,
-  .product-bottom-bar-item,
-  .product-bottom-bar-item svg {
-    transition: none;
-  }
-}
-.product-bottom-bar-item:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-@media (min-width: 48rem) {
-  .product-bottom-bar {
-    display: none;
-  }
-}
-
 /*
  * Колонка разделов: программа сдвигается вправо, слева прилипает короткий список разделов.
  * Колонка стоит в той же обёртке программы и занимает всю её высоту, поэтому держится у верха,
@@ -338,10 +249,4 @@
     margin-left: 0.35rem;
     font-size: 0.9375rem;
   }
-}
-
-.product-bottom-bar-item::after {
-  content: "";
-  position: absolute;
-  inset: -4px 0;
 }
