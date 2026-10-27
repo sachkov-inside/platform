@@ -114,8 +114,11 @@ test("individual payment link shows its fixed price and terms, revokes across op
     ).toBeVisible();
     await buyer.getByText("Все условия покупки", { exact: true }).click();
     await expect(
-      buyer.getByText(/Сопровождение автора.*3 месяца/),
+      buyer.getByText(/Сопровождение автора по условиям оферты/),
     ).toBeVisible();
+    await expect(
+      buyer.getByText(/Сопровождение автора[^.]*3 месяца/),
+    ).toHaveCount(0);
     expect(
       (
         await new AxeBuilder({ page: buyer })

@@ -147,7 +147,7 @@ describe("условия разовой покупки до оплаты", () =>
   it("сводит условия предложения курса: материалы и материалы без срока", () => {
     expect(oneTimeTermsSummary(oneTimeOfferTerms(course))).toEqual([
       "Материалы — без ограничения срока.",
-      "Сопровождение с подтверждения оплаты: 6 месяцев: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
+      "Сопровождение автора по условиям оферты: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
       "Отказ в первые 7 дней или до открытия доступа — полный возврат. Позже — за вычетом истекшего времени: сопровождение — из его срока, материалы — из расчётного срока 12 месяцев, но не меньше положенного по закону.",
       "Возврат оплаты и отзыв доступа выполняются отдельно.",
       "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
@@ -161,7 +161,7 @@ describe("условия разовой покупки до оплаты", () =>
     expect(materials).toBe(
       "Материалы — 2 года гарантированно, дальше без гарантии срока.",
     );
-    expect(support).toContain("Сопровождение с подтверждения оплаты: 1 год:");
+    expect(support).toContain("Сопровождение автора по условиям оферты:");
     expect(refund).toBe(
       "Отказ в первые 7 дней или до открытия доступа — полный возврат. Позже — за вычетом истекшего времени, но не меньше положенного по закону.",
     );
@@ -180,7 +180,11 @@ describe("условия разовой покупки до оплаты", () =>
         caption: "Материалы",
         title: "Без ограничения срока",
       },
-      { kind: "support", caption: "Сопровождение автора", title: "6 месяцев" },
+      {
+        kind: "support",
+        caption: "Сопровождение автора",
+        title: "Ответы и помощь",
+      },
     ]);
     expect(oneTimePurchaseInclusions(fixedTerm).slice(1)).toEqual([
       {
@@ -189,7 +193,11 @@ describe("условия разовой покупки до оплаты", () =>
         title: "2 года гарантированно",
         detail: "дальше без гарантии срока",
       },
-      { kind: "support", caption: "Сопровождение автора", title: "1 год" },
+      {
+        kind: "support",
+        caption: "Сопровождение автора",
+        title: "Ответы и помощь",
+      },
     ]);
     // Сопровождения в предложении нет — строки о нём в составе тоже нет.
     expect(
@@ -241,17 +249,17 @@ describe("условия разовой покупки до оплаты", () =>
     );
   });
 
-  it("подставляет в описание продукта сроки его предложения", () => {
-    const text = "Доступ — {access_term}, помощь — {support_term}.";
+  it("keeps support duration out of the public Product description", () => {
+    const text = "Доступ: {access_term}, помощь: {support_term}.";
     expect(fillOneTimeTerms(text, oneTimeOfferTerms(course))).toBe(
-      "Доступ — без ограничения срока, помощь — 6 месяцев.",
+      "Доступ: без ограничения срока, помощь: по условиям оферты.",
     );
     expect(fillOneTimeTerms(text, oneTimeOfferTerms(fixedTerm))).toBe(
-      "Доступ — 2 года, помощь — 1 год.",
+      "Доступ: 2 года, помощь: по условиям оферты.",
     );
     // Продукт не продаётся: срок назвать нечем, и страница его не выдумывает.
     expect(fillOneTimeTerms(text, null)).toBe(
-      "Доступ — по условиям предложения, помощь — по условиям предложения.",
+      "Доступ: по условиям предложения, помощь: по условиям предложения.",
     );
   });
 });
@@ -265,6 +273,30 @@ it("new Product purchase always promises lifetime materials/community and three 
   expect(
     oneTimeTermsSummary(oneTimeOfferTerms(productWithSupportOffer)),
   ).toContain(
-    "Сопровождение с подтверждения оплаты: 3 месяца: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
+    "Сопровождение автора по условиям оферты: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
   );
 });
+
+it.each([
+  [productWithSupportOffer, 3],
+  [course, 6],
+  [fixedTerm, 12],
+] as const)(
+  "keeps support duration in the purchase terms, outside public summaries and authored placeholders",
+  (snapshot, expectedMonths) => {
+    const originalSnapshot = structuredClone(snapshot);
+    const terms = oneTimeOfferTerms(snapshot);
+    const presented = [
+      fillOneTimeTerms("Поддержка {support_term}", terms),
+      ...oneTimeTermsSummary(terms).filter((line) =>
+        line.startsWith("Сопровождение"),
+      ),
+      ...oneTimePurchaseInclusions(snapshot)
+        .filter((item) => item.kind === "support")
+        .map((item) => `${item.caption}: ${item.title}`),
+    ].join("\n");
+    expect(presented).not.toMatch(/\d|месяц|год|без ограничения срока/u);
+    expect(terms.supportMonths).toBe(expectedMonths);
+    expect(snapshot).toEqual(originalSnapshot);
+  },
+);

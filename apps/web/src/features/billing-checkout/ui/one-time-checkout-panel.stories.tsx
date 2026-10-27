@@ -66,8 +66,11 @@ export const Ready: Story = {
       ),
     ).toBeVisible();
     await expect(
-      canvas.getByText(/Сопровождение с подтверждения оплаты: 3 месяца:/u),
+      canvas.getByText(/Сопровождение автора по условиям оферты:/u),
     ).toBeVisible();
+    await expect(
+      canvas.queryByText(/Сопровождение[^.]*3 месяца/u),
+    ).not.toBeInTheDocument();
     for (const name of [
       "Оферта разовой покупки",
       "Условия использования",
@@ -98,7 +101,7 @@ export const FixedTermOffer: Story = {
       ),
     ).toBeVisible();
     await expect(
-      canvas.getByText(/^Сопровождение с подтверждения оплаты: 3 месяца:/u),
+      canvas.getByText(/^Сопровождение автора по условиям оферты:/u),
     ).toBeVisible();
   },
 };

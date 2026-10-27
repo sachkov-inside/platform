@@ -57,8 +57,7 @@ function termLabel(months: number | null): string {
 }
 
 /**
- * Подписи сроков для авторского текста описания продукта: срок доступа — срок материалов, как его
- * гарантирует оферта; чат со своим сроком называет страница оплаты.
+ * Public copy names the access term, but leaves the author support duration in the offer document.
  */
 export function oneTimeTermLabels(terms: OneTimeOfferTerms): OfferTerms {
   return {
@@ -66,7 +65,7 @@ export function oneTimeTermLabels(terms: OneTimeOfferTerms): OfferTerms {
     support:
       terms.supportMonths === undefined
         ? supportNotIncluded
-        : termLabel(terms.supportMonths),
+        : "по условиям оферты",
   };
 }
 
@@ -80,9 +79,8 @@ const termsWithoutOffer: OfferTerms = {
 };
 
 /**
- * Подстановка сроков в авторский текст описания продукта: автор пишет `{access_term}` и
- * `{support_term}`, а подписи даёт предложение этого продукта, поэтому страница не заводит своих
- * чисел. `null` — предложения в продаже нет.
+ * Resolve authored placeholders without promoting the legal support duration on the page.
+ * `null` means that the Product has no current offer.
  */
 export function fillOneTimeTerms(
   text: string,
@@ -137,7 +135,7 @@ export function oneTimeTermsSummary(
     ...(terms.supportMonths === undefined
       ? []
       : [
-          `Сопровождение с подтверждения оплаты: ${termLabel(terms.supportMonths)}: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
+          "Сопровождение автора по условиям оферты: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
         ]),
     `Отказ в первые ${String(oneTimePurchaseTerms.fullRefundDays)} дней или до открытия доступа — полный возврат. Позже — ${elapsed}, но не меньше положенного по закону.`,
     "Возврат оплаты и отзыв доступа выполняются отдельно.",
@@ -208,10 +206,7 @@ export function oneTimePurchaseInclusions(
           {
             kind: "support" as const,
             caption: "Сопровождение автора",
-            title:
-              terms.supportMonths === null
-                ? "Без ограничения срока"
-                : formatTermMonths(terms.supportMonths),
+            title: "Ответы и помощь",
           },
         ]),
   ];

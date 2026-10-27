@@ -71,7 +71,7 @@ describe("pinned product texts on the home page", () => {
 
     expect(cardOf(await fill(home(pinned)))).toEqual({
       eyebrow: "Доступ без ограничения срока",
-      subtitle: "Поддержка 6 месяцев",
+      subtitle: "Поддержка по условиям оферты",
       action: "Открыть",
     });
     expect(fakes.readTerms).toHaveBeenCalledWith(pinned.id);

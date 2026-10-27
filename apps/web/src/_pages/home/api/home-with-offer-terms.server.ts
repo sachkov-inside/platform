@@ -11,8 +11,8 @@ import type { HomeResult } from "../model/home-view";
 import { readPublicHome } from "./public-home.public-cache.server";
 
 /**
- * Главная с подставленными сроками: тексты карточки закреплённого продукта берут `{access_term}`
- * и `{support_term}` из его предложения для всех. Оба чтения гостевые и приходят из общего кеша,
+ * Home resolves authored offer placeholders for everyone. The support duration stays in the
+ * offer document, outside the public card. Оба чтения гостевые и приходят из общего кеша,
  * поэтому Главная по-прежнему ничего не ждёт (ADR 0027). Сбой чтения сроков срок не выдумывает.
  */
 export async function readPublicHomeWithOfferTerms(): Promise<HomeResult> {

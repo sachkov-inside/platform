@@ -17,7 +17,7 @@ const meta = {
   component: ProductLandingView,
   title: "Pages/Product/AI-first",
   args: {
-    // Сроки предложения практикума: описание подставляет их вместо `{access_term}` и `{support_term}`.
+    // A historical offer still keeps its support term outside page copy.
     offerTerms: { materialsMonths: 24, chatMonths: 24, supportMonths: 6 },
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
@@ -87,7 +87,12 @@ export const DefaultTemplateShowsTheSameDescription: Story = {
     await expect(
       canvas.getByRole("heading", { level: 2, name: "Кому это нужно" }),
     ).toBeVisible();
-    await expect(canvas.getByText("Поддержка 6 месяцев")).toBeVisible();
+    await expect(
+      canvas.getByText("Поддержка по условиям оферты"),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText(/Поддержка 6 месяцев/u),
+    ).not.toBeInTheDocument();
   },
 };
 
