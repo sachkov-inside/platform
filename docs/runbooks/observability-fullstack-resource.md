@@ -43,10 +43,14 @@ VictoriaLogs, VictoriaTraces, Alloy, vmauth, query gateway, Grafana и отде�
 Тестовый peer подтверждает роль administrator только для bot `1566` в фиксированном
 синтетическом chat; для 128 тестовых контактов возвращает `left`. Это ответ изолированного
 peer, не проверка прав или изменение роли настоящего production bot.
-При отказе bootstrap readiness job сохраняет в своём выводе только последнюю проверенную
-проекцию: target, HTTP status и причину из закрытого каталога (сеть, БД, Membership provider
-либо неизвестный ответ). Тело ответа, исключение и provider text не публикуются. Эта запись
-уточняет место отказа и не изменяет readiness, срок ожидания или результат измерения.
+При отказе готовности `fullstack_readiness` сохраняет отдельно последний завершённый ответ и исход
+родительского probe: `completed`, `timeout`, `command_failed` либо `subprocess_failed`. Только закрытая
+проекция `ok/status/cause` может попасть в диагностику. Частичный JSON от незавершившегося child
+не доказывает готовность, даже если содержит `ok: true`. На terminal failure один ограниченный
+read-only lookup проверяет project/service/CID для `loadgen`, `telegram`, `bot-provider` и публикует
+только state/running/OOM/exit code/restarts. Raw stdout/stderr, provider responses, labels и IDs не
+публикуются; diagnostic failure не подменяет исходную ошибку. Лимиты HTTP 2 s, child 4 s и readiness 90 s
+не меняются, container lookup использует тот же предел 4 s в сумме и не запускает повторную проверку.
 
 Два порядка OFF/ON и ON/OFF дают четыре режима по 60 секунд. В каждом режиме: idle 10 секунд,
 steady 40 секунд при 10 запросах/с, spike 10 секунд при 40 запросах/с. Одновременно читаются
