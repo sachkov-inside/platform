@@ -219,7 +219,7 @@ function CreateForm({
           return;
         }
         setProductError("");
-        const expiresAt = paymentLinkExpiresAt(expiry, new Date());
+        const expiresAt = paymentLinkExpiresAt(expiry);
         setExpiryError(expiresAt.ok ? "" : expiresAt.error);
         if (preview === null || !preview.valid || !expiresAt.ok) return;
         const input = {

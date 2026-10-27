@@ -37,47 +37,47 @@ export function canRevokePaymentLink(link: PaymentLink): boolean {
   return link.state === "active";
 }
 
+type FailureMessages = Partial<Record<BillingFailureCode, string>>;
+
+const commonMessages: FailureMessages = {
+  unauthorized: "Сессия закончилась. Войдите снова и повторите.",
+  forbidden: "Ссылками на оплату управляет владелец с правом billing:manage.",
+  invalid_request: "Сервер не принял данные. Проверьте форму и повторите.",
+  operation_conflict:
+    "Это действие уже выполнено с другими данными. Обновите данные и повторите.",
+};
+const unavailableMessage =
+  "Сервис оплаты сейчас не отвечает. Повторите: повтор не создаст второй ссылки и не отзовёт её дважды.";
+
+const createMessages: FailureMessages = {
+  ...commonMessages,
+  revision_conflict:
+    "Цена продукта изменилась. Обновите данные и создайте ссылку заново.",
+  state_conflict:
+    "Цена продукта изменилась. Обновите данные и создайте ссылку заново.",
+  not_found:
+    "Цена продукта не найдена. Возможно, её сняли с продажи. Обновите данные.",
+};
+
+const revokeMessages: FailureMessages = {
+  ...commonMessages,
+  reservation_conflict:
+    "По ссылке уже началась оплата. Дождитесь результата банка.",
+  payment_in_progress:
+    "По ссылке уже началась оплата. Дождитесь результата банка.",
+  revision_conflict:
+    "Ссылка изменилась в другом месте. Обновите данные и проверьте её состояние.",
+  state_conflict:
+    "Ссылку уже нельзя отозвать: она оплачена, отозвана или её срок истёк.",
+  not_found: "Ссылка не найдена. Обновите данные.",
+};
+
 /** Отказ создания ссылки словами владельца. */
 export function createFailureMessage(code: BillingFailureCode): string {
-  switch (code) {
-    case "revision_conflict":
-    case "state_conflict":
-      return "Цена продукта изменилась. Обновите данные и создайте ссылку заново.";
-    case "not_found":
-      return "Цена продукта не найдена. Возможно, её сняли с продажи. Обновите данные.";
-    default:
-      return commonFailureMessage(code);
-  }
+  return createMessages[code] ?? unavailableMessage;
 }
 
 /** Отказ отзыва ссылки словами владельца. */
 export function revokeFailureMessage(code: BillingFailureCode): string {
-  switch (code) {
-    case "reservation_conflict":
-    case "payment_in_progress":
-      return "По ссылке уже началась оплата. Дождитесь результата банка.";
-    case "revision_conflict":
-      return "Ссылка изменилась в другом месте. Обновите данные и проверьте её состояние.";
-    case "state_conflict":
-      return "Ссылку уже нельзя отозвать: она оплачена, отозвана или её срок истёк.";
-    case "not_found":
-      return "Ссылка не найдена. Обновите данные.";
-    default:
-      return commonFailureMessage(code);
-  }
-}
-
-export function commonFailureMessage(code: BillingFailureCode): string {
-  switch (code) {
-    case "unauthorized":
-      return "Сессия закончилась. Войдите снова и повторите.";
-    case "forbidden":
-      return "Ссылками на оплату управляет владелец с правом billing:manage.";
-    case "invalid_request":
-      return "Сервер не принял данные. Проверьте форму и повторите.";
-    case "operation_conflict":
-      return "Это действие уже выполнено с другими данными. Обновите данные и повторите.";
-    default:
-      return "Сервис оплаты сейчас не отвечает. Повторите: повтор не создаст второй ссылки и не отзовёт её дважды.";
-  }
+  return revokeMessages[code] ?? unavailableMessage;
 }

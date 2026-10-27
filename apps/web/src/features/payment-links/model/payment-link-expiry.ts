@@ -25,18 +25,18 @@ export type PaymentLinkExpiry =
 
 /**
  * Срок ссылки из поля даты: ссылка действует по выбранный день включительно, до полуночи по Москве
- * следующего дня. Момент уходит в команду строкой ISO со смещением Москвы. Пустое поле значит
+ * следующего дня; прошедший день отклоняется по часам `clock`. Момент уходит в команду строкой ISO со смещением Москвы. Пустое поле значит
  * «без срока»: ссылка действует до одной оплаты или отзыва.
  */
 export function paymentLinkExpiresAt(
   date: string,
-  now: Date,
+  clock: () => Date = () => new Date(),
 ): PaymentLinkExpiry {
   if (date === "") return { ok: true, expiresAt: null };
   if (!dateSchema.safeParse(date).success)
     return { ok: false, error: "Введите дату полностью: день, месяц и год" };
   const end = new Date(moscowMidnight(date).getTime() + DAY_MS);
-  if (end.getTime() <= now.getTime())
+  if (end.getTime() <= clock().getTime())
     return { ok: false, error: "Дата окончания не может быть в прошлом" };
   return { ok: true, expiresAt: `${moscowDay(end)}T00:00:00${MOSCOW_OFFSET}` };
 }
