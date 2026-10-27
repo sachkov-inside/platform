@@ -486,7 +486,7 @@ export const SearchPeopleNameUnavailable: Story = {
     );
     await expect(
       await within(dialog).findByText(
-        "Люди: Поиск по имени и @username временно недоступен, найдены совпадения по email и ID.",
+        "Люди: Поиск по имени и @username временно недоступен; поиск по email и ID работает.",
       ),
     ).toBeVisible();
     await expect(

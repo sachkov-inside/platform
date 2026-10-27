@@ -50,7 +50,10 @@ export const searchGroupSchema = z.union([
     .object({
       items: z.array(personIdentitySchema),
       kind: z.literal("people"),
-      /** Поиск по имени и @username не ответил: найдены только совпадения по email и ID. */
+      /**
+       * Поиск по имени и @username не ответил (Telegram недоступен). Поиск по email и ID при этом
+       * работает: `items` содержат только его совпадения, если они есть.
+       */
       partial: z.boolean(),
       state: z.literal("ready"),
     })
@@ -177,10 +180,10 @@ export function searchGroupEntries(
   }
 }
 
-/** Пояснение под группой: у «Людей» без поиска по имени найдены только email и ID. */
+/** Пояснение к группе: у «Людей» без поиска по имени работают только email и ID. */
 export function searchGroupNote(group: AuthoringSearchGroup): string | null {
   return group.kind === "people" && group.state === "ready" && group.partial
-    ? "Поиск по имени и @username временно недоступен, найдены совпадения по email и ID."
+    ? "Поиск по имени и @username временно недоступен; поиск по email и ID работает."
     : null;
 }
 
