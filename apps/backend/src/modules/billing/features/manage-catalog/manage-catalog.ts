@@ -10,6 +10,7 @@ import type { Accounts } from "../../../accounts/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
+import { promotionUsage } from "../../shared/promotion-usage.js";
 import {
   catalogOutcomeSchema,
   manageCatalogSchema,
@@ -185,9 +186,7 @@ async function changeCatalog(
         })) !== new Set(value.productIds).size
       )
         return failure("not_found");
-      const committed = await tx.billingPromoReservation.count({
-        where: { promotionId: id, state: { not: "failed" } },
-      });
+      const committed = (await promotionUsage(tx, [id])).get(id) ?? 0;
       if (value.usageLimit !== null && value.usageLimit < committed)
         return failure("reservation_conflict");
       const data = {
