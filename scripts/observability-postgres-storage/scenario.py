@@ -291,13 +291,20 @@ class Scenario:
             self.phase='restart_unavailable_read'
             unavailable_deadline=time.monotonic()+self.remaining()
             while True:
+                self.oracle_failure_reason=None
                 if time.monotonic()>=unavailable_deadline:raise TimeoutError()
                 values,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,unavailable_deadline-time.monotonic()))
-                down=self.oracle.evaluate(values,stamps,evaluated_at=evaluated,completed_us=completed,expected=reset)
+                down=self.oracle.evaluate(values,stamps,evaluated_at=evaluated,completed_us=completed,expected=reset,diagnose=True)
                 if down['freshness']=='unavailable':
                     self.restart_down=(values,stamps,evaluated,completed)
                     break
-                if down['freshness'] not in ('fresh','missing'):raise ValueError('storage')
+                if down['freshness'] not in ('fresh','missing'):
+                    if type(self.oracle) is ModuleType:
+                        try:
+                            reason=self.oracle.diagnostic_reason(down)
+                            if type(reason) is str and reason in record.ORACLE_REASONS:self.oracle_failure_reason=reason
+                        except BaseException:pass
+                    raise ValueError('storage')
                 # Old retained healthy rows are pending in this controlled down phase, never a successful down verdict.
                 time.sleep(min(.25,max(0,unavailable_deadline-time.monotonic())))
             self.phase='restart_start_command'
