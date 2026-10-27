@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import { z } from "zod";
 
+import { attemptStateSchema } from "@/entities/subscription";
 import { formatMoscowDate, formatRubles } from "@/shared/lib/moscow-format";
 import {
   authoringProductEditorHref,
@@ -44,15 +45,7 @@ const paymentHitSchema = z
     createdAt: z.iso.datetime(),
     productName: z.string(),
     purchaseRef: z.uuid(),
-    state: z.enum([
-      "prepared",
-      "sent",
-      "unknown",
-      "pending",
-      "authorized",
-      "confirmed",
-      "failed",
-    ]),
+    state: attemptStateSchema,
   })
   .strict();
 

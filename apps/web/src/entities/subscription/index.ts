@@ -1,6 +1,7 @@
 export {
   accessCapabilitySchema,
   accessComposition,
+  attemptKindSchema,
   attemptStateSchema,
   billingFailureCodeSchema,
   cohortStageSchema,

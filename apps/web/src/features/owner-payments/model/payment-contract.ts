@@ -2,15 +2,10 @@ import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
 import { z } from "zod";
 
 import {
+  attemptKindSchema,
   attemptStateSchema,
   priceSnapshotSchema,
 } from "@/entities/subscription";
-
-/**
- * Виды платежей владельца billing, как их отдаёт `payments.list` и `payments.read`. Email заказа в
- * них нет и быть не должно: он читается отдельным запросом только на странице платежа.
- */
-const attemptKindSchema = z.enum(["initial", "one_time", "renewal", "upgrade"]);
 
 export const paymentAccessSchema = z.enum([
   "awaiting_payment",
@@ -20,6 +15,10 @@ export const paymentAccessSchema = z.enum([
 ]);
 export type PaymentAccess = z.infer<typeof paymentAccessSchema>;
 
+/**
+ * Виды платежей владельца billing, как их отдаёт `payments.list` и `payments.read`. Email заказа в
+ * них нет и быть не должно: он читается отдельным запросом только на странице платежа.
+ */
 export const paymentViewSchema = z.object({
   purchaseRef: z.uuid(),
   accountId: z.uuid(),
