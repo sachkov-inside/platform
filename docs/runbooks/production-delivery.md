@@ -339,7 +339,9 @@ contacts confirmed again while it ran; that confirmation wrote its own fingerpri
 counts addresses it could not decrypt or normalize; they stay unsearchable and need investigation,
 not a retry loop. A rerun is safe: it touches only contacts whose fingerprint does not match their
 current revision, so it is also the repair after a rollback to a release that confirms addresses
-without a fingerprint. It is never run by container startup or migrations.
+without a fingerprint. It is never run by container startup or migrations. The production Compose
+smoke executes this exact compiled command twice on its disposable database and requires only these
+four counts, no unreadable contact and nothing left to scan on the second run.
 
 ## Migrations, failure and rollback
 

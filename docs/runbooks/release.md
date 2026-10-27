@@ -8,7 +8,7 @@
 обычный выпуск, откат и возврат вперёд.
 
 Выпуск и выкладка требуют разрешения владельца (`WORKFLOW.md`, Owner gates). Всё ниже, кроме
-шага 2, выполняется без входа на сервер.
+шага 2 и разовых шагов после выкладки в шаге 4, выполняется без входа на сервер.
 
 Сеть от рабочей машины до сервера и GitHub рвётся (banner timeout, EOF). Повторяйте только
 подключение, не действие (решение владельца от 27.09.2026, sachkov-inside/workspace#228):
@@ -108,12 +108,23 @@ Backend и web выбираются по digest из manifest; скрипт пр
 | `Broken pipe`, код 255 | оборвалось SSH-соединение runner → сервер | посмотреть фазу в `/var/lib/inside/deployments/operation.json` и повторить ту же команду |
 | `A deployment must select the next ordinal` | выбран не следующий номер | выложить номер после текущего из `state.json` |
 
+Разовые шаги после выкладки. Если выпуск впервые содержит миграцию
+`0114_billing_contact_email_fingerprint`, после успешной выкладки один раз запустите перенос
+отпечатков Billing Contact (`release:fingerprint-billing-contacts`, в образе
+`dist/release/fingerprint-billing-contacts.js`) командой из раздела
+[Billing Contact fingerprints](production-delivery.md#billing-contact-fingerprints). До этого
+поиск людей по email не находит адреса, подтверждённые до выпуска.
+
 ## 5. Выпустить и выложить Telegram
 
 Telegram выпускается независимо из `apps/telegram` в platform. Его
 [production runbook](../../apps/telegram/docs/operations/production.md#выпуск-и-выкладка)
 владеет командами корневых workflows, проверкой источника, выкладкой и откатом.
 Если Telegram зависит от нового контракта Platform, сначала выложите Platform.
+Так, для поиска людей по имени через контракт `inside.telegram-contact.v2` порядок такой:
+сначала Platform, затем Telegram с миграцией `038-platform-link-profiles`
+([раздел Telegram](../../apps/telegram/docs/operations/production.md#поиск-контактов-по-имени-insidetelegram-contactv2)).
+Пока работает прежний Telegram, поиск по имени в админке сообщает, что временно недоступен.
 
 ## 6. Проверить
 
