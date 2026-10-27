@@ -105,7 +105,7 @@ export function AuthoringSearchTrigger() {
     >
       <Search aria-hidden="true" className="authoring-search-trigger-icon" />
       <span className="authoring-search-trigger-text">
-        Поиск по продуктам и материалам
+        Поиск по людям, продуктам и материалам
       </span>
       <kbd aria-hidden="true" className="authoring-search-trigger-kbd">
         {shortcut}
@@ -290,9 +290,14 @@ function SearchPanel({
           <X aria-hidden="true" />
         </button>
       </div>
+      {/* Длинный ответ (люди, продукты и материалы сразу) прокручивается: область получает фокус,
+          чтобы её можно было прокрутить с клавиатуры, а не только стрелками по вариантам. */}
       <div
         aria-busy={search.isFetching || stale || undefined}
+        aria-label="Найденное"
         className="authoring-search-results"
+        role="region"
+        tabIndex={0}
       >
         <p aria-live="polite" className="authoring-search-status">
           {status ?? `Найдено: ${String(entries.length)}`}

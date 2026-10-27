@@ -13,7 +13,7 @@ export function AuthoringPersonLoading() {
     <AuthoringPersonFrame busy label="Загрузка карточки человека">
       <div className="grid gap-6" data-person-card-head>
         <header className="person-card-header">
-          <div className="grid min-w-0 flex-1 gap-2">
+          <div className="grid min-w-0 flex-[1_1_18rem] gap-2">
             <span
               aria-hidden="true"
               className={bar}

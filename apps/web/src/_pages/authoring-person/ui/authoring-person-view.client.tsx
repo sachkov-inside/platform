@@ -108,7 +108,7 @@ function PersonCardContent({
     <AuthoringPersonFrame busy={isRefreshing} labelledBy={headingId}>
       <div className="grid gap-6" data-person-card-head>
         <header className="person-card-header">
-          <div className="grid min-w-0 flex-1 gap-1">
+          <div className="grid min-w-0 flex-[1_1_18rem] gap-1">
             <h1
               className={label.title === null ? "text-muted-foreground" : ""}
               id={headingId}

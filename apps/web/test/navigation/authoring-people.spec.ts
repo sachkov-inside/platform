@@ -87,11 +87,22 @@ async function expectAccessibleWithoutOverflow(page: Page) {
   expect(scan.violations).toEqual([]);
 }
 
-async function evidence(page: Page, info: TestInfo, state: string) {
+/**
+ * The desktop page is captured whole; the phone and an open dialog as the screen the person sees,
+ * with the fixed bottom panel where it really is.
+ */
+async function evidence(
+  page: Page,
+  info: TestInfo,
+  state: string,
+  { screen = false }: { readonly screen?: boolean } = {},
+) {
   if (process.env["CAPTURE_PEOPLE_EVIDENCE"] !== "1") return;
   const directory = await prepareEvidenceDirectory("issue-1721");
   const path = resolve(directory, `live-${state}-${info.project.name}.png`);
-  await screenshotWholePage(page, { path });
+  if (screen || info.project.name === "mobile-chromium")
+    await page.screenshot({ path });
+  else await screenshotWholePage(page, { path });
   await info.attach(`people-${state}`, { path, contentType: "image/png" });
 }
 
@@ -281,7 +292,7 @@ test("the owner grants, revokes with a reason and its consequence, and restores 
   await expect(revoke.getByText("Опишите причину")).toBeVisible();
   await revoke.getByLabel("Заметка").fill("Попросил партнёр");
   await expectAccessibleWithoutOverflow(page);
-  await evidence(page, info, "revoke-dialog");
+  await evidence(page, info, "revoke-dialog", { screen: true });
   await revoke.getByRole("button", { name: "Отозвать доступ" }).click();
   await expect(
     page.getByText(`Доступ к «${products.ai.name}» отозван.`),
