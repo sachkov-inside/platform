@@ -1794,17 +1794,18 @@ export const ModelComparison: Story = {
       "GLM",
       "Kimi",
     ]);
-    const titles = [
-      "Claude Opus 5.5 / Sonnet 5.5",
-      "GPT-6.1 Sol / GPT-6.1 Terra / GPT-6 Luna",
-      "DeepSeek V4.1 Flash",
-      "GLM-5.3-Flash",
-      "Kimi K3.1 Pro",
+    const models = [
+      { label: "Claude", title: "Claude Opus 5.5 / Sonnet 5.5" },
+      { label: "GPT", title: "GPT-6.1 Sol / GPT-6.1 Terra / GPT-6 Luna" },
+      { label: "DeepSeek", title: "DeepSeek V4.1 Flash" },
+      { label: "GLM", title: "GLM-5.3-Flash" },
+      { label: "Kimi", title: "Kimi K3.1 Pro" },
     ];
-    for (const [index, button] of buttons.entries()) {
+    for (const model of models) {
+      const button = within(group).getByRole("button", { name: model.label });
       await userEvent.click(button);
       await expect(canvas.getAllByRole("region")).toHaveLength(1);
-      const panel = canvas.getByRole("region", { name: titles[index] });
+      const panel = canvas.getByRole("region", { name: model.title });
       await expect(button).toHaveAttribute("aria-pressed", "true");
       await expect(button).toHaveAttribute("aria-controls", panel.id);
       await expect(within(panel).getByText("Цена.")).toHaveProperty(
@@ -1821,15 +1822,18 @@ export const ModelComparison: Story = {
         within(panel).getByRole("link", { name: "Подробнее об опыте" }),
       ).toHaveAttribute("href", "https://example.com/opinion");
     }
-    await userEvent.click(buttons[0]);
-    for (const [index, button] of buttons.entries()) {
+    await userEvent.click(
+      within(group).getByRole("button", { name: "Claude" }),
+    );
+    for (const [index, model] of models.entries()) {
+      const button = within(group).getByRole("button", { name: model.label });
       if (index > 0) await userEvent.tab();
       await expect(button).toHaveFocus();
       await userEvent.keyboard(index % 2 === 0 ? "{Enter}" : " ");
       await expect(button).toHaveAttribute("aria-pressed", "true");
       await expect(canvas.getAllByRole("region")).toHaveLength(1);
       await expect(
-        canvas.getByRole("region", { name: titles[index] }),
+        canvas.getByRole("region", { name: model.title }),
       ).toBeVisible();
     }
   },
