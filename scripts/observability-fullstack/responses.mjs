@@ -1,5 +1,13 @@
 // @ts-check
 /** Semantic fixture checks consume private responses; only closed observations leave this module. */
+/** @param {string | undefined} value */
+export function telegramSeedRange(value) {
+  if (value === undefined || !/^(0|64|128|192)$/u.test(value))
+    throw new Error("fixed Telegram seed batch required");
+  const start = Number(value);
+  return { start, end: start + 64 };
+}
+
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function record(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);

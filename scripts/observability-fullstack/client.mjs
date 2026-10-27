@@ -4,7 +4,12 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
-import { accountId, operationOk, readinessObservation } from "./responses.mjs";
+import {
+  accountId,
+  operationOk,
+  readinessObservation,
+  telegramSeedRange,
+} from "./responses.mjs";
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function record(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -707,8 +712,9 @@ if (action === "cache-ready") {
     (error) => process.exit(error ? 1 : 0),
   );
 } else if (action === "telegram-establish") {
+  const { start, end } = telegramSeedRange(argument(0));
   let accepted = 0;
-  for (let index = 0; index < profile.accounts; index++) {
+  for (let index = start; index < end; index++) {
     const result = await telegramUpdate(index, 1000000 + index);
     if (!operationOk(result, "telegram_webhook", ""))
       throw new Error("synthetic Telegram contact creation failed");

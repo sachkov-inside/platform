@@ -1,7 +1,33 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { operationOk, readiness, readinessObservation } from "./responses.mjs";
+import {
+  operationOk,
+  readiness,
+  readinessObservation,
+  telegramSeedRange,
+} from "./responses.mjs";
+
+test("Telegram seed admits only the four complete disjoint corpus batches", () => {
+  assert.deepEqual(["0", "64", "128", "192"].map(telegramSeedRange), [
+    { start: 0, end: 64 },
+    { start: 64, end: 128 },
+    { start: 128, end: 192 },
+    { start: 192, end: 256 },
+  ]);
+  for (const value of [
+    undefined,
+    "",
+    "-1",
+    "1",
+    "63",
+    "256",
+    "0.0",
+    " 0",
+    "00",
+  ])
+    assert.throws(() => telegramSeedRange(value));
+});
 
 test("readiness requires the current source, dependencies and body, including Umami heartbeat", () => {
   const source = "a".repeat(40);
