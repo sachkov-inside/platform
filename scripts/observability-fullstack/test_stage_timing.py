@@ -220,8 +220,10 @@ except KeyboardInterrupt:sys.exit(42)
                 def refuse_terminal(path,value,source,**options):
                     if value['state']=='completed':raise OSError('private terminal disk failure')
                     return original_write(path,value,source,**options)
-                with patch.object(stage_timing,'write',side_effect=refuse_terminal):
-                    with self.assertRaises(ValueError):fullstack.worker(output)
+                primary=ValueError('closed fullstack timing contract')
+                with patch.object(stage_timing,'write',side_effect=refuse_terminal),patch.object(stage_timing,'refuse',side_effect=primary):
+                    with self.assertRaises(ValueError) as caught:fullstack.worker(output)
+                self.assertIs(caught.exception,primary)
                 self.assertEqual(json.loads((output/'fullstack-proof.json').read_text())['state'],'failed')
             self.assertEqual(value['state'],'completed')
             self.assertEqual(first_dispatched,[(pair,on,name,group,group*3+phase)
@@ -232,6 +234,28 @@ except KeyboardInterrupt:sys.exit(42)
             self.assertEqual([row['stage'] for row in rows if row['stage'].startswith('outage_')],
                 ['outage_core_up','outage_collector_stop','outage_loss','outage_collector_up','outage_ready','outage_recover'])
             self.assertIn(stage_timing.NAME,fullstack.ARTIFACTS)
+
+    def test_actual_worker_primary_failure_survives_terminal_diagnostic_write_failure(self):
+        import fullstack
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            (output/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
+            (output/'evidence.json').write_text(json.dumps({'source':SOURCE}))
+            original_write=stage_timing.write
+            primary=RuntimeError('private original guard failure')
+            def fail_terminal(path,value,source,**options):
+                if value['state']=='failed':raise OSError('private terminal disk failure')
+                return original_write(path,value,source,**options)
+            with patch.object(fullstack,'sys',SimpleNamespace(platform='linux')), \
+                    patch.object(fullstack.pilot,'worker_storage_guard',side_effect=primary), \
+                    patch.object(stage_timing,'write',side_effect=fail_terminal):
+                with self.assertRaises(RuntimeError) as caught:fullstack.worker(output)
+            self.assertIs(caught.exception,primary)
+            self.assertEqual(json.loads((output/'fullstack-proof.json').read_text())['state'],'failed')
+            # Failed persistence can retain only the last successful checkpoint.
+            self.assertEqual(stage_timing.read(output,SOURCE)['state'],'running')
+            self.assertNotIn('private',(output/stage_timing.NAME).read_text())
 
     def test_actual_phase_failure_preserves_reader_sql_baseline_and_failed_load_stage(self):
         import fullstack
