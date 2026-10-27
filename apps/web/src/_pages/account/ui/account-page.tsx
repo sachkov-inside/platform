@@ -28,10 +28,10 @@ export function AccountUnavailable({
   return (
     <section className="py-16">
       <h1 className="text-4xl font-bold tracking-[-0.04em]">
-        Account временно недоступен
+        Аккаунт временно недоступен
       </h1>
       <p className="mt-4 text-muted-foreground">
-        Данные не менялись. Обновите страницу или повторите попытку позже.
+        Не удалось загрузить аккаунт. Обновите страницу или попробуйте позже.
       </p>
       <p className="mt-5 font-mono text-xs text-muted-foreground">
         Код: {reference}

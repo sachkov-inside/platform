@@ -21,13 +21,13 @@ import { AccountEmailForm } from "./account-email-form.client";
 const queryKey = ["account", "sign-in-email"] as const;
 const errorMessage: Record<EmailAttachmentFailure["code"], string> = {
   unauthorized: "Войдите снова, чтобы продолжить.",
-  invalid_input: "Проверьте адрес почты и шестизначный код.",
+  invalid_input: "Проверьте адрес почты и код из шести цифр.",
   challenge_invalid:
     "Код неверный или истёк. Проверьте письмо или запросите новый код.",
   email_conflict:
-    "Не удалось привязать адрес. Возможно, он уже используется другим аккаунтом. Аккаунты не объединены.",
-  rate_limited: "Слишком много попыток. Подождите перед повторным запросом.",
-  unavailable: "Не удалось подтвердить почту. Повторите попытку позже.",
+    "Не удалось добавить почту. Возможно, она занята другим аккаунтом. Аккаунты остались отдельными.",
+  rate_limited: "Слишком много попыток. Попробуйте позже.",
+  unavailable: "Не удалось подтвердить почту. Попробуйте позже.",
 };
 const emailAttached = factAnnouncement("inside.account-email.attached");
 export function AccountEmailPanel() {

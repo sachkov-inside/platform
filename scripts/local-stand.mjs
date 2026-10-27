@@ -18,6 +18,7 @@ import { requireUnmanagedStand } from "./stand-controller.mjs";
 import {
   createStandBuildBudget,
   dockerDesktopStoragePath,
+  orbstackStoragePath,
 } from "./local-stand-budget.mjs";
 
 /**
@@ -154,24 +155,33 @@ export async function launchLocalStand({
         "The Platform Compose stack is already running and belongs to the owner or another session. Ask the owner, or wait for the owning session's handoff, before it is stopped (docs/runbooks/local-stand.md).",
       );
     }
-    const storage =
-      process.platform === "darwin"
-        ? dockerDesktopStoragePath(
-            (
-              await run(
-                "lsof",
-                ["-n", "-F", "n", "-c", "/com\\.dock/", "-c", "/Virtual/"],
-                {
-                  capture: true,
-                },
-              )
-            ).output,
-          )
-        : (
-            await run("docker", ["info", "--format", "{{.DockerRootDir}}"], {
-              capture: true,
-            })
-          ).output.trim();
+    let storage;
+    if (process.platform === "darwin") {
+      const operatingSystem = (
+        await run("docker", ["info", "--format", "{{.OperatingSystem}}"], {
+          capture: true,
+        })
+      ).output.trim();
+      const orbstack = operatingSystem === "OrbStack";
+      const openFiles = (
+        await run(
+          "lsof",
+          orbstack
+            ? ["-n", "-F", "n", "-c", "/OrbStack/"]
+            : ["-n", "-F", "n", "-c", "/com\\.dock/", "-c", "/Virtual/"],
+          { capture: true },
+        )
+      ).output;
+      storage = orbstack
+        ? orbstackStoragePath(openFiles)
+        : dockerDesktopStoragePath(openFiles);
+    } else {
+      storage = (
+        await run("docker", ["info", "--format", "{{.DockerRootDir}}"], {
+          capture: true,
+        })
+      ).output.trim();
+    }
     buildBudget = createStandBuildBudget(() => {
       const disk = statfsSync(storage);
       return disk.bavail * disk.bsize;

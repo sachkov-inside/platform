@@ -60,7 +60,7 @@ export function TelegramLinkAction({
         </Button>
         {compact ? null : (
           <p className="text-xs leading-5 text-muted-foreground" role="status">
-            Нажмите Start в боте — он сам пришлёт личную ссылку в группу.
+            Нажмите Start в боте. Он пришлёт личную ссылку в группу.
           </p>
         )}
       </div>

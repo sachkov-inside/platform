@@ -117,10 +117,10 @@ export const WithProducts: Story = {
       await canvas.findByRole("link", { name: "Вступить в сообщество" }),
     ).toBeVisible();
     await expect(
-      canvas.queryByText("Готово. Аккаунт связан с ботом платформы."),
+      canvas.queryByText("Аккаунт подключён к Telegram."),
     ).not.toBeInTheDocument();
     await expect(
-      await canvas.findByRole("textbox", { name: "Отображаемое имя" }),
+      await canvas.findByRole("textbox", { name: "Имя" }),
     ).toHaveValue("Кирилл Сачков");
     await expect(
       canvas.queryByRole("textbox", { name: /О себе/ }),
@@ -185,9 +185,7 @@ export const FirstEmailAttachment: Story = {
       canvas.getByRole("button", { name: "Подтвердить почту" }),
     );
     await expect(await canvas.findByText("new@example.test")).toBeVisible();
-    await expect(
-      canvas.getByText(/Почта подтверждена и привязана/),
-    ).toBeVisible();
+    await expect(canvas.getByText(/Почта подтверждена/)).toBeVisible();
   },
 };
 
@@ -212,9 +210,7 @@ export const NewMember: Story = {
     const personal = within(
       await canvas.findByRole("region", { name: "Личные данные" }),
     );
-    await expect(
-      personal.getByRole("textbox", { name: "Отображаемое имя" }),
-    ).toBeVisible();
+    await expect(personal.getByRole("textbox", { name: "Имя" })).toBeVisible();
     const connections = within(
       await canvas.findByRole("region", { name: "Контакты и вход" }),
     );
@@ -227,7 +223,7 @@ export const NewMember: Story = {
     for (const text of [
       "От 2 до 80 символов. Имя может повторяться.",
       "Почта для входа и подключённый Telegram.",
-      "Подключите бота платформы — это займёт меньше минуты.",
+      "Подключите Telegram через бота. Это займёт меньше минуты.",
     ]) {
       await expect(canvas.queryByText(text)).not.toBeInTheDocument();
     }

@@ -441,7 +441,7 @@ export function MaterialReaderUnavailable({
         </div>
       }
       icon={<ShieldAlert aria-hidden="true" />}
-      message="Сервис чтения не отвечает. Попробуйте ещё раз через несколько минут."
+      message="Не удалось загрузить материал. Попробуйте через несколько минут."
       state="unavailable"
       title="Материал временно недоступен"
     />

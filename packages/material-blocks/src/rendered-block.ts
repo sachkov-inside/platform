@@ -73,6 +73,13 @@ export type RenderedQuiz = RenderedQuizContent &
 
 export type RenderedBlock =
   | RenderedQuiz
+  | {
+      readonly kind: "video";
+      readonly description?: string | undefined;
+      readonly chapters?:
+        | readonly { readonly start: number; readonly title: string }[]
+        | undefined;
+    }
   | { readonly content: readonly RenderedText[]; readonly kind: "paragraph" }
   | {
       readonly content: readonly RenderedText[];

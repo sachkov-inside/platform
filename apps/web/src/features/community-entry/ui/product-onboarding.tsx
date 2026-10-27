@@ -25,24 +25,24 @@ export function ProductOnboarding({
   return (
     <section
       className="rounded-2xl border border-border bg-card p-5 sm:p-7"
-      aria-label={`Онбординг продукта «${productName}»`}
+      aria-label={`Начало работы с продуктом «${productName}»`}
     >
       <JourneyProgress
         labels={["Telegram", "Сообщество", "Первый урок"]}
         current={current}
-        label="Шаги онбординга"
+        label="Шаги подключения"
       />
       <div className="mt-7 border-t border-border pt-6" aria-live="polite">
         <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
           {entry?.kind === "link_telegram"
-            ? "Привяжите Telegram"
+            ? "Подключите Telegram"
             : entry?.kind === "member"
               ? "Начните первый урок"
               : "Вступите в сообщество"}
         </h2>
         {error ? (
           <div className="mt-3" role="alert">
-            <p>Не удалось проверить онбординг.</p>
+            <p>Не удалось проверить подключение к продукту.</p>
             <Button className="mt-4" type="button" onClick={onRefresh}>
               Попробовать ещё раз
             </Button>
@@ -56,7 +56,7 @@ export function ProductOnboarding({
         ) : entry.kind === "join" ? (
           <>
             <p className="mt-3 text-sm text-muted-foreground">
-              Telegram привязан. Вступите в группу продукта.
+              Telegram подключён. Вступите в группу продукта.
             </p>
             <Button asChild className="mt-6 min-h-12 w-full">
               <a href={entry.botUrl} target="_blank" rel="noopener noreferrer">
@@ -95,7 +95,7 @@ export function ProductOnboarding({
               className="mt-5"
               onClick={onRefresh}
             >
-              Проверить состояние
+              Проверить статус
             </Button>
           </>
         )}

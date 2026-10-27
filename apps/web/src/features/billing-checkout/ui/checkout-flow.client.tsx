@@ -244,7 +244,7 @@ export function CheckoutFlow({
       }
       setPaymentError(
         waitingWithoutForm
-          ? "Форма оплаты пока недоступна. Повторите проверку состояния — новая оплата не создаётся."
+          ? "Форма оплаты пока недоступна. Попробуйте продолжить оплату ещё раз. Повторная покупка не создаётся."
           : undefined,
       );
       updateSelection(identity, { error: undefined });
@@ -343,8 +343,8 @@ export function CheckoutFlow({
       if (!address.success) {
         setEmailError(
           email.trim() === ""
-            ? "Введите email, чтобы получить чек."
-            : "Проверьте email: например, name@example.com.",
+            ? "Введите почту для чека."
+            : "Проверьте адрес почты. Например, name@example.com.",
         );
         emailInputRef.current?.focus();
         return;
@@ -398,17 +398,17 @@ export function CheckoutFlow({
       {panel}
       {attempt === null ? null : (
         <section
-          aria-label="Повтор первоначальной покупки"
+          aria-label="Начатая покупка"
           className="mt-5 rounded-xl border border-border p-4 text-sm leading-6"
         >
           <p>
-            Получаем результат первоначальной покупки:{" "}
+            Начатая покупка:{" "}
             {attempt.snapshot.product?.name ?? attempt.snapshot.offer.name}.{" "}
             {checkoutButtonLabel(attempt.snapshot)}. Чек на {attempt.email}.
           </p>
           <p>
-            Если ответ потерялся, повтор сохранённых условий восстановит эту
-            покупку.
+            Продолжите оплату на прежних условиях. Повторная покупка не
+            создаётся.
           </p>
           <Button
             className="mt-3"
@@ -420,7 +420,7 @@ export function CheckoutFlow({
             type="button"
             variant="outline"
           >
-            Повторить первоначальную покупку
+            Продолжить оплату
           </Button>
         </section>
       )}

@@ -182,8 +182,8 @@ export function OneTimeCheckoutPanel({
         {quote === null ? (
           <p className="mt-3 text-sm text-muted-foreground" role="status">
             {pending
-              ? "Готовим точные условия…"
-              : "Точные условия пока не сохранены."}
+              ? "Загружаем условия покупки…"
+              : "Не удалось подготовить условия покупки."}
           </p>
         ) : null}
       </div>
@@ -239,7 +239,7 @@ export function OneTimeCheckoutPanel({
           className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
           role="status"
         >
-          Условия продажи ещё не опубликованы, поэтому принять оплату нельзя.
+          Оплата недоступна: условия продажи ещё не опубликованы.
         </p>
       ) : null}
 
@@ -247,7 +247,7 @@ export function OneTimeCheckoutPanel({
         <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">
           <p className="font-semibold">Этот продукт у вас уже открыт.</p>
           <p className="mt-1 text-muted-foreground">
-            Повторная покупка не удваивает право и не продлевает уже открытое.
+            Повторная покупка не добавляет и не продлевает доступ.
           </p>
         </div>
       ) : null}
@@ -280,7 +280,7 @@ export function OneTimeCheckoutPanel({
               ? "Доступ открыт."
               : purchase.access === "preparing"
                 ? "Оплата подтверждена, открываем доступ."
-                : "Доступ откроется после подтверждения оплаты сервером."}
+                : "Доступ откроется после подтверждения оплаты."}
           </p>
           <Button
             className={`mt-3 ${billingActionClass}`}
@@ -289,7 +289,7 @@ export function OneTimeCheckoutPanel({
             type="button"
             variant="outline"
           >
-            Проверить состояние
+            Проверить статус
           </Button>
         </div>
       )}

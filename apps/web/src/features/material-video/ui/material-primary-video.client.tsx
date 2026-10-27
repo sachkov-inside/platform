@@ -41,10 +41,13 @@ interface MaterialPrimaryVideoProps {
    */
   readonly preview?: boolean;
   readonly video: {
-    readonly chapters?: readonly {
-      readonly start: number;
-      readonly title: string;
-    }[];
+    readonly description?: string | undefined;
+    readonly chapters?:
+      | readonly {
+          readonly start: number;
+          readonly title: string;
+        }[]
+      | undefined;
     readonly durationSeconds?: number | undefined;
     readonly failureCode?: string | undefined;
     readonly state: "uploading" | "processing" | "ready" | "failed";
@@ -101,6 +104,7 @@ export function MaterialPrimaryVideo({
     // A call is not narrowed, so each check reads the value the cleanup may have changed.
     const isActive = () => active;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
+    let cancelMetadataWait: (() => void) | undefined;
     let requestedHref = window.location.href;
     let seekToReadyFragment: ((href: string) => void) | undefined;
     const captureFragment = (event: HashChangeEvent) => {
@@ -161,7 +165,10 @@ export function MaterialPrimaryVideo({
         if (!isActive()) return;
         const factory = await iframeApi.load();
         if (!isActive()) return;
-        const player = await factory.create(mount, {
+        // The SDK replaces its target; retain the React-owned mount for retries.
+        const playerTarget = document.createElement("div");
+        mount.replaceChildren(playerTarget);
+        const player = await factory.create(playerTarget, {
           behavior: {
             autoPlay: false,
             keyboard: true,
@@ -185,8 +192,45 @@ export function MaterialPrimaryVideo({
         );
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
-        const duration = Math.max(1, Math.round(await player.getDuration()));
+        let metadataDuration = 0;
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            player.off(player.Events.Loaded, readDuration);
+            player.off(player.Events.DurationChange, readDuration);
+            player.off(player.Events.Error, onError);
+            cancelMetadataWait = undefined;
+            if (error === undefined) resolve();
+            else reject(error);
+          };
+          const onError = () => {
+            finish(new Error("Video metadata failed"));
+          };
+          const readDuration = () => {
+            if (settled) return;
+            void player.getDuration().then((value) => {
+              if (!settled && Number.isFinite(value) && value > 0) {
+                metadataDuration = value;
+                finish();
+              }
+            }, onError);
+          };
+          player.on(player.Events.Loaded, readDuration);
+          player.on(player.Events.DurationChange, readDuration);
+          player.on(player.Events.Error, onError);
+          cancelMetadataWait = () => {
+            finish();
+          };
+          // Subscribe before reading: Loaded can precede a positive duration.
+          readDuration();
+        });
         if (!isActive()) return;
+        if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
+          throw new Error("Video duration is unavailable");
+        }
+        const duration = Math.max(1, Math.round(metadataDuration));
         const playbackProgress = resolveVideoPlaybackProgress(
           savedPositionSeconds,
           duration,
@@ -288,6 +332,7 @@ export function MaterialPrimaryVideo({
     void loadPlayer();
     return () => {
       active = false;
+      cancelMetadataWait?.();
       removeTimeListener();
       void mountedPlayer?.destroy();
     };
@@ -361,6 +406,7 @@ export function MaterialPrimaryVideo({
 
   return (
     <MaterialVideoPlayerView
+      description={video.description}
       chapters={video.chapters ?? []}
       activeChapter={activeChapter}
       onLoad={() => {
@@ -386,6 +432,7 @@ export function MaterialPrimaryVideo({
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly description?: string | undefined;
   readonly chapters?: readonly {
     readonly start: number;
     readonly title: string;
@@ -405,6 +452,7 @@ export interface MaterialVideoPlayerViewProps {
 
 /** Production player shell shared with Storybook state fixtures. */
 export function MaterialVideoPlayerView({
+  description,
   chapters = [],
   activeChapter = null,
   className,
@@ -456,6 +504,11 @@ export function MaterialVideoPlayerView({
           </div>
         )}
       </div>
+      {description === undefined ? null : (
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+      )}
       {chapters.length === 0 ? null : (
         <nav className="mt-4" aria-label="Главы видео">
           <ol className="space-y-1">

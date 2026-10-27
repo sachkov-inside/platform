@@ -175,7 +175,8 @@ export function MaterialReaderView({
             showShare={false}
           />
           {modeSwitch}
-          {primaryVideo === null ? null : (
+          {primaryVideo === null ||
+          body.some((block) => block.kind === "video") ? null : (
             <MaterialPrimaryVideo
               className="max-w-none"
               key={primaryVideo.videoId}
@@ -189,6 +190,18 @@ export function MaterialReaderView({
             data-reader-body
           >
             <ReaderBlocks
+              renderVideo={(block) =>
+                primaryVideo === null ? (
+                  <p role="status">Видео к материалу не прикреплено.</p>
+                ) : (
+                  <MaterialPrimaryVideo
+                    className="mt-0 max-w-none sm:mt-0"
+                    materialId={material.materialId}
+                    video={{ ...primaryVideo, ...block }}
+                    showWatchedAction={readingAction === undefined}
+                  />
+                )
+              }
               renderLink={renderLink}
               blocks={body}
               contentVersion={material.contentVersion}
@@ -425,6 +438,7 @@ export function MaterialReaderFooter({
 }
 
 function ReaderBlocks({
+  renderVideo,
   renderLink,
   blocks,
   contentVersion,
@@ -434,6 +448,7 @@ function ReaderBlocks({
   materialSlug,
   path,
 }: {
+  readonly renderVideo: MaterialBodyRendering["video"];
   readonly renderLink?: MaterialBodyRendering["link"];
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
@@ -459,6 +474,7 @@ function ReaderBlocks({
       rendering={{
         ...(renderLink === undefined ? {} : { link: renderLink }),
         headingId,
+        ...(renderVideo === undefined ? {} : { video: renderVideo }),
         image: (block) =>
           harness?.replacesOverview === true ? null : (
             <MaterialAssetImage

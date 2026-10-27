@@ -469,8 +469,8 @@ export async function ensureSignInExperience(api) {
 export const signInAgreementPhrases = {
   description: {
     auto_agreement:
-      "Как мы используем данные — <link></link>. Условия использования вы примете сразу после входа.",
-    privacy_policy: "политика",
+      "Обработка данных описана в <link></link>. Условия использования вы примете после входа.",
+    privacy_policy: "политике персональных данных",
   },
 };
 

@@ -220,7 +220,7 @@ export const FormSubmits: Story = {
       repositoryUrl: "https://github.com/learner/devportal",
     });
     await expect(
-      await page.findByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
+      await page.findByText("Сдача отправлена. Откройте её в «Моих сдачах»."),
     ).toBeVisible();
   },
 };

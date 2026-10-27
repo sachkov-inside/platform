@@ -91,11 +91,11 @@ export function AccountAccessView({
               {emailSlot}
               {loading ? (
                 <p className="py-4 text-sm text-muted-foreground" role="status">
-                  Загружаем состояние аккаунта…
+                  Загружаем аккаунт…
                 </p>
               ) : unavailable || link === null ? (
                 <div className="py-4 text-sm" role="alert">
-                  <p>Состояние аккаунта сейчас недоступно.</p>
+                  <p>Не удалось загрузить аккаунт.</p>
                   <button
                     className="mt-2 min-h-11 underline underline-offset-4"
                     onClick={() => {

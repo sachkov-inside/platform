@@ -121,6 +121,11 @@ export function assembleSaveMaterial(
     if (!extraction.ok) {
       return failure(extraction.error);
     }
+    const rendered = dependencies.materialBodyOperations.render(body.value);
+    if (!rendered.ok) return failure(rendered.error);
+    const inlineVideo = rendered.value.blocks.find(
+      (block) => block.kind === "video",
+    );
     const assetReferences = extraction.value.resources.map((resource) => ({
       assetId: resource.assetId,
       kind: resource.kind,
@@ -272,7 +277,12 @@ export function assembleSaveMaterial(
               (command.primaryVideoId === locked.primaryVideoId
                 ? locked.videoChapters
                 : []);
-            if (videoChapters.length > 0) {
+            const chaptersToValidate =
+              command.primaryVideoId === null &&
+              command.publicationState === "draft"
+                ? videoChapters
+                : (inlineVideo?.chapters ?? videoChapters);
+            if (chaptersToValidate.length > 0) {
               if (
                 command.primaryVideoId === null ||
                 dependencies.videos === undefined
@@ -301,7 +311,7 @@ export function assembleSaveMaterial(
               const duration = video.value?.durationSeconds;
               if (
                 duration === undefined ||
-                videoChapters.some((chapter) => chapter.start >= duration)
+                chaptersToValidate.some((chapter) => chapter.start >= duration)
               )
                 return rollback({
                   code: "invalid_reference",

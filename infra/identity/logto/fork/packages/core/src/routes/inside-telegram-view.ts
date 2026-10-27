@@ -34,12 +34,12 @@ export function telegramBotLinks(value: unknown): { web: string; app: string } |
 // Also serialized into the identity-origin script: keep this function self-contained.
 export function renderTelegramSignInContent(view: InsideTelegramView): string {
   const copy = {
-    loading: 'Готовим вход…',
+    loading: 'Подключаемся к Telegram…',
     pending: 'Подтвердите вход в Telegram.',
     approved: 'Вход подтверждён. Возвращаемся на сайт…',
     denied: 'Вы отменили вход. Можно попробовать снова.',
-    expired: 'Время ожидания вышло. Начните вход заново.',
-    consumed: 'Этот запрос уже использован. Начните вход заново.',
+    expired: 'Время подтверждения истекло. Войдите заново.',
+    consumed: 'Эта ссылка уже использована. Войдите заново.',
     disabled: 'Вход через Telegram сейчас отключён.',
     unavailable: 'Не удалось начать вход. Попробуйте ещё раз.',
     reconnecting: 'Нет связи. Пробуем ещё раз…',
@@ -57,7 +57,7 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
       <h1>Вход через Telegram</h1>
       <p class="inside-telegram-status" role="status" aria-live="polite" aria-atomic="true">${copy[status]}</p>
       <div class="inside-telegram-actions">
-        ${deepLink ? `<a class="inside-telegram-button" id="bot" href="${deepLink}" target="_blank" rel="noopener noreferrer">Открыть бота</a>` : busy ? '<span class="inside-telegram-progress" aria-hidden="true"></span>' : '<a class="inside-telegram-button" id="alternative" href="/sign-in">Вернуться ко входу</a>'}
+        ${deepLink ? `<a class="inside-telegram-button" id="bot" href="${deepLink}" target="_blank" rel="noopener noreferrer">Открыть бота</a>` : busy ? '<span class="inside-telegram-progress" aria-hidden="true"></span>' : '<a class="inside-telegram-button" id="alternative" href="/sign-in">Войти снова</a>'}
       </div>
     </div>`;
 }
@@ -87,7 +87,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 `;
 
 export function renderTelegramSignInPage(view: InsideTelegramView): string {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram — Sachkov Dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram · Sachkov Dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
 }
 
 export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');

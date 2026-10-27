@@ -64,7 +64,7 @@ function validateUrl(url: string): boolean {
 
 /** Quiz atoms carry rendered children as data; apply the same URL/asset policy as document nodes. */
 function safeQuizContent(block: RenderedBlock): boolean {
-  if (block.kind === "quiz") return false;
+  if (block.kind === "quiz" || block.kind === "video") return false;
   if (
     block.kind === "paragraph" ||
     block.kind === "heading" ||
@@ -93,6 +93,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const nodeIds = new Set<string>();
   let nodes = 0;
+  let videoSeen = false;
   let textCodePoints = 0;
 
   function walk(
@@ -155,6 +156,19 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
         }
       }
 
+      if (type === "video") {
+        if (videoSeen)
+          issues.push({
+            code: "duplicate_video_block",
+            path: validationIssuePath(path),
+          });
+        videoSeen = true;
+        if (depth !== 2)
+          issues.push({
+            code: "video_must_be_top_level",
+            path: validationIssuePath(path),
+          });
+      }
       if (type === "quiz") {
         const quiz = renderedBlockSchema.safeParse(
           isJsonObject(value["attrs"]) ? value["attrs"]["quiz"] : undefined,

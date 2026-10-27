@@ -4,6 +4,7 @@ import {
   addressableMaterialBlockTypes,
   calloutToneLabels,
   readerBlocksSchema,
+  renderedBlockSchema,
   renderMaterialBlocks,
   materialQuizReferenceIssue,
 } from "@inside/material-blocks";
@@ -324,7 +325,15 @@ export function convertMarkdown(
         }
       } else if (token.type === "inline")
         top().content.push(...inline(token.children, token));
-      else if (["fence", "code_block"].includes(token.type))
+      else if (token.type === "fence" && token.info.trim() === "video") {
+        const block = renderedBlockSchema.parse({
+          kind: "video",
+          ...z.record(z.string(), z.json()).parse(JSON.parse(token.content)),
+        });
+        if (block.kind !== "video") fail(token, "expected a video block");
+        const { kind: _kind, ...attrs } = block;
+        append({ type: "video", attrs });
+      } else if (["fence", "code_block"].includes(token.type))
         append({
           type: "codeBlock",
           attrs: { language: token.info.trim() || null },
