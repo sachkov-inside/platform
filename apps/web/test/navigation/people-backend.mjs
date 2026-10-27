@@ -120,8 +120,8 @@ const directory = [
 function initialAccess() {
   /** @type {Map<string, AccessRecord>} */
   const records = new Map();
-  /** @param {string} accountId @param {string} productId @param {"active"|"revoked"} access @param {string} origin */
-  const put = (accountId, productId, access, origin) => {
+  /** @param {string} accountId @param {string} productId @param {"active"|"revoked"} state @param {string} origin */
+  const put = (accountId, productId, state, origin) => {
     const issued = {
       kind:
         origin === "paid"
@@ -134,12 +134,12 @@ function initialAccess() {
       reason: origin === "manual" ? "Подарок" : null,
     };
     records.set(`${accountId}:${productId}`, {
-      access,
-      revision: access === "active" ? 1 : 2,
+      access: state,
+      revision: state === "active" ? 1 : 2,
       origin,
       firstIssuedAt: issued.at,
       history:
-        access === "active"
+        state === "active"
           ? [issued]
           : [
               {
