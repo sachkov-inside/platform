@@ -38,7 +38,7 @@ class NativeRunEvidence(unittest.TestCase):
         phases=('mcp_evaluate','mcp_compare','partition_initial_acquire','partition_initial_state','partition_initial_after_cut',
                 'partition_initial_boundary','partition_compare_acquire','partition_compare_state',
                 'partition_compare_journal','partition_compare_after_cut')
-        for phase in (*phases,*evidence.MCP_COMPARE_PHASES,'inflight_baseline','inflight_open','inflight_raw_held',
+        for phase in (*phases,*evidence.MCP_COMPARE_PHASES,*evidence.RECOVERY_PHASES,'inflight_baseline','inflight_open','inflight_raw_held',
                       'inflight_registry_quiet','inflight_registry_scrape','inflight_boundary',
                       'inflight_release','inflight_stored','inflight_cohort'):
             with self.subTest(phase=phase),tempfile.TemporaryDirectory() as directory:

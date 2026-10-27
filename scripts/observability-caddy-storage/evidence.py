@@ -39,9 +39,13 @@ INFLIGHT_PHASES = ('inflight_baseline','inflight_open','inflight_raw_held','infl
                    'inflight_registry_scrape','inflight_boundary','inflight_release',
                    'inflight_stored','inflight_cohort')
 
+RECOVERY_PHASES = ('gateway_recovery_start','gateway_recovery_ready','gateway_recovery_refused',
+                   'gateway_recovery_eof','gateway_recovery_reset','gateway_recovery_timeout',
+                   'gateway_recovery_contract','gateway_recovery_other','gateway_recovery_fresh')
+
 PHASES = ('acquisition', 'ownership', 'identity', 'seed', 'partition',
           'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps', 'mcp_evaluate', 'mcp_compare',
-          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES + MCP_COMPARE_PHASES + INFLIGHT_PHASES
+          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES + MCP_COMPARE_PHASES + INFLIGHT_PHASES + RECOVERY_PHASES
 FAILURES = ('contract', 'timeout', 'transport', 'budget', 'unknown')
 
 

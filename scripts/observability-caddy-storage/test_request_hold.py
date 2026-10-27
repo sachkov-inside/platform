@@ -11,12 +11,12 @@ import request_hold
 
 
 @contextmanager
-def peer(*,status=200):
+def peer(*,status=200,body=None):
     prefixed=threading.Event();completed=threading.Event()
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*_):pass
         def respond(self):
-            raw=b'{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[100,"1"]}]}}'
+            raw=body if body is not None else b'{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[100,"1"]}]}}'
             self.send_response(status);self.send_header('Content-Length',str(len(raw)));self.end_headers()
             try:self.wfile.write(raw)
             except (BrokenPipeError,ConnectionResetError):pass

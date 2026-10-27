@@ -387,3 +387,23 @@ witness, integer boundary, release/HTTP response, stored history and final cohor
 fixed `inflight_*` stages. Checkpoints update memory and are persisted on terminal failure; polling does
 not add disk writes or publish native response bodies. A `contract` failure identifies its owning stage
 without implying that a controlled HTTP/MCP fixture established native Caddy acceptance.
+
+Gateway readiness uses its existing bounded loop when a published Docker socket closes before
+an HTTP response exists. Only the exact `RemoteDisconnected` type joins the already handled
+connection-refused case. The total readiness wait and each HTTP request keep their existing
+deadlines. HTTP502 responses remain journalled; readiness succeeds only after a whole validated
+HTTP200 response. Other resets, incomplete responses, invalid status/body and unknown subclasses
+still fail. A response-free attempt adds no invented counter admission to the journal. Startup
+and gateway-recovery readiness precede their seed/cut/baseline. Seed-internal readiness keeps
+the original accounting interval; any unexplained native admission there still fails the
+unchanged exact partition comparison.
+
+Nine fixed `gateway_recovery_*` phases distinguish restart, readiness, refused connection,
+response-free EOF, reset, timeout, contract, other failure and the fresh acquisition after seed.
+They update memory only; existing progress/terminal persistence writes the same six-field
+`caddy-run.json`. Readiness failure categories use exact exception types without reading their
+text, arguments or provider bodies. Optional checkpoint failures cannot replace the experiment's
+active failure, including when the callback raises an operator interrupt. Without an active
+failure, an operator interrupt still propagates; the mandatory restart runs in either case.
+These phases do not prove a historical unknown failure's cause. Collection requires the current source-bound
+reader; no positive case, query oracle, freshness tolerance or acquisition budget is changed.
