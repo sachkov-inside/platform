@@ -68,24 +68,31 @@ class Preparation(unittest.TestCase):
                 with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
             self.assertIs(caught.exception,failure)
 
-        # Actual fixed client: its HTTP timer returns a safe observation at2s, but a
-        # fixture resolver handle keeps Node alive past the unchanged4s parent deadline.
+        # Actual fixed client must terminate its own one-shot process after its2s
+        # HTTP outcome, even while an unrelated resolver handle remains pending.
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory);pidfile=base/'pid';preload=base/'preload.mjs'
             preload.write_text("import fs from 'node:fs';import dns from 'node:dns';import {syncBuiltinESMExports} from 'node:module';\n"
                 +"const read=fs.readFileSync;fs.readFileSync=(path,...args)=>read(path==='/resource/full-profile.json'?"+json.dumps(str(fullstack.PROFILE))+":path,...args);\n"
                 +"fs.writeFileSync("+json.dumps(str(pidfile))+",String(process.pid));dns.lookup=(host,options,callback)=>{const done=typeof options==='function'?options:callback;setTimeout(()=>done(Object.assign(new Error('fixture'),{code:'ENOTFOUND'})),8000);};syncBuiltinESMExports();")
             node=shutil.which('node');self.assertIsNotNone(node)
-            def docker_args(args):
-                return [node,'--import',str(preload),str(fullstack.HERE/'client.mjs'),*args[args.index('/resource/fullstack.mjs')+1:]]
-            output=io.StringIO();failure=RuntimeError('owned deadline')
-            with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'docker_args',side_effect=docker_args),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),redirect_stdout(output):
-                with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
-            self.assertIs(caught.exception,failure)
-            value=json.loads(output.getvalue())['fullstack_readiness']
-            self.assertFalse(value['ok']);self.assertEqual(value['probe']['outcome'],'timeout')
-            self.assertEqual(value['probe']['observation'],{'ok':False,'status':0,'cause':'transport_unavailable'})
-            with self.assertRaises(ProcessLookupError):os.kill(int(pidfile.read_text()),0)
+            # Keep the original timeout-prefix proof through a separately owned
+            # deliberately nonfinishing probe, rather than preserving the client bug.
+            nonfinishing=base/'nonfinishing.mjs'
+            nonfinishing.write_text('process.stdout.write(JSON.stringify({ok:true,status:200,cause:"ready"})+"\\n");setTimeout(()=>{},8000);')
+            for program,expected,observation in (
+                    (fullstack.HERE/'client.mjs','completed',{'ok':False,'status':0,'cause':'transport_unavailable'}),
+                    (nonfinishing,'timeout',{'ok':True,'status':200,'cause':'ready'})):
+                def docker_args(args):
+                    return [node,'--import',str(preload),str(program),*args[args.index('/resource/fullstack.mjs')+1:]]
+                output=io.StringIO();failure=RuntimeError('owned deadline')
+                with patch.object(fullstack.pilot,'command',return_value='a'*40),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'docker_args',side_effect=docker_args),patch.object(fullstack.pilot,'await_fact',side_effect=await_fact),redirect_stdout(output):
+                    with self.assertRaises(RuntimeError) as caught:fullstack.ready([], '/ready','telegram',3002)
+                self.assertIs(caught.exception,failure)
+                value=json.loads(output.getvalue())['fullstack_readiness']
+                self.assertFalse(value['ok']);self.assertEqual(value['probe']['outcome'],expected)
+                self.assertEqual(value['probe']['observation'],observation)
+                with self.assertRaises(ProcessLookupError):os.kill(int(pidfile.read_text()),0)
 
     def test_complete_generated_corpus_has_private_shared_pg_and_no_production_ingress(self):
         with tempfile.TemporaryDirectory() as directory:
