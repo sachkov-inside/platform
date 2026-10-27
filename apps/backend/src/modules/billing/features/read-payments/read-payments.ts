@@ -18,6 +18,7 @@ import {
   type OwnerOutcome,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { refundTotalsOf } from "../../shared/refund-amounts.js";
 
 type PurchaseRow = Awaited<
@@ -143,8 +144,9 @@ type ListPaymentsCommand = Extract<
 
 /**
  * Неизменяемая часть фильтра: покупатель, вид, продукт оплаченного снимка и период создания.
- * Cursor обязан лежать внутри неё. Состояние меняется со временем, поэтому позиция платежа,
- * сменившего состояние, остаётся допустимым продолжением.
+ * Cursor обязан лежать внутри неё. Состояние и незавершённость выдачи (`fulfillment`) меняются
+ * со временем, поэтому позиция платежа, сменившего состояние или получившего выдачу, остаётся
+ * допустимым продолжением.
  */
 function scopeOf(
   command: ListPaymentsCommand,
@@ -168,6 +170,28 @@ function scopeOf(
           },
         }),
   };
+}
+
+/** Наибольшее число платежей с незавершённой выдачей для фильтра `fulfillment`; больше — отказ. */
+export const INCOMPLETE_FULFILLMENT_LIMIT = 50_000;
+
+/**
+ * Платежи, у которых в очереди выдачи есть неприменённая строка: готовится или ждёт разбора.
+ * `undefined` — множество больше границы: обрезанное множество не выдаётся за полное.
+ */
+async function incompleteFulfillment(
+  prisma: BillingPrismaClient,
+): Promise<readonly string[] | undefined> {
+  const rows = await prisma.billingFulfillment.findMany({
+    where: { appliedAt: null },
+    distinct: ["purchaseRef"],
+    select: { purchaseRef: true },
+    orderBy: { purchaseRef: "asc" },
+    take: INCOMPLETE_FULFILLMENT_LIMIT + 1,
+  });
+  return rows.length > INCOMPLETE_FULFILLMENT_LIMIT
+    ? undefined
+    : rows.map((row) => row.purchaseRef);
 }
 
 function statesOf(command: ListPaymentsCommand): readonly string[] | null {
@@ -205,11 +229,24 @@ export async function listPayments(
   if (command.cursor !== undefined && after === null)
     return ownerFailure("invalid_request");
   const states = statesOf(command);
+  const pending =
+    command.fulfillment === undefined
+      ? null
+      : await incompleteFulfillment(prisma);
+  if (pending === undefined)
+    return dependencyFailure(
+      { module: "billing", operation: "payments.list" },
+      new RangeError("Incomplete fulfillment set exceeds its bound"),
+      ownerFailure("dependency_unavailable"),
+    );
   const rows = await prisma.billingPurchase.findMany({
     where: {
       AND: [
         scope,
         states === null ? {} : { state: { in: [...states] } },
+        pending === null
+          ? {}
+          : { state: "confirmed", id: { in: [...pending] } },
         after === null
           ? {}
           : {

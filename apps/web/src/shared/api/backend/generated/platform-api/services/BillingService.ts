@@ -604,6 +604,7 @@ export class BillingService {
       accountId?: string;
       cursor?: string;
       from?: string;
+      fulfillment?: 'incomplete';
       kind?: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       limit: number;
       operation: 'payments.list';
