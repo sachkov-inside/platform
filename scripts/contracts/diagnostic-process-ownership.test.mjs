@@ -239,7 +239,10 @@ async function fixture(
       ${mode === "finish" ? "return;" : "await new Promise(() => {});"}
     });
   `
-      : `await import('./scripts/${script}.mjs');`,
+      : script === "local-stand"
+        ? `import {launchLocalStand} from './scripts/local-stand.mjs';
+await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath});`
+        : `await import('./scripts/${script}.mjs');`,
   );
   const owner = spawn(
     process.execPath,

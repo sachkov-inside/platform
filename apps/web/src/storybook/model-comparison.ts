@@ -10,31 +10,16 @@ export const modelComparisonBlocks: readonly RenderedBlock[] = [
   },
   ...[
     "Claude Opus 5.5 / Sonnet 5.5",
-    "GPT-6.1 Sol / GPT-6 Luna",
+    "GPT-6.1 Sol / GPT-6.1 Terra / GPT-6 Luna",
     "DeepSeek V4.1 Flash",
     "GLM-5.3-Flash",
-    "Kimi K3",
+    "Kimi K3.1 Pro",
   ].map((title): RenderedBlock => ({
     kind: "callout",
     tone: "note",
     collapse: "expanded",
     title,
     content: [
-      {
-        kind: "paragraph",
-        content: [
-          {
-            kind: "text",
-            text: "Где использовать.",
-            marks: [{ kind: "bold" }],
-          },
-          {
-            kind: "text",
-            text: " Подключения и инструменты выбранной модели.",
-            marks: [],
-          },
-        ],
-      },
       {
         kind: "paragraph",
         content: [
@@ -49,26 +34,16 @@ export const modelComparisonBlocks: readonly RenderedBlock[] = [
       {
         kind: "paragraph",
         content: [
-          {
-            kind: "text",
-            text: "Примерные лимиты.",
-            marks: [{ kind: "bold" }],
-          },
-          {
-            kind: "text",
-            text: " Условия тарифа остаются в исходном материале.",
-            marks: [],
-          },
-        ],
-      },
-      {
-        kind: "paragraph",
-        content: [
           { kind: "text", text: "Моё мнение.", marks: [{ kind: "bold" }] },
           {
             kind: "text",
-            text: " Длинный текст сравнения переносится по ширине экрана. Переключатель сохраняет все абзацы и ссылки каждой модели, а на телефоне показывает одну карточку вместо широкой таблицы.",
-            marks: [],
+            text: " Личного опыта пока нет. Длинный текст сравнения переносится по ширине экрана.",
+            marks: [{ kind: "italic" }],
+          },
+          {
+            kind: "text",
+            text: " Подробнее об опыте",
+            marks: [{ kind: "link", href: "https://example.com/opinion" }],
           },
         ],
       },
