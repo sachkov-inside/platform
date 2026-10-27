@@ -16,7 +16,8 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
 
 /**
  * The owner's people directory (#1721): reads composed over Accounts and Telegram Membership.
- * Nothing it answers is a source of rights. The API process imports it.
+ * Nothing it answers is a source of rights. The API process imports it; the authoring search
+ * imports it for the payments of the people it finds.
  */
 @Module({
   imports: [AccountsModule, TelegramAccountLinksModule],
@@ -32,5 +33,6 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
       ) => new PeopleDirectory({ accounts, directory, telegram }),
     },
   ],
+  exports: [PeopleDirectory],
 })
 export class PeopleDirectoryHttpModule {}

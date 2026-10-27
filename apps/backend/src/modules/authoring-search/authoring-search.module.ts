@@ -7,6 +7,10 @@ import {
   MaterialsModule,
   type MaterialAuthoring,
 } from "../materials/index.js";
+import {
+  PeopleDirectory,
+  PeopleDirectoryHttpModule,
+} from "../people-directory/index.js";
 import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
 import { assemblePaymentsSearchGroup } from "./adapters/billing/payments-search-group.js";
 import { assembleMaterialsSearchGroup } from "./adapters/materials/materials-search-group.js";
@@ -25,21 +29,32 @@ import { SearchAuthoringController } from "./features/search-authoring/search-au
  * The API process imports it.
  */
 @Module({
-  imports: [AccountsModule, MaterialsModule, BillingModule],
+  imports: [
+    AccountsModule,
+    MaterialsModule,
+    BillingModule,
+    PeopleDirectoryHttpModule,
+  ],
   controllers: [SearchAuthoringController],
   providers: [
     {
       provide: AUTHORING_SEARCH,
-      inject: [PRODUCT_AUTHORING, MATERIAL_AUTHORING, BillingPaymentSearch],
+      inject: [
+        PRODUCT_AUTHORING,
+        MATERIAL_AUTHORING,
+        BillingPaymentSearch,
+        PeopleDirectory,
+      ],
       useFactory: (
         productAuthoring: ProductAuthoring,
         materialAuthoring: MaterialAuthoring,
         paymentSearch: BillingPaymentSearch,
+        people: PeopleDirectory,
       ): AuthoringSearch =>
         assembleAuthoringSearch([
           assembleProductsSearchGroup(productAuthoring),
           assembleMaterialsSearchGroup(materialAuthoring),
-          assemblePaymentsSearchGroup(paymentSearch),
+          assemblePaymentsSearchGroup(paymentSearch, people),
         ]),
     },
   ],

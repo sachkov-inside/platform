@@ -35,15 +35,23 @@ interface Dependencies {
   readonly accounts: Pick<Accounts, "checkPermission">;
 }
 
+/** Больше всего покупателей, чьи платежи ищет один запрос. */
+export const PAYMENT_SEARCH_ACCOUNT_LIMIT = 20;
+
 const requestSchema = z.strictObject({
   actor: z.uuid(),
   query: z.string().trim().min(1).max(160),
   limit: z.int().min(1).max(20),
+  accountIds: z
+    .array(z.uuid().toLowerCase())
+    .max(PAYMENT_SEARCH_ACCOUNT_LIMIT)
+    .default([]),
 });
 
 /**
- * Группа «Платежи» общего поиска под правом `billing:manage`: номер заказа, номер платежа банка
- * или точная сумма. Аккаунт без права получает отказ, и поиск не показывает группу.
+ * Группа «Платежи» общего поиска под правом `billing:manage`: номер заказа, номер платежа банка,
+ * точная сумма или покупатель из `accountIds`, которых нашёл поиск людей. Аккаунт без права
+ * получает отказ, и поиск не показывает группу. Ответ не называет покупателя.
  */
 export class BillingPaymentSearch {
   constructor(private readonly dependencies: Dependencies) {}
@@ -52,6 +60,7 @@ export class BillingPaymentSearch {
     readonly actor: string;
     readonly query: string;
     readonly limit: number;
+    readonly accountIds?: readonly string[];
   }): Promise<BillingPaymentSearchResult> {
     const parsed = requestSchema.safeParse(request);
     if (!parsed.success)
@@ -69,7 +78,7 @@ export class BillingPaymentSearch {
           : unavailable();
       if (!permission.allowed)
         return { ok: false, error: { code: "forbidden" } };
-      const where = matchOf(parsed.data.query);
+      const where = matchOf(parsed.data.query, parsed.data.accountIds);
       if (where === null) return { ok: true, value: [] };
       const rows = await this.dependencies.prisma.billingPurchase.findMany({
         where,
@@ -112,13 +121,19 @@ const bankPaymentIdPattern = /^\d{1,20}$/u;
 
 /**
  * Номер заказа совпадает целиком; цифры совпадают с номером платежа банка или с суммой в
- * рублях; сумма со знаком рубля или копейками совпадает только с суммой. Другой текст не ищет.
+ * рублях; сумма со знаком рубля или копейками совпадает только с суммой. Платежи найденных
+ * людей добавляются к любому из этих совпадений. Другой текст сам по себе не ищет.
  */
-function matchOf(query: string): Prisma.BillingPurchaseWhereInput | null {
+function matchOf(
+  query: string,
+  accountIds: readonly string[],
+): Prisma.BillingPurchaseWhereInput | null {
+  const conditions: Prisma.BillingPurchaseWhereInput[] =
+    accountIds.length === 0 ? [] : [{ accountId: { in: [...accountIds] } }];
   const reference = z.uuid().safeParse(query);
-  if (reference.success) return { id: reference.data.toLowerCase() };
-  const conditions: Prisma.BillingPurchaseWhereInput[] = [];
-  if (bankPaymentIdPattern.test(query)) conditions.push({ paymentId: query });
+  if (reference.success) conditions.push({ id: reference.data.toLowerCase() });
+  else if (bankPaymentIdPattern.test(query))
+    conditions.push({ paymentId: query });
   const amount = amountPattern.exec(query.replace(/\s/gu, ""));
   if (amount !== null) {
     const [, rubles = "", fraction = ""] = amount;

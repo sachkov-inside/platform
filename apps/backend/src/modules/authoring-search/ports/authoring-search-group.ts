@@ -48,8 +48,8 @@ export interface AuthoringSearchMaterial {
 }
 
 /**
- * A payment by order number, bank payment number or exact amount; it names no person and no
- * contact. `state` is the bank attempt state.
+ * A payment by order number, bank payment number, exact amount or the person who paid (found by
+ * the people directory); it names no person and no contact. `state` is the bank attempt state.
  */
 export interface AuthoringSearchPayment {
   readonly purchaseRef: string;
