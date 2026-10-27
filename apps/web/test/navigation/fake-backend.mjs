@@ -1100,7 +1100,7 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   const search = authoringSearchRoute(request, url);
   if (search !== null) return send(search.status, search.value);
-  const peopleRead = peopleRoute(request, url);
+  const peopleRead = await peopleRoute(request, url, readBody);
   if (peopleRead !== null) return send(peopleRead.status, peopleRead.value);
   const materials = await authoringMaterialsRoute(request, url, readBody);
   if (materials !== null) return send(materials.status, materials.value);
