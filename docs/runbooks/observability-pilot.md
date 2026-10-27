@@ -2146,6 +2146,14 @@ production rollout, server changes, capacity conclusions, provider messages or #
 а новый полный frame обязан пройти прежнюю свежесть. Query и decode используют один срок не более 10 секунд.
 Вычисление `ceil` и проверки frozen ownership сохранены.
 
+Внутри той же проверки публикации values и source timestamps читаются отдельными native запросами.
+Если searchable parts обновились между ними, обычный oracle возвращает malformed для смешанного cohort.
+Только при уже подтверждённой HTTP 200 публикации проверка может продолжить ожидание,
+когда каждое значение и source timestamp точно принадлежат предыдущему committed frame или новому ACKed frame.
+Availability=0 допускается лишь как фрагмент точного собственного down frame в restart.
+Новая метка, неизвестное значение или промежуточный timestamp сразу отклоняются.
+Смешанный ответ не считается здоровым: завершение по-прежнему требует полного нового свежего frame.
+
 `postgres-visibility.json` отдельно сохраняет до 64 закрытых baseline timing rows:
 длительности acquire/upload/stored-read, возраст ожидаемого и прочитанного sample,
 исходную freshness и признак точного предыдущего committed frame. Публикуются только

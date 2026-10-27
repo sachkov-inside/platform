@@ -61,6 +61,42 @@ def baseline_ports(test, fault=None, primary=None, secondary=None, waiting=False
 
 
 class Driver(unittest.TestCase):
+    def test_acknowledged_publication_may_wait_for_only_known_frame_fragments(self):
+        import copy
+        import oracle
+        from test_oracle import vectors,raw,EXPECTED,NOW
+        previous=EXPECTED.copy();current={**previous,'sample_us':NOW+2_000_000,'connected_backends':4}
+        rows,stamps=vectors()
+        for row in rows:row['value'][0]=1790000002
+        for row in stamps:row['value'][0]=1790000002
+        rows[0]['value'][1]='4'
+        rows[-2]['value'][1]=str(current['sample_us'])
+        for row in stamps[::2]:row['value'][1]='1790000002'
+        mixed=(raw(rows),raw(stamps),1790000002,current['sample_us'])
+        fresh_stamps=copy.deepcopy(stamps)
+        for row in fresh_stamps:row['value'][1]='1790000002'
+        fresh=(raw(rows),raw(fresh_stamps),1790000002,current['sample_us'])
+        driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.ledger.accept(previous)
+        driver.published_sample=current.copy()
+        with patch.object(scenario.time,'monotonic',return_value=100),patch.object(scenario.time,'sleep') as pause, \
+                patch.object(scenario.queries,'read',side_effect=[mixed,fresh]) as read:
+            self.assertEqual(driver.stored(current)['freshness'],'fresh')
+        self.assertEqual(read.call_count,2);pause.assert_called_once()
+        self.assertEqual(oracle.evaluate(*mixed[:2],evaluated_at=mixed[2],completed_us=mixed[3],expected=current)['freshness'],'malformed')
+        for fault in ('unacknowledged','counter','stamp','scope','future','different_expected'):
+            driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.ledger.accept(previous)
+            driver.published_sample=None if fault=='unacknowledged' else current.copy()
+            left,right=copy.deepcopy(rows),copy.deepcopy(stamps)
+            if fault=='counter':left[0]['value'][1]='5'
+            if fault=='stamp':right[0]['value'][1]='1790000001'
+            if fault=='scope':left[-1]['metric']['private']='not-exported'
+            if fault=='future':right[0]['value'][1]='1790000003'
+            expected={**current,'sample_us':NOW+3_000_000} if fault=='different_expected' else current
+            with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',return_value=100), \
+                    patch.object(scenario.queries,'read',return_value=(raw(left),raw(right),mixed[2],mixed[3])) as read:
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(expected)
+                read.assert_called_once()
+
     def test_restart_publication_waits_only_for_the_exact_observed_controlled_down_frame(self):
         import copy
         import oracle
@@ -96,6 +132,18 @@ class Driver(unittest.TestCase):
             self.assertEqual(driver.stored(current)['freshness'],'fresh')
         self.assertEqual(read.call_count,2);pause.assert_called_once()
         self.assertEqual(oracle.evaluate(*pending[:2],evaluated_at=pending[2],completed_us=pending[3],expected=current)['freshness'],'unavailable')
+        # Restart can expose new healthy families before replacing the known availability=0.
+        partial_rows,partial_stamps=copy.deepcopy(fresh_rows),copy.deepcopy(fresh_stamps)
+        partial_rows[-1]['value'][1]='0';partial_stamps[-1]['value'][1]='1790000001'
+        partial=(raw(partial_rows),raw(partial_stamps),fresh[2],fresh[3])
+        driver.published_sample=current.copy()
+        with patch.object(scenario.time,'monotonic',return_value=100),patch.object(scenario.time,'sleep'), \
+                patch.object(scenario.queries,'read',side_effect=[partial,fresh]):
+            self.assertEqual(driver.stored(current)['freshness'],'fresh')
+        driver.restart_down=None
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+                patch.object(scenario.queries,'read',return_value=partial):
+            with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(current)
         for fault in ('no_witness','foreign_zero','counter','stamp','scope','no_restart','ordinary_phase'):
             driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250;driver.phase='restart_observe'
             driver.ledger.accept(previous);driver.restart_down=None if fault=='no_witness' else down
