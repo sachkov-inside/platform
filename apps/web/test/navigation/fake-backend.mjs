@@ -36,6 +36,7 @@ import { salesPaymentsRoute } from "./sales-payments-backend.mjs";
 import { peopleRoute } from "./people-backend.mjs";
 import { productLearnersRoute } from "./product-learners-backend.mjs";
 import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
+import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1121,6 +1122,8 @@ const server = createServer(async (request, response) => {
   await waitNavigationTask(url.pathname);
   const search = authoringSearchRoute(request, url);
   if (search !== null) return send(search.status, search.value);
+  const overview = authoringOverviewRoute(request, url);
+  if (overview !== null) return send(overview.status, overview.value);
   // Ученики продукта (#1718) раньше людей (#1721): выдачу своего продукта ведёт двойник учеников.
   const learners = await productLearnersRoute(request, url, readBody);
   if (learners !== null) return send(learners.status, learners.value);

@@ -26,6 +26,8 @@ const commandSchema = z
  * - `Bearer people-empty` sees a directory without people.
  * - `Bearer people-unavailable` gets 503 `dependency_unavailable` for the list and the card.
  * - A query `telegram-down` stands for a name search while Telegram cannot answer.
+ * - The Overview filter `telegram=community_failed` keeps the first person and `delivery_failed`
+ *   the second (#1719); which Telegram facts count is proven by the backend tests.
  * - More than `nameMatchLimit` name matches answer `nameSearch: "truncated"` with the first ones;
  *   the double caps at 20 people where Nest caps at 50, so its small directory reaches the case.
  * - `POST /__people/reset` restores the state; `POST /__people/bump` with `{accountId, productId}`
@@ -223,11 +225,19 @@ function listPeople(url) {
   const productId = url.searchParams.get("productId");
   const origin = url.searchParams.get("origin");
   const state = url.searchParams.get("state");
+  const telegram = url.searchParams.get("telegram");
+  const telegramProblem =
+    telegram === "community_failed"
+      ? people[0]?.accountId
+      : telegram === "delivery_failed"
+        ? people[1]?.accountId
+        : undefined;
   const limit = Number(url.searchParams.get("limit") ?? "25");
   const offset = Number((url.searchParams.get("cursor") ?? "o:0").slice(2));
   let nameSearch = text === "telegram-down" ? "unavailable" : "available";
   let matches = directory.filter((person) => {
     if (text === "telegram-down") return false;
+    if (telegram !== null && person.accountId !== telegramProblem) return false;
     if (text !== "") {
       const byId = person.accountId === text;
       const byEmail = person.email === text;

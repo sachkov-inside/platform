@@ -124,14 +124,9 @@ const nextConfig: NextConfig = {
         destination: "/account/purchases",
         permanent: true,
       },
-      // Обзор админки строит #1719; до него вход в админку и бренд каркаса ведут в «Продукты».
-      {
-        source: "/authoring",
-        destination: "/authoring/products",
-        permanent: false,
-      },
       // Продажи админки живут под `/authoring/sales` (#1718). Прежние адреса ведут в «Платежи» и
-      // «Воронку продаж»; запрос адреса Next переносит сам. Временные, пока адреса не устоялись.
+      // «Воронку продаж», как требует спецификация #1717 («Навигация и каркас»); запрос адреса Next
+      // переносит сам.
       {
         source: "/authoring/billing",
         destination: "/authoring/sales/payments",

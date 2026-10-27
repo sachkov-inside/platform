@@ -5,6 +5,9 @@ import { internalRoute } from "./internal-route";
 
 export const authoringMaterialsRootHref = internalRoute("/authoring/materials");
 
+/** Обзор (#1719): стартовая страница админки, куда ведет бренд каркаса. */
+export const authoringOverviewHref = "/authoring" satisfies Route;
+
 const authoringProductsPrefix = "/authoring/products/";
 const productIdSchema = z.uuid();
 

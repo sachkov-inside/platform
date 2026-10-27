@@ -1728,6 +1728,8 @@ test("author edits product metadata on a dedicated page and returns to the list 
     .fill(`product-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
+  // Новый продукт открывается на «Обзоре» (#1719); состав на вкладке «Программа».
+  await page.getByRole("tab", { name: "Программа", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Продукт пока пуст" }),
   ).toBeVisible();
@@ -1837,6 +1839,7 @@ test("trusted author reorders a PostgreSQL product with keyboard controls", asyn
     .fill(`keyboard-order-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
+  await page.getByRole("tab", { name: "Программа", exact: true }).click();
 
   for (const title of [
     "Как устроен Inside Platform",
@@ -2140,7 +2143,8 @@ test("trusted author walks a product chapter through Previews that stay closed t
 
     // Из редактора продукта глава открывается одним нажатием, и возврат ведёт обратно в него (#837).
     const editorPath = `/authoring/products/${productId}`;
-    await page.goto(editorPath);
+    // Программа не первая вкладка: первая «Обзор» (#1719).
+    await page.goto(`${editorPath}?tab=program`);
     await page
       .getByRole("link", { name: `Предпросмотр главы «${chapterName}»` })
       .click();

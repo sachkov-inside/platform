@@ -22,6 +22,7 @@ import { withMutationFetch } from "@/storybook/mutation-mock";
 import { storyPriceSnapshot } from "@/storybook/sales-catalog.fixtures";
 import { ProductPageLoading } from "./content-collections-loading.client";
 import { ProductEditorPageClient } from "./product-editor-page.client";
+import { storyProductOverview } from "@/storybook/admin-overview.fixtures";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -215,6 +216,11 @@ function Fixture({
         priceAfterStartKopecks: 1_990_000,
       },
     });
+    // Первая вкладка «Обзор» (#1719) читает обзор продукта за 30 дней.
+    queryClient.setQueryData(
+      ["authoring", "product-overview", collection.id, 30],
+      { kind: "ready", ...storyProductOverview() },
+    );
     queryClient.setQueryData(["owner-price-catalog"], {
       items: [salePrice],
       archivedProductIds: [],
@@ -322,7 +328,7 @@ export const TabFromAddress: Story = {
   },
 };
 
-/** Незнакомая вкладка в адресе открывает программу. */
+/** Незнакомая вкладка в адресе открывает первую вкладку, «Обзор» (#1719). */
 export const UnknownTabFallsBack: Story = {
   globals: mobile.globals,
   beforeEach: () => {
@@ -332,12 +338,12 @@ export const UnknownTabFallsBack: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await expect(page.getByRole("tab", { name: "Программа" })).toHaveAttribute(
+    await expect(page.getByRole("tab", { name: /^Обзор$/u })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     await expect(
-      page.getByRole("list", { name: "Материалы продукта" }),
+      page.getByRole("heading", { level: 2, name: "Обзор продукта" }),
     ).toBeVisible();
   },
 };
@@ -656,6 +662,11 @@ export const ImportedBare: Story = {
   },
 };
 export const KeyboardReorder: Story = {
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("tab=program"),
+    );
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const handle = canvas.getByRole("button", {

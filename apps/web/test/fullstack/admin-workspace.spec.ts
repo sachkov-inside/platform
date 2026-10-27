@@ -15,7 +15,11 @@ test("admin workspace exposes every active task on desktop and phone through rea
 }, info) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring");
-  await expect(page).toHaveURL(/\/authoring\/products$/u);
+  // Вход в админку открывает Обзор (#1719) на своём адресе, без перенаправления.
+  await expect(page).toHaveURL(/\/authoring$/u);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Обзор" }),
+  ).toBeVisible();
   const phone = (page.viewportSize()?.width ?? 1440) < 1024;
   // На телефоне «Люди», «Продажи» и «Сдачи» стоят в нижней панели, остальное открывает «Ещё».
   const destinations = [
@@ -26,6 +30,7 @@ test("admin workspace exposes every active task on desktop and phone through rea
     [phone ? "Продажи" : "Платежи", "/authoring/sales/payments", "dock"],
     ["Воронка продаж", "/authoring/sales/funnel", "more"],
     ["Продукты", "/authoring/products", "more"],
+    ["Обзор", "/authoring", "dock"],
   ] as const;
   for (const [label, pathname, place] of destinations) {
     const more = page.getByRole("button", { name: "Ещё", exact: true });

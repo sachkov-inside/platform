@@ -1,11 +1,16 @@
 import { z } from "zod";
 
 /**
- * Вкладки страницы продукта в адресе: `?tab=description` и т. д. Первая вкладка, программа, в
+ * Вкладки страницы продукта в адресе: `?tab=program` и т. д. Первая вкладка, «Обзор» (#1719), в
  * адрес не пишется; незнакомое значение открывает её же. Новая вкладка добавляется сюда, в
  * подписи `productPageTabLabels` и в панели страницы.
+ *
+ * «Обзор» открывается по умолчанию, как первая вкладка спецификации #1717. Web не знает прав
+ * аккаунта заранее, поэтому автор только материалов видит на «Обзоре» отказ со ссылкой на
+ * «Программу».
  */
 export const productPageTabIds = [
+  "overview",
   "program",
   "description",
   "sale",
@@ -15,7 +20,7 @@ export const productPageTabIds = [
 
 export type ProductPageTabId = (typeof productPageTabIds)[number];
 
-export const defaultProductPageTab: ProductPageTabId = "program";
+export const defaultProductPageTab: ProductPageTabId = "overview";
 
 const productPageTabSchema = z.enum(productPageTabIds);
 

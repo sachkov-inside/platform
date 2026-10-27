@@ -1,0 +1,403 @@
+/*
+ * Обзор админки (#1719): блоки панели, переключатель периода, лента событий и полосы воронки.
+ * Только токены `app/globals.css`. Раскладка следует ширине колонки (container query), поэтому
+ * те же блоки стоят и на странице Обзора, и во вкладке продукта.
+ */
+
+.admin-overview {
+  container-type: inline-size;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Повторное чтение за другой период: данные тускнеют, разметка стоит. */
+.admin-overview[data-refreshing] > :not(:first-child) {
+  opacity: 0.55;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+/* Блок панели: заголовок, необязательное действие справа и содержимое. */
+
+.admin-overview-block {
+  container-type: inline-size;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.admin-overview-block-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.admin-overview-block-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.admin-overview-block-header a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-block: -0.75rem;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--foreground) 35%,
+    transparent
+  );
+  text-underline-offset: 3px;
+}
+.admin-overview-block-header a:hover {
+  text-decoration-color: currentColor;
+}
+.admin-overview-block-header a:focus-visible,
+.admin-overview-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Отказ, сбой или пустой блок: короткая причина вместо данных. */
+.admin-overview-note {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.admin-overview-note strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.admin-overview-note[data-tone="critical"] strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-overview-note[data-tone="critical"] svg {
+  width: 16px;
+  height: 16px;
+  color: var(--destructive);
+}
+.admin-overview-quiet {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Переключатель периода. */
+
+.admin-period-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.admin-period-switch button {
+  min-width: 4.5rem;
+  min-height: 2.75rem;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.admin-period-switch button:disabled {
+  cursor: default;
+}
+.admin-period-switch button:not(:disabled):hover {
+  color: var(--foreground);
+}
+.admin-period-switch button[aria-pressed="true"] {
+  background: var(--secondary);
+  color: var(--foreground);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.admin-period-switch button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+/* Ряд показателей: две колонки на телефоне, пять на широкой панели. */
+
+.admin-overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.admin-overview-metrics > :first-child {
+  grid-column: 1 / -1;
+}
+@container (min-width: 42rem) {
+  .admin-overview-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .admin-overview-metrics > :first-child {
+    grid-column: auto;
+  }
+}
+@container (min-width: 64rem) {
+  .admin-overview-metrics {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+.admin-overview-metrics[data-columns="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@container (min-width: 48rem) {
+  .admin-overview-metrics[data-columns="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .admin-overview-metrics[data-columns="4"] > :first-child {
+    grid-column: auto;
+  }
+}
+
+/* Панель: график и «Требует внимания» рядом, ниже события и воронка, затем обучение. */
+
+.admin-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@container (min-width: 60rem) {
+  .admin-overview-grid {
+    grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .admin-overview-grid > [data-span="all"] {
+    grid-column: 1 / -1;
+  }
+}
+
+/* «Требует внимания». */
+
+.admin-attention-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-attention-list > li + li {
+  border-top: 1px solid var(--border);
+}
+.admin-attention-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 2.75rem;
+  padding: 8px 4px;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: none;
+  border-radius: 6px;
+}
+a.admin-attention-row:hover {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+a.admin-attention-row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.admin-attention-row > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--action);
+}
+.admin-attention-row[data-kind="unchecked"] > svg {
+  color: var(--destructive);
+}
+.admin-attention-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.admin-attention-count svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+}
+.admin-all-clear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--primary) 7%, var(--card));
+  font-size: 14px;
+  font-weight: 600;
+}
+.admin-all-clear svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Воронка. */
+
+.admin-funnel-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-funnel-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.admin-funnel-step-count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-funnel-step[data-counted="false"] .admin-funnel-step-count {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.admin-funnel-bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.admin-funnel-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+.admin-funnel-product {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Лента событий. */
+
+.admin-events {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-events > li + li {
+  border-top: 1px solid var(--border);
+}
+.admin-event {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 2px 12px;
+  padding: 10px 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.admin-event-icon {
+  display: grid;
+  place-items: center;
+  grid-row: span 3;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+}
+.admin-event-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.admin-event[data-kind="access_revoked"] .admin-event-icon {
+  background: color-mix(in oklch, var(--destructive) 9%, var(--card));
+  color: var(--destructive);
+}
+.admin-event[data-kind="payment_confirmed"] .admin-event-icon {
+  background: color-mix(in oklch, var(--primary) 11%, var(--card));
+  color: var(--foreground);
+}
+.admin-event-title {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.admin-event-title span {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.admin-event-context {
+  min-width: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.admin-event-context a,
+.admin-overview-link {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--foreground) 30%,
+    transparent
+  );
+  text-underline-offset: 3px;
+}
+.admin-event-context a:hover,
+.admin-overview-link:hover {
+  text-decoration-color: currentColor;
+}
+.admin-event-context a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.admin-event-time {
+  color: var(--muted-foreground);
+  font-family: var(--font-utility);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+@container (min-width: 36rem) {
+  .admin-event {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+  .admin-event-icon {
+    grid-row: span 2;
+  }
+  .admin-event-time {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: end;
+  }
+}

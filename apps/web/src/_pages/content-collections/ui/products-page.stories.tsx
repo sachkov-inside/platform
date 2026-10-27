@@ -396,6 +396,7 @@ export const RowMenuOpensProductTabs: Story = {
         .getAllByRole("menuitem")
         .map((item) => item.textContent),
     ).toEqual([
+      "Обзор",
       "Программа",
       "Описание и витрина",
       "Продажа",

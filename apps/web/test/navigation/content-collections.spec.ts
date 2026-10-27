@@ -126,7 +126,12 @@ test("products list opens a product whose tabs live in the address and keep the 
   else await row.locator("td").nth(2).click();
   await expect(page).toHaveURL(`/authoring/products/${architectureId}`);
   const tab = (name: string) => page.getByRole("tab", { name, exact: true });
-  await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
+  // «Обзор» первая вкладка и открывается без параметра (#1719).
+  await expect(tab("Обзор")).toHaveAttribute("aria-selected", "true");
+  await tab("Программа").click();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=program`,
+  );
   await expect(
     page.getByRole("list", { name: "Материалы продукта" }),
   ).toContainText("Первый шаг программы");
@@ -155,7 +160,9 @@ test("products list opens a product whose tabs live in the address and keep the 
   await expectAccessibleWithoutOverflow(page);
 
   await page.goBack();
-  await expect(page).toHaveURL(`/authoring/products/${architectureId}`);
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=program`,
+  );
   await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
   await page.goForward();
   await expect(tab("Описание и витрина")).toHaveAttribute(
@@ -165,15 +172,15 @@ test("products list opens a product whose tabs live in the address and keep the 
   await expect(summary).toHaveValue("Черновик описания продукта");
 });
 
-test("an unknown product tab falls back to the programme (#1720)", async ({
+test("an unknown product tab falls back to the first tab, the overview (#1719)", async ({
   page,
 }) => {
   await page.goto(`/authoring/products/${databaseId}?tab=sales`);
   await expect(
-    page.getByRole("tab", { name: "Программа", exact: true }),
+    page.getByRole("tab", { name: "Обзор", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(
-    page.getByRole("list", { name: "Материалы продукта" }),
+    page.getByRole("heading", { level: 2, name: "Обзор продукта" }),
   ).toBeVisible();
 });
 
@@ -203,7 +210,7 @@ test("hidden sale and community tabs read nothing until they are opened (#1718)"
     const path = new URL(request.url()).pathname;
     if (path.startsWith("/api/authoring/billing/")) salesReads.push(path);
   });
-  await page.goto(`/authoring/products/${architectureId}`);
+  await page.goto(`/authoring/products/${architectureId}?tab=program`);
   const tab = (name: string) => page.getByRole("tab", { name, exact: true });
   await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
   await expect(
@@ -288,7 +295,7 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expect(saleStatus).toHaveText("Продажи закрыты.");
   await expect(badge).toHaveText("Продажи закрыты");
 
-  // Вкладки живут в адресе: «назад» возвращает программу, а вкладка продажи открывается по ссылке.
+  // Вкладки живут в адресе: «назад» возвращает обзор, а вкладка продажи открывается по ссылке.
   await tab("Сообщество и активация").click();
   await expect(page).toHaveURL(
     `/authoring/products/${architectureId}?tab=community`,
@@ -305,7 +312,7 @@ test("the sale tab saves the price and opens and closes sales with a confirmatio
   await expect(tab("Продажа")).toHaveAttribute("aria-selected", "true");
   await page.goBack();
   await expect(page).toHaveURL(`/authoring/products/${architectureId}`);
-  await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
+  await expect(tab("Обзор")).toHaveAttribute("aria-selected", "true");
 });
 
 test("an archived price leaves the sale tab and the list saying so, with nothing to save or open (#1718)", async ({

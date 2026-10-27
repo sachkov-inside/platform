@@ -9,6 +9,7 @@ import {
 } from "@/shared/ui/admin";
 
 import {
+  fulfillmentFilterLabel,
   hasPaymentsFilters,
   paymentStates,
   paymentsPeriodLabel,
@@ -162,6 +163,12 @@ export function paymentsFilterChips(
       id: "period",
       label: period,
       next: withPaymentsFilter(query, { key: "period", value: undefined }),
+    });
+  if (query.fulfillment !== undefined)
+    chips.push({
+      id: "fulfillment",
+      label: fulfillmentFilterLabel,
+      next: withPaymentsFilter(query, { key: "fulfillment", value: undefined }),
     });
   return chips;
 }
