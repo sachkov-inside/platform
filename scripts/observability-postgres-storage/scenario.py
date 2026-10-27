@@ -228,7 +228,7 @@ class Scenario:
         self.verify_pg(deadline);cid=self.targets.targets['postgres']['id']
         self.clock_deadline=deadline
         self.phase='restart_stop_command'
-        stopped=self.read(['docker','stop','--time','2',cid])
+        stopped=self.read(['docker','stop','--timeout','2',cid])
         if type(stopped) is not str or len(stopped.encode('utf-8'))>65 or stopped not in (cid,cid+'\n'):raise ValueError('ownership')
         pilot.assert_docker_identity(deadline=deadline)
         self.phase='restart_stopped_identity'
