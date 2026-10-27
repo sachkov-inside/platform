@@ -42,6 +42,14 @@ class Telegram(unittest.TestCase):
             return json.dumps(row)
         with self.assertRaisesRegex(ValueError,'all_telegram_contacts_required'):
             telegram.establish([],invoke,wait,partial_total,256)
+        clock=[0]
+        def late_total(compose,query,**options):
+            value=sql(compose,query,**options)
+            if json.loads(value)['accepted']==256:clock[0]=76
+            return value
+        with patch.object(telegram.time,'monotonic',side_effect=lambda:clock[0]):
+            with self.assertRaisesRegex(TimeoutError,'synthetic_telegram_setup_deadline'):
+                telegram.establish([],invoke,wait,late_total,256)
 
     def test_pending_or_failed_native_rows_cannot_pass_processed_workload(self):
         for row in ({'accepted':5,'processed':0,'failed':0,'planned':5,'delivered':0},{'accepted':5,'processed':4,'failed':1,'planned':5,'delivered':4},{'accepted':4,'processed':4,'failed':0,'planned':4,'delivered':4}):

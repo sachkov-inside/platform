@@ -54,7 +54,7 @@ def establish(compose,invoke,wait,sql,actors):
     # the durable-delivery deadline or changing production transport pacing.
     # Preserve the former composed setup ceiling: client45s + durable ledger30s.
     deadline=time.monotonic()+75
-    def remaining(limit):
+    def remaining(limit=75):
         value=min(limit,deadline-time.monotonic())
         if value<=0:raise TimeoutError('synthetic_telegram_setup_deadline')
         return value
@@ -68,6 +68,7 @@ def establish(compose,invoke,wait,sql,actors):
         wait(lambda:processed(compose,bounded_sql,1000000+start,1000000+start+64,64),bool,budget=remaining(30),probe='synthetic_telegram_seed_processed')
     if processed(compose,bounded_sql,1000000,1000000+actors,actors) is None:
         raise ValueError('all_telegram_contacts_required')
+    remaining()
 
 
 def processed(compose,sql,start,end,expected):
