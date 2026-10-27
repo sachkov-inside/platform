@@ -53,6 +53,7 @@ export function authoringSearchRoute(request, url) {
           kind: "people",
           state: "ready",
           partial: query === "telegram-down",
+          truncated: false,
           items: people
             .filter(
               (person) =>

@@ -304,6 +304,7 @@ describe("«Люди» search group", () => {
       kind: "people",
       state: "ready",
       partial: false,
+      truncated: false,
       items: [anna],
     });
     expect(searchGroupEntries(group)).toEqual([
@@ -326,9 +327,21 @@ describe("«Люди» search group", () => {
       kind: "people",
       state: "ready",
       partial: true,
+      truncated: false,
       items: [],
     });
     expect(searchGroupNote(group)).toMatch(/временно недоступен/u);
+    expect(
+      searchGroupNote(
+        searchGroupSchema.parse({
+          kind: "people",
+          state: "ready",
+          partial: false,
+          truncated: true,
+          items: [anna],
+        }),
+      ),
+    ).toBe("Показаны не все совпадения. Уточните запрос.");
     expect(
       searchGroupSchema.parse({ kind: "people", state: "unavailable" }),
     ).toEqual({ kind: "people", state: "unavailable" });

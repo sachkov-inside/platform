@@ -55,6 +55,8 @@ export const searchGroupSchema = z.union([
        * работает: `items` содержат только его совпадения, если они есть.
        */
       partial: z.boolean(),
+      /** Совпало больше людей, чем вмещает группа: показаны первые, запрос стоит уточнить. */
+      truncated: z.boolean(),
       state: z.literal("ready"),
     })
     .strict(),
@@ -182,8 +184,11 @@ export function searchGroupEntries(
 
 /** Пояснение к группе: у «Людей» без поиска по имени работают только email и ID. */
 export function searchGroupNote(group: AuthoringSearchGroup): string | null {
-  return group.kind === "people" && group.state === "ready" && group.partial
-    ? "Поиск по имени и @username временно недоступен; поиск по email и ID работает."
+  if (group.kind !== "people" || group.state !== "ready") return null;
+  if (group.partial)
+    return "Поиск по имени и @username временно недоступен; поиск по email и ID работает.";
+  return group.truncated
+    ? "Показаны не все совпадения. Уточните запрос."
     : null;
 }
 

@@ -80,6 +80,7 @@ function peopleGroup(partial: boolean) {
   return {
     kind: "people",
     partial,
+    truncated: false,
     state: "ready",
     items: partial
       ? []
