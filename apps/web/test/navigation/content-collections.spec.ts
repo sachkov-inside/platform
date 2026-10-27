@@ -85,6 +85,16 @@ test("products list opens a product whose tabs live in the address and keep the 
   ).toBeVisible();
   const products = rows(page, info, "Все продукты");
   await expect(products).toHaveCount(3);
+  // Продажа сводится из цен владельца и публичных этапов: цена без открытых продаж, без цены, архив.
+  await expect(
+    products.filter({ hasText: "Архитектура приложения" }),
+  ).toContainText("Продажи закрыты");
+  await expect(
+    products.filter({ hasText: "Работа с базой данных" }),
+  ).toContainText("Нет цены");
+  await expect(
+    products.filter({ hasText: "Прежнее руководство" }),
+  ).toContainText("Архив");
   await expectAccessibleWithoutOverflow(page);
 
   // Поиск сужает полный список и живёт в адресе.

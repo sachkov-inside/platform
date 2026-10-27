@@ -34,6 +34,7 @@ import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
 import { authoringSearchRoute } from "./authoring-search-backend.mjs";
 import { salesPaymentsRoute } from "./sales-payments-backend.mjs";
 import { peopleRoute } from "./people-backend.mjs";
+import { productLearnersRoute } from "./product-learners-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -952,8 +953,25 @@ function discoveryNotFound() {
   );
 }
 
+/** @type {WeakMap<import("node:http").IncomingMessage, Promise<string>>} */
+const requestBodies = new WeakMap();
+
+/**
+ * Тело запроса читается один раз: двойники одного пути (`POST /billing/admin`) по очереди
+ * смотрят на операцию, и тот, кто её не ведёт, передаёт запрос следующему.
+ *
+ * @param {import("node:http").IncomingMessage} request
+ */
+function readBody(request) {
+  const known = requestBodies.get(request);
+  if (known !== undefined) return known;
+  const body = readStream(request);
+  requestBodies.set(request, body);
+  return body;
+}
+
 /** @param {import("node:http").IncomingMessage} request */
-async function readBody(request) {
+async function readStream(request) {
   /** @type {Buffer[]} */
   const chunks = [];
   for await (const chunk of request) {
@@ -1104,6 +1122,8 @@ const server = createServer(async (request, response) => {
   if (search !== null) return send(search.status, search.value);
   const peopleRead = peopleRoute(request, url);
   if (peopleRead !== null) return send(peopleRead.status, peopleRead.value);
+  const learners = await productLearnersRoute(request, url, readBody);
+  if (learners !== null) return send(learners.status, learners.value);
   const materials = await authoringMaterialsRoute(request, url, readBody);
   if (materials !== null) return send(materials.status, materials.value);
   const collections = await contentCollectionsRoute(request, url, readBody);

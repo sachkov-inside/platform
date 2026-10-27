@@ -238,9 +238,7 @@ export async function productSaleRoute(request, url, readBody) {
         },
       };
     default:
-      return {
-        status: 400,
-        value: { code: "invalid_request", status: 400 },
-      };
+      // Остальные команды владельца (например, платежи) ведут их двойники.
+      return null;
   }
 }
