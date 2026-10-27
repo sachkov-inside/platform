@@ -63,7 +63,7 @@ async function stubAccount(
   );
 }
 
-test("единый кабинет оставляет Telegram и документы без профиля и меню", async ({
+test("единый кабинет показывает имя, Telegram и документы без старого профиля и меню", async ({
   page,
 }) => {
   await stubAccount(page);
@@ -75,7 +75,9 @@ test("единый кабинет оставляет Telegram и докумен�
   await expect(page.locator("[data-account-section-nav]")).toHaveCount(0);
   await expect(
     page.getByRole("textbox", { name: "Имя", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  // The current name editor stays; the retired full profile also had a biography field.
+  await expect(page.getByRole("textbox", { name: /^О себе/u })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Подписка", exact: true }),
   ).toHaveCount(0);
