@@ -32,24 +32,33 @@ export const paymentLinkCommandSchema = z.discriminatedUnion("operation", [
     expectedRevision: revisionSchema,
   }),
 ]);
+/**
+ * Видимое состояние ссылки выводится при чтении: резерв оплаты, отзыв, срок и сравнение состава
+ * прав с текущей ценой продукта. Фильтр списка выбирает ровно это видимое состояние.
+ */
+export const paymentLinkStateSchema = z.enum([
+  "active",
+  "pending",
+  "unknown",
+  "paid",
+  "revoked",
+  "expired",
+  "changed",
+]);
+export type PaymentLinkState = z.infer<typeof paymentLinkStateSchema>;
 export const paymentLinkViewSchema = z.strictObject({
   id: idSchema,
   revision: revisionSchema,
-  state: z.enum([
-    "active",
-    "pending",
-    "unknown",
-    "paid",
-    "revoked",
-    "expired",
-    "changed",
-  ]),
+  state: paymentLinkStateSchema,
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime().nullable(),
   snapshot: priceSnapshotSchema,
 });
 export type PaymentLinkView = z.infer<typeof paymentLinkViewSchema>;
+/** Список ссылок от новых к старым; cursor хранит позицию и действует только в своём продукте. */
 export const paymentLinksListSchema = z.strictObject({
+  productId: idSchema.optional(),
+  state: paymentLinkStateSchema.optional(),
   cursor: idSchema.optional(),
   limit: z.int().min(1).max(100).default(50),
 });

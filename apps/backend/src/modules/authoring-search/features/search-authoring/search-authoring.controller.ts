@@ -41,6 +41,7 @@ import {
 const searchKinds = [
   "products",
   "materials",
+  "payments",
 ] as const satisfies readonly AuthoringSearchKind[];
 /** Every group kind can answer «unavailable»: a kind missing above fails compilation here. */
 const everyKindListed: [
@@ -81,6 +82,33 @@ const readyGroupHttpSchema = z.discriminatedUnion("kind", [
               title: z.string().nullable(),
               publicationState: z.enum(["draft", "published", "unpublished"]),
               topic: z.string().nullable(),
+            })
+            .strict(),
+        )
+        .max(AUTHORING_SEARCH_GROUP_LIMIT),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("payments"),
+      state: z.literal("ready"),
+      items: z
+        .array(
+          z
+            .object({
+              purchaseRef: z.uuid(),
+              productName: z.string(),
+              amountKopecks: z.int().positive(),
+              state: z.enum([
+                "prepared",
+                "sent",
+                "unknown",
+                "pending",
+                "authorized",
+                "confirmed",
+                "failed",
+              ]),
+              createdAt: z.iso.datetime(),
             })
             .strict(),
         )
@@ -201,6 +229,18 @@ export class SearchAuthoringController {
                 title: material.title,
                 publicationState: material.publicationState,
                 topic: material.topic,
+              })),
+            };
+          case "payments":
+            return {
+              kind: group.kind,
+              state: group.state,
+              items: group.items.map((payment) => ({
+                purchaseRef: payment.purchaseRef,
+                productName: payment.productName,
+                amountKopecks: payment.amountKopecks,
+                state: payment.state,
+                createdAt: payment.createdAt,
               })),
             };
         }
