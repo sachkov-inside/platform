@@ -92,6 +92,7 @@ export class AccessService {
         validUntil: string | null;
       }>;
       affectedCount: number;
+      community: 'closes' | 'remains';
       productId: string;
       revision: number;
     };
