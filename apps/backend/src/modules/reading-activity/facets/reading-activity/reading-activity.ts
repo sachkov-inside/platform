@@ -8,6 +8,7 @@ import { getProductProgress } from "../../features/get-product-progress/get-prod
 import { readLastActivity } from "../../features/read-last-activity/read-last-activity.js";
 import { readLearningSummary } from "../../features/read-learning-summary/read-learning-summary.js";
 import { readProductLearning } from "../../features/read-product-learning/read-product-learning.js";
+import { summarizeProductLearning } from "../../features/summarize-product-learning/summarize-product-learning.js";
 import { setReaderProductMode } from "../../features/set-reader-product-mode/set-reader-product-mode.js";
 import { setReadingState } from "../../features/set-reading-state/set-reading-state.js";
 import type { SetReadingStateCommand } from "../../features/set-reading-state/set-reading-state.contract.js";
@@ -49,6 +50,16 @@ export class ReadingActivity {
     readonly accountIds: readonly string[];
   }) {
     return readProductLearning(this.dependencies, query);
+  }
+  /**
+   * Started count and mean progress of up to 50 000 Accounts in one Product (#1719). Internal: no
+   * actor check, the caller checks the right to see these Accounts.
+   */
+  summarizeProductLearning(query: {
+    readonly productId: string;
+    readonly accountIds: readonly string[];
+  }) {
+    return summarizeProductLearning(this.dependencies, query);
   }
   /**
    * The person card's learning facts per Product, over the published composition and without

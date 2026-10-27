@@ -23,6 +23,7 @@ import {
   ReadingActivityModule,
 } from "../reading-activity/index.js";
 import { ProductWaitlists, SalesFunnelModule } from "../sales-funnel/index.js";
+import { Notifications, NotificationsModule } from "../notifications/index.js";
 import {
   CommunityEntitlements,
   CommunityEntitlementsModule,
@@ -47,6 +48,7 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
     AccountRightsModule,
     BillingModule,
     CommunityEntitlementsModule,
+    NotificationsModule,
     ProductsModule,
     ProductTasksModule,
     ReadingActivityModule,
@@ -76,6 +78,7 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
         SUBMISSION_REVIEW,
         CommunityEntitlements,
         ProductWaitlists,
+        Notifications,
       ],
       useFactory: (
         accounts: Accounts,
@@ -88,6 +91,7 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
         submissions: SubmissionReview,
         community: CommunityEntitlements,
         waitlists: ProductWaitlists,
+        deliveries: Notifications,
       ) =>
         new PeopleDirectory({
           accounts,
@@ -100,6 +104,7 @@ import { SearchPeopleController } from "./features/search-people/search-people.c
           submissions,
           community,
           waitlists,
+          deliveries,
         }),
     },
   ],

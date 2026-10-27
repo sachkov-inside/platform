@@ -10,6 +10,9 @@ import {
   type AccountsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
+import { countNewPeople } from "../../features/count-new-people/count-new-people.js";
+import { isDirectoryPerson } from "../../shared/directory-person.js";
+import type { DailyWindow } from "../../../../infrastructure/contracts/daily-window.js";
 import { fingerprintEmail } from "../../shared/account-input.js";
 
 /** The most Accounts one facts read accepts. */
@@ -227,11 +230,7 @@ export class AccountDirectory {
               on contact.account_id = account.id
               and contact.verified_at is not null
               and contact.email_ciphertext is not null
-            where (
-              account.email_fingerprint is not null
-              or contact.account_id is not null
-              or account.id = any(${linkedAccountIds}::uuid[])
-            )
+            where ${isDirectoryPerson(linkedAccountIds)}
             ${
               restrictTo === undefined
                 ? Prisma.empty
@@ -305,6 +304,20 @@ export class AccountDirectory {
         { ok: false, error: { code: "dependency_unavailable" } } as const,
       );
     }
+  }
+
+  /**
+   * People registered per calendar day of the window (#1719), by the same person rule as
+   * `listDirectory`; `linkedAccountIds` is bounded like a directory page's.
+   */
+  countNewPeople(
+    query: DailyWindow & { readonly linkedAccountIds: readonly string[] },
+  ) {
+    return countNewPeople(
+      this.dependencies.prisma,
+      query,
+      ACCOUNT_DIRECTORY_ID_SET_LIMIT,
+    );
   }
 
   /**

@@ -40,6 +40,7 @@ import {
   readLinkChangedAccounts,
   readBoundaryChangedAccounts,
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
+import { listCommunityProblemAccounts } from "../../features/list-community-problem-accounts/list-community-problem-accounts.js";
 import {
   readMemberState,
   type ReadMemberStateResult,
@@ -281,6 +282,14 @@ export class CommunityEntitlements {
    * restriction. No actor and no right check: only a composing read that has already checked
    * `billing:manage` calls it.
    */
+  /**
+   * Accounts whose latest community operation was rejected, failed or is overdue at `now`, at most
+   * 50 000 (#1719). No actor: the composing read checks its own right first.
+   */
+  listProblemAccounts(now: Date) {
+    return listCommunityProblemAccounts(this.dependencies.prisma, now);
+  }
+
   readMemberState(accountId: string): Promise<ReadMemberStateResult> {
     return readMemberState(this.dependencies, accountId);
   }

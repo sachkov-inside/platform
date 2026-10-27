@@ -99,12 +99,13 @@ interface ListScope {
 /**
  * One page of people for the owner (#1721), newest registration first. A search term narrows the
  * list to its candidates; `productId`, `origin` and `state` together narrow it to Accounts holding
- * one Product Access that matches all of them (without `productId`, any Product). The total and
- * the cursor keep the same search and filters.
+ * one Product Access that matches all of them (without `productId`, any Product). `telegram`
+ * narrows it to the Accounts behind one Telegram attention item of the Overview (#1719). The
+ * total and the cursor keep the same search and filters.
  *
- * Every ID set handed between owners is complete or refused: Telegram Membership and Account
- * Rights answer at most 50 000 Accounts each and refuse a larger set, which this read reports as
- * `dependency_unavailable`.
+ * Every ID set handed between owners is complete or refused: Telegram Membership, Notifications
+ * and Account Rights answer at most 50 000 Accounts each and refuse a larger set, which this read
+ * reports as `dependency_unavailable`.
  */
 export async function listPeople(
   dependencies: PeopleDirectoryDependencies,
@@ -158,8 +159,19 @@ export async function listPeople(
         ? holders.accountIds
         : restrictTo.filter((id) => held.has(id));
   }
-  // Contract first (#1719): the Telegram sets arrive with the Overview's owner reads.
-  if (telegram !== undefined) return failure("dependency_unavailable");
+  if (telegram !== undefined) {
+    const now = (dependencies.clock ?? (() => new Date()))();
+    const problems =
+      telegram === "community_failed"
+        ? await dependencies.community.listProblemAccounts(now)
+        : await dependencies.deliveries.listTelegramProblemAccounts(now);
+    if (!problems.ok) return failure("dependency_unavailable");
+    const problemSet = new Set(problems.accountIds);
+    restrictTo =
+      restrictTo === undefined
+        ? problems.accountIds
+        : restrictTo.filter((id) => problemSet.has(id));
+  }
   const empty = {
     ok: true,
     value: { items: [], total: 0, nextCursor: null, nameSearch },
