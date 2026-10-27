@@ -16,6 +16,11 @@ requests at a time, one shared 3.5 s budget), then reads the links again: a pair
 changed during the read is `not_found`. `unavailable` means the link is current but Telegram did
 not answer; name and username are then `null`.
 
+The v1 wire format is unchanged, but since `inside.telegram-contact.v2` the read is no longer
+side-effect free: Telegram stores each `available` profile of a current link for search (see
+below). This write is best-effort. If it fails, Telegram still answers the read and writes one
+diagnostic line with a technical failure code only, without names, usernames or references.
+
 ## v2
 
 `@inside/contracts/telegram-contact-v2`, version `inside.telegram-contact.v2`. The corpus is
@@ -49,7 +54,7 @@ their stored search text, then by `telegramIdentityRef`.
 Telegram searches only the profiles it stores for current links of its bot
 (`platform_link_profiles`). A profile is written when a linked user's private update arrives
 (`/start`, the bot commands, access buttons, blocking or unblocking the bot) and when a read returns
-`available` for a current link. An observation older than the stored one is ignored. A user
+`available` for a current link (v1 or v2). An observation older than the stored one is ignored. A user
 without a current link is never stored. A link transfer deletes the profile in the same
 transaction; a profile row also names the link confirmation it was observed under, and the
 search joins it with the current `platform_links` row in one statement, so a profile of an earlier
