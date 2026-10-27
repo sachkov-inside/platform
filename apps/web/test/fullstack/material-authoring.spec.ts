@@ -1898,7 +1898,7 @@ test("trusted author reorders a PostgreSQL product with keyboard controls", asyn
   );
   const programme = await fullStackBrowserJsonRequest(
     page,
-    "/api/authoring/series/order",
+    "/api/authoring/products/order",
     "PUT",
     {
       productId: productId,

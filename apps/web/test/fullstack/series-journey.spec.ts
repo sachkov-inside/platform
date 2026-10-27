@@ -283,7 +283,7 @@ test("product programme appends a real composition and restores Reader return po
     expect(ids.length).toBeGreaterThanOrEqual(13);
     const orderResponse = await fullStackBrowserRequest(
       page,
-      `/api/authoring/series/${collection.id}/order`,
+      `/api/authoring/products/${collection.id}/order`,
     );
     const { order } = z
       .object({
@@ -296,7 +296,7 @@ test("product programme appends a real composition and restores Reader return po
     const [importedPracticeId] = importedMaterialIds;
     const refused = await fullStackBrowserJsonRequest(
       page,
-      "/api/authoring/series/order",
+      "/api/authoring/products/order",
       "PUT",
       {
         productId: collection.id,
@@ -310,7 +310,7 @@ test("product programme appends a real composition and restores Reader return po
     });
     const saved = await fullStackBrowserJsonRequest(
       page,
-      "/api/authoring/series/order",
+      "/api/authoring/products/order",
       "PUT",
       {
         productId: collection.id,
@@ -400,7 +400,7 @@ test("product programme appends a real composition and restores Reader return po
     // otherwise its archive can hide a standalone Material from the next viewport's guest Reader.
     const orderResponse = await fullStackBrowserRequest(
       page,
-      `/api/authoring/series/${collection.id}/order`,
+      `/api/authoring/products/${collection.id}/order`,
     );
     const { order } = z
       .object({
@@ -410,7 +410,7 @@ test("product programme appends a real composition and restores Reader return po
       .parse(await orderResponse.json());
     const cleared = await fullStackBrowserJsonRequest(
       page,
-      "/api/authoring/series/order",
+      "/api/authoring/products/order",
       "PUT",
       {
         productId: collection.id,
