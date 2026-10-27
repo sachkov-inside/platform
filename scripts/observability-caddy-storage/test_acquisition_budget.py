@@ -82,7 +82,7 @@ class AcquisitionBudget(unittest.TestCase):
                 with patch.object(scenario.mcp_snapshot,'session',side_effect=lambda *args,**kwargs:nullcontext(None)), \
                      patch.object(scenario.caddy_query,'read_snapshot',side_effect=query) as reads, \
                      patch.object(scenario.traffic,'perform',side_effect=perform), \
-                     patch.object(scenario.time,'time',return_value=wall) as clock, \
+                     patch.object(scenario.time,'time',side_effect=[98]+[wall]*8) as clock, \
                      patch.object(scenario.time,'monotonic',return_value=0), \
                      patch.object(scenario.time,'sleep'), \
                      patch.object(experiment,'stamp',wraps=experiment.stamp) as stamp, \
@@ -98,8 +98,8 @@ class AcquisitionBudget(unittest.TestCase):
                     else:self.fail('partition cap unexpectedly passed')
                 expected_reads=0 if name=='initial_acquire' else 1 if initial or name=='compare_acquire' else 2
                 self.assertEqual(reads.call_count,expected_reads)
-                self.assertEqual(clock.call_count,2*expected_reads+(0 if initial or name=='compare_acquire' else 1))
-                self.assertEqual(stamp.call_count,0 if name in ('initial_acquire','initial_state') else 1 if name=='initial_after_cut' else 3 if name=='compare_after_cut' else 2)
+                self.assertEqual(clock.call_count,2*expected_reads+1+(0 if initial or name=='compare_acquire' else 1))
+                self.assertEqual(stamp.call_count,0 if name in ('initial_acquire','initial_state') else 3 if name in ('initial_boundary','compare_after_cut') else 2)
                 self.assertEqual(boundary.call_count,0 if name in ('initial_acquire','initial_state','initial_after_cut') else 1)
                 self.assertEqual(verify.call_count,1 if name in ('compare_journal','compare_after_cut') else 0)
                 self.assertEqual((run.snapshot()['phase'],run.snapshot()['reason']),('partition_'+name,'budget'))
@@ -125,7 +125,7 @@ class AcquisitionBudget(unittest.TestCase):
 
         # Two real rejected statuses are remembered; a later observed acquisition still follows normal matching.
         experiment=scenario.Scenario(None,'owned_token',None,Mock());experiment.deadline=600
-        down=acquired(100,99,down=True);stale=acquired(140,99);fresh=acquired(142,141)
+        down=acquired(100,99,down=True);stale=acquired(140,99);fresh=acquired(148,147)
         fixtures=[down,stale,fresh];expected=[]
         def read(_,previous,deadline_seconds,diagnose=False):
             current=fixtures.pop(0);report=scenario.status.evaluate(**current,previous=previous,diagnose=diagnose)
@@ -142,7 +142,7 @@ class AcquisitionBudget(unittest.TestCase):
         mcp=scenario.status.evaluate(**fresh);mcp['transport']['mcp']='passed'
         with patch.object(scenario.mcp_snapshot,'read_snapshot',return_value=(mcp,fresh)) as matching:
             self.assertEqual(experiment.matching(fresh),fresh)
-        matching.assert_called_once_with(None,'owned_token',evaluated_at=142,previous=None,progress=unittest.mock.ANY)
+        matching.assert_called_once_with(None,'owned_token',evaluated_at=148,previous=None,progress=unittest.mock.ANY)
         self.assertEqual(experiment.last_report['state'],'observed')
         self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
 
@@ -169,8 +169,46 @@ class AcquisitionBudget(unittest.TestCase):
                 self.assertEqual(report['state'],'observed')
                 self.assertGreater(experiment.stamp(current),cut)
                 self.assertTrue(experiment.journal.boundary_clear(experiment.stamp(current)))
+                self.assertLess(now[0]-cut,60)
         self.assertLessEqual(experiment.acquisitions,48)
-        self.assertLess(now[0],150)
+
+        # A legal4s acquisition plus1s polling aliases the5s producer forever.
+        # Exercise both real fresh-cohort callers with the exact journal/oracle.
+        for partition,offset in ((False,0),(False,.5),(True,0),(True,.5)):
+            for missing in (False,True):
+                with self.subTest(quiet_partition=partition,missing_source=missing,source_phase=offset):
+                    now=[100.0];queries=[]
+                    clock=SimpleNamespace(time=lambda:now[0],monotonic=lambda:now[0],
+                        sleep=lambda seconds:now.__setitem__(0,now[0]+seconds))
+                    experiment=scenario.Scenario(None,'owned_token',None,Mock())
+                    experiment.deadline=700;experiment.acquisitions=120
+                    for index in range(120):experiment.journal.record(10+index*.01,10+index*.01+.001,'GET',200,count=2)
+                    def slow(*args,**kwargs):
+                        started=now[0];point=math.floor(started);stamp=offset+5*math.floor((point-offset)/5)
+                        values,stamps=acquisition(point=point,stamp=stamp)
+                        if missing:
+                            values['data']['result']=[];stamps['data']['result']=[]
+                        now[0]+=4
+                        current={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),
+                                 'evaluated_at':point,'completed_at':now[0]}
+                        report=scenario.status.evaluate(**current);report['transport']['canonical']='passed'
+                        self.assertEqual(report['state'],'missing' if missing else 'observed')
+                        queries.append((started,now[0]))
+                        return report,current
+                    with patch.object(scenario,'time',clock),patch.object(scenario.caddy_query,'read_snapshot',side_effect=slow):
+                        if missing:
+                            with self.assertRaises(TimeoutError):experiment.fresh_after(99,_partition=partition)
+                            self.assertEqual(now[0],160)
+                        else:
+                            report,current=experiment.fresh_after(99,_partition=partition)
+                            self.assertEqual(experiment.acquisitions,122)
+                            self.assertEqual(now[0],115 if partition else 113)
+                            self.assertGreater(experiment.stamp(current),99)
+                            self.assertTrue(experiment.journal.boundary_clear(experiment.stamp(current)))
+                    self.assertLess(experiment.acquisitions,128)
+                    self.assertTrue(all(end-start==4 for start,end in queries))
+                    self.assertTrue(all(start-end>=5 for (_,end),(start,_) in zip(queries,queries[1:])))
+                    self.assertTrue(all(end-start==4 for start,end,*_ in experiment.journal._windows[120:]))
 
     def test_classification_never_reads_foreign_metadata_or_matches_text(self):
         class Foreign(RuntimeError):

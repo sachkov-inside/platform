@@ -408,11 +408,23 @@ failure, an operator interrupt still propagates; the mandatory restart runs in e
 These phases do not prove a historical unknown failure's cause. Collection requires the current source-bound
 reader; no positive case, query oracle, freshness tolerance or acquisition budget is changed.
 
-Source-cohort polling waits one second after an unsuccessful fresh/partition/stale acquisition.
-Queries evaluate at integer seconds and the native producer scrapes every five seconds;
-subsecond reads can repeatedly acquire the same frame, consume the shared128 cap and occupy
-sample boundaries with their own request windows. The first acquisition remains immediate.
+Source-cohort polling leaves five quiet seconds after an unsuccessful fresh/partition/stale
+acquisition completes, before starting its next query. This matches the native five-second
+scrape interval. A shorter pause can repeatedly acquire the same frame or align slow query
+windows with every new sample, consuming the shared128 cap. The pause is outside the recorded
+query window; it does not invent request traffic. The first acquisition remains immediate.
 Readiness and the frozen held-frame publication keep their existing quarter-second cadence.
 The sixty-second wait, ten-second query,600-second scenario,128 acquisitions and all whole
 source/privacy, freshness, accounting and reset/MCP comparisons remain unchanged. A rejected
 sample is never promoted; exhaustion or expiry still fails before acceptance.
+
+Partition prepares its initial baseline after native MCP is ready, using the later of the
+original cut and that preparation's current clock. Its source timestamp must actually pass
+that cut and the unchanged clear-boundary test. Each rejected preparation read advances the
+cut past that read's completion and quiet interval, while the substantive seed has not started.
+After a rejected baseline read, the last whole
+observed frame's clock may schedule the next query at an integer evaluation time strictly after
+a projected five-second frame, following the full quiet interval. This is a timing hint, never
+sample evidence: the returned whole vector, actual source timestamp, freshness and journal
+checks still decide. Missing/incomplete frames use the ordinary quiet wait. The baseline stays
+fixed once the substantive seed starts; no request window, counter or cohort-gap rule is reset.
