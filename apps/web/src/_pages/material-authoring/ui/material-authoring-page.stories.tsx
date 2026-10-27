@@ -1682,8 +1682,8 @@ export const InlineVideoInsert: Story = {
       ),
     );
     await expect(canvas.getByLabelText("Описание видео")).toBeVisible();
-    await waitFor(() => {
-      expect(JSON.stringify(savedField("body"))).toMatch(
+    await waitFor(async () => {
+      await expect(JSON.stringify(savedField("body"))).toMatch(
         /Перед видео.*"type":"video".*После видео/u,
       );
     });
