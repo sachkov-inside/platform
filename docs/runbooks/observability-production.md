@@ -463,6 +463,18 @@ samples, он не доказывает runtime ingest latency. Healthy gate с�
 `min_over_time(up[5m]) == 1`; число samples справа только фильтрует его. Иначе PromQL `and`
 сохранил бы sample count 58..60, который финальное `== 1` ошибочно скрывало.
 
+Доли 4xx/5xx используют native MetricsQL `increase_pure` для числителя, общего числа ответов
+и наблюдённого zero-error fallback. Это собственные counters Web: новая status/outcome серия
+создаётся с нулевым count и увеличивается только настоящими окончаниями ответов; импортированных
+начальных totals и вытеснения отдельных серий нет. Первый scrape может увидеть уже 1000 ошибок.
+Обычный `increase` способен отбросить большой первый sample и показать ложный ноль;
+[`increase_pure`](https://docs.victoriametrics.com/metricsql/#increase_pure) сохраняет его при
+известном нулевом происхождении counter. Это оценка за scrape window, не журнал точного времени
+каждого ответа. Native regression отдельно создаёт новые 4xx, 5xx и 200 серии без прежнего
+status sample, проверяет one-sample burst, отсутствие ошибок и старый неизменный error counter.
+Не создаётся полный набор route × method × status серий. Source freshness, sample threshold,
+process epoch и reset guards остаются обязательными.
+
 Fullstack corpus переключает Web source вместе с ON/OFF. В ON он делает настоящие Web 200/404
 с секретным query sentinel, проверяет его отсутствие в private metrics body, затем требует
 те же SHA-bound counts в VictoriaMetrics через обычные Alloy и read gateway в пределах 10 секунд.
