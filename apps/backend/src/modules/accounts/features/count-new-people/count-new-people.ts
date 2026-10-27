@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  calendarDay,
   dayValueRowsSchema,
   type DailyWindow,
   type DayValue,
@@ -44,7 +45,7 @@ export async function countNewPeople(
   const { from, to, timeZone, linkedAccountIds } = parsed.data;
   try {
     const rows: unknown = await prisma.$queryRaw(Prisma.sql`
-      select to_char((account.created_at at time zone ${timeZone})::date, 'YYYY-MM-DD') as date,
+      select ${calendarDay(Prisma.sql`account.created_at`, { timeZone })} as date,
         count(*)::int as value
       from accounts.accounts account
       where account.created_at >= ${from} and account.created_at < ${to}

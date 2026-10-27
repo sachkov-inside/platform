@@ -32,7 +32,7 @@ import { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
 import { AcceptTbankNotificationController } from "./features/accept-notification/accept-notification.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
 import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
-import { BillingSalesOverview } from "./features/read-sales-overview/read-sales-overview.js";
+import { BillingSalesOverview } from "./facets/billing-sales-overview/billing-sales-overview.js";
 import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
 import { PurchaseProductController } from "./features/purchase-product/purchase-product.controller.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";

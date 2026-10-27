@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { type DailyWindow } from "../../../../infrastructure/contracts/daily-window.js";
+import {
+  calendarDay,
+  type DailyWindow,
+} from "../../../../infrastructure/contracts/daily-window.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { accessFailure } from "../../domain/access-grant.js";
@@ -90,7 +93,7 @@ export async function readNewAccessByDay(
     return accessFailure("invalid_input");
   const { from, to, timeZone } = window.data;
   const rows: unknown = await prisma.$queryRaw(Prisma.sql`
-    SELECT to_char((f.first_issued_at AT TIME ZONE ${timeZone})::date, 'YYYY-MM-DD') AS date,
+    SELECT ${calendarDay(Prisma.sql`f.first_issued_at`, { timeZone })} AS date,
       f.origin, count(*)::int AS value
     FROM (${firstAcquisitionRows(
       Prisma.sql`a.first_issued_at >= ${from} AND a.first_issued_at < ${to} AND ${productCondition(product?.data)}`,

@@ -1,4 +1,5 @@
 import {
+  calendarDay,
   dayValueRowsSchema,
   type DailyWindow,
   type DayValue,
@@ -27,7 +28,7 @@ export async function countWaitlistJoins(
 ): Promise<WaitlistJoinsResult> {
   try {
     const rows: unknown = await prisma.$queryRaw(Prisma.sql`
-      SELECT to_char((occurred_at AT TIME ZONE ${window.timeZone})::date, 'YYYY-MM-DD') AS date,
+      SELECT ${calendarDay(Prisma.sql`occurred_at`, window)} AS date,
         count(*)::int AS value
       FROM sales_funnel.product_waitlist_events
       WHERE kind = 'joined' AND occurred_at >= ${window.from} AND occurred_at < ${window.to}
@@ -36,7 +37,7 @@ export async function countWaitlistJoins(
     return { ok: true, days: dayValueRowsSchema.parse(rows) };
   } catch (error) {
     return dependencyFailure(
-      { module: "sales-funnel", operation: "countWaitlistJoins" },
+      { module: "sales-funnel", operation: "countJoinsByDay" },
       error,
       { ok: false, error: { code: "dependency_unavailable" } } as const,
     );
