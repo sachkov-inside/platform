@@ -5,8 +5,8 @@
 Шестимесячные примеры поставки #775 ниже описывают прежнюю конфигурацию. Новая целевая
 конфигурация курса использует срок из текущей модели доступа; её реализация входит в план рефакторинга.
 
-[ADR 0037](../adr/0037-products-without-subscriptions.md), accepted 2026-10-20, supersedes the
-subscription-commerce paths below for the current runtime. Product purchases are one-time;
+[ADR 0040](../adr/0040-unified-product-access.md) records the accepted 2026-10-23 model and
+supersedes the subscription-commerce paths below for the current runtime. Product purchases are one-time;
 subscription quote/purchase/resume/paid changes and new recurring effects are unavailable.
 Subscription invitations cannot be issued or redeemed into checkout, including old redeemed
 links. Renewal reminders are neither scheduled nor allowed through pre-send validation.
@@ -33,7 +33,7 @@ bundle и проверяет provider assumptions; до неё новые инт
 
 ## Модель продукта 2026-10-07
 
-[ADR 0033](../adr/0033-product-tariff-payment-model.md) заменяет в этом контракте:
+[ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) заменяет в этом контракте:
 
 - подарочный режим приглашения и назначения на срок без оплаты: назначение бывает только
   бессрочным, а приглашение лишь допускает к оплате подписки;
@@ -631,7 +631,7 @@ Web читает поток одного Product через `GET billing/cohorts
 оплата тоже показывается, а повторную покупку страница оплаты останавливает ответом `existing_access`.
 
 Смена цены после старта меняет цену варианта оплаты тарифа; новый тариф нужен, только когда меняются
-охват, права или их сроки ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Купленные
+охват, права или их сроки ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Купленные
 права не мигрируют: каждое держит условия своей покупки.
 
 Поток хранит необязательную цену после старта `priceAfterStartKopecks`: положительные копейки или
@@ -834,7 +834,7 @@ username при входе (раздел «Telegram sign-in» в
 
 Спецификация [#907](https://github.com/sachkov-inside/platform/issues/907): владелец выдаёт доступ
 личной ссылкой в бота. Подписчиков Tribute больше нет, поэтому Offer продаётся либо всем, либо по
-приглашению. Режим `gift` ниже отменён [ADR 0033](../adr/0033-product-tariff-payment-model.md) и
+приглашению. Режим `gift` ниже отменён [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) и
 остаётся в коде до задачи удаления.
 
 **Invitation.** Личное одноразовое приглашение на один Offer в режиме `purchase` («оплата») или
@@ -1017,7 +1017,7 @@ Paid grant отражает один periodRef. Manual grant и legacy grant и�
 не перекрывает manual lifetime. У результата разрешения `validUntil: string | null`, где null —
 доказанное бессрочное основание; отсутствие/ошибка — отдельный deny/unavailable, не null.
 Обновить всех текущих consumers этого facet и их cache bounds в #404, включая Member Profile;
-Workshop отменён [ADR 0033](../adr/0033-product-tariff-payment-model.md) и не получает продуктовый scope.
+Workshop отменён [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) и не получает продуктовый scope.
 
 ## Хранилище, денежные значения и календарь
 

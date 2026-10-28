@@ -24,7 +24,7 @@ SourceEntitlement может оставаться без Account и без пр�
 транзакцией изменения прав. Текущая Telegram binding защищена тем же advisory lock, который
 использует владеющий ею trigger. Все owner mutations требуют billing:manage и operationId.
 
-[ADR 0033](../adr/0033-product-tariff-payment-model.md) меняет модель назначений. В #1064 новое
+[ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) меняет модель назначений. В #1064 новое
 назначение без оплаты стало только бессрочным, по курсу или решению владельца. Снимок сохраняет
 `benefitPeriods`: каждое право начинается при фактическом назначении и заканчивается по сроку тарифа.
 Право без срока остаётся бессрочным. Отзыв и восстановление не продлевают права.

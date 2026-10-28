@@ -4,8 +4,8 @@ status: accepted
 
 # Keep one deep Materials module around one mutable Material
 
-This ADR supersedes ADR 0002 and restates all retained decisions so current guidance lives in one
-place.
+Materials owns one mutable Material and exposes the complete authoring and published-reading
+boundary described here.
 
 Platform exposes one deep `Materials` capability with caller-oriented `MaterialAuthoring` and
 `PublishedMaterialReader` facets. Transport callers do not coordinate validation, rendering,
@@ -26,7 +26,7 @@ at the module boundary and convert them to checked domain IDs. A separate public
 capability was deferred until an independent caller proved the seam; [ADR 0023](0023-material-block-registry-package.md)
 records that the seam is now proven and owns the block registry package.
 
-The module owns one current mutable Material instead of ADR 0002's immutable revision lifecycle. A
+The module owns one current mutable Material instead of an immutable revision lifecycle. A
 never-published Draft becomes Published through the same full-state Save used for later live edits;
 Unpublished preserves the stable Material identity while hiding it. `contentVersion` rejects stale
 saves and binds authorization to the current state, but old bodies, restore history and durable
@@ -50,5 +50,3 @@ revision selection, restore and multi-body delivery.
   `contentVersion` to remain current.
 - Prisma transaction access follows ADR 0005. Generic repositories, Unit of Work wrappers, command
   buses, base entities and one-interface-per-class are not part of the design.
-
-ADR 0002 remains historical evidence only. It is not a second current source for Materials design.

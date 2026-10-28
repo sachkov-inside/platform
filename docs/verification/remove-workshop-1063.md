@@ -33,7 +33,7 @@ Production не изменялся; запросы читали только и�
 уже содержит только `materials:manage`, `communications:manage`, `billing:manage` и
 `platform:admin`; отдельного разрешения Мастерской в нём не было.
 
-Authority решения: [ADR 0033](../adr/0033-product-tariff-payment-model.md).
+Authority решения: [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md).
 Проверки миграции: `apps/backend/test/integration/remove-workshop-migration.test.ts`.
 Проверки ленты и открытой информации о закрытых материалах:
 `apps/backend/test/integration/home-feed-access.test.ts`.

@@ -6,7 +6,7 @@ status: accepted
 
 [ADR 0038](0038-one-definition-per-browser-mutation.md) amends this decision (owner decision
 2026-10-22): one operation definition now owns each mutation's route, method, JSON input and result,
-and replaces the form parsing each feature owned below.
+and replaces the original feature-owned form parsing rule.
 
 Account, Material authoring, publication, deletion and Series ordering use one
 browser-owned mutation path: a Client Component calls `useMutation`, its browser adapter sends a
@@ -22,8 +22,8 @@ progressive-enhancement or RSC requirement may revisit this decision instead of 
 path implicitly.
 
 Route Handlers are capability adapters, not a universal proxy. The shared handler owns only the
-common Origin, session, no-store and body-size boundary; each feature owns form parsing and outcome
-mapping. Query providers live at the lowest route layout shared by their consumers, so unrelated
+common Origin, session, no-store and body-size boundary; one shared operation definition owns JSON input parsing by ADR 0038; each feature owns execution
+and outcome mapping. Binary uploads and native authentication keep their explicit exceptions. Query providers live at the lowest route layout shared by their consumers, so unrelated
 public routes do not receive TanStack Query or editor code.
 
 The mutation interface is operation-specific rather than a frontend command dispatcher. Create,
