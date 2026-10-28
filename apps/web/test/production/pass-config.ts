@@ -31,7 +31,10 @@ export const productA = {
   taskCode: "aie-ch2-accounts-design",
 } as const;
 
-/** Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture. */
+/**
+ * Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture.
+ * Migration 0111 derives the Task code from the suffix of the legacy Practice id.
+ */
 export const retiredTaskCode = "aie-github-app";
 /** Current positive coverage uses Product Tasks; no replacement code is inferred from a retired source. */
 export const freeTaskCode: string | null = null;

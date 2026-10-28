@@ -66,7 +66,7 @@ Account `no-entitlement` проверяет отказ `task_not_available` бе
   публичных маршрутов к API для ученика нет
   ([таблица маршрутов](production-release.md#public-api-routes)). Поэтому клетки «через API»
   проверяются через learner MCP. Токен Platform API принимает владельческий MCP `/mcp`: через него
-  Billing-only и Materials-only читают каталог тарифов. В web каталог цен владельца читает
+  Billing-only и Materials-only читают каталог цен. В web каталог цен владельца читает
   `GET /api/authoring/billing/catalog`; роли без `billing:manage` он отвечает отказом 403, а не
   пустым списком.
 - **Первое установление Account.** Platform создаёт Account только по подтверждённому email
