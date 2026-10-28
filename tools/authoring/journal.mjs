@@ -1,5 +1,5 @@
 // @ts-check
-import { mkdir, readFile, open, rename } from "node:fs/promises";
+import { chmod, mkdir, readFile, open, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import lockfile from "proper-lockfile";
 import { canonical, checksum } from "./package.mjs";
@@ -40,6 +40,8 @@ export async function writeAtomic(path, value) {
 export async function withJournal(directory, target, operation) {
   const root = resolve(directory);
   await mkdir(root, { recursive: true, mode: 0o700 });
+  // An existing directory keeps its mode on mkdir; the journal and previews stay private to the owner.
+  await chmod(root, 0o700);
   const release = await lockfile.lock(root, {
     retries: 0,
     stale: 120_000,

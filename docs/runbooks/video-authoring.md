@@ -76,8 +76,11 @@ pnpm authoring:video upload --target production --state ~/.inside-authoring/prod
   `source-video:SOURCE_ID`, which the next release attaches as the primary Video.
 - Any stop exits non-zero with a message on stderr: no session (`pnpm authoring:login` hint), wrong
   runtime, checksum mismatch, an unsynchronized Material, an endpoint outside Kinescope,
-  `Upload-Length` different from the file size, a refused or exhausted transfer, a failed provider
-  video, or processing still under way (repeat later). `upload_outcome_unknown` stops and names the
+  `Upload-Length` different from the file size, a refused or exhausted transfer, a file changed
+  during the transfer, a failed provider video, or processing still under way (repeat later). The
+  checksum, size and transferred bytes come from one open handle; when the file's device, inode,
+  size or modification time differ after the transfer, the attempt stays in `transfer` and the
+  repeated command hashes the file again. `upload_outcome_unknown` stops and names the
   idempotency key; inspect the attempt, the command never creates a new key for it. Only a failed
   provider video lets the same file start a new attempt.
 

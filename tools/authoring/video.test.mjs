@@ -131,7 +131,7 @@ function providerApi({
  * A Tus 1.0.0 server double on loopback. It keeps the received bytes. A PATCH fault stores half of
  * the body and then drops the connection, as an interrupted network does; a HEAD fault drops the
  * connection before any answer. `gone` answers every HEAD with that status, and `redirects`
- * answers a path with 307 to another address.
+ * answers a path with 307 to another address; `onPatch` runs after each stored part.
  *
  * @param {import("node:test").TestContext} t
  * @param {{
@@ -141,6 +141,7 @@ function providerApi({
  *   reportedLength?: number;
  *   gone?: number;
  *   redirects?: Record<string, string>;
+ *   onPatch?: (count: number) => Promise<void>;
  * }} options
  */
 async function tusServer(
@@ -152,6 +153,7 @@ async function tusServer(
     reportedLength = length,
     gone,
     redirects = {},
+    onPatch = async () => {},
   },
 ) {
   /** @type {Buffer[]} */
@@ -159,6 +161,7 @@ async function tusServer(
   let offset = 0;
   let remainingFaults = faults;
   let remainingHeadFaults = headFaults;
+  let patches = 0;
   /** @type {{ method: string; path: string; offset: string | undefined; headers: import("node:http").IncomingHttpHeaders }[]} */
   const requests = [];
   const server = createServer(async (request, response) => {
@@ -229,6 +232,7 @@ async function tusServer(
     }
     stored.push(body);
     offset += body.length;
+    await onPatch(++patches);
     response
       .writeHead(204, {
         "tus-resumable": "1.0.0",
@@ -860,3 +864,56 @@ test("--replace-test-upload is refused on a trusted target before any request", 
   assert.deepEqual(api.calls, []);
   assert.equal(await setup.raw(), before);
 });
+
+test(
+  "a file changed during the transfer stops before processing and keeps the attempt",
+  transferTest,
+  async (t) => {
+    const bytes = longRecording();
+    const setup = await fixture(t, { target: production, bytes });
+    // After the first part arrives the file is rewritten in place with other bytes of the same size.
+    const tus = await tusServer(t, {
+      length: bytes.length,
+      onPatch: async (count) => {
+        if (count === 1)
+          await writeFile(setup.file, Buffer.alloc(bytes.length, "changed-"));
+      },
+    });
+    const api = providerApi({
+      mode: "production",
+      endpoint: tus.endpoint,
+      byteSize: bytes.length,
+    });
+    await assert.rejects(
+      upload(setup, api, {
+        origin: "production",
+        accessToken: ownerToken,
+        sha256: setup.sha256,
+        fetcher: tus.fetcher,
+      }),
+      /changed while it was uploading/u,
+    );
+    assert.equal(
+      uploadReceiptSchema.parse(
+        resourcesOf(await setup.read())[
+          uploadReceiptKey(materialId, setup.sha256)
+        ],
+      ).phase,
+      "transfer",
+    );
+    assert.equal(
+      api.calls.some((call) => call.path.endsWith("/reconcile")),
+      false,
+    );
+    // The repeated command hashes the file again and refuses the changed bytes.
+    await assert.rejects(
+      upload(setup, api, {
+        origin: "production",
+        accessToken: ownerToken,
+        sha256: setup.sha256,
+        fetcher: tus.fetcher,
+      }),
+      /SHA-256/u,
+    );
+  },
+);

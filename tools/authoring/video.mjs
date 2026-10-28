@@ -1,12 +1,11 @@
 // @ts-check
-import { randomUUID } from "node:crypto";
-import { open, stat } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { open } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { fileChecksum } from "./package.mjs";
 import { withJournal } from "./journal.mjs";
 import {
   parseLocalResponse,
@@ -142,11 +141,12 @@ const isRetryable = (status) =>
 /**
  * Sends a finished file to a Tus 1.0.0 upload that already exists. The server's offset decides
  * where each part starts, so a repeated run continues where the last one stopped. The file is read
- * one part at a time. The endpoint grants upload access to this attempt, so no message names it.
+ * one part at a time from the handle the checksum was computed through. The endpoint grants upload
+ * access to this attempt, so no message names it.
  *
  * @param {{
  *   endpoint: string;
- *   path: string;
+ *   file: import("node:fs/promises").FileHandle;
  *   size: number;
  *   attempt: { videoId: string; idempotencyKey: string };
  *   fetcher?: typeof fetch;
@@ -156,7 +156,7 @@ const isRetryable = (status) =>
  */
 async function tusTransfer({
   endpoint,
-  path,
+  file,
   size,
   attempt,
   fetcher = fetch,
@@ -245,60 +245,98 @@ async function tusTransfer({
       return head.offset;
     }
   };
-  const file = await open(path, "r");
-  try {
-    const buffer = Buffer.alloc(Math.min(tusChunkBytes, size));
-    offset = await serverOffset();
-    onProgress(offset, size);
-    while (offset < size) {
-      const { bytesRead } = await file.read(
-        buffer,
-        0,
-        Math.min(tusChunkBytes, size - offset),
-        offset,
+  const buffer = Buffer.alloc(Math.min(tusChunkBytes, size));
+  offset = await serverOffset();
+  onProgress(offset, size);
+  while (offset < size) {
+    const { bytesRead } = await file.read(
+      buffer,
+      0,
+      Math.min(tusChunkBytes, size - offset),
+      offset,
+    );
+    if (bytesRead === 0) throw new Error("The file became shorter");
+    /** @type {Response | undefined} */
+    let response;
+    try {
+      response = await tusRequest(
+        "PATCH",
+        {
+          "upload-offset": String(offset),
+          "content-type": "application/offset+octet-stream",
+        },
+        buffer.subarray(0, bytesRead),
+        tusPatchTimeoutMs,
       );
-      if (bytesRead === 0) throw new Error("The file became shorter");
-      /** @type {Response | undefined} */
-      let response;
-      try {
-        response = await tusRequest(
-          "PATCH",
-          {
-            "upload-offset": String(offset),
-            "content-type": "application/offset+octet-stream",
-          },
-          buffer.subarray(0, bytesRead),
-          tusPatchTimeoutMs,
-        );
-      } catch (error) {
-        // No HTTP answer: the connection dropped or the part timed out.
-        if (!isNetworkFailure(error)) throw error;
-      }
-      // Tus answers 204; like the editor's tus-js-client, any success status is accepted.
-      if (response?.ok) {
-        await response.body?.cancel();
-        const next = tusHeaders(response).offset;
-        if (next <= offset || next > size)
-          throw new Error("The upload endpoint reported an impossible offset");
-        offset = next;
-        failures = 0;
-        onProgress(offset, size);
-        continue;
-      }
-      await response?.body?.cancel();
-      const status = response?.status;
-      if (status !== undefined && tusExpiredStatuses.has(status))
-        throw expired(status);
-      if (status !== undefined && !isRetryable(status))
-        throw new Error(
-          `The upload endpoint refused a part with ${String(status)}`,
-        );
-      await retryOrStop(status);
-      offset = await serverOffset();
+    } catch (error) {
+      // No HTTP answer: the connection dropped or the part timed out.
+      if (!isNetworkFailure(error)) throw error;
     }
-  } finally {
-    await file.close();
+    // Tus answers 204; like the editor's tus-js-client, any success status is accepted.
+    if (response?.ok) {
+      await response.body?.cancel();
+      const next = tusHeaders(response).offset;
+      if (next <= offset || next > size)
+        throw new Error("The upload endpoint reported an impossible offset");
+      offset = next;
+      failures = 0;
+      onProgress(offset, size);
+      continue;
+    }
+    await response?.body?.cancel();
+    const status = response?.status;
+    if (status !== undefined && tusExpiredStatuses.has(status))
+      throw expired(status);
+    if (status !== undefined && !isRetryable(status))
+      throw new Error(
+        `The upload endpoint refused a part with ${String(status)}`,
+      );
+    await retryOrStop(status);
+    offset = await serverOffset();
   }
+}
+
+/**
+ * The SHA-256 of a file, read through an open handle.
+ *
+ * @param {import("node:fs/promises").FileHandle} file
+ * @param {number} size
+ */
+async function handleChecksum(file, size) {
+  const hash = createHash("sha256");
+  const buffer = Buffer.alloc(Math.min(tusChunkBytes, size));
+  for (let position = 0; position < size;) {
+    const { bytesRead } = await file.read(
+      buffer,
+      0,
+      Math.min(buffer.length, size - position),
+      position,
+    );
+    if (bytesRead === 0) throw new Error("The file became shorter");
+    hash.update(buffer.subarray(0, bytesRead));
+    position += bytesRead;
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Stops when the file the handle reads is no longer the one that was hashed.
+ *
+ * @param {import("node:fs/promises").FileHandle} file
+ * @param {import("node:fs").Stats} hashed
+ * @param {string} path
+ */
+async function assertUnchanged(file, hashed, path) {
+  const now = await file.stat();
+  if (
+    now.dev !== hashed.dev ||
+    now.ino !== hashed.ino ||
+    now.size !== hashed.size ||
+    now.mtimeMs !== hashed.mtimeMs
+  )
+    throw new Error(
+      `Recording ${path} changed while it was uploading; restore the accepted file and run the same command again`,
+    );
 }
 
 /**
@@ -353,151 +391,162 @@ export async function uploadVideo({
   )
     throw new Error("--sha256 must be 64 lowercase hex characters");
   const path = resolve(file);
-  const [info, sha256] = await Promise.all([stat(path), fileChecksum(path)]);
-  if (!info.isFile() || info.size === 0)
-    throw new Error(`Recording is not a finished file: ${path}`);
-  if (expected !== undefined && sha256 !== expected)
-    throw new Error(
-      `Recording SHA-256 ${sha256} differs from the expected ${expected}: ${path}`,
+  // One handle gives the checksum, the size and every transferred byte, so all describe one file.
+  const recording = await open(path, "r");
+  try {
+    const info = await recording.stat();
+    if (!info.isFile() || info.size === 0)
+      throw new Error(`Recording is not a finished file: ${path}`);
+    const sha256 = await handleChecksum(recording, info.size);
+    if (expected !== undefined && sha256 !== expected)
+      throw new Error(
+        `Recording SHA-256 ${sha256} differs from the expected ${expected}: ${path}`,
+      );
+    const send = transport ?? transportFor(target, accessToken);
+    /** @type {import("./local-boundaries.mjs").LocalRequest} */
+    const request = async (path, body, key, options) =>
+      parseLocalResponse(path, await send(path, body, key, options));
+    const environment = await request(
+      "/authoring/import/materials/environment",
     );
-  const send = transport ?? transportFor(target, accessToken);
-  /** @type {import("./local-boundaries.mjs").LocalRequest} */
-  const request = async (path, body, key, options) =>
-    parseLocalResponse(path, await send(path, body, key, options));
-  const environment = await request("/authoring/import/materials/environment");
-  assertTargetEnvironment(target, environment.mode);
-  return withJournal(
-    stateDirectory,
-    target.id,
-    async ({ journal, persist }) => {
-      const resources = (journal.resources ??= {});
-      const material = journal.materials[sourceId];
-      if (!material || material.archived)
-        throw new Error(
-          `Synchronize ${sourceId} before attaching its recording`,
-        );
-      const receiptKey = uploadReceiptKey(material.materialId, sha256);
-      let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
-      if (replaceTestUpload && receipt !== undefined) {
-        // Only the test adapter's attempt is discarded; a real provider record is never orphaned.
-        if (
-          !("uploadEndpoint" in receipt) ||
-          !new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
-        )
+    assertTargetEnvironment(target, environment.mode);
+    return await withJournal(
+      stateDirectory,
+      target.id,
+      async ({ journal, persist }) => {
+        const resources = (journal.resources ??= {});
+        const material = journal.materials[sourceId];
+        if (!material || material.archived)
           throw new Error(
-            `The stored upload of ${sourceId} for this file is not a test-adapter upload; nothing was replaced`,
+            `Synchronize ${sourceId} before attaching its recording`,
           );
-        const attached = `source-video:${sourceId}`;
-        if (
-          parseReceipt(sourceVideoReceiptSchema, resources[attached])
-            ?.videoId === receipt.videoId
-        )
-          delete resources[attached];
-        delete resources[receiptKey];
-        receipt = undefined;
-      }
-      // A failed provider outcome is known, so the same file may start a fresh attempt.
-      if (receipt?.phase === "failed") receipt = undefined;
-      if (receipt === undefined) {
-        receipt = {
-          sourceId,
-          idempotencyKey: `video-upload:${randomUUID()}`,
-          byteSize: info.size,
-          filename: basename(path),
-          title: title ?? basename(path),
-          access: material.access ?? "closed",
-          phase: "initializing",
-        };
-        resources[receiptKey] = receipt;
-        await persist();
-      }
-      if (receipt.phase === "initializing") {
-        let initialized;
-        try {
-          initialized = await request(
-            `/authoring/materials/${material.materialId}/videos/uploads`,
-            {
-              access: receipt.access,
-              byteSize: receipt.byteSize,
-              filename: receipt.filename,
-              title: receipt.title,
-            },
-            receipt.idempotencyKey,
-          );
-        } catch (error) {
-          if (failureBodyField(error, "code") === "upload_outcome_unknown")
-            throw new Error(
-              `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${receipt.idempotencyKey})`,
-              { cause: error },
-            );
-          throw error;
-        }
-        receipt = {
-          ...receipt,
-          phase: "transfer",
-          videoId: initialized.video.videoId,
-          providerVideoId: initialized.providerVideoId,
-          uploadEndpoint: initialized.uploadEndpoint,
-        };
-        resources[receiptKey] = receipt;
-        await persist();
-      }
-      if (receipt.phase === "transfer") {
-        if (transferKind(target, receipt.uploadEndpoint) === "tus")
-          await tusTransfer({
-            endpoint: receipt.uploadEndpoint,
-            attempt: receipt,
-            path,
-            size: receipt.byteSize,
-            ...(fetcher === undefined ? {} : { fetcher }),
-            sleep,
-            ...(onProgress === undefined ? {} : { onProgress }),
-          });
-        receipt = { ...receipt, phase: "processing" };
-        resources[receiptKey] = receipt;
-        await persist();
-      }
-      if (receipt.phase !== "ready") {
-        let video;
-        try {
-          video = await waitUntilReady(request, receipt.videoId, {
-            sleep,
-            attempts,
-            label: sourceId,
-          });
-        } catch (error) {
+        const receiptKey = uploadReceiptKey(material.materialId, sha256);
+        let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
+        if (replaceTestUpload && receipt !== undefined) {
+          // Only the test adapter's attempt is discarded; a real provider record is never orphaned.
           if (
-            error instanceof Error &&
-            /video is (failed|delet)/u.test(error.message)
-          ) {
-            resources[receiptKey] = { ...receipt, phase: "failed" };
-            await persist();
-          }
-          throw error;
+            !("uploadEndpoint" in receipt) ||
+            !new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
+          )
+            throw new Error(
+              `The stored upload of ${sourceId} for this file is not a test-adapter upload; nothing was replaced`,
+            );
+          const attached = `source-video:${sourceId}`;
+          if (
+            parseReceipt(sourceVideoReceiptSchema, resources[attached])
+              ?.videoId === receipt.videoId
+          )
+            delete resources[attached];
+          delete resources[receiptKey];
+          receipt = undefined;
         }
-        receipt = {
-          ...receipt,
-          phase: "ready",
-          durationSeconds: video.durationSeconds ?? null,
-        };
-        resources[receiptKey] = receipt;
-        resources[`source-video:${sourceId}`] = {
+        // A failed provider outcome is known, so the same file may start a fresh attempt.
+        if (receipt?.phase === "failed") receipt = undefined;
+        if (receipt === undefined) {
+          receipt = {
+            sourceId,
+            idempotencyKey: `video-upload:${randomUUID()}`,
+            byteSize: info.size,
+            filename: basename(path),
+            title: title ?? basename(path),
+            access: material.access ?? "closed",
+            phase: "initializing",
+          };
+          resources[receiptKey] = receipt;
+          await persist();
+        }
+        if (receipt.phase === "initializing") {
+          let initialized;
+          try {
+            initialized = await request(
+              `/authoring/materials/${material.materialId}/videos/uploads`,
+              {
+                access: receipt.access,
+                byteSize: receipt.byteSize,
+                filename: receipt.filename,
+                title: receipt.title,
+              },
+              receipt.idempotencyKey,
+            );
+          } catch (error) {
+            if (failureBodyField(error, "code") === "upload_outcome_unknown")
+              throw new Error(
+                `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${receipt.idempotencyKey})`,
+                { cause: error },
+              );
+            throw error;
+          }
+          receipt = {
+            ...receipt,
+            phase: "transfer",
+            videoId: initialized.video.videoId,
+            providerVideoId: initialized.providerVideoId,
+            uploadEndpoint: initialized.uploadEndpoint,
+          };
+          resources[receiptKey] = receipt;
+          await persist();
+        }
+        if (receipt.phase === "transfer") {
+          if (transferKind(target, receipt.uploadEndpoint) === "tus")
+            await tusTransfer({
+              endpoint: receipt.uploadEndpoint,
+              attempt: receipt,
+              file: recording,
+              size: receipt.byteSize,
+              ...(fetcher === undefined ? {} : { fetcher }),
+              sleep,
+              ...(onProgress === undefined ? {} : { onProgress }),
+            });
+          // The receipt stays in transfer, so the repeated command hashes the file again.
+          await assertUnchanged(recording, info, path);
+          receipt = { ...receipt, phase: "processing" };
+          resources[receiptKey] = receipt;
+          await persist();
+        }
+        if (receipt.phase !== "ready") {
+          let video;
+          try {
+            video = await waitUntilReady(request, receipt.videoId, {
+              sleep,
+              attempts,
+              label: sourceId,
+            });
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              /video is (failed|delet)/u.test(error.message)
+            ) {
+              resources[receiptKey] = { ...receipt, phase: "failed" };
+              await persist();
+            }
+            throw error;
+          }
+          receipt = {
+            ...receipt,
+            phase: "ready",
+            durationSeconds: video.durationSeconds ?? null,
+          };
+          resources[receiptKey] = receipt;
+          resources[`source-video:${sourceId}`] = {
+            videoId: receipt.videoId,
+            providerVideoId: receipt.providerVideoId,
+            sha256,
+          };
+          await persist();
+        }
+        return {
+          sourceId,
+          materialId: material.materialId,
           videoId: receipt.videoId,
           providerVideoId: receipt.providerVideoId,
+          durationSeconds: receipt.durationSeconds,
           sha256,
         };
-        await persist();
-      }
-      return {
-        sourceId,
-        materialId: material.materialId,
-        videoId: receipt.videoId,
-        providerVideoId: receipt.providerVideoId,
-        durationSeconds: receipt.durationSeconds,
-        sha256,
-      };
-    },
-  );
+      },
+    );
+  } finally {
+    await recording.close();
+  }
 }
 
 const usage =
