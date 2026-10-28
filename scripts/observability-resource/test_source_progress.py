@@ -17,11 +17,12 @@ class SourceProgress(unittest.TestCase):
         added={
             'test_source_progress.SourceProgress.test_discovery_matches_fixed_inventory_and_original_methods_once',
             'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
-            'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome'}
+            'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome',
+            'test_hosted.EvidenceTrust.test_transient_git_lock_disappearance_preserves_source_binding'}
         added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_preparation.'))
         added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_transport.'))
-        self.assertEqual(len(source_progress.SOURCE_IDS),114)
-        self.assertEqual(len(set(source_progress.SOURCE_IDS)),114)
+        self.assertEqual(len(source_progress.SOURCE_IDS),115)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),115)
         self.assertTrue(added<=set(source_progress.SOURCE_IDS))
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),95)
@@ -74,7 +75,12 @@ class SourceProgress(unittest.TestCase):
         unittest.TextTestRunner(stream=stream,resultclass=source_progress.ProgressResult).run(unittest.TestSuite([Foreign()]))
         self.assertNotIn('RESOURCE_SOURCE',stream.getvalue())
 
-        # Pure synthetic source callbacks, never the original bodies or item84 process modes.
+        # The legacy item84 label names this original body, not a mutable ordinal.
+        anchor='test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome'
+        anchor_index=source_progress.SOURCE_IDS.index(anchor)
+        self.assertEqual(anchor_index,84)
+        self.assertNotEqual(source_progress.SOURCE_IDS[83],anchor)
+        # Pure synthetic callbacks never run the original process modes.
         runner=runpy.run_path(str(Path(__file__).with_name('source_runner.py')))
         stream=io.StringIO();origin=1_000_000_000
         ticks=iter([origin]+[origin+value for value in range(100,241,10)])
@@ -85,7 +91,7 @@ class SourceProgress(unittest.TestCase):
                 def __init__(self,index):super().__init__();self.index=index
                 def id(self):return source_progress.SOURCE_IDS[self.index]
                 def runTest(self):
-                    if self.index==83:
+                    if source_progress.SOURCE_IDS[self.index]==anchor:
                         for mode in ('success','failure','timeout','sigterm','sigkill','descendant'):
                             source_progress.timing_event('begin',mode)
                             with self.subTest(mode=mode):
@@ -103,9 +109,9 @@ class SourceProgress(unittest.TestCase):
             expected.extend(['RESOURCE_TIMING_V1 end item84 230','RESOURCE_TIMING_V1 end runner 240'])
             self.assertEqual(markers,expected)
             lines=stream.getvalue().splitlines()
-            self.assertLess(lines.index('RESOURCE_SOURCE_V1 start '+source_progress.SOURCE_IDS[83]),
+            self.assertLess(lines.index('RESOURCE_SOURCE_V1 start '+anchor),
                 lines.index('RESOURCE_TIMING_V1 begin item84 100'))
-            self.assertLess(lines.index('RESOURCE_SOURCE_V1 completed '+source_progress.SOURCE_IDS[83]),
+            self.assertLess(lines.index('RESOURCE_SOURCE_V1 completed '+anchor),
                 lines.index('RESOURCE_TIMING_V1 end item84 230'))
             before=stream.getvalue();source_progress.timing_event('end','runner')
             self.assertEqual(stream.getvalue(),before)
@@ -181,11 +187,12 @@ class SourceProgress(unittest.TestCase):
                             source_progress._timing_source(ForeignResult(),'start')
                             # Actual old stopTest/super/source emitter still run; only the new timing leaf is inert.
                             result=source_progress.ProgressResult(io.StringIO(),False,0)
-                            result._source_index=83;result._source_active=source_progress.SOURCE_IDS[83]
+                            anchor='test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome'
+                            result._source_index=source_progress.SOURCE_IDS.index(anchor);result._source_active=anchor
                             class Case(unittest.TestCase):
-                                def id(self):return source_progress.SOURCE_IDS[83]
+                                def id(self):return anchor
                             result.stopTest(Case())
-                            self.assertEqual(result._source_index,84)
+                            self.assertEqual(result._source_index,source_progress.SOURCE_IDS.index(anchor)+1)
                             self.assertIs(source_progress._timing,state)
                             self.assertEqual(state['count'],1)
                             self.assertEqual(calls,[])

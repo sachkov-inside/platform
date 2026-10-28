@@ -22,6 +22,10 @@ def _inventory():
 
 
 SOURCE_IDS=_inventory()
+# Legacy item84 names this original body, even when earlier tests are added.
+TIMING_SOURCE_ID='test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome'
+if TIMING_SOURCE_ID not in SOURCE_IDS:_refuse()
+TIMING_SOURCE_INDEX=SOURCE_IDS.index(TIMING_SOURCE_ID)
 
 
 def verify_inventory(suite):
@@ -75,9 +79,9 @@ def _timing_source(result,event):
     global _timing
     if _timing is None:return
     try:
-        if event=='start' and result._source_index==83 and result._source_active==SOURCE_IDS[83]:
+        if event=='start' and result._source_index==TIMING_SOURCE_INDEX and result._source_active==TIMING_SOURCE_ID:
             timing_event('begin','item84')
-        elif event=='completed' and result._source_index==84 and result._source_active is None:
+        elif event=='completed' and result._source_index==TIMING_SOURCE_INDEX+1 and result._source_active is None:
             timing_event('end','item84')
     except Exception:_timing=None
 
