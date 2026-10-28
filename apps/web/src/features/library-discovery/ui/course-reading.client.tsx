@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
-import { CourseReferenceNavigation } from "./course-reference-navigation";
+import { CourseReferenceNavigation } from "./course-reference-navigation.client";
 import {
   CourseNavigationBar,
   CourseNavigationItem,

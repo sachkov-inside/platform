@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { publicPageEnvironment } from "@/storybook/story-environment";
-import { CourseReferenceNavigation } from "./course-reference-navigation";
+import { CourseReferenceNavigation } from "./course-reference-navigation.client";
 
 const references = Array.from({ length: 6 }, (_, index) => ({
   id: `reference-${String(index + 1)}`,

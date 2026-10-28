@@ -31,7 +31,7 @@ export {
   CourseReadingFooter,
 } from "./ui/course-reading.client";
 
-export { CourseReferenceNavigation } from "./ui/course-reference-navigation";
+export { CourseReferenceNavigation } from "./ui/course-reference-navigation.client";
 export {
   CourseNavigationBar,
   CourseNavigationItem,

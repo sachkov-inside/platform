@@ -234,6 +234,10 @@ const referenceLessons = [
   })),
   { slug: "aie-project", title: "Описание проекта" },
   { slug: "aie-product-brief", title: "Бриф заказчика" },
+  ...Array.from({ length: 4 }, (_, index) => ({
+    slug: `reference-extra-${String(index + 1)}`,
+    title: `Дополнение ${String(index + 1)}`,
+  })),
 ].map((item, index) => ({
   ...performanceTemplate,
   ...item,

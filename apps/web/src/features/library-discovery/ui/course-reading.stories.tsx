@@ -699,3 +699,33 @@ export const SupplementaryBreadcrumbs: Story = {
     ]);
   },
 };
+
+export const SupplementaryMaterials: Story = {
+  render: function Supplementary() {
+    const [second, setSecond] = useState(false);
+    const references = Array.from({ length: 6 }, (_, index) => ({
+      id: `reference-${String(index + 1)}`,
+      slug: `reference-${String(index + 1)}`,
+      title: `Материал ${String(index + 1)}`,
+      href: courseGuide.current.href,
+    }));
+    const first = { ...courseGuide.chapters[0]!, references };
+    const next = {
+      ...first,
+      id: "second-reference-chapter",
+      name: "Другая глава",
+    };
+    const context = {
+      ...courseGuide,
+      chapters: [first, next],
+      currentChapterId: second ? next.id : first.id,
+    };
+    return (
+      <CourseReadingLayout context={context}>
+        <button onClick={() => setSecond((value) => !value)}>
+          Сменить главу
+        </button>
+      </CourseReadingLayout>
+    );
+  },
+};
