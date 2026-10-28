@@ -105,10 +105,10 @@ read-only lookup проверяет project/service/CID для `loadgen`, `teleg
 брокера. Предел одного native probe остаётся 5 s, ожидания готовности 60 s; наблюдение и
 подготовка входят в исходный общий срок worker.
 
-При первом terminal refusal native-проверки backend или RabbitMQ перед cleanup сохраняется
+При первом окончательном отказе проверки готовности backend или RabbitMQ перед cleanup сохраняется
 `fullstack-startup-refusal.json`. Обычный и диагностический collector проверяют source SHA,
 закрытую роль, ограниченный native exit code или недоступность/timeout, состояние самого
-контейнера и RabbitMQ, OOM и restart count. Lookup проверяет точное project/service/CID владение,
+контейнера и RabbitMQ, OOM и restart count. Чтение состояния проверяет точное project/service/CID владение,
 но IDs, пути, argv, env, stdout/stderr и текст ошибок не публикуются. Отсутствующее наблюдение
 остаётся `unavailable`; первая запись не заменяется поздней. Ошибка диагностики не подменяет
 исходный отказ, и этот файл не является условием успешной функциональной или ресурсной приёмки.

@@ -23,7 +23,7 @@ def validate(value,source,backends):
     require(type(reason) is str and reason in ('exit_nonzero','output_limit','timeout','unavailable'))
     require(code is None or type(code) is int and -255<=code<=255)
     if reason=='exit_nonzero':require(code is not None and code!=0)
-    elif reason=='output_limit':require(code is not None)
+    elif reason=='output_limit':require(code==0)
     else:require(code is None)
     containers=value['containers'];require(type(containers) is dict and set(containers)=={role,'rabbitmq'})
     for row in containers.values():

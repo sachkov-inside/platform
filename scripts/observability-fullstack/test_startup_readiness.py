@@ -87,6 +87,7 @@ class StartupReadiness(unittest.TestCase):
               {**value,'schema':True},{**value,'probe':{'reason':'private-sentinel','exit_code':7}},
               {**value,'probe':{'reason':'exit_nonzero','exit_code':0}},
               {**value,'probe':{'reason':'timeout','exit_code':7}},
+              {**value,'probe':{'reason':'output_limit','exit_code':7}},
               {**value,'probe':{'reason':'exit_nonzero','exit_code':True}},
               {**value,'probe':{'reason':'exit_nonzero','exit_code':float('nan')}},
               {**value,'containers':{'notifications-worker':{'state':'unavailable'}}}]
