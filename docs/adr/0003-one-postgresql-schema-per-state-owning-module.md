@@ -7,14 +7,12 @@ status: accepted
 Platform remains one modular monolith with one PostgreSQL database, pool, runtime role and migration
 authority. Each capability Module that owns persistent application state owns one PostgreSQL schema
 named after that Module; a Module without persistent state does not receive an empty schema. The
-current names are `Accounts` → `accounts`, `Assets` → `assets`, `Materials` → `materials`,
-`MemberProfiles` → `member_profiles`, `MembershipEntitlements` → `membership_entitlements`,
-`TelegramMembership` → `telegram_membership` and `Videos` → `videos`.
-TelegramMembership stores Platform-owned link transaction state, opaque provider correlations and,
-since [ADR 0022](0022-community-delivery-state-in-telegram-membership.md), the community delivery
-state addressed to that provider; entitlement evidence, the right itself and its Account binding
-remain behind the MembershipEntitlements interface. Workshop was cancelled by
-[ADR 0033](0033-product-tariff-payment-model.md); #1063 removes its runtime and schema.
+current owners and their responsibilities are recorded in the [context map](../product/domain-context-map.md),
+with concrete names in the [Prisma schema](../../apps/backend/prisma/schema.prisma).
+Telegram Integration owns link transactions, provider correlations and delivery state by
+[ADR 0022](0022-community-delivery-state-in-telegram-membership.md). Account Rights owns
+Product Access; delivery records and actual group membership do not replace that authority.
+Workshop is cancelled by [ADR 0040](0040-unified-product-access.md).
 
 The schema is an ownership and architecture seam, not a security or failure-isolation boundary.
 Only the owning Module's implementation and migrations may reference its tables. Other Modules use
@@ -28,8 +26,10 @@ data to `materials` through schema-qualified typed queries. It is not production
 coordination, and the guardrail rejects application-schema references from every other non-owning
 source path.
 
-Platform infrastructure and library-owned schemas, including migration metadata and the future
+Platform infrastructure and library-owned schemas, including migration metadata and the
 `pg-boss` schema, keep their own lifecycle and do not become shared business schemas. Migration
 `0003_materials_schema` moves existing Materials objects from `public` to `materials` without
 rewriting frozen migrations. New state-owning Modules create their schema in their first real
 migration, not during speculative scaffolding.
+
+Cross-owner atomic operations use the opaque handle from [ADR 0039](0039-opaque-transaction-handoff.md).

@@ -90,3 +90,24 @@ test("database dependency and migration engine changes require schema handoff", 
     previous = current;
   }
 });
+
+test("the private Kinescope stand file invalidates application builds without an infrastructure handoff", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stand-kinescope-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, "compose.yaml"), "services: {}\n");
+  const git = (/** @type {string[]} */ args) =>
+    args.includes("ls-files") ? "compose.yaml\0" : "1".repeat(40);
+  const first = await readStandSource(root, { git, environment: {} });
+  await mkdir(join(root, ".identity-proof"));
+  await writeFile(
+    join(root, ".identity-proof/stand-kinescope.env"),
+    "KINESCOPE_API_TOKEN=fixture-private-token\n",
+  );
+  const real = await readStandSource(root, { git, environment: {} });
+  assert.notEqual(real.fingerprint, first.fingerprint);
+  assert.notEqual(real.build, first.build);
+  assert.equal(real.infrastructure, first.infrastructure);
+  assert.equal(real.schema, first.schema);
+  assert.equal(real.identity, first.identity);
+  assert.ok(!JSON.stringify(real).includes("fixture-private-token"));
+});

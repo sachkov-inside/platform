@@ -187,7 +187,7 @@ human outcome [Workspace #124](https://github.com/sachkov-inside/workspace/issue
 Это два разных измерения, и отчёт обязан держать их порознь.
 
 Подписка с охватом «вся платформа» открывает все продукты
-([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Человек, пришедший со страницы
+([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Человек, пришедший со страницы
 продукта «Свой проект с агентами», может оплатить такую подписку. Приписать этой покупке
 выручку конкретного продукта невозможно и неверно.
 

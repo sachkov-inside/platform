@@ -31,11 +31,71 @@ an externally attached recording. The MCP tool intentionally does not expose pro
 `video_init_upload` accepts `materialId`, access, filename, byteSize, title and idempotencyKey.
 It returns the same limited Tus endpoint and Video identity as the editor. The MCP call does not
 transfer bytes. A Tus client transfers the local file outside the model context, followed by
-`video_reconcile` and the same versioned Save. For an imported Material in a local environment,
-`pnpm authoring:video upload` runs this sequence from a file and journals the attempt; see the
-[local authoring runbook](./local-acceptance-authoring.md#local-obsidian-authoring-preview-468). It accepts
-only the test adapter; cancellation, batch reports and real provider transfer are not packaged. Stop on `upload_outcome_unknown` and inspect the attempt/provider
-state; do not manufacture a fresh idempotency key for a blind retry.
+`video_reconcile` and the same versioned Save. Stop on `upload_outcome_unknown` and inspect the
+attempt/provider state; do not manufacture a fresh idempotency key for a blind retry.
+
+### `pnpm authoring:video upload` (#1794)
+
+For an imported Material, this command runs that sequence from a file on a local target
+(`editor`, `stand`) or on the trusted `production` target, and journals each step. Content Studio
+uses it to deliver an accepted master; the next `authoring:release` attaches the ready upload.
+
+```bash
+pnpm authoring:video upload --target production --state ~/.inside-authoring/production \
+  --source inside-content:MATERIAL_ID --file MASTER.mp4 --sha256 HEX [--title TITLE]
+```
+
+- `--state` is the same state directory that `authoring:release` and `authoring:deliver` use for
+  that target; the journal must already know the Material (released, or adopted through
+  `authoring:deliver reconcile --adopt`). One command at a time holds that directory, for the
+  whole transfer. If the Mac sleeps longer than two minutes, the journal lock may be treated as stale
+  and the command may stop; repeat the same command, it continues from the server's offset.
+- `production` uses the owner's Keychain session from `authoring:login`, like `authoring:release`,
+  and stops when the target does not report the expected runtime. Local targets need no session.
+- `--sha256` (64 lowercase hex characters) is required for `production` and optional for local
+  targets. A file with another checksum is refused before any request and leaves the journal unchanged.
+- The server creates the upload; the Kinescope token stays on the server. The command sends the
+  bytes to the returned Tus endpoint in 8 MiB parts (`HEAD` for the offset, then `PATCH`), reading
+  the file one part at a time. Only an HTTPS endpoint on `kinescope.io` or a subdomain receives bytes;
+  the local test adapter's `.invalid` endpoint skips the transfer. A redirect is followed once, and
+  only to another Kinescope HTTPS address. A request that fails without an answer, with 5xx, 408,
+  409, 423 or 429 is repeated after 1, 3, 10 and 30 seconds, from the server's offset; then the run
+  stops. Progress goes to stderr without the endpoint or tokens.
+- The journal file (mode 0600) keeps the idempotency key, phase and endpoint under
+  `upload:MATERIAL_ID:SHA256`. The endpoint grants upload access to that one attempt; the journal
+  never holds a bearer token, offsets or media bytes. Repeating the same command continues an
+  interrupted transfer from the server's offset without a new upload, and waits for processing
+  again when it has not finished.
+- When the provider no longer knows the upload (`HEAD` answers 404 or 410), the command stops and
+  names the `videoId` and idempotency key; repeating it stops the same way. Report both to the owner.
+  Starting a replacement upload is the owner's decision after checking that attempt in Kinescope
+  and Platform; the command never starts one by itself and offers no way to discard the stored
+  attempt. Do not edit the journal by hand.
+- Success prints one JSON document on stdout with `target`, `sourceId`, `materialId`, `videoId`,
+  `providerVideoId`, `durationSeconds`, `sha256` and `next`, and exits 0. The journal then holds
+  `source-video:SOURCE_ID`, which the next release attaches as the primary Video.
+- Any stop exits non-zero with a message on stderr: no session (`pnpm authoring:login` hint), wrong
+  runtime, checksum mismatch, an unsynchronized Material, an endpoint outside Kinescope,
+  `Upload-Length` different from the file size, a refused or exhausted transfer, a file changed
+  during the transfer, a failed provider video, or processing still under way (repeat later). The
+  checksum, size and transferred bytes come from one open handle; when the file's device, inode,
+  size or modification time differ after the transfer, the attempt stays in `transfer` and the
+  repeated command hashes the file again. `upload_outcome_unknown` stops and names the
+  idempotency key; inspect the attempt, the command never creates a new key for it. Only a failed
+  provider video lets the same file start a new attempt.
+
+On a local stand that now runs the real Kinescope adapter, a file uploaded earlier through the test
+adapter still has a `ready` receipt whose endpoint ends in `.invalid`, so a rerun returns the fake
+provider ID. `--replace-test-upload` discards that receipt, and the `source-video:SOURCE_ID` receipt
+when it names the same `videoId`, then uploads the file as new with a fresh idempotency key. It is
+refused on trusted targets before any request. Any other stored receipt for this file, or none,
+is left as it is and the command runs as without the flag: it continues an unfinished upload or
+returns the ready one. So an interrupted run can be repeated with the same flag.
+
+`authoring:release preview` lists every such upload in `videoUploads` (`sourceId`, `state`
+`pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches
+only a `ready` upload; a pending one leaves the Material's Video unchanged. The Material keeps its
+publication state; uploading does not publish anything.
 
 ## Links to a video moment
 

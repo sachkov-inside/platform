@@ -62,6 +62,7 @@ Use the same Compose files when stopping the stand:
 
 ```bash
 docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml \
+  -f config/compose/local/stand-kinescope.compose.yaml \
   --profile identity --profile local-accounts down
 ```
 

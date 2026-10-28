@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, loadPackage } from "./package.mjs";
@@ -130,4 +130,11 @@ test("another writer cannot apply to the same target concurrently", async (t) =>
       { code: "ELOCKED" },
     );
   });
+});
+
+test("an existing state directory becomes private to the owner", async (t) => {
+  const root = await temporary(t);
+  await chmod(root, 0o755);
+  await withJournal(root, "local", () => {});
+  assert.equal((await stat(root)).mode & 0o777, 0o700);
 });

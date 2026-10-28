@@ -206,6 +206,7 @@ Stop the stand with the same Compose files it started with:
 
 ```bash
 docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml \
+  -f config/compose/local/stand-kinescope.compose.yaml \
   --profile identity --profile local-accounts down
 ```
 
