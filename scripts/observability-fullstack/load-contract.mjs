@@ -16,7 +16,17 @@ const profile = fileURLToPath(
 );
 const enabled = process.argv[3] === "on";
 const queryFailures = process.argv[4] === "query-failures";
+const diagnosticOrdinal = process.argv[4]?.startsWith("stability-")
+  ? Number(process.argv[4].slice("stability-".length))
+  : null;
+/** @type {number[]} */ const actorIndices = [];
+/** @type {number[]} */ const updateIds = [];
 let queryCycle = 0;
+let heldCount = 0;
+/** @type {()=>void} */ let releaseHeld = () => {};
+const held = new Promise((resolve) => {
+  releaseHeld = () => resolve(undefined);
+});
 const account = "00000000-0000-4000-8000-000000001566";
 /** @type {Record<string, number>} */ const counts = {};
 /** @param {unknown} value @param {string} key @returns {unknown} */
@@ -161,6 +171,10 @@ const server = createServer(async (request, response) => {
         ? '<html><body class="home-page">Главная</body></html>'
         : `<html><h1>Synthetic ${request.url?.split("-").at(-1)}</h1></html>`;
   } else if (host === "api.resource.test") {
+    if (request.url === "/accounts/current" && diagnosticOrdinal !== null)
+      actorIndices.push(
+        Number(String(request.headers.authorization).split("-").at(-1)),
+      );
     value =
       request.url === "/accounts/current"
         ? { account: { accountId: account } }
@@ -174,6 +188,8 @@ const server = createServer(async (request, response) => {
             topicSlugs: [],
           };
   } else if (host === "telegram") {
+    if (diagnosticOrdinal !== null)
+      updateIds.push(Number(field(JSON.parse(body), "update_id")));
     status = 202;
     value = { accepted: true };
   } else {
@@ -211,6 +227,22 @@ const server = createServer(async (request, response) => {
       if (queryCycle === 7) value = { pageviews: 0 };
     }
   }
+  if (
+    diagnosticOrdinal !== null &&
+    [
+      "site.resource.test",
+      "api.resource.test",
+      "mcp",
+      "telegram",
+      "logto",
+      "umami-ingest",
+    ].includes(host) &&
+    heldCount < 8
+  ) {
+    heldCount++;
+    if (heldCount === 8) releaseHeld();
+    await held;
+  }
   response
     .writeHead(status)
     .end(typeof value === "string" ? value : JSON.stringify(value));
@@ -231,7 +263,7 @@ try {
   await writeFile(
     loader,
     `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import timers from 'node:timers/promises';import {syncBuiltinESMExports} from 'node:module';
-const read=fs.readFileSync;fs.readFileSync=(p,...a)=>p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array(256).fill('synthetic')}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);
+const read=fs.readFileSync;fs.readFileSync=(p,...a)=>p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array.from({length:256},(_,index)=>'synthetic-'+index)}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);
 const timer=timers.setTimeout;let requested=0,selected=false,completed=0,overflow=0;timers.setTimeout=(ms,...a)=>{if(ms===500){if(requested<128)requested++;else overflow=1;if(${enabled && !queryFailures}&&!selected){selected=true;return timer(0,...a).then(value=>{completed=1;return value;});}}return timer(ms,...a);};process.on('exit',()=>fs.writeFileSync(${JSON.stringify(timerReceipt)},JSON.stringify([requested,completed,overflow])));
 const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.resource.test','mcp','telegram','logto','alloy','gateway','umami-query','umami-ingest'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:${address.port},headers:{...o.headers,'x-fixture-host':o.hostname}},cb);};http.request=mapped;https.request=mapped;syncBuiltinESMExports();`,
   );
@@ -242,14 +274,22 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       "--import",
       loader,
       client,
-      "load",
-      JSON.stringify(
-        queryFailures
-          ? { name: "idle", seconds: 10, requests_per_second: 0 }
-          : { name: "spike", seconds: 10, requests_per_second: 40 },
-      ),
-      enabled ? "on" : "off",
-      "0",
+      ...(diagnosticOrdinal === null
+        ? [
+            "load",
+            JSON.stringify(
+              queryFailures
+                ? { name: "idle", seconds: 10, requests_per_second: 0 }
+                : { name: "spike", seconds: 10, requests_per_second: 40 },
+            ),
+            enabled ? "on" : "off",
+            "0",
+          ]
+        : [
+            "stability-load",
+            enabled ? "on" : "off",
+            String(diagnosticOrdinal),
+          ]),
     ],
     { stdio: ["ignore", "pipe", "pipe"] },
   );
@@ -283,8 +323,14 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
   );
   const timing = field(result, "timing_diagnostics");
   assert.equal(field(timing, "state"), "complete");
-  assert.equal(field(timing, "phase"), queryFailures ? 3 : enabled ? 5 : 2);
-  assert.equal(field(timing, "pair"), 0);
+  assert.equal(
+    field(timing, "phase"),
+    diagnosticOrdinal ?? (queryFailures ? 3 : enabled ? 5 : 2),
+  );
+  assert.equal(
+    field(timing, "pair"),
+    diagnosticOrdinal === null ? 0 : Math.floor(diagnosticOrdinal / 6),
+  );
   const phaseStart = field(timing, "phase_start");
   const phaseEnd = field(timing, "phase_end");
   assert.ok(Array.isArray(phaseStart) && Array.isArray(phaseEnd));
@@ -461,9 +507,34 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       );
       assert.ok(monitoringQueries > 0);
     }
-    console.log(JSON.stringify({ ok: true, scheduled: 400, mcp_sse: 50 }));
+    if (diagnosticOrdinal !== null) {
+      assert.deepEqual(
+        actorIndices,
+        Array.from({ length: 50 }, (_, index) => index),
+      );
+      assert.deepEqual(
+        [...updateIds].sort((a, b) => a - b),
+        Array.from(
+          { length: 50 },
+          (_, index) => 2000000 + diagnosticOrdinal * 1000 + index * 8 + 6,
+        ),
+      );
+      assert.equal(field(result, "diagnostic_only"), true);
+      assert.equal(field(result, "actor_cohort"), 0);
+      const max = field(result, "maximum_inflight");
+      assert.ok(typeof max === "number" && max === 8);
+    }
+    console.log(
+      JSON.stringify({
+        ok: true,
+        scheduled: 400,
+        mcp_sse: 50,
+        ...(diagnosticOrdinal === null ? {} : { diagnosticOrdinal }),
+      }),
+    );
   }
 } finally {
+  releaseHeld();
   if (child && child.exitCode === null && child.signalCode === null)
     child.kill("SIGKILL");
   await closed?.catch(() => {});

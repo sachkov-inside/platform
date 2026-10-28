@@ -542,9 +542,9 @@ async function telegramUpdate(actor, update) {
     },
   );
 }
-/** @param {number} index @param {boolean} enabled @param {number} phase */
-async function operation(index, enabled, phase) {
-  const actor = (phase * 50 + Math.floor(index / 8)) % profile.accounts;
+/** @param {number} index @param {boolean} enabled @param {number} phase @param {number} [cohort] */
+async function operation(index, enabled, phase, cohort = phase) {
+  const actor = (cohort * 50 + Math.floor(index / 8)) % profile.accounts;
   const bearer = privateTokens()[actor];
   const kind = index % 8;
   if (kind === 0)
@@ -716,8 +716,8 @@ async function retained(phase) {
     ? count
     : null;
 }
-/** @param {{name:string,seconds:number,requests_per_second:number}} definition @param {boolean} enabled @param {number} pair */
-async function load(definition, enabled, pair) {
+/** @param {{name:string,seconds:number,requests_per_second:number}} definition @param {boolean} enabled @param {number} pair @param {number} [diagnosticOrdinal] */
+async function load(definition, enabled, pair, diagnosticOrdinal) {
   const start = performance.now(),
     end = start + definition.seconds * 1000;
   let scheduled = 0,
@@ -729,9 +729,12 @@ async function load(definition, enabled, pair) {
   const epoch = Date.now(),
     anchorAfter = performance.now(),
     phase =
+      diagnosticOrdinal ??
       pair * 6 +
-      (enabled ? 3 : 0) +
-      ["idle", "steady", "spike"].indexOf(definition.name);
+        (enabled ? 3 : 0) +
+        ["idle", "steady", "spike"].indexOf(definition.name);
+  const cohort = diagnosticOrdinal === undefined ? phase : 0;
+  let maximumInflight = 0;
   const timing = phaseTiming(phase, pair, start, epoch, anchorAfter);
   /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
   /** @type {number[]} */ const querySeconds = [];
@@ -829,13 +832,13 @@ async function load(definition, enabled, pair) {
           if (response.status === 200) acknowledged++;
           else unexpected++;
         }
-        return await operation(index, enabled, phase);
+        return await operation(index, enabled, phase, cohort);
       })()
         .then((value) => {
           const expected =
             value.label === "api_account"
               ? (privateAccounts()[
-                  (phase * 50 + Math.floor(index / 8)) % profile.accounts
+                  (cohort * 50 + Math.floor(index / 8)) % profile.accounts
                 ] ?? "")
               : value.label === "web_material"
                 ? "Synthetic " + String((index % profile.materials) + 1)
@@ -866,6 +869,8 @@ async function load(definition, enabled, pair) {
         })
         .finally(() => active.delete(work));
       active.add(work);
+      if (diagnosticOrdinal !== undefined)
+        maximumInflight = Math.max(maximumInflight, active.size);
     }
     while (performance.now() < end)
       await delay(Math.max(0, end - performance.now()));
@@ -887,6 +892,13 @@ async function load(definition, enabled, pair) {
   }
   const age = enabled ? await lag() : null;
   return {
+    ...(diagnosticOrdinal === undefined
+      ? {}
+      : {
+          diagnostic_only: true,
+          actor_cohort: 0,
+          maximum_inflight: maximumInflight,
+        }),
     telegram_acknowledged: telegramAccepted,
     acknowledged_probe_points: acknowledged,
     stored_probe_points: stored,
@@ -1019,6 +1031,27 @@ if (action === "source-warmup") {
     created++;
   }
   console.log(JSON.stringify({ created, accounts }));
+} else if (action === "stability-load") {
+  const mode = argument(0),
+    ordinal = Number(argument(1));
+  if (
+    !["off", "on"].includes(mode) ||
+    !Number.isInteger(ordinal) ||
+    ordinal < 0 ||
+    ordinal > 11 ||
+    args.length !== 2
+  )
+    throw new Error("closed stability phase required");
+  console.log(
+    JSON.stringify(
+      await load(
+        { name: "spike", seconds: 10, requests_per_second: 40 },
+        mode === "on",
+        Math.floor(ordinal / 6),
+        ordinal,
+      ),
+    ),
+  );
 } else if (action === "load") {
   console.log(
     JSON.stringify(
