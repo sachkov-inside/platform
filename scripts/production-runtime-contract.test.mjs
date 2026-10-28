@@ -676,14 +676,15 @@ describe("production runtime architecture contract", () => {
   });
 
   it("delivers protected bytes only through the protected bucket without leaking credentials or internal headers", () => {
-    for (const [change, reason] of [
+    /** @type {[(caddy: string) => string, RegExp][]} */
+    const broken = [
       [
-        (/** @type {string} */ caddy) =>
+        (caddy) =>
           caddy.replace("\t\trequest_header -X-Inside-Storage-Delivery\n", ""),
         /strip a client-supplied storage delivery marker/u,
       ],
       [
-        (/** @type {string} */ caddy) =>
+        (caddy) =>
           caddy.replace(
             "\t\t\t# Служебные заголовки доставки не выходят наружу и с других путей web.\n",
             "\t\t\theader_up X-Inside-Storage-Delivery edge\n",
@@ -691,17 +692,16 @@ describe("production runtime architecture contract", () => {
         /only the protected-delivery route may send the storage delivery marker/u,
       ],
       [
-        (/** @type {string} */ caddy) =>
-          caddy.replace("\t\t\t\t\theader_up -Cookie\n", ""),
+        (caddy) => caddy.replace("\t\t\t\t\theader_up -Cookie\n", ""),
         /must not forward client Cookie to storage/u,
       ],
       [
-        (/** @type {string} */ caddy) =>
+        (caddy) =>
           caddy.replace("\t\t\theader_down -X-Inside-Storage-Location\n", ""),
         /never send the internal X-Inside-Storage-Location header/u,
       ],
       [
-        (/** @type {string} */ caddy) =>
+        (caddy) =>
           caddy.replace(
             "header X-Inside-Storage-Location https://inside-production-protected.storage.yandexcloud.net/*",
             "header X-Inside-Storage-Location https://*",
@@ -709,11 +709,11 @@ describe("production runtime architecture contract", () => {
         /fetch only the protected bucket/u,
       ],
       [
-        (/** @type {string} */ caddy) =>
-          caddy.replace("|account/profile/avatar/[^/]+/[^/]+)$", ")$"),
+        (caddy) => caddy.replace("|account/profile/avatar/[^/]+/[^/]+)$", ")$"),
         /misses \/api\/account\/profile\/avatar/u,
       ],
-    ]) {
+    ];
+    for (const [change, reason] of broken) {
       assert.throws(
         () =>
           assertRuntimeContract({ ...runtime, caddy: change(runtime.caddy) }),
