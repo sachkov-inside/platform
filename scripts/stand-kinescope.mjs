@@ -113,7 +113,7 @@ if (
     if (command === "import") {
       if (process.stdin.isTTY)
         throw new Error(
-          "Pipe the production runtime values: ssh inside-production \"grep '^KINESCOPE_' /etc/inside/runtime/api.env\" | pnpm stand:kinescope import",
+          "Pipe the production runtime values: ssh inside-production \"grep -E '^KINESCOPE_(API_TOKEN|PUBLIC_PROJECT_ID|MEMBERSHIP_PROJECT_ID|API_BASE_URL|UPLOADER_BASE_URL)=' /etc/inside/runtime/api.env\" | pnpm stand:kinescope import",
         );
       await writeStandKinescope(
         path,

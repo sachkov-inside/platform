@@ -13,7 +13,7 @@ API token, both project IDs and the provider base URLs, adds `KINESCOPE_PROVIDER
 prints no values:
 
 ```bash
-ssh inside-production "grep '^KINESCOPE_' /etc/inside/runtime/api.env" | pnpm stand:kinescope import
+ssh inside-production "grep -E '^KINESCOPE_(API_TOKEN|PUBLIC_PROJECT_ID|MEMBERSHIP_PROJECT_ID|API_BASE_URL|UPLOADER_BASE_URL)=' /etc/inside/runtime/api.env" | pnpm stand:kinescope import
 pnpm stand:kinescope status
 pnpm stand refresh --worktree <reserved worktree>
 ```
@@ -40,6 +40,15 @@ by `refresh` returns every role to the deterministic test adapter.
   production, which stores an unmatched event for a stand upload and does nothing else.
 - Videos recorded before the switch hold test-adapter provider IDs; they never played and do not
   play now. Upload the recording again.
+
+## Accepted risk
+
+The production token can also delete: Kinescope documents no read-and-upload-only token for both
+projects. "No deletion" therefore rests on the stand's code paths, not on the token. Any process
+that reads the private file or inspects the `api`/`mcp` containers can use the token directly, and
+`remove` takes it out of running roles only after `refresh`. Uploads from the stand also count
+against the production account and need manual cleanup. The owner accepts these effects with this
+setup; a narrower token, if Kinescope offers one, replaces the copied value without other changes.
 
 ## What plays
 
