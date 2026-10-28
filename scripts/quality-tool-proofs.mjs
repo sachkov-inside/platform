@@ -1,6 +1,5 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
   mkdtempSync,
@@ -12,16 +11,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { withPinnedTool } from "./quality-tools.mjs";
+import { qualityCommand } from "./quality-command.mjs";
 
 /** @param {string} executable @param {string[]} args @param {string} input @param {boolean} accepted @param {RegExp} [diagnostic] @param {string} [cwd] */
-function probe(executable, args, input, accepted, diagnostic, cwd) {
-  const result = spawnSync(executable, args, {
+async function probe(executable, args, input, accepted, diagnostic, cwd) {
+  const result = await qualityCommand(executable, args, {
     input,
     cwd,
-    encoding: "utf8",
+    // Miniature proof repositories have their own source identity, not the CI candidate's base.
+    env: { ...process.env, QUALITY_BASE_SHA: "" },
     timeout: 30_000,
   });
-  if (result.error !== undefined) throw result.error;
   assert.equal(
     result.status,
     accepted ? 0 : 1,
@@ -33,7 +33,7 @@ function probe(executable, args, input, accepted, diagnostic, cwd) {
 
 const directory = mkdtempSync(join(tmpdir(), "inside-quality-proof-"));
 try {
-  await withPinnedTool("betterleaks", (executable) => {
+  await withPinnedTool("betterleaks", async (executable) => {
     const file = join(directory, "credentials.env");
     const config = fileURLToPath(
       new URL("../.betterleaks.toml", import.meta.url),
@@ -49,19 +49,18 @@ try {
       file,
     ];
     writeFileSync(file, "POSTGRES_PASSWORD=inside\n");
-    probe(executable, args, "", true);
+    await probe(executable, args, "", true);
     // Provider-shaped but synthetic. Split so the positive repository scan has no credential.
     const token = ["ghp_", "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"].join("");
     writeFileSync(file, `GITHUB_TOKEN=${token}\n`);
-    probe(executable, args, "", false, /github-pat/u);
-    const initialized = spawnSync("git", ["init", "-q", directory], {
-      encoding: "utf8",
+    await probe(executable, args, "", false, /github-pat/u);
+    const initialized = await qualityCommand("git", ["init", "-q", directory], {
       timeout: 5_000,
     });
     assert.equal(initialized.status, 0, initialized.stderr);
     copyFileSync(config, join(directory, ".betterleaks.toml"));
     const cli = fileURLToPath(new URL("./quality-check.mjs", import.meta.url));
-    probe(
+    await probe(
       process.execPath,
       [cli, "secrets"],
       "",
@@ -73,7 +72,7 @@ try {
     const collision = join(directory, "quality-findings.json");
     const collisionContent = JSON.stringify({ token });
     writeFileSync(collision, collisionContent);
-    probe(
+    await probe(
       process.execPath,
       [cli, "secrets"],
       "",
@@ -83,7 +82,7 @@ try {
     );
     assert.equal(readFileSync(collision, "utf8"), collisionContent);
     rmSync(collision);
-    probe(
+    await probe(
       process.execPath,
       [cli, "secrets"],
       "",
@@ -107,7 +106,7 @@ try {
       manifest,
       JSON.stringify({ name: "quality-proof", private: true }),
     );
-    probe("pnpm", args, "", true);
+    await probe("pnpm", args, "", true);
     writeFileSync(
       manifest,
       JSON.stringify({
@@ -116,15 +115,15 @@ try {
         dependencies: { "left-pad": "1.3.0" },
       }),
     );
-    probe("pnpm", args, "", false, /left-pad/u);
-    await withPinnedTool("shellcheck", (executable) => {
-      probe(
+    await probe("pnpm", args, "", false, /left-pad/u);
+    await withPinnedTool("shellcheck", async (executable) => {
+      await probe(
         executable,
         ["--severity=warning", "-"],
         '#!/bin/sh\nprintf "%s\\n" "$1"\n',
         true,
       );
-      probe(
+      await probe(
         executable,
         ["--severity=warning", "-"],
         '#!/bin/sh\nif [ "$1" -eq ]; then :; fi\n',
@@ -132,14 +131,14 @@ try {
         /SC[0-9]+/u,
       );
     });
-    await withPinnedTool("hadolint", (executable) => {
-      probe(
+    await withPinnedTool("hadolint", async (executable) => {
+      await probe(
         executable,
         ["--failure-threshold=warning", "-"],
         "FROM scratch\nCOPY file /file\nUSER 1000\n",
         true,
       );
-      probe(
+      await probe(
         executable,
         ["--failure-threshold=warning", "-"],
         "FROM node:latest\n",
@@ -147,7 +146,7 @@ try {
         /DL3007/u,
       );
     });
-    await withPinnedTool("jactionlint", (executable) => {
+    await withPinnedTool("jactionlint", async (executable) => {
       const args = [
         "--profile=correctness",
         "--no-online",
@@ -158,8 +157,8 @@ try {
       ];
       const workflow =
         "name: Proof\non: push\njobs:\n  build:\n    runs-on: ubuntu-24.04\n    steps:\n      - run: echo passed\n";
-      probe(executable, args, workflow, true);
-      probe(
+      await probe(executable, args, workflow, true);
+      await probe(
         executable,
         args,
         workflow.replace("    runs-on:", "    needs: missing\n    runs-on:"),

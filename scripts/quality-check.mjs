@@ -1,5 +1,5 @@
 // @ts-check
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
   linkSync,
@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import { runPinnedTool, withPinnedTool } from "./quality-tools.mjs";
+import { qualityCommand } from "./quality-command.mjs";
 
 /** @param {string[]} patterns */
 function trackedFiles(patterns = []) {
@@ -79,8 +80,8 @@ async function secrets() {
     const report = join(directory, "quality-findings.json");
     /** @param {string[]} source */
     const scan = (source) =>
-      withPinnedTool("betterleaks", (executable) => {
-        const execution = spawnSync(
+      withPinnedTool("betterleaks", async (executable) => {
+        const execution = await qualityCommand(
           executable,
           [
             ...source,
@@ -88,9 +89,8 @@ async function secrets() {
             "--report-format=json",
             `--report-path=${report}`,
           ],
-          { encoding: "utf8", timeout: 200_000 },
+          { timeout: 200_000 },
         );
-        if (execution.error !== undefined) throw execution.error;
         if (
           ![0, 1].includes(execution.status ?? -1) ||
           /\b(?:ERR|FTL)\b|WRN error|error reading/u.test(
@@ -207,12 +207,11 @@ async function main() {
       ]),
     );
   if (mode === "audit") {
-    const result = spawnSync(
+    const result = await qualityCommand(
       "pnpm",
       ["audit", "--prod", "--audit-level=moderate"],
-      { stdio: "inherit", timeout: 120_000 },
+      { inherit: true, timeout: 120_000 },
     );
-    if (result.error !== undefined) throw result.error;
     return result.status ?? 1;
   }
   throw new Error(

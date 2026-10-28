@@ -1,5 +1,4 @@
 // @ts-check
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -16,6 +15,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { qualityCommand } from "./quality-command.mjs";
 
 const toolSchema = z.object({
   repository: z.string().regex(/^[\w-]+\/[\w-]+$/u),
@@ -53,12 +53,11 @@ export function verifyToolDownload(bytes, expected) {
  * Executables are extracted afresh, so a modified cached executable is never reused.
  * @param {string} name @param {string[]} args */
 export async function runPinnedTool(name, args) {
-  return withPinnedTool(name, (executable) => {
-    const execution = spawnSync(executable, args, {
-      stdio: "inherit",
+  return withPinnedTool(name, async (executable) => {
+    const execution = await qualityCommand(executable, args, {
+      inherit: true,
       timeout: 300_000,
     });
-    if (execution.error !== undefined) throw execution.error;
     return execution.status ?? 1;
   });
 }
@@ -101,10 +100,10 @@ export async function withPinnedTool(name, run) {
       executable = join(directory, name);
       copyFileSync(archive, executable);
     } else {
-      const extraction = spawnSync(
+      const extraction = await qualityCommand(
         "tar",
         ["-xzf", archive, "-C", directory, tool.member],
-        { encoding: "utf8", timeout: 10_000 },
+        { timeout: 10_000 },
       );
       if (extraction.status !== 0)
         throw new Error(`Cannot extract ${name}: ${extraction.stderr}`);
