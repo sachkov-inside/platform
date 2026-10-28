@@ -1,4 +1,4 @@
-import { fork, type ChildProcess } from "node:child_process";
+import { fork } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { ChannelModel } from "amqplib";
@@ -20,6 +20,7 @@ import {
   queueLimit,
 } from "./setup/broker.js";
 import { eventually } from "./setup/eventually.js";
+import { watchCrashWorker } from "./setup/crash-worker.js";
 import {
   crashWorkerSignals,
   type CrashWorkerSignal,
@@ -53,7 +54,6 @@ import {
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
 import { assembleNotificationTransport } from "../../src/modules/notifications/index.js";
-import { presentText } from "../../src/infrastructure/contracts/text.js";
 
 const billingFixture = fixtures.find(
   (f) => f.valid && f.definition === "billingEvent",
@@ -106,82 +106,6 @@ const crashScenarioTimeoutMs =
   crashScenarioWorkMs;
 /** Вместимость очереди стенда: на ней проверяется отказ по переполнению. */
 const queueCapacity = 2;
-/**
- * Наблюдение за аварийным воркером. Сообщения запоминаются с момента запуска, поэтому ожидание не
- * может разминуться с уже пришедшим. Ожидание кончается фактом: названным сообщением или смертью
- * процесса. Смерть объявляется по `close`, а не по `exit`: `exit` приходит раньше, чем закрыты
- * потоки, и сообщение о падении осталось бы без stderr там, где он есть. Бюджет остаётся только на
- * третий случай — воркер жив и молчит.
- */
-function watchCrashWorker(child: ChildProcess) {
-  const reached = new Set<string>();
-  let wake: (() => void) | undefined;
-  let stderr = "";
-  let departure: string | undefined;
-  let exit:
-    | { readonly code: number | null; readonly signal: NodeJS.Signals | null }
-    | undefined;
-  child.stderr?.on("data", (chunk) => {
-    stderr += String(chunk);
-  });
-  child.on("message", (message) => {
-    if (typeof message !== "string") return;
-    reached.add(message);
-    wake?.();
-  });
-  const closed = new Promise<void>((resolve) => {
-    child.once("close", (code, signal) => {
-      departure = `closed (code ${String(code)}, signal ${String(signal)})`;
-      exit = { code, signal };
-      wake?.();
-      resolve();
-    });
-  });
-  const detail = () => presentText(stderr.trim()) ?? "no stderr output";
-  return {
-    /**
-     * Смерть на барьере — шаг сценария. Ждём её по `close`, который приходит ровно один раз:
-     * `once(child, 'exit')` после уже случившегося выхода ждал бы вечно, и безымянный срок теста
-     * скрыл бы, что воркер ушёл сам. Возвращает, как именно процесс закончился.
-     */
-    async kill(): Promise<{
-      readonly signal: NodeJS.Signals | null;
-      readonly description: string;
-    }> {
-      if (departure === undefined) child.kill("SIGKILL");
-      await closed;
-      return {
-        signal: exit?.signal ?? null,
-        description: `${String(departure)}: ${detail()}`,
-      };
-    },
-    async reaches(awaited: CrashWorkerSignal, budgetMs: number): Promise<void> {
-      await new Promise<void>((resolve, reject) => {
-        const settle = () => {
-          clearTimeout(timer);
-          wake = undefined;
-          if (reached.has(awaited)) resolve();
-          else if (departure !== undefined)
-            reject(
-              new Error(
-                `Crash worker ${departure} before ${awaited}: ${detail()}`,
-              ),
-            );
-          else
-            reject(
-              new Error(
-                `Crash worker is alive but did not reach ${awaited} within ${String(budgetMs)}ms: ${detail()}`,
-              ),
-            );
-        };
-        // deterministic-test-allow duration-wait: Deadline bounds a signal barrier; receipt or close settles it first.
-        const timer = setTimeout(settle, budgetMs);
-        wake = settle;
-        if (reached.has(awaited) || departure !== undefined) settle();
-      });
-    },
-  };
-}
 
 describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
   let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
@@ -388,6 +312,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
           [],
           {
             execArgv: ["--import", "tsx"],
+            detached: true,
             stdio: ["ignore", "pipe", "pipe", "ipc"],
             env: {
               ...process.env,
@@ -403,8 +328,6 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         );
         const worker = watchCrashWorker(child);
         onTestFinished(async () => {
-          if (child.exitCode === null && child.signalCode === null)
-            child.kill("SIGKILL");
           await worker.kill();
         });
         async function reaches(
@@ -448,8 +371,6 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
             }
           }
         } finally {
-          if (child.exitCode === null && child.signalCode === null)
-            child.kill("SIGKILL");
           death = await worker.kill();
         }
         // Сценарий проверяет смерть от SIGKILL на барьере; самостоятельный выход — другой сценарий.
