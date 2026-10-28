@@ -21,7 +21,7 @@ const CONTACTS_CHUNK = 100;
 
 /**
  * How the owner sees one person (#1721): the name and @username of the linked Telegram account,
- * never the Account Profile (privacy-v5), and the verified Billing Contact address. The Account ID
+ * never the Account Profile (privacy-v6), and the verified Billing Contact address. The Account ID
  * is the key; the web shows it small, never as the title.
  */
 export interface PersonIdentity {
