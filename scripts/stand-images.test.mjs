@@ -137,3 +137,29 @@ test("the daemon's container count protects an image, and an unknown count keeps
   };
   assert.deepEqual(usedImageIds(docker), new Set([id(1), id(3)]));
 });
+
+test("an image with an unreadable creation time is never planned for removal", () => {
+  assert.throws(() =>
+    standImagePlan({
+      images: [{ ...image(1, { daysOld: 30 }), Created: "not a date" }],
+      usedImageIds: new Set(),
+      now,
+    }),
+  );
+});
+
+test("a failing removal stops the run with the docker error", () => {
+  const [, stale] = standImagePlan({
+    images: [image(1, { daysOld: 1 }), image(2, { daysOld: 30 })],
+    usedImageIds: new Set(),
+    now,
+  });
+  assert.ok(stale);
+  assert.throws(
+    () =>
+      removeStandImage(() => {
+        throw new Error("image is being used by stopped container");
+      }, stale),
+    /being used/u,
+  );
+});

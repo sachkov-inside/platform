@@ -9,14 +9,14 @@ import { z } from "zod";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 export const standProject = "inside-platform";
-const day = 24 * 60 * 60 * 1000;
 /** An image this young may belong to a build still under review. */
 export const minimumStaleAgeDays = 7;
+const minimumStaleAgeMilliseconds = minimumStaleAgeDays * 24 * 60 * 60 * 1000;
 
 const imageSchema = z.object({
   Id: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
   RepoTags: z.array(z.string()).nullable(),
-  Created: z.string(),
+  Created: z.iso.datetime({ offset: true }),
   Size: z.number(),
   Config: z.object({
     Labels: z.record(z.string(), z.string()).nullable(),
@@ -71,7 +71,7 @@ export function standImagePlan({ images, usedImageIds, now }) {
         reason: `newest unused ${image.service} image, kept for a rollback`,
       };
     }
-    if (now.getTime() - image.created.getTime() < minimumStaleAgeDays * day)
+    if (now.getTime() - image.created.getTime() < minimumStaleAgeMilliseconds)
       return {
         ...image,
         verdict: "keep",
@@ -176,8 +176,18 @@ if (
         `${stale.length} stale stand image(s); pnpm stand:images --apply removes them\n`,
       );
     } else {
-      for (const image of stale) removeStandImage(docker, image);
-      process.stdout.write(`Removed ${stale.length} stale stand image(s)\n`);
+      let removed = 0;
+      for (const image of stale) {
+        // Another session's plain Compose run takes no lock: check again right before removal.
+        if (usedImageIds(docker).has(image.id)) {
+          process.stdout.write(`keep\t${image.id.slice(7, 19)}\tnow in use\n`);
+          continue;
+        }
+        removeStandImage(docker, image);
+        removed += 1;
+        process.stdout.write(`removed\t${image.id.slice(7, 19)}\n`);
+      }
+      process.stdout.write(`Removed ${removed} stale stand image(s)\n`);
     }
   } catch (error) {
     process.stderr.write(
