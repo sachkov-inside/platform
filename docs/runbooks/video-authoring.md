@@ -117,8 +117,8 @@ provider recording serves the stand and production and survives a later change o
    `accessChange` and no `videoChange`. Only a recording in the public project cannot serve a
    closed lesson: the preview names it `video_not_protected` (the target would refuse the Save with
    `video_provider_mismatch`); upload the master to the protected project and record the new ID. A
-   target that predates ADR 0041 refuses any access change of a lesson with a Video, which the
-   preview names `video_access_change`.
+   target that predates ADR 0041 refuses any access change of a lesson that keeps its Video, which
+   the preview names `video_access_change`.
 
 ## Links to a video moment
 

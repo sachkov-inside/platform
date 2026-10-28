@@ -363,6 +363,8 @@ export async function previewRelease(
     // A public recording cannot be closed, and a target before ADR 0041 cannot change the access
     // of a Material with a Video at all; both refuse the Save, so the preview names them first.
     const currentAccess = current.metadata.access ?? entry.access;
+    // Only a kept Video has a protection the target reports. A replacement is new to this preview;
+    // every new upload is protected, and a public recording named by ID fails on apply instead.
     const keptProtection =
       current.primaryVideoId !== null && attached === current.primaryVideoId
         ? current.primaryVideo?.protected

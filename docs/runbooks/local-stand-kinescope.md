@@ -56,7 +56,8 @@ by `refresh` returns every role to the deterministic test adapter.
 Before [ADR 0041](../adr/0041-protected-recording-serves-any-access.md) the stand's first chapter was
 free, so its uploads went to the public project. Such a recording cannot serve a closed lesson: once
 the course profile keeps Content's access, the release preview names the lesson with
-`video_not_protected` and changes nothing. List those lessons on the stand (read-only):
+`video_not_protected` and changes nothing. List the lessons with a public recording on the stand
+(read-only); only those that become closed need the steps below:
 
 ```bash
 docker exec inside-platform-postgres-1 sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "select m.source_id, v.provider_video_id from materials.materials m join videos.videos v on v.id = m.primary_video_id where v.access = '"'"'free'"'"' and m.source_id is not null"'
