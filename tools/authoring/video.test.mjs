@@ -1,35 +1,50 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { once } from "node:events";
+import { createServer } from "node:http";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { reviewOrigin } from "./local-sync.mjs";
-import { transferRequired, uploadVideo } from "./video.mjs";
+import { tusChunkBytes, uploadVideo } from "./video.mjs";
 import {
   sourceVideoReceiptSchema,
   uploadReceiptSchema,
 } from "./local-boundaries.mjs";
 import { readJournalFile, resourcesOf } from "./test-support.mjs";
+import { trustedTargets } from "./target.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const videoId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceId = "inside-content:lesson";
+const production = trustedTargets.production.id;
+const ownerToken = async () => "owner-access-token";
 
 /** @typedef {import("./target.mjs").LocalTransport} LocalTransport */
 
-/** @param {import("node:test").TestContext} t */
-async function fixture(t) {
+/** @param {Buffer | string} bytes */
+const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+/**
+ * @param {import("node:test").TestContext} t
+ * @param {{ target?: string; bytes?: Buffer | string }} [options]
+ */
+async function fixture(
+  t,
+  { target = reviewOrigin, bytes = "recording-bytes" } = {},
+) {
   const directory = await mkdtemp(join(tmpdir(), "authoring-video-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const state = join(directory, "state");
   await mkdir(state);
   const file = join(directory, "final.mp4");
-  await writeFile(file, "recording-bytes");
+  await writeFile(file, bytes);
   const journal = {
     schemaVersion: 1,
-    target: reviewOrigin,
+    target,
     materials: {
       [sourceId]: {
         materialId,
@@ -45,13 +60,22 @@ async function fixture(t) {
   return {
     state,
     file,
+    bytes: Buffer.from(bytes),
+    sha256: sha256Of(bytes),
     read: () => readJournalFile(state),
+    raw: () => readFile(join(state, "journal.json"), "utf8"),
   };
 }
 
+/**
+ * The authoring API double: the environment probe, upload init keyed by idempotency key and
+ * reconcile, which reports processing once and then ready.
+ */
 function providerApi({
   endpoint = "https://uploads.invalid/provider-one",
   loseFirstInit = false,
+  mode = "development",
+  byteSize = 15,
 } = {}) {
   /** @type {{ path: string; key: string | undefined }[]} */
   const calls = [];
@@ -64,13 +88,12 @@ function providerApi({
     /** @type {LocalTransport} */
     async request(path, body, key) {
       calls.push({ path, key });
-      if (path === "/authoring/import/materials/environment")
-        return { mode: "development" };
+      if (path === "/authoring/import/materials/environment") return { mode };
       if (path === `/authoring/materials/${materialId}/videos/uploads`) {
         assert.ok(key !== undefined && key.startsWith("video-upload:"));
         assert.deepEqual(body, {
           access: "closed",
-          byteSize: 15,
+          byteSize,
           filename: "final.mp4",
           title: "Финальная запись",
         });
@@ -100,6 +123,106 @@ function providerApi({
 }
 
 /**
+ * A Tus 1.0.0 server double on loopback. It keeps the received bytes; a scheduled fault stores
+ * half of a PATCH body and then drops the connection, as an interrupted network does.
+ *
+ * @param {import("node:test").TestContext} t
+ * @param {{ length: number; faults?: number; reportedLength?: number }} options
+ */
+async function tusServer(t, { length, faults = 0, reportedLength = length }) {
+  /** @type {Buffer[]} */
+  const stored = [];
+  let offset = 0;
+  let remainingFaults = faults;
+  /** @type {{ method: string; offset: string | undefined; headers: import("node:http").IncomingHttpHeaders }[]} */
+  const requests = [];
+  const server = createServer(async (request, response) => {
+    const header = request.headers["upload-offset"];
+    requests.push({
+      method: request.method ?? "",
+      offset: typeof header === "string" ? header : undefined,
+      headers: request.headers,
+    });
+    if (request.headers["tus-resumable"] !== "1.0.0") {
+      response.writeHead(412).end();
+      return;
+    }
+    if (request.method === "HEAD") {
+      response
+        .writeHead(200, {
+          "tus-resumable": "1.0.0",
+          "upload-offset": String(offset),
+          "upload-length": String(reportedLength),
+          "cache-control": "no-store",
+        })
+        .end();
+      return;
+    }
+    if (request.method !== "PATCH") {
+      response.writeHead(405).end();
+      return;
+    }
+    /** @type {Buffer[]} */
+    const parts = [];
+    for await (const part of request) {
+      // Without an encoding a request stream yields bytes.
+      if (!Buffer.isBuffer(part)) throw new Error("Request yielded text");
+      parts.push(part);
+    }
+    const body = Buffer.concat(parts);
+    if (
+      request.headers["content-type"] !== "application/offset+octet-stream" ||
+      Number(header) !== offset
+    ) {
+      response.writeHead(409).end();
+      return;
+    }
+    if (remainingFaults > 0) {
+      remainingFaults--;
+      const half = body.subarray(0, Math.floor(body.length / 2));
+      stored.push(half);
+      offset += half.length;
+      request.socket.destroy();
+      return;
+    }
+    stored.push(body);
+    offset += body.length;
+    response
+      .writeHead(204, {
+        "tus-resumable": "1.0.0",
+        "upload-offset": String(offset),
+      })
+      .end();
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const address = server.address();
+  assert.ok(address !== null && typeof address === "object");
+  const base = `http://127.0.0.1:${String(address.port)}`;
+  /**
+   * Sends requests for the provider's HTTPS upload host to the loopback double.
+   *
+   * @type {typeof fetch}
+   */
+  const fetcher = (input, init) => {
+    const url = new URL(String(input));
+    assert.equal(url.protocol, "https:");
+    assert.equal(url.hostname, "uploader.kinescope.io");
+    return fetch(`${base}${url.pathname}`, init);
+  };
+  return {
+    fetcher,
+    requests,
+    received: () => Buffer.concat(stored),
+    endpoint: "https://uploader.kinescope.io/files/provider-one",
+  };
+}
+
+/**
  * @param {{ state: string; file: string }} setup
  * @param {{ request: LocalTransport }} api
  * @param {Partial<Parameters<typeof uploadVideo>[0]>} [extra]
@@ -114,6 +237,10 @@ const upload = (setup, api, extra = {}) =>
     sleep: async () => {},
     ...extra,
   });
+
+/** A recording longer than two Tus chunks, so a transfer takes several PATCH requests. */
+const longRecording = () =>
+  Buffer.alloc(tusChunkBytes * 2 + 4321, "recording-");
 
 test("a lost init response retries the persisted key and reaches a ready video once", async (t) => {
   const setup = await fixture(t);
@@ -130,6 +257,7 @@ test("a lost init response retries the persisted key and reaches a ready video o
     videoId,
     providerVideoId: "provider-one",
     durationSeconds: 600,
+    sha256: setup.sha256,
   });
   const keys = api.calls
     .filter((call) => call.path.endsWith("/uploads"))
@@ -151,41 +279,243 @@ test("a lost init response retries the persisted key and reaches a ready video o
   );
 });
 
-test("a real provider endpoint is refused before any byte is sent", async (t) => {
-  const setup = await fixture(t);
+test("a production upload transfers the file over Tus with the owner's session and the same journal", async (t) => {
+  const bytes = longRecording();
+  const setup = await fixture(t, { target: production, bytes });
+  const tus = await tusServer(t, { length: bytes.length });
   const api = providerApi({
-    endpoint: "https://uploader.kinescope.io/v2/init/abc",
+    mode: "production",
+    endpoint: tus.endpoint,
+    byteSize: bytes.length,
   });
-  await assert.rejects(upload(setup, api), /separate owner approval/u);
+  const result = await upload(setup, api, {
+    origin: "production",
+    accessToken: ownerToken,
+    sha256: setup.sha256,
+    fetcher: tus.fetcher,
+  });
+  assert.equal(result.videoId, videoId);
+  assert.ok(tus.received().equals(bytes));
+  const patches = tus.requests.filter((item) => item.method === "PATCH");
+  assert.deepEqual(
+    patches.map((item) => item.offset),
+    ["0", String(tusChunkBytes), String(tusChunkBytes * 2)],
+  );
+  for (const item of patches) {
+    assert.equal(item.headers["tus-resumable"], "1.0.0");
+    assert.equal(item.headers.authorization, undefined);
+  }
+  const journal = await setup.read();
+  assert.equal(journal["target"], production);
+  // The journal keeps the phase and endpoint; the server's offset is never stored.
+  assert.doesNotMatch(await setup.raw(), /offset/iu);
+});
+
+test("an interrupted transfer resumes from the server offset without a second upload", async (t) => {
+  const bytes = longRecording();
+  const setup = await fixture(t, { target: production, bytes });
+  // One dropped connection is retried within the run; more than the retry budget stops it.
+  const tus = await tusServer(t, { length: bytes.length, faults: 5 });
+  const api = providerApi({
+    mode: "production",
+    endpoint: tus.endpoint,
+    byteSize: bytes.length,
+  });
+  const options = {
+    origin: "production",
+    accessToken: ownerToken,
+    sha256: setup.sha256,
+    fetcher: tus.fetcher,
+  };
+  await assert.rejects(upload(setup, api, options), /transfer stopped/u);
   assert.equal(
     uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
       .phase,
     "transfer",
   );
-  assert.equal(transferRequired("https://uploads.invalid/x"), false);
-  assert.equal(transferRequired("https://uploader.kinescope.io/x"), true);
+  const received = tus.received().length;
+  assert.ok(received > 0 && received < bytes.length);
+  const result = await upload(setup, api, options);
+  assert.equal(result.videoId, videoId);
+  assert.ok(tus.received().equals(bytes));
+  assert.equal(
+    api.calls.filter((call) => call.path.endsWith("/uploads")).length,
+    1,
+  );
+  // Each retry continues from the offset the server reports, never from zero.
+  const resumed = tus.requests.filter(
+    (item) => item.method === "PATCH" && item.offset !== "0",
+  );
+  assert.ok(resumed.some((item) => Number(item.offset) % tusChunkBytes !== 0));
+});
+
+test("a trusted target needs the owner's session and the expected checksum", async (t) => {
+  const setup = await fixture(t, { target: production });
+  const before = await setup.raw();
+  await assert.rejects(
+    uploadVideo({
+      stateDirectory: setup.state,
+      sourceId,
+      file: setup.file,
+      origin: "production",
+      sha256: setup.sha256,
+    }),
+    /pnpm authoring:login --target production/u,
+  );
+  const api = providerApi({ mode: "production" });
+  await assert.rejects(
+    upload(setup, api, { origin: "production", accessToken: ownerToken }),
+    /--sha256/u,
+  );
+  assert.equal(await setup.raw(), before);
+  assert.deepEqual(api.calls, []);
+});
+
+test("a target that answers as another environment is refused before the journal changes", async (t) => {
+  const setup = await fixture(t, { target: production });
+  const before = await setup.raw();
+  const api = providerApi({ mode: "development" });
+  await assert.rejects(
+    upload(setup, api, {
+      origin: "production",
+      accessToken: ownerToken,
+      sha256: setup.sha256,
+    }),
+    /reports a development runtime; expected production/u,
+  );
+  assert.equal(await setup.raw(), before);
+  assert.deepEqual(
+    api.calls.map((call) => call.path),
+    ["/authoring/import/materials/environment"],
+  );
+});
+
+test("a file with another checksum is refused before any request or journal write", async (t) => {
+  for (const origin of ["editor", "production"])
+    await t.test(origin, async (t) => {
+      const setup = await fixture(t, {
+        target: origin === "production" ? production : reviewOrigin,
+      });
+      const before = await setup.raw();
+      const api = providerApi({ mode: "production" });
+      await assert.rejects(
+        upload(setup, api, {
+          origin,
+          accessToken: ownerToken,
+          sha256: "0".repeat(64),
+        }),
+        /SHA-256/u,
+      );
+      await assert.rejects(
+        upload(setup, api, { origin, accessToken: ownerToken, sha256: "ABC" }),
+        /64 lowercase hex/u,
+      );
+      assert.deepEqual(api.calls, []);
+      assert.equal(await setup.raw(), before);
+    });
+});
+
+test("an upload whose server length differs from the file stops before any byte", async (t) => {
+  const setup = await fixture(t, { target: production });
+  const tus = await tusServer(t, { length: 15, reportedLength: 16 });
+  const api = providerApi({ mode: "production", endpoint: tus.endpoint });
+  await assert.rejects(
+    upload(setup, api, {
+      origin: "production",
+      accessToken: ownerToken,
+      sha256: setup.sha256,
+      fetcher: tus.fetcher,
+    }),
+    /Upload-Length 16 differs from the file size 15/u,
+  );
+  assert.deepEqual(
+    tus.requests.map((item) => item.method),
+    ["HEAD"],
+  );
+});
+
+test("bytes go only to a Kinescope HTTPS upload endpoint, whatever the target", async (t) => {
+  /** @type {[string, string][]} */
+  const cases = [
+    ["production", "http://uploader.kinescope.io/files/provider-one"],
+    ["production", "https://uploads.invalid/provider-one"],
+    ["production", "https://uploader.example.com/files/provider-one"],
+    ["production", "https://kinescope.io.example.com/files/provider-one"],
+    ["stand", "https://uploader.example.com/files/provider-one"],
+    ["stand", "http://127.0.0.1:9/files/provider-one"],
+  ];
+  for (const [origin, endpoint] of cases)
+    await t.test(`${origin} ${endpoint}`, async (t) => {
+      const trusted = origin === "production";
+      const setup = await fixture(t, {
+        target: trusted ? production : "http://127.0.0.1:4398",
+      });
+      const api = providerApi({
+        mode: trusted ? "production" : "development",
+        endpoint,
+      });
+      /** @type {string[]} */
+      const fetched = [];
+      await assert.rejects(
+        upload(setup, api, {
+          origin,
+          accessToken: ownerToken,
+          sha256: setup.sha256,
+          fetcher: async (input) => {
+            fetched.push(String(input));
+            throw new Error("Unexpected fetch");
+          },
+        }),
+        /Kinescope HTTPS upload endpoint/u,
+      );
+      assert.deepEqual(fetched, []);
+    });
+});
+
+test("a local target with a real provider transfers the bytes over Tus as well", async (t) => {
+  const bytes = longRecording();
+  const setup = await fixture(t, { target: "http://127.0.0.1:4398", bytes });
+  const tus = await tusServer(t, { length: bytes.length });
+  const api = providerApi({ endpoint: tus.endpoint, byteSize: bytes.length });
+  // The checksum is optional for a local target.
+  const result = await upload(setup, api, {
+    origin: "stand",
+    fetcher: tus.fetcher,
+  });
+  assert.equal(result.videoId, videoId);
+  assert.ok(tus.received().equals(bytes));
 });
 
 test("an unknown upload outcome stops without a new key", async (t) => {
-  const setup = await fixture(t);
+  const setup = await fixture(t, { target: production });
   const api = {
     /** @type {LocalTransport} */
     async request(path) {
-      if (path.endsWith("/environment")) return { mode: "development" };
+      if (path.endsWith("/environment")) return { mode: "production" };
       throw Object.assign(new Error("409"), {
         body: { code: "upload_outcome_unknown" },
       });
     },
   };
-  await assert.rejects(upload(setup, api), /unknown; inspect the attempt/u);
-  const first = uploadReceiptSchema.parse(
+  const options = {
+    origin: "production",
+    accessToken: ownerToken,
+    sha256: setup.sha256,
+  };
+  const first = await upload(setup, api, options).catch(
+    (/** @type {unknown} */ error) => error,
+  );
+  const key = uploadReceiptSchema.parse(
     Object.values(resourcesOf(await setup.read()))[0],
   ).idempotencyKey;
-  await assert.rejects(upload(setup, api), /unknown/u);
+  assert.ok(first instanceof Error);
+  assert.match(first.message, /unknown; inspect the attempt/u);
+  assert.ok(first.message.includes(key));
+  await assert.rejects(upload(setup, api, options), /unknown/u);
   assert.equal(
     uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
       .idempotencyKey,
-    first,
+    key,
   );
 });
 

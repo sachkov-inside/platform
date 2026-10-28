@@ -27,6 +27,7 @@ import {
   parseReceipt,
   publishSelectionSchema,
   sourceVideoReceiptSchema,
+  uploadReceiptSchema,
 } from "./local-boundaries.mjs";
 import {
   archiveProposalKeys,
@@ -74,12 +75,14 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
+ * @property {VideoUpload[]} [videoUploads] Recordings `authoring:video` uploaded for this Material
  * @property {import("./local-sync.mjs").DesiredPublication} publication
  * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
  * @property {{ current: string | null; desired: string }} [contentReplacement]
  * @property {{ current: string | null; desired: string | null }} [sourceCommit] Content commits of the target row and the package
  * @property {string} [conflictReason]
  * @property {{ from: string; to: string }} [accessChange]
+ * @typedef {{ state: "pending" | "ready"; sha256: string }} VideoUpload
  * @typedef {object} ProductChange
  * @property {string} sourceId
  * @property {string} title
@@ -116,6 +119,42 @@ export function releaseTarget(value) {
       `Release to ${value} is not enabled: only local loopback targets and the named trusted targets exist`,
     );
   }
+}
+
+/**
+ * The recordings `authoring:video` uploaded for one Material: the ready one, which apply attaches,
+ * and any whose transfer or processing has not finished, which apply leaves alone.
+ *
+ * @param {Record<string, unknown>} resources
+ * @param {string} materialId
+ * @param {string} key the Material's source key
+ * @param {{ sha256: string } | undefined} ready its `source-video` receipt
+ * @returns {VideoUpload[]}
+ */
+function videoUploads(resources, materialId, key, ready) {
+  const prefix = `upload:${materialId}:`;
+  /** @type {VideoUpload[]} */
+  const pending = Object.entries(resources)
+    .filter(([name]) => name.startsWith(prefix))
+    .flatMap(([name, value]) => {
+      const receipt = parseReceipt(uploadReceiptSchema, value);
+      return receipt?.sourceId === key &&
+        ["initializing", "transfer", "processing"].includes(receipt.phase)
+        ? [
+            {
+              state: /** @type {const} */ ("pending"),
+              sha256: name.slice(prefix.length),
+            },
+          ]
+        : [];
+    })
+    .sort((left, right) => left.sha256.localeCompare(right.sha256));
+  return [
+    ...(ready === undefined
+      ? []
+      : [{ state: /** @type {const} */ ("ready"), sha256: ready.sha256 }]),
+    ...pending,
+  ];
 }
 
 /**
@@ -349,6 +388,7 @@ export async function previewRelease(
           : entry.digest !== digest
             ? "changed"
             : "unchanged";
+    const uploads = videoUploads(resources, entry.materialId, key, uploaded);
     const coverSha =
       row.coverAssetId === null
         ? null
@@ -361,6 +401,7 @@ export async function previewRelease(
         desired: materialRevision(manifest, row),
       },
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
+      ...(uploads.length === 0 ? {} : { videoUploads: uploads }),
       ...(typeof recordedCommit === "string" || sourceCommit !== undefined
         ? {
             sourceCommit: {
@@ -947,7 +988,7 @@ if (
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, videoUploads: preview.materials.flatMap((item) => (item.videoUploads ?? []).map((upload) => ({ sourceId: item.sourceId, ...upload }))), changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z

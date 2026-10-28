@@ -31,11 +31,49 @@ an externally attached recording. The MCP tool intentionally does not expose pro
 `video_init_upload` accepts `materialId`, access, filename, byteSize, title and idempotencyKey.
 It returns the same limited Tus endpoint and Video identity as the editor. The MCP call does not
 transfer bytes. A Tus client transfers the local file outside the model context, followed by
-`video_reconcile` and the same versioned Save. For an imported Material in a local environment,
-`pnpm authoring:video upload` runs this sequence from a file and journals the attempt; see the
-[local authoring runbook](./local-acceptance-authoring.md#local-obsidian-authoring-preview-468). It accepts
-only the test adapter; cancellation, batch reports and real provider transfer are not packaged. Stop on `upload_outcome_unknown` and inspect the attempt/provider
-state; do not manufacture a fresh idempotency key for a blind retry.
+`video_reconcile` and the same versioned Save. Stop on `upload_outcome_unknown` and inspect the
+attempt/provider state; do not manufacture a fresh idempotency key for a blind retry.
+
+### `pnpm authoring:video upload` (#1794)
+
+For an imported Material, this command runs that sequence from a file on a local target
+(`editor`, `stand`) or on the trusted `production` target, and journals each step. Content Studio
+uses it to deliver an accepted master; the next `authoring:release` attaches the ready upload.
+
+```bash
+pnpm authoring:video upload --target production --state ~/.inside-authoring/production \
+  --source inside-content:MATERIAL_ID --file MASTER.mp4 --sha256 HEX [--title TITLE]
+```
+
+- `--state` is the same state directory that `authoring:release` and `authoring:deliver` use for
+  that target; the journal must already know the Material (released, or adopted through
+  `authoring:deliver reconcile --adopt`). One command at a time holds that directory.
+- `production` uses the owner's Keychain session from `authoring:login`, like `authoring:release`,
+  and stops when the target does not report the expected runtime. Local targets need no session.
+- `--sha256` (64 lowercase hex characters) is required for `production` and optional for local
+  targets. A file with another checksum is refused before any request and leaves the journal unchanged.
+- The server creates the upload; the Kinescope token stays on the server. The command sends the
+  bytes to the returned Tus endpoint in 8 MiB parts (`HEAD` for the offset, then `PATCH`), reading
+  the file one part at a time. Only an HTTPS endpoint on `kinescope.io` or a subdomain receives bytes;
+  the local test adapter's `.invalid` endpoint skips the transfer. A failed part is resent from the
+  server's offset up to three times. Progress goes to stderr without the endpoint or tokens.
+- The journal keeps the idempotency key, phase and endpoint under `upload:MATERIAL_ID:SHA256`, never
+  offsets or bytes. Repeating the same command continues an interrupted transfer from the server's
+  offset without a new upload, and waits for processing again when it has not finished.
+- Success prints one JSON document on stdout with `target`, `sourceId`, `materialId`, `videoId`,
+  `providerVideoId`, `durationSeconds`, `sha256` and `next`, and exits 0. The journal then holds
+  `source-video:SOURCE_ID`, which the next release attaches as the primary Video.
+- Any stop exits non-zero with a message on stderr: no session (`pnpm authoring:login` hint), wrong
+  runtime, checksum mismatch, an unsynchronized Material, an endpoint outside Kinescope,
+  `Upload-Length` different from the file size, a refused or exhausted transfer, a failed provider
+  video, or processing still under way (repeat later). `upload_outcome_unknown` stops and names the
+  idempotency key; inspect the attempt, the command never creates a new key for it. Only a failed
+  provider video lets the same file start a new attempt.
+
+`authoring:release preview` lists every such upload in `videoUploads` (`sourceId`, `state`
+`pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches
+only a `ready` upload; a pending one leaves the Material's Video unchanged. The Material keeps its
+publication state; uploading does not publish anything.
 
 ## Links to a video moment
 
