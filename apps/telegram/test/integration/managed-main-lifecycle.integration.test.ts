@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Pool, type PoolClient } from "pg";
 import { expect, it, vi } from "vitest";
+import { reservePort } from "../../../../scripts/smoke-stand.mjs";
 import { launchTelegramMain } from "../support/telegram-main-process.js";
 import { required } from "../support/required.js";
 
@@ -70,6 +71,7 @@ for (const phase of ["ready", "migration_wait"] as const)
           MIGRATION_LOCK,
         ]);
       }
+      const port = await reservePort();
       runtime = launchTelegramMain({
         entrypoint: new URL("../../dist/main.js", import.meta.url),
         environment: {
@@ -77,7 +79,7 @@ for (const phase of ["ready", "migration_wait"] as const)
           ENV_FILE: join(ownedDirectory, "absent.env"),
           DATABASE_URL: databaseUrl.toString(),
           HOST: "127.0.0.1",
-          PORT: "3002",
+          PORT: String(port),
           TELEGRAM_BOT_IDENTITY: "synthetic",
           TELEGRAM_WEBHOOK_SECRET: "synthetic_webhook_secret_00000000",
           PLATFORM_INTEGRATION_SECRET: "synthetic_platform_secret_0000000",
@@ -91,7 +93,7 @@ for (const phase of ["ready", "migration_wait"] as const)
           INSIDE_OTEL_ENABLED: "true",
           INSIDE_OTEL_ENDPOINT: `http://127.0.0.1:${address.port}`,
         },
-        readiness: "Inside Telegram listening on 127.0.0.1:3002",
+        readiness: `Inside Telegram listening on 127.0.0.1:${port}`,
       });
       const child = runtime;
       await child.identity;

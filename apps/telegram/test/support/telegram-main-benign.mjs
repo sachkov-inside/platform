@@ -3,6 +3,6 @@
 import { createServer } from "node:net";
 const server = createServer();
 process.on("SIGTERM", () => server.close());
-server.listen(0, "127.0.0.1", () =>
+server.listen(Number(process.env["PORT"] ?? "0"), "127.0.0.1", () =>
   process.stdout.write("owned benign child ready\n"),
 );

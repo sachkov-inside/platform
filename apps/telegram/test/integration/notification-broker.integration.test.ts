@@ -488,6 +488,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       let stage = "acquisition";
       let admitted = 0;
       let terminalConsumerCount: number | null = null;
+      let redeliveryInspector: Channel | undefined;
       const broker = new NotificationBroker(
         url(users.provider),
         {
@@ -539,12 +540,19 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
           expect(saved?.operation_id).toBe(initial.operationId);
         else {
           expect(saved).toBeUndefined();
-          const redelivered = await inspector.get(queueName, { noAck: false });
+          redeliveryInspector = await admin.createChannel();
+          const redelivered = await redeliveryInspector.get(queueName, {
+            noAck: false,
+          });
           if (redelivered === false)
             throw new Error("Expected owned redelivery");
           expect(redelivered.fields.redelivered).toBe(true);
           expect(redelivered.properties.messageId).toBe(initial.operationId);
-          inspector.ack(redelivered);
+          redeliveryInspector.ack(redelivered);
+          // Quorum queues count a manual-get inspector until settlement/channel close.
+          // End that owned inspection before asserting the broker has zero consumers.
+          await redeliveryInspector.close();
+          redeliveryInspector = undefined;
         }
         stage = "terminal_reopen";
         await broker.open();
@@ -579,6 +587,15 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         firstFailureStage ??= stage;
       } finally {
         release.resolve();
+        if (redeliveryInspector !== undefined) {
+          try {
+            await redeliveryInspector.close();
+          } catch (error: unknown) {
+            failures.push(error);
+            firstFailureStage ??= "cleanup_redelivery_inspector";
+            cleanupFailures += 1;
+          }
+        }
         try {
           await broker.drain();
         } catch (error: unknown) {
