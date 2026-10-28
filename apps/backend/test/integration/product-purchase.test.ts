@@ -397,10 +397,7 @@ test("a purchase sent on the real purchase v6 is confirmed on v6 after purchase 
   // row is therefore seeded with the immutability trigger suspended for this one transaction.
   await db.prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SET LOCAL session_replication_role = replica`;
-    await tx.billingPurchase.update({
-      where: { id: ref },
-      data: { acceptance: onV6(sent.acceptance) as Prisma.InputJsonValue },
-    });
+    await tx.$executeRaw`UPDATE billing.purchases SET acceptance = ${JSON.stringify(onV6(sent.acceptance))}::jsonb WHERE id = ${ref}::uuid`;
   });
   const v6Acceptance = JSON.stringify(
     (await db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: ref } }))
