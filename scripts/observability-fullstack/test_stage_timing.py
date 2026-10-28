@@ -213,7 +213,8 @@ except KeyboardInterrupt:sys.exit(42)
             def phase(compose,project,definition,active,enabled,pair,path,**options):
                 dispatched.append((pair,enabled,definition['name'],options['group'],options['index']))
                 return {'mode':'on' if enabled else 'off','name':definition['name'],'errors':[],
-                    'samples':[],'load':{'completed':True,'query_seconds':[.1],
+                    'samples':[{'counters':{'errors':{}},'host':{},'counter_clock_anchor':[1,2,3]}],
+                    'load':{'completed':True,'query_seconds':[.1],
                         'timing_diagnostics':{'state':'complete','requests':[[0,0,1,2]]}},
                     'source_cache_samples':[{'postgresql':'observed','caddy':'observed'}]*{'idle':2,'steady':8,'spike':2}[definition['name']]}
             def invoke(compose,args,**options):
@@ -248,10 +249,12 @@ except KeyboardInterrupt:sys.exit(42)
             self.assertEqual(value['state'],'completed')
             summary=json.loads((output/'fullstack-proof.json').read_text())
             self.assertTrue(all('timing_diagnostics' not in row['load'] for row in summary['phases']))
+            self.assertNotIn('counter_clock_anchor',json.dumps(summary))
             for index in range(12):
                 raw=json.loads((output/f'fullstack-phase-{index}.json').read_text())
                 self.assertEqual(raw['load']['timing_diagnostics'],{'state':'complete','requests':[[0,0,1,2]]})
                 self.assertTrue(raw['load']['completed'])
+                self.assertEqual(raw['samples'][0]['counter_clock_anchor'],[1,2,3])
             self.assertEqual(first_dispatched,[(pair,on,name,group,group*3+phase)
                 for pair,on,group in ((0,False,0),(0,True,1),(1,True,2),(1,False,3))
                 for phase,name in enumerate(('idle','steady','spike'))])
