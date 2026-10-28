@@ -217,6 +217,7 @@ jobs:
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py diagnostic-run
           --output "$RUNNER_TEMP/stability-private" --images "$RUNNER_TEMP/stability-images.json"
+          --protocol fixed-actor-primed400-v1
       - name: Recover only the registered project and preparation images
         if: ${{ always() }}
         timeout-minutes: 5
@@ -229,7 +230,7 @@ jobs:
         run: >-
           python3 scripts/observability-fullstack/fullstack.py diagnostic-collect
           --output "$RUNNER_TEMP/stability-private" --metadata "$RUNNER_TEMP/stability-metadata"
-          --public "$RUNNER_TEMP/stability-public"
+          --public "$RUNNER_TEMP/stability-public" --protocol fixed-actor-primed400-v1
       - name: Upload curated resource results
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

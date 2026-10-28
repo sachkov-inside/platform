@@ -5,6 +5,7 @@ import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import { phaseTiming, slotOccupancy } from "./phase-timing.mjs";
+import { runStabilityPhase } from "./stability-protocol.mjs";
 import {
   sourceCacheObservation,
   sourceCacheQuery,
@@ -1042,26 +1043,7 @@ if (action === "source-warmup") {
   }
   console.log(JSON.stringify({ created, accounts }));
 } else if (action === "stability-load") {
-  const mode = argument(0),
-    ordinal = Number(argument(1));
-  if (
-    !["off", "on"].includes(mode) ||
-    !Number.isInteger(ordinal) ||
-    ordinal < 0 ||
-    ordinal > 11 ||
-    args.length !== 2
-  )
-    throw new Error("closed stability phase required");
-  console.log(
-    JSON.stringify(
-      await load(
-        { name: "spike", seconds: 10, requests_per_second: 40 },
-        mode === "on",
-        Math.floor(ordinal / 6),
-        ordinal,
-      ),
-    ),
-  );
+  console.log(JSON.stringify(await runStabilityPhase(args, load)));
 } else if (action === "load") {
   console.log(
     JSON.stringify(

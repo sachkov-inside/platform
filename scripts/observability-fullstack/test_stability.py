@@ -47,6 +47,70 @@ def verify_actual_client_refusal(path,ordinal):
 
 
 class Stability(unittest.TestCase):
+    def test_named_protocol_reaches_native_dispatch_and_keeps_seventy_five_second_cap(self):
+        import stability
+        calls=[]
+        def invoke(compose,args,**options):
+            ordinal=int(args[-2]);protocol=args[-1]
+            definition={'name':'spike','seconds':20 if ordinal%2==0 else 10,'requests_per_second':20 if ordinal%2==0 else 40}
+            calls.append((args,options))
+            return json.dumps({'diagnostic_only':True,'actor_cohort':0,'maximum_inflight':8,
+                'diagnostic_protocol':protocol,'diagnostic_definition':definition,'timing_diagnostics':{'phase':ordinal,'pair':ordinal//6}})
+        for ordinal in (0,1,6,7):
+            definition={'name':'spike','seconds':20 if ordinal%2==0 else 10,'requests_per_second':20 if ordinal%2==0 else 40}
+            stability.invoke_client(['owned'],invoke,definition,ordinal>=6,ordinal,'fixed-actor-primed400-v1')
+        self.assertEqual([call[0][-3:] for call in calls],[['off','0','fixed-actor-primed400-v1'],['off','1','fixed-actor-primed400-v1'],['on','6','fixed-actor-primed400-v1'],['on','7','fixed-actor-primed400-v1']])
+        self.assertEqual([call[1] for call in calls],[{'timeout':75}]*4)
+
+    def test_actual_client_wire_and_renderer_refuse_mixed_protocol_phase_and_definition(self):
+        import stability
+        selected=stability.PRIMED_PROTOCOL
+        definition={'name':'spike','seconds':20,'requests_per_second':20}
+        good={'diagnostic_only':True,'actor_cohort':0,'maximum_inflight':8,'diagnostic_protocol':selected,
+              'diagnostic_definition':definition,'timing_diagnostics':{'phase':0,'pair':0}}
+        bads=[]
+        for field,value in [('diagnostic_protocol',stability.COLD_PROTOCOL),('diagnostic_protocol','private'),
+                            ('diagnostic_definition',{'name':'spike','seconds':10,'requests_per_second':40}),
+                            ('timing_diagnostics',{'phase':1,'pair':0}),('actor_cohort',True),('maximum_inflight',9)]:
+            bad={**good,field:value};bads.append(bad)
+        bad=dict(good);bad.pop('diagnostic_protocol');bads.append(bad)
+        for bad in bads:
+            with self.subTest(wire=bad):
+                with self.assertRaises(ValueError):stability.invoke_client([],lambda *a,**k:json.dumps(bad),definition,False,0,selected)
+                with self.assertRaises(ValueError):stability.project({'load':bad},0,(),protocol=selected)
+
+    def test_protocol_four_collector_rejects_mixed_definitions_and_historical_downgrade(self):
+        import stability
+        source='a'*40
+        selected='fixed-actor-primed400-v1'
+        record=stability.experiment(source,lambda _:None,lambda row:measurement(row['ordinal']),lambda _:None,
+            fullstack.SERVICES,{role:'sha256:'+'a'*64 for role in ('backend','foundation','web','telegram','logto')},protocol=selected)
+        self.assertEqual(record['schema'],4);self.assertEqual(record['protocol'],selected)
+        self.assertEqual(record['definitions'],{'warmup':{'name':'spike','seconds':20,'requests_per_second':20},
+            'measurement':{'name':'spike','seconds':10,'requests_per_second':40}})
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);output=root/'private';output.mkdir();metadata=root/'metadata';metadata.mkdir()
+            marker={'schema':2,'source':source,'scope':'diagnostic_only','protocol':selected}
+            fullstack.pilot.write_json(output/stability.MARKER,marker)
+            fullstack.pilot.write_json(output/stability.NAME,record)
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':source},{})):
+                fullstack.stability_collect(output,metadata,root/'valid',protocol=selected)
+                bads=[]
+                for field,value in [('protocol','private-knob'),('protocol',stability.COLD_PROTOCOL),('schema',3),
+                                    ('source','b'*40),('private','sentinel')]:
+                    bad=copy.deepcopy(record);bad[field]=value;bads.append(bad)
+                bad=copy.deepcopy(record);bad.pop('protocol');bads.append(bad)
+                for definition in ({'name':'spike','seconds':10,'requests_per_second':40},
+                                   {'name':'spike','seconds':20.0,'requests_per_second':20},
+                                   {'name':'spike','seconds':20,'requests_per_second':20,'private':'sentinel'}):
+                    bad=copy.deepcopy(record);bad['definitions']['warmup']=definition;bads.append(bad)
+                for index,bad in enumerate(bads):
+                    fullstack.pilot.write_json(output/stability.NAME,bad)
+                    with self.assertRaises(ValueError):fullstack.stability_collect(output,metadata,root/('bad'+str(index)),protocol=selected)
+                    self.assertFalse((root/('bad'+str(index))).exists())
+                fullstack.pilot.write_json(output/stability.NAME,record)
+                with self.assertRaises(ValueError):fullstack.stability_collect(output,metadata,root/'cold-default')
+
     def test_slot_refusal_both_collectors_refuse_corruption_and_current_downgrade(self):
         import slot_refusal
         import stability
@@ -91,7 +155,7 @@ class Stability(unittest.TestCase):
                 broken=copy.deepcopy(record);broken['warmup'][0].pop('slot_refusal')
                 (output/stability.NAME).write_text(json.dumps(broken))
                 with self.assertRaises(ValueError):fullstack.stability_collect(output,metadata,root/'public')
-                for version in (1,2,True):
+                for version in (1,2,3,True):
                     record=stability.record(source);record['schema']=version
                     (output/stability.NAME).write_text(json.dumps(record))
                     with self.assertRaises(ValueError),patch.object(fullstack.resource_runtime.ci,'collect',side_effect=AssertionError('copy reached')):fullstack.stability_collect(output,metadata,root/'public')
@@ -177,22 +241,29 @@ class Stability(unittest.TestCase):
         import os
         from contextlib import nullcontext
         source='a'*40;images={role:'sha256:'+'a'*64 for role in ('backend','foundation','web','telegram','logto')}
-        with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory);(root/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
-            (root/stability.MARKER).write_text(json.dumps({'schema':1,'source':source,'scope':'diagnostic_only'}))
-            (root/'fullstack-source.json').write_text(json.dumps({'source':source,'images':images}))
-            calls=[]
-            def phase(*args,**options):
-                ordinal=options['diagnostic_ordinal'];calls.append((ordinal,args[4],args[5]));m=measurement(ordinal)
-                return {'load':{**m,'timing_diagnostics':{'requests':m['requests'],'phase_start':m['phase_start'],'phase_end':m['phase_end']}},'errors':[],
-                    'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],'diagnostic_context':dict.fromkeys(stability.CONTEXT)}]*2}
-            with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()),patch.object(fullstack,'mode'),patch.object(fullstack,'invoke',return_value=''),patch.object(fullstack,'seed'),patch.object(fullstack,'configure_mode',return_value=fullstack.APPS) as configure,patch.object(fullstack,'phase',side_effect=phase),patch.object(fullstack,'evaluate',side_effect=AssertionError('acceptance reached')):
-                fullstack.worker(root)
-            self.assertEqual(configure.call_count,6)
-            self.assertEqual(calls,[(i,stability.MODES[i//2],i//6) for i in range(12)])
-            public=stability.read(root,source,fullstack.SERVICES)
-            self.assertEqual(public['state'],'complete');self.assertFalse((root/'fullstack-proof.json').exists())
-            self.assertEqual(public['acceptance']['capacity'],False)
+        for selected in (stability.COLD_PROTOCOL,stability.PRIMED_PROTOCOL):
+            with self.subTest(protocol=selected),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);(root/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
+                (root/stability.MARKER).write_text(json.dumps(stability.plan(source,selected)))
+                (root/'fullstack-source.json').write_text(json.dumps({'source':source,'images':images}))
+                calls=[]
+                def phase(*args,**options):
+                    ordinal=options['diagnostic_ordinal'];calls.append((ordinal,args[2],args[4],args[5],options['diagnostic_protocol']));m=measurement(ordinal)
+                    return {'load':{**m,'diagnostic_only':True,'actor_cohort':0,'maximum_inflight':8,
+                        'diagnostic_protocol':selected,'diagnostic_definition':args[2],
+                        'timing_diagnostics':{'phase':ordinal,'pair':ordinal//6,'requests':m['requests'],'phase_start':m['phase_start'],'phase_end':m['phase_end']}},'errors':[],
+                        'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],'diagnostic_context':dict.fromkeys(stability.CONTEXT)}]*2}
+                with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()),patch.object(fullstack,'mode'),patch.object(fullstack,'invoke',return_value=''),patch.object(fullstack,'seed'),patch.object(fullstack,'configure_mode',return_value=fullstack.APPS) as configure,patch.object(fullstack,'phase',side_effect=phase),patch.object(fullstack,'evaluate',side_effect=AssertionError('acceptance reached')):
+                    fullstack.worker(root)
+                self.assertEqual(configure.call_count,6)
+                expected=[]
+                for i in range(12):
+                    warm=selected==stability.PRIMED_PROTOCOL and i%2==0
+                    expected.append((i,{'name':'spike','seconds':20 if warm else 10,'requests_per_second':20 if warm else 40},i in (6,7,8,9),i//6,selected))
+                self.assertEqual(calls,expected)
+                public=stability.read(root,source,fullstack.SERVICES)
+                self.assertEqual(public['state'],'complete');self.assertFalse((root/'fullstack-proof.json').exists())
+                self.assertEqual(public['protocol'],selected);self.assertEqual(public['acceptance']['capacity'],False)
 
     def test_marker_privacy_missing_partial_and_incomplete_never_promote(self):
         import stability
