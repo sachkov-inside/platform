@@ -11,7 +11,15 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { z } from "zod";
 import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
 
@@ -177,6 +185,43 @@ function localImageOrigins(value: string) {
 }
 
 describe("local stand production build input", () => {
+  // Compose is fixture preparation, including cold CLI/plugin startup. Keep it out of the
+  // five-second assertion budget and reuse each immutable projection instead of rerunning it.
+  const prepared = new Map<string, Awaited<ReturnType<typeof standInput>>>();
+  const preparationController = new AbortController();
+  let preparation: Promise<void> | undefined;
+  const key = (port: string | undefined, production: boolean) =>
+    `${port ?? "default"}:${String(production)}`;
+  beforeAll(() => {
+    preparation = (async () => {
+      for (const [port, production] of [
+        [undefined, false],
+        [undefined, true],
+        ["9157", true],
+        ["80", true],
+        ["9157", false],
+      ] as const) {
+        prepared.set(
+          key(port, production),
+          await standInput(port, production, {
+            signal: preparationController.signal,
+          }),
+        );
+      }
+    })();
+    return preparation;
+  });
+  afterAll(async () => {
+    // A failed setup must settle its supervised child before the suite releases its fixtures.
+    preparationController.abort();
+    await preparation?.catch(() => undefined);
+  });
+  function standFixture(port?: string, production = true) {
+    const input = prepared.get(key(port, production));
+    if (input === undefined)
+      throw new Error("Compose input was not prepared for this contract");
+    return input;
+  }
   afterEach(() => vi.resetModules());
 
   it.each([
@@ -192,8 +237,8 @@ describe("local stand production build input", () => {
     },
   ])(
     "bounds local Web memory and restarts unexpected exits (production=$productionWeb)",
-    async ({ productionWeb, memoryBytes, memoryAndSwapBytes }) => {
-      const services = await standInput(undefined, productionWeb);
+    ({ productionWeb, memoryBytes, memoryAndSwapBytes }) => {
+      const services = standFixture(undefined, productionWeb);
       expect(services.web.mem_limit).toBe(memoryBytes);
       expect(services.web.memswap_limit).toBe(memoryAndSwapBytes);
       expect(services.web.restart).toBe("unless-stopped");
@@ -254,7 +299,7 @@ describe("local stand production build input", () => {
   );
 
   it("admits exactly the configured storage origin through the real Compose and Next header boundary", async () => {
-    const services = await standInput("9157");
+    const services = standFixture("9157");
     const config = await buildHeaders(
       services.web.build?.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
@@ -287,7 +332,7 @@ describe("local stand production build input", () => {
   });
 
   it("uses the default local storage port when no override was configured", async () => {
-    const services = await standInput();
+    const services = standFixture();
     const config = await buildHeaders(
       services.web.build?.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
@@ -297,7 +342,7 @@ describe("local stand production build input", () => {
   });
 
   it("canonicalizes the configured default HTTP port before the strict Next header boundary", async () => {
-    const services = await standInput("80");
+    const services = standFixture("80");
     const config = await buildHeaders(
       services.web.build?.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
@@ -309,8 +354,8 @@ describe("local stand production build input", () => {
     );
   });
 
-  it("binds API and production web to one source and runtime identity without production API providers", async () => {
-    const services = await standInput();
+  it("binds API and production web to one source and runtime identity without production API providers", () => {
+    const services = standFixture();
     for (const service of [services.api, services.web]) {
       expect(service.build?.args["INSIDE_RELEASE_VERSION"]).toBe("v1");
       expect(service.build?.args["INSIDE_SOURCE_SHA"]).toBe("1".repeat(40));
@@ -369,7 +414,7 @@ describe("local stand production build input", () => {
   });
 
   it("keeps development signed image URLs on the same configured published port", async () => {
-    const services = await standInput("9157", false);
+    const services = standFixture("9157", false);
     const config = await buildHeaders(undefined, "development");
     expect(services.api.environment["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]).toBe(
       "http://127.0.0.1:9157",

@@ -31,8 +31,11 @@ export const productA = {
   taskCode: "aie-ch2-accounts-design",
 } as const;
 
-/** Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture. */
-export const retiredPracticeId = "inside-content:aie-github-app";
+/**
+ * Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture.
+ * Migration 0111 derives the Task code from the suffix of the legacy Practice id.
+ */
+export const retiredTaskCode = "aie-github-app";
 /** Current positive coverage uses Product Tasks; no replacement code is inferred from a retired source. */
 export const freeTaskCode: string | null = null;
 /** Owner removed the only free practice in #1540; resume when the owner publishes a current one. */
@@ -53,11 +56,10 @@ export const videoDeferred = "отложено до первого видео Pr
 /** Read-only tools учебного MCP, которые проход вызывает; другой tool allowlist не пропустит. */
 export const learnerMcpReadTools = [
   "learning_material_read",
-  "learning_practice_read",
   "learning_task_read",
 ] as const;
 /** Read-only tools владельческого MCP (`readOnlyHint: true`), которые проход вызывает. */
-export const ownerMcpReadTools = ["billing_tiers_list"] as const;
+export const ownerMcpReadTools = ["billing_productPrices_list"] as const;
 
 // Роли Product переименованы в #1065; email существующих identities Logto остаются прежними (#1118).
 const identityEmailAliases: Readonly<Record<PassIdentity, string>> = {
