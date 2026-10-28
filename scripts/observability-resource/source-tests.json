@@ -53,6 +53,7 @@
   "test_hosted.EvidenceTrust.test_manifest_rejects_wrong_source_extra_fields_and_same_images",
   "test_hosted.EvidenceTrust.test_missing_project_cannot_manufacture_a_measurement",
   "test_hosted.EvidenceTrust.test_missing_provider_identity_is_refused_before_any_acquisition",
+  "test_hosted.EvidenceTrust.test_transient_git_lock_disappearance_preserves_source_binding",
   "test_hosted.EvidenceTrust.test_unknown_metadata_fields_never_reach_public_artifacts",
   "test_hosted.ExactSourceBuildBoundary.test_controlled_external_failures_identify_build_pull_and_inspection_stages",
   "test_hosted.ExactSourceBuildBoundary.test_two_builds_and_seven_pulls_create_only_actual_inspected_image_ids",
