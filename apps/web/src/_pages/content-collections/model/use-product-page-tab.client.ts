@@ -32,7 +32,9 @@ export function useProductPageTab(): readonly [
       setState({ urlTab: tab, selected: tab });
     };
     window.addEventListener("popstate", restore);
-    return () => window.removeEventListener("popstate", restore);
+    return () => {
+      window.removeEventListener("popstate", restore);
+    };
   }, [ownPath]);
   let selected = state.selected;
   if (pathname === ownPath && state.urlTab !== urlTab) {
