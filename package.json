@@ -113,7 +113,10 @@
     "quality:agents": "node scripts/quality-check.mjs agents",
     "quality:unused": "knip --include dependencies,unlisted --no-progress",
     "quality:proof": "node scripts/quality-tool-proofs.mjs",
-    "lint:cycles": "oxlint --import-plugin --deny import/no-cycle --deny-warnings apps/web/app apps/web/src"
+    "lint:cycles": "oxlint --import-plugin --deny import/no-cycle --deny-warnings apps/web/app apps/web/src",
+    "worktree:prepare": "node scripts/owned-node.mjs scripts/worktree-resources.mjs prepare",
+    "worktree:status": "node scripts/worktree-resources.mjs status",
+    "worktree:cleanup": "node scripts/worktree-resources.mjs cleanup"
   },
   "dependencies": {
     "zod": "4.6.7"

@@ -14,6 +14,39 @@ test("owner edits one Product price and reloads the actual catalogue without tar
 }) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/sales/links");
+  // This scenario owns its mutable price; saved-link fixtures and other scenarios keep theirs.
+  const created = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/collections",
+    "POST",
+    {
+      kind: "product",
+      name: "Synthetic price editing",
+      slug: `price-editing-${randomUUID()}`,
+      summary: "Isolated catalogue editing fixture",
+    },
+  );
+  const { collection: ownedProduct } = z
+    .object({
+      kind: z.literal("saved"),
+      collection: z.object({ id: z.uuid() }),
+    })
+    .parse(await created.json());
+  const saved = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/billing/product-prices/save",
+    "POST",
+    {
+      operationId: randomUUID(),
+      value: {
+        productId: ownedProduct.id,
+        name: "Synthetic price editing",
+        priceKopecks: 10000,
+        published: false,
+      },
+    },
+  );
+  expect(await saved.json()).toMatchObject({ ok: true });
   const initial = await fullStackBrowserRequest(
     page,
     "/api/authoring/billing/catalog",
@@ -36,9 +69,11 @@ test("owner edits one Product price and reloads the actual catalogue without tar
     }),
   });
   const catalogue = schema.parse(await initial.json()).value.items;
-  const snapshot = catalogue.find((item) => item.product !== undefined);
+  const snapshot = catalogue.find(
+    (item) => item.product?.id === ownedProduct.id,
+  );
   if (!snapshot?.product)
-    throw new Error("Disposable full-stack Product price is missing");
+    throw new Error("Owned full-stack Product price is missing");
   const product = snapshot.product;
   const input = {
     operationId: randomUUID(),
@@ -65,13 +100,15 @@ test("owner edits one Product price and reloads the actual catalogue without tar
       exact: true,
     }),
   ).toBeVisible();
-  const after = schema
-    .parse(
-      await (
-        await fullStackBrowserRequest(page, "/api/authoring/billing/catalog")
-      ).json(),
-    )
-    .value.items.find((item) => item.product?.id === product.id);
+  const afterCatalogue = schema.parse(
+    await (
+      await fullStackBrowserRequest(page, "/api/authoring/billing/catalog")
+    ).json(),
+  ).value.items;
+  expect(
+    afterCatalogue.filter((item) => item.product?.id !== product.id),
+  ).toEqual(catalogue.filter((item) => item.product?.id !== product.id));
+  const after = afterCatalogue.find((item) => item.product?.id === product.id);
   expect(after).toMatchObject({
     product: { id: product.id, priceRevision: product.priceRevision + 1 },
     paymentOption: { priceKopecks: input.value.priceKopecks },
