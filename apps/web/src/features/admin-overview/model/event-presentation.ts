@@ -35,7 +35,7 @@ export interface OverviewEventRow {
 
 /**
  * Подпись человека: имя Telegram, затем @username, иначе нейтральная подпись. Email в Обзоре нет:
- * лента стоит рядом со сдачами, а privacy-v5 исключает email рядом с ними.
+ * лента стоит рядом со сдачами, а privacy-v6 исключает email рядом с ними.
  */
 export function eventPersonLabel(person: OverviewEventPerson): {
   readonly label: string;
