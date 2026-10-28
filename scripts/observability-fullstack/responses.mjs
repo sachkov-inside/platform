@@ -435,3 +435,169 @@ export function sourceCacheObservation(response) {
     return refuse("stale");
   return refuse(diagnostic.ready === null ? "ready_missing" : "ready_count");
 }
+
+/** One failure-only native query; the range applies to the original stored selector, not a subquery. */
+export function sourceCacheSampleQuery() {
+  const selector =
+    'inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host",source=~"postgresql|caddy"}[30s]';
+  return [
+    ["last_over_time", "source_cache_sample_value"],
+    ["tlast_over_time", "source_cache_sample_time"],
+  ]
+    .map(
+      ([rollup, branch]) =>
+        "label_set(label_del(" +
+        rollup +
+        "(" +
+        selector +
+        '),"__name__","job","instance"),"job","' +
+        branch +
+        '")',
+    )
+    .join(" or ");
+}
+
+/** @typedef {{sample_value_seconds:number|null,sample_time_seconds:number|null,sample_age_seconds:number|null}} CacheSample */
+/** @typedef {{state:"observed"|"unavailable",reason:"observed"|"evaluation"|"transport"|"http"|"schema"|"rows"|"labels"|"numeric"|"duplicate"|"missing",status:number|null,evaluation_seconds:number|null,sources:{postgresql:CacheSample,caddy:CacheSample}}} SourceCacheSampleDiagnostic */
+/** Raw sample time is the VALUE of tlast_over_time, never the vector evaluation timestamp.
+ * @param {{status:number,value:unknown}} response
+ * @param {unknown} cut
+ * @returns {SourceCacheSampleDiagnostic}
+ */
+export function sourceCacheSampleObservation(response, cut) {
+  /** @type {SourceCacheSampleDiagnostic} */
+  const diagnostic = {
+    state: "unavailable",
+    reason: "evaluation",
+    status:
+      Number.isSafeInteger(response.status) &&
+      (response.status === 0 ||
+        (response.status >= 100 && response.status <= 599))
+        ? response.status
+        : null,
+    evaluation_seconds:
+      typeof cut === "number" &&
+      Number.isFinite(cut) &&
+      cut > 0 &&
+      cut < Number.MAX_SAFE_INTEGER
+        ? cut
+        : null,
+    sources: {
+      postgresql: {
+        sample_value_seconds: null,
+        sample_time_seconds: null,
+        sample_age_seconds: null,
+      },
+      caddy: {
+        sample_value_seconds: null,
+        sample_time_seconds: null,
+        sample_age_seconds: null,
+      },
+    },
+  };
+  /** @param {SourceCacheSampleDiagnostic['reason']} reason */
+  const refuse = (reason) => {
+    diagnostic.reason = reason;
+    return diagnostic;
+  };
+  if (diagnostic.evaluation_seconds === null) return diagnostic;
+  const evaluation = diagnostic.evaluation_seconds;
+  if (response.status !== 200)
+    return refuse(response.status === 0 ? "transport" : "http");
+  const raw = response.value;
+  if (
+    !record(raw) ||
+    raw["status"] !== "success" ||
+    Object.keys(raw).some(
+      (key) => !["status", "data", "stats"].includes(key),
+    ) ||
+    !record(raw["data"]) ||
+    Object.keys(raw["data"]).length !== 2 ||
+    raw["data"]["resultType"] !== "vector" ||
+    !Array.isArray(raw["data"]["result"])
+  )
+    return refuse("schema");
+  // v1.154.0 emits these fixed metadata fields; none is copied into the public diagnostic.
+  const stats = raw["stats"];
+  if (
+    stats !== undefined &&
+    (!record(stats) ||
+      Object.keys(stats).length !== 2 ||
+      typeof stats["seriesFetched"] !== "string" ||
+      !/^(?:0|[1-9]\d{0,15})$/u.test(stats["seriesFetched"]) ||
+      !Number.isSafeInteger(Number(stats["seriesFetched"])) ||
+      typeof stats["executionTimeMsec"] !== "number" ||
+      !Number.isSafeInteger(stats["executionTimeMsec"]) ||
+      stats["executionTimeMsec"] < 0)
+  )
+    return refuse("schema");
+  const rows = raw["data"]["result"];
+  if (rows.length > 4) return refuse("rows");
+  /** @type {Record<string,number>} */ const values = {};
+  for (const row of rows) {
+    if (
+      !record(row) ||
+      Object.keys(row).length !== 2 ||
+      !record(row["metric"]) ||
+      !Array.isArray(row["value"]) ||
+      row["value"].length !== 2
+    )
+      return refuse("schema");
+    const labels = row["metric"];
+    if (
+      Object.keys(labels).length !== 2 ||
+      Object.keys(labels).some((key) => key !== "job" && key !== "source") ||
+      typeof labels["source"] !== "string" ||
+      !["postgresql", "caddy"].includes(labels["source"]) ||
+      typeof labels["job"] !== "string" ||
+      !["source_cache_sample_value", "source_cache_sample_time"].includes(
+        labels["job"],
+      )
+    )
+      return refuse("labels");
+    /** @type {unknown[]} */ const pair = row["value"];
+    if (pair[0] !== evaluation) return refuse("evaluation");
+    const text = pair[1];
+    if (
+      typeof text !== "string" ||
+      text.length > 64 ||
+      !/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(text)
+    )
+      return refuse("numeric");
+    const value = Number(text);
+    if (
+      !Number.isFinite(value) ||
+      value <= 0 ||
+      value >= Number.MAX_SAFE_INTEGER
+    )
+      return refuse("numeric");
+    const identity = labels["source"] + ":" + labels["job"];
+    if (identity in values) return refuse("duplicate");
+    values[identity] = value;
+  }
+  for (const source of /** @type {const} */ (["postgresql", "caddy"])) {
+    const value = values[source + ":source_cache_sample_value"];
+    const timestamp = values[source + ":source_cache_sample_time"];
+    if (value === undefined || timestamp === undefined)
+      return refuse("missing");
+    if (
+      timestamp > evaluation ||
+      timestamp < evaluation - 30 ||
+      value > timestamp
+    )
+      return refuse("numeric");
+  }
+  for (const source of /** @type {const} */ (["postgresql", "caddy"])) {
+    const value = values[source + ":source_cache_sample_value"];
+    const timestamp = values[source + ":source_cache_sample_time"];
+    if (value !== undefined && timestamp !== undefined)
+      diagnostic.sources[source] = {
+        sample_value_seconds: value,
+        sample_time_seconds: timestamp,
+        sample_age_seconds: evaluation - timestamp,
+      };
+  }
+  diagnostic.state = "observed";
+  diagnostic.reason = "observed";
+  return diagnostic;
+}
