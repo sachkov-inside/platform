@@ -519,22 +519,20 @@ test.each(scenarios)(
         topology: localNotificationTopology("inside-test", 100),
       });
       cleanup.unshift(() => broker.stop());
-      const app = await createApiApplication(
-        parsePlatformConfig({
-          NODE_ENV: "test",
-          DATABASE_URL: database.url,
-          LOGTO_ISSUER: identity.issuer,
-          LOGTO_AUDIENCE: identity.audience,
-          LOGTO_JWKS_URL: identity.jwksUrl,
-          NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test",
-          NOTIFICATIONS_TELEGRAM_SECRET: "synthetic-notification-secret-00000",
-          BILLING_CONTACT_ENCRYPTION_KEY: ENCRYPTION_KEY,
-          BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
-          BILLING_CONTACT_SMTP_PORT: String(smtp.port),
-          BILLING_CONTACT_FROM: "noreply@example.test",
-        }),
-        { logger: false },
-      );
+      const config = parsePlatformConfig({
+        NODE_ENV: "test",
+        DATABASE_URL: database.url,
+        LOGTO_ISSUER: identity.issuer,
+        LOGTO_AUDIENCE: identity.audience,
+        LOGTO_JWKS_URL: identity.jwksUrl,
+        NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test",
+        NOTIFICATIONS_TELEGRAM_SECRET: "synthetic-notification-secret-00000",
+        BILLING_CONTACT_ENCRYPTION_KEY: ENCRYPTION_KEY,
+        BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+        BILLING_CONTACT_SMTP_PORT: String(smtp.port),
+        BILLING_CONTACT_FROM: "noreply@example.test",
+      });
+      const app = await createApiApplication(config, { logger: false });
       let appClosed = false;
       const closeApp = async () => {
         if (appClosed) return;
@@ -564,6 +562,7 @@ test.each(scenarios)(
       const contact = new BillingContact({
         prisma: database.prisma,
         protection: billingContactProtection(ENCRYPTION_KEY),
+        emailFingerprintKey: config.identity.emailFingerprintKey,
         documents: [],
         now: () => new Date("2026-01-02T00:00:00Z"),
         sendCode: (message) => {
