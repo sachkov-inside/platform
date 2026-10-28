@@ -7,6 +7,13 @@ status: accepted
 > Решение перенесено из [Workspace](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/adr/0004-typed-blocks-for-interactive-materials.md).
 > Область действия и текущий статус указаны в [индексе](README.md).
 
+The typed structured-document boundary remains accepted. The single registry was implemented by
+[Platform ADR 0023](../0023-material-block-registry-package.md). The two-copy schema description
+below records the 2026-09-11 starting point. Current Content source ownership and import rules
+belong to [the authoring brief](../../product/content-series-authoring-brief.md).
+
+## Historical source decision
+
 2026-09-11 владелец выбрал развитие материалов в сторону визуальных и интерактивных уроков и
 подтвердил порядок: сначала единый источник схемы документа и реестр блоков, затем рост словаря
 блоков. Канон тела материала остаётся versioned structured document (`Material.body`,

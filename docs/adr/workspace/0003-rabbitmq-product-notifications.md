@@ -7,6 +7,14 @@ status: accepted
 > Решение перенесено из [Workspace](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/adr/0003-rabbitmq-product-notifications.md).
 > Область действия и текущий статус указаны в [индексе](README.md).
 
+The transport decision remains accepted and is implemented by Platform Notifications and
+Telegram delivery. Current contracts and runtime verification belong to
+[Platform ADR 0021](../0021-rabbitmq-notifications-module.md) and
+[the local specification](../../specifications/notifications-v1.md).
+The implementation-plan statements below are the imported 2026-09-08 source, not pending work.
+
+## Historical source decision
+
 2026-09-08 владелец одобрил RabbitMQ и общую систему для платежей и новых материалов вместо
 billing-only HTTP доставки. Platform Notifications определяет уведомления, аудиторию и каналы;
 источники сохраняют собственные факты, Telegram/email сохраняют внешний результат.

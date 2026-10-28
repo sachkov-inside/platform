@@ -1,8 +1,18 @@
 ---
-status: accepted
+status: deprecated
 ---
 
 # Project Telegram Membership events into PostgreSQL and reconcile outside reads
+
+## Статус после отмены Membership Evidence bridge
+
+[Решение 23.10.2026](../../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+отменяет доступ к материалам по Membership Evidence. Описанная ниже проекция и пятиминутный
+срок её сверки являются историческим контрактом, а не правилом Product Access.
+Наблюдаемое членство и доставка прав сообщества остаются отдельными фактами по
+[ADR 0022](../0022-community-delivery-state-in-telegram-membership.md).
+
+## Исходное решение
 
 > Решение перенесено из [Workspace](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/adr/0002-project-telegram-membership-events-into-postgresql.md).
 > Область действия и текущий статус указаны в [индексе](README.md).

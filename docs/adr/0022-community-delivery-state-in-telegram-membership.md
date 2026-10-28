@@ -2,39 +2,33 @@
 status: accepted
 ---
 
-# Состояние доставки community живёт в TelegramMembership
+# Доставка прав сообщества принадлежит Telegram Integration
 
-The [2026-10-23 access model](../product/access-model.md#сообщество-и-telegram) retains this
-delivery ownership decision. The historical name MembershipEntitlements now refers to
-Account Rights; the membership-evidence bridge and subscription-derived rights are being removed.
-Provider delivery records remain distinct from Product Access and actual membership.
+Решение принято в #415 и сохраняет границу: Account Rights владеет Product Access,
+а Telegram Integration (Module `telegram-membership`) владеет связью с провайдером,
+Product Community и производным состоянием доставки. Приложение Telegram исполняет команды
+и хранит наблюдения о реальном членстве.
 
-Право участия в сообществе выводит MembershipEntitlements и остаётся его единственным владельцем.
-Исполняет это право Telegram. #415 добавляет между ними желаемое состояние, durable outbox, журнал
-авторизаций и курсор проекции. Они размещены в схеме `telegram_membership`, а не в
-`membership_entitlements` и не в отдельной схеме.
+Желаемое состояние, outbox, журнал авторизаций, курсор проекции и история адресатов живут рядом
+с Platform-owned binding в `telegram_membership`. Они не являются второй базой прав.
+ContentAccess не выводит доступ к материалам из состояния доставки или реального состава чата.
+Текущая модель права записана в [ADR 0040](0040-unified-product-access.md).
 
-Решение расширяет [ADR 0003](0003-one-postgresql-schema-per-state-owning-module.md). Прежняя
-формулировка ограничивала TelegramMembership состоянием link transactions и непрозрачными
-provider correlations. Она остаётся верной для доказательства связи и для самого права; новым
-фактом становится состояние доставки к конкретному provider. Это не второе хранилище прав:
-`community_desired_states.access` — производная инструкция для отправки, вычисленная из публичного
-facet `resolveCapabilities`, а не основание доступа. Отзыв, истечение и ручная выдача по-прежнему
-меняются только в MembershipEntitlements, и projector туда не пишет.
+Размещение доставки в Account Rights заставило бы владельца прав знать про транспорт и адресатов.
+Отдельная capability только для очереди разнесла бы одну интеграционную ответственность.
+Выбранный компромисс требует явного различия между основанием доступа и командой его исполнения.
 
-Владелец отношений с provider и владелец очереди к нему должны совпадать: outbox, повтор с тем же
-operationId, наблюдаемое членство и исторические binding для cleanup имеют смысл только рядом с
-`account_link_states`, `account_link_history` и `link_transactions`. Размещение их в
-`membership_entitlements` заставило бы модуль прав знать про транспорт и получателей; отдельная
-схема потребовала бы cross-schema чтения подтверждённой связи на каждом шаге.
+Проектор получает факты прав через публичный интерфейс и не пишет таблицы Account Rights.
+Доставки используют устойчивую идентичность операции, актуальную авторизацию внешнего эффекта
+и восстановление после потери ответа. Unlink/relink не превращает историю старого получателя
+в разрешение новому. Само принятие команды провайдером не доказывает фактическое членство.
 
-Цена решения: `telegram_membership` перестаёт быть только identity-схемой, и запись `access` в ней
-можно ошибочно принять за право. Против этого работают три вещи. Тип зависимостей фасета допускает
-из AccessGrants только `resolveCapabilities` и `readChangedAccounts`, то есть операции чтения.
-Guardrail архитектуры и negative TypeScript fixture запрещают этой схеме трогать `access_grants`,
-а модулю прав — трогать таблицы community. ContentAccess не читает эти таблицы вовсе.
+Текущие владельцы: [карта контекстов](../product/domain-context-map.md).
+Проверки: [community-entitlements](../../apps/backend/test/integration/community-entitlements.test.ts)
+и архитектурные границы backend. Реальные сообщения, права администратора и выдача членства
+сохраняют собственные разрешения владельца.
 
-Owning module: TelegramMembership. Fitness — `check-backend-architecture.mjs` с negative fixtures и
-`test/integration/community-entitlements.test.ts` на реальном PostgreSQL: проекция, монотонная
-revision, повтор той же команды, unlink/relink, истечение и отказ авторизации. Реальный чат,
-права бота и выдача членства остаются отдельными owner gates.
+## История
+
+[Редакция до аудита 28.10.2026](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0022-community-delivery-state-in-telegram-membership.md) сохраняет исходное обоснование,
+этапы реализации и прежние имена. Эта редактура уточняет действующую область решения.

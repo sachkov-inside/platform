@@ -2,24 +2,33 @@
 status: accepted
 ---
 
-# Notifications — общий модуль Platform с RabbitMQ
+# Общий модуль Notifications с RabbitMQ
 
-Владелец 2026-09-08 одобрил RabbitMQ и первые источники Billing/Materials. Notifications владеет
-предпочтениями, аудиторией, шаблонами, уведомлениями и проекцией доставки. Sources сохраняют факты,
-Telegram/email — физические попытки. [Локальная specification](../specifications/notifications-v1.md)
-содержит переносимый snapshot Workspace решения.
+Владелец одобрил RabbitMQ и первые источники Billing/Materials 08.09.2026.
+Notifications остаётся capability внутри backend, с отдельным worker для долговечной работы.
+Он владеет поводом уведомления, получателем, настройками и проекцией результата; источники владеют
+исходными фактами, а Telegram/email, физическими попытками доставки.
 
-Это расширяет ADR 0001: pg-boss остаётся локальной job infrastructure, RabbitMQ становится
-межсервисным транспортом events/commands/results. Отдельное приложение Notifications не создаётся;
-worker добавляется с первым durable job. HTTP остаётся для короткой проверки актуальности перед
-внешним эффектом. Broker ack не заменяет business receipt или provider success.
+RabbitMQ переносит события, команды и результаты между приложениями. `pg-boss` остаётся локальной
+инфраструктурой заданий Platform по [ADR 0001](0001-one-backend-multiple-entrypoints.md).
+HTTP используется для короткой проверки актуальности перед внешним эффектом; broker ack
+не заменяет бизнес-подтверждение или успех провайдера.
 
-Billing-only HTTP был достаточен для адресного сообщения одному provider, но два источника и
-независимые каналы требуют общего владения пользовательскими настройками и результатами.
-Цена RabbitMQ — эксплуатация и outbox/inbox; цена общего модуля — явные публичные source facets.
-Ни shared DB, ни чтение чужих Prisma delegates не разрешаются.
+Адресный HTTP был достаточен для одного источника и получателя. Несколько источников и независимые
+каналы оправдывают общий интерфейс и отдельный транспорт. Цена выбора: эксплуатация RabbitMQ,
+PostgreSQL outbox/inbox, дедупликация и восстановление. Общая база приложений и чужие Prisma delegates
+не становятся допустимыми. Журнал внешнего эффекта должен различать подтверждённый результат
+и неизвестный исход, который нельзя повторять вслепую.
 
-Owning module: Notifications. Artifact fitness — notification-contract-artifacts.test.ts,
-включая negative wire fixtures. Runtime fitness — #435/#436/#437/#438: real PostgreSQL/RabbitMQ
-crash/replay, ACL, import guards с negative fixtures и два source сценария. До реализации
-contract tests не доказывают runtime ограничения; отсутствующие runtime seams не заполняются mocks.
+Текущий контракт: [Notifications](../specifications/notifications-v1.md).
+Эксплуатационный выбор: [ADR 0025](0025-own-single-node-rabbitmq-broker.md).
+Worker включён в [production Compose](../../compose.production.yaml).
+Проверки разделены на [артефакты контракта](../../apps/backend/test/unit/notification-contract-artifacts.test.ts),
+[broker](../../apps/backend/test/integration/notifications-broker.test.ts) и
+[приёмочные сценарии](../../apps/backend/test/integration/notifications-acceptance.test.ts).
+Проверка схемы сама по себе не доказывает порядок ack или восстановление после остановки процесса.
+
+## История
+
+[Редакция до аудита 28.10.2026](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0021-rabbitmq-notifications-module.md) сохраняет исходное обоснование,
+этапы реализации и прежние имена. Эта редактура уточняет действующую область решения.

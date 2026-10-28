@@ -13,3 +13,8 @@ Next-specific Storybook integration and `openapi-typescript` were replaced becau
 APIs unavailable in TypeScript 7. Storybook uses its stable React/Vite framework with a narrow
 `next/link` preview mock, while the OpenAPI client uses a template generator and remains protected by
 deterministic drift checks, runtime Zod validation, architecture guardrails, tests, and builds.
+
+The retained configuration split from ADR 0008 remains: the committed editor/check project
+[tsconfig.json](../../apps/web/tsconfig.json) is separate from the Next-managed
+[tsconfig.next.json](../../apps/web/tsconfig.next.json). Supersession replaced the checker,
+not that isolation from mutable development route artifacts.

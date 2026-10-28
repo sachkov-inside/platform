@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by ADR-0040
 ---
 
 # Explicit Product community rights and whole-Product revocation
+
+[ADR 0040](0040-unified-product-access.md) restates the retained boundaries and replaces this
+decision in full. The text below is historical; it does not authorize Tariffs, subscriptions,
+implicit community rights or automatic refund-driven revocation.
+
+## Historical decision and amendments
 
 The [owner's 2026-10-23 access decision](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
 supersedes configurable Offer benefits and automatic purchase-scoped access revocation on a bank

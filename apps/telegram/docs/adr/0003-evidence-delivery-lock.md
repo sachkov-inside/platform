@@ -1,8 +1,19 @@
 ---
-status: accepted
+status: deprecated
 ---
 
 # Доставка Membership Evidence держит lock провайдера на время вызова Platform
+
+## Статус после отмены Membership Evidence bridge
+
+Историческое решение о lock сохранено для объяснения прежней доставки. По
+[решению 23.10.2026](../../../../docs/product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+членство в Telegram больше не даёт доступ к материалам через Membership Evidence.
+В [фоновых циклах](../../src/operations/background-workers.ts) нет доставки evidence;
+оставшаяся функция lock сама по себе не является работающим путём доставки.
+Этот ADR не требует возвращать HTTP-доставку или держать соединение при новых интеграциях.
+
+## Исходное решение
 
 Воркер доставки evidence берёт session advisory lock провайдера Membership
 (`membership-provider-delivery-lock.ts`) на отдельном соединении из pool и держит его, пока

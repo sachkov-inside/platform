@@ -1,6 +1,8 @@
-# 0035: Separate Product catalogue, programme placements and chapter attachments
+---
+status: accepted
+---
 
-Status: Accepted
+# Separate Product catalogue, programme placements and chapter attachments
 
 Date: 2026-10-16
 

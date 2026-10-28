@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: superseded by ADR-0040
 ---
 
 # Модель продукта: продукты, тарифы и способы оплаты; мастерской нет
+
+[ADR 0040](0040-unified-product-access.md) restates the retained boundaries and replaces this
+decision in full. The text below is historical; it does not authorize Tariffs, subscriptions,
+implicit community rights or automatic refund-driven revocation.
+
+## Historical decision and amendments
 
 Current subscription commerce and course terms follow [ADR 0037](0037-products-without-subscriptions.md)
 (owner decision 2026-10-20). Its explicit supersessions take precedence over the historical decisions below.
