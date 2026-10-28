@@ -518,7 +518,7 @@ export function MaterialVideoPlayerView({
             {chapters.map((chapter) => (
               <li key={chapter.start}>
                 <a
-                  className="flex min-h-11 items-start gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring aria-[current=true]:bg-muted aria-[current=true]:font-semibold"
+                  className="flex min-h-11 items-start gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-3! focus-visible:outline-ring aria-[current=true]:bg-muted aria-[current=true]:font-semibold"
                   href={`#t=${String(chapter.start)}`}
                   aria-current={
                     activeChapter === chapter.start ? "true" : undefined
