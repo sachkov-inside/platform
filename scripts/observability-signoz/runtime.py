@@ -36,7 +36,8 @@ RUNTIME_SECONDS=600
 CLEANUP_SECONDS=90
 
 
-def source():
+def source(profile_id=lifecycle.BASELINE_PROFILE):
+    lifecycle.resource_profile(profile_id)
     hosted.context()
     if (os.environ.get('GITHUB_ACTIONS')!='true' or os.environ.get('RUNNER_ENVIRONMENT')!='github-hosted'
             or os.environ.get('RUNNER_OS')!='Linux' or os.environ.get('RUNNER_ARCH')!='X64'):
@@ -47,15 +48,15 @@ def source():
     tree=subprocess.run(['git','rev-parse','HEAD^{tree}'],cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
     if commit!=os.environ['GITHUB_SHA']:raise ValueError('provider_source_changed')
     paths=(*source_binding.inputs(),ROOT/'.github/workflows/observability-signoz.yml')
-    return {'schema':1,'commit':commit,'tree':tree,'repository':os.environ['GITHUB_REPOSITORY'],
+    return {'schema':2,'profile_id':profile_id,'commit':commit,'tree':tree,'repository':os.environ['GITHUB_REPOSITORY'],
         'execution_sha':os.environ['GITHUB_SHA'],'pr_head':os.environ['PILOT_PR_HEAD_SHA'],'pr_base':os.environ['PILOT_PR_BASE_SHA'],
         'run_id':os.environ['GITHUB_RUN_ID'],'run_attempt':os.environ['GITHUB_RUN_ATTEMPT'],
         'inputs':{str(p.relative_to(ROOT)):lifecycle.digest(p) for p in paths},
         'scope':'native Linux amd64 SigNoz functional witness only; full workload/capacity/production unproved'}
 
 
-def verify_source(record):
-    if source()!=record:raise ValueError('source_binding_changed')
+def verify_source(record,profile_id=lifecycle.BASELINE_PROFILE):
+    if source(profile_id)!=record:raise ValueError('source_binding_changed')
 
 
 def engine(output,seconds):
@@ -108,24 +109,28 @@ def stop_worker(record):
     raise ValueError('worker_session_not_reaped')
 
 
-def recover(output,deadline=None):
+def recover(output,deadline=None,*,profile_id=lifecycle.BASELINE_PROFILE):
+    lifecycle.resource_profile(profile_id)
     deadline=deadline if deadline is not None else time.monotonic()+CLEANUP_SECONDS
     if not (output/'owner.json').exists():return {'passed':True,'state':'no_registered_project'}
-    owner=evidence.read(output/'owner.json');verify_source(evidence.read(output/'source.json'))
+    owner=evidence.read(output/'owner.json');record=evidence.read(output/'source.json');verify_source(record,profile_id)
+    if (owner.get('profile_id')!=profile_id or record.get('profile_id')!=profile_id
+            or owner.get('source_sha')!=record.get('commit') or owner.get('source_tree')!=record.get('tree')):raise ValueError('recovery_profile_changed')
+    plan=evidence.read(output/'compose.json');lifecycle.plan_profile(plan,profile_id)
     if (output.resolve()!=output or owner.get('cwd')!=str(ROOT)
             or re.fullmatch(r'signoz1566-[a-f0-9]{12}',owner.get('project','')) is None
             or re.fullmatch(r'[a-f0-9]{32}',owner.get('nonce','')) is None
             or lifecycle.digest(output/'compose.json')!=owner['plan_sha256']):raise ValueError('recovery_ownership_refused')
+    prior_path=output/'resources.json'
+    prior=evidence.read(prior_path) if prior_path.exists() else None
+    if prior is not None and (prior.get('project')!=owner['project'] or prior.get('nonce')!=owner['nonce'] or prior.get('profile_id')!=profile_id):raise ValueError('recovery_receipt_changed')
     worker_path=output/'worker.json'
     if worker_path.exists():stop_worker(evidence.read(worker_path))
     current=engine(output,max(.001,deadline-time.monotonic()));current.deadline=deadline
     if current.identity!=owner['daemon']:raise ValueError('recovery_daemon_changed')
-    own=lifecycle.Owned(current,output,{},owner['project'],owner['nonce']);own.plan=evidence.read(output/'compose.json')
-    lock=lifecycle.verify_packet()
+    own=lifecycle.Owned(current,output,{},owner['project'],owner['nonce'],profile_id=profile_id);own.plan=plan
+    lock=lifecycle.verify_packet(profile_id)
     # Acquisition may have failed part-way. Only actual owned roles need cached images.
-    prior_path=output/'resources.json'
-    prior=evidence.read(prior_path) if prior_path.exists() else None
-    if prior is not None and (prior.get('project')!=owner['project'] or prior.get('nonce')!=owner['nonce']):raise ValueError('recovery_receipt_changed')
     own.discover()
     if prior is not None:
         for role,cid in own.containers.items():
@@ -141,7 +146,7 @@ def recover(output,deadline=None):
     for role in own.containers:own.images[role]=lifecycle.checked_image(current,rows[lifecycle.ROLE_IMAGES[role]],'amd64')
     # Resource identity is a monotonic registry, including objects already removed.
     # A later cleanup retry must still refuse a recreated role/volume/network.
-    registry={'project':owner['project'],'nonce':owner['nonce']}
+    registry={'project':owner['project'],'nonce':owner['nonce'],'profile_id':profile_id}
     for key,current_values in (('containers',own.containers),('created',own.created),('volumes',own.volumes),('networks',own.networks)):
         registry[key]={**(prior.get(key,{}) if prior is not None else {}),**current_values}
     own.record();passed=own.cleanup_exact()
@@ -215,9 +220,13 @@ def functional_with_client(own,output,remaining):
         lifecycle.need(not thread.is_alive(),'functional_thread_not_reaped')
 
 
-def worker(output):
-    require_native_host();record=json.loads((output/'source.json').read_text());verify_source(record)
-    owner=json.loads((output/'owner.json').read_text())
+def worker(output,profile_id=lifecycle.BASELINE_PROFILE):
+    require_native_host();record=evidence.read(output/'source.json');verify_source(record,profile_id)
+    owner=evidence.read(output/'owner.json');plan=evidence.read(output/'compose.json')
+    if (owner.get('profile_id')!=profile_id or record.get('profile_id')!=profile_id
+            or owner.get('source_sha')!=record.get('commit') or owner.get('source_tree')!=record.get('tree')):raise ValueError('worker_profile_changed')
+    lifecycle.plan_profile(plan,profile_id)
+    if lifecycle.digest(output/'compose.json')!=owner['plan_sha256']:raise ValueError('worker_plan_changed')
     if owner['supervisor_pid']!=os.getppid():raise ValueError('external_supervisor_required')
     # No native command may begin before the external supervisor durably registers
     # this session. SIGKILL in the launch/registration gap cannot leak native resources.
@@ -227,7 +236,7 @@ def worker(output):
     if registration!={'pid':os.getpid(),'group':os.getpid(),'start_ticks':process_start(os.getpid())}:raise ValueError('worker_registration_required')
     current=engine(output,max(.001,owner['deadline']-time.monotonic()));current.deadline=owner['deadline']
     if current.identity!=owner['daemon']:raise ValueError('worker_daemon_changed')
-    own=lifecycle.Owned(current,output,{},owner['project'],owner['nonce']);own.plan=json.loads((output/'compose.json').read_text());lock=lifecycle.verify_packet()
+    own=lifecycle.Owned(current,output,{},owner['project'],owner['nonce'],profile_id=profile_id);own.plan=plan;lock=lifecycle.verify_packet(profile_id)
     def interrupted(*_args):raise lifecycle.Refusal('worker_interrupted_or_storage')
     for signum in (signal.SIGTERM,signal.SIGINT,signal.SIGUSR1):signal.signal(signum,interrupted)
     phase='acquire'
@@ -245,6 +254,7 @@ def worker(output):
             own.compose(['--profile','functional','create','--no-build','--pull','never']);own.discover();own.record()
             lifecycle.need(set(own.containers)==set(lifecycle.SERVICES),'complete_owned_roles')
             for name in lifecycle.SERVICES:own.validate(name)
+            own.record_profile(record)
             # Durable attachment proof survives any later initialization/functional
             # failure. It does not replace the final healthy-state acceptance.
             lifecycle.private_json(output/'images.json',own.images)
@@ -267,14 +277,16 @@ def worker(output):
             lifecycle.private_json(output/'functional.json',result)
             final_states=own.snapshot_states();lifecycle.private_json(output/'final-states.json',final_states)
             lifecycle.need(lifecycle.healthy_states(final_states),'unhealthy_final_roles')
+            own.record_profile(record,inspection_stage='final')
             lifecycle.private_json(output/'images.json',own.images)
     except BaseException as error:
         lifecycle.private_json(output/'failure.json',{'phase':phase,'category':type(error).__name__,'reason':error.reason if isinstance(error,lifecycle.Refusal) else 'functional_failure','native_failure_capture_unavailable':getattr(current,'failure_capture_unavailable',False)})
         raise
 
 
-def run(output):
-    require_native_host();started=time.monotonic();record=source()
+def run(output,profile_id=lifecycle.BASELINE_PROFILE):
+    lifecycle.resource_profile(profile_id)
+    require_native_host();started=time.monotonic();record=source(profile_id)
     if output.exists() or output.resolve()!=output or not output.is_absolute():raise ValueError('fresh_absolute_private_output_required')
     output.mkdir(mode=0o700);lifecycle.private_json(output/'source.json',record)
     status=1;process=None;cleanup={'passed':False};cancelled=[False]
@@ -282,13 +294,13 @@ def run(output):
     previous={s:signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)}
     for s in previous:signal.signal(s,cancel)
     try:
-        current=engine(output,max(.001,RUNTIME_SECONDS-(time.monotonic()-started)));lock=lifecycle.verify_packet()
+        current=engine(output,max(.001,RUNTIME_SECONDS-(time.monotonic()-started)));lock=lifecycle.verify_packet(profile_id)
         project='signoz1566-'+uuid.uuid4().hex[:12];nonce=uuid.uuid4().hex
         lifecycle.write_private_files(output,lock)
-        plan=lifecycle.make_plan(output,lock['images'],project,nonce,os.getuid(),os.getgid());lifecycle.private_json(output/'compose.json',plan)
-        lifecycle.private_json(output/'owner.json',{'project':project,'nonce':nonce,'cwd':str(ROOT),'daemon':current.identity,'supervisor_pid':os.getpid(),'deadline':started+RUNTIME_SECONDS,'plan_sha256':lifecycle.digest(output/'compose.json')})
+        plan=lifecycle.make_plan(output,lock['images'],project,nonce,os.getuid(),os.getgid(),profile_id=profile_id);lifecycle.private_json(output/'compose.json',plan)
+        lifecycle.private_json(output/'owner.json',{'project':project,'nonce':nonce,'profile_id':profile_id,'source_sha':record['commit'],'source_tree':record['tree'],'cwd':str(ROOT),'daemon':current.identity,'supervisor_pid':os.getpid(),'deadline':started+RUNTIME_SECONDS,'plan_sha256':lifecycle.digest(output/'compose.json')})
         if cancelled[0]:raise lifecycle.Refusal('supervisor_interrupted')
-        process=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'worker','--output',str(output)],start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        process=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'worker','--output',str(output),'--profile',profile_id],start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         lifecycle.private_json(output/'worker.json',{'pid':process.pid,'group':process.pid,'start_ticks':process_start(process.pid)})
         status=supervisor.wait(process,started+RUNTIME_SECONDS,lambda:cancelled[0])
     finally:
@@ -304,26 +316,26 @@ def run(output):
                     if stopped:process.wait(timeout=1)
                     else:supervisor.stop(process)
                 except Exception:stopped=False
-        try:cleanup=recover(output,cleanup_deadline)
+        try:cleanup=recover(output,cleanup_deadline,profile_id=profile_id)
         except Exception:cleanup={'passed':False,'state':'exact_cleanup_unavailable'}
         cleanup['passed']=cleanup['passed'] and stopped
         for s,value in previous.items():signal.signal(s,value)
         accepted=status==0 and worker_seconds<=RUNTIME_SECONDS and cleanup['passed'] and cleanup.get('roles_healthy') is True
-        lifecycle.private_json(output/'outcome.json',{'passed':accepted,'worker_exit':status,'worker_seconds':worker_seconds,'runtime_limit_seconds':RUNTIME_SECONDS,'cleanup':cleanup,'full_workload':False,'capacity_acceptance':False})
+        lifecycle.private_json(output/'outcome.json',{'profile_id':profile_id,'passed':accepted,'worker_exit':status,'worker_seconds':worker_seconds,'runtime_limit_seconds':RUNTIME_SECONDS,'cleanup':cleanup,'full_workload':False,'capacity_acceptance':False})
     return 0 if accepted else 1
 
 
-def collect(output,destination):
-    return evidence.collect(output,destination,verify_source)
+def collect(output,destination,profile_id=lifecycle.BASELINE_PROFILE):
+    return evidence.collect(output,destination,lambda record:verify_source(record,profile_id),profile_id=profile_id)
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('mode',choices=('run','worker','recover','collect'));parser.add_argument('--output',type=Path,required=True);parser.add_argument('--public',type=Path);args=parser.parse_args()
-    if args.mode=='collect':return 0 if collect(args.output,args.public) else 1
+    parser=argparse.ArgumentParser();parser.add_argument('mode',choices=('run','worker','recover','collect'));parser.add_argument('--output',type=Path,required=True);parser.add_argument('--public',type=Path);parser.add_argument('--profile',choices=tuple(lifecycle.RESOURCE_PROFILES),default=lifecycle.BASELINE_PROFILE);args=parser.parse_args()
+    if args.mode=='collect':return 0 if collect(args.output,args.public,args.profile) else 1
     require_native_host()
-    if args.mode=='run':return run(args.output)
-    if args.mode=='worker':worker(args.output);return 0
-    return 0 if recover(args.output)['passed'] else 1
+    if args.mode=='run':return run(args.output,args.profile)
+    if args.mode=='worker':worker(args.output,args.profile);return 0
+    return 0 if recover(args.output,profile_id=args.profile)['passed'] else 1
 
 
 if __name__=='__main__':

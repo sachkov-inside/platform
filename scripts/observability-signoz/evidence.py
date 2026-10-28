@@ -71,13 +71,14 @@ def postgres(value):
     return result
 
 
-def outcome(value):
+def outcome(value,profile_id=lifecycle.BASELINE_PROFILE):
+    require(type(value) is dict and value.get('profile_id')==profile_id)
     require(type(value) is dict and value.get('runtime_limit_seconds') == 600)
     code = value.get('worker_exit'); require(type(code) is int and -128 <= code <= 255)
     require(value.get('capacity_acceptance') is False and value.get('full_workload') is False)
     clean = value.get('cleanup'); require(type(clean) is dict)
     require(value.get('passed') is not True or code==0 and clean.get('passed') is True and number(value['worker_seconds'])<=600)
-    return {'available': True, 'passed': boolean(value['passed']), 'worker_exit': code,
+    return {'available': True, 'profile_id':profile_id, 'passed': boolean(value['passed']), 'worker_exit': code,
             'worker_seconds': number(value['worker_seconds'], 720), 'runtime_limit_seconds': 600,
             'cleanup_passed': boolean(clean['passed'])}
 
@@ -266,13 +267,36 @@ def native_failures(output):
     return {'available': bool(result), 'samples': result}
 
 
-def collect(output, destination, verify_source):
+def resource_profile(value,source,owner,plan,profile_id):
+    profile=lifecycle.plan_profile(plan,profile_id)
+    require(type(value) is dict and set(value)=={'schema','profile_id','inspection_stage','source_sha','source_tree','roles'})
+    require(type(value['schema']) is int and value['schema']==1)
+    require(type(value['inspection_stage']) is str and value['inspection_stage'] in ('admission','final'))
+    require(value['profile_id']==source['profile_id']==owner['profile_id']==profile_id)
+    require(all(type(value[k]) is str and re.fullmatch('[a-f0-9]{40}',value[k]) for k in ('source_sha','source_tree')))
+    require(value['source_sha']==owner['source_sha']==source['commit'] and value['source_tree']==owner['source_tree']==source['tree'])
+    roles=value['roles'];require(type(roles) is dict and set(roles)==set(lifecycle.SERVICES))
+    for role,(cpu,memory) in profile['budgets'].items():
+        row=roles[role];require(type(row) is dict and set(row)=={'memory_bytes','memory_swap_bytes','nano_cpus','pids_limit'})
+        require(all(type(v) is int for v in row.values()))
+        require(row=={'memory_bytes':memory*1024**2,'memory_swap_bytes':memory*1024**2,
+                      'nano_cpus':round(cpu*10**9),'pids_limit':128})
+    observed=sum(row['memory_bytes'] for row in roles.values())
+    require(observed==profile['aggregate_memory_bytes'])
+    return {'available':True,**value,'observed_aggregate_memory_bytes':observed,
+            'configured_aggregate_memory_bytes':profile['aggregate_memory_bytes'],
+            'experimental_ceiling_memory_bytes':profile['experimental_ceiling_bytes']}
+
+
+def collect(output, destination, verify_source, *, profile_id=lifecycle.BASELINE_PROFILE):
+    profile=lifecycle.resource_profile(profile_id)
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
-    report = {'schema': 1, 'passed': False, 'functional_only': True, 'capacity_acceptance': False,
-              'aggregate_cpu_limit': 2, 'aggregate_memory_bytes': 4 * 1024**3,
+    report = {'schema': 2, 'profile_id':profile_id, 'passed': False, 'functional_only': True, 'capacity_acceptance': False,
+              'aggregate_cpu_limit': 2, 'aggregate_memory_bytes':profile['aggregate_memory_bytes'],
+              'experimental_ceiling_memory_bytes':profile['experimental_ceiling_bytes'],
               'runtime_limit_seconds': 600, 'cleanup_limit_seconds': 90}
     safe_root = output.is_dir() and not output.is_symlink()
-    contracts = {'outcome': outcome, 'cleanup': cleanup, 'functional': functional, 'postgres': postgres,
+    contracts = {'outcome': lambda value:outcome(value,profile_id), 'cleanup': cleanup, 'functional': functional, 'postgres': postgres,
                  'states': states, 'failure': failure, 'images': images, 'disk-admission': storage,
                  'recovery-cleanup':cleanup,'recovery-states':states,'isolation':isolation,'agent':agent}
     for name, project in contracts.items():
@@ -287,12 +311,19 @@ def collect(output, destination, verify_source):
         require(safe_root); source = read(output / 'source.json'); verify_source(source)
         report['source'] = {'available': True, 'binding': source}
     except Exception: report['source'] = {'available': False}
+    try:
+        require(safe_root and report['source']['available'])
+        owner=read(output/'owner.json');plan=read(output/'compose.json')
+        require(owner['plan_sha256']==lifecycle.digest(output/'compose.json'))
+        report['resource_profile']=resource_profile(read(output/'resource-profile.json'),report['source']['binding'],owner,plan,profile_id)
+    except Exception:report['resource_profile']={'available':False}
     for name, project in (('native_identity', identities), ('native_failures', native_failures),('native_operations',native_operations),('inside_failures',inside_failures)):
         try:
             require(safe_root); report[name] = project(output)
         except Exception: report[name] = {'available': False}
-    report['passed'] = all(report[k]['available'] for k in ('source', 'outcome', 'cleanup', 'functional', 'postgres', 'states', 'images', 'disk-admission', 'native_identity','isolation','agent')) and (
+    report['passed'] = all(report[k]['available'] for k in ('source', 'resource_profile', 'outcome', 'cleanup', 'functional', 'postgres', 'states', 'images', 'disk-admission', 'native_identity','isolation','agent')) and (
         report['outcome'].get('passed') is True and report['cleanup'].get('passed') is True
+        and report['resource_profile'].get('inspection_stage')=='final'
         and report['images'].get('container_bindings_complete') is True
         and report['cleanup'].get('exact_containers')==len(lifecycle.SERVICES)
         and report['cleanup'].get('exact_volumes')==len(lifecycle.VOLUMES)

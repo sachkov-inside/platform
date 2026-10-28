@@ -47,8 +47,12 @@ class AdmissionReasons(unittest.TestCase):
                         shutil.copyfile(lifecycle.CONFIG/name,config/name)
                     shutil.copytree(lifecycle.CONFIG/'oci',config/'oci')
                     broken=next((config/'oci').iterdir());broken.write_bytes(broken.read_bytes()+b' ')
-                for name,value in {'source':{},'owner':{'supervisor_pid':os.getppid(),'deadline':time.monotonic()+10,'daemon':{},'project':'fixture','nonce':'a'*32},
-                                   'worker':{'pid':os.getpid(),'group':os.getpid(),'start_ticks':'fixture'},'compose':{}}.items():
+                plan=lifecycle.make_plan(private,lifecycle.verify_packet()['images'],'fixture','a'*32,1001,1001)
+                lifecycle.private_json(private/'compose.json',plan)
+                for name,value in {'source':{'profile_id':lifecycle.BASELINE_PROFILE,'commit':'a'*40,'tree':'b'*40},
+                                   'owner':{'profile_id':lifecycle.BASELINE_PROFILE,'source_sha':'a'*40,'source_tree':'b'*40,'plan_sha256':lifecycle.digest(private/'compose.json'),
+                                            'supervisor_pid':os.getppid(),'deadline':time.monotonic()+10,'daemon':{},'project':'fixture','nonce':'a'*32},
+                                   'worker':{'pid':os.getpid(),'group':os.getpid(),'start_ticks':'fixture'}}.items():
                     lifecycle.private_json(private/(name+'.json'),value)
                 handlers={signum:runtime.signal.getsignal(signum) for signum in (runtime.signal.SIGTERM,runtime.signal.SIGINT,runtime.signal.SIGUSR1)}
                 with patch.object(runtime,'require_native_host'),patch.object(runtime,'verify_source'),\

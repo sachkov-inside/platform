@@ -141,7 +141,7 @@ class OCIAdmission(unittest.TestCase):
         finally:sys.path[:]=before
         lock,row,image=fixture();engine=Native(image);engine.identity={}
         class Owned:
-            def __init__(self,*args):
+            def __init__(self,*args,**options):
                 self.root=args[1];self.containers={'disk':'c'*64};self.created={'disk':'owned'};self.volumes={};self.networks={};self.images={}
             def discover(self):pass
             def record(self):pass
@@ -151,8 +151,8 @@ class OCIAdmission(unittest.TestCase):
                 return True
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp).resolve();plan=lifecycle.make_plan(root,lock['images'],'signoz1566-'+'a'*12,'b'*32,1001,1001)
-            lifecycle.private_json(root/'compose.json',plan);lifecycle.private_json(root/'source.json',{})
-            lifecycle.private_json(root/'owner.json',{'cwd':str(runtime.ROOT),'project':plan['name'],'nonce':'b'*32,'daemon':{},'plan_sha256':lifecycle.digest(root/'compose.json')})
+            lifecycle.private_json(root/'compose.json',plan);lifecycle.private_json(root/'source.json',{'profile_id':lifecycle.BASELINE_PROFILE,'commit':'a'*40,'tree':'b'*40})
+            lifecycle.private_json(root/'owner.json',{'profile_id':lifecycle.BASELINE_PROFILE,'source_sha':'a'*40,'source_tree':'b'*40,'cwd':str(runtime.ROOT),'project':plan['name'],'nonce':'b'*32,'daemon':{},'plan_sha256':lifecycle.digest(root/'compose.json')})
             with patch.object(runtime,'verify_source'),patch.object(runtime,'engine',return_value=engine),patch.object(lifecycle,'Owned',Owned):
                 self.assertTrue(runtime.recover(root)['passed'])
         self.assertTrue(engine.args);self.assertTrue(all(args[:2]==['image','inspect'] and args[-1]==image_proof.runtime_reference(row) for args in engine.args))

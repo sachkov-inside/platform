@@ -77,10 +77,11 @@ class WorkerEvidence(unittest.TestCase):
                         'config_digest':config,'relation':'config_id','image_descriptor_available':False,
                         'architecture':'amd64','child_manifest':pin['linux_amd64_manifest'],'image_id':config,'selected_image_id':config}
                 class Owned:
-                    def __init__(self,*_args):self.containers={role:'c'*64 for role in lifecycle.SERVICES};self.images={}
+                    def __init__(self,*_args,**_kwargs):self.containers={role:'c'*64 for role in lifecycle.SERVICES};self.images={}
                     def compose(self,*_args):pass
                     def discover(self):pass
                     def record(self):pass
+                    def record_profile(self,_source):pass  # Actual numeric inspection is covered by test_profiles.
                     def start(self,*_args):pass
                     def wait(self,*_args):pass
                     def exec(self,args,**_kwargs):
@@ -97,8 +98,12 @@ class WorkerEvidence(unittest.TestCase):
                     functional_started.set()
                     if mode=='monitor_signal':engine.raw(['-c','import time;time.sleep(3)'])
                     raise primary
-                records={'source':{},'owner':{'supervisor_pid':os.getppid(),'deadline':time.monotonic()+10,'daemon':{'daemon_id':'fixture'},'project':'fixture','nonce':'a'*32},
-                         'worker':{'pid':os.getpid(),'group':os.getpid(),'start_ticks':'fixture'},'compose':{}}
+                plan=lifecycle.make_plan(private,lock['images'],'fixture','a'*32,1001,1001)
+                lifecycle.private_json(private/'compose.json',plan)
+                records={'source':{'profile_id':lifecycle.BASELINE_PROFILE,'commit':'a'*40,'tree':'b'*40},
+                         'owner':{'profile_id':lifecycle.BASELINE_PROFILE,'source_sha':'a'*40,'source_tree':'b'*40,'plan_sha256':lifecycle.digest(private/'compose.json'),
+                                  'supervisor_pid':os.getppid(),'deadline':time.monotonic()+10,'daemon':{'daemon_id':'fixture'},'project':'fixture','nonce':'a'*32},
+                         'worker':{'pid':os.getpid(),'group':os.getpid(),'start_ticks':'fixture'}}
                 for name,value in records.items():lifecycle.private_json(private/(name+'.json'),value)
                 initial={'filesystems':{'owned':{'total_bytes':100*1024**3,'free_bytes':90*1024**3}},'allocated_image_bytes':0}
                 def host(*_args):
