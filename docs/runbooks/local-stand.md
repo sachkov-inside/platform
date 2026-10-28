@@ -98,7 +98,7 @@ Until it finishes, `status` reports `recovery` and `show`/`refresh` refuse. Reru
 `upgrade` after a failure: a completed backup is reused, and Compose and migrations repeat safely.
 The dumps are plain SQL from `pg_dumpall --clean --if-exists` and contain account data and
 sign-in secrets: keep them in place and delete superseded ones once the owner no longer needs them.
-A dump still being written ends in `.partial`. Restoring one is a manual recovery outside the
+A dump that is still being written, or that failed, ends in `.partial`; it is not a backup. Restoring one is a manual recovery outside the
 controller that replaces newer stand data, so it needs a separate owner request. Stop every service
 except the two database clusters (Logto included), replay each dump with
 `gunzip -c <file> | docker exec -i <container> psql -U <user> -d postgres` in its own cluster

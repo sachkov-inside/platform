@@ -54,7 +54,7 @@ const stateSchema = z.strictObject({
  * @typedef {z.infer<typeof stateSchema>} StandState
  * @typedef {z.infer<typeof modeSchema>} StandMode
  * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; upgrade?: StandSnapshot; recordIdentity: (expected: string) => Promise<void> }} StandOperation
- * `upgrade` carries the pre-upgrade receipt: infrastructure keeps its labels, so Compose replaces only changed services.
+ * `upgrade` carries the pre-upgrade receipt: infrastructure keeps its labels, so Compose replaces services whose configuration changed.
  * @typedef {{ command: "status" | "show" | "refresh" | "release" | "upgrade"; worktree: string; replace?: string; mode?: "snapshot" | "live" | "production" }} StandRequest
  * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}>; backup?: (snapshot: StandSnapshot, generation: string) => Promise<string> }} StandDependencies
  */
@@ -306,9 +306,7 @@ async function upgrade(request, source, previous, dependencies) {
       "Upgrade requires a running managed stand; use show for a first start or obtain a handoff",
     );
   if (previous.source.identity !== source.identity)
-    throw new Error(
-      "Stand identity settings changed outside the controller; preserve the current accounts and obtain a handoff",
-    );
+    throw new Error(identityChanged);
   const resume = previous.upgrade;
   if (resume) {
     if (
@@ -337,6 +335,8 @@ async function upgrade(request, source, previous, dependencies) {
       );
   }
   const reservation = previous.reservation;
+  // An interrupted upgrade keeps comparing with the stand it started from.
+  const before = (resume && previous.receipt) || snapshot;
   /** @type {StandState} */
   const state = {
     ...previous,
@@ -348,11 +348,9 @@ async function upgrade(request, source, previous, dependencies) {
         : { id: randomUUID(), worktree: request.worktree },
     source,
     mode: request.mode ?? previous.mode,
-    // An interrupted upgrade keeps comparing with the stand it started from.
-    receipt: (resume && previous.receipt) || snapshot,
+    receipt: before,
   };
   const marker = resume ?? { backup: null };
-  const before = state.receipt ?? snapshot;
   state.upgrade = marker;
   await writeState(dependencies.directory, state);
   try {
