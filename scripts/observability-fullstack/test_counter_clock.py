@@ -9,16 +9,18 @@ from pathlib import Path
 from unittest.mock import patch
 import fullstack
 
+# Failure-only admission bound. Completion belongs to the phase's existing join.
+SAMPLER_ENTRY_FAILURE_SECONDS=15
+
 
 class CounterClock(unittest.TestCase):
-    def phase(self, capture, *, monotonic=None, epoch=None):
-        sampled=threading.Event()
+    def phase(self, capture, *, monotonic=None, epoch=None, sampled=None):
+        sampled=threading.Event() if sampled is None else sampled
         def read(states):
-            value=capture(states)
             if threading.current_thread() is not threading.main_thread():sampled.set()
-            return value
+            return capture(states)
         def load(*args,**options):
-            self.assertTrue(sampled.wait(1),'the actual sampler capture must finish')
+            self.assertTrue(sampled.wait(SAMPLER_ENTRY_FAILURE_SECONDS),'the sampler must enter its owned capture')
             return json.dumps({'telegram_acknowledged':0,'completed':True})
         def processed(read,predicate,**options):
             value=read();self.assertTrue(predicate(value));return value
@@ -51,6 +53,32 @@ class CounterClock(unittest.TestCase):
             self.assertGreater(epoch,0)
         self.assertEqual(value['errors'],[])
         self.assertTrue(value['load']['completed'])
+
+    def test_entry_barrier_does_not_wait_for_owned_capture_completion(self):
+        # Order control, not a claim of actual 1..3-second elapsed runtime.
+        # Hold completion until entry is acknowledged; phase's existing join
+        # owns completion. The separate entry budget only stops a stuck fixture.
+        entered=threading.Event();release=threading.Event();completed=threading.Event()
+        entry=threading.Event();case=self;capture_budget=3
+        class EntryBarrier:
+            def set(self):entry.set()
+            def wait(self,timeout):
+                try:
+                    case.assertEqual(timeout,SAMPLER_ENTRY_FAILURE_SECONDS)
+                    case.assertTrue(entered.wait(SAMPLER_ENTRY_FAILURE_SECONDS),'capture actually entered its owned wait')
+                    case.assertFalse(completed.is_set(),'entry acknowledgement cannot depend on completion')
+                    return entry.is_set()
+                finally:release.set()
+        def capture(states):
+            if threading.current_thread() is not threading.main_thread():
+                entered.set()
+                self.assertTrue(release.wait(capture_budget),'capture release is owned and bounded')
+                completed.set()
+            return {'at_seconds':time.monotonic(),'services':{'loadgen':{'cpu_periods':1,'cpu_throttled_periods':0,'cpu_throttled_ns':0}},'errors':{}}
+        value=self.phase(capture,sampled=EntryBarrier())
+        self.assertTrue(completed.is_set(),'phase joins the admitted capture before returning')
+        self.assertGreaterEqual(len(value['samples']),3)
+        self.assertEqual(value['errors'],[])
 
     def test_clock_read_failure_does_not_replace_the_original_capture_error(self):
         failure=ValueError('original counter failure')
