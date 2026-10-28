@@ -444,7 +444,8 @@ worker processes or write the machine-wide worker readiness file; they run one a
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
 The backend `test:integration` and `test:integration:serial` commands build the backend before
-Vitest in the same heavy-check slot, so compiled process probes use the selected source.
+Vitest in the same heavy-check slot with incremental compilation disabled, so compiled process
+probes use the selected source even when `dist` was removed but the compiler cache remains.
 `test:integration:parallel` excludes those process files and does not need this build.
 The pinned Testcontainers 12.2.0 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
 messages and transport errors, closes a failed pull stream, and inspects the requested image before
