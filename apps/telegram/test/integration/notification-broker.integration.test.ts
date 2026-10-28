@@ -536,6 +536,21 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         const queue = await inspector.checkQueue(queueName);
         expect(queue.consumerCount).toBe(0);
         expect(queue.messageCount).toBe(outcome === "reject" ? 1 : 0);
+        // A manual GET creates its own quorum consumer. Prove the broker's terminal
+        // ownership before that independent inspection actor can affect the count.
+        stage = "terminal_reopen";
+        await broker.open();
+        stage = "terminal_connected";
+        expect(broker.connected).toBe(false);
+        for (const category of ["subscription", "material"] as const) {
+          stage = `terminal_consumers_${category}`;
+          const observed = await inspector.checkQueue(
+            `telegram.notifications.${category}.v1`,
+          );
+          terminalConsumerCount = observed.consumerCount;
+          expect(observed.consumerCount).toBe(0);
+        }
+        stage = "commit_ack_redelivery";
         if (outcome === "commit")
           expect(saved?.operation_id).toBe(initial.operationId);
         else {
@@ -549,22 +564,10 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
           expect(redelivered.fields.redelivered).toBe(true);
           expect(redelivered.properties.messageId).toBe(initial.operationId);
           redeliveryInspector.ack(redelivered);
-          // Quorum queues count a manual-get inspector until settlement/channel close.
-          // End that owned inspection before asserting the broker has zero consumers.
+          // Release the owned GET channel before inspecting the later message.
+          // Channel close is not an immediate quorum-counter settlement guarantee.
           await redeliveryInspector.close();
           redeliveryInspector = undefined;
-        }
-        stage = "terminal_reopen";
-        await broker.open();
-        stage = "terminal_connected";
-        expect(broker.connected).toBe(false);
-        for (const category of ["subscription", "material"] as const) {
-          stage = `terminal_consumers_${category}`;
-          const observed = await inspector.checkQueue(
-            `telegram.notifications.${category}.v1`,
-          );
-          terminalConsumerCount = observed.consumerCount;
-          expect(observed.consumerCount).toBe(0);
         }
         stage = "terminal_later_publish";
         const later = command();
