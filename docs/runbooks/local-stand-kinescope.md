@@ -47,8 +47,8 @@ The production token can also delete: Kinescope documents no read-and-upload-onl
 projects. "No deletion" therefore rests on the stand's code paths, not on the token. Any process
 that reads the private file or inspects the `api`/`mcp` containers can use the token directly, and
 `remove` takes it out of running roles only after `refresh`. Uploads from the stand also count
-against the production account and need manual cleanup. The owner accepts these effects with this
-setup; a narrower token, if Kinescope offers one, replaces the copied value without other changes.
+against the production account and need manual cleanup. These effects follow from the owner's
+decision to use the production projects (#1790); a narrower token, if Kinescope offers one, replaces the copied value without other changes.
 
 ## What plays
 
