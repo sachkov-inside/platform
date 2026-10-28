@@ -19,6 +19,10 @@ class Admission(unittest.TestCase):
             return SimpleNamespace(stdout='' if 'status' in args else ('b'*40 if args[-1]=='HEAD^{tree}' else 'a'*40))
         with patch.dict(runtime.os.environ,environment,clear=True),patch.object(runtime.subprocess,'run',side_effect=git),patch.object(runtime.source_binding,'inputs',return_value=()),patch.object(runtime.lifecycle,'digest',return_value='f'*64):
             bound=runtime.source();runtime.verify_source(bound)
+            trial=runtime.source(runtime.lifecycle.MCP512_PROFILE)
+            self.assertEqual(trial['profile_id'],runtime.lifecycle.MCP512_PROFILE)
+            runtime.verify_source(trial,runtime.lifecycle.MCP512_PROFILE)
+            with self.assertRaisesRegex(ValueError,'source_binding_changed'):runtime.verify_source(trial)
             self.assertEqual(bound['commit'],'a'*40);self.assertEqual(bound['tree'],'b'*40)
             self.assertEqual(bound['inputs'],{'.github/workflows/observability-signoz.yml':'f'*64})
             with self.assertRaisesRegex(ValueError,'source_binding_changed'):runtime.verify_source(dict(bound,pr_head='e'*40))

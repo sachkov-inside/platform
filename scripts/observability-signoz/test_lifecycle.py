@@ -73,7 +73,7 @@ class NativeFaults(unittest.TestCase):
                 def inspect(self,kind,identity):
                     return {'Id':cid,'Created':'replacement','Config':{'Labels':{**lifecycle.labels(project,nonce),'inside.monitoring.service':'server'}}}
             native=Native();owned=lifecycle.Owned(native,Path(tmp),{},project,nonce)
-            owned.plan={'volumes':{},'networks':{'backend':{'name':project+'_backend'}}}
+            owned.plan=lifecycle.make_plan(Path(tmp),lifecycle.verify_packet()['images'],project,nonce,1001,1001)
             owned.containers={'server':cid};owned.created={'server':'original'}
             self.assertFalse(owned.cleanup_exact())
             self.assertEqual(native.removed,[])

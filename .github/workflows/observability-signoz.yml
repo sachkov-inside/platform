@@ -34,7 +34,7 @@ env:
 
 jobs:
   functional:
-    name: Native Linux amd64 functional witness, no capacity acceptance
+    name: Native Linux amd64 MCP512 4480MiB under 8GiB, no capacity acceptance
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -54,25 +54,28 @@ jobs:
         run: >-
           bash scripts/heavy-check.sh python3 -B scripts/observability-signoz/runtime.py run
           --output "$RUNNER_TEMP/signoz-functional-private"
+          --profile signoz-native-mcp512-4480m-under8g-v1
       - name: Recover only the exact registered project after any outcome
         if: ${{ always() }}
         timeout-minutes: 2
         run: >-
           python3 -B scripts/observability-signoz/runtime.py recover
           --output "$RUNNER_TEMP/signoz-functional-private"
+          --profile signoz-native-mcp512-4480m-under8g-v1
       - name: Collect closed numerical evidence even after early failure
         if: ${{ always() }}
         timeout-minutes: 1
         run: >-
           python3 -B scripts/observability-signoz/runtime.py collect
           --output "$RUNNER_TEMP/signoz-functional-private"
+          --profile signoz-native-mcp512-4480m-under8g-v1
           --public "$RUNNER_TEMP/signoz-functional-public"
       - name: Upload only the curated public witness
         if: ${{ always() }}
         timeout-minutes: 2
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: signoz-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          name: signoz-functional-mcp512-4480m-under8g-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/signoz-functional-public
           if-no-files-found: error
           retention-days: 7

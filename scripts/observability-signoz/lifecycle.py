@@ -44,10 +44,17 @@ SERVICES = tuple(ROLE_IMAGES)
 EXITED_ROLES = frozenset(('volume-init','histogram-init','migrator'))
 VOLUMES = ('ch-data','keeper-data','keeper-default-data','pg-data','histogram','probe','gateway')
 # Includes every container, including stopped init jobs and native MCP.
-BUDGETS = {'volume-init': (.025, 32), 'disk': (.1, 96),
+BUDGETS = MappingProxyType({'volume-init': (.025, 32), 'disk': (.1, 96),
            'histogram-init': (.05, 64), 'keeper': (.1, 128), 'postgres': (.1, 256),
            'clickhouse': (.6, 1792), 'migrator': (.2, 448), 'collector': (.3, 448),
-           'server': (.4, 640), 'mcp': (.075, 128), 'agent': (.05,64)}
+           'server': (.4, 640), 'mcp': (.075, 128), 'agent': (.05,64)})
+BASELINE_PROFILE = 'signoz-native-4096m-v1'
+MCP512_PROFILE = 'signoz-native-mcp512-4480m-under8g-v1'
+RESOURCE_PROFILES = MappingProxyType({
+    BASELINE_PROFILE: MappingProxyType({'budgets':BUDGETS, 'aggregate_memory_bytes':MEM_LIMIT,
+        'experimental_ceiling_bytes':MEM_LIMIT}),
+    MCP512_PROFILE: MappingProxyType({'budgets':MappingProxyType({**BUDGETS,'mcp':(.075,512)}),
+        'aggregate_memory_bytes':4480*1024**2,'experimental_ceiling_bytes':8192*1024**2})})
 NATIVE_OPERATIONS = frozenset((('unknown','unknown'),('image_pull','amd64_digest_reference'),
     ('image_inspect','amd64_digest_reference'),('image_inspect','digest_reference'),
     ('compose_create','initial_helpers'),('compose_create','all_roles')))
@@ -197,9 +204,38 @@ def private_json(path,value):
         if temporary.exists():temporary.unlink()
 
 
-def labels(project, nonce):
+def resource_profile(profile_id=BASELINE_PROFILE):
+    need(type(profile_id) is str and profile_id in RESOURCE_PROFILES,'resource_profile')
+    profile=RESOURCE_PROFILES[profile_id]
+    need(set(profile['budgets'])==set(ROLE_IMAGES),'complete_role_budget_coverage')
+    need(abs(sum(v[0] for v in profile['budgets'].values())-CPU_LIMIT)<1e-9,'aggregate_cpu')
+    # Equality always applies to the selected allocation. The ceiling is a separate guard.
+    need(sum(v[1] for v in profile['budgets'].values())*1024**2==profile['aggregate_memory_bytes'],'aggregate_memory')
+    need(profile['aggregate_memory_bytes']<=profile['experimental_ceiling_bytes'],'experimental_ceiling')
+    return profile
+
+
+def plan_profile(plan,profile_id=BASELINE_PROFILE):
+    profile=resource_profile(profile_id)
+    need(type(plan) is dict and plan.get('x-inside-resource-profile')==profile_id,'plan_profile')
+    services=plan.get('services');need(type(services) is dict and set(services)==set(SERVICES),'plan_roles')
+    for role,(cpu,memory) in profile['budgets'].items():
+        value=services[role];need(type(value) is dict,'plan_service')
+        need(type(value.get('labels')) is dict and value['labels'].get('inside.monitoring.profile')==profile_id,'plan_profile_label')
+        need(value.get('cpus')==cpu and value.get('mem_limit')==str(memory)+'m'
+             and value.get('memswap_limit')==str(memory)+'m' and value.get('pids_limit')==128,'plan_budget')
+    volumes=plan.get('volumes');networks=plan.get('networks')
+    need(type(volumes) is dict and set(volumes)==set(VOLUMES) and type(networks) is dict and set(networks)=={'backend'},'plan_resources')
+    for value in (*volumes.values(),*networks.values()):
+        need(type(value) is dict and type(value.get('labels')) is dict
+             and value['labels'].get('inside.monitoring.profile')==profile_id,'plan_profile_label')
+    return profile
+
+
+def labels(project, nonce, profile_id=BASELINE_PROFILE):
+    resource_profile(profile_id)
     return {'inside.monitoring.owner': OWNER, 'inside.monitoring.nonce': nonce,
-            'com.docker.compose.project': project}
+            'com.docker.compose.project': project, 'inside.monitoring.profile':profile_id}
 
 
 def canonical_caps(value):
@@ -207,9 +243,10 @@ def canonical_caps(value):
     need(value is None or all(type(v) is str for v in value),'capability_shape')
     return {v.removeprefix('CAP_') for v in (value or [])}
 
-def expected_limits(service, value):
-    cpu, mem = BUDGETS[service]
+def expected_limits(service, value, profile_id=BASELINE_PROFILE):
+    cpu, mem = resource_profile(profile_id)['budgets'][service]
     host = value['HostConfig']
+    need(all(type(host.get(k)) is int for k in ('Memory','MemorySwap','NanoCpus','PidsLimit')),'container_budget_type')
     need(host['Memory'] == mem * 1024**2 and host['NanoCpus'] == round(cpu*10**9), 'container_budget')
     need(host.get('PidsLimit') == 128 and host.get('ReadonlyRootfs') is True, 'container_sandbox')
     need(host.get('Privileged') is False and not host.get('PortBindings'), 'container_authority')
@@ -220,18 +257,19 @@ def expected_limits(service, value):
     need(set(host.get('SecurityOpt') or [])=={'no-new-privileges:true'},'security_options')
 
 
-def make_plan(run, locked_images, project, nonce, uid, gid):
+def make_plan(run, locked_images, project, nonce, uid, gid, *, profile_id=BASELINE_PROFILE):
     """All mounts are explicit, finite and task-owned; no global names or host ports."""
+    profile=resource_profile(profile_id)
     by_repo = {r['repository'].split('/')[-1]: image_proof.runtime_reference(r) for r in locked_images}
     helper_arch='amd64'
     names = {name: project + '_' + name for name in VOLUMES}
-    limits = labels(project, nonce)
+    limits = labels(project, nonce, profile_id)
     def volume(name, target, read_only=False):
         return {'type':'volume','source':name,'target':target,'read_only':read_only,'volume':{'nocopy':True}}
     def bind(path, target):
         return {'type':'bind','source':str(path),'target':target,'read_only':True,'bind':{'create_host_path':False}}
     def base(service, image, command, entrypoint=None):
-        cpu, memory = BUDGETS[service]
+        cpu, memory = profile['budgets'][service]
         value = {'image':image,'platform':'linux/amd64','pull_policy':'never',
                  'cpus':cpu,'mem_limit':str(memory)+'m','memswap_limit':str(memory)+'m',
                  'pids_limit':128,'user':f'{uid}:{gid}','read_only':True,'cap_drop':['ALL'],
@@ -284,7 +322,7 @@ def make_plan(run, locked_images, project, nonce, uid, gid):
     services['agent']=base('agent',by_repo['python'],['python','-B','/driver/agent_probe.py','serve'],[])
     services['agent'].pop('networks')
     services['agent'].update({'network_mode':'none','volumes':[bind(run/'agent-driver','/driver'),bind(run/'agent-admission','/admission'),volume('gateway','/gateway',True)]})
-    return {'name':project,'services':services,
+    return {'name':project,'x-inside-resource-profile':profile_id,'services':services,
         'volumes':{n:{'name':real,'labels':limits} for n,real in names.items()},
         'networks':{'backend':{'name':project+'_backend','internal':True,'driver':'bridge','labels':limits}}}
 
@@ -454,13 +492,15 @@ class Engine:
 
 
 class Owned:
-    def __init__(self,engine,run,images,project,nonce):
+    def __init__(self,engine,run,images,project,nonce,*,profile_id=BASELINE_PROFILE):
+        resource_profile(profile_id);self.profile_id=profile_id;self.observed_limits={}
         self.engine,self.run,self.images,self.project,self.nonce=engine,run,images,project,nonce
         self.containers={};self.volumes={};self.networks={};self.plan=None;self.created={}
     def compose(self,args,timeout=20):
+        plan_profile(self.plan,self.profile_id)
         return self.engine.call(['compose','-p',self.project,'-f',str(self.run/'compose.json'),*args],timeout)
     def owned_labels(self,value):
-        require=labels(self.project,self.nonce)
+        require=labels(self.project,self.nonce,self.profile_id)
         need(isinstance(value,dict) and all(value.get(k)==v for k,v in require.items()),'owner_label_changed')
     def discover(self):
         # Only our unpredictable nonce + project can authorize inclusion in cleanup.
@@ -494,6 +534,7 @@ class Owned:
                 if real in self.networks:need(self.networks[real]==native['Id'],'replaced_network')
                 self.networks[real]=native['Id']
     def validate(self,name):
+        plan_profile(self.plan,self.profile_id)
         cid=self.containers[name];v=self.engine.inspect('container',cid)
         self.owned_labels(v['Config']['Labels']);need(v['Id']==cid,'container_identity')
         need(name in self.created and self.created[name]==v['Created'],'container_created_identity')
@@ -502,7 +543,7 @@ class Owned:
         need(v['Config'].get('Image')==proof.runtime_reference and self.plan['services'][name]['image']==proof.runtime_reference,ImageAdmissionReason.IMAGE_ATTACHMENT_IDENTITY)
         if 'ImageManifestDescriptor' in v:require_child_descriptor(v['ImageManifestDescriptor'],proof)
         elif self.images[name]['relation']=='child_id':raise Refusal(ImageAdmissionReason.SELECTED_IMAGE_DESCRIPTOR)
-        expected_limits(name,v)
+        expected_limits(name,v,self.profile_id)
         spec=self.plan['services'][name]
         need(v['Config'].get('User')==spec['user'],'container_user')
         need((v['Config'].get('Cmd') or [])==(spec.get('command') or []),'container_command')
@@ -530,10 +571,20 @@ class Owned:
             if spec['type']=='bind':need(Path(m['Source']).resolve()==Path(spec['source']).resolve(),'bind_source')
             else:need(m['Name']==self.plan['volumes'][spec['source']]['name'] and m['Name'] in self.volumes,'volume_mount')
         self.images[name]['container_descriptor_available']='ImageManifestDescriptor' in v
+        self.observed_limits[name]={'memory_bytes':v['HostConfig']['Memory'],'memory_swap_bytes':v['HostConfig']['MemorySwap'],
+            'nano_cpus':v['HostConfig']['NanoCpus'],'pids_limit':v['HostConfig']['PidsLimit']}
         return v
     def record(self):
-        private_json(self.run/'resources.json',{'project':self.project,'nonce':self.nonce,
+        private_json(self.run/'resources.json',{'project':self.project,'nonce':self.nonce,'profile_id':self.profile_id,
             'containers':self.containers,'created':self.created,'volumes':self.volumes,'networks':self.networks})
+    def record_profile(self,source,*,inspection_stage='admission'):
+        need(type(inspection_stage) is str and inspection_stage in ('admission','final'),'profile_inspection_stage')
+        plan_profile(self.plan,self.profile_id)
+        need(source.get('profile_id')==self.profile_id and all(type(source.get(k)) is str
+            and re.fullmatch('[a-f0-9]{40}',source[k]) for k in ('commit','tree')),'profile_source')
+        need(set(self.observed_limits)==set(SERVICES),'profile_inspection_incomplete')
+        private_json(self.run/'resource-profile.json',{'schema':1,'profile_id':self.profile_id,'inspection_stage':inspection_stage,
+            'source_sha':source['commit'],'source_tree':source['tree'],'roles':self.observed_limits})
     def start(self,*names):
         for name in names:self.validate(name)
         self.engine.call(['start',*(self.containers[n] for n in names)])
@@ -595,7 +646,8 @@ class Owned:
         return not failures
 
 
-def verify_packet():
+def verify_packet(profile_id=BASELINE_PROFILE):
+    resource_profile(profile_id)
     lock=json.loads((CONFIG/'inputs.lock.json').read_text())
     for name,expected in lock['config_sha256'].items():
         need(digest(CONFIG/name)==expected,'source_configuration_changed')
