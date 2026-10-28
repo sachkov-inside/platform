@@ -9,6 +9,33 @@ import lifecycle
 
 
 class Publication(unittest.TestCase):
+    def test_first_inner_command_is_closed_and_malformed_context_stays_unavailable(self):
+        good={'command_class':'disk_exec','timeout_seconds':3,'elapsed_seconds':3.01,'native_exit':None,'alive_before_reap':True}
+        variants=[None,{},[],{**good,'secret':'private-key-URL'},
+                  {**good,'command_class':'private-key-URL'},{**good,'command_class':'x'*2000},
+                  {**good,'timeout_seconds':True},{**good,'timeout_seconds':0},{**good,'timeout_seconds':691},
+                  {**good,'elapsed_seconds':-1},{**good,'elapsed_seconds':float('nan')},
+                  {**good,'elapsed_seconds':float('inf')},{**good,'elapsed_seconds':691},
+                  {**good,'native_exit':True},{**good,'native_exit':1.5},{**good,'native_exit':256},
+                  {**good,'alive_before_reap':1},{**good,'native_exit':0}]
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)
+            for index,context in enumerate([good,*variants]):
+                # Malformed floats are deliberately written as untrusted input;
+                # collect either refuses the file or publishes unavailable context.
+                record={'monitor_failed':True,'failure':[{'stage':'vm_sample','reason':'command_deadline','inner_command':context}],
+                        'monitor_reaped':True,'finalization_stage':'complete'}
+                path=source/'disk-last.json';path.write_text(json.dumps(record));path.chmod(0o600)
+                public=root/str(index);self.assertFalse(evidence.collect(source,public,lambda _value:None))
+                result=json.loads((public/'witness.json').read_text());self.assertFalse(result['passed'])
+                monitor=result['storage_monitor']
+                if index==0:self.assertEqual(monitor['first_inner_command'],{'available':True,**good})
+                else:self.assertFalse(monitor.get('first_inner_command',{'available':False})['available'])
+                self.assertNotIn('private-key-URL',json.dumps(result))
+            record['monitor_failed']=False;record['failure']=[]
+            lifecycle.private_json(path,record)
+            self.assertEqual(evidence.storage_monitor(record)['first_inner_command'],{'available':False})
+
     def test_complete_closed_functional_receipt_remains_explicitly_not_capacity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)

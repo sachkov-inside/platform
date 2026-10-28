@@ -129,19 +129,34 @@ def inside_failures(output):
     return {'available':bool(result),'samples':result}
 
 
+def inner_command(value):
+    """Optional closed numeric evidence; malformed context never invents zeros."""
+    try:
+        require(type(value) is dict and set(value)=={'command_class','timeout_seconds','elapsed_seconds','native_exit','alive_before_reap'})
+        require(type(value['command_class']) is str and value['command_class'] in lifecycle.RAW_COMMAND_CLASSES)
+        timeout=number(value['timeout_seconds'],690);require(timeout>0)
+        elapsed=number(value['elapsed_seconds'],690)
+        code=value['native_exit'];require(code is None or type(code) is int and -128<=code<=255)
+        alive=boolean(value['alive_before_reap']);require(alive==(code is None))
+        return {'available':True,'command_class':value['command_class'],'timeout_seconds':timeout,
+                'elapsed_seconds':elapsed,'native_exit':code,'alive_before_reap':alive}
+    except Exception:return {'available':False}
+
+
 def storage_monitor(value):
     require(type(value) is dict and type(value.get('monitor_failed')) is bool)
     failed=value['monitor_failed'];rows=value.get('failure')
     require(type(rows) is list and len(rows)<=1 and bool(rows)==failed)
-    first=None
+    first=None;command={'available':False}
     if failed:
         row=rows[0];require(type(row) is dict)
         stage=row.get('stage');reason=row.get('reason')
         first={'stage':stage if type(stage) is str and stage in lifecycle.StorageMonitorStage else 'unknown',
                'reason':reason if type(reason) is str and reason in lifecycle.StorageMonitorReason else 'unknown'}
+        command=inner_command(row.get('inner_command'))
     finalization=value.get('finalization_stage')
     require(type(finalization) is str and finalization in ('complete','cancel_children','monitor_join','monitor_not_reaped'))
-    return {'available':True,'failed':failed,'first_failure':first,
+    return {'available':True,'failed':failed,'first_failure':first,'first_inner_command':command,
             'monitor_reaped':boolean(value.get('monitor_reaped')),'finalization_stage':finalization}
 
 
