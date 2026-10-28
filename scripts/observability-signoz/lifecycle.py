@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Native owned lifecycle. Import performs no native acquisition or execution."""
 from contextlib import contextmanager
+from enum import StrEnum
 import hashlib
 import json
 import os
@@ -54,6 +55,25 @@ ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
            'postgres': 'signoz-metastore-postgres-0',
            'clickhouse': 'signoz-telemetrystore-clickhouse-0-0',
            'server': 'signoz-signoz-0', 'collector': 'signoz-ingester'}
+
+class ImageAdmissionReason(StrEnum):
+    """Finite image-admission refusal vocabulary, shared by guards and publication."""
+    LOCKED_CHILD_REQUIRED = 'locked_child_required'
+    IMAGE_PLATFORM = 'image_platform'
+    SELECTED_IMAGE_IDENTITY = 'selected_image_identity'
+    IMAGE_CONFIGURATION_IDENTITY = 'image_configuration_identity'
+    DECLARED_IMAGE_VOLUME_SHAPE = 'declared_image_volume_shape'
+    DECLARED_IMAGE_VOLUME_CONTRACT = 'declared_image_volume_contract'
+    IMAGE_INDEX_IDENTITY = 'image_index_identity'
+    IMAGE_ATTACHMENT_IDENTITY = 'image_attachment_identity'
+    SELECTED_IMAGE_DESCRIPTOR = 'selected_image_descriptor'
+    SELECTED_IMAGE_MEDIA_TYPE = 'selected_image_media_type'
+    SELECTED_IMAGE_CHILD = 'selected_image_child'
+    SELECTED_IMAGE_SIZE = 'selected_image_size'
+    SELECTED_IMAGE_PLATFORM = 'selected_image_platform'
+    SELECTED_IMAGE_VARIANT = 'selected_image_variant'
+    DECLARED_IMAGE_VOLUME_COVERAGE = 'declared_image_volume_coverage'
+
 
 class Refusal(Exception):
     def __init__(self, reason):
@@ -510,32 +530,32 @@ def canonical_ref(value):
     return value
 
 def require_child_descriptor(value, child, arch):
-    need(type(value) is dict,'selected_image_descriptor')
-    need(value.get('mediaType') in ('application/vnd.oci.image.manifest.v1+json','application/vnd.docker.distribution.manifest.v2+json'),'selected_image_media_type')
-    need(value.get('digest')==child,'selected_image_child')
-    need(type(value.get('size')) is int and 0<value['size']<=1024**2,'selected_image_size')
+    need(type(value) is dict,ImageAdmissionReason.SELECTED_IMAGE_DESCRIPTOR)
+    need(value.get('mediaType') in ('application/vnd.oci.image.manifest.v1+json','application/vnd.docker.distribution.manifest.v2+json'),ImageAdmissionReason.SELECTED_IMAGE_MEDIA_TYPE)
+    need(value.get('digest')==child,ImageAdmissionReason.SELECTED_IMAGE_CHILD)
+    need(type(value.get('size')) is int and 0<value['size']<=1024**2,ImageAdmissionReason.SELECTED_IMAGE_SIZE)
     platform_value=value.get('platform')
-    need(type(platform_value) is dict and platform_value.get('os')=='linux' and platform_value.get('architecture')==arch,'selected_image_platform')
-    need(platform_value.get('variant') in ((None,'v8') if arch=='arm64' else (None,)),'selected_image_variant')
+    need(type(platform_value) is dict and platform_value.get('os')=='linux' and platform_value.get('architecture')==arch,ImageAdmissionReason.SELECTED_IMAGE_PLATFORM)
+    need(platform_value.get('variant') in ((None,'v8') if arch=='arm64' else (None,)),ImageAdmissionReason.SELECTED_IMAGE_VARIANT)
 
 
 def checked_image(engine, row, arch):
-    child=row['linux_'+arch+'_manifest'];need(type(child) is str and re.fullmatch('sha256:[a-f0-9]{64}',child) is not None,'locked_child_required')
+    child=row['linux_'+arch+'_manifest'];need(type(child) is str and re.fullmatch('sha256:[a-f0-9]{64}',child) is not None,ImageAdmissionReason.LOCKED_CHILD_REQUIRED)
     # Pull already selects the platform. Older CLIs reject inspect --platform;
     # plain inspect remains admissible only with all exact native identity checks below.
     selected=json.loads(engine.call(['image','inspect',row['pinned']]))[0]
-    need(selected.get('Os')=='linux' and selected.get('Architecture')==arch,'image_platform')
+    need(selected.get('Os')=='linux' and selected.get('Architecture')==arch,ImageAdmissionReason.IMAGE_PLATFORM)
     require_child_descriptor(selected.get('Descriptor'),child,arch)
     metadata=verify_packet()['image_config_metadata'][row['repository']][arch]
-    need(selected.get('Id') in (child,metadata['config_digest']),'selected_image_identity')
-    need(all((selected['Config'].get(native) or None)==(metadata[key] or None) for native,key in [('Entrypoint','entrypoint'),('Cmd','cmd'),('WorkingDir','working_dir'),('User','user')]),'image_configuration_identity')
+    need(selected.get('Id') in (child,metadata['config_digest']),ImageAdmissionReason.SELECTED_IMAGE_IDENTITY)
+    need(all((selected['Config'].get(native) or None)==(metadata[key] or None) for native,key in [('Entrypoint','entrypoint'),('Cmd','cmd'),('WorkingDir','working_dir'),('User','user')]),ImageAdmissionReason.IMAGE_CONFIGURATION_IDENTITY)
     declared=selected['Config'].get('Volumes')
-    need(declared is None or type(declared) is dict and all(type(k) is str and k.startswith('/') and v=={} for k,v in declared.items()),'declared_image_volume_shape')
+    need(declared is None or type(declared) is dict and all(type(k) is str and k.startswith('/') and v=={} for k,v in declared.items()),ImageAdmissionReason.DECLARED_IMAGE_VOLUME_SHAPE)
     paths=sorted(declared or {})
-    need(paths==verify_packet()['declared_volume_contracts'][row['repository']],'declared_image_volume_contract')
+    need(paths==verify_packet()['declared_volume_contracts'][row['repository']],ImageAdmissionReason.DECLARED_IMAGE_VOLUME_CONTRACT)
     index=engine.inspect('image',row['pinned'])
-    need(any(canonical_ref(r)==canonical_ref(row['pinned']) for r in index['RepoDigests']),'image_index_identity')
-    need(index.get('Id') in (row['pinned'].split('@',1)[1],child,metadata['config_digest']),'image_attachment_identity')
+    need(any(canonical_ref(r)==canonical_ref(row['pinned']) for r in index['RepoDigests']),ImageAdmissionReason.IMAGE_INDEX_IDENTITY)
+    need(index.get('Id') in (row['pinned'].split('@',1)[1],child,metadata['config_digest']),ImageAdmissionReason.IMAGE_ATTACHMENT_IDENTITY)
     return {'entrypoint':selected['Config'].get('Entrypoint'),'reference':row['pinned'],
         'image_id':index['Id'],'selected_image_id':selected['Id'],'architecture':arch,'child_manifest':child,'declared_volume_paths':paths}
 
@@ -556,7 +576,7 @@ def require_declared_volume_coverage(plan, images):
         service=plan['services'][name]
         for target in binding['declared_volume_paths']:
             mounts=[v for v in service.get('volumes',[]) if v['target']==target]
-            need(len(mounts)==1 and mounts[0]['type']=='volume' and mounts[0]['source'] in plan['volumes'],'declared_image_volume_coverage')
+            need(len(mounts)==1 and mounts[0]['type']=='volume' and mounts[0]['source'] in plan['volumes'],ImageAdmissionReason.DECLARED_IMAGE_VOLUME_COVERAGE)
     return {'validated_roles':len(images),'owned_volume_count':len(plan['volumes']),
         'image_volume_paths':{name:binding['declared_volume_paths'] for name,binding in images.items()}}
 
