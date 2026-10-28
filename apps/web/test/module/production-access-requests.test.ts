@@ -2,6 +2,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+
+import {
+  learnerMcpReadTools,
+  ownerMcpReadTools,
+} from "../production/pass-config";
 
 import {
   checkPassRequest,
@@ -169,13 +175,15 @@ describe("production access pass request allowlist", () => {
       checkPassRequest({
         method: "POST",
         url: ownerMcp,
-        body: toolCall("billing_tiers_list"),
+        body: toolCall("billing_productPrices_list"),
       }),
     ).toMatchObject({ allowed: true, operation: "owner-mcp-read" });
     for (const [url, tool] of [
       [ownerMcp, "billing_offers_save"],
       [ownerMcp, "billing_grants_apply_batch"],
-      [mcp, "billing_tiers_list"],
+      [mcp, "billing_productPrices_list"],
+      [ownerMcp, "billing_tiers_list"],
+      [mcp, "learning_practice_read"],
     ] as const)
       expect(
         checkPassRequest({ method: "POST", url, body: toolCall(tool) }),
@@ -351,6 +359,25 @@ describe("production access pass fetch", () => {
 });
 
 describe("production access pass sources", () => {
+  it("uses only tools present in each generated MCP surface", () => {
+    for (const [surface, used] of [
+      ["learner-tool-surface.json", learnerMcpReadTools],
+      ["tool-surface.json", ownerMcpReadTools],
+    ] as const) {
+      const tools = z
+        .array(z.string())
+        .parse(
+          JSON.parse(
+            readFileSync(
+              new URL(`../../../backend/mcp/${surface}`, import.meta.url),
+              "utf8",
+            ),
+          ),
+        );
+      for (const tool of used) expect(tools, surface).toContain(tool);
+    }
+  });
+
   it("send requests only through the allowlist", () => {
     const directory = fileURLToPath(new URL("../production/", import.meta.url));
     const bypasses = readdirSync(directory)
