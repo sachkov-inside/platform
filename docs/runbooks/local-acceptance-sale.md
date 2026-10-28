@@ -14,7 +14,9 @@ Pricing and a distinct synthetic legal-provider composition. The running API ser
 catalog and creates a further link. Reading fixed terms, revoking the saved link and updating
 another open owner tab remain real API/browser checks. The fixture CLI is restricted to the isolated
 loopback `inside_checks` database and synthetic identity; it creates no bank operation or legal
-acceptance and publishes no legal edition.
+acceptance and publishes no legal edition. Each browser profile also receives its own disposable
+admin-price Product. The catalogue-edit test selects that Product by fixture ID and asserts that
+both saved-link Products retain their original prices and revisions.
 
 ## Purchase and recovery
 

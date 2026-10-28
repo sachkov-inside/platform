@@ -83,30 +83,55 @@ async function main() {
     });
     const fixtures: Record<
       string,
-      { productId: string; linkId: string; revision: number }
+      {
+        productId: string;
+        adminProductId: string;
+        linkId: string;
+        revision: number;
+      }
     > = {};
     for (const profile of ["desktop-chromium", "mobile-chromium"]) {
-      const created = await fetch(
-        new URL("/authoring/import/products/reserve", origin),
-        {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${environment.FULLSTACK_FIXTURE_OWNER_TOKEN}`,
-            "content-type": "application/json",
+      const reserveProduct = async (
+        purpose: "existing-private-link" | "admin-price",
+      ) => {
+        const created = await fetch(
+          new URL("/authoring/import/products/reserve", origin),
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${environment.FULLSTACK_FIXTURE_OWNER_TOKEN}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              sourceId: `synthetic:${purpose}:${profile}`,
+              name: `Synthetic ${purpose} ${profile}`,
+              slug: `synthetic-${purpose}-${profile}`,
+              summary: "Isolated full-stack pricing fixture",
+            }),
           },
-          body: JSON.stringify({
-            sourceId: `synthetic:existing-private-link:${profile}`,
-            name: `Synthetic saved private link ${profile}`,
-            slug: `synthetic-existing-private-link-${profile}`,
-            summary: "Isolated saved-link reader fixture",
-          }),
-        },
-      );
-      if (!created.ok)
-        throw new Error(
-          `Product fixture reservation failed: HTTP ${created.status}`,
         );
-      const product = z.object({ id: z.uuid() }).parse(await created.json());
+        if (!created.ok)
+          throw new Error(
+            `Product fixture reservation failed: HTTP ${created.status}`,
+          );
+        return z.object({ id: z.uuid() }).parse(await created.json());
+      };
+      const product = await reserveProduct("existing-private-link");
+      const adminProduct = await reserveProduct("admin-price");
+      const adminPrice = await pricing.manage(owner.id, {
+        operation: "productPrices.save",
+        operationId: randomUUID(),
+        value: {
+          productId: adminProduct.id,
+          name: `Admin price ${profile}`,
+          priceKopecks: 2900000,
+          published: false,
+        },
+      });
+      if (!adminPrice.ok)
+        throw new Error(
+          `Admin Product price fixture: ${adminPrice.error.code}`,
+        );
       const price = await pricing.manage(owner.id, {
         operation: "productPrices.save",
         operationId: randomUUID(),
@@ -130,6 +155,7 @@ async function main() {
       if (!link.ok) throw new Error(`Saved link fixture: ${link.error.code}`);
       fixtures[profile] = {
         productId: product.id,
+        adminProductId: adminProduct.id,
         linkId: link.value.id,
         revision: link.value.revision,
       };
