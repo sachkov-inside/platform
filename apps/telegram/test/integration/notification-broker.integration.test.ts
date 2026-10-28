@@ -547,7 +547,9 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         }
         stage = "terminal_reopen";
         await broker.open();
+        stage = "terminal_connected";
         expect(broker.connected).toBe(false);
+        stage = "terminal_consumers";
         for (const category of ["subscription", "material"] as const)
           expect(
             (
@@ -556,15 +558,21 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
               )
             ).consumerCount,
           ).toBe(0);
+        stage = "terminal_later_publish";
         const later = command();
         await publish(publisher, later);
+        stage = "terminal_later_get";
         const untouched = await inspector.get(queueName, { noAck: false });
         if (untouched === false)
           throw new Error("Terminal broker consumed new command");
+        stage = "terminal_later_identity";
         expect(untouched.properties.messageId).toBe(later.operationId);
+        stage = "terminal_later_redelivered";
         expect(untouched.fields.redelivered).toBe(false);
         inspector.ack(untouched);
+        stage = "terminal_later_empty";
         expect((await inspector.checkQueue(queueName)).messageCount).toBe(0);
+        stage = "terminal_admitted";
         expect(admitted).toBe(1);
       } catch (error: unknown) {
         failures.push(error);
