@@ -277,7 +277,7 @@ class Engine:
         self.lock=threading.RLock()
         self.child=set()
         self.child_threads={}
-        self.cancel_requested=set()
+        self.cancel_requested=set();self.cancel_requested_at={}
     def raw(self,args,timeout=10,*,binary=None,operation=None):
         if threading.current_thread().name=='owned-signoz-storage':
             need(not getattr(self,'monitor_stop',threading.Event()).is_set(),'monitor_stopping')
@@ -297,11 +297,21 @@ class Engine:
         with self.lock:
             self.child.add(proc);self.child_threads[proc]=threading.get_ident()
         selector=selectors.DefaultSelector();data=[bytearray(),bytearray()];deadline=time.monotonic()+timeout
+        def monitor_cancelled_before_deadline():
+            if threading.current_thread().name!='owned-signoz-storage' or not getattr(self,'monitor_stop',threading.Event()).is_set():return False
+            with self.lock:
+                requested=self.cancel_requested_at.get(proc)
+                return (proc in self.cancel_requested and self.child_threads.get(proc)==threading.get_ident()
+                        and requested is not None and requested<deadline)
         for i,stream in enumerate((proc.stdout,proc.stderr)):
             os.set_blocking(stream.fileno(),False);selector.register(stream,selectors.EVENT_READ,i)
         try:
             while selector.get_map():
-                need(time.monotonic()<deadline,'command_deadline')
+                if time.monotonic()>=deadline:
+                    # Only an owned stop requested before this exact deadline is
+                    # cancellation. A late request must not hide a real timeout.
+                    if monitor_cancelled_before_deadline():raise Refusal('monitor_stopping')
+                    raise Refusal('command_deadline')
                 for key,_ in selector.select(min(.1,max(0,deadline-time.monotonic()))):
                     chunk=os.read(key.fileobj.fileno(),65536)
                     if not chunk:selector.unregister(key.fileobj);continue
@@ -317,7 +327,7 @@ class Engine:
                     need(all(type(failure[k]) is str and re.fullmatch('[a-zA-Z0-9_]{1,48}',failure[k]) for k in ('stage','category','transport')),'closed_inside_category')
                     private_json(self.run/'inside-failure.json',failure)
                 except BaseException:pass
-            if code==-signal.SIGKILL and proc in self.cancel_requested and threading.current_thread().name=='owned-signoz-storage' and getattr(self,'monitor_stop',threading.Event()).is_set():
+            if code==-signal.SIGKILL and monitor_cancelled_before_deadline():
                 raise Refusal('monitor_stopping')
             need(code==0,'command_failed')
             if operation is not None:private_json(self.run/'native-operation.json',{**operation,'status':'succeeded'})
@@ -354,7 +364,7 @@ class Engine:
             with self.lock:
                 self.child.discard(proc)
                 self.child_threads.pop(proc,None)
-                self.cancel_requested.discard(proc)
+                self.cancel_requested.discard(proc);self.cancel_requested_at.pop(proc,None)
     def cancel_thread_children(self,thread):
         with self.lock:children=[proc for proc in self.child if self.child_threads.get(proc)==thread.ident and proc.poll() is None]
         for proc in children:
@@ -363,11 +373,13 @@ class Engine:
     def cancel_children(self):
         with self.lock:
             children=[proc for proc in self.child if proc.poll() is None]
+            requested=time.monotonic()
             self.cancel_requested.update(children)
+            for proc in children:self.cancel_requested_at.setdefault(proc,requested)
         for proc in children:
             try:os.killpg(proc.pid,signal.SIGKILL)
             except ProcessLookupError:
-                with self.lock:self.cancel_requested.discard(proc)
+                with self.lock:self.cancel_requested.discard(proc);self.cancel_requested_at.pop(proc,None)
         for proc in children:
             try:proc.wait(timeout=1)
             except subprocess.TimeoutExpired:pass

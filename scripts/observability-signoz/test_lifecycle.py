@@ -18,7 +18,7 @@ def benign_engine(directory):
     native=engine.invocation.lstat()
     engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
     engine.cli_hash=lifecycle.digest(engine.cli);engine.plugin=None
-    engine.lock=threading.RLock();engine.child=set();engine.child_threads={};engine.cancel_requested=set()
+    engine.lock=threading.RLock();engine.child=set();engine.child_threads={};engine.cancel_requested=set();engine.cancel_requested_at={}
     return engine
 
 
