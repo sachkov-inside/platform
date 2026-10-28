@@ -1805,7 +1805,10 @@ Production visual acceptance is recorded separately on #1351.
 - `GET /authoring/product-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) accepts
   optional `submissionId`, `productId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, default 25).
   It returns filter Products, submissions with current contact and self-check metadata, immutable
-  criteria, `history` for a selected submission and `nextCursor`. The selected read ignores the cursor
+  criteria, `history` for a selected submission and `nextCursor`. The row cursor carries the Product,
+  chapter, task and feedback filters; changing, adding or removing one on continuation returns 400
+  `invalid_request_shape`. UUID scope compares canonical values. A stale cursor makes Web read the
+  first page and restore the valid selection. The selected read ignores the cursor
   but retains the Product/task scope. Without the permission it returns 403 `forbidden`.
 - `PUT /authoring/product-tasks/submissions/{submissionId}/feedback` (`saveAuthorTaskFeedback`,
   `materials:manage`) accepts `comment` (up to 4000 characters or `null`) and `reviewed`. The existing
