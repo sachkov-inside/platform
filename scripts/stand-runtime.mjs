@@ -1,6 +1,6 @@
 // @ts-check
 import { createWriteStream } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -318,9 +318,10 @@ async function dumpDocker(args, path, dockerHost) {
       pipeline(
         child.stdout,
         createGzip(),
-        createWriteStream(path, { flags: "wx", mode: 0o600 }),
+        createWriteStream(`${path}.partial`, { flags: "wx", mode: 0o600 }),
       ),
     ]);
+    if (code === 0) await rename(`${path}.partial`, path);
     if (code !== 0)
       throw new Error(`Stand database dump failed (${String(code)})`);
   } finally {

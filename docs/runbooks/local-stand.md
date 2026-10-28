@@ -85,17 +85,25 @@ settings; identity changes and unmanaged stacks keep the handoff procedure below
 2. It builds the selected source's images and runs the `migrations` job once. The migration engine
    refuses a database ledger that is not a prefix of the source's registry, so only forward
    migrations apply. Seed and the identity bootstrap do not run.
-3. Compose replaces only infrastructure services whose configuration or image changed (volumes stay
-   attached), then recreates every application role, and the controller records the new receipt.
+3. Compose replaces infrastructure services whose configuration or image changed, with volumes
+   attached; a source in another worktree changes bind paths, so Logto is then recreated too. It
+   recreates every application role, and the controller records the new receipt.
+
+The dumps cover PostgreSQL only; object storage, broker and mail volumes stay in place untouched.
+New seed data and sign-in bootstrap changes from the newer source are not applied. A new
+infrastructure service in Compose needs an entry in `scripts/stand-services.mjs` before an upgrade
+starts it. Commit the source before an upgrade with `--production-web`.
 
 Until it finishes, `status` reports `recovery` and `show`/`refresh` refuse. Rerun the same
 `upgrade` after a failure: a completed backup is reused, and Compose and migrations repeat safely.
 The dumps are plain SQL from `pg_dumpall --clean --if-exists` and contain account data and
 sign-in secrets: keep them in place and delete superseded ones once the owner no longer needs them.
-Restoring one is a manual recovery outside the controller that replaces newer stand data, so it
-needs a separate owner request. Stop every service except the two database clusters, replay each
-dump with `gunzip -c <file> | psql -U <user> -d postgres` in its own cluster, and hand off the
-controller state: its recorded schema no longer matches the restored database.
+A dump still being written ends in `.partial`. Restoring one is a manual recovery outside the
+controller that replaces newer stand data, so it needs a separate owner request. Stop every service
+except the two database clusters (Logto included), replay each dump with
+`gunzip -c <file> | docker exec -i <container> psql -U <user> -d postgres` in its own cluster
+(errors about the connected role are expected), and hand off the controller state: its recorded
+schema no longer matches the restored database.
 
 An existing stack without a controller receipt is **unmanaged**. The controller reports it and
 refuses takeover. The owning session first hands it off and stops it without deleting volumes;
