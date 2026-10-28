@@ -97,6 +97,8 @@ try {
           "-c",
           "core.hooksPath=/dev/null",
           "-c",
+          "commit.gpgsign=false",
+          "-c",
           "user.name=Quality proof",
           "-c",
           "user.email=quality@example.invalid",
