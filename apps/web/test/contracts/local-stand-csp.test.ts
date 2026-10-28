@@ -237,7 +237,7 @@ describe("local stand production build input", () => {
     },
   ])(
     "bounds local Web memory and restarts unexpected exits (production=$productionWeb)",
-    async ({ productionWeb, memoryBytes, memoryAndSwapBytes }) => {
+    ({ productionWeb, memoryBytes, memoryAndSwapBytes }) => {
       const services = standFixture(undefined, productionWeb);
       expect(services.web.mem_limit).toBe(memoryBytes);
       expect(services.web.memswap_limit).toBe(memoryAndSwapBytes);
@@ -354,7 +354,7 @@ describe("local stand production build input", () => {
     );
   });
 
-  it("binds API and production web to one source and runtime identity without production API providers", async () => {
+  it("binds API and production web to one source and runtime identity without production API providers", () => {
     const services = standFixture();
     for (const service of [services.api, services.web]) {
       expect(service.build?.args["INSIDE_RELEASE_VERSION"]).toBe("v1");
