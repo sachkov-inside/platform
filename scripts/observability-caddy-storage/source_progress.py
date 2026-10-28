@@ -23,8 +23,10 @@ def _inventory():
 SOURCE_IDS=_inventory()
 # Process-lifecycle acceptance owns real listeners, launchers and group retirement.
 # Keep its deadline independent from the pure/protocol contracts, with one shared inventory.
+_TRANSPORT_PREFIXES=('test_mcp.','test_mcp_snapshot.','test_request_hold.','test_warm_matching.')
 SOURCE_GROUPS={
-    'contracts':tuple(value for value in SOURCE_IDS if not value.startswith('test_process_owner.')),
+    'contracts':tuple(value for value in SOURCE_IDS if not value.startswith(('test_process_owner.',*_TRANSPORT_PREFIXES))),
+    'transport':tuple(value for value in SOURCE_IDS if value.startswith(_TRANSPORT_PREFIXES)),
     'process-owner':tuple(value for value in SOURCE_IDS if value.startswith('test_process_owner.')),
 }
 
