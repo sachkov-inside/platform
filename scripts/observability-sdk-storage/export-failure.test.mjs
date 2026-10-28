@@ -34,8 +34,6 @@ for (const mode of ["http400", "reset", "delayed", "positive200"]) {
       /** @type {{signal:string,failure:import('../../apps/backend/src/infrastructure/observability/technical-telemetry.js').ExportFailureObservation}[]} */
       const failures = [];
       const signals = new Set();
-      /** @type {Set<ReturnType<typeof setTimeout>>} */
-      const timers = new Set();
       let requests = 0;
       const receiver = createServer((request, response) => {
         signals.add(
@@ -65,11 +63,9 @@ for (const mode of ["http400", "reset", "delayed", "positive200"]) {
               })
               .end("{}");
           if (mode === "delayed") {
-            const timer = setTimeout(() => {
-              timers.delete(timer);
-              finish();
-            }, 1500);
-            timers.add(timer);
+            // Hold the response until the real exporter's timeout settles flush().
+            // finally closes the connection even if setup or flush fails.
+            return;
           } else finish();
         });
       });
@@ -139,16 +135,18 @@ for (const mode of ["http400", "reset", "delayed", "positive200"]) {
             );
           }
       } finally {
-        await sdk?.shutdown();
-        for (const timer of timers) clearTimeout(timer);
-        receiver.closeAllConnections();
-        if (receiver.listening)
-          await new Promise((resolve, reject) =>
-            receiver.close((error) =>
-              error ? reject(error) : resolve(undefined),
-            ),
-          );
-        assert.equal(receiver.listening, false);
+        try {
+          await sdk?.shutdown();
+        } finally {
+          receiver.closeAllConnections();
+          if (receiver.listening)
+            await new Promise((resolve, reject) =>
+              receiver.close((error) =>
+                error ? reject(error) : resolve(undefined),
+              ),
+            );
+          assert.equal(receiver.listening, false);
+        }
       }
     },
   );
