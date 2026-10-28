@@ -3,6 +3,7 @@ import "server-only";
 import {
   backendProxyProblem,
   copyBackendResponse,
+  isStorageEdgeRequest,
   requestOwnProfileAvatarDelivery,
 } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
@@ -27,6 +28,7 @@ export async function proxyOwnProfileAvatarDelivery(
       accessToken,
       ...input,
       signal: request.signal,
+      viaStorageEdge: isStorageEdgeRequest(request),
     });
     return copyBackendResponse(response);
   } catch {

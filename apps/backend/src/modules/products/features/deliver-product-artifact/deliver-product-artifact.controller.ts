@@ -24,6 +24,7 @@ import {
   AssetDeliveryCache,
   ViewerAwareCatalogCache,
 } from "../../../../infrastructure/http/http-cache-policy.js";
+import { ApiStorageEdgeResponse } from "../../../../infrastructure/http/storage-edge-delivery.js";
 import {
   problemDetailsContent,
   toOpenApiSchema,
@@ -166,6 +167,7 @@ export class ProductArtifactReadController {
     description: "Access or storage dependency is unavailable",
   })
   @AssetDeliveryCache()
+  @ApiStorageEdgeResponse()
   async download(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("productId") productId: string,

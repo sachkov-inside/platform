@@ -1,5 +1,6 @@
 export {
   attachmentDisposition,
+  PROTECTED_BYTES_KEEP_SECONDS,
   signedDeliveryTtlSeconds,
   readPublicObject,
   type PublicObjectRead,

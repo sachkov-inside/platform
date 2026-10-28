@@ -142,6 +142,43 @@ describe("Material assets BFF", () => {
     );
   });
 
+  it("passes Caddy's edge mark to the API and returns its internal answer (#1766)", async () => {
+    fakes.requestDelivery.mockResolvedValue(
+      new Response(null, {
+        status: 204,
+        headers: {
+          "cache-control": "private, no-store",
+          "x-inside-storage-cache-control":
+            "private, max-age=31536000, immutable",
+          "x-inside-storage-location":
+            "https://inside-production-protected.storage.yandexcloud.net/k?X-Amz-Signature=s",
+        },
+      }),
+    );
+    const url =
+      "https://sachkov.dev/api/materials/m/assets/a/images/960?contentVersion=7";
+
+    const edge = await proxyMaterialAssetDelivery(
+      new Request(url, { headers: { "x-inside-storage-delivery": "edge" } }),
+      { assetId, materialId, variantWidth: "960" },
+    );
+    expect(edge.status).toBe(204);
+    expect(edge.headers.get("x-inside-storage-location")).toContain(
+      "X-Amz-Signature",
+    );
+    expect(fakes.requestDelivery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ viaStorageEdge: true, variantWidth: "960" }),
+    );
+
+    await proxyMaterialAssetDelivery(new Request(url), {
+      assetId,
+      materialId,
+    });
+    expect(fakes.requestDelivery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ viaStorageEdge: false }),
+    );
+  });
+
   it("rejects malformed delivery queries and fails closed on identity outages", async () => {
     const malformed = await proxyMaterialAssetDelivery(
       new Request(
