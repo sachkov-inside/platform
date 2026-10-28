@@ -32,6 +32,9 @@ apps/backend/src/modules/*/contracts/
 # Captured evidence stays byte-for-byte as recorded.
 docs/evidence/
 
+# SigNoz's pinned upstream configuration retains the source bytes recorded in its lock.
+infra/observability/signoz/*.yaml
+
 # Logto fork and connector sources follow the upstream Logto code they replace at a pinned revision.
 infra/identity/logto/
 
