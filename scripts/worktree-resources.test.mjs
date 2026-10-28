@@ -137,3 +137,18 @@ test("portable preparation validates every argv command before starting any comm
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /argv arrays/u);
 });
+
+test("an installed host CLI with a missing interpreter fails without fallback preparation", (t) => {
+  const context = fixture(t);
+  writeFileSync(
+    join(context.root, "bin", "agent-worktree"),
+    "#!/missing-platform-review-interpreter\n",
+    { mode: 0o755 },
+  );
+  context.executable("pnpm");
+  const result = context.run(["prepare", "--task", "1769"]);
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /ENOENT/u);
+  assert.doesNotMatch(result.stderr, /Running project preparation/u);
+});

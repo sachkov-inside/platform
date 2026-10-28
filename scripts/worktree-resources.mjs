@@ -1,7 +1,7 @@
 // @ts-check
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { lstatSync, readFileSync } from "node:fs";
+import { delimiter, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -15,12 +15,15 @@ try {
   ) {
     throw new Error("usage: pnpm worktree:prepare --task ISSUE");
   }
-  const host = spawnSync("agent-worktree", [action ?? "", ...args], {
-    cwd: root,
-    stdio: "inherit",
-  });
-  if (!host.error) process.exit(host.status ?? 1);
-  if (!("code" in host.error) || host.error.code !== "ENOENT") throw host.error;
+  const hostCommand = findHostCommand();
+  if (hostCommand !== undefined) {
+    const host = spawnSync(hostCommand, [action ?? "", ...args], {
+      cwd: root,
+      stdio: "inherit",
+    });
+    if (host.error) throw host.error;
+    process.exit(host.status ?? 1);
+  }
   if (action !== "prepare")
     throw new Error(
       "agent-worktree is not installed. Install the optional host resource CLI for status and cleanup; no resources were changed.",
@@ -68,4 +71,27 @@ function parseCommand(command) {
   if (executable === undefined)
     throw new Error("prepare commands must be non-empty argv arrays");
   return { executable, args: argv.slice(1) };
+}
+
+/** Resolve presence before launch: ENOENT can also mean a missing shebang interpreter. */
+function findHostCommand() {
+  for (const directory of (process.env["PATH"] ?? "/usr/bin:/bin").split(
+    delimiter,
+  )) {
+    const command = resolve(root, directory, "agent-worktree");
+    try {
+      // lstat retains dangling symlinks as installed but broken commands, which must fail closed.
+      lstatSync(command);
+      return command;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        ["ENOENT", "ENOTDIR"].includes(String(error.code))
+      )
+        continue;
+      throw error;
+    }
+  }
+  return undefined;
 }
