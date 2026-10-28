@@ -2,6 +2,8 @@ import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import type { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
+import { BillingContact } from "../../src/modules/accounts/index.js";
+import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -300,16 +302,33 @@ test("a holder cannot buy the Product again even by acknowledging existing acces
   expect(s.initCalls()).toBe(1);
 });
 
-test("the actual published legal catalog refuses fresh Product payment including a private link without Init", async () => {
-  const { consentDocuments } = await import("@inside/legal");
+test("the published purchase v7 catalog admits a fresh Product payment and a private link with exact v7 acceptance", async () => {
+  const { consentDocuments, currentLegalEdition } =
+    await import("@inside/legal");
+  const published = currentLegalEdition("purchase");
   const s = await scenario({
     legalDocuments: consentDocuments("https://inside.example.test"),
   });
-  expect(s.document.commercialModel).toBeUndefined();
-  expect(await s.payments.purchase(s.buyer, s.command)).toMatchObject({
-    ok: false,
-    error: { code: "method_unavailable" },
+  expect(s.document).toMatchObject({
+    documentId: "purchase",
+    version: "7",
+    digest: published.digest,
+    url: "https://inside.example.test/legal/purchase/v7",
+    commercialModel: "product-lifetime-v1",
   });
+  expect(s.contact.hasApprovedProductTerms()).toBe(true);
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  expect(s.initCalls()).toBe(1);
+  const stored = await db.prisma.billingPurchase.findUniqueOrThrow({
+    where: { id: purchase.purchaseRef },
+  });
+  expect(stored.acceptance).toMatchObject({
+    commercialModel: "product-lifetime-v1",
+  });
+  const acceptance = JSON.stringify(stored.acceptance);
+  expect(acceptance).toContain(published.digest);
+  expect(acceptance).toContain("/legal/purchase/v7");
+
   const link = value(
     await s.pricing.managePaymentLink(owner, {
       operation: "paymentLinks.create",
@@ -320,25 +339,69 @@ test("the actual published legal catalog refuses fresh Product payment including
       expiresAt: null,
     }),
   );
-  const quote = value(
-    await s.pricing.quote(s.buyer, {
-      operationId: randomUUID(),
-      productId: s.productId,
-      priceRevision: 1,
-      paymentLinkId: link.id,
-    }),
+  const viaLink = await scenario({
+    productId: s.productId,
+    paymentLinkId: link.id,
+    legalDocuments: consentDocuments("https://inside.example.test"),
+  });
+  expect(viaLink.quote.snapshot.firstPriceKopecks).toBe(100000);
+  const linkPurchase = value(
+    await viaLink.payments.purchase(viaLink.buyer, viaLink.command),
   );
+  expect(viaLink.initCalls()).toBe(1);
   expect(
-    await s.payments.purchase(s.buyer, {
-      ...s.command,
-      operationId: randomUUID(),
-      quoteRef: quote.quoteRef,
+    JSON.stringify(
+      (
+        await db.prisma.billingPurchase.findUniqueOrThrow({
+          where: { id: linkPurchase.purchaseRef },
+        })
+      ).acceptance,
+    ),
+  ).toContain(published.digest);
+});
+
+test("a purchase sent on an earlier edition is confirmed on it after purchase v7 takes effect, without a new Init", async () => {
+  const { consentDocuments } = await import("@inside/legal");
+  const s = await scenario();
+  const earlier = s.document;
+  s.loseInit();
+  const started = await s.payments.purchase(s.buyer, s.command);
+  expect(started).toMatchObject({ ok: true, value: { state: "unknown" } });
+  const ref = value(started).purchaseRef;
+  // Release: the API now serves the published catalog, and the sent operation is recovered there.
+  const released = new BillingPayments({
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
+    prisma: db.prisma,
+    bank: s.bank,
+    contact: new BillingContact({
+      prisma: db.prisma,
+      emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
+      protection: billingContactProtection(
+        Buffer.alloc(32, 42).toString("base64"),
+      ),
+      documents: consentDocuments("https://inside.example.test"),
+      now: () => new Date("2030-01-31T10:00:00Z"),
+      sendCode: () => Promise.resolve(),
     }),
-  ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
-  expect(s.initCalls()).toBe(0);
-  expect(
-    await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } }),
-  ).toBe(0);
+    grants: s.grants,
+    clock: () => new Date("2030-01-31T10:00:00Z"),
+  });
+  s.setStatus("CONFIRMED");
+  expect(await released.reconcile(ref)).toMatchObject({ ok: true });
+  expect(value(await released.recover()).applied).toBeGreaterThan(0);
+  expect(s.initCalls()).toBe(1);
+  expect(value(await released.status(s.buyer, ref))).toMatchObject({
+    access: "ready",
+  });
+  const acceptance = JSON.stringify(
+    (await db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: ref } }))
+      .acceptance,
+  );
+  expect(acceptance).toContain(earlier.digest);
+  expect(acceptance).not.toContain("/legal/purchase/v7");
 });
 
 test("a distinct approved-model synthetic legal edition is persisted from the server catalog", async () => {

@@ -9,8 +9,9 @@ import { privacyV5 } from "./editions/privacy-v5.js";
 import { purchaseV1 } from "./editions/purchase-v1.js";
 import { purchaseV3 } from "./editions/purchase-v3.js";
 import { purchaseV4 } from "./editions/purchase-v4.js";
-import { purchaseV6 } from "./editions/purchase-v6.js";
 import { purchaseV5 } from "./editions/purchase-v5.js";
+import { purchaseV6 } from "./editions/purchase-v6.js";
+import { purchaseV7 } from "./editions/purchase-v7.js";
 import { recurringConsentV1 } from "./editions/recurring-consent-v1.js";
 import { subscriptionV1 } from "./editions/subscription-v1.js";
 import { termsV1 } from "./editions/terms-v1.js";
@@ -41,6 +42,7 @@ export const legalEditions: readonly LegalEdition[] = [
   purchaseV4,
   purchaseV5,
   purchaseV6,
+  purchaseV7,
   subscriptionV1,
   recurringConsentV1,
   tributeV1,
@@ -131,7 +133,7 @@ interface ConsentDefinition {
  * a purchase started on it must be accepted again before payment.
  */
 const consentDefinitions: readonly ConsentDefinition[] = [
-  { kind: "terms", appliesTo: ["one_time"], edition: purchaseV6 },
+  { kind: "terms", appliesTo: ["one_time"], edition: purchaseV7 },
 ];
 
 /**

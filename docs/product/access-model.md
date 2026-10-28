@@ -273,7 +273,8 @@ six calendar months of Support. The account presents access by Product, not as a
 
 For new purchases, community participation is an explicit benefit of the Product's Offer.
 A Product or Support alone does not grant it. Existing accepted purchases and grants keep their
-original benefits and periods. The prospective legal edition is tracked in [#1464](https://github.com/sachkov-inside/platform/issues/1464).
+original benefits and periods. The legal edition for new purchases is
+[purchase edition 7](../legal/purchase-v7.md), published through [#1464](https://github.com/sachkov-inside/platform/issues/1464).
 This decision supersedes older statements that every Product or Support automatically opens the common chat.
 
 Each Product can associate with the current Telegram group. Association is separate from entitlement.

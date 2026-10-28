@@ -1,3 +1,4 @@
+import { currentLegalEdition } from "@inside/legal";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -300,3 +301,45 @@ it.each([
     expect(snapshot).toEqual(originalSnapshot);
   },
 );
+
+it("renders the Product checkout summary on the terms of the published purchase v7", () => {
+  const offer = currentLegalEdition("purchase");
+  const text = offer.text.replace(/\s+/gu, " ");
+  expect(offer).toMatchObject({
+    version: 7,
+    commercialModel: "product-lifetime-v1",
+  });
+  const terms = oneTimeOfferTerms(productWithSupportOffer);
+  const summary = oneTimeTermsSummary(terms);
+  // Бессрочные материалы и сообщество, как в разделе 4 оферты.
+  expect(summary[0]).toMatch(
+    /^Материалы и сообщество продукта \S+ без ограничения срока\.$/u,
+  );
+  expect(text).toContain(
+    "Одна учётная запись получает один бессрочный доступ к одному продукту",
+  );
+  // Полный возврат в первые 7 дней и расчётный срок 12 месяцев для первой половины цены.
+  const refund = summary.find((line) => line.startsWith("Отказ"));
+  expect(refund).toMatch(/^Отказ в первые 7 дней или до открытия доступа/u);
+  expect(refund).toContain(
+    "материалы и сообщество продукта \u2014 из расчётного срока 12 месяцев",
+  );
+  expect(text).toContain(
+    "в течение семи календарных дней, не считая дня подтверждения оплаты",
+  );
+  expect(text).toContain(
+    "расчётного срока 12 календарных месяцев с подтверждения оплаты",
+  );
+  // Цена делится поровну между частями, которые называет оферта.
+  expect(plain(oneTimePriceSharesLine(250_000, terms))).toMatch(
+    /^Из них поровну: материалы и сообщество продукта \S+ 1 250 ₽, сопровождение \S+ 1 250 ₽$/u,
+  );
+  expect(text).toContain(
+    "Половина цены относится к части «материалы и сообщество продукта», половина к части «сопровождение автора»",
+  );
+  // Три календарных месяца остаются в оферте, а сводка их не рекламирует.
+  expect(text).toContain(
+    "Обещание сопровождения действует три календарных месяца с подтверждения успешной оплаты.",
+  );
+  expect(summary.join("\n")).not.toMatch(/три|3 месяц/u);
+});

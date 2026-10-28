@@ -337,9 +337,8 @@ await bootstrapOwnerAccount(
   { issuer: issuer(), subject: "buyer-journey-owner" },
   "platform:admin",
 );
-// The real local seed creates a direct Product Price. Current immutable v6 is deliberately
-// unapproved for the new model; this fixture must exercise honest unavailable admission.
-// Positive approved-model payment proof uses the distinct synthetic owning legal-provider seam.
+// The real local seed creates a direct Product Price. The API serves the published legal catalog,
+// whose purchase v7 carries the lifetime Product model, so the buyer can pay on the bank double.
 
 // Роль billing-worker: подтверждённая оплата превращается в права без ожидания очереди.
 const payments = app.get(BillingPayments);

@@ -1,5 +1,5 @@
 import { productCapability } from "@inside/access-capabilities";
-import { consentDocuments } from "@inside/legal";
+import { consentDocuments, findLegalEdition } from "@inside/legal";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   assembleAccounts,
@@ -20,15 +20,35 @@ afterAll(async () => world.dispose());
 
 test("public offers respect the owning legal sale admission while owner prices remain readable", async () => {
   const s = await world.scenario();
-  const contact = new BillingContact({
-    prisma: world.db.prisma,
-    emailFingerprintKey: "public-sale-admission-test-fingerprint-key",
-    protection: undefined,
-    sendCode: undefined,
-    now: () => new Date("2030-01-31T10:00:00Z"),
-    documents: consentDocuments("https://inside.example.test"),
-  });
-  expect(contact.hasApprovedProductTerms()).toBe(false);
+  const contactOn = (documents: ReturnType<typeof consentDocuments>) =>
+    new BillingContact({
+      prisma: world.db.prisma,
+      emailFingerprintKey: "public-sale-admission-test-fingerprint-key",
+      protection: undefined,
+      sendCode: undefined,
+      now: () => new Date("2030-01-31T10:00:00Z"),
+      documents,
+    });
+  // The published catalog carries purchase v7 with the lifetime Product model: sales are admitted.
+  const published = contactOn(consentDocuments("https://inside.example.test"));
+  expect(published.hasApprovedProductTerms()).toBe(true);
+  // A catalog that still offered immutable v6 would not admit them: v6 has no such model.
+  const v6 = findLegalEdition("purchase", 6);
+  if (v6 === undefined) throw new Error("Purchase v6 must stay published");
+  const [offer] = consentDocuments("https://inside.example.test");
+  if (offer === undefined) throw new Error("Published catalog has no offer");
+  const previous = contactOn([
+    {
+      kind: offer.kind,
+      appliesTo: offer.appliesTo,
+      documentId: offer.documentId,
+      version: String(v6.version),
+      digest: v6.digest,
+      text: v6.text,
+      url: "https://inside.example.test/legal/purchase/v6",
+    },
+  ]);
+  expect(previous.hasApprovedProductTerms()).toBe(false);
   const dependencies = {
     prisma: world.db.prisma,
     accounts: assembleAccounts({
@@ -42,7 +62,7 @@ test("public offers respect the owning legal sale admission while owner prices r
   };
   const unavailable = new BillingPricing({
     ...dependencies,
-    sale: { payments: contact.hasApprovedProductTerms() },
+    sale: { payments: previous.hasApprovedProductTerms() },
   });
   const input = { capability: productCapability(s.productId) };
   expect(value(await unavailable.offers(input))).toEqual({
@@ -57,7 +77,7 @@ test("public offers respect the owning legal sale admission while owner prices r
   // Only the owning process admission changes. Published price and Product facts are identical.
   const admitted = new BillingPricing({
     ...dependencies,
-    sale: { payments: true },
+    sale: { payments: published.hasApprovedProductTerms() },
   });
   expect(value(await admitted.offers(input)).items).toHaveLength(1);
   expect(

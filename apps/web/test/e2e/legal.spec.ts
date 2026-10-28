@@ -98,7 +98,7 @@ test("адрес редакции остаётся рабочим и не спо
   ).toBeVisible();
 });
 
-test("оферта разовой покупки действует в редакции 6, а прежние остаются по своим адресам", async ({
+test("оферта разовой покупки действует в редакции 7, а прежние остаются по своим адресам", async ({
   page,
 }) => {
   const response = await page.goto("/legal/purchase");
@@ -108,7 +108,7 @@ test("оферта разовой покупки действует в реда�
     "Оферта разовой покупки продукта Inside",
   );
   await expect(
-    page.getByText(/^Версия 6\. Действует с /u).first(),
+    page.getByText(/^Версия 7\. Действует с 28 октября 2026 года\./u).first(),
   ).toBeVisible();
   // Списки и подразделы оферты отрисованы как разметка, а не как текст с маркерами.
   await expect(
@@ -119,6 +119,17 @@ test("оферта разовой покупки действует в реда�
   ).toBeVisible();
   await expect(
     page.getByRole("listitem").filter({ hasText: "Личные встречи и созвоны." }),
+  ).toBeVisible();
+
+  const sixth = await page.goto("/legal/purchase/v6");
+  expect(sixth?.status()).toBe(200);
+  await expect(
+    page.getByText(/^Версия 6\. Действует с /u).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "176005f144e3c4f6cf12dd00cad9fc1fe3a1a4ea847a836413be6f167ef1a6b4",
+    ),
   ).toBeVisible();
 
   const fifth = await page.goto("/legal/purchase/v5");
