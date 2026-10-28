@@ -1298,10 +1298,12 @@ change the existing event ID, operation ID, payload, claim, retry or ambiguous-A
 The API stops the pump and drains every started row callback, including pending claims after a sibling failure, before shutting down its SDK. The normal batch remains fail-fast and retains its existing polling cadence. Telemetry remains optional, and the
 existing five-second polling and provider timeout stay authoritative.
 
-Apply append-only `0112_communications_tracking_trace_context` before the new application binary.
-It is the 115th entry after canonical main0102 and adds one nullable `varchar(55)` column
-without changing that canonical114-entry prefix. Historical branch114 is a separate frozen
-fixture; matching legacy replay is tested separately and cannot repair a divergent ledger.
+Apply the full canonical migration registry before the new application binary.
+It contains 129 entries and preserves the current 115-entry main prefix.
+`0125_communications_tracking_trace_context` is entry 127, after the preceding feature
+migrations, and adds one nullable `varchar(55)` column. Do not apply it separately.
+Historical `0112_communications_tracking_trace_context` and branch114 remain separate frozen
+fixtures; matching legacy replay is tested separately and cannot repair a divergent ledger.
 An old binary can ignore the column, but rollback must retain the compatible full registry. Historical NULL is supported; an absent
 column means migrations have not been applied and is not treated as NULL.
 
