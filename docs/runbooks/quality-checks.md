@@ -93,3 +93,10 @@ contracts retain priority. These choices implement #1770:
 Security dependency updates in this change keep the existing majors: Next, Zod, Undici and Nodemailer,
 plus compatible transitive fixes. They require ordinary application/browser verification; no release
 or production deployment is implied by this tooling change.
+
+Next 16.4.1 also changes how a static App Shell can be delivered. Navigation test observers accept
+both completed RuntimeShell responses and completed static page segments. Route trees, layout
+segments and per-link PPR data do not satisfy that barrier. The shared classifier and its negative
+cases live in `apps/web/test/support/app-shell-prefetch.ts`; user-visible navigation, payload and
+private-data assertions remain required. Storybook imports the same read-only search-params class
+from Next's shared leaf module to avoid importing server rendering internals into the browser.
