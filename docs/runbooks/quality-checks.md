@@ -10,7 +10,7 @@ Its failed, cancelled, missing or skipped result prevents `CI Gate` success.
 
 | Command | Blocking result and scope |
 |---|---|
-| `pnpm quality:proof` | Correct synthetic input passes and known violations exit 1 in Betterleaks, jactionlint, ShellCheck, Hadolint and Knip. The secrets proof also exercises the repository snapshot wrapper with an untracked provider-shaped token |
+| `pnpm quality:proof` | Correct synthetic input passes and known violations exit 1 in Betterleaks, jactionlint, ShellCheck, Hadolint and Knip. Secrets proofs exercise untracked tokens, report-name collisions, clean commit history, a key introduced then removed and an unavailable history base |
 | `pnpm quality:secrets` | Betterleaks medium/high-confidence findings fail. Scans tracked regular files plus non-ignored new files, with redaction, no live validation and no inline allow comments. Local ignored credentials and external symlink targets never enter the temporary snapshot |
 | `pnpm quality:audit` | `pnpm audit --prod --audit-level=moderate`; advisories and registry/process failures remain failures. No automatic fixes or registry-error bypass |
 | `pnpm quality:workflows` | jactionlint default profile, strict exit, offline checks of workflows, composite actions and Dependabot. Workflow ShellCheck checks warning/error levels. Expiring, scoped exceptions are in `.github/jactionlint.yaml` |

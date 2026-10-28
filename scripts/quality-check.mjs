@@ -125,7 +125,7 @@ async function secrets() {
     if (base !== undefined && base !== "") {
       if (!/^[a-f0-9]{40}$/u.test(base))
         throw new Error("QUALITY_BASE_SHA must be a full commit SHA");
-      return scan(["git", `--log-opts=${base}..HEAD`, "."]);
+      return await scan(["git", `--log-opts=${base}..HEAD`, "."]);
     }
     console.log("Tracked-source secret scan passed (medium/high confidence).");
     return 0;

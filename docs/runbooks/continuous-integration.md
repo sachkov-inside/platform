@@ -40,7 +40,7 @@ an empty change set conservatively selects both applications. Agent labels never
 Every PR push, including a draft, receives its affected plan.
 The planner exports a SHA-256 digest of the exact complete plan serialization. The gate independently
 recomputes that plan and requires the same digest before validating every job result. Its environment
-contains only that fixed-size digest and the explicit result of all thirteen dependencies, never
+contains only that fixed-size digest and the explicit result of every declared dependency, never
 the complete plan or nested job outputs. Large changed-file lists therefore retain full coverage
 without exceeding the runner's per-environment-string process limit.
 

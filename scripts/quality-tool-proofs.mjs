@@ -13,13 +13,20 @@ import { fileURLToPath } from "node:url";
 import { withPinnedTool } from "./quality-tools.mjs";
 import { qualityCommand } from "./quality-command.mjs";
 
-/** @param {string} executable @param {string[]} args @param {string} input @param {boolean} accepted @param {RegExp} [diagnostic] @param {string} [cwd] */
-async function probe(executable, args, input, accepted, diagnostic, cwd) {
+/** @param {string} executable @param {string[]} args @param {string} input @param {boolean} accepted @param {RegExp} [diagnostic] @param {{cwd?: string, base?: string}} [options] */
+async function probe(
+  executable,
+  args,
+  input,
+  accepted,
+  diagnostic,
+  options = {},
+) {
   const result = await qualityCommand(executable, args, {
     input,
-    cwd,
+    cwd: options.cwd,
     // Miniature proof repositories have their own source identity, not the CI candidate's base.
-    env: { ...process.env, QUALITY_BASE_SHA: "" },
+    env: { ...process.env, QUALITY_BASE_SHA: options.base ?? "" },
     timeout: 30_000,
   });
   assert.equal(
@@ -60,26 +67,16 @@ try {
     assert.equal(initialized.status, 0, initialized.stderr);
     copyFileSync(config, join(directory, ".betterleaks.toml"));
     const cli = fileURLToPath(new URL("./quality-check.mjs", import.meta.url));
-    await probe(
-      process.execPath,
-      [cli, "secrets"],
-      "",
-      false,
-      /github-pat/u,
-      directory,
-    );
+    await probe(process.execPath, [cli, "secrets"], "", false, /github-pat/u, {
+      cwd: directory,
+    });
     writeFileSync(file, "POSTGRES_PASSWORD=inside\n");
     const collision = join(directory, "quality-findings.json");
     const collisionContent = JSON.stringify({ token });
     writeFileSync(collision, collisionContent);
-    await probe(
-      process.execPath,
-      [cli, "secrets"],
-      "",
-      false,
-      /github-pat/u,
-      directory,
-    );
+    await probe(process.execPath, [cli, "secrets"], "", false, /github-pat/u, {
+      cwd: directory,
+    });
     assert.equal(readFileSync(collision, "utf8"), collisionContent);
     rmSync(collision);
     await probe(
@@ -88,7 +85,55 @@ try {
       "",
       true,
       /Tracked-source secret scan passed/u,
-      directory,
+      { cwd: directory },
+    );
+    /** @param {string[]} arguments_ */
+    const git = async (arguments_) => {
+      const result = await qualityCommand(
+        "git",
+        [
+          "-C",
+          directory,
+          "-c",
+          "core.hooksPath=/dev/null",
+          "-c",
+          "user.name=Quality proof",
+          "-c",
+          "user.email=quality@example.invalid",
+          ...arguments_,
+        ],
+        { timeout: 5_000 },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    await git(["add", "."]);
+    await git(["commit", "-qm", "clean base"]);
+    const base = await git(["rev-parse", "HEAD"]);
+    writeFileSync(file, "POSTGRES_PASSWORD=inside-local\n");
+    await git(["add", "."]);
+    await git(["commit", "-qm", "clean change"]);
+    await probe(process.execPath, [cli, "secrets"], "", true, undefined, {
+      cwd: directory,
+      base,
+    });
+    writeFileSync(file, `GITHUB_TOKEN=${token}\n`);
+    await git(["add", "."]);
+    await git(["commit", "-qm", "synthetic provider key"]);
+    writeFileSync(file, "POSTGRES_PASSWORD=inside\n");
+    await git(["add", "."]);
+    await git(["commit", "-qm", "remove synthetic key"]);
+    await probe(process.execPath, [cli, "secrets"], "", false, /github-pat/u, {
+      cwd: directory,
+      base,
+    });
+    await probe(
+      process.execPath,
+      [cli, "secrets"],
+      "",
+      false,
+      /Secret scanner/u,
+      { cwd: directory, base: "f".repeat(40) },
     );
   });
   if (process.argv[2] !== "secrets") {
