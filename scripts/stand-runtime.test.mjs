@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -140,4 +140,136 @@ test("live preparation labels roles, mounts only selected Web source, and binds 
   });
   assert.equal(launched, true);
   assert.equal(checkpoint, true);
+});
+
+test("upgrade retains infrastructure labels and gives application roles the new generation", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "stand-upgrade-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const generation = randomUUID();
+  /** @type {Record<string, unknown> | undefined} */
+  let launchOptions;
+  const runtime = createStandRuntime({
+    directory,
+    pnpmPath: "/fixture/pnpm",
+    environment: {},
+    run: async (args) => {
+      if (args[0] === "context")
+        return JSON.stringify("unix:///fixture/docker.sock");
+      if (args[0] === "info") return "daemon";
+      if (args[0] === "container") return "";
+      return JSON.stringify({
+        services: { api: {}, postgres: {}, logto: {}, "new-worker": {} },
+      });
+    },
+    launch: async (options) => {
+      launchOptions = options;
+      assert.ok(options.composeOverride);
+      const overlay = z
+        .object({
+          services: z.record(
+            z.string(),
+            z.object({ labels: z.record(z.string(), z.string()) }),
+          ),
+        })
+        .parse(JSON.parse(await readFile(options.composeOverride, "utf8")));
+      const label = (/** @type {string} */ service) =>
+        overlay.services[service]?.labels["inside.local-stand.generation"];
+      assert.equal(label("api"), generation);
+      assert.equal(label("postgres"), "cold-generation");
+      assert.equal(label("logto"), "cold-generation");
+      assert.equal(label("new-worker"), generation);
+    },
+  });
+  await runtime.inspect();
+  const container = (/** @type {string} */ service) => ({
+    id: `${service}-id`,
+    service,
+    image: "image",
+    generation: service === "api" ? "refresh-generation" : "cold-generation",
+    running: true,
+    health: "healthy",
+  });
+  await runtime.prepare({
+    source: {
+      root: "/task",
+      head: "head",
+      fingerprint: "source",
+      build: "build",
+      schema: "schema",
+      infrastructure: "infra",
+      identity: "identity",
+    },
+    mode: "snapshot",
+    generation,
+    cold: false,
+    resumeCold: false,
+    upgrade: {
+      daemon: "daemon",
+      containers: ["api", "postgres", "logto"].map(container),
+    },
+    recordIdentity: async () => {},
+  });
+  assert.equal(launchOptions?.["upgrade"], true);
+  assert.equal(launchOptions?.["refresh"], true);
+});
+
+test("backup dumps both database clusters into a private generation directory", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "stand-backup-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  /** @type {string[][]} */
+  const dumps = [];
+  const runtime = createStandRuntime({
+    directory,
+    pnpmPath: "/fixture/pnpm",
+    environment: {},
+    run: async (args) => {
+      if (args[0] === "context")
+        return JSON.stringify("unix:///fixture/docker.sock");
+      if (args[0] === "info") return "daemon";
+      if (args[0] === "container") return "";
+      throw new Error(`Unexpected Docker call: ${args[0]}`);
+    },
+    dump: async (args, path) => {
+      dumps.push(args);
+      await writeFile(path, "dump", { mode: 0o600 });
+    },
+  });
+  await runtime.inspect();
+  const container = (/** @type {string} */ service) => ({
+    id: `${service}-id`,
+    service,
+    image: "image",
+    generation: "g",
+    running: true,
+    health: "healthy",
+  });
+  const generation = randomUUID();
+  const backup = await runtime.backup(
+    {
+      daemon: "daemon",
+      containers: ["api", "postgres", "logto-postgres"].map(container),
+    },
+    generation,
+  );
+  assert.equal(backup, join(directory, "backups", generation));
+  assert.deepEqual(
+    dumps.map((args) => args.slice(0, 2)),
+    [
+      ["exec", "postgres-id"],
+      ["exec", "logto-postgres-id"],
+    ],
+  );
+  assert.ok(dumps.every((args) => args.join(" ").includes("pg_dumpall")));
+  assert.equal((await stat(backup)).mode & 0o777, 0o700);
+  assert.equal(
+    (await stat(join(backup, "postgres.sql.gz"))).mode & 0o777,
+    0o600,
+  );
+  await assert.rejects(
+    runtime.backup(
+      { daemon: "daemon", containers: [container("api")] },
+      randomUUID(),
+    ),
+    /postgres is not running/u,
+  );
 });
