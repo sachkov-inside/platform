@@ -187,6 +187,24 @@ def identities(output):
     return {'available': bool(result), 'samples': result}
 
 
+def operation_fields(row):
+    pair=(row.get('operation'),row.get('argument_category'))
+    require(all(type(v) is str for v in pair) and pair in lifecycle.NATIVE_OPERATIONS)
+    return dict(zip(('operation','argument_category'),pair))
+
+
+def native_operations(output):
+    result=[]
+    for directory in sorted(output.glob('engine-*'))[:32]:
+        require(directory.is_dir() and not directory.is_symlink())
+        path=directory/'native-operation.json'
+        if not path.exists():continue
+        row=read(path);require(type(row) is dict and set(row)=={'operation','argument_category','status'})
+        require(type(row['status']) is str and row['status'] in ('started','succeeded','failed'))
+        result.append({**operation_fields(row),'status':row['status']})
+    return {'available':bool(result),'samples':result}
+
+
 def native_failures(output):
     result = []
     for directory in sorted(output.glob('engine-*'))[:32]:
@@ -196,6 +214,9 @@ def native_failures(output):
         row = read(path); require(type(row) is dict)
         code = row.get('native_exit'); require(code is None or type(code) is int and -128 <= code <= 255)
         item = {'native_exit': code, 'alive_before_reap': boolean(row['alive_before_reap'])}
+        item.update(operation_fields(row))
+        require(type(row.get('stderr_category')) is str and row['stderr_category'] in lifecycle.STDERR_CATEGORIES)
+        item['stderr_category']=row['stderr_category']
         for stream in ('stdout', 'stderr'):
             item[stream + '_bytes'] = integer(row[stream + '_bytes'], lifecycle.OUTPUT_LIMIT + 65536)
             item[stream + '_retained_bytes'] = integer(row[stream + '_retained_bytes'], 32768)
@@ -222,7 +243,7 @@ def collect(output, destination, verify_source):
         require(safe_root); source = read(output / 'source.json'); verify_source(source)
         report['source'] = {'available': True, 'binding': source}
     except Exception: report['source'] = {'available': False}
-    for name, project in (('native_identity', identities), ('native_failures', native_failures),('inside_failures',inside_failures)):
+    for name, project in (('native_identity', identities), ('native_failures', native_failures),('native_operations',native_operations),('inside_failures',inside_failures)):
         try:
             require(safe_root); report[name] = project(output)
         except Exception: report[name] = {'available': False}
