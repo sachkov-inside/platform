@@ -486,7 +486,10 @@ describe("application CI workflow contract", () => {
   });
 
   it("installs frozen dependencies and cached browser engines in one place", () => {
-    assert.match(setupAction, /run: pnpm install --frozen-lockfile$/mu);
+    assert.match(
+      setupAction,
+      /run: timeout --signal=TERM --kill-after=10s 4m pnpm install --frozen-lockfile$/mu,
+    );
     assert.match(setupAction, /uses: actions\/cache@/u);
     assert.match(setupAction, /path: ~\/\.cache\/ms-playwright$/mu);
     assert.match(
@@ -505,8 +508,11 @@ describe("application CI workflow contract", () => {
       setupAction.match(
         /- name: Install dependencies\n([\s\S]*?)(?=\n    - name:|$)/u,
       )?.[1] ?? "";
-    assert.match(install, /timeout-minutes: 4$/mu);
-    assert.match(install, /run: pnpm install --frozen-lockfile$/mu);
+    assert.doesNotMatch(setupAction, /timeout-minutes:/u);
+    assert.match(
+      install,
+      /run: timeout --signal=TERM --kill-after=10s 4m pnpm install --frozen-lockfile$/mu,
+    );
     const cache =
       setupAction.match(
         /- name: Cache pnpm metadata and verification\n([\s\S]*?)(?=\n    - name:|$)/u,

@@ -36,9 +36,8 @@ runs:
     - name: Install dependencies
       # fetchTimeout bounds inactivity, not the total duration of a trickling metadata response.
       # Keep registry acquisition from consuming the 15-minute test job's entire budget (#1763).
-      timeout-minutes: 4
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: timeout --signal=TERM --kill-after=10s 4m pnpm install --frozen-lockfile
     - name: Check peer dependencies
       shell: bash
       run: pnpm peers check

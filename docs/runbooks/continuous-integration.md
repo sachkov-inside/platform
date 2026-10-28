@@ -109,7 +109,8 @@ Playwright version. `setup-node` caches the pnpm package store. A separate exact
 pnpm's registry metadata and policy-bound lockfile verification records; pnpm itself checks whether
 a cached verdict still matches the lockfile and active policies. Its key binds the lockfile,
 workspace policy, root manifest (including pnpm version), npm configuration, Node pin and setup
-action. Dependency installation has a four-minute step deadline: pnpm's request timeout bounds
+action. Dependency installation runs under GNU `timeout` with a four-minute deadline and ten-second
+forced-shutdown grace: pnpm's request timeout bounds
 inactivity and cannot stop a response that keeps trickling bytes (#1763). A deadline failure fails
 the job; it neither skips dependency policies nor starts tests with a partial installation.
 
