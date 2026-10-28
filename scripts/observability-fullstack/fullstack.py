@@ -364,8 +364,25 @@ def loadgen_cpu_pressure(samples):
 def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1):
     call=partial(stage_timing.call,timing,group=group,phase=index)
     states=call('phase_ownership_before',technical.owned,compose,project,active)
+    def captured():
+        # Counter and Node clocks need an explicit host bridge, never inferred phase timing.
+        def clock_ms(read):
+            try:
+                value=read()
+                if type(value) not in (int,float):return None
+                value*=1000
+            except Exception:return None
+            return value if 0<=value<=2**53-1 and math.isfinite(value) else None
+        before=clock_ms(time.monotonic);epoch=clock_ms(time.time)
+        counters=technical.capture(states);host_sample=host()
+        after=clock_ms(time.monotonic);at=counters.get('at_seconds')
+        anchor=None
+        if (before is not None and epoch is not None and after is not None
+                and type(at) in (int,float) and 0<=at<=(2**53-1)/1000 and math.isfinite(at)
+                and before<=at*1000<=after):anchor=[before,epoch,after]
+        return {'counters':counters,'host':host_sample,'counter_clock_anchor':anchor}
     # A delayed native source read must not let the load outrun its CPU baseline.
-    samples=[call('phase_baseline',lambda:{'counters':technical.capture(states),'host':host()})]
+    samples=[call('phase_baseline',captured)]
     stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
     def sampling():
         next_source=time.monotonic()
@@ -374,7 +391,7 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
                 if enabled and time.monotonic()>=next_source:
                     if len(source_samples)>=64:raise ValueError('source_sample_budget')
                     source_samples.append(sample_sources(compose,output));next_source+=5
-                samples.append({'counters':technical.capture(states),'host':host()})
+                samples.append(captured())
                 stop.wait(min(2,max(0,next_source-time.monotonic())) if enabled else 2)
         except BaseException:errors.append('sampler_failed')
     worker=threading.Thread(target=sampling)
@@ -394,7 +411,7 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     finally:
         stop.set();call('phase_sampler_join',worker.join,timeout=15)
         if worker.is_alive():raise RuntimeError('fullstack_sampler_unsettled')
-    samples.append(call('phase_final_counters',lambda:{'counters':technical.capture(states),'host':host()}))
+    samples.append(call('phase_final_counters',captured))
     current=call('phase_ownership_after',technical.owned,compose,project,active)
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
     pressure=loadgen_cpu_pressure(samples)
