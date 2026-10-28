@@ -675,7 +675,7 @@ describe("production runtime architecture contract", () => {
     );
   });
 
-  it("delivers protected bytes only through the protected bucket without leaking credentials or internal headers", () => {
+  it("keeps the protected-delivery Caddy rules: client marker stripped, one bucket host, no client credentials upstream, internal headers removed", () => {
     /** @type {[(caddy: string) => string, RegExp][]} */
     const broken = [
       [
@@ -686,13 +686,13 @@ describe("production runtime architecture contract", () => {
       [
         (caddy) =>
           caddy.replace(
-            "\t\t\t# Служебные заголовки доставки не выходят наружу и с других путей web.\n",
-            "\t\t\theader_up X-Inside-Storage-Delivery edge\n",
+            "\t\treverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {\n",
+            "\t\treverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {\n\t\t\theader_up X-Inside-Storage-Delivery edge\n",
           ),
         /only the protected-delivery route may send the storage delivery marker/u,
       ],
       [
-        (caddy) => caddy.replace("\t\t\t\t\theader_up -Cookie\n", ""),
+        (caddy) => caddy.replace("\t\t\t\t\t\theader_up -Cookie\n", ""),
         /must not forward client Cookie to storage/u,
       ],
       [
@@ -1094,10 +1094,12 @@ function assertProtectedDelivery(files) {
   }
   const backend = constantValues(files.backendStorageEdge);
   const web = constantValues(files.webStorageEdge);
-  for (const [name, value] of [
+  /** @type {[string, string][]} */
+  const marker = [
     ["STORAGE_EDGE_REQUEST_HEADER", "x-inside-storage-delivery"],
     ["STORAGE_EDGE_REQUEST_VALUE", "edge"],
-  ]) {
+  ];
+  for (const [name, value] of marker) {
     if (backend.get(name) !== value || web.get(name) !== value)
       throw new Error(`API and web must agree with Caddy on ${name}`);
   }
@@ -1113,8 +1115,8 @@ function assertProtectedDelivery(files) {
     );
     if (
       !route.includes(`\t\t\theader_down -${titled}\n`) ||
-      !caddy.includes(
-        `\t\treverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {\n\t\t\t# Служебные заголовки доставки не выходят наружу и с других путей web.\n\t\t\theader_down -X-Inside-Storage-Location\n\t\t\theader_down -X-Inside-Storage-Cache-Control\n\t\t}\n`,
+      !/\t\treverse_proxy \{\$PLATFORM_WEB_UPSTREAM:127\.0\.0\.1:13000\} \{\n(?:\t\t\t#[^\n]*\n)*\t\t\theader_down -X-Inside-Storage-Location\n\t\t\theader_down -X-Inside-Storage-Cache-Control\n\t\t\}\n/u.test(
+        caddy,
       )
     )
       throw new Error(
@@ -1130,10 +1132,10 @@ function assertProtectedDelivery(files) {
     !route.includes(
       `\t\t\t@protected_object header X-Inside-Storage-Location https://${host}/*\n`,
     ) ||
-    !route.includes(`\t\t\t\t${storageProxy}\n`) ||
-    !route.includes(`\t\t\t\t\theader_up Host ${host}\n`) ||
+    !route.includes(`\t\t\t\t\t${storageProxy}\n`) ||
+    !route.includes(`\t\t\t\t\t\theader_up Host ${host}\n`) ||
     !route.includes(
-      `^https://${escapeRegExp(host)}(/[A-Za-z0-9][A-Za-z0-9._/-]*)\\?([A-Za-z0-9._~%=&-]+)$`,
+      `^https://${escapeRegExp(host)}((?:/[A-Za-z0-9][A-Za-z0-9._-]*)+)\\?([A-Za-z0-9._~%=&-]+)$`,
     )
   ) {
     throw new Error(
@@ -1147,7 +1149,7 @@ function assertProtectedDelivery(files) {
     "X-*",
     "Sec-*",
   ]) {
-    if (!route.includes(`\t\t\t\t\theader_up -${header}\n`))
+    if (!route.includes(`\t\t\t\t\t\theader_up -${header}\n`))
       throw new Error(`Caddy must not forward client ${header} to storage`);
   }
   const matcher = /path_regexp (\^[^\n]+\$)\n/u.exec(

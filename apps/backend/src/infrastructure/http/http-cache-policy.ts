@@ -30,9 +30,6 @@ type HttpCachePolicy =
   | "viewer-aware-catalog"
   | "published-material-response";
 
-/** Bytes behind a version-bound address never change; the reader's browser alone may keep them. */
-const PRIVATE_IMMUTABLE_CACHE_CONTROL = "private, max-age=31536000, immutable";
-
 const cacheControlByPolicy = {
   "asset-delivery": PRIVATE_NO_STORE_HEADERS["cache-control"],
   "private-no-store": PRIVATE_NO_STORE_HEADERS["cache-control"],
@@ -126,11 +123,12 @@ function sendAssetDelivery(
   if (body.kind === "redirect" && viaStorageEdge) {
     response.status(204);
     response.header(STORAGE_EDGE_LOCATION_HEADER, body.location);
+    // Only the reader's browser may keep the bytes, and only for the delivery's own bound.
     response.header(
       STORAGE_EDGE_CACHE_CONTROL_HEADER,
-      body.objectCacheScope === "private-immutable"
-        ? PRIVATE_IMMUTABLE_CACHE_CONTROL
-        : cacheControlByPolicy["private-no-store"],
+      body.keepSeconds === undefined
+        ? cacheControlByPolicy["private-no-store"]
+        : `private, max-age=${String(body.keepSeconds)}, immutable`,
     );
     return undefined;
   }
@@ -160,7 +158,7 @@ function isAssetDelivery(value: unknown): value is
       cacheScope: "private-no-store";
       kind: "redirect";
       location: string;
-      objectCacheScope?: "private-immutable";
+      keepSeconds?: number;
     }> {
   if (typeof value !== "object" || value === null || !("kind" in value))
     return false;
@@ -170,9 +168,11 @@ function isAssetDelivery(value: unknown): value is
       value.cacheScope === "private-no-store" &&
       "location" in value &&
       typeof value.location === "string" &&
-      (!("objectCacheScope" in value) ||
-        value.objectCacheScope === undefined ||
-        value.objectCacheScope === "private-immutable")
+      (!("keepSeconds" in value) ||
+        value.keepSeconds === undefined ||
+        (typeof value.keepSeconds === "number" &&
+          Number.isInteger(value.keepSeconds) &&
+          value.keepSeconds >= 1))
     );
   }
   return (

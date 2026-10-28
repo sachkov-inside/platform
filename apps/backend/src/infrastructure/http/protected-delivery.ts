@@ -34,6 +34,13 @@ export function signedDeliveryTtlSeconds(
   return bounded >= 1 ? bounded : null;
 }
 
+/**
+ * The longest time a reader's browser may keep protected bytes behind a version-bound address
+ * delivered through the site edge (#1766). Like a signed address, the kept copy never outlives
+ * the access that justified it: `signedDeliveryTtlSeconds(PROTECTED_BYTES_KEEP_SECONDS, validUntil)`.
+ */
+export const PROTECTED_BYTES_KEEP_SECONDS = 31_536_000;
+
 export type PublicObjectRead =
   | Readonly<{ kind: "bytes"; object: StoredObject }>
   | Readonly<{ kind: "mismatch" }>

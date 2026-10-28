@@ -397,7 +397,9 @@ not found. Membership presign живёт меньше `validUntil` с clock-safe
 Public projections и free bodies могут быть shared-cacheable. Personalized availability
 накладывается после public cache. Membership body, protected decision, credential и permission
 path всегда `private, no-store`; protected prefetch, static generation и shared route/data cache
-запрещены. Caller не кэширует availability или decision между requests.
+запрещены. Исключение (#1766): неизменяемые байты защищённого MaterialAsset по version-bound адресу
+браузер читателя может хранить как `private, immutable`, но не дольше remaining access permit
+validity; preview и остальные защищённые файлы остаются `private, no-store`. Caller не кэширует availability или decision между requests.
 
 ## Decision metadata и privacy
 

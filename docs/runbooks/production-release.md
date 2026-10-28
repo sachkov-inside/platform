@@ -280,20 +280,24 @@ Edge не ограничивает адрес отправителя: адрес
    доставки и методы GET и HEAD. Присланный клиентом `X-Inside-Storage-Delivery` Caddy удаляет на
    всех путях, а `X-Inside-Storage-Delivery: edge` ставит только на этом маршруте.
 2. BFF передаёт метку API вместе с сессией читателя. API проверяет доступ на каждый запрос, как
-   раньше: без доступа ответ `404`. С доступом и меткой API отвечает `204`: тот же краткоживущий
-   подписанный адрес объекта, что раньше уходил в redirect, лежит в `X-Inside-Storage-Location`,
-   политика кэша для bytes в `X-Inside-Storage-Cache-Control`.
+   раньше: отказ остаётся прежним (`404`, у аватара без сессии `401`). С доступом и меткой API
+   отвечает `204`: тот же краткоживущий подписанный адрес объекта, что раньше уходил в
+   перенаправление, лежит в `X-Inside-Storage-Location`, политика кэша для байтов в
+   `X-Inside-Storage-Cache-Control`.
 3. Caddy перехватывает ответ web (`handle_response`), только если адрес начинается с
-   `https://inside-production-protected.storage.yandexcloud.net/`. Путь и query подписи уходят в
-   хранилище без изменений, `Host` равен имени bucket, как требует подпись. Cookie, Authorization,
-   `X-*`, `Sec-*`, Referer, Origin и условные заголовки клиента в хранилище не уходят; `Range` и
-   `If-Range` уходят.
-4. Клиент получает bytes с `Content-Type`, `Content-Length`, `ETag`, `Content-Disposition` и
-   `Content-Range` хранилища. Служебные заголовки, `x-amz-*`, `Server` и `Set-Cookie` хранилища
-   удаляются. `Cache-Control`: `private, max-age=31536000, immutable` для опубликованного материала
-   (адрес содержит `contentVersion`), `private, no-store` для предпросмотра, заданий, файлов Product
-   и аватара. Выход из аккаунта отправляет `Clear-Site-Data: "cache", "storage"`, и браузер
-   забывает сохранённые bytes.
+   `https://inside-production-protected.storage.yandexcloud.net/`. Путь и строка запроса с
+   подписью уходят в хранилище без изменений, `Host` равен имени bucket, как требует подпись.
+   Cookie, Authorization, `X-*`, `Sec-*`, Referer, Origin и условные заголовки клиента в хранилище
+   не уходят; `Range` и `If-Range` уходят. HEAD читается из хранилища как GET, клиент получает
+   только заголовки.
+4. Клиент получает байты с `Content-Type`, `Content-Length`, `ETag`, `Content-Disposition` и
+   `Content-Range` хранилища, а также `Set-Cookie` от web, если BFF обновил сессию. Служебные
+   заголовки, `x-amz-*`, `Server` и `Set-Cookie` хранилища удаляются; Caddy добавляет `nosniff`,
+   `Content-Security-Policy: default-src 'none'; sandbox` и `X-Robots-Tag: noindex, nofollow`.
+   `Cache-Control` опубликованного материала (адрес содержит `contentVersion`):
+   `private, max-age=<секунд>, immutable`, не больше года и не дольше оставшегося срока доступа.
+   Предпросмотр, задания, файлы Product и аватар получают `private, no-store`. Выход из аккаунта
+   отправляет `Clear-Site-Data: "cache", "storage"`, и браузер забывает сохранённые байты.
 
 Ошибки не раскрывают хранилище: нет объекта (его `404`) даёт пустой `404`, `416` даёт пустой `416`,
 любой другой ответ хранилища, его недоступность и адрес другого bucket или хоста дают пустой `502`.
@@ -301,22 +305,26 @@ Edge не ограничивает адрес отправителя: адрес
 подписанный адрес. Production CSP `img-src` адресов хранилища не содержит
 ([ADR 0028](../adr/0028-web-edge-hardening.md)).
 
-Выпуск не меняет файлов сервера: фрагмент Caddy приходит с выпуском. Имя bucket записано в
-`platform.caddy` и `apps/web/test/production/pass-config.ts`, и `scripts/production-runtime-contract.test.mjs`
-требует их совпадения. Перед сменой `OBJECT_STORAGE_PROTECTED_BUCKET` в `api.env` выпустите оба
-места с новым именем, иначе каждый закрытый файл получит `502`.
+Выпуск не меняет файлов сервера: фрагмент Caddy приходит с выпуском. Перехват ждёт адрес в форме
+production по умолчанию: виртуальный хост bucket на `storage.yandexcloud.net`, то есть в `api.env`
+нет `OBJECT_STORAGE_SIGNED_GET_ENDPOINT`, а `OBJECT_STORAGE_FORCE_PATH_STYLE` отсутствует или равен
+`false`. Имя bucket записано в `platform.caddy` и `apps/web/test/production/pass-config.ts`, и
+`scripts/production-runtime-contract.test.mjs` требует их совпадения. Перед сменой
+`OBJECT_STORAGE_PROTECTED_BUCKET` или формы адреса выпустите эти места заново, иначе каждый
+закрытый файл получит `502`.
 
 Локальная проверка точного production-фрагмента с поддельными web и хранилищем:
 `CADDY_EXECUTABLE=<caddy 2.11.4> node scripts/fixtures/production-runtime/probe-protected-delivery.mjs`.
 После выпуска (только чтение):
 
 - закрытая картинка урока у ученика загружается, когда хранилище с устройства недоступно (например,
-  через VPN), и в DevTools приходит с `sachkov.dev`: `200`, `Cache-Control: private, max-age=31536000, immutable`,
+  через VPN), и в DevTools приходит с `sachkov.dev`: `200`, `Cache-Control: private, max-age=…, immutable`,
   без `X-Inside-*`; запросов к `*.storage.yandexcloud.net` нет;
 - тот же адрес без сессии и с присланным `X-Inside-Storage-Delivery: edge` отвечает `404` без
   `X-Inside-Storage-Location`;
 - в [проходе доступа](#проход-доступа-после-выпуска) клетка `assets@browser` отмечена
-  `HTTP 200 private с sachkov.dev`.
+  `HTTP 200 private с sachkov.dev`; перенаправление в хранилище делает её красной, поэтому проход
+  против выпуска до v52 по этой клетке красный.
 
 ## Joint rollout with Telegram #45
 

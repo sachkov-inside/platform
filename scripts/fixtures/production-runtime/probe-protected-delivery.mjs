@@ -1,8 +1,8 @@
 /**
  * Local proof of the production protected-delivery route (#1766) with the actual Caddy binary and
- * the production `platform.caddy`. Only the site addresses and the storage upstream are replaced:
- * Caddy talks plain HTTP to a fake web and a fake storage on loopback, while the bucket host it
- * accepts and sends stays the production one. Signed addresses come from the AWS SDK with the
+ * the production `platform.caddy`. The probe replaces the site addresses with plain HTTP, adds
+ * `admin off` and points the web, API, MCP and storage upstream placeholders at a fake web and a
+ * fake storage on loopback; the bucket host Caddy accepts and sends stays the production one. Signed addresses come from the AWS SDK with the
  * production signing shape (virtual-host bucket on storage.yandexcloud.net, ru-central1).
  *
  * Run from the repository root: `CADDY_EXECUTABLE=<caddy 2.11.4> node scripts/fixtures/production-runtime/probe-protected-delivery.mjs`.
@@ -28,6 +28,7 @@ const bucket = "inside-production-protected";
 const bucketHost = `${bucket}.storage.yandexcloud.net`;
 const immutable = "private, max-age=31536000, immutable";
 const noStore = "private, no-store";
+const refreshedSession = "logto_session=refreshed; Path=/; HttpOnly; Secure";
 
 const requireBackend = createRequire(
   resolve(repositoryRoot, "apps/backend/package.json"),
@@ -108,6 +109,7 @@ const paths = {
   foreignBucket: `/api/materials/${ids.material}/assets/${ids.asset}/images/320?contentVersion=3`,
   hostSuffix: `/api/materials/${ids.material}/assets/${ids.asset}/images/640?contentVersion=3`,
   encodedPath: `/api/materials/${ids.material}/assets/${ids.asset}/images/1280?contentVersion=3`,
+  emptySegment: `/api/materials/${ids.material}/assets/${ids.asset}/images/1920?contentVersion=3`,
   denied: `/api/materials/${ids.material}/assets/${ids.asset}?contentVersion=9`,
   legacy: `/api/materials/${ids.material}/assets/${ids.asset}?contentVersion=5`,
   other: "/api/reading/progress",
@@ -137,6 +139,10 @@ const webAnswers = new Map([
       signed.image.replace("/materials/", "/%2e%2e/materials/"),
       immutable,
     ),
+  ],
+  [
+    paths.emptySegment,
+    edge(signed.image.replace("/materials/", "/materials//"), immutable),
   ],
   [
     paths.denied,
@@ -174,6 +180,8 @@ function edge(location, cacheControl) {
     status: 204,
     headers: {
       "cache-control": noStore,
+      // The BFF may refresh the reader's session on any request; the browser must receive it.
+      "set-cookie": refreshedSession,
       "x-content-type-options": "nosniff",
       "x-inside-storage-location": location,
       ...(cacheControl === undefined
@@ -354,7 +362,8 @@ function assertNoInternalHeaders(response) {
       `client received ${name}`,
     );
   }
-  assert.equal(response.headers["set-cookie"], undefined);
+  for (const cookie of response.headers["set-cookie"] ?? [])
+    assert.equal(cookie, refreshedSession, "a storage cookie reached the client");
   assert.notEqual(response.headers.server, "AmazonS3");
   assert.ok(!response.body.toString("latin1").includes("X-Amz-Signature"));
 }
@@ -438,6 +447,12 @@ try {
   assert.equal(image.headers.etag, '"probe-etag"');
   assert.equal(image.headers["cache-control"], immutable);
   assert.equal(image.headers["x-content-type-options"], "nosniff");
+  assert.equal(
+    image.headers["content-security-policy"],
+    "default-src 'none'; sandbox",
+  );
+  assert.equal(image.headers["x-robots-tag"], "noindex, nofollow");
+  assert.deepEqual(image.headers["set-cookie"], [refreshedSession]);
   // The site's own HSTS stays; the storage value never replaces it.
   assert.equal(image.headers["strict-transport-security"], "max-age=31536000");
   assertNoInternalHeaders(image);
@@ -505,6 +520,7 @@ try {
     const response = await query("GET", path, browserHeaders);
     record(name, response);
     assertCleanFailure(response, status);
+    assert.deepEqual(response.headers["set-cookie"], [refreshedSession]);
   }
 
   // Only the protected bucket of the production storage is fetched.
@@ -512,6 +528,7 @@ try {
     ["foreign-bucket", paths.foreignBucket],
     ["host-suffix", paths.hostSuffix],
     ["encoded-path", paths.encodedPath],
+    ["empty-path-segment", paths.emptySegment],
   ]) {
     before = storageCalls.length;
     const response = await query("GET", path, browserHeaders);
