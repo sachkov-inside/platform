@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
 import { MaterialReadingScope } from "@/entities/material";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
@@ -151,41 +151,38 @@ export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
-export const FirstEmailAttachment: Story = {
+const readDisabledEmail = fn(() =>
+  Response.json({ ok: false, code: "unauthorized" }),
+);
+
+export const TelegramOnly: Story = {
   ...accountSectionEnvironment("/account", {
     fetch: () => {
-      let email: string | null = null;
+      readDisabledEmail.mockClear();
       return respondByPath({
         ...subscribedMemberRoutes,
-        "/api/account/email": () => Response.json({ ok: true, email }),
-        "/api/account/email/start": () =>
-          Response.json({ ok: true, challengeRef: "synthetic-challenge" }),
-        "/api/account/email/confirm": () => {
-          email = "new@example.test";
-          return Response.json({ ok: true });
-        },
+        "/api/account/email": readDisabledEmail,
       });
     },
   }),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      await canvas.findByRole("button", { name: "Добавить почту" }),
-    );
-    await userEvent.type(
-      canvas.getByRole("textbox", { name: "Адрес почты" }),
-      "new@example.test",
-    );
-    await userEvent.click(canvas.getByRole("button", { name: "Получить код" }));
-    await userEvent.type(
-      await canvas.findByRole("textbox", { name: "Код из письма" }),
-      "123456",
-    );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Подтвердить почту" }),
-    );
-    await expect(await canvas.findByText("new@example.test")).toBeVisible();
-    await expect(canvas.getByText(/Почта подтверждена/)).toBeVisible();
+    await expect(
+      await canvas.findByRole("textbox", { name: "Имя" }),
+    ).toHaveValue("Кирилл Сачков");
+    await expect(
+      await canvas.findByRole("heading", { name: "Telegram" }),
+    ).toBeVisible();
+    await expect(readDisabledEmail).not.toHaveBeenCalled();
+    await expect(
+      canvas.queryByText("Войдите снова, чтобы управлять почтой."),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("heading", { name: "Почта" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Добавить почту" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -200,7 +197,6 @@ export const NewMember: Story = {
             link: { kind: "unlinked" },
             profile: null,
           }),
-        "/api/account/email": () => Response.json({ ok: true, email: null }),
         "/api/account/billing": () => currentBillingResponse(null),
         "/api/account/billing/enrollments": () => enrollmentsResponse([]),
       }),
@@ -215,8 +211,8 @@ export const NewMember: Story = {
       await canvas.findByRole("region", { name: "Контакты и вход" }),
     );
     await expect(
-      await connections.findByRole("button", { name: "Добавить почту" }),
-    ).toBeVisible();
+      connections.queryByRole("button", { name: "Добавить почту" }),
+    ).not.toBeInTheDocument();
     await expect(
       connections.getByRole("button", { name: "Подключить" }),
     ).toBeVisible();

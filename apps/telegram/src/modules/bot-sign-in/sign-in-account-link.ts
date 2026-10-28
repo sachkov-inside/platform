@@ -58,11 +58,12 @@ export class SignInAccountLink {
           now,
         });
         if (!reserved) return false;
+        // Also covers requests approved by a build that did not queue a decision receipt.
         await queueSignInResult(
           transaction,
           requestRef,
           now,
-          "Вход подтверждён. Вернитесь на сайт.",
+          "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
           this.config.signInReturnUrl,
         );
         return true;

@@ -8,6 +8,7 @@ import resource
 import stat
 import sys
 import time
+import slot_refusal
 
 NAME='fullstack-stability.json'
 MARKER='fullstack-stability-plan.json'
@@ -50,7 +51,7 @@ def context(proc=Path('/proc')):
 
 
 def record(source,roles=(),images=None):
-    return {'schema':2,'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
+    return {'schema':3,'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
         'service_roles':list(roles),'images':images or {},'warmup':[],'measurements':[]}
 
 
@@ -118,7 +119,7 @@ def project(value,ordinal,roles):
     result={'ordinal':ordinal,'completed':load['completed'] and not value['errors'] and not any(sample['counters']['errors'] for sample in value['samples']),'scheduled':load['scheduled'],
         'missed':load['missed'],'success':load['success'],'unexpected_failures':load['unexpected_failures'],
         'latency':load['latency'],'requests':timing['requests'],'phase_start':timing['phase_start'],'phase_end':timing['phase_end'],
-        'host':frames}
+        'host':frames,'slot_refusal':slot_refusal.project(load,ordinal,MODES[ordinal//2])}
     if ordinal%2==0:result['quality']=quality(value,roles)
     return result
 
@@ -130,7 +131,8 @@ def experiment(source,configure,measure,persist,roles=(),images=None):
         value=measure(row)
         if row['measured']:result['measurements'].append(value)
         else:result['warmup'].append({'ordinal':row['ordinal'],'completed':value['completed'],
-                                    'quality':value.get('quality',{'available':False})})
+                                    'quality':value.get('quality',{'available':False}),
+                                    'slot_refusal':value['slot_refusal']})
         persist(result)
         if not value['completed']:raise ValueError('stability_load_incomplete')
     result['state']='complete';validate(result,source,roles);persist(result);return result
@@ -140,7 +142,7 @@ def validate(value,source,roles=()):
     def need(ok):
         if not ok:raise ValueError('closed_stability_diagnostic')
     need(type(value) is dict and set(value)=={'schema','source','scope','state','acceptance','service_roles','images','warmup','measurements'})
-    need(type(value['schema']) is int and value['schema']==2 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
+    need(type(value['schema']) is int and value['schema']==3 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
     need(value['scope']=='diagnostic_only' and value['state'] in ('incomplete','complete') and value['acceptance']==ACCEPTANCE
         and type(value['acceptance']['capacity']) is bool and value['service_roles']==list(roles))
     images=value['images'];need(type(images) is dict and (not images or set(images)=={'backend','foundation','web','telegram','logto'}))
@@ -148,16 +150,21 @@ def validate(value,source,roles=()):
     warm=value['warmup'];rows=value['measurements']
     need(type(warm) is list and type(rows) is list and len(warm)<=6 and len(rows)<=len(warm) and len(warm)-len(rows)<=1)
     for index,row in enumerate(warm):
-        need(type(row) is dict and set(row)=={'ordinal','completed','quality'} and type(row['ordinal']) is int and row['ordinal']==index*2 and type(row['completed']) is bool)
+        need(type(row) is dict and set(row)=={'ordinal','completed','quality','slot_refusal'} and type(row['ordinal']) is int and row['ordinal']==index*2 and type(row['completed']) is bool)
         summary=checked_quality(row['quality'],roles)
+        leaf=row['slot_refusal']
+        need(not row['completed'] or type(leaf) is dict and leaf.get('state')!='captured')
+        # Unknown quality supplies no count; the leaf still requires its complete closed facts.
+        slot_refusal.validate(leaf,index*2,MODES[index],summary['missed'] if summary['available'] else None,count_unknown=not summary['available'])
         if summary['available']:
             need(row['completed']==(summary['client_completed'] and not summary['phase_errors'] and not any(summary['counter_errors'].values())))
     def anchor(value):return value is None or type(value) is list and len(value)==3 and all(number(v) for v in value) and value[0]<=value[2]
     for index,row in enumerate(rows):
-        need(type(row) is dict and set(row)=={'ordinal','completed','scheduled','missed','success','unexpected_failures','latency','requests','phase_start','phase_end','host'})
+        need(type(row) is dict and set(row)=={'ordinal','completed','scheduled','missed','success','unexpected_failures','latency','requests','phase_start','phase_end','host','slot_refusal'})
         need(type(row['ordinal']) is int and row['ordinal']==index*2+1 and type(row['completed']) is bool)
         need(all(type(row[k]) is int and 0<=row[k]<=400 for k in ('scheduled','missed','success','unexpected_failures')))
         need(not row['completed'] or (row['scheduled']==row['success']==400 and row['missed']==row['unexpected_failures']==0))
+        slot_refusal.validate(row['slot_refusal'],row['ordinal'],MODES[row['ordinal']//2],row['missed'])
         need(type(row['latency']) is list and len(row['latency'])<=300 and type(row['requests']) is list and len(row['requests'])<=300)
         for r in row['latency']:need(type(r) is dict and set(r)=={'label','elapsed_ms'} and r['label'] in LABELS and number(r['elapsed_ms']))
         seen=set()

@@ -269,8 +269,8 @@ python3 scripts/observability-fullstack/fullstack.py diagnostic-run \
 Обычный acceptance collector отвергает диагностические файлы; отдельный collector
 проверяет закрытую схему и исходный source SHA до публикации чисел.
 
-В schema2 каждая отброшенная warmup-фаза сохраняет только `ordinal`, `completed`
-и закрытый `quality`. Если исходные наблюдения доступны, он содержит признак
+В schema3 каждая отброшенная warmup-фаза сохраняет `ordinal`, `completed`,
+закрытый `quality` и `slot_refusal`. Если исходные наблюдения доступны, он содержит признак
 завершения client, числа scheduled/missed/success/unexpected_failures, конечные
 phase error flags, число counter samples и ошибки чтения counters по двум
 фиксированным категориям, прежнее состояние CPU pressure loadgen. Это различает
@@ -278,8 +278,9 @@ phase error flags, число counter samples и ошибки чтения count
 сравнения warmup не публикуются. Неполные или неизвестные наблюдения дают
 `quality.available=false`, а не нулевые ошибки. Поле не меняет `completed`
 или критерии приёмки. Collector отвергает лишние поля, недопустимые числа,
-категории и противоречащие друг другу признаки. Исторический schema1 проверяется
-его исходной версией source и не становится новым свидетельством.
+категории и противоречащие друг другу признаки. Исторические schema1/schema2 проверяются
+своей исходной версией source и не становятся новым свидетельством. Текущий collector
+принимает только schema3, поэтому downgrade не позволяет удалить новые проверки.
 
 На прежних двухсекундных снимках диагностика добавляет CPU steal ticks, размер
 очереди runnable/blocked, context switches, CPU PSI `some.total`, CPU и maximum RSS
@@ -298,3 +299,38 @@ production server. Семантика счётчиков описана в до�
 [Linux proc](https://docs.kernel.org/filesystems/proc.html) и
 [CPU PSI](https://docs.kernel.org/accounting/psi.html); условие job соответствует
 [GitHub Actions expressions](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions).
+
+
+При первом фактическом отказе `active.size >= 8` настоящий client сохраняет один
+`load.slot_refusal` (вложенная schema1). Слот охватывает последовательные ON probe,
+application operation и проверку результата до освобождения promise. HTTP latency
+по-прежнему исключает предшествующий probe. Запросы наблюдателя не входят в этот pool.
+Snapshot содержит canonical phase0..11, mode и восемь строк: kind0..7, stage0(probe)/1(application)/2(finishing),
+время захвата слота и начала стадии, возраст слота и стадии. Все времена являются целыми
+микросекундами относительно одного monotonic начала фазы. Request IDs, URL, payload,
+ошибки, PID и абсолютное время не сохраняются. Дубликаты kind допустимы.
+
+`not_refused` означает только отсутствие отказа pool, `captured` требует восемь slots
+и положительный missed, `unavailable` содержит только конечный reason clock/bounds/capture.
+Плохие diagnostic clocks не меняют результат операции. После первой попытки snapshot
+не заменяется; не добавляются await, запросы или retries. До неё сохраняются только
+ограниченные сведения о текущих slots. Это дополнительная ненулевая работа, её стоимость
+не измерена. Синхронную finishing callback нельзя наблюдать посередине из того же event loop.
+При аварийном выходе client до JSON snapshot может отсутствовать.
+
+Одна закрытая Python-проверка проверяет leaf в обычных raw phase artifacts и diagnostic
+warmup/measured rows. Размер leaf ограничен 2048B compact JSON и 4096B pretty JSON;
+прежний предел каждого файла 1MiB не расширяется. Raw phase сохраняет leaf, summary
+`fullstack-proof.json` исключает его из приёмочных данных. Warmup не получает latency
+или сравнения. Missing/искажённый leaf текущего public artifact и schema downgrade
+отвергаются. В старых artifacts отсутствие поля означает UNKNOWN, а не отсутствие misses.
+Snapshot показывает занятые участки client, но не доказывает причину native задержки,
+нагрузку server CPU или мощность хоста. Первоначальный workload и все gates неизменны.
+
+
+Номер обычного файла `fullstack-phase-N.json` задаёт порядок исполнения, а не
+canonical client phase. Первая пара исполняется OFF→ON, вторая ON→OFF. Поэтому
+во второй паре файлы6..8 содержат ON phases9..11, файлы9..11 содержат OFF phases6..8.
+Обычный collector выводит ожидаемые pair/mode/name и canonical phase из закреплённого
+source profile и проверяет контекст строки. Diagnostic warmup/measured ordinal0..11
+остаётся отдельной нумерацией и не преобразуется по этому правилу.
