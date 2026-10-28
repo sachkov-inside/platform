@@ -91,11 +91,36 @@ Timeout, `ECONNREFUSED` и необъяснённая ошибка не счит
 по точному разрешённому образцу; `unclassified` означает неизвестную причину, а не
 подтверждённую ошибку registry, Docker API или provider. Такой отчёт не разрешает повторять
 неуспешный запуск без разбора причины и не меняет его результат на успешный.
-Загрузка образа явно выбирает `linux/amd64`; последующий `image inspect` использует
-совместимый вызов без `--platform`, который [Docker относит к API 1.49+](https://docs.docker.com/reference/cli/docker/image/inspect/).
-Проверки native архитектуры, обязательного child Descriptor, закреплённых digest/config,
-RepoDigests и volumes сохраняются. Отсутствующий Descriptor или другая архитектура
-останавливают admission, без перехода к ослабленной проверке.
+Семь исходных INDEX pins сохраняются. Для каждого в [OCI packet](../../infra/observability/signoz/oci/)
+закреплены исходные байты index, child manifest и config: SHA256, точные размеры,
+единственный linux/amd64 child, platform/config и volumes проверяются до acquisition.
+Файлы не преобразуются formatter. Чтение локальное, ограниченное и один раз на engine,
+без runtime HTTP к registry. Дубликаты JSON keys, подмена, отсутствующий файл или symlink означают отказ.
+
+Pull с `--platform linux/amd64`, Compose, inspect и recovery используют один reference
+`repository@childDigest`, выведенный из того же INDEX. `image inspect` не требует нового
+[флага API 1.49+](https://docs.docker.com/reference/cli/docker/image/inspect/).
+Native OS/architecture, RootFS и порядок diff IDs должны совпасть с проверенным config,
+а RepoDigests должны содержать этот child в ожидаемом repository. Сохраняются проверки
+Entrypoint/Cmd/User/WorkingDir и volumes. SHA256 всего config связывает и остальные поля;
+новые требования к API-проекции Env/Labels/ArgsEscaped не добавляются.
+
+Поддержаны две точные связи: native image ID равен config digest либо child digest.
+Вторая требует корректных native image Descriptor и container ImageManifestDescriptor.
+В первой только фактическое отсутствие поля допускается как недоступное native доказательство,
+поскольку полная OCI-цепочка и native config ID/RootFS/platform доказывают другую строгую связь.
+Любое присутствующее null, пустое, повреждённое или несовпадающее поле означает отказ.
+В Descriptor проверяются digest, media type и точный размер исходного child manifest,
+а при наличии platform также её значения. Отсутствующую platform подтверждают обязательные
+index/config и native OS/architecture. Экспериментальная [семантика Moby](https://github.com/moby/moby/blob/5ed8b59a47094d686c9327999b451513a637a16d/api/types/image/image_inspect.go)
+не используется для предположений о версии или storage mode фактического daemon.
+
+Контейнер должен иметь `Config.Image`, точно равный child reference, и `Image`, равный
+проверенному native image ID. CID/Created/nonce, лимиты, mounts и network остаются обязательными.
+В отчёте различаются native descriptor, его наблюдаемое отсутствие и ещё не выполненная
+проверка контейнера. Неполная связь контейнера не допускает успешного результата.
+Метаданные OCI не доказывают независимо соответствие compressed layers распакованным
+слоям без их чтения: обработка слоёв и native наблюдения опираются на доверенный Docker daemon.
 Отказы image admission публикуют только фиксированную причину из общего
 `ImageAdmissionReason`, который используют сами проверки образа и collector.
 Это различает отказ Descriptor, архитектуры, закреплённой конфигурации или volumes,

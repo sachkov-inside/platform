@@ -15,8 +15,10 @@ class Publication(unittest.TestCase):
             lock=lifecycle.verify_packet();pins={r['repository'].split('/')[-1]:r for r in lock['images']}
             images={}
             for role,name in lifecycle.ROLE_IMAGES.items():
-                row=pins[name];images[role]={'reference':row['pinned'],'architecture':'amd64','child_manifest':row['linux_amd64_manifest'],
-                    'image_id':row['linux_amd64_manifest'],'selected_image_id':row['linux_amd64_manifest']}
+                row=pins[name];config=lock['image_config_metadata'][row['repository']]['amd64']['config_digest']
+                images[role]={'reference':row['pinned'],'runtime_reference':lifecycle.image_proof.runtime_reference(row),
+                    'config_digest':config,'relation':'config_id','image_descriptor_available':False,'container_descriptor_available':False,
+                    'architecture':'amd64','child_manifest':row['linux_amd64_manifest'],'image_id':config,'selected_image_id':config}
             records={'source':{'commit':'a'*40},'images':images,
                 'outcome':{'passed':True,'worker_exit':0,'worker_seconds':30,'runtime_limit_seconds':600,'cleanup':{'passed':True},'full_workload':False,'capacity_acceptance':False},
                 'cleanup':{'passed':True,'failed_operations':[],'exact_containers':11,'exact_volumes':7,'exact_networks':1},
@@ -54,6 +56,14 @@ class Publication(unittest.TestCase):
                 lifecycle.private_json(source/(name+'.json'),bad)
                 self.assertFalse(evidence.collect(source,root/('cross-'+str(index)),verified))
                 lifecycle.private_json(source/(name+'.json'),records[name])
+            for index,fields in enumerate([
+                {'runtime_reference':pins['python']['pinned']}, {'image_id':pins['python']['index_digest']},
+                {'config_digest':'sha256:'+'f'*64}, {'relation':'unknown'}, {'image_descriptor_available':None}, {'container_descriptor_available':None},
+                {'relation':'child_id','image_id':pins['python']['linux_amd64_manifest'],
+                 'selected_image_id':pins['python']['linux_amd64_manifest'],'image_descriptor_available':True,'container_descriptor_available':False}]):
+                lifecycle.private_json(source/'images.json',{**records['images'],'disk':{**records['images']['disk'],**fields}})
+                self.assertFalse(evidence.collect(source,root/('image-'+str(index)),verified))
+            lifecycle.private_json(source/'images.json',records['images'])
 
     def test_early_failure_still_produces_closed_unavailable_receipt(self):
         with tempfile.TemporaryDirectory() as tmp:

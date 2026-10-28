@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.request
 import uuid
+import image_proof
 from types import MappingProxyType
 
 HERE = Path(__file__).resolve().parent
@@ -58,6 +59,7 @@ ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
 
 class ImageAdmissionReason(StrEnum):
     """Finite image-admission refusal vocabulary, shared by guards and publication."""
+    IMAGE_PROOF_INVALID = 'image_proof_invalid'
     LOCKED_CHILD_REQUIRED = 'locked_child_required'
     IMAGE_PLATFORM = 'image_platform'
     SELECTED_IMAGE_IDENTITY = 'selected_image_identity'
@@ -162,7 +164,7 @@ def expected_limits(service, value):
 
 def make_plan(run, locked_images, project, nonce, uid, gid):
     """All mounts are explicit, finite and task-owned; no global names or host ports."""
-    by_repo = {r['repository'].split('/')[-1]: r['pinned'] for r in locked_images}
+    by_repo = {r['repository'].split('/')[-1]: image_proof.runtime_reference(r) for r in locked_images}
     helper_arch='amd64'
     names = {name: project + '_' + name for name in VOLUMES}
     limits = labels(project, nonce)
@@ -368,7 +370,8 @@ class Engine:
         need(self.identify()==self.identity,'daemon_identity_changed')
         return self.raw(['--config',str(self.anon),'--host',self.endpoint,*args],timeout,operation=native_operation(args))
     def inspect(self,kind,identity):
-        return json.loads(self.call([kind,'inspect',identity] if kind in ('network','volume','image') else ['inspect',identity]))[0]
+        raw=self.call([kind,'inspect',identity] if kind in ('network','volume','image') else ['inspect',identity])
+        return (image_proof.decode(raw) if kind=='image' else json.loads(raw))[0]
 
 
 class Owned:
@@ -416,7 +419,10 @@ class Owned:
         self.owned_labels(v['Config']['Labels']);need(v['Id']==cid,'container_identity')
         need(name in self.created and self.created[name]==v['Created'],'container_created_identity')
         need(v['Image']==self.images[name]['image_id'],'container_image_changed')
-        require_child_descriptor(v.get('ImageManifestDescriptor'),self.images[name]['child_manifest'],self.images[name]['architecture'])
+        proof=self.engine.image_proofs[self.images[name]['reference']]
+        need(v['Config'].get('Image')==proof.runtime_reference and self.plan['services'][name]['image']==proof.runtime_reference,ImageAdmissionReason.IMAGE_ATTACHMENT_IDENTITY)
+        if 'ImageManifestDescriptor' in v:require_child_descriptor(v['ImageManifestDescriptor'],proof)
+        elif self.images[name]['relation']=='child_id':raise Refusal(ImageAdmissionReason.SELECTED_IMAGE_DESCRIPTOR)
         expected_limits(name,v)
         spec=self.plan['services'][name]
         need(v['Config'].get('User')==spec['user'],'container_user')
@@ -444,6 +450,7 @@ class Owned:
             m=rows[0];need(m['Type']==spec['type'] and m['RW']==(not spec.get('read_only',False)),'mount_authority')
             if spec['type']=='bind':need(Path(m['Source']).resolve()==Path(spec['source']).resolve(),'bind_source')
             else:need(m['Name']==self.plan['volumes'][spec['source']]['name'] and m['Name'] in self.volumes,'volume_mount')
+        self.images[name]['container_descriptor_available']='ImageManifestDescriptor' in v
         return v
     def record(self):
         private_json(self.run/'resources.json',{'project':self.project,'nonce':self.nonce,
@@ -529,46 +536,76 @@ def canonical_ref(value):
     value=value.removeprefix('docker.io/').removeprefix('library/')
     return value
 
-def require_child_descriptor(value, child, arch):
+def proof_for(engine,row):
+    if not hasattr(engine,'image_proofs'):
+        try:engine.image_proofs=image_proof.load(CONFIG/'oci',verify_packet())
+        except image_proof.ProofError:raise Refusal(ImageAdmissionReason.IMAGE_PROOF_INVALID) from None
+    proof=engine.image_proofs.get(row['pinned'])
+    need(proof is not None and proof.child==row['linux_amd64_manifest'] and proof.runtime_reference==image_proof.runtime_reference(row),ImageAdmissionReason.IMAGE_PROOF_INVALID)
+    return proof
+
+
+def acquire_image(engine,row):
+    proof=proof_for(engine,row)
+    engine.call(['pull','--platform','linux/amd64',proof.runtime_reference],timeout=180)
+
+
+def require_child_descriptor(value,proof):
     need(type(value) is dict,ImageAdmissionReason.SELECTED_IMAGE_DESCRIPTOR)
-    need(value.get('mediaType') in ('application/vnd.oci.image.manifest.v1+json','application/vnd.docker.distribution.manifest.v2+json'),ImageAdmissionReason.SELECTED_IMAGE_MEDIA_TYPE)
-    need(value.get('digest')==child,ImageAdmissionReason.SELECTED_IMAGE_CHILD)
-    need(type(value.get('size')) is int and 0<value['size']<=1024**2,ImageAdmissionReason.SELECTED_IMAGE_SIZE)
-    platform_value=value.get('platform')
-    need(type(platform_value) is dict and platform_value.get('os')=='linux' and platform_value.get('architecture')==arch,ImageAdmissionReason.SELECTED_IMAGE_PLATFORM)
-    need(platform_value.get('variant') in ((None,'v8') if arch=='arm64' else (None,)),ImageAdmissionReason.SELECTED_IMAGE_VARIANT)
+    need(value.get('mediaType')==proof.descriptor['mediaType'],ImageAdmissionReason.SELECTED_IMAGE_MEDIA_TYPE)
+    need(value.get('digest')==proof.child,ImageAdmissionReason.SELECTED_IMAGE_CHILD)
+    need(type(value.get('size')) is int and value['size']==proof.descriptor['size'],ImageAdmissionReason.SELECTED_IMAGE_SIZE)
+    if 'platform' in value:
+        platform_value=value['platform']
+        need(type(platform_value) is dict and set(platform_value)<= {'os','architecture','variant'} and platform_value.get('os')=='linux' and platform_value.get('architecture')=='amd64',ImageAdmissionReason.SELECTED_IMAGE_PLATFORM)
+        need(platform_value.get('variant') is None,ImageAdmissionReason.SELECTED_IMAGE_VARIANT)
+
+
+def image_identity(value,proof):
+    need(type(value) is dict and value.get('Os')=='linux' and value.get('Architecture')=='amd64' and value.get('Variant') in (None,''),ImageAdmissionReason.IMAGE_PLATFORM)
+    present='Descriptor' in value
+    if present:require_child_descriptor(value['Descriptor'],proof)
+    if value.get('Id')==proof.config_digest:relation='config_id'
+    elif value.get('Id')==proof.child:
+        need(present,ImageAdmissionReason.SELECTED_IMAGE_DESCRIPTOR);relation='child_id'
+    else:raise Refusal(ImageAdmissionReason.SELECTED_IMAGE_IDENTITY)
+    config=value.get('Config')
+    need(type(config) is dict and all((config.get(key) or None)==(proof.config.get(key) or None) for key in ('Entrypoint','Cmd','WorkingDir','User')),ImageAdmissionReason.IMAGE_CONFIGURATION_IDENTITY)
+    need(value.get('RootFS')=={'Type':'layers','Layers':list(proof.diff_ids)},ImageAdmissionReason.IMAGE_CONFIGURATION_IDENTITY)
+    declared=config.get('Volumes')
+    need(declared is None or type(declared) is dict and all(type(k) is str and k.startswith('/') and v=={} for k,v in declared.items()),ImageAdmissionReason.DECLARED_IMAGE_VOLUME_SHAPE)
+    need(tuple(sorted(declared or {}))==proof.volume_paths,ImageAdmissionReason.DECLARED_IMAGE_VOLUME_CONTRACT)
+    repos=value.get('RepoDigests')
+    need(type(repos) is list and all(type(r) is str for r in repos) and any(canonical_ref(r)==canonical_ref(proof.runtime_reference) for r in repos),ImageAdmissionReason.IMAGE_INDEX_IDENTITY)
+    return relation
 
 
 def checked_image(engine, row, arch):
     child=row['linux_'+arch+'_manifest'];need(type(child) is str and re.fullmatch('sha256:[a-f0-9]{64}',child) is not None,ImageAdmissionReason.LOCKED_CHILD_REQUIRED)
-    # Pull already selects the platform. Older CLIs reject inspect --platform;
-    # plain inspect remains admissible only with all exact native identity checks below.
-    selected=json.loads(engine.call(['image','inspect',row['pinned']]))[0]
-    need(selected.get('Os')=='linux' and selected.get('Architecture')==arch,ImageAdmissionReason.IMAGE_PLATFORM)
-    require_child_descriptor(selected.get('Descriptor'),child,arch)
-    metadata=verify_packet()['image_config_metadata'][row['repository']][arch]
-    need(selected.get('Id') in (child,metadata['config_digest']),ImageAdmissionReason.SELECTED_IMAGE_IDENTITY)
-    need(all((selected['Config'].get(native) or None)==(metadata[key] or None) for native,key in [('Entrypoint','entrypoint'),('Cmd','cmd'),('WorkingDir','working_dir'),('User','user')]),ImageAdmissionReason.IMAGE_CONFIGURATION_IDENTITY)
-    declared=selected['Config'].get('Volumes')
-    need(declared is None or type(declared) is dict and all(type(k) is str and k.startswith('/') and v=={} for k,v in declared.items()),ImageAdmissionReason.DECLARED_IMAGE_VOLUME_SHAPE)
-    paths=sorted(declared or {})
-    need(paths==verify_packet()['declared_volume_contracts'][row['repository']],ImageAdmissionReason.DECLARED_IMAGE_VOLUME_CONTRACT)
-    index=engine.inspect('image',row['pinned'])
-    need(any(canonical_ref(r)==canonical_ref(row['pinned']) for r in index['RepoDigests']),ImageAdmissionReason.IMAGE_INDEX_IDENTITY)
-    need(index.get('Id') in (row['pinned'].split('@',1)[1],child,metadata['config_digest']),ImageAdmissionReason.IMAGE_ATTACHMENT_IDENTITY)
-    return {'entrypoint':selected['Config'].get('Entrypoint'),'reference':row['pinned'],
-        'image_id':index['Id'],'selected_image_id':selected['Id'],'architecture':arch,'child_manifest':child,'declared_volume_paths':paths}
+    need(arch=='amd64',ImageAdmissionReason.IMAGE_PLATFORM)
+    proof=proof_for(engine,row)
+    selected=image_proof.decode(engine.call(['image','inspect',proof.runtime_reference]))
+    need(type(selected) is list and len(selected)==1,ImageAdmissionReason.IMAGE_PLATFORM)
+    selected=selected[0];relation=image_identity(selected,proof)
+    attached=engine.inspect('image',proof.runtime_reference)
+    attached_relation=image_identity(attached,proof)
+    need(attached['Id']==selected['Id'] and attached_relation==relation,ImageAdmissionReason.IMAGE_ATTACHMENT_IDENTITY)
+    return {'entrypoint':selected['Config'].get('Entrypoint'),'reference':proof.reference,
+        'runtime_reference':proof.runtime_reference,'config_digest':proof.config_digest,
+        'image_id':attached['Id'],'selected_image_id':selected['Id'],'architecture':arch,
+        'child_manifest':child,'relation':relation,'image_descriptor_available':'Descriptor' in selected,
+        'declared_volume_paths':list(proof.volume_paths)}
 
 
 def inspect_images(engine, lock, *, acquire=False):
     admitted={}
     for row in lock['images']:
-        arch='arm64' if row['repository'].endswith('/python') and platform.system()=='Darwin' and platform.machine()=='arm64' else 'amd64'
+        arch='amd64'
         if acquire:
-            engine.call(['pull','--platform','linux/'+arch,row['pinned']],timeout=180)
+            acquire_image(engine,row)
         admitted[row['repository'].split('/')[-1]]=checked_image(engine,row,arch)
     need(set(admitted)==set(ROLE_IMAGES.values()),'complete_admitted_image_coverage')
-    return {service:admitted[repo] for service,repo in ROLE_IMAGES.items()}
+    return {service:dict(admitted[repo]) for service,repo in ROLE_IMAGES.items()}
 
 
 def require_declared_volume_coverage(plan, images):
