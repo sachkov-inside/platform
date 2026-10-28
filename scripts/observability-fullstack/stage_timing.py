@@ -22,7 +22,7 @@ STAGES=('initial_mode','initial_up','response_contract','seed_database_ready','s
     'seed_statistics_epoch','seed_umami_database','seed_source_bootstrap','seed_source_authority',
     'seed_umami_up','seed_umami_ready','seed_umami','seed_establish','seed_validate_corpus','grafana_permissions',
     'horizon_install','plugin_install','mode_configure','mode_core_up','mode_source_up','mode_core_stop',
-    'mode_database_broker_recreate','mode_database_ready','mode_applications_recreate','mode_api_ready',
+    'mode_database_broker_recreate','mode_database_ready','mode_broker_ready','mode_applications_recreate','mode_api_ready',
     'mode_web_ready','mode_telegram_ready','mode_logto_ready','mode_backend_api_ready','mode_backend_mcp_ready',
     'mode_backend_material-assets-worker_ready','mode_backend_profile-avatars-worker_ready',
     'mode_backend_video-deletions-worker_ready','mode_backend_billing-worker_ready',

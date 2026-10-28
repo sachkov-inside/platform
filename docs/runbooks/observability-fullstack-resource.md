@@ -98,6 +98,21 @@ read-only lookup проверяет project/service/CID для `loadgen`, `teleg
 публикуются; diagnostic failure не подменяет исходную ошибку. Лимиты HTTP 2 s, child 4 s и readiness 90 s
 не меняются, container lookup использует тот же предел 4 s в сумме и не запускает повторную проверку.
 
+Перед запуском приложений после пересоздания PostgreSQL и RabbitMQ fixture отдельно ждёт
+готовности AMQPS listener 5671 через production-проверку
+`rabbitmq-diagnostics -q check_port_listener 5671`. Готовность PostgreSQL не заменяет
+эту зависимость notifications-worker. Пауза или успешный ping процесса не считаются готовностью
+брокера. Предел одного native probe остаётся 5 s, ожидания готовности 60 s; наблюдение и
+подготовка входят в исходный общий срок worker.
+
+При первом terminal refusal native-проверки backend или RabbitMQ перед cleanup сохраняется
+`fullstack-startup-refusal.json`. Обычный и диагностический collector проверяют source SHA,
+закрытую роль, ограниченный native exit code или недоступность/timeout, состояние самого
+контейнера и RabbitMQ, OOM и restart count. Lookup проверяет точное project/service/CID владение,
+но IDs, пути, argv, env, stdout/stderr и текст ошибок не публикуются. Отсутствующее наблюдение
+остаётся `unavailable`; первая запись не заменяется поздней. Ошибка диагностики не подменяет
+исходный отказ, и этот файл не является условием успешной функциональной или ресурсной приёмки.
+
 Два порядка OFF/ON и ON/OFF дают четыре режима по 60 секунд. В каждом режиме: idle 10 секунд,
 steady 40 секунд при 10 запросах/с, spike 10 секунд при 40 запросах/с. Одновременно читаются
 мониторинг и Engine counters. P95 сравнивается отдельно для Web home, Material, API catalog и
@@ -201,7 +216,7 @@ python3 scripts/observability-fullstack/fullstack.py collect \
 
 CI job `Representative whole-process monitoring OFF/ON resource proof` выполняет тот же путь.
 Публикуются только `fullstack-proof.json`, `fullstack-source.json`, `fullstack-timing.json`, 12 ограниченных файлов
-численных samples и общие outcomes/cleanup. Private Compose, env, сертификаты, native Umami key,
+численных samples, закрытый `fullstack-startup-refusal.json` при отказе и общие outcomes/cleanup. Private Compose, env, сертификаты, native Umami key,
 JWT и ответы прикладных API не публикуются. До фактического native PASS профиль подготовлен;
 готовность процесса GitHub Actions сама по себе не означает ресурсную приёмку.
 

@@ -43,6 +43,14 @@ MISSING = ['accepted representative workload', 'Web/workers/broker/Umami/full MC
            'production and seven days']
 
 
+class CommandFailure(RuntimeError):
+    """Finite native outcome only; stdout/stderr and argv never escape into diagnostics."""
+    def __init__(self,code,reason):
+        super().__init__('resource_command_failed')
+        self.exit_code=code
+        self.reason=reason
+
+
 def invoke(compose, args, *, timeout=COMMAND_SECONDS, retain_partial=False, payload=None):
     deadline = time.monotonic() + timeout
     pilot.assert_docker_identity(deadline=deadline)
@@ -63,7 +71,7 @@ def invoke(compose, args, *, timeout=COMMAND_SECONDS, retain_partial=False, payl
             raise ValueError('partial_client_size')
         return result.stdout, result.returncode == 0
     if result.returncode or len(result.stdout.encode()) > 1_048_576:
-        raise RuntimeError('resource_command_failed')
+        raise CommandFailure(result.returncode,'exit_nonzero' if result.returncode else 'output_limit')
     return result.stdout
 
 
