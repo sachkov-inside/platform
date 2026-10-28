@@ -260,7 +260,22 @@
     "/integrations/telegram/v2/communications/authorize",
     "/integrations/telegram/v2/communications/materials",
     "/integrations/telegram/v2/communications/validate-content",
-    "/integrations/telegram/v2/communications/waitlist"
+    "/integrations/telegram/v2/communications/waitlist",
+    "/admin/overview",
+    "/admin/products/:productId/holders",
+    "/admin/products/:productId/overview",
+    "/admin/products/{productId}/holders",
+    "/admin/products/{productId}/overview",
+    "/authoring/people",
+    "/authoring/people/:accountId",
+    "/authoring/people/identities",
+    "/authoring/people/product-choices",
+    "/authoring/people/search",
+    "/authoring/people/{accountId}",
+    "/authoring/product-tasks/submissions/awaiting-feedback-count",
+    "/authoring/search",
+    "/billing/admin/payments/:purchaseRef/order-email",
+    "/billing/admin/payments/{purchaseRef}/order-email"
   ],
   "methods": [
     "GET",

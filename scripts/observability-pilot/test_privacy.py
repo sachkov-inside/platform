@@ -236,21 +236,31 @@ class CollectorPrivacyContract(unittest.TestCase):
             self.assertIn(f'{signal} = [otelcol.processor.filter.catalog.input]', receiver)
 
     def test_route_catalogue_is_explicit_and_includes_registered_templates(self):
-        import re
+        import privacy_config
         policy = json.loads((pilot.CONFIG/'privacy-policy.json').read_text())
         paths = json.loads((pilot.ROOT/'apps/backend/openapi/platform-api.json').read_text())['paths']
-        for route in paths:
-            self.assertIn(route, policy['routes'])
-            self.assertIn(re.sub(r'\{([^}]+)\}', r':\1', route), policy['routes'])
+        expression = privacy_config.pattern(policy['routes'])
+        for registered in paths:
+            for route in {registered, re.sub(r'\{([^}]+)\}', r':\1', registered)}:
+                with self.subTest(route=route):
+                    self.assertEqual(policy['routes'].count(route), 1)
+                    self.assertIsNotNone(re.fullmatch(expression, route))
+                    if route.startswith(('/admin/', '/authoring/', '/billing/')):
+                        self.assertNotIn(route, policy['telegram_runtime']['routes'])
+                    private_path = re.sub(r'\{[^}]+\}|:[^/]+', 'private-person@example.test', route)
+                    if private_path == route:
+                        private_path = route.rsplit('/', 1)[0]+'/private-person@example.test'
+                    for rejected in (route+'suffix', route+'/', route+'/private-person@example.test',
+                                     route+'?token=SECRET', route+'/_OTHER', private_path):
+                        self.assertNotIn(rejected, policy['routes'])
+                        self.assertIsNone(re.fullmatch(expression, rejected))
         self.assertNotIn('/members/private-person@example.test', policy['routes'])
         self.assertNotIn('/mcp?token=SECRET', policy['routes'])
-        import privacy_config
         route = '/authoring/import/materials/publication'
         self.assertIn(route, paths)
         self.assertEqual(policy['routes'].count(route), 1)
         self.assertEqual(re.sub(r'\{([^}]+)\}', r':\1', route), route)
         self.assertNotIn(route, policy['telegram_runtime']['routes'])
-        expression = privacy_config.pattern(policy['routes'])
         self.assertIsNotNone(re.fullmatch(expression, route))
         self.assertIsNone(re.fullmatch(expression, '_OTHER'))
         self.assertIsNotNone(re.fullmatch(expression, 'unmatched'))

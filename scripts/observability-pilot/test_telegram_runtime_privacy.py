@@ -105,6 +105,17 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
         for addition in ('/admin/access/products/issue', '/admin/access/products/list', '/admin/access/products/read', '/admin/access/products/restore', '/authoring/history/material-receipts', '/authoring/history/practice-receipts', '/billing/product-prices', '/billing/product-sales-states', '/integrations/telegram/v1/course-activation/announcement', '/integrations/telegram/v1/course-activation/attempts', '/integrations/telegram/v1/course-activation/binding', '/integrations/telegram/v1/course-activation/evidence', '/integrations/telegram/v1/course-activation/own-access', '/integrations/telegram/v2/communications/authorize', '/integrations/telegram/v2/communications/materials', '/integrations/telegram/v2/communications/validate-content', '/integrations/telegram/v2/communications/waitlist'):
             self.assertEqual(projected_policy['routes'].count(addition), 1)
             projected_policy['routes'].remove(addition)
+        for addition in ('/admin/overview', '/admin/products/:productId/holders',
+                         '/admin/products/:productId/overview', '/admin/products/{productId}/holders',
+                         '/admin/products/{productId}/overview', '/authoring/people',
+                         '/authoring/people/:accountId', '/authoring/people/identities',
+                         '/authoring/people/product-choices', '/authoring/people/search',
+                         '/authoring/people/{accountId}',
+                         '/authoring/product-tasks/submissions/awaiting-feedback-count', '/authoring/search',
+                         '/billing/admin/payments/:purchaseRef/order-email',
+                         '/billing/admin/payments/{purchaseRef}/order-email'):
+            self.assertEqual(projected_policy['routes'].count(addition), 1)
+            projected_policy['routes'].remove(addition)
         retired = ['billing.subscription-renewal', 'billing.subscription-notices', 'tribute.source-reconciliation']
         for name in retired:
             self.assertNotIn(name, projected_policy['queues'])
