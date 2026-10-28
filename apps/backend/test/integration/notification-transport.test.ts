@@ -307,6 +307,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         if (phase.includes("confirm"))
           await stageBillingNotification(scenario.prisma, payload);
         else await publishNotification(producer, envelope);
+        // deterministic-test-allow process-cleanup: onTestFinished awaits watchCrashWorker.kill, which kills this detached group and waits for close.
         const child = fork(
           new URL("./fixtures/notification-crash-worker.ts", import.meta.url),
           [],
