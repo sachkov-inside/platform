@@ -101,7 +101,7 @@
 | Existing CI access | Production access pass [39110967295](https://github.com/sachkov-inside/platform/actions/runs/39110967295), 18.10, success. Это прежний provider run, а не новый полный buyer journey этой сессии. |
 | Passive monitor | [39147122017](https://github.com/sachkov-inside/platform/actions/runs/39147122017), 18.10, success. Его успех не отменяет failures более глубокого verifier. |
 
-Безопасные JSON diagnostics сохранены в `.reports/preorder-readiness-20261018/{platform-v39,platform-diagnostic,telegram-v19}.json` в текущем worktree. Это локальные receipts, не CI и не свежий restore proof. Методы сборщика: [production verifier](../../scripts/production-verify/verify.py), [backlog SQL](../../apps/telegram/src/modules/membership-evidence/membership-reconciliation.ts), [delivery retry](../../apps/telegram/src/modules/membership-evidence/membership-evidence-outbox.ts).
+Безопасные JSON diagnostics сохранены в `.reports/preorder-readiness-20261018/{platform-v39,platform-diagnostic,telegram-v19}.json` в текущем worktree. Это локальные receipts, не CI и не свежий restore proof. Методы сборщика: [production verifier](../../scripts/production-verify/verify.py), [backlog SQL](https://github.com/sachkov-inside/platform/blob/ec962b19cd7c8c4dff3cd8e3c91d23ec7a9cf4d0/apps/telegram/src/modules/membership-evidence/membership-reconciliation.ts), [delivery retry](https://github.com/sachkov-inside/platform/blob/ec962b19cd7c8c4dff3cd8e3c91d23ec7a9cf4d0/apps/telegram/src/modules/membership-evidence/membership-evidence-outbox.ts).
 
 ## Инвентаризация открытых PR
 
