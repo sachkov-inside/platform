@@ -528,11 +528,14 @@ class SdkEntrypointPhaseTest(unittest.TestCase):
                 if failure=='success':
                     self.assertTrue(observed['normal'],'original producer return changed')
                     self.assertTrue(observed['completed_after_cleanup'],'completion preceded original cleanup')
-                    self.assertEqual(value,record('completed','result_ready'))
+                    self.assertEqual(value,{**record('completed','result_ready'),'diagnostics':dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=0,failedMetricExports=0)})
                     self.assertEqual(set(observed['events']),set(phases))
                 else:
                     self.assertTrue(original is not None,'native nonzero outcome missing')
-                    self.assertEqual(value,record('failed',failure.split('+')[0],'operation_failed'))
+                    expected=record('failed',failure.split('+')[0],'operation_failed')
+                    if failure in ('sdk_shutdown','witness_contract','cleanup_sdk','cleanup_provider','cleanup_hooks'):
+                        expected['diagnostics']=dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=0,failedMetricExports=0)
+                    self.assertEqual(value,expected)
 
 CAPTURE_PHASE_FIXTURE=r'''
 import fs from 'node:fs';import {createServer} from 'node:http';import {syncBuiltinESMExports} from 'node:module';
@@ -669,7 +672,7 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                     target.mkdir(mode=0o700)
                 with patch.object(sdk_storage.ci,'collect',side_effect=collect):sdk_storage.collect(output,metadata,destination)
             canonical=(destination/phase.NAME).read_bytes()
-            self.assertEqual(canonical,(json.dumps(expected,sort_keys=True,separators=(',',':'))+'\n').encode())
+            self.assertEqual(canonical,(json.dumps({**expected,'diagnostics':{'available':False}},sort_keys=True,separators=(',',':'))+'\n').encode())
             self.assertLess(len(canonical),len(raw))
             invalid={**expected,'private':'private-corpus-marker'};(output/phase.NAME).write_text(json.dumps(invalid));(output/phase.NAME).chmod(0o600)
             with patch.object(sdk_storage.diagnostics,'read',return_value={}),patch.object(sdk_storage.ci,'collect') as collect:
@@ -697,7 +700,7 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                     self.assertFalse(destination.exists())
                 else:
                     sdk_storage.collect(output,metadata,destination)
-                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),record('unknown','unknown','unavailable'))
+                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),{**record('unknown','unknown','unavailable'),'diagnostics':{'available':False}})
                     self.assertEqual(json.loads((destination/'source.json').read_text()),value)
 
     def test_unobservable_parent_and_disappearing_present_file_are_refused(self):
@@ -711,5 +714,52 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                 path.unlink(missing_ok=True)
                 return value
             with patch.object(phase.os,'read',side_effect=disappear),self.assertRaises(ValueError):phase.read(path,source=SOURCE)
+
+
+class SdkCounterProjectionTest(unittest.TestCase):
+    def test_public_leaf_keeps_nonzero_and_saturated_counters_without_changing_failure(self):
+        for counters in [dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=2,failedMetricExports=7),
+                         dict(available=True,saturated=True,droppedSpans=1000000,failedTraceExports=2,failedMetricExports=7)]:
+            with self.subTest(counters=counters),tempfile.TemporaryDirectory() as directory:
+                output=Path(directory).resolve()
+                value={**record('failed','sdk_diagnostics','operation_failed'),'diagnostics':counters}
+                phase.write(output/phase.NAME,value,source=SOURCE)
+                self.assertEqual(phase.load_for_collection(output,source=SOURCE),value)
+                self.assertLessEqual((output/phase.NAME).stat().st_size,512)
+
+    def test_optional_invalid_or_absent_counters_are_unavailable_never_zero_or_primary(self):
+        valid=dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=2,failedMetricExports=7)
+        invalid=[None,{},dict(available=False,droppedSpans=0),{**valid,'private':'private-neighbor'},
+                 {**valid,'droppedSpans':.5},{**valid,'failedTraceExports':True},
+                 {**valid,'failedMetricExports':-1},{**valid,'failedMetricExports':1000001},
+                 {**valid,'saturated':True},{**valid,'droppedSpans':'secret'},
+                 {**valid,'failedMetricExports':float('inf')}]
+        for counters in invalid:
+            with self.subTest(counters=type(counters).__name__):
+                projected=phase.validate({**record('failed','sdk_diagnostics','operation_failed'),'diagnostics':counters},source=SOURCE)
+                self.assertEqual(projected['diagnostics'],{'available':False})
+                self.assertEqual(projected['state'],'failed')
+                self.assertEqual(projected['phase'],'sdk_diagnostics')
+                self.assertNotIn('private',json.dumps(projected))
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve()
+            self.assertEqual(phase.load_for_collection(output,source=SOURCE)['diagnostics'],{'available':False})
+            phase.write(output/phase.NAME,record('failed','sdk_diagnostics','operation_failed'),source=SOURCE)
+            legacy=phase.load_for_collection(output,source=SOURCE)
+            self.assertEqual(legacy['diagnostics'],{'available':False})
+            self.assertEqual(legacy['state'],'failed')
+
+    def test_malformed_optional_child_leaf_keeps_owned_primary_and_closed_projection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve();primary=RuntimeError('private original')
+            try:
+                with phase.OwnedSdkPhase(output,source=SOURCE) as owned:
+                    owned.path.write_text(json.dumps({**record('failed','sdk_diagnostics','operation_failed'),
+                        'diagnostics':{'available':True,'private':'secret'}}));owned.path.chmod(0o600)
+                    raise primary
+            except RuntimeError as observed:self.assertIs(observed,primary)
+            value=phase.load_for_collection(output,source=SOURCE)
+            self.assertEqual(value['state'],'failed');self.assertEqual(value['diagnostics'],{'available':False})
+
 
 if __name__=='__main__':unittest.main()

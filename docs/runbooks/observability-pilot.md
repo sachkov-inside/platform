@@ -1444,14 +1444,25 @@ collection and write only canonical projections. Invalid present metadata refuse
 
 SDK and tracking additionally prepare separate `sdk-emitter-phase.json` and
 `tracking-producer-phase.json` observations. Each closed record is at most512bytes and contains
-only schema1, fixed scope, captured source SHA, state, phase and reason. The child writes a private
+schema1, fixed scope, captured source SHA, state, phase and reason. The child writes a private
 atomic marker through an owned directory descriptor; the parent reads it only after the unchanged
 capture owner has reaped the child. These source-specific owners never inspect error text, args,
 properties or stack traces. `emit` and `produce` keep their default null observer and unchanged
 capture APIs. The first observed operation or cleanup failure is retained even if later original
 cleanup replaces the thrown exception. `completed` is written only after all original cleanup;
 a later stdout/IPC failure can therefore coexist with a completed marker. Missing markers remain
-unknown, abrupt exit may retain running, and malformed present markers refuse collection.
+unknown, abrupt exit may retain running, and malformed present phase contracts refuse collection.
+
+The SDK marker can additionally carry a diagnostic snapshot taken once immediately before the
+unchanged zero-counter assertion. Its optional `diagnostics` leaf contains only `available: true`,
+`saturated` and the integer counters `droppedSpans`, `failedTraceExports`, `failedMetricExports`.
+Counters are nonnegative, capped at1000000, and marked saturated when clamped. Extra keys,
+accessors, missing values, nonfinite numbers and fractional counters are unavailable; they never
+become fabricated zeros. Public collection projects missing or invalid optional counters to
+`{"available":false}` while retaining the owning phase/state and source. The original
+zero-counter assertion, sampling, flush/shutdown, network and storage-query budgets remain unchanged.
+A nonzero snapshot still fails the producer. The snapshot contains no error text, endpoint,
+DSN, credential, URL or runtime payload and cannot establish the cause of an export failure.
 
 Collection now intentionally tightens the internal evidence contract: both SDK and tracking require
 the complete bounded11-key `source.json` receipt before creating a public destination, even for
