@@ -218,8 +218,8 @@ export function createStandRuntime({
           ]),
         ),
       );
-    // An upgrade keeps infrastructure labels, so Compose replaces only services whose
-    // configuration or image changed; application roles always take the new generation.
+    // An upgrade keeps infrastructure labels, so they do not force Compose to replace a service;
+    // application roles always take the new generation.
     const retained = (/** @type {string} */ service) =>
       standApplicationServices.includes(service)
         ? undefined
