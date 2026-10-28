@@ -3,8 +3,8 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { BackendProcess } from "../config/platform-config.js";
 import { platformMigrations } from "../migrations/index.js";
 import {
-  expectedPgBossSchemaVersion,
-  runtimeDatabaseSchemaIdentity,
+  runtimeSchemaReadiness,
+  type RuntimeSchemaReadiness,
 } from "../migrations/runtime-schema.js";
 import { RUNTIME_IDENTITY, type RuntimeIdentity } from "./runtime-identity.js";
 import {
@@ -13,11 +13,12 @@ import {
   type PlatformPrisma,
 } from "./prisma/index.js";
 import {
-  type MigrationVerification,
   assertAppliedMigrations,
   parseAppliedMigrations,
   parsePgBossSchemaVersionRows,
 } from "./postgres/migrate-to-latest.js";
+
+export { runtimeSchemaReadiness } from "../migrations/runtime-schema.js";
 
 export type RuntimeProcess = BackendProcess;
 
@@ -32,33 +33,7 @@ export interface ReadinessReport {
   readonly status: "ready";
   readonly database: "reachable";
   readonly release: RuntimeIdentity;
-  readonly schema: {
-    readonly identity: string;
-    readonly migrationCount: number;
-  };
-}
-
-export function runtimeSchemaReadiness(
-  migrationState: MigrationVerification,
-): ReadinessReport["schema"] {
-  if (migrationState.appliedMigrations.length !== platformMigrations.length) {
-    throw new Error(
-      `Expected ${String(platformMigrations.length)} Platform migrations, received ${String(migrationState.appliedMigrations.length)}`,
-    );
-  }
-  const { jobSchemaVersion } = migrationState;
-  if (jobSchemaVersion !== expectedPgBossSchemaVersion) {
-    throw new Error(
-      `Expected PgBoss schema ${String(expectedPgBossSchemaVersion)}, received ${String(jobSchemaVersion)}`,
-    );
-  }
-  return {
-    identity: runtimeDatabaseSchemaIdentity(
-      platformMigrations,
-      jobSchemaVersion,
-    ),
-    migrationCount: platformMigrations.length,
-  };
+  readonly schema: RuntimeSchemaReadiness;
 }
 
 @Injectable()
