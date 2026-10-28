@@ -68,6 +68,8 @@ export async function launchLocalStand({
     "compose.yaml",
     "--file",
     "config/compose/local/learner-setup.compose.yaml",
+    "--file",
+    "config/compose/local/stand-kinescope.compose.yaml",
   ];
   const composeFiles = [
     ...learnerComposeFiles,

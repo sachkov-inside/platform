@@ -1,0 +1,12 @@
+# The shared stand plays real Kinescope video only after `pnpm stand:kinescope import` writes the
+# private file; without it every role keeps the deterministic test adapter. video-deletions-worker
+# never receives the file, so the stand cannot delete or modify provider videos.
+services:
+  api:
+    env_file:
+      - path: ./.identity-proof/stand-kinescope.env
+        required: false
+  mcp:
+    env_file:
+      - path: ./.identity-proof/stand-kinescope.env
+        required: false

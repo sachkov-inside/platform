@@ -62,6 +62,8 @@ export function createStandRuntime({
     join(sourceRoot, "compose.yaml"),
     "--file",
     join(sourceRoot, "config/compose/local/learner-setup.compose.yaml"),
+    "--file",
+    join(sourceRoot, "config/compose/local/stand-kinescope.compose.yaml"),
     "--profile",
     "identity",
     "--profile",

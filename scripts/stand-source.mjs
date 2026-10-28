@@ -4,6 +4,9 @@ import { createHash } from "node:crypto";
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+// The private stand file that selects the real Kinescope adapter (docs/runbooks/local-stand-kinescope.md).
+export const standKinescopeFile = ".identity-proof/stand-kinescope.env";
+
 export const liveWebDirectories = [
   "apps/web/app",
   "apps/web/src",
@@ -112,17 +115,29 @@ export async function readStandSource(
   );
   const hashEntries = (/** @type {typeof entries} */ subset) =>
     digest(JSON.stringify([settings, subset]));
+  const shared = dirname(
+    resolve(root, git(["rev-parse", "--git-common-dir"]).trim()),
+  );
+  // Application roles read the private Kinescope file at creation; changing it needs a refresh only.
+  const kinescope = digest(
+    (await optionalFile(join(shared, standKinescopeFile))) ?? "test-adapter",
+  );
   return {
     root,
     head: git(["rev-parse", "HEAD"]).trim(),
-    fingerprint: hashEntries(entries),
-    build: hashEntries(
-      entries.filter(
-        ({ path }) =>
-          !liveWebDirectories.some((directory) =>
-            path.startsWith(`${directory}/`),
+    fingerprint: digest(JSON.stringify([hashEntries(entries), kinescope])),
+    build: digest(
+      JSON.stringify([
+        hashEntries(
+          entries.filter(
+            ({ path }) =>
+              !liveWebDirectories.some((directory) =>
+                path.startsWith(`${directory}/`),
+              ),
           ),
-      ),
+        ),
+        kinescope,
+      ]),
     ),
     schema: digest(
       JSON.stringify(
@@ -150,12 +165,8 @@ export async function readStandSource(
       ),
     ),
     identity: digest(
-      (await optionalFile(
-        join(
-          dirname(resolve(root, git(["rev-parse", "--git-common-dir"]).trim())),
-          ".identity-proof/stand.env",
-        ),
-      )) ?? "unconfigured",
+      (await optionalFile(join(shared, ".identity-proof/stand.env"))) ??
+        "unconfigured",
     ),
   };
 }
