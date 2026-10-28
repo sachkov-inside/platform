@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { constants, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { z } from "zod";
@@ -26,6 +26,9 @@ await controlStand({command:'show',worktree:'/fixture/a'}, {
   inspect: async () => ({daemon:'fixture',containers:[]}),
   prepare: async ({generation}) => {
     await writeFile(directory+'/runtime.json', JSON.stringify({generation}));
+    // A pending promise holds no event-loop handle. Without this referenced timer Node exits
+    // with status 13 (unsettled top-level await) and races the parent's SIGKILL.
+    setInterval(() => {}, 2 ** 31 - 1);
     process.stdout.write(JSON.stringify({pid:process.pid})+'\\n');
     await new Promise(() => {});
   },
@@ -61,7 +64,8 @@ await controlStand({command:'show',worktree:'/fixture/a'}, {
     .positive()
     .parse(await started);
   process.kill(pid, "SIGKILL");
-  assert.notEqual(await commandExit(child), 0);
+  // owned-process.py reports a signal death as 128 + signal: a self-exit (status 13) fails here.
+  assert.equal(await commandExit(child), 128 + constants.signals.SIGKILL);
   await stopOwned(child);
   const runtime = z
     .object({ generation: z.uuid() })
