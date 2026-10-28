@@ -23,6 +23,7 @@ import {
   name as accountsMigrationName,
   statement as accountsMigrationStatement,
 } from "../../src/modules/accounts/infrastructure/postgres/migrations/0004_accounts.js";
+import { frozenRegistry } from "../support/observability-migration-fixtures.js";
 import {
   migrateBefore,
   migrateThrough,
@@ -321,6 +322,11 @@ describe("Platform migrations", () => {
   });
 
   test("upgrades the exact current-main prefix with only the unpublished monitoring tail and preserves rollback identity", async () => {
+    const mainRegistry = frozenRegistry("main115");
+    expect(mainRegistry).toHaveLength(115);
+    expect(platformMigrations.slice(0, mainRegistry.length)).toEqual(
+      mainRegistry,
+    );
     const database = await createTestDatabase();
     const ledgerSchema = z.array(
       z.strictObject({
@@ -336,10 +342,12 @@ describe("Platform migrations", () => {
         ),
       );
     try {
-      await migrateThrough(database, "0113_historical_authoring_contract");
+      await runMigrationsToLatest(database.url, mainRegistry);
       const prefix = await read();
-      expect(prefix).toHaveLength(114);
-      expect(prefix.at(-1)?.name).toBe("0113_historical_authoring_contract");
+      expect(prefix).toHaveLength(115);
+      expect(prefix.at(-1)?.name).toBe(
+        "0114_billing_contact_email_fingerprint",
+      );
       expect(await upgradeToLatest(database)).toEqual([
         "0114_funnel_diagnostic_candidates",
         "0115_billing_funnel_diagnostic_sources",
@@ -357,10 +365,10 @@ describe("Platform migrations", () => {
         "0127_queue_work_observation",
       ]);
       const complete = await read();
-      expect(complete).toHaveLength(128);
-      expect(complete.slice(0, 114)).toEqual(prefix);
+      expect(complete).toHaveLength(129);
+      expect(complete.slice(0, mainRegistry.length)).toEqual(prefix);
       await expect(
-        runMigrationsToLatest(database.url, platformMigrations.slice(0, 114)),
+        runMigrationsToLatest(database.url, mainRegistry),
       ).rejects.toThrow("Migration ledger is not an exact registry prefix");
       expect(await read()).toEqual(complete);
       await expect(migrateToLatest(database.url)).resolves.toEqual({
