@@ -12,6 +12,7 @@ import { reviewOrigin } from "./local-sync.mjs";
 import { tusChunkBytes, tusRetryDelaysMs, uploadVideo } from "./video.mjs";
 import {
   sourceVideoReceiptSchema,
+  uploadReceiptKey,
   uploadReceiptSchema,
 } from "./local-boundaries.mjs";
 import { readJournalFile, resourcesOf } from "./test-support.mjs";
@@ -751,3 +752,111 @@ test(
       });
   },
 );
+
+const stand = "http://127.0.0.1:4398";
+const earlierVideoId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+/**
+ * Stores a ready upload of the fixture's file, as an earlier run left it.
+ *
+ * @param {{ state: string; sha256: string; read: () => ReturnType<typeof readJournalFile> }} setup
+ * @param {string} uploadEndpoint
+ */
+async function earlierUpload(setup, uploadEndpoint) {
+  const journal = await setup.read();
+  const resources = (journal.resources ??= {});
+  resources[uploadReceiptKey(materialId, setup.sha256)] = {
+    sourceId,
+    idempotencyKey: "video-upload:earlier",
+    byteSize: 15,
+    filename: "final.mp4",
+    title: "Финальная запись",
+    access: "closed",
+    phase: "ready",
+    videoId: earlierVideoId,
+    providerVideoId: "earlier-provider",
+    uploadEndpoint,
+    durationSeconds: 600,
+  };
+  resources[`source-video:${sourceId}`] = {
+    videoId: earlierVideoId,
+    providerVideoId: "earlier-provider",
+    sha256: setup.sha256,
+  };
+  await writeFile(join(setup.state, "journal.json"), canonical(journal));
+  return structuredClone(resources);
+}
+
+test(
+  "--replace-test-upload uploads again a file the test adapter took on a local target",
+  transferTest,
+  async (t) => {
+    const setup = await fixture(t, { target: stand });
+    await earlierUpload(setup, "https://uploads.invalid/earlier-provider");
+    const tus = await tusServer(t, { length: 15 });
+    const api = providerApi({ endpoint: tus.endpoint });
+    const options = { origin: "stand", fetcher: tus.fetcher };
+    // Without the flag the earlier test receipt answers, and nothing is sent.
+    assert.equal(
+      (await upload(setup, api, options)).providerVideoId,
+      "earlier-provider",
+    );
+    const result = await upload(setup, api, {
+      ...options,
+      replaceTestUpload: true,
+    });
+    assert.equal(result.videoId, videoId);
+    assert.equal(result.providerVideoId, "provider-one");
+    assert.ok(tus.received().equals(setup.bytes));
+    const resources = resourcesOf(await setup.read());
+    const receipt = uploadReceiptSchema.parse(
+      resources[uploadReceiptKey(materialId, setup.sha256)],
+    );
+    assert.notEqual(receipt.idempotencyKey, "video-upload:earlier");
+    assert.equal(
+      sourceVideoReceiptSchema.parse(resources[`source-video:${sourceId}`])
+        .videoId,
+      videoId,
+    );
+    // The new upload is real, so repeating the flag leaves it alone.
+    await assert.rejects(
+      upload(setup, api, { ...options, replaceTestUpload: true }),
+      /not a test-adapter upload/u,
+    );
+  },
+);
+
+test("--replace-test-upload refuses an upload that reached the real provider and changes nothing", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  const before = await earlierUpload(
+    setup,
+    "https://uploader.kinescope.io/files/earlier-provider",
+  );
+  const api = providerApi();
+  await assert.rejects(
+    upload(setup, api, { origin: "stand", replaceTestUpload: true }),
+    /not a test-adapter upload/u,
+  );
+  assert.deepEqual(resourcesOf(await setup.read()), before);
+  assert.equal(
+    api.calls.some((call) => call.path.endsWith("/uploads")),
+    false,
+  );
+});
+
+test("--replace-test-upload is refused on a trusted target before any request", async (t) => {
+  const setup = await fixture(t, { target: production });
+  const before = await setup.raw();
+  const api = providerApi({ mode: "production" });
+  await assert.rejects(
+    upload(setup, api, {
+      origin: "production",
+      accessToken: ownerToken,
+      sha256: setup.sha256,
+      replaceTestUpload: true,
+    }),
+    /--replace-test-upload is only for local targets/u,
+  );
+  assert.deepEqual(api.calls, []);
+  assert.equal(await setup.raw(), before);
+});

@@ -81,6 +81,13 @@ pnpm authoring:video upload --target production --state ~/.inside-authoring/prod
   idempotency key; inspect the attempt, the command never creates a new key for it. Only a failed
   provider video lets the same file start a new attempt.
 
+On a local stand that now runs the real Kinescope adapter, a file uploaded earlier through the test
+adapter still has a `ready` receipt whose endpoint ends in `.invalid`, so a rerun returns the fake
+provider ID. `--replace-test-upload` discards that receipt, and the `source-video:SOURCE_ID` receipt
+when it names the same `videoId`, then uploads the file as new with a fresh idempotency key. It is
+refused on trusted targets before any request. When the stored receipt for this file is not a
+test-adapter upload, it refuses and changes nothing; without a stored receipt it changes nothing.
+
 `authoring:release preview` lists every such upload in `videoUploads` (`sourceId`, `state`
 `pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches
 only a `ready` upload; a pending one leaves the Material's Video unchanged. The Material keeps its

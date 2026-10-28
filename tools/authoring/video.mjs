@@ -11,6 +11,7 @@ import { withJournal } from "./journal.mjs";
 import {
   parseLocalResponse,
   parseReceipt,
+  sourceVideoReceiptSchema,
   uploadReceiptKey,
   uploadReceiptSchema,
 } from "./local-boundaries.mjs";
@@ -320,6 +321,7 @@ async function tusTransfer({
  * @param {(milliseconds: number) => Promise<unknown>} [options.sleep]
  * @param {number} [options.attempts]
  * @param {(sent: number, total: number) => void} [options.onProgress]
+ * @param {boolean} [options.replaceTestUpload] a local target uploads again a file the test adapter took
  */
 export async function uploadVideo({
   stateDirectory,
@@ -334,8 +336,13 @@ export async function uploadVideo({
   sleep = delay,
   attempts = 40,
   onProgress,
+  replaceTestUpload = false,
 }) {
   const target = authoringTarget(origin);
+  if (replaceTestUpload && target.kind === "trusted")
+    throw new Error(
+      `--replace-test-upload is only for local targets; ${target.name} never took a test-adapter upload`,
+    );
   if (expected === undefined && target.kind === "trusted")
     throw new Error(
       `Upload to ${target.name} needs --sha256 with the checksum of the accepted file`,
@@ -371,6 +378,24 @@ export async function uploadVideo({
         );
       const receiptKey = uploadReceiptKey(material.materialId, sha256);
       let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
+      if (replaceTestUpload && receipt !== undefined) {
+        // Only the test adapter's attempt is discarded; a real provider record is never orphaned.
+        if (
+          !("uploadEndpoint" in receipt) ||
+          !new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
+        )
+          throw new Error(
+            `The stored upload of ${sourceId} for this file is not a test-adapter upload; nothing was replaced`,
+          );
+        const attached = `source-video:${sourceId}`;
+        if (
+          parseReceipt(sourceVideoReceiptSchema, resources[attached])
+            ?.videoId === receipt.videoId
+        )
+          delete resources[attached];
+        delete resources[receiptKey];
+        receipt = undefined;
+      }
       // A failed provider outcome is known, so the same file may start a fresh attempt.
       if (receipt?.phase === "failed") receipt = undefined;
       if (receipt === undefined) {
@@ -476,7 +501,7 @@ export async function uploadVideo({
 }
 
 const usage =
-  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE]\n       --sha256 is required for production; the same command continues an interrupted upload";
+  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took";
 
 if (
   process.argv[1] &&
@@ -490,6 +515,7 @@ if (
       file: { type: "string" },
       title: { type: "string" },
       sha256: { type: "string" },
+      "replace-test-upload": { type: "boolean", default: false },
       target: { type: "string", default: "editor" },
     },
   });
@@ -510,6 +536,7 @@ if (
     file: values.file,
     title: values.title,
     sha256: values.sha256,
+    replaceTestUpload: values["replace-test-upload"],
     origin: target.id,
     accessToken:
       target.kind === "trusted"
