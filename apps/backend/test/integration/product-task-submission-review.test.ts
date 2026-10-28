@@ -147,10 +147,11 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     readonly productId: string;
     readonly chapterId: string;
     readonly title: string;
+    readonly code?: string;
     readonly position?: number;
     readonly publicationState?: "published" | "unpublished";
   }) {
-    const code = `review-${randomUUID().slice(0, 8)}`;
+    const code = input.code ?? `review-${randomUUID().slice(0, 8)}`;
     const body = {
       sourceId: `inside-content:${code}`,
       code,
@@ -943,6 +944,89 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       ok: false,
       error: { code: "invalid_request_shape" },
     });
+  });
+
+  test("submission cursors bind Product, chapter and task scope, including the longest task code (#1726)", async () => {
+    const task = await imported({
+      productId,
+      chapterId: firstChapter,
+      code: "scope-" + "a".repeat(114),
+      title: "Область курсора",
+    });
+    const subject = await learner();
+    const first = await submitted(subject, task.code, "Первая сдача.");
+    const second = await submitted(subject, task.code, "Вторая сдача.");
+    const selected = {
+      productId,
+      chapterId: firstChapter,
+      taskCode: task.code,
+    };
+    for (const scope of [
+      { ...selected, productId: undefined, chapterId: undefined },
+      { ...selected, chapterId: undefined },
+      selected,
+      { ...selected, feedback: "awaiting" as const },
+    ]) {
+      const page = await review().list(owner, { ...scope, limit: 1 });
+      if (!page.ok) throw new Error(page.error.code);
+      expect(page.value.submissions.map((row) => row.submissionId)).toEqual([
+        second,
+      ]);
+      expect(page.value.nextCursor).not.toBeNull();
+      const continuation = {
+        ...scope,
+        cursor: page.value.nextCursor,
+        limit: 1,
+      };
+      const next = await review().list(owner, continuation);
+      const canonical = await review().list(owner, {
+        ...continuation,
+        productId: scope.productId?.toUpperCase(),
+        chapterId: scope.chapterId?.toUpperCase(),
+      });
+      expect(
+        canonical.ok &&
+          canonical.value.submissions.map((row) => row.submissionId),
+      ).toEqual([first]);
+      expect(
+        next.ok && next.value.submissions.map((row) => row.submissionId),
+      ).toEqual([first]);
+      for (const changed of [
+        { productId: otherProductId },
+        { productId: undefined },
+        { chapterId: secondChapter },
+        { chapterId: undefined },
+        { taskCode: "another-task" },
+        { taskCode: undefined },
+      ]) {
+        const query = { ...continuation, ...changed };
+        if (
+          query.productId === scope.productId &&
+          query.chapterId === scope.chapterId &&
+          query.taskCode === scope.taskCode
+        )
+          continue;
+        expect(await review().list(owner, query)).toEqual({
+          ok: false,
+          error: { code: "invalid_request_shape" },
+        });
+      }
+    }
+    // An unscoped cursor cannot silently acquire a scope on its next request.
+    const all = await review().list(owner, { limit: 1 });
+    if (!all.ok) throw new Error(all.error.code);
+    expect(all.value.nextCursor).not.toBeNull();
+    for (const added of [
+      { productId },
+      { chapterId: firstChapter },
+      { taskCode: task.code },
+    ])
+      expect(
+        await review().list(owner, { ...added, cursor: all.value.nextCursor }),
+      ).toEqual({
+        ok: false,
+        error: { code: "invalid_request_shape" },
+      });
   });
 
   test("the author writes and changes a comment and the reviewed mark with its time; the learner reads them", async () => {
