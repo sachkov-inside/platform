@@ -1,0 +1,3 @@
+{
+  "prepare": [["pnpm", "install", "--frozen-lockfile"]]
+}
