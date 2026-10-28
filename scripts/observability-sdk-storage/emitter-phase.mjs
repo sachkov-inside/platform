@@ -32,7 +32,52 @@ const phases = [
   "cleanup_provider",
   "cleanup_hooks",
 ];
-/** @typedef {{enter(phase:string):void,failed():void,completed():void}} SdkEmitterPhase */
+/** @typedef {{available:false}|{available:true,saturated:boolean,droppedSpans:number,failedTraceExports:number,failedMetricExports:number}} SdkCounters */
+/** @typedef {{enter(phase:string):void,diagnostics(value:unknown):void,failed():void,completed():void}} SdkEmitterPhase */
+const counterLimit = 1_000_000;
+/** @param {unknown} value @returns {SdkCounters} */
+function counterSnapshot(value) {
+  try {
+    const fields = [
+      "droppedSpans",
+      "failedTraceExports",
+      "failedMetricExports",
+    ];
+    if (typeof value !== "object" || value === null)
+      return { available: false };
+    const keys = Reflect.ownKeys(value);
+    if (
+      keys.length !== fields.length ||
+      !keys.every((key) => typeof key === "string" && fields.includes(key))
+    )
+      return { available: false };
+    /** @param {string} key @returns {unknown} */
+    const read = (key) => Object.getOwnPropertyDescriptor(value, key)?.value;
+    /** @param {unknown} item @returns {item is number} */
+    const valid = (item) =>
+      typeof item === "number" && Number.isSafeInteger(item) && item >= 0;
+    const droppedSpans = read("droppedSpans");
+    const failedTraceExports = read("failedTraceExports");
+    const failedMetricExports = read("failedMetricExports");
+    if (
+      !valid(droppedSpans) ||
+      !valid(failedTraceExports) ||
+      !valid(failedMetricExports)
+    )
+      return { available: false };
+    return {
+      available: true,
+      saturated: [droppedSpans, failedTraceExports, failedMetricExports].some(
+        (item) => item > counterLimit,
+      ),
+      droppedSpans: Math.min(droppedSpans, counterLimit),
+      failedTraceExports: Math.min(failedTraceExports, counterLimit),
+      failedMetricExports: Math.min(failedMetricExports, counterLimit),
+    };
+  } catch {
+    return { available: false };
+  }
+}
 /** @type {WeakSet<object>} */
 const owned = new WeakSet();
 /** @param {unknown} value @returns {value is SdkEmitterPhase} */
@@ -129,6 +174,7 @@ export function createSdkEmitterPhase(environment) {
     let disabled = false;
     let latched = false;
     let current = "input_validation";
+    /** @type {SdkCounters|undefined} */ let counters;
     function close() {
       if (open) {
         open = false;
@@ -185,6 +231,7 @@ export function createSdkEmitterPhase(environment) {
             scope: "sdk",
             source,
             state,
+            diagnostics: counters,
           }) + "\n";
         if (Buffer.byteLength(raw) > 512) throw new Error();
         fd = openSync(
@@ -271,6 +318,12 @@ export function createSdkEmitterPhase(environment) {
       }
     }
     const observer = Object.freeze({
+      /** @param {unknown} value */
+      diagnostics(value) {
+        if (latched || disabled || current !== "sdk_diagnostics") return;
+        counters = counterSnapshot(value);
+        commit("running");
+      },
       /** @param {string} phase */
       enter(phase) {
         if (latched || disabled) return;

@@ -1329,3 +1329,304 @@ test("SDK failed pin fixture rescues its skipped close and preserves the retired
     );
   }
 });
+
+/** @param {(phase:import('./emitter-phase.mjs').SdkEmitterPhase,directory:string)=>Promise<void>} exercise */
+async function sdkCounterObserver(exercise) {
+  const fs = await import("node:fs");
+  const { syncBuiltinESMExports } = await import("node:module");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { mock } = await import("node:test");
+  const original = { ...fs.default };
+  const directory = original.realpathSync(
+    original.mkdtempSync(join(tmpdir(), "inside-sdk-counter-")),
+  );
+  /** @type {PinFixtureDescriptor[]} */ const handles = [];
+  /** @type {Map<number,PinFixtureDescriptor>} */ const active = new Map();
+  const patches = [];
+  let primary = false;
+  try {
+    const paths = pinFixturePaths(
+      original,
+      directory,
+      process.platform !== "linux",
+    );
+    for (const name of /** @type {const} */ ([
+      "realpathSync",
+      "statSync",
+      "lstatSync",
+      "unlinkSync",
+    ])) {
+      patches.push(
+        mock.method(fs.default, name, (/** @type {unknown[]} */ ...args) => {
+          /** @type {unknown} */ const result = Reflect.apply(
+            Reflect.get(original, name),
+            fs.default,
+            [
+              typeof args[0] === "string" ? paths.io(args[0]) : args[0],
+              ...args.slice(1),
+            ],
+          );
+          return result;
+        }),
+      );
+    }
+    patches.push(
+      mock.method(
+        fs.default,
+        "openSync",
+        (
+          /** @type {import('node:fs').PathLike} */ path,
+          /** @type {number|string} */ flags,
+          /** @type {import('node:fs').Mode|undefined} */ mode,
+        ) => {
+          const kind = paths.classify(path, flags);
+          if (kind === undefined)
+            return original.openSync(paths.io(path), flags, mode);
+          const entry = openPinFixtureDescriptor(
+            original,
+            paths.io(path),
+            flags,
+            mode,
+          );
+          handles.push(entry);
+          active.set(entry.fd, entry);
+          if (kind === "parent") paths.parent(entry);
+          return entry.fd;
+        },
+      ),
+    );
+    patches.push(
+      mock.method(fs.default, "closeSync", (/** @type {number} */ fd) => {
+        const entry = active.get(fd);
+        if (entry !== undefined) {
+          entry.active = false;
+          active.delete(fd);
+        }
+        original.closeSync(fd);
+      }),
+    );
+    patches.push(
+      mock.method(
+        fs.default,
+        "renameSync",
+        (
+          /** @type {import('node:fs').PathLike} */ from,
+          /** @type {import('node:fs').PathLike} */ to,
+        ) => original.renameSync(paths.io(from), paths.io(to)),
+      ),
+    );
+    syncBuiltinESMExports();
+    const { createSdkEmitterPhase } = await import("./emitter-phase.mjs");
+    const phase = createSdkEmitterPhase({
+      INSIDE_SDK_EMITTER_PHASE_PATH: directory + "/phase.json",
+      INSIDE_SDK_EMITTER_PHASE_SOURCE: "a".repeat(40),
+    });
+    assert.ok(phase !== null, "controlled owned observer unavailable");
+    await exercise(phase, directory);
+    assert.ok(
+      handles.every((entry) => !entry.active),
+      "observer left an owned acquisition live",
+    );
+  } catch (error) {
+    primary = true;
+    throw error;
+  } finally {
+    finishPinFixture(
+      original,
+      patches,
+      syncBuiltinESMExports,
+      directory,
+      handles,
+      [],
+      primary,
+    );
+  }
+}
+
+// deterministic-test-allow unit-io: actual emitter with controlled SDK/S3 module boundaries and an owned loopback provider, then the actual Python public collector; no native SDK, Docker or external collector.
+test("SDK counter snapshot survives the actual failed emitter and public collector", async () => {
+  const { registerHooks } = await import("node:module");
+  const { spawnSync } = await import("node:child_process");
+  const runtime = new URL(
+    "../../apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js",
+    import.meta.url,
+  ).href;
+  const storage = new URL(
+    "../../apps/backend/dist/infrastructure/object-storage/s3-object-storage.js",
+    import.meta.url,
+  ).href;
+  const snapshot = {
+    droppedSpans: 0,
+    failedTraceExports: 2,
+    failedMetricExports: 7,
+  };
+  const state = { snapshot, calls: 0, flushes: 0, shutdowns: 0 };
+  Reflect.set(globalThis, "__sdkCounterTest", state);
+  const modules = new Map([
+    [
+      runtime,
+      `export function technicalTelemetryFromEnvironment() {
+      const state = globalThis.__sdkCounterTest;
+      return { startHttp() { return { run(fn) { return fn(); }, finish() {} }; },
+        correlation() { return {}; }, async flush() { state.flushes++; },
+        diagnostics() { state.calls++; return state.snapshot; }, async shutdown() { state.shutdowns++; } };
+    }`,
+    ],
+    [
+      storage,
+      `export function createS3ObjectStorage(config) { return { async read(bucket,key) {
+      const response = await fetch(config.endpoint + '/' + config.buckets[bucket] + '/' + key,
+        {headers:{authorization:'private-access-key'}});
+      return {body:new Uint8Array(await response.arrayBuffer()), checksumSha256:response.headers.get('x-amz-meta-sha256'),
+        contentLength:Number(response.headers.get('content-length')), contentType:response.headers.get('content-type')};
+    } }; }`,
+    ],
+  ]);
+  const hook = registerHooks({
+    resolve(specifier, context, next) {
+      const source = modules.get(specifier);
+      return source === undefined
+        ? next(specifier, context)
+        : {
+            url: "data:text/javascript," + encodeURIComponent(source),
+            shortCircuit: true,
+          };
+    },
+  });
+  try {
+    await sdkCounterObserver(async (phase, directory) => {
+      await assert.rejects(
+        emit("http://127.0.0.1:1", "a".repeat(40), phase),
+        (error) => error instanceof assert.AssertionError,
+      );
+      assert.equal(
+        state.calls,
+        1,
+        "SDK diagnostics was sampled more than once",
+      );
+      assert.equal(state.flushes, 1);
+      assert.equal(state.shutdowns, 1);
+      phase.enter("cleanup_hooks");
+      phase.completed();
+      const result = spawnSync(
+        "python3",
+        [
+          "-B",
+          "-c",
+          `
+import json,sys
+from pathlib import Path
+sys.path.insert(0,'scripts/observability-sdk-storage')
+import sdk_storage,emitter_phase
+root=Path(sys.argv[1]);output=root/'output';metadata=root/'metadata';public=root/'public'
+output.mkdir(mode=0o700);metadata.mkdir(mode=0o700)
+primary=RuntimeError('synthetic primary remains private')
+try:
+ with emitter_phase.OwnedSdkPhase(output,source='a'*40) as owned:
+  owned.path.write_bytes((root/'phase.json').read_bytes());owned.path.chmod(0o600)
+  raise primary
+except RuntimeError as observed:
+ assert observed is primary
+source=dict(checkout_sha='a'*40,checkout_tree='b'*40,repository=None,run_id=None,run_attempt=None,event=None,
+ provider_execution_sha='a'*40,provider_pr_head_sha=None,provider_pr_base_sha=None,inputs={},scope='fixture')
+(metadata/'source.json').write_text(json.dumps(source));(metadata/'source.json').chmod(0o600)
+sdk_storage.collect(output,metadata,public)
+print((public/emitter_phase.NAME).read_text())
+`,
+          directory,
+        ],
+        { encoding: "utf8", timeout: 10000 },
+      );
+      assert.equal(result.status, 0, "closed public collection failed");
+      /** @type {unknown} */ const value = JSON.parse(result.stdout);
+      assert.ok(typeof value === "object" && value !== null);
+      assert.equal(Reflect.get(value, "state"), "failed");
+      assert.equal(Reflect.get(value, "phase"), "sdk_diagnostics");
+      assert.deepEqual(Reflect.get(value, "diagnostics"), {
+        available: true,
+        saturated: false,
+        ...snapshot,
+      });
+    });
+  } finally {
+    hook.deregister();
+    Reflect.deleteProperty(globalThis, "__sdkCounterTest");
+  }
+});
+
+// deterministic-test-allow unit-io: closed counter projection through real owned markers with the existing Mac-only FD fixture seam; no SDK/provider runtime.
+test("SDK counter diagnostics are bounded, private-free and sticky after failure", async () => {
+  const { readFileSync } = await import("node:fs");
+  const snapshot = {
+    droppedSpans: Number.MAX_SAFE_INTEGER,
+    failedTraceExports: 2,
+    failedMetricExports: 7,
+  };
+  await sdkCounterObserver(async (phase, directory) => {
+    phase.enter("sdk_diagnostics");
+    phase.diagnostics(snapshot);
+    phase.failed();
+    phase.diagnostics({
+      droppedSpans: 0,
+      failedTraceExports: 0,
+      failedMetricExports: 0,
+    });
+    phase.enter("cleanup_hooks");
+    phase.completed();
+    const raw = readFileSync(directory + "/phase.json", "utf8");
+    /** @type {unknown} */ const value = JSON.parse(raw);
+    assert.ok(typeof value === "object" && value !== null);
+    assert.equal(Reflect.get(value, "state"), "failed");
+    assert.equal(Reflect.get(value, "phase"), "sdk_diagnostics");
+    assert.deepEqual(Reflect.get(value, "diagnostics"), {
+      available: true,
+      saturated: true,
+      droppedSpans: 1_000_000,
+      failedTraceExports: 2,
+      failedMetricExports: 7,
+    });
+    assert.ok(Buffer.byteLength(raw) <= 512);
+  });
+  let getterCalled = false;
+  const getter = {
+    droppedSpans: 0,
+    failedTraceExports: 0,
+    get failedMetricExports() {
+      getterCalled = true;
+      throw new Error("private getter");
+    },
+  };
+  for (const input of [
+    undefined,
+    null,
+    {},
+    { droppedSpans: 0, failedTraceExports: 0 },
+    { droppedSpans: 0, failedTraceExports: 0, failedMetricExports: 0.5 },
+    { droppedSpans: 0, failedTraceExports: -1, failedMetricExports: 0 },
+    { droppedSpans: NaN, failedTraceExports: 0, failedMetricExports: 0 },
+    { droppedSpans: 0, failedTraceExports: Infinity, failedMetricExports: 0 },
+    { droppedSpans: 0, failedTraceExports: 0, failedMetricExports: 1e100 },
+    {
+      droppedSpans: 0,
+      failedTraceExports: 0,
+      failedMetricExports: 0,
+      privatePayload: "private-neighbor".repeat(1000),
+    },
+    getter,
+  ]) {
+    await sdkCounterObserver(async (phase, directory) => {
+      phase.enter("sdk_diagnostics");
+      phase.diagnostics(input);
+      phase.failed();
+      const raw = readFileSync(directory + "/phase.json", "utf8");
+      /** @type {unknown} */ const value = JSON.parse(raw);
+      assert.ok(typeof value === "object" && value !== null);
+      assert.deepEqual(Reflect.get(value, "diagnostics"), { available: false });
+      assert.equal(Reflect.get(value, "state"), "failed");
+      assert.ok(Buffer.byteLength(raw) <= 512);
+      assert.equal(raw.includes("private"), false);
+    });
+  }
+  assert.equal(getterCalled, false);
+});
