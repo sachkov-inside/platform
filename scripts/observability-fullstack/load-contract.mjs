@@ -430,11 +430,38 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       join(directory, "slot-refusal-result.json"),
       JSON.stringify(result),
     );
-    assert.equal(result.scheduled, 400);
-    assert.ok(typeof result.missed === "number" && result.missed > 0);
+    // This deliberately incomplete control may reach the fixed phase deadline before all ticks.
+    assert.ok(
+      typeof result.scheduled === "number" &&
+        Number.isSafeInteger(result.scheduled) &&
+        result.scheduled > 0 &&
+        result.scheduled <= 400,
+    );
+    assert.ok(
+      typeof result.missed === "number" &&
+        Number.isSafeInteger(result.missed) &&
+        result.missed > 0 &&
+        result.missed <= result.scheduled,
+    );
+    assert.ok(
+      typeof result.success === "number" &&
+        Number.isSafeInteger(result.success) &&
+        result.success >= 0 &&
+        result.success <= result.scheduled,
+    );
+    assert.equal(result.success + result.missed, result.scheduled);
     assert.equal(result.completed, false);
     assert.equal(result.unexpected_failures, 0);
-    assert.equal(field(field(result, "slot_refusal"), "state"), "captured");
+    const refusal = field(result, "slot_refusal");
+    assert.equal(field(refusal, "state"), "captured");
+    const slots = field(refusal, "slots");
+    assert.ok(Array.isArray(slots) && slots.length === 8);
+    for (const slot of slots)
+      assert.ok(
+        Array.isArray(slot) &&
+          slot.length === 6 &&
+          slot[1] === (slotControl === "probe" ? 0 : 1),
+      );
     console.log(JSON.stringify({ ok: true, incomplete: true }));
   } else if (queryFailures) {
     assert.equal(result.completed, false);
