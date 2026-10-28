@@ -21,6 +21,10 @@ const diagnosticOrdinal = process.argv[4]?.startsWith("stability-")
   : null;
 /** @type {number[]} */ const actorIndices = [];
 /** @type {number[]} */ const updateIds = [];
+const slotControl = process.argv[5];
+assert.ok(
+  slotControl === undefined || ["probe", "application"].includes(slotControl),
+);
 let queryCycle = 0;
 let heldCount = 0;
 /** @type {()=>void} */ let releaseHeld = () => {};
@@ -96,6 +100,20 @@ function sourceVector(ready = 2) {
 const server = createServer(async (request, response) => {
   const host = String(request.headers["x-fixture-host"]);
   counts[host] = (counts[host] ?? 0) + 1;
+  // deterministic-test-allow duration-wait: bounded loopback response delay isolates real slot occupancy; the external owner retains the original15s deadline.
+  if (
+    (slotControl === "probe" && host === "alloy") ||
+    (slotControl === "application" &&
+      [
+        "site.resource.test",
+        "api.resource.test",
+        "mcp",
+        "telegram",
+        "logto",
+        "umami-ingest",
+      ].includes(host))
+  )
+    await delay(300);
   let body = "";
   for await (const chunk of request) body += String(chunk);
   let status = 200;
@@ -407,7 +425,18 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
   assert.equal(JSON.stringify(timing).includes("synthetic"), false);
   if (enabled) assert.ok(rounds.length > 0);
   else assert.deepEqual(rounds, []);
-  if (queryFailures) {
+  if (slotControl !== undefined) {
+    await writeFile(
+      join(directory, "slot-refusal-result.json"),
+      JSON.stringify(result),
+    );
+    assert.equal(result.scheduled, 400);
+    assert.ok(typeof result.missed === "number" && result.missed > 0);
+    assert.equal(result.completed, false);
+    assert.equal(result.unexpected_failures, 0);
+    assert.equal(field(field(result, "slot_refusal"), "state"), "captured");
+    console.log(JSON.stringify({ ok: true, incomplete: true }));
+  } else if (queryFailures) {
     assert.equal(result.completed, false);
     assert.deepEqual(
       rounds.slice(0, 17).map((row) => {
