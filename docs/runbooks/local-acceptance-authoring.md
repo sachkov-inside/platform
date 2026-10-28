@@ -41,7 +41,7 @@ report. After an error, rerun the same commit: the journal resumes partial appli
 Refresh the browser after a transfer; report links point at the reader origin of the target.
 
 The opt-in `--course-preview` profile validates the current AI Engineering programme
-([its chapter list](local-acceptance-course.md)) before applying the existing local access policy: first-chapter Materials free, other Materials closed.
+(`chapterIds` in `tools/authoring/course-preview.mjs`) before applying the existing local access policy: first-chapter Materials free, other Materials closed.
 It preserves Task access and the original immutable package. Programme-only updates use the shell
 scope described below and do not invoke this access profile.
 
