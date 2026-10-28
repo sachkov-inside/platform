@@ -1,6 +1,6 @@
 # Workshop Tracks and Laboratories application specification
 
-Статус: **отменён** [ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026:
+Статус: **отменён** [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) от 07.10.2026:
 Мастерской не будет, документ — только история. Модуль `workshop`, оценщик и вид доступа удалены
 в [#1063](https://github.com/sachkov-inside/platform/issues/1063). Раньше, 16.09.2026, владелец снял Мастерскую и первый Kafka Track с плана и
 удалил их задачи. Документ сохраняется как историческая запись repository-local contract. Он

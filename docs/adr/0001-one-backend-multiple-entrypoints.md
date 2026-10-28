@@ -16,5 +16,7 @@ that job needs. The repository does not keep a generic worker, queue lifecycle o
 as a placeholder. Whether later jobs share a process or use independently deployed workers is an
 operational decision made from real scheduling, scaling and failure-isolation requirements.
 
-`pg-boss` remains the selected PostgreSQL job infrastructure, but its dependency, library-owned
-schema and lifecycle enter the repository together with the first durable job.
+`pg-boss` is the local PostgreSQL job infrastructure and is implemented with durable workers.
+RabbitMQ handles cross-application delivery by [ADR 0021](0021-rabbitmq-notifications-module.md).
+Current process composition belongs to [production Compose](../../compose.production.yaml);
+the separate Telegram application follows [ADR 0031](0031-inside-product-monorepo.md).
