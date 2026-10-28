@@ -32,6 +32,7 @@ import telegram
 import storage
 import stage_timing
 import source_guard
+import contact_job
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -39,7 +40,7 @@ APPS=(*BACKENDS,'web','rabbitmq','postgres','umami','provider','loadgen','telegr
 CORE=(*pilot.SERVICES,'host-agent','umami-ingest','umami-query')
 SERVICES=(*APPS,*CORE,'migrations','broker-config','telegram-migrations','logto-migrations','volume-reader')
 PREFIX='inside-observability-fullstack-'
-ARTIFACTS=(*(f'fullstack-phase-{index}.json' for index in range(12)),'fullstack-proof.json','fullstack-source.json',stage_timing.NAME,'evidence.json','cleanup.json','worker-outcome.json','monitor-failure.json')
+ARTIFACTS=(*(f'fullstack-phase-{index}.json' for index in range(12)),'fullstack-proof.json','fullstack-source.json',stage_timing.NAME,stage_timing.CONTACTS_NAME,'evidence.json','cleanup.json','worker-outcome.json','monitor-failure.json')
 
 
 def invoke(compose,args,**options):return resource_runtime.invoke(compose,args,**options)
@@ -255,31 +256,53 @@ def seed(compose,output,*,timing=None):
     call('seed_telegram_initialize',telegram.initialize,output,compose,invoke,sql)
     call('seed_telegram_ready',ready,compose,'/ready','telegram',3002)
     call('seed_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
-    call('seed_contacts',telegram.establish,compose,invoke,pilot.await_fact,sql,actors)
-    contacts=int(call('seed_contact_count',sql,compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
-    if contacts!=actors:raise ValueError('all_telegram_contacts_required')
-    from importlib.util import spec_from_file_location,module_from_spec
-    spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
-    # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
-    call('seed_statistics_epoch',sql,compose,'SELECT pg_stat_reset();',database='inside')
-    password=(output/'monitoring/umami.database.password').read_text().strip()
-    call('seed_umami_database',sql,compose,owner.sql(password))
-    # Umami first preserves existing PUBLIC CONNECT rights before it revokes PUBLIC.
-    # Establish the dedicated source reader afterward with only its own inside CONNECT.
-    bootstrap=source_cache.postgres_setup_sql()
-    call('seed_source_bootstrap',sql,compose,bootstrap)
-    guard_proof=call('seed_source_authority',source_guard.prove,compose,sql,bootstrap)
-    call('seed_umami_up',invoke,compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
-    call('seed_umami_ready',ready,compose,'/api/heartbeat','umami',3000)
-    seeded=json.loads(call('seed_umami',invoke,compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
-    (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
-    (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
-    established=json.loads(call('seed_establish',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
-    if (set(established)!={'created','accounts'} or established['created']!=actors or not isinstance(established['accounts'],list) or len(established['accounts'])!=actors or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=actors):raise ValueError('all_accounts_required')
-    (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
-    corpus=json.loads(call('seed_validate_corpus',sql,compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
-    if corpus!={'accounts':actors,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
+    argv=[sys.executable,str(Path(__file__).resolve()),'contacts','--output',str(output)]
+    with contact_job.start(output,argv,timing=timing) as contacts:
+        from importlib.util import spec_from_file_location,module_from_spec
+        spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
+        # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
+        call('seed_statistics_epoch',sql,compose,'SELECT pg_stat_reset();',database='inside')
+        password=(output/'monitoring/umami.database.password').read_text().strip()
+        call('seed_umami_database',sql,compose,owner.sql(password))
+        # Umami first preserves existing PUBLIC CONNECT rights before it revokes PUBLIC.
+        # Establish the dedicated source reader afterward with only its own inside CONNECT.
+        bootstrap=source_cache.postgres_setup_sql()
+        call('seed_source_bootstrap',sql,compose,bootstrap)
+        guard_proof=call('seed_source_authority',source_guard.prove,compose,sql,bootstrap)
+        call('seed_umami_up',invoke,compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
+        call('seed_umami_ready',ready,compose,'/api/heartbeat','umami',3000)
+        seeded=json.loads(call('seed_umami',invoke,compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
+        (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
+        (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
+        established=json.loads(call('seed_establish',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
+        if (set(established)!={'created','accounts'} or established['created']!=actors or not isinstance(established['accounts'],list) or len(established['accounts'])!=actors or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=actors):raise ValueError('all_accounts_required')
+        (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
+        corpus=json.loads(call('seed_validate_corpus',sql,compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
+        if corpus!={'accounts':actors,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
+        grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
+        if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
+        call('grafana_permissions',invoke,compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
+        call('horizon_install',production.pilot.install_horizon,output/'monitoring')
+        call('plugin_install',production.pilot.install_plugin,output/'monitoring')
+        call('seed_contacts_join',contacts.wait)
     return guard_proof
+
+
+def contacts_worker(output,token):
+    if sys.platform!='linux':raise ValueError('fullstack_linux_required')
+    source=contact_job.verify(output,token)
+    if pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()!=source:raise ValueError('contacts_source_changed')
+    owner=json.loads((output/'owner.json').read_text())
+    pilot.restore_daemon(owner)
+    compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
+    actors=acceptance.validate_profile(json.loads(PROFILE.read_text()))['accounts']
+    timing=stage_timing.Timing(output,source,name=stage_timing.CONTACTS_NAME)
+    call=partial(stage_timing.call,timing)
+    try:
+        call('seed_contacts',telegram.establish,compose,invoke,pilot.await_fact,sql,actors)
+        contacts=int(call('seed_contact_count',sql,compose,f"SELECT count(*) FROM bot_contacts WHERE telegram_user_id BETWEEN 1000001 AND {1000000+actors};",role='telegram_owner',database='inside_telegram'))
+        if contacts!=actors:raise ValueError('all_telegram_contacts_required')
+    finally:timing.finish()
 
 
 def host():
@@ -546,11 +569,6 @@ def worker(output):
             call('response_contract',invoke,compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
             report['source_role_authority']=seed(compose,output,timing=timing)
             pilot.write_json(output/'fullstack-proof.json',report)
-            grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
-            if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
-            call('grafana_permissions',invoke,compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
-            call('horizon_install',production.pilot.install_horizon,output/'monitoring')
-            call('plugin_install',production.pilot.install_plugin,output/'monitoring')
             for pair,order in enumerate(profile['pairs']):
                 for position,state in enumerate(order):
                     group=pair*2+position
@@ -655,17 +673,20 @@ def collect(output, metadata, destination):
     source,_=hosted.metadata_source(metadata)
     path=metadata/preparation_evidence.NAME
     evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
-    path=output/stage_timing.NAME
-    timing=stage_timing.read(output,source['checkout_sha']) if path.exists() or path.is_symlink() else None
-    resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name!=stage_timing.NAME))
-    if timing is not None:stage_timing.write(destination,timing,source['checkout_sha'],binding_output=output)
+    timings={}
+    for name in (stage_timing.NAME,stage_timing.CONTACTS_NAME):
+        path=output/name
+        if path.exists() or path.is_symlink():timings[name]=stage_timing.read(output,source['checkout_sha'],name=name)
+    resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name not in (stage_timing.NAME,stage_timing.CONTACTS_NAME)))
+    for name,value in timings.items():stage_timing.write(destination,value,source['checkout_sha'],binding_output=output,name=name)
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','recover','collect'))
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect'))
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--images',type=Path)
-    parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
+    parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
+    if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)
     if args.action=='collect':
         return collect(args.output,args.metadata,args.public)

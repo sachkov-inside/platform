@@ -52,10 +52,18 @@ def main():
                 ',JSON.stringify({child:process.pid,python:'+str(os.getpid())+',port:s.address().port}));'
                 'f.renameSync(report+".tmp",report);'+ending+'});')
         producer_protocol.capture(argv=['node', '-e', code])
+    elif sys.argv[1:] and not (len(sys.argv)==3 and sys.argv[1]=='--source-group'):
+        raise ValueError('closed tracking contracts')
     else:
         suite = unittest.defaultTestLoader.discover(str(Path(__file__).parent), pattern='test_*.py')
-        if not unittest.TextTestRunner().run(suite).wasSuccessful():
-            raise SystemExit(1)
+        import source_groups
+        group=sys.argv[2] if sys.argv[1:] else None
+        if group is not None:suite=source_groups.select_group(suite,group)
+        elif tuple(test.id() for test in source_groups.tests(suite))!=source_groups.SOURCE_IDS:source_groups.refuse()
+        result=unittest.TextTestRunner().run(suite)
+        if not result.wasSuccessful():raise SystemExit(1)
+        if group is not None:
+            sys.stderr.write('TRACKING_CONTRACTS_V1 completed '+group+' '+str(result.testsRun)+'\n')
 
 
 if __name__ == '__main__':

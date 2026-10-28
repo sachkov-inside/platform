@@ -10,13 +10,15 @@ import sys
 import time
 
 NAME='fullstack-timing.json'
+CONTACTS_NAME='fullstack-contacts-timing.json'
+
 MAX_MS=600_000
 MAX_ROWS=384
 MAX_BYTES=131_072
 MAX_WRITES=2*MAX_ROWS+2
 STAGES=('initial_mode','initial_up','response_contract','seed_database_ready','seed_migrate','seed_broker_config',
     'seed_api_up','seed_api_ready','seed_accounts','seed_corpus','seed_extra','seed_caddy_adapt',
-    'seed_telegram_initialize','seed_telegram_ready','seed_logto_ready','seed_contacts','seed_contact_count',
+    'seed_telegram_initialize','seed_telegram_ready','seed_logto_ready','seed_contacts','seed_contact_count','seed_contacts_start','seed_contacts_join',
     'seed_statistics_epoch','seed_umami_database','seed_source_bootstrap','seed_source_authority',
     'seed_umami_up','seed_umami_ready','seed_umami','seed_establish','seed_validate_corpus','grafana_permissions',
     'horizon_install','plugin_install','mode_configure','mode_core_up','mode_source_up','mode_core_stop',
@@ -35,6 +37,11 @@ REFUSALS=('binding_refused','clock_refused','contract_refused','write_refused')
 
 
 def refuse():raise ValueError('closed fullstack timing contract')
+
+
+def filename(name):
+    if name not in (NAME,CONTACTS_NAME):refuse()
+    return name
 
 
 def source_ok(value):return type(value) is str and re.fullmatch('[0-9a-f]{40}',value) is not None
@@ -108,13 +115,22 @@ def read_json(path,limit):
     return decode(raw)
 
 
-def read(output,source,*,binding_output=None):
-    return validate(read_json(Path(output)/NAME,MAX_BYTES),source,output if binding_output is None else binding_output)
+def validate_file(value,name):
+    filename(name)
+    if name==CONTACTS_NAME:
+        stages=value['stages']
+        if ([row['stage'] for row in stages]!=['seed_contacts','seed_contact_count'][:len(stages)]
+                or len(stages)>2 or value['state']=='completed' and len(stages)!=2):refuse()
+    return value
 
 
-def write(output,value,source,*,binding_output=None):
-    raw=(json.dumps(validate(value,source,output if binding_output is None else binding_output),sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
-    path=Path(output)/NAME;temporary=path.with_name('.fullstack-timing.new')
+def read(output,source,*,binding_output=None,name=NAME):
+    return validate_file(validate(read_json(Path(output)/filename(name),MAX_BYTES),source,output if binding_output is None else binding_output),name)
+
+
+def write(output,value,source,*,binding_output=None,name=NAME):
+    raw=(json.dumps(validate_file(validate(value,source,output if binding_output is None else binding_output),name),sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
+    path=Path(output)/filename(name);temporary=path.with_name('.'+path.stem+'.new')
     if len(raw)>MAX_BYTES or path.is_symlink() or path.exists() and not path.is_file():refuse()
     descriptor=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     created=None
@@ -130,8 +146,8 @@ def write(output,value,source,*,binding_output=None):
 
 
 class Timing:
-    def __init__(self,output,source,*,clock=time.monotonic):
-        self.output=Path(output);self.source=source;self.clock=clock
+    def __init__(self,output,source,*,clock=time.monotonic,name=NAME):
+        self.output=Path(output);self.source=source;self.clock=clock;self.name=filename(name)
         self.origin=None;self.last=None;self.raw=0;self.writes=0;self.finished=False
         self.value={'schema':1,'source':source,'output_sha256':output_binding(output),'state':'running','reason':'none',
                     'elapsed_ms':0,'saturated':False,'active':None,'stages':[]}
@@ -160,7 +176,7 @@ class Timing:
         try:
             self.writes+=1
             if self.writes>MAX_WRITES:refuse()
-            write(self.output,self.value,self.source)
+            write(self.output,self.value,self.source,**({} if self.name==NAME else {'name':self.name}))
         except BaseException as error:
             if primary is None and not isinstance(error,Exception):raise
             self._refuse('write_refused')
