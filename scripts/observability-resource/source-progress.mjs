@@ -26,6 +26,12 @@ for (const value of inventory) {
   ids.push(value);
 }
 export const sourceIds = Object.freeze(ids);
+// Legacy item84 names the original process body, not its mutable ordinal.
+const timingSourceId =
+  "test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome";
+const timingSourceIndex = sourceIds.indexOf(timingSourceId);
+if (timingSourceIndex < 0)
+  throw new Error("closed Resource source inventory refused");
 
 /** @param {unknown} stderr */
 export function sourceProgress(stderr) {
@@ -160,9 +166,9 @@ function parseTiming(stderr) {
     if (next === 0) {
       if (completed !== 0 || active || elapsed !== 0) return timingUnknown;
     } else if (next === 1 || (next >= 2 && next <= 13)) {
-      if (completed !== 83 || !active) return timingUnknown;
+      if (completed !== timingSourceIndex || !active) return timingUnknown;
     } else if (next === 14) {
-      if (completed !== 84 || active) return timingUnknown;
+      if (completed !== timingSourceIndex + 1 || active) return timingUnknown;
     } else if (completed !== sourceIds.length || active) return timingUnknown;
     if (event === "begin") {
       begins.set(slot, elapsed);

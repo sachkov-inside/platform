@@ -17,12 +17,14 @@ import {
 import "./observability-fullstack/test-phase-timing.mjs";
 
 /** Synthetic source callbacks only; this fixture never runs the real item84 modes. */
-function timingWire() {
+const originalTimingSource =
+  "test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome";
+function timingWire(anchor = originalTimingSource) {
   const lines = ["RESOURCE_TIMING_V1 begin runner 0\n"];
   for (let index = 0; index < sourceIds.length; index += 1) {
     const id = sourceIds[index];
     lines.push(`RESOURCE_SOURCE_V1 start ${id}\n`);
-    if (index === 83) {
+    if (id === anchor) {
       lines.push("RESOURCE_TIMING_V1 begin item84 100\n");
       for (const [modeIndex, mode] of [
         "success",
@@ -39,7 +41,7 @@ function timingWire() {
       }
     }
     lines.push(`RESOURCE_SOURCE_V1 completed ${id}\n`);
-    if (index === 83) lines.push("RESOURCE_TIMING_V1 end item84 230\n");
+    if (id === anchor) lines.push("RESOURCE_TIMING_V1 end item84 230\n");
   }
   lines.push("RESOURCE_TIMING_V1 end runner 240\n");
   return lines;
@@ -226,9 +228,17 @@ test("resource source progress projects canonical complete and active ordered pr
         `RESOURCE_SOURCE_V1 start ${id}\nRESOURCE_SOURCE_V1 completed ${id}\n`,
     )
     .join("");
-  assert.equal(sourceIds.length, 114);
-  assert.equal(Buffer.byteLength(complete), 28520);
-  assert.equal(sourceProgress(complete)?.completedCount, 114);
+  assert.equal(sourceIds.length, 115);
+  assert.equal(Buffer.byteLength(complete), 28752);
+  assert.equal(sourceProgress(complete)?.completedCount, 115);
+  assert.notEqual(sourceIds[83], originalTimingSource);
+  assert.equal(
+    resourceTimingSummary({
+      reason: "exit",
+      stderr: timingWire(sourceIds[83]).join(""),
+    }),
+    "Resource timing: unknown",
+  );
   const raw = timingWire().join("");
   assert.equal(
     resourceTimingSummary({ reason: "exit", stderr: raw }),
@@ -249,7 +259,7 @@ test("resource source progress projects canonical complete and active ordered pr
   }
   const stop = lines.indexOf("RESOURCE_TIMING_V1 begin failure 130\n");
   const completed84 = lines.indexOf(
-    `RESOURCE_SOURCE_V1 completed ${sourceIds[83]}\n`,
+    `RESOURCE_SOURCE_V1 completed ${originalTimingSource}\n`,
   );
   const early = [...lines.slice(0, stop + 1), ...lines.slice(completed84)].join(
     "",
@@ -346,11 +356,11 @@ test("resource source progress refuses malformed private duplicate truncated and
     ],
     [
       "RESOURCE_TIMING_V1 begin item84 100\n",
-      `RESOURCE_SOURCE_V1 start ${sourceIds[83]}\n`,
+      `RESOURCE_SOURCE_V1 start ${originalTimingSource}\n`,
     ],
     [
       "RESOURCE_TIMING_V1 end item84 230\n",
-      `RESOURCE_SOURCE_V1 completed ${sourceIds[83]}\n`,
+      `RESOURCE_SOURCE_V1 completed ${originalTimingSource}\n`,
     ],
     [
       "RESOURCE_TIMING_V1 end runner 240\n",
