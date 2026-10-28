@@ -69636,7 +69636,7 @@
             "name": "cursor",
             "required": false,
             "schema": {
-              "maxLength": 200,
+              "maxLength": 512,
               "minLength": 1,
               "type": "string"
             }
@@ -69646,7 +69646,7 @@
             "name": "productCursor",
             "required": false,
             "schema": {
-              "maxLength": 200,
+              "maxLength": 512,
               "minLength": 1,
               "type": "string"
             }
@@ -69785,7 +69785,7 @@
                       "type": "string"
                     },
                     "nextProductCursor": {
-                      "maxLength": 200,
+                      "maxLength": 512,
                       "minLength": 1,
                       "nullable": true,
                       "type": "string"

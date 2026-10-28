@@ -102,7 +102,10 @@
     "release:restore:check": "bash scripts/heavy-check.sh python3 scripts/isolated-database-restore.py",
     "release:restore:test": "bash scripts/heavy-check.sh python3 -m unittest discover -s scripts -p test_isolated_database_restore_docker.py",
     "check:unit:tooling": "pnpm test:tooling && pnpm test:authoring && pnpm test:practice-review",
-    "check:unit:modules": "pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module"
+    "check:unit:modules": "pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module",
+    "worktree:prepare": "node scripts/owned-node.mjs scripts/worktree-resources.mjs prepare",
+    "worktree:status": "node scripts/worktree-resources.mjs status",
+    "worktree:cleanup": "node scripts/worktree-resources.mjs cleanup"
   },
   "dependencies": {
     "zod": "4.6.5"
