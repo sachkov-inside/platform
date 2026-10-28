@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import { SignJWT, jwtVerify } from "jose";
 
-import type { ContentAccess, Subject } from "../../../content-access/index.js";
+import {
+  anonymousSubject,
+  type ContentAccess,
+  type Subject,
+} from "../../../content-access/index.js";
 import type { Videos } from "../../../videos/index.js";
 import { accountId as checkedAccountId } from "../../../accounts/index.js";
 
@@ -134,25 +138,26 @@ export function assembleVideoPlayback(dependencies: {
               Math.floor(Date.parse(decision.validUntil) / 1_000),
             )
           : issuedAt + dependencies.jwtTtlSeconds;
-      const drmAuthToken =
-        loaded.value.access !== "free"
-          ? await new SignJWT({
-              // The provider callback repeats the same action: a preview token stays a preview.
-              ...(action === "preview" ? { act: action } : {}),
-              pid: loaded.value.providerVideoId,
-              vid: loaded.value.videoId,
-            })
-              .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-              .setIssuer(issuer)
-              .setAudience(audience)
-              .setSubject(
-                input.subject.kind === "account" ? input.subject.accountId : "",
-              )
-              .setJti(randomUUID())
-              .setIssuedAt(issuedAt)
-              .setExpirationTime(expiresAt)
-              .sign(secret)
-          : null;
+      // A protected recording needs a token for every viewer, including an anonymous one of a
+      // free Material: access is the Material's and may change without moving the recording.
+      const drmAuthToken = loaded.value.protected
+        ? await new SignJWT({
+            // The provider callback repeats the same action: a preview token stays a preview.
+            ...(action === "preview" ? { act: action } : {}),
+            pid: loaded.value.providerVideoId,
+            vid: loaded.value.videoId,
+          })
+            .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+            .setIssuer(issuer)
+            .setAudience(audience)
+            .setSubject(
+              input.subject.kind === "account" ? input.subject.accountId : "",
+            )
+            .setJti(randomUUID())
+            .setIssuedAt(issuedAt)
+            .setExpirationTime(expiresAt)
+            .sign(secret)
+        : null;
       return {
         ok: true,
         value: {
@@ -189,19 +194,23 @@ export function assembleVideoPlayback(dependencies: {
           !playback.ok ||
           playback.value === null ||
           playback.value.providerVideoId !== input.providerVideoId ||
-          playback.value.access === "free"
+          !playback.value.protected
         ) {
           return false;
         }
+        // An empty subject is the anonymous viewer the session was issued to.
         const decision = await dependencies.contentAccess.authorize({
           action: tokenAction ?? "play",
           correlationId: randomUUID(),
           enforcementPoint: "video_authorization_callback",
           resource: { kind: "video", videoId: localVideoId },
-          subject: {
-            kind: "account",
-            accountId: checkedAccountId(verified.payload.sub),
-          },
+          subject:
+            verified.payload.sub === ""
+              ? anonymousSubject
+              : {
+                  kind: "account",
+                  accountId: checkedAccountId(verified.payload.sub),
+                },
         });
         return decision.effect === "allow";
       } catch {

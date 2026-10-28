@@ -19,21 +19,41 @@ import {
   type VideoState,
 } from "./videos.interface.js";
 
+/**
+ * The two provider projects (ADR 0041). A recording in the protected project plays only with a
+ * Platform token, so its Material may be free or closed and may change access later. A recording in
+ * the public project plays without a token and serves only a free Material.
+ */
+export interface VideoProjects {
+  readonly public: string;
+  readonly protected: string;
+}
+
 /** What every Videos operation works with. */
 export interface VideoContext {
   readonly now: () => Date;
   readonly prisma: VideosPrismaClient;
-  readonly projects: Readonly<Record<"free" | "closed", string>>;
+  readonly projects: VideoProjects;
   readonly provider: VideoProvider;
   /** False when the actor may not manage Videos, including when the answer is unavailable. */
   readonly managerAllowed: (actor: VideoAccountId) => Promise<boolean>;
 }
 
-export function projectForAccess(
-  projects: Readonly<Record<"free" | "closed", string>>,
-  access: VideoAccess,
-): string {
-  return access === "free" ? projects.free : projects.closed;
+/** The stored Video access of a recording in this project: `closed` for the protected one. */
+export function accessOfProject(
+  projects: VideoProjects,
+  projectId: string,
+): VideoAccess | null {
+  if (projectId === projects.protected) return "closed";
+  return projectId === projects.public ? "free" : null;
+}
+
+/** A closed Material needs a protected recording; a free one may use either project. */
+export function recordingServesAccess(
+  recording: VideoAccess,
+  materialAccess: VideoAccess,
+): boolean {
+  return recording === "closed" || materialAccess === "free";
 }
 
 export function providerLifecycle(remote: ProviderVideo): {

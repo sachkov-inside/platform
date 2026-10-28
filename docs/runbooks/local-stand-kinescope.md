@@ -29,8 +29,10 @@ by `refresh` returns every role to the deterministic test adapter.
 ## What the stand does with it
 
 - `api` and `mcp` use the real adapter. Uploads from the editor, MCP or `authoring:video --target
-  stand` create provider videos in the production projects: `free` in the public project, `closed`
-  in the membership project. Production's database never references them.
+  stand` create provider videos in the production membership project, whatever the lesson's access
+  ([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)). Production's database
+  references such a recording only after the lesson source records its provider ID and a production
+  release attaches it, so one upload serves both targets ([video authoring](video-authoring.md#one-recording-for-stand-and-production)).
 - `video-deletions-worker` never receives the file and keeps the test adapter without a token, so
   the stand cannot delete or change a provider video. Deleting a stand upload only tombstones the
   local row; remove the provider copy in the Kinescope dashboard if it is no longer needed. Give
@@ -60,10 +62,10 @@ decision to use the production projects (#1790); a narrower token, if Kinescope 
 
 ## What plays
 
-| Lesson access | Stand playback |
+| Recording | Stand playback |
 | --- | --- |
-| `free` (public project) | Plays when the project's allowed domains include the stand host `127.0.0.1` (the stand opens on `http://127.0.0.1:3000`), or have no restriction. |
-| `closed` (membership project) | Plays only while the project has no authorization backend. After the backend is on, Kinescope asks production, which refuses a token signed by the stand (other key, unknown local Video), so the player stays locked. |
+| Public project (older free recordings) | Plays when the project's allowed domains include the stand host `127.0.0.1` (the stand opens on `http://127.0.0.1:3000`), or have no restriction. |
+| Membership project (every new upload, free or closed lesson) | Plays only while the project has no authorization backend. After the backend is on, Kinescope asks production, which refuses a token signed by the stand (other key, unknown local Video), so the player stays locked. |
 
 Closed playback on the stand therefore ends when production protection starts. Keeping it needs
 production to trust a separate stand signing key for preview tokens: a production code change, a

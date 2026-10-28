@@ -28,8 +28,8 @@ const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
 const videoFormatId = "video";
 const noteFormatId = "note";
 const localVideoProjects = {
-  free: "local-development-free",
-  closed: "local-development-membership",
+  public: "local-development-free",
+  protected: "local-development-membership",
 } as const;
 const localVideoFixtures: ReadonlyMap<
   string,
@@ -1000,15 +1000,15 @@ const localDevelopmentVideoProvider: VideoProvider = {
   delete() {
     return Promise.resolve({ kind: "not_found" });
   },
-  find({ id, projectId }) {
+  find({ id }) {
     const fixture = localVideoFixtures.get(id);
-    if (fixture === undefined || projectId !== localVideoProjects.free)
-      return Promise.resolve(null);
+    if (fixture === undefined) return Promise.resolve(null);
+    // The seeded recordings play without a token, like a public Kinescope project.
     return Promise.resolve({
       durationSeconds: fixture.durationSeconds,
       embedLocator: `https://kinescope.io/embed/${id}`,
       id,
-      projectId,
+      projectId: localVideoProjects.public,
       status: "done",
       title: fixture.title,
     });

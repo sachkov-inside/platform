@@ -11,9 +11,11 @@ an SSH connection or provider API token does not authenticate a Material author.
    project. This slice does not yet expose catalog search; use the provider catalog for discovery.
 2. Load the target with `material_load`, or create a never-published Material through
    `material_create_draft` using a stable idempotency key. Preserve its complete body and metadata.
-3. Call `video_attach_existing` with `materialId`, `providerVideoId` and the Material access
-   (`free` or `membership`). The provider ID must match the configured project.
-   Repeating attachment to the same Material/access reuses the local Video. A different Material
+3. Call `video_attach_existing` with `materialId`, `providerVideoId` and the Material's current
+   access (`free` or `closed`). The recording must be in the protected (membership) project, which
+   serves either access, or, for a free Material only, in the public project
+   ([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)).
+   Repeating attachment to the same Material reuses the local Video, also after an access change. A different Material
    cannot silently take the same provider Video. This does not select the primary Video yet.
 4. Call `video_reconcile` with the returned local `videoId`. Processing is not ready playback.
 5. Call `material_save` with the loaded `expectedContentVersion`, complete state, a stable
@@ -96,6 +98,25 @@ returns the ready one. So an interrupted run can be repeated with the same flag.
 `pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches
 only a `ready` upload; a pending one leaves the Material's Video unchanged. The Material keeps its
 publication state; uploading does not publish anything.
+
+### One recording for stand and production
+
+Every upload lands in the protected Kinescope project, whatever the lesson's access, so the same
+provider recording serves the stand and production and survives a later change of access
+([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)). The contract with Content Studio:
+
+1. Upload an accepted master once, through one target: `--target stand` while the stand runs the
+   real adapter (`pnpm stand:kinescope status`), otherwise `--target production`. Keep the printed
+   `providerVideoId`; a stand on the test adapter prints a fake one, which no other target knows.
+2. Record it in the lesson source as `platform_video.kinescope_id: PROVIDER_VIDEO_ID` and commit.
+3. Every target attaches that ID through its ordinary sync or `authoring:release`
+   (`row.video.kinescopeId`): no target uploads the bytes again, and a production publication is
+   the same release with `--publish`. The uploading target keeps a `platform_upload`; the others
+   hold an `external_attachment`, which Platform never deletes at the provider.
+4. Access is ordinary source content. Opening or closing the lesson later is a release with an
+   `accessChange` and no `videoChange`. Only a recording in the public project cannot serve a
+   closed lesson: the target refuses that Save with `video_provider_mismatch`; upload the master to
+   the protected project and record the new ID.
 
 ## Links to a video moment
 

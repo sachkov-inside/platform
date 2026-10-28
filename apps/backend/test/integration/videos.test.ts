@@ -60,7 +60,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const actor = randomUUID();
     const materialId = randomUUID();
@@ -132,7 +132,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       videos.loadPlayback(initialized.value.video.videoId),
     ).resolves.toMatchObject({
       ok: true,
-      value: { access: "closed", providerVideoId },
+      value: { protected: true, providerVideoId },
     });
     await expect(
       videos.loadPresentation({
@@ -157,16 +157,25 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       ok: true,
       value: [
         {
-          access: "closed",
           materialId,
+          protected: true,
           videoId: initialized.value.video.videoId,
         },
       ],
     });
+    // The protected recording serves the Material whichever access it has (ADR 0041).
+    for (const access of ["free", "closed"] as const)
+      await expect(
+        videos.inspectPrimaryReference(transactionHandle(database.prisma), {
+          access,
+          materialId,
+          videoId: initialized.value.video.videoId,
+        }),
+      ).resolves.toEqual({ ok: true, value: undefined });
     await expect(
       videos.inspectPrimaryReference(transactionHandle(database.prisma), {
-        access: "free",
-        materialId,
+        access: "closed",
+        materialId: randomUUID(),
         videoId: initialized.value.video.videoId,
       }),
     ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
@@ -234,7 +243,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     await expect(
       videos.attachExisting({
@@ -276,7 +285,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const input = {
       actor: randomUUID(),
@@ -327,7 +336,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
         },
         find: () => Promise.reject(new Error("unused")),
       },
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const input = {
       access: "free" as const,
@@ -402,7 +411,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       clock: distinctClock(),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const actor = randomUUID();
     const materialId = randomUUID();
@@ -460,7 +469,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     remote.set(secondProviderVideoId, {
       embedLocator: "https://kinescope.io/embed/second",
       id: secondProviderVideoId,
-      projectId: "public-project",
+      projectId: "member-project",
       status: "done",
       title: "Second attempt",
     });
@@ -474,6 +483,109 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       ok: true,
       value: { videoId: first.value.video.videoId },
     });
+  });
+
+  test("uploads every recording to the protected project and attaches a public one only to a free Material", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider: {
+        delete: unusedDelete,
+        initUpload(input) {
+          const id = randomUUID();
+          remote.set(id, {
+            embedLocator: `https://kinescope.io/embed/${id}`,
+            id,
+            projectId: input.projectId,
+            status: "done",
+            title: input.title,
+          });
+          return Promise.resolve({
+            id,
+            uploadEndpoint: `https://uploads.example.test/${id}`,
+          });
+        },
+        find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+      },
+      projects: { public: "public-project", protected: "member-project" },
+    });
+    const actor = randomUUID();
+    const materialId = randomUUID();
+
+    // A free lesson's upload lands in the protected project, so the lesson can be closed later.
+    const uploaded = await videos.initUpload({
+      access: "free",
+      actor,
+      byteSize: 1_024,
+      filename: "free-lesson.mp4",
+      idempotencyKey: "free-lesson-upload",
+      materialId,
+      title: "Free lesson",
+    });
+    if (!uploaded.ok) throw new Error(uploaded.error.code);
+    await expect(
+      database.prisma.video.findUniqueOrThrow({
+        where: { id: uploaded.value.video.videoId },
+      }),
+    ).resolves.toMatchObject({ access: "closed", projectId: "member-project" });
+
+    // A recording already in the public project plays without a token: free Materials only.
+    const publicRecording = randomUUID();
+    remote.set(publicRecording, {
+      embedLocator: `https://kinescope.io/embed/${publicRecording}`,
+      id: publicRecording,
+      projectId: "public-project",
+      status: "done",
+      title: "Public recording",
+    });
+    await expect(
+      videos.attachExisting({
+        access: "closed",
+        actor,
+        materialId,
+        providerVideoId: publicRecording,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
+    const attached = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId,
+      providerVideoId: publicRecording,
+    });
+    if (!attached.ok) throw new Error(attached.error.code);
+    expect(attached.value).toMatchObject({ access: "free" });
+    await expect(
+      videos.inspectPrimaryReference(transactionHandle(database.prisma), {
+        access: "closed",
+        materialId,
+        videoId: attached.value.videoId,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
+    await expect(
+      videos.loadPlayback(attached.value.videoId),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { protected: false },
+    });
+
+    // A recording from a project Platform does not use is refused for any access.
+    const foreignRecording = randomUUID();
+    remote.set(foreignRecording, {
+      embedLocator: `https://kinescope.io/embed/${foreignRecording}`,
+      id: foreignRecording,
+      projectId: "other-project",
+      status: "done",
+      title: "Foreign recording",
+    });
+    await expect(
+      videos.attachExisting({
+        access: "free",
+        actor,
+        materialId,
+        providerVideoId: foreignRecording,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
   });
 
   test("never offers an External Attachment as a recoverable upload", async () => {
@@ -493,7 +605,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
             title: "Attached recording",
           }),
       },
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const materialId = randomUUID();
 
@@ -539,7 +651,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
 
     await expect(
@@ -614,7 +726,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       clock: () => new Date(Date.UTC(2026, 8, 2, 12, 0, clockTick++)),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const attaching = videos.attachExisting({
       access: "free",
@@ -662,7 +774,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     await expect(
       videos.attachExisting({
@@ -700,7 +812,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     const materialId = randomUUID();
     const video = await database.prisma.video.create({
@@ -824,7 +936,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
         find: () => Promise.reject(new Error("unused")),
         initUpload: () => Promise.reject(new Error("unused")),
       },
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
     });
     await expect(
       videos.inspectPrimaryReference(transactionHandle(database.prisma), {

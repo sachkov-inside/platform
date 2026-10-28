@@ -892,7 +892,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1044,6 +1044,146 @@ describe("MaterialAuthoring", () => {
     expect(providerDeleteCalls).toBe(0);
   });
 
+  test("changes a lesson's access with its protected recording and refuses to close one with a public recording", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    const provider: VideoProvider = {
+      delete: () => Promise.reject(new Error("unused")),
+      find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+      initUpload(input) {
+        const id = `access-${crypto.randomUUID()}`;
+        remote.set(id, {
+          durationSeconds: 60,
+          embedLocator: `https://kinescope.io/embed/${id}`,
+          id,
+          projectId: input.projectId,
+          status: "done",
+          title: input.title,
+        });
+        return Promise.resolve({
+          id,
+          uploadEndpoint: `https://uploads.example.test/${id}`,
+        });
+      },
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { public: "public-project", protected: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = (access: "free" | "closed", title: string) => ({
+      access,
+      formatId: null,
+      difficulty: null,
+      outcomes: [],
+      productIds: [],
+      summary: null,
+      tagIds: [],
+      title,
+      topicId: null,
+    });
+    const lesson = async (title: string) => {
+      const created = await materials.authoring.createDraft({
+        actor,
+        body: representativeDocument(title),
+        idempotencyKey: `create-${title}`,
+        metadata: metadata("free", title),
+      });
+      if (!created.ok) throw new Error(created.error.code);
+      return created.value.materialId;
+    };
+    const save = (
+      materialId: string,
+      title: string,
+      access: "free" | "closed",
+      primaryVideoId: string,
+      expectedContentVersion: number,
+    ) =>
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument(title),
+        expectedContentVersion,
+        idempotencyKey: `save-${title}-${expectedContentVersion}`,
+        materialId,
+        metadata: metadata(access, title),
+        primaryVideoId,
+        publicationState: "draft",
+      });
+
+    // Uploaded while free, the recording sits in the protected project: the lesson closes and
+    // opens again with the same Video (ADR 0041).
+    const switching = await lesson("Access switch lesson");
+    const uploaded = await videos.initUpload({
+      access: "free",
+      actor,
+      byteSize: 1_024,
+      filename: "switch.mp4",
+      idempotencyKey: "access-switch-upload",
+      materialId: switching,
+      title: "Access switch lesson",
+    });
+    if (!uploaded.ok) throw new Error(uploaded.error.code);
+    await videos.reconcile({ actor, videoId: uploaded.value.video.videoId });
+    const videoId = uploaded.value.video.videoId;
+    await expect(
+      save(switching, "Access switch lesson", "free", videoId, 1),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      save(switching, "Access switch lesson", "closed", videoId, 2),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(
+      save(switching, "Access switch lesson", "free", videoId, 3),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
+
+    // A recording attached from the public project plays without a token, so it never closes.
+    const publicLesson = await lesson("Public recording lesson");
+    const publicRecording = `public-${crypto.randomUUID()}`;
+    remote.set(publicRecording, {
+      durationSeconds: 60,
+      embedLocator: `https://kinescope.io/embed/${publicRecording}`,
+      id: publicRecording,
+      projectId: "public-project",
+      status: "done",
+      title: "Public recording",
+    });
+    const attached = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId: publicLesson,
+      providerVideoId: publicRecording,
+    });
+    if (!attached.ok) throw new Error(attached.error.code);
+    await expect(
+      save(
+        publicLesson,
+        "Public recording lesson",
+        "free",
+        attached.value.videoId,
+        1,
+      ),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      save(
+        publicLesson,
+        "Public recording lesson",
+        "closed",
+        attached.value.videoId,
+        2,
+      ),
+    ).resolves.toEqual({
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_provider_mismatch", path: "/primaryVideoId" }],
+      },
+      ok: false,
+    });
+  });
+
   test("records active Platform upload deletion on Save and defers physical DELETE to the worker", async () => {
     let providerDeleteCalls = 0;
     const provider: VideoProvider = {
@@ -1071,7 +1211,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1155,7 +1295,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1251,7 +1391,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1314,7 +1454,7 @@ describe("MaterialAuthoring", () => {
     remote.set(providerVideoId, {
       embedLocator: "https://kinescope.io/embed/recovered",
       id: providerVideoId,
-      projectId: "public-project",
+      projectId: "member-project",
       status: "done",
       title: "Recovered lesson",
     });
@@ -1407,7 +1547,7 @@ describe("MaterialAuthoring", () => {
       // Two attempts of one Material are ordered by when they started.
       clock: distinctClock(),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1518,7 +1658,7 @@ describe("MaterialAuthoring", () => {
     remote.set(replacementProviderId, {
       embedLocator: "https://kinescope.io/embed/replacement",
       id: replacementProviderId,
-      projectId: "public-project",
+      projectId: "member-project",
       status: "done",
       title: "replacement",
     });
@@ -1562,7 +1702,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1669,7 +1809,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", closed: "member-project" },
+      projects: { public: "public-project", protected: "member-project" },
       provider,
     });
     const materials = assembleMaterials({

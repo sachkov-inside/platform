@@ -21,14 +21,14 @@ import {
   loadVideoProgressMany,
   saveVideoProgress,
 } from "./video-progress.js";
-import type { VideoContext } from "./video-records.js";
+import type { VideoContext, VideoProjects } from "./video-records.js";
 import type { Videos } from "./videos.interface.js";
 
 export function assembleVideos(dependencies: {
   readonly canManage: (accountId: VideoAccountId) => Promise<boolean>;
   readonly prisma: VideosPrismaClient;
   readonly provider: VideoProvider;
-  readonly projects: Readonly<Record<"free" | "closed", string>>;
+  readonly projects: VideoProjects;
   readonly clock?: () => Date;
 }): Videos {
   const context: VideoContext = {

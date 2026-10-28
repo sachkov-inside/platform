@@ -1163,13 +1163,12 @@ test("release preview reports video, composition and artifact changes that the s
     (item) => item.sourceId === "video",
   );
   assert.ok(video);
-  assert.equal(video.change, "conflict");
-  assert.equal(video.conflictReason, "video_access_change");
-  await assert.rejects(
-    applyRelease(accessChanged.path, setup.state, { request: api.request }),
-    /conflicts/u,
-  );
-  // A new provider record is attached with the new access, so that change is not a conflict.
+  // A protected recording serves either access, so the lesson keeps its Video (ADR 0041).
+  assert.equal(video.change, "changed");
+  assert.equal(video.conflictReason, undefined);
+  assert.deepEqual(video.accessChange, { from: "closed", to: "free" });
+  assert.equal(video.videoChange, undefined);
+  // A new provider record replaces the Video without any access decision.
   itemAt(setup.manifest.materials, 1).video = { kinescopeId: uuid(778) };
   await setup.write();
   const newRecording = await previewRelease(setup.packagePath, setup.state, {
@@ -1185,7 +1184,7 @@ test("release preview reports video, composition and artifact changes that the s
   assert.equal(replaced.videoChange, true);
 });
 
-test("release preview separates Video access conflicts from plain access changes", async (t) => {
+test("release preview reports an access change of a lesson with a Video like any other", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();
   await run(setup, api);
@@ -1202,8 +1201,9 @@ test("release preview separates Video access conflicts from plain access changes
     (item) => item.sourceId === "video",
   );
   assert.ok(attached);
-  assert.equal(attached.change, "conflict");
-  assert.equal(attached.conflictReason, "video_access_change");
+  assert.equal(attached.change, "changed");
+  assert.equal(attached.conflictReason, undefined);
+  assert.deepEqual(attached.accessChange, { from: "closed", to: "free" });
   const plain = preview.preview.materials.find(
     (item) => item.sourceId === "lesson",
   );
@@ -1222,10 +1222,10 @@ test("release preview separates Video access conflicts from plain access changes
     origin,
     request: api.request,
   });
-  assert.equal(
+  assert.deepEqual(
     legacy.preview.materials.find((item) => item.sourceId === "video")
-      ?.conflictReason,
-    "video_access_change",
+      ?.accessChange,
+    { from: "closed", to: "free" },
   );
 
   itemAt(setup.manifest.materials, 1).video = { kinescopeId: uuid(779) };
