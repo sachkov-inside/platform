@@ -116,6 +116,20 @@ export async function enqueueReply(
   return inserted !== undefined;
 }
 
+/** Whether a reply was already recorded, including work written by an older producer. */
+export async function hasRecordedReply(
+  database: Database,
+  sourceKey: string,
+): Promise<boolean> {
+  return (
+    (await database
+      .selectFrom("start_response_deliveries")
+      .select("id")
+      .where("source_key", "=", sourceKey)
+      .executeTakeFirst()) !== undefined
+  );
+}
+
 function eligibleReply(
   eb: ExpressionBuilder<DatabaseSchema, "start_response_deliveries">,
   database: Database | Transaction<DatabaseSchema>,

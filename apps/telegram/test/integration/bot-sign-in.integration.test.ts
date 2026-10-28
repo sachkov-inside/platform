@@ -118,7 +118,7 @@ afterAll(async () => {
 });
 
 describe("bot sign-in provider", () => {
-  it("accepts repeated approval without sending another message before account finalization", async () => {
+  it("acknowledges repeated approval once before browser completion", async () => {
     const challenge = await register();
     await start(challenge, 42);
     await Promise.all([callback(challenge, 42), callback(challenge, 42)]);
@@ -130,7 +130,11 @@ describe("bot sign-in provider", () => {
       signInReplyEligibility,
     );
     // deterministic-test-allow wall-clock: registerFixedClock fixes Date for the producer and queue.
-    expect(await queue.claimNext(new Date(), true)).toBeUndefined();
+    expect(await queue.claimNext(new Date(), true)).toMatchObject({
+      editMessageId: "100",
+      messageText:
+        "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
+    });
     await callback(challenge, 42);
     // deterministic-test-allow wall-clock: registerFixedClock fixes Date for the producer and queue.
     expect(await queue.claimNext(new Date(), true)).toBeUndefined();
@@ -175,7 +179,12 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       expect(await worker.processAvailable()).toBe(1);
       await callback(challenge, 42);
-      expect(await worker.processAvailable()).toBe(0);
+      expect(await worker.processAvailable()).toBe(1);
+      expect(edited).toMatchObject([
+        {
+          text: "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
+        },
+      ]);
       const proof = await status(challenge, true);
       if (proof.status !== "verified")
         throw new Error("Expected verified proof");
@@ -191,7 +200,6 @@ describe("bot sign-in provider", () => {
           ).json(),
         ).toMatchObject({ status: "linked" });
       }
-      expect(await worker.processAvailable()).toBe(1);
       expect(await worker.processAvailable()).toBe(0);
       expect(sent.map((message) => message.text)).toEqual([
         "Вы входите в Sachkov Inside?",
@@ -200,7 +208,7 @@ describe("bot sign-in provider", () => {
         {
           chatId: "42",
           messageId: "100",
-          text: "Вход подтверждён. Вернитесь на сайт.",
+          text: "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
           buttons: [{ text: "Открыть Inside", url: "https://platform.test/" }],
         },
       ]);
@@ -367,7 +375,7 @@ describe("bot sign-in provider", () => {
     expect((await status(challenge, true)).status).toBe("consumed");
   });
 
-  it("edits the approved prompt only after account finalization and retries the same message after transport ambiguity", async () => {
+  it("queues the approved prompt before browser completion and retries the same message after transport ambiguity", async () => {
     const challenge = await register();
     await start(challenge, 42);
     await callback(challenge, 42);
@@ -377,11 +385,11 @@ describe("bot sign-in provider", () => {
         .selectAll()
         .where("edit_message_id", "is not", null)
         .execute();
-    expect(await edits()).toHaveLength(0);
+    expect(await edits()).toHaveLength(1);
     const verified = await status(challenge, true);
     if (verified.status !== "verified")
       throw new Error("Expected verified proof");
-    expect(await edits()).toHaveLength(0);
+    expect(await edits()).toHaveLength(1);
     const accountRef = randomUUID();
     const bind = () =>
       request(`/${challenge.requestRef}/account-link`, {
@@ -393,7 +401,8 @@ describe("bot sign-in provider", () => {
     expect(await edits()).toMatchObject([
       {
         edit_message_id: "100",
-        message_text: "Вход подтверждён. Вернитесь на сайт.",
+        message_text:
+          "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
       },
     ]);
     const calls: TelegramMessageEdit[] = [];
@@ -458,19 +467,97 @@ describe("bot sign-in provider", () => {
     expect(calls).toHaveLength(2);
   });
 
-  it("rolls back the sign-in link reservation when the completion reply cannot be persisted", async () => {
+  it("acknowledges a request approved before the update when the browser completes it", async () => {
     const challenge = await register();
     await start(challenge, 42);
     await callback(challenge, 42);
+    await database
+      .deleteFrom("start_response_deliveries")
+      .where("source_key", "=", `sign-in-decision:${challenge.requestRef}`)
+      .execute();
     const proof = await status(challenge, true);
     if (proof.status !== "verified") throw new Error("Expected verified proof");
-    const accountRef = randomUUID();
-    const bind = () =>
-      request(`/${challenge.requestRef}/account-link`, {
-        contractVersion,
-        accountRef,
-        subjectRef: proof.subjectRef,
-      });
+    expect(
+      (
+        await request(`/${challenge.requestRef}/account-link`, {
+          contractVersion,
+          subjectRef: proof.subjectRef,
+          accountRef: randomUUID(),
+        })
+      ).json(),
+    ).toMatchObject({ status: "linked" });
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    );
+    expect(
+      await queue.claimNext(new Date(fixedTestInstant()), true),
+    ).toMatchObject({
+      editMessageId: "100",
+      messageText:
+        "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
+    });
+    expect(
+      await queue.claimNext(new Date(fixedTestInstant()), true),
+    ).toBeUndefined();
+  });
+
+  it("keeps legacy Account completion messages blocked until linked", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await callback(challenge, 42);
+    await database
+      .deleteFrom("start_response_deliveries")
+      .where("source_key", "=", `sign-in-decision:${challenge.requestRef}`)
+      .execute();
+    const proof = await status(challenge, true);
+    if (proof.status !== "verified") throw new Error("Expected verified proof");
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    );
+    await queue.enqueue({
+      botIdentity: config.botIdentity,
+      telegramUserId: "42",
+      privateChatId: "42",
+      messageText: "Вход подтверждён. Вернитесь на сайт.",
+      sourceKey: `sign-in-result:${challenge.requestRef}`,
+      signInRequestRef: challenge.requestRef,
+      editMessageId: "100",
+      now: new Date(fixedTestInstant()),
+    });
+    expect(
+      await queue.claimNext(
+        new Date(fixedTestInstant()),
+        true,
+        `sign-in-result:${challenge.requestRef}`,
+      ),
+    ).toBeUndefined();
+    expect(
+      (
+        await request(`/${challenge.requestRef}/account-link`, {
+          contractVersion,
+          subjectRef: proof.subjectRef,
+          accountRef: randomUUID(),
+        })
+      ).json(),
+    ).toMatchObject({ status: "linked" });
+    expect(
+      await queue.claimNext(
+        new Date(fixedTestInstant()),
+        true,
+        `sign-in-result:${challenge.requestRef}`,
+      ),
+    ).toMatchObject({ messageText: "Вход подтверждён. Вернитесь на сайт." });
+  });
+
+  it("rolls back approval when its acknowledgement cannot be persisted and accepts a retry", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
     await sql`create function synthetic_sign_in_reply_fault() returns trigger language plpgsql as $$
       begin if new.edit_message_id is not null then raise exception 'synthetic sign-in reply failure'; end if; return new; end $$;
       create trigger synthetic_sign_in_reply_fault before insert on start_response_deliveries
@@ -478,30 +565,27 @@ describe("bot sign-in provider", () => {
       database,
     );
     try {
-      expect((await bind()).statusCode).toBe(500);
-      expect(
-        await database
-          .selectFrom("link_transactions")
-          .selectAll()
-          .where("link_transaction_ref", "=", challenge.requestRef)
-          .execute(),
-      ).toEqual([]);
-      expect(
-        await database
-          .selectFrom("start_response_deliveries")
-          .selectAll()
-          .where("edit_message_id", "is not", null)
-          .execute(),
-      ).toEqual([]);
+      await expect(
+        signIn.decide({
+          botIdentity: config.botIdentity,
+          telegramUserId: "42",
+          privateChatId: "42",
+          requestRef: challenge.requestRef,
+          messageId: "100",
+          decision: "approve",
+        }),
+      ).rejects.toThrow("synthetic sign-in reply failure");
+      expect(await status(challenge)).toMatchObject({ status: "pending" });
     } finally {
       await sql`drop trigger synthetic_sign_in_reply_fault on start_response_deliveries;
         drop function synthetic_sign_in_reply_fault()`.execute(database);
     }
-    expect((await bind()).json()).toMatchObject({ status: "linked" });
+    await callback(challenge, 42);
+    expect(await status(challenge)).toMatchObject({ status: "approved" });
   });
 
   it.each(["before", "after"] as const)(
-    "retains completion intent across a failure %s the link commit without premature success",
+    "retains approval acknowledgement across a failure %s the link commit",
     async (failurePoint) => {
       const challenge = await register();
       await start(challenge, 42);
@@ -537,20 +621,13 @@ describe("bot sign-in provider", () => {
       );
       // deterministic-test-allow wall-clock: registerFixedClock fixes Date for the producer and queue.
       const now = new Date();
-      if (failurePoint === "before") {
-        expect(
-          await queue.claimNext(
-            now,
-            true,
-            `sign-in-result:${challenge.requestRef}`,
-          ),
-        ).toBeUndefined();
+      if (failurePoint === "before")
         expect((await bind()).json()).toMatchObject({ status: "linked" });
-      }
       // After commit no request replay is needed: a fresh worker sees the durable result.
       expect(await queue.claimNext(now, true)).toMatchObject({
         editMessageId: "100",
-        messageText: "Вход подтверждён. Вернитесь на сайт.",
+        messageText:
+          "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
       });
       expect(await queue.claimNext(now, true)).toBeUndefined();
     },
@@ -564,7 +641,7 @@ describe("bot sign-in provider", () => {
     "wrong-identity",
     "wrong-subject",
   ] as const)(
-    "never offers a successful return for %s sign-in",
+    "only acknowledges accepted decisions for %s sign-in",
     async (outcome) => {
       const challenge = await register();
       await start(challenge, 42);
@@ -632,7 +709,7 @@ describe("bot sign-in provider", () => {
           ).toMatchObject({ status: "unavailable" });
       }
       expect(await worker.processAvailable()).toBe(
-        outcome === "denied" ? 1 : 0,
+        ["denied", "unfinalized", "wrong-subject"].includes(outcome) ? 1 : 0,
       );
       expect(edits).toEqual(
         outcome === "denied"
@@ -643,7 +720,18 @@ describe("bot sign-in provider", () => {
                 text: "Вход отменён.",
               },
             ]
-          : [],
+          : ["unfinalized", "wrong-subject"].includes(outcome)
+            ? [
+                {
+                  chatId: "42",
+                  messageId: "100",
+                  text: "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
+                  buttons: [
+                    { text: "Открыть Inside", url: "https://platform.test/" },
+                  ],
+                },
+              ]
+            : [],
       );
       expect(await worker.processAvailable()).toBe(0);
     },
@@ -652,9 +740,6 @@ describe("bot sign-in provider", () => {
   it("removes confirmation controls after success when no public URL is configured", async () => {
     const challenge = await register();
     await start(challenge, 42);
-    await callback(challenge, 42);
-    const proof = await status(challenge, true);
-    if (proof.status !== "verified") throw new Error("Expected verified proof");
     const fallbackConfig = { ...config, signInReturnUrl: undefined };
     const fallbackApplication =
       await NestFactory.create<NestFastifyApplication>(
@@ -664,22 +749,14 @@ describe("bot sign-in provider", () => {
       );
     try {
       await fallbackApplication.init();
-      const response = await fallbackApplication
-        .getHttpAdapter()
-        .getInstance()
-        .inject({
-          method: "POST",
-          url: `/integrations/identity/v1/sign-in/${challenge.requestRef}/account-link`,
-          headers: {
-            authorization: `Bearer ${config.signInIntegrationSecret}`,
-          },
-          payload: {
-            contractVersion,
-            subjectRef: proof.subjectRef,
-            accountRef: randomUUID(),
-          },
-        });
-      expect(response.json()).toMatchObject({ status: "linked" });
+      await fallbackApplication.get(BotSignIn).decide({
+        botIdentity: config.botIdentity,
+        telegramUserId: "42",
+        privateChatId: "42",
+        requestRef: challenge.requestRef,
+        messageId: "100",
+        decision: "approve",
+      });
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
         new StartResponseDeliveryQueue(
@@ -708,7 +785,7 @@ describe("bot sign-in provider", () => {
         {
           chatId: "42",
           messageId: "100",
-          text: "Вход подтверждён. Вернитесь на сайт.",
+          text: "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
         },
       ]);
     } finally {

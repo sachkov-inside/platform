@@ -1,8 +1,8 @@
 import { sql } from "kysely";
-import type { SignInReplyEligibility } from "../outbound/sign-in-reply-eligibility.js";
 import { linkedSignInProof } from "../identity-linking/sign-in-link.js";
+import type { SignInReplyEligibility } from "../outbound/sign-in-reply-eligibility.js";
 
-/** Only the pending prompt may send a message; final success still needs a committed link. */
+/** A decision receipt follows the committed approval, independently of browser completion. */
 export const signInReplyEligibility: SignInReplyEligibility = (
   database,
   now,
@@ -16,5 +16,8 @@ export const signInReplyEligibility: SignInReplyEligibility = (
       (${sql.ref(reply.editMessageId)} is null and expires_at > ${now} and
         state = 'awaiting_approval')
       or (${sql.ref(reply.editMessageId)} is not null and
-        (state = 'denied' or (state = 'consumed' and ${linkedSignInProof(database, "sign_in_requests.request_ref")})))
+        (state = 'denied'
+          or (${sql.ref(reply.sourceKey)} like 'sign-in-decision:%' and state in ('approved', 'consumed'))
+          or (${sql.ref(reply.sourceKey)} like 'sign-in-result:%' and state = 'consumed'
+            and ${linkedSignInProof(database, "sign_in_requests.request_ref")})))
     )`)})`;
