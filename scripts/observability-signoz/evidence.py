@@ -16,7 +16,7 @@ PHASES = frozenset(('acquire', 'native_create', 'PG_keeper', 'CH', 'migrations',
                     'collector_server', 'postgres_counts', 'native_MCP', 'functional'))
 REASONS = frozenset(('command_failed', 'command_deadline', 'global_deadline', 'init_failed','unhealthy_final_roles',
                      'init_deadline', 'storage_monitor_failed', 'worker_interrupted_or_storage',
-                     'incomplete_functional_witness', 'migration_counts_unavailable', 'functional_failure'))
+                     'incomplete_functional_witness', 'migration_counts_unavailable', 'functional_failure')) | frozenset(lifecycle.ImageAdmissionReason)
 
 
 def require(ok):
@@ -106,7 +106,7 @@ def states(value):
 def failure(value):
     require(type(value) is dict)
     return {'available': True, 'phase': value.get('phase') if value.get('phase') in PHASES else 'unavailable',
-            'reason': value.get('reason') if value.get('reason') in REASONS else 'unclassified_failure',
+            'reason': value.get('reason') if type(value.get('reason')) is str and value['reason'] in REASONS else 'unclassified_failure',
             'native_failure_capture_unavailable': value.get('native_failure_capture_unavailable') is not False}
 
 

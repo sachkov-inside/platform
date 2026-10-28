@@ -96,6 +96,11 @@ Timeout, `ECONNREFUSED` и необъяснённая ошибка не счит
 Проверки native архитектуры, обязательного child Descriptor, закреплённых digest/config,
 RepoDigests и volumes сохраняются. Отсутствующий Descriptor или другая архитектура
 останавливают admission, без перехода к ослабленной проверке.
+Отказы image admission публикуют только фиксированную причину из общего
+`ImageAdmissionReason`, который используют сами проверки образа и collector.
+Это различает отказ Descriptor, архитектуры, закреплённой конфигурации или volumes,
+сохраняя неуспешный результат запуска. Неизвестная причина остаётся
+`unclassified_failure`; текст исключения и произвольные суффиксы не публикуются.
 
 Supervisor находится вне session worker. Native CLI создают собственные process groups
 внутри этой session, чтобы recovery после `SIGKILL` worker мог завершить их все. При
