@@ -703,7 +703,8 @@ export const SupplementaryBreadcrumbs: Story = {
 export const SupplementaryMaterials: Story = {
   render: function Supplementary() {
     const [second, setSecond] = useState(false);
-    const references = Array.from({ length: 6 }, (_, index) => ({
+    const [count, setCount] = useState(6);
+    const references = Array.from({ length: count }, (_, index) => ({
       id: `reference-${String(index + 1)}`,
       slug: `reference-${String(index + 1)}`,
       title: `Материал ${String(index + 1)}`,
@@ -725,7 +726,52 @@ export const SupplementaryMaterials: Story = {
         <button onClick={() => setSecond((value) => !value)}>
           Сменить главу
         </button>
+        {[0, 3, 4, 6].map((value) => (
+          <button key={value} onClick={() => setCount(value)}>
+            {String(value)}
+          </button>
+        ))}
       </CourseReadingLayout>
     );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const rail = within(
+      canvas.getByRole("complementary", { name: "Текущая глава" }),
+    );
+    let group = within(
+      rail.getByRole("navigation", { name: "Дополнительные материалы" }),
+    );
+    await expect(group.getAllByRole("link")).toHaveLength(3);
+    const toggle = group.getByRole("button", { name: "Показать ещё" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    toggle.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(group.getAllByRole("link")).toHaveLength(6);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сменить главу" }),
+    );
+    group = within(
+      rail.getByRole("navigation", { name: "Дополнительные материалы" }),
+    );
+    await expect(group.getAllByRole("link")).toHaveLength(3);
+    await userEvent.click(canvas.getByRole("button", { name: "0" }));
+    await expect(
+      rail.queryByRole("navigation", { name: "Дополнительные материалы" }),
+    ).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "3" }));
+    group = within(
+      rail.getByRole("navigation", { name: "Дополнительные материалы" }),
+    );
+    await expect(group.getAllByRole("link")).toHaveLength(3);
+    await expect(group.queryByRole("button")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "4" }));
+    group = within(
+      rail.getByRole("navigation", { name: "Дополнительные материалы" }),
+    );
+    await userEvent.click(group.getByRole("button", { name: "Показать ещё" }));
+    await expect(group.getAllByRole("link")).toHaveLength(4);
+    await userEvent.click(group.getByRole("button", { name: "Скрыть" }));
+    await expect(group.getAllByRole("link")).toHaveLength(3);
   },
 };
