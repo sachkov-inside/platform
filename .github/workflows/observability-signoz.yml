@@ -1,0 +1,67 @@
+name: SigNoz native functional witness
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/observability-signoz.yml
+      - scripts/observability-signoz/**
+      - scripts/observability-pilot/**
+      - scripts/observability-resource/**
+      - infra/observability/signoz/**
+      - docs/runbooks/observability-signoz.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signoz-functional-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  functional:
+    name: Native Linux amd64 functional witness, no capacity acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify closed protocols and actual owned process-tree faults
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-signoz -p 'test_*.py'
+      - name: Run through the single external 600-second worker supervisor
+        timeout-minutes: 13
+        run: >-
+          bash scripts/heavy-check.sh python3 -B scripts/observability-signoz/runtime.py run
+          --output "$RUNNER_TEMP/signoz-functional-private"
+      - name: Recover only the exact registered project after any outcome
+        if: ${{ always() }}
+        timeout-minutes: 2
+        run: >-
+          python3 -B scripts/observability-signoz/runtime.py recover
+          --output "$RUNNER_TEMP/signoz-functional-private"
+      - name: Collect closed numerical evidence even after early failure
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 -B scripts/observability-signoz/runtime.py collect
+          --output "$RUNNER_TEMP/signoz-functional-private"
+          --public "$RUNNER_TEMP/signoz-functional-public"
+      - name: Upload only the curated public witness
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signoz-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/signoz-functional-public
+          if-no-files-found: error
+          retention-days: 7

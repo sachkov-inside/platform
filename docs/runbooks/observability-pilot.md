@@ -1,5 +1,8 @@
 # Пилот наблюдаемости Platform
 
+Отдельный [функциональный сценарий SigNoz на Linux](observability-signoz.md) подготавливает
+запасной вариант для #1566. Он не заменяет проверки полного workload и production мощности.
+
 Статус на 19.10.2026: подготовлен исполняемый **кандидат** первого технического smoke
 для [#1566](https://github.com/sachkov-inside/platform/issues/1566) /
 [принятой спецификации #1565](https://github.com/sachkov-inside/platform/issues/1565).
