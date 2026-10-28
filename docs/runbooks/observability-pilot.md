@@ -1446,9 +1446,9 @@ SDK and tracking additionally prepare separate `sdk-emitter-phase.json` and
 `tracking-producer-phase.json` observations. Each closed record is at most512bytes and contains
 schema1, fixed scope, captured source SHA, state, phase and reason. The child writes a private
 atomic marker through an owned directory descriptor; the parent reads it only after the unchanged
-capture owner has reaped the child. These source-specific owners never inspect error text, args,
-properties or stack traces. `emit` and `produce` keep their default null observer and unchanged
-capture APIs. The first observed operation or cleanup failure is retained even if later original
+capture owner has reaped the child. The phase owners never retain raw error text, args or stack
+traces. The SDK observation described below classifies only pinned native Error own data descriptors;
+it never invokes accessors. `emit` and `produce` keep their default null observer and unchanged capture APIs. The first observed operation or cleanup failure is retained even if later original
 cleanup replaces the thrown exception. `completed` is written only after all original cleanup;
 a later stdout/IPC failure can therefore coexist with a completed marker. Missing markers remain
 unknown, abrupt exit may retain running, and malformed present phase contracts refuse collection.
@@ -1461,6 +1461,21 @@ accessors, missing values, nonfinite numbers and fractional counters are unavail
 become fabricated zeros. Public collection projects missing or invalid optional counters to
 `{"available":false}` while retaining the owning phase/state and source. The original
 zero-counter assertion, sampling, flush/shutdown, network and storage-query budgets remain unchanged.
+
+The SDK phase also records the first failed exporter callback for each signal in optional
+`exportFailures`. The existing factory accepts an optional observation callback; `diagnostics()`
+keeps its original three keys and the zero-counter assertion still decides producer acceptance.
+Only closed HTTP status, allowlisted network errno, exact pinned timeout/queue categories or
+`unknown` are retained. Error text, response bodies, stacks and endpoints are never copied.
+Callback latency is an integer in0..600000ms (600000 means at least that duration); null means
+unavailable. Missing or invalid observations project `available:false`; null signal slots mean
+no failure observed so far, never success. An unknown category still records a failed callback.
+The first record per signal is sticky, and diagnostic observer exceptions cannot prevent the
+original SDK callback receiving its original result. Production warnings retain their existing
+safe signal/service fields. The full phase remains bounded to512bytes; the conservative schema
+maximum is466bytes and the largest valid record is463bytes, verified across the JS writer and
+Python collector. This observes the callback outcome, not the cause of a native CI incident.
+
 A nonzero snapshot still fails the producer. The snapshot contains no error text, endpoint,
 DSN, credential, URL or runtime payload and cannot establish the cause of an export failure.
 

@@ -171,6 +171,7 @@ test("SDK input failure keeps its original error and commits the owning phase th
     /** @type {unknown} */
     const value = JSON.parse(fs.readFileSync(file, "utf8"));
     assert.deepEqual(value, {
+      exportFailures: { available: true, traces: null, metrics: null },
       schema: 1,
       scope: "sdk",
       source: "a".repeat(40),

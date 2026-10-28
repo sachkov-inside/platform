@@ -1,4 +1,5 @@
 // @ts-check
+import { isProxy } from "node:util/types";
 // Fixed SDK profile. Marker failures never become producer failures.
 import {
   constants,
@@ -33,7 +34,7 @@ const phases = [
   "cleanup_hooks",
 ];
 /** @typedef {{available:false}|{available:true,saturated:boolean,droppedSpans:number,failedTraceExports:number,failedMetricExports:number}} SdkCounters */
-/** @typedef {{enter(phase:string):void,diagnostics(value:unknown):void,failed():void,completed():void}} SdkEmitterPhase */
+/** @typedef {{enter(phase:string):void,diagnostics(value:unknown):void,exportFailure(signal:string,value:unknown):void,failed():void,completed():void}} SdkEmitterPhase */
 const counterLimit = 1_000_000;
 /** @param {unknown} value @returns {SdkCounters} */
 function counterSnapshot(value) {
@@ -76,6 +77,64 @@ function counterSnapshot(value) {
     };
   } catch {
     return { available: false };
+  }
+}
+/** @typedef {import("../../apps/backend/src/infrastructure/observability/technical-telemetry.js").ExportFailureObservation} ExportFailureObservation */
+/** @typedef {{available:false}|{available:true,traces:ExportFailureObservation|null,metrics:ExportFailureObservation|null}} ExportFailures */
+/** @param {unknown} value @returns {ExportFailureObservation|null} */
+function failureSnapshot(value) {
+  try {
+    if (typeof value !== "object" || value === null || isProxy(value))
+      return null;
+    const keys = Reflect.ownKeys(value);
+    /** @param {string} key @returns {unknown} */
+    const read = (key) => Object.getOwnPropertyDescriptor(value, key)?.value;
+    const kind = read("kind"),
+      elapsedMs = read("elapsedMs");
+    if (!(
+      elapsedMs === null ||
+      (typeof elapsedMs === "number" &&
+        Number.isInteger(elapsedMs) &&
+        elapsedMs >= 0 &&
+        elapsedMs <= 600000)
+    ))
+      return null;
+    const withCode = kind === "http" || kind === "network";
+    const fields = withCode
+      ? ["kind", "code", "elapsedMs"]
+      : ["kind", "elapsedMs"];
+    if (
+      keys.length !== fields.length ||
+      !keys.every((key) => typeof key === "string" && fields.includes(key))
+    )
+      return null;
+    if (kind === "http") {
+      const code = read("code");
+      return typeof code === "number" &&
+        Number.isInteger(code) &&
+        code >= 100 &&
+        code <= 599
+        ? { kind, code, elapsedMs }
+        : null;
+    }
+    if (kind === "network") {
+      const code = /** @type {const} */ ([
+        "ECONNRESET",
+        "ECONNREFUSED",
+        "EPIPE",
+        "ETIMEDOUT",
+        "EAI_AGAIN",
+        "ENOTFOUND",
+        "ENETUNREACH",
+        "EHOSTUNREACH",
+      ]).find((item) => item === read("code"));
+      return code === undefined ? null : { kind, code, elapsedMs };
+    }
+    return kind === "timeout" || kind === "queue" || kind === "unknown"
+      ? { kind, elapsedMs }
+      : null;
+  } catch {
+    return null;
   }
 }
 /** @type {WeakSet<object>} */
@@ -175,6 +234,8 @@ export function createSdkEmitterPhase(environment) {
     let latched = false;
     let current = "input_validation";
     /** @type {SdkCounters|undefined} */ let counters;
+    /** @type {ExportFailures} */
+    let failures = { available: true, traces: null, metrics: null };
     function close() {
       if (open) {
         open = false;
@@ -232,6 +293,7 @@ export function createSdkEmitterPhase(environment) {
             source,
             state,
             diagnostics: counters,
+            exportFailures: failures,
           }) + "\n";
         if (Buffer.byteLength(raw) > 512) throw new Error();
         fd = openSync(
@@ -318,6 +380,19 @@ export function createSdkEmitterPhase(environment) {
       }
     }
     const observer = Object.freeze({
+      /** @param {string} signal @param {unknown} value */
+      exportFailure(signal, value) {
+        if (latched || disabled || !failures.available) return;
+        if (signal !== "traces" && signal !== "metrics")
+          failures = { available: false };
+        else {
+          if (failures[signal] !== null) return;
+          const row = failureSnapshot(value);
+          if (row === null) failures = { available: false };
+          else failures[signal] = row;
+        }
+        commit("running");
+      },
       /** @param {unknown} value */
       diagnostics(value) {
         if (latched || disabled || current !== "sdk_diagnostics") return;

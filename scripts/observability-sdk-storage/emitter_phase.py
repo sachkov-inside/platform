@@ -40,9 +40,33 @@ def _counters(value):
     return {key:value[key] for key in ('available','saturated',*_COUNTERS)}
 
 
+def _failures(value):
+    unavailable = {'available':False}
+    if type(value) is not dict or any(type(key) is not str for key in value):return unavailable
+    if set(value) != {'available','traces','metrics'} or value.get('available') is not True:return unavailable
+    result = {'available':True}
+    network = ('ECONNRESET','ECONNREFUSED','EPIPE','ETIMEDOUT','EAI_AGAIN','ENOTFOUND','ENETUNREACH','EHOSTUNREACH')
+    for signal in ('traces','metrics'):
+        row=value[signal]
+        if row is None:result[signal]=None;continue
+        if type(row) is not dict or any(type(key) is not str for key in row):return unavailable
+        kind=row.get('kind');elapsed=row.get('elapsedMs')
+        if (type(kind) is not str or 'elapsedMs' not in row
+                or not (elapsed is None or type(elapsed) is int and 0 <= elapsed <= 600000)):return unavailable
+        fields={'kind','elapsedMs'}|({'code'} if kind in ('http','network') else set())
+        if set(row)!=fields:return unavailable
+        if kind=='http':
+            if type(row['code']) is not int or not 100 <= row['code'] <= 599:return unavailable
+        elif kind=='network':
+            if type(row['code']) is not str or row['code'] not in network:return unavailable
+        elif kind not in ('timeout','queue','unknown'):return unavailable
+        result[signal]=dict(row)
+    return result
+
+
 def validate(value, *, source):
     if (not _sha(source,40) or type(value) is not dict or any(type(key) is not str for key in value)
-            or set(value) not in (_FIELDS,_FIELDS|{'diagnostics'}) or type(value['schema']) is not int or value['schema'] != 1
+            or set(value)-{'diagnostics','exportFailures'} != _FIELDS or type(value['schema']) is not int or value['schema'] != 1
             or any(type(value[key]) is not str for key in _FIELDS-{'schema'})
             or value['scope'] != 'sdk' or value['source'] != source):
         _refuse()
@@ -55,6 +79,7 @@ def validate(value, *, source):
         _refuse()
     projected = {key:value[key] for key in sorted(_FIELDS)}
     if 'diagnostics' in value:projected['diagnostics'] = _counters(value['diagnostics'])
+    if 'exportFailures' in value:projected['exportFailures'] = _failures(value['exportFailures'])
     return projected
 
 
@@ -242,7 +267,7 @@ def source_from_metadata(metadata):
 
 def load_for_collection(output,*,source):
     value = read(Path(output)/NAME,source=source)
-    return {**value,'diagnostics':_counters(value.get('diagnostics'))}
+    return {**value,'diagnostics':_counters(value.get('diagnostics')),'exportFailures':_failures(value.get('exportFailures'))}
 
 
 class OwnedSdkPhase:

@@ -528,11 +528,11 @@ class SdkEntrypointPhaseTest(unittest.TestCase):
                 if failure=='success':
                     self.assertTrue(observed['normal'],'original producer return changed')
                     self.assertTrue(observed['completed_after_cleanup'],'completion preceded original cleanup')
-                    self.assertEqual(value,{**record('completed','result_ready'),'diagnostics':dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=0,failedMetricExports=0)})
+                    self.assertEqual(value,{**record('completed','result_ready'),'diagnostics':dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=0,failedMetricExports=0),'exportFailures':dict(available=True,traces=None,metrics=None)})
                     self.assertEqual(set(observed['events']),set(phases))
                 else:
                     self.assertTrue(original is not None,'native nonzero outcome missing')
-                    expected=record('failed',failure.split('+')[0],'operation_failed')
+                    expected={**record('failed',failure.split('+')[0],'operation_failed'),'exportFailures':dict(available=True,traces=None,metrics=None)}
                     if failure in ('sdk_shutdown','witness_contract','cleanup_sdk','cleanup_provider','cleanup_hooks'):
                         expected['diagnostics']=dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=0,failedMetricExports=0)
                     self.assertEqual(value,expected)
@@ -672,8 +672,8 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                     target.mkdir(mode=0o700)
                 with patch.object(sdk_storage.ci,'collect',side_effect=collect):sdk_storage.collect(output,metadata,destination)
             canonical=(destination/phase.NAME).read_bytes()
-            self.assertEqual(canonical,(json.dumps({**expected,'diagnostics':{'available':False}},sort_keys=True,separators=(',',':'))+'\n').encode())
-            self.assertLess(len(canonical),len(raw))
+            self.assertEqual(canonical,(json.dumps({**expected,'diagnostics':{'available':False},'exportFailures':{'available':False}},sort_keys=True,separators=(',',':'))+'\n').encode())
+            self.assertLessEqual(len(canonical),phase.MAX_BYTES)
             invalid={**expected,'private':'private-corpus-marker'};(output/phase.NAME).write_text(json.dumps(invalid));(output/phase.NAME).chmod(0o600)
             with patch.object(sdk_storage.diagnostics,'read',return_value={}),patch.object(sdk_storage.ci,'collect') as collect:
                 with self.assertRaises(ValueError):sdk_storage.collect(output,metadata,root/'refused')
@@ -700,7 +700,7 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                     self.assertFalse(destination.exists())
                 else:
                     sdk_storage.collect(output,metadata,destination)
-                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),{**record('unknown','unknown','unavailable'),'diagnostics':{'available':False}})
+                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),{**record('unknown','unknown','unavailable'),'diagnostics':{'available':False},'exportFailures':{'available':False}})
                     self.assertEqual(json.loads((destination/'source.json').read_text()),value)
 
     def test_unobservable_parent_and_disappearing_present_file_are_refused(self):
@@ -724,7 +724,7 @@ class SdkCounterProjectionTest(unittest.TestCase):
                 output=Path(directory).resolve()
                 value={**record('failed','sdk_diagnostics','operation_failed'),'diagnostics':counters}
                 phase.write(output/phase.NAME,value,source=SOURCE)
-                self.assertEqual(phase.load_for_collection(output,source=SOURCE),value)
+                self.assertEqual(phase.load_for_collection(output,source=SOURCE),{**value,'exportFailures':{'available':False}})
                 self.assertLessEqual((output/phase.NAME).stat().st_size,512)
 
     def test_optional_invalid_or_absent_counters_are_unavailable_never_zero_or_primary(self):

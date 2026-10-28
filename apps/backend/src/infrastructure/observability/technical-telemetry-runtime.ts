@@ -8,6 +8,7 @@ import {
   createTechnicalTelemetry,
   type TechnicalTelemetry,
   type TechnicalService,
+  type ExportFailureObservation,
 } from "./technical-telemetry.js";
 
 import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
@@ -32,6 +33,10 @@ export function technicalTelemetryFromEnvironment(input: {
   readonly service: TechnicalService;
   readonly mode: "development" | "test" | "production";
   readonly identity: RuntimeIdentity;
+  readonly onExportFailureObservation?: (
+    signal: "traces" | "metrics",
+    failure: ExportFailureObservation,
+  ) => void;
 }): TechnicalTelemetry {
   if (input.environment["INSIDE_OTEL_ENABLED"] !== "true")
     return createTechnicalTelemetry({ enabled: false });
@@ -63,11 +68,17 @@ export function technicalTelemetryFromEnvironment(input: {
       writeLog("warn", "telemetry_context_unavailable", {
         service: input.service,
       }),
-    onExportFailure: (signal) =>
+    onExportFailure: (signal, failure) => {
       writeLog("warn", "telemetry_export_failed", {
         signal,
         service: input.service,
-      }),
+      });
+      try {
+        input.onExportFailureObservation?.(signal, failure);
+      } catch {
+        /* Diagnostic observer only. */
+      }
+    },
     exporters: {
       spans: new OTLPTraceExporter({
         url: `${endpoint}/v1/traces`,
