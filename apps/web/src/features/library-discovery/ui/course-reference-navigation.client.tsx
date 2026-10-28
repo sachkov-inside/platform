@@ -73,7 +73,9 @@ function ReferenceList({
           type="button"
           aria-expanded={expanded}
           aria-controls={listId}
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => {
+            setExpanded((value) => !value);
+          }}
         >
           <ChevronDown aria-hidden="true" size={16} />
           {expanded ? "Скрыть" : "Показать ещё"}

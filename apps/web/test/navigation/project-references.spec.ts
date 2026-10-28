@@ -124,8 +124,8 @@ test("supplementary navigation expands with keyboard and preserves the course an
   await expect(links).toHaveCount(3);
   const toggle = group.getByRole("button", { name: "Показать ещё" });
   const controlledId = await toggle.getAttribute("aria-controls");
-  expect(controlledId).toBeTruthy();
-  await expect(group.locator("ul")).toHaveAttribute("id", controlledId!);
+  if (controlledId === null) throw new Error("Missing aria-controls");
+  await expect(group.locator("ul")).toHaveAttribute("id", controlledId);
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.focus();
   await page.keyboard.press("Enter");

@@ -710,7 +710,9 @@ export const SupplementaryMaterials: Story = {
       title: `Материал ${String(index + 1)}`,
       href: courseGuide.current.href,
     }));
-    const first = { ...courseGuide.chapters[0]!, references };
+    const chapter = courseGuide.chapters[0];
+    if (chapter === undefined) throw new Error("Course fixture has no chapter");
+    const first = { ...chapter, references };
     const next = {
       ...first,
       id: "second-reference-chapter",
@@ -723,11 +725,20 @@ export const SupplementaryMaterials: Story = {
     };
     return (
       <CourseReadingLayout context={context}>
-        <button onClick={() => setSecond((value) => !value)}>
+        <button
+          onClick={() => {
+            setSecond((value) => !value);
+          }}
+        >
           Сменить главу
         </button>
         {[0, 3, 4, 6].map((value) => (
-          <button key={value} onClick={() => setCount(value)}>
+          <button
+            key={value}
+            onClick={() => {
+              setCount(value);
+            }}
+          >
             {String(value)}
           </button>
         ))}
