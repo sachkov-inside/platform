@@ -6,9 +6,16 @@ on:
       - main
     paths:
       - .github/workflows/observability-signoz.yml
+      - .node-version
+      - scripts/observability-signoz.test.mjs
       - scripts/observability-signoz/**
       - scripts/observability-pilot/**
       - scripts/observability-resource/**
+      - scripts/owned-process.mjs
+      - scripts/owned-process.py
+      - scripts/owned-process/**
+      - scripts/heavy-check.sh
+      - scripts/heavy-check/**
       - infra/observability/signoz/**
       - docs/runbooks/observability-signoz.md
 
