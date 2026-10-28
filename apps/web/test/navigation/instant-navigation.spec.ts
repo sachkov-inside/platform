@@ -12,6 +12,7 @@ import {
 
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
+import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
 
 /** Оболочка нужного маршрута получена целиком; другие запросы страницы не задают барьер. */
 const test = base.extend<{
@@ -172,6 +173,7 @@ async function backendRequests(): Promise<
  * событие запроса дойдёт до проверки.
  */
 async function installProbe(page: Page) {
+  await page.addInitScript(installAppShellPrefetchClassifier);
   await page.addInitScript(() => {
     const probe = {
       highestFooterWhileLoading: null as number | null,
@@ -179,7 +181,7 @@ async function installProbe(page: Page) {
       navigationRequests: 0,
       /** Запросы RSC, ответ на которые ещё не дочитан до конца. */
       pendingRequests: 0,
-      /** Завершённые успешные ответы RuntimeShell; дерево /_tree сюда не входит. */
+      /** Завершённые успешные App Shell; дерево /_tree сюда не входит. */
       prefetchedShells: [] as string[],
       skeletons: [] as string[],
     };
@@ -199,7 +201,7 @@ async function installProbe(page: Page) {
       void response
         .then(async (answer) => {
           await answer.clone().arrayBuffer();
-          if (headers.get("next-router-prefetch") === "3" && answer.ok)
+          if (window.__isAppShellPrefetch(headers) && answer.ok)
             probe.prefetchedShells.push(new URL(answer.url).pathname);
         })
         .catch(() => undefined)

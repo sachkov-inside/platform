@@ -102,6 +102,34 @@ function replay(scenario = {}, shouldRerun = false) {
 }
 
 describe("missing CI Gate recovery", () => {
+  it("accepts reusable recovery children only behind successful mandatory security", () => {
+    const providerJobs = [
+      ...jobs.filter((job) => job.name !== "Secrets and production advisories"),
+      {
+        name: "Secrets and production advisories",
+        status: "completed",
+        conclusion: "success",
+      },
+      {
+        name: "Foundation recovery / plan",
+        status: "completed",
+        conclusion: "success",
+      },
+      {
+        name: "Foundation recovery / Native encrypted recovery (amd64)",
+        status: "completed",
+        conclusion: "success",
+      },
+    ];
+    replay({ jobs: providerJobs }, true);
+    replay({
+      jobs: providerJobs.map((job) =>
+        job.name === "Secrets and production advisories"
+          ? { ...job, conclusion: "skipped" }
+          : job,
+      ),
+    });
+  });
   it("replays the successful-plan, absent-gate failure for PRs and the merge queue", () => {
     replay({}, true);
     replay({ run: { event: "merge_group" } }, true);
@@ -151,7 +179,10 @@ describe("missing CI Gate recovery", () => {
     replay(
       {
         jobs: jobs.map((job) =>
-          job.name === "Coverage plan (isolated reruns)"
+          [
+            "Coverage plan (isolated reruns)",
+            "Secrets and production advisories",
+          ].includes(job.name)
             ? job
             : { ...job, conclusion: "skipped" },
         ),
@@ -177,6 +208,7 @@ describe("missing CI Gate recovery", () => {
       ...job,
       conclusion:
         job.name === ciJobNames["plan"] ||
+        job.name === ciJobNames["security"] ||
         selectedNames.includes(job.name) ||
         Object.entries(ciMatrixJobs).some(
           ([id, group]) =>

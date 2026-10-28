@@ -347,9 +347,11 @@ export function collectReferenceDocuments(repositoryRoot) {
     "README.md",
     "REPOSITORIES.md",
   ]);
-  walk(resolve(repositoryRoot, "docs/runbooks"), (path, name) => {
-    if (name.endsWith(".md")) documents.add(relative(repositoryRoot, path));
-  });
+  for (const directory of ["runbooks", "product", "specifications", "adr"]) {
+    walk(resolve(repositoryRoot, "docs", directory), (path, name) => {
+      if (name.endsWith(".md")) documents.add(relative(repositoryRoot, path));
+    });
+  }
   return {
     documents: [...documents].sort(),
     pathDocuments: new Set(agentDocuments),

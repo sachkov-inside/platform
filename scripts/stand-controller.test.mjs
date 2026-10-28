@@ -522,3 +522,165 @@ test("bootstrap receipt refuses a different current identity instead of adopting
     /identity settings/u,
   );
 });
+
+/** @param {import("node:test").TestContext} t */
+async function upgradeFixture(t) {
+  const base = await fixture(t);
+  /** @type {string[]} */
+  const events = [];
+  let runtimeSchema = "runtime-schema-a";
+  let failNextPreparation = false;
+  let failNextBackup = false;
+  const prepare = base.dependencies.prepare;
+  const dependencies = {
+    ...base.dependencies,
+    backup: async (
+      /** @type {import("./stand-controller.mjs").StandSnapshot} */ snapshot,
+      /** @type {string} */ generation,
+    ) => {
+      events.push(`backup:${snapshot.containers.length}`);
+      if (failNextBackup) {
+        failNextBackup = false;
+        throw new Error("dump failed");
+      }
+      return join(base.dependencies.directory, "backups", generation);
+    },
+    prepare: async (
+      /** @type {import("./stand-controller.mjs").StandOperation} */ operation,
+    ) => {
+      events.push(operation.upgrade ? "upgrade" : "prepare");
+      if (failNextPreparation) {
+        failNextPreparation = false;
+        throw new Error("migration failed");
+      }
+      await prepare(operation);
+      if (operation.upgrade) runtimeSchema = "runtime-schema-b";
+    },
+    ready: async () => ({
+      schema: runtimeSchema,
+      url: "http://127.0.0.1:3000",
+    }),
+  };
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  events.length = 0;
+  return {
+    ...base,
+    dependencies,
+    events,
+    failNextPreparation: () => {
+      failNextPreparation = true;
+    },
+    failNextBackup: () => {
+      failNextBackup = true;
+    },
+  };
+}
+
+test("upgrade moves a ready stand to newer schema and infrastructure after a backup", async (t) => {
+  const { dependencies, inputs, events } = await upgradeFixture(t);
+  inputs.schema = "schema-b";
+  inputs.infrastructure = "infra-b";
+  await assert.rejects(
+    controlStand({ command: "refresh", worktree: "/fixture/a" }, dependencies),
+    /migration or infrastructure handoff/u,
+  );
+  const result = await controlStand(
+    { command: "upgrade", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(result.status, "ready");
+  assert.equal(result.source?.schema, "schema-b");
+  assert.equal(result.source?.infrastructure, "infra-b");
+  assert.deepEqual(events, ["backup:2", "upgrade"]);
+  const refreshed = await controlStand(
+    { command: "refresh", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(refreshed.status, "ready");
+});
+
+test("upgrade without schema or infrastructure changes points to show or refresh", async (t) => {
+  const { dependencies, events } = await upgradeFixture(t);
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/a" }, dependencies),
+    /already match.*show or refresh/u,
+  );
+  assert.deepEqual(events, []);
+});
+
+test("upgrade refuses a foreign reservation, changed identity or unready stand before any backup", async (t) => {
+  const { dependencies, inputs, events, setSnapshot } = await upgradeFixture(t);
+  inputs.schema = "schema-b";
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/b" }, dependencies),
+    /reserved for \/fixture\/a/u,
+  );
+  inputs.identity = "identity-b";
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/a" }, dependencies),
+    /identity settings changed/u,
+  );
+  inputs.identity = "identity-a";
+  const ready = dependencies.ready;
+  dependencies.ready = async () => {
+    throw new Error("Stand service api is not ready");
+  };
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/a" }, dependencies),
+    /ready before an upgrade/u,
+  );
+  dependencies.ready = ready;
+  setSnapshot({ daemon: "fixture", containers: [] });
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/a" }, dependencies),
+    /running managed stand/u,
+  );
+  assert.deepEqual(events, []);
+});
+
+test("a failed upgrade keeps its backup, blocks other preparation and resumes on rerun", async (t) => {
+  const { dependencies, inputs, events, failNextPreparation } =
+    await upgradeFixture(t);
+  inputs.schema = "schema-b";
+  failNextPreparation();
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/a" }, dependencies),
+    /migration failed/u,
+  );
+  const failed = await controlStand(
+    { command: "status", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(failed.status, "recovery");
+  await assert.rejects(
+    controlStand({ command: "refresh", worktree: "/fixture/a" }, dependencies),
+    /upgrade is incomplete.*backups/u,
+  );
+  const resumed = await controlStand(
+    { command: "upgrade", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(resumed.status, "ready");
+  assert.deepEqual(events, ["backup:2", "upgrade", "upgrade"]);
+});
+
+test("a failed backup leaves the old schema protected and retakes the backup on rerun", async (t) => {
+  const { dependencies, inputs, events, failNextBackup } =
+    await upgradeFixture(t);
+  inputs.schema = "schema-b";
+  failNextBackup();
+  await assert.rejects(
+    controlStand({ command: "upgrade", worktree: "/fixture/a" }, dependencies),
+    /dump failed.*backup: not taken/u,
+  );
+  await assert.rejects(
+    controlStand({ command: "refresh", worktree: "/fixture/a" }, dependencies),
+    /upgrade is incomplete/u,
+  );
+  const resumed = await controlStand(
+    { command: "upgrade", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(resumed.status, "ready");
+  assert.deepEqual(events, ["backup:2", "backup:2", "upgrade"]);
+});

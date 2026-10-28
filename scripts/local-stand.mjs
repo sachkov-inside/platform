@@ -13,7 +13,10 @@ import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 import { realpathSync, statfsSync } from "node:fs";
 import { z } from "zod";
 import { standIdentityReceiptPrefix } from "./stand-identity-receipt.mjs";
-import { standApplicationServices } from "./stand-services.mjs";
+import {
+  standApplicationServices,
+  standInfrastructureServices,
+} from "./stand-services.mjs";
 import { requireUnmanagedStand } from "./stand-controller.mjs";
 import {
   createStandBuildBudget,
@@ -24,19 +27,23 @@ import {
 /**
  * The caller holds the shared local-setup lock. Refresh only recreates application roles;
  * the stand controller verifies ownership and schema/configuration compatibility first.
- * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
+ * An upgrade is a refresh that also rebuilds infrastructure images, applies forward migrations
+ * and replaces changed infrastructure, without seed or identity bootstrap.
+ * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; upgrade?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
  */
 export async function launchLocalStand({
   repositoryRoot,
   pnpmPath,
   productionWeb = false,
-  refresh = false,
+  refresh: refreshOnly = false,
+  upgrade = false,
   resumeCold = false,
   composeOverride,
   logToStderr = false,
   dockerHost,
   onIdentityReady,
 }) {
+  const refresh = refreshOnly || upgrade;
   const outputStream = logToStderr ? process.stderr : process.stdout;
   const standDiskPollIntervalMilliseconds = 250;
 
@@ -191,7 +198,7 @@ export async function launchLocalStand({
     );
     // BuildKit checks source inputs even on cache hits. API builds the development workspace for
     // all backend roles and Web; only production Web needs its separate build and image.
-    for (const service of refresh
+    for (const service of refresh && !upgrade
       ? productionWeb
         ? ["api", "web"]
         : ["api"]
@@ -199,6 +206,18 @@ export async function launchLocalStand({
         ? ["api", "web", "rabbitmq", "logto"]
         : ["api", "rabbitmq", "logto"]) {
       await compose(["build", service]);
+    }
+    if (upgrade) {
+      // The migration engine refuses a database ledger that is not a prefix of this registry.
+      await compose(["run", "--rm", "--no-deps", "-T", "migrations"]);
+      await compose([
+        "up",
+        "--detach",
+        "--no-build",
+        "--no-deps",
+        "--wait",
+        ...standInfrastructureServices,
+      ]);
     }
     if (refresh) {
       await compose([

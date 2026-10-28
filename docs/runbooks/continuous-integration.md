@@ -40,7 +40,7 @@ an empty change set conservatively selects both applications. Agent labels never
 Every PR push, including a draft, receives its affected plan.
 The planner exports a SHA-256 digest of the exact complete plan serialization. The gate independently
 recomputes that plan and requires the same digest before validating every job result. Its environment
-contains only that fixed-size digest and the explicit result of all thirteen dependencies, never
+contains only that fixed-size digest and the explicit result of every declared dependency, never
 the complete plan or nested job outputs. Large changed-file lists therefore retain full coverage
 without exceeding the runner's per-environment-string process limit.
 
@@ -82,7 +82,9 @@ cannot establish trust or correspondence between different SHAs.
 
 ## Available checks
 
-`pnpm check` is the local aggregate of four stages. CI runs independent work in parallel;
+`pnpm check` is the local aggregate of four stages. Static coverage includes the [quality checks](quality-checks.md).
+The independent security job is required for every candidate, including prose-only changes; it is
+not an optional path-selected coverage ID. CI runs independent work in parallel;
 `unit`, `web-e2e`, `integration`, `compose-production` and `fullstack` retain stable aggregate jobs. Each aggregate
 requires every selected matrix member to succeed, including during reusable release gap checks.
 A failed, cancelled or skipped selected member fails its aggregate. Coverage selection, required
@@ -101,7 +103,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: builds the backend, then runs RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | Two isolated `compose-production-checks` parts require both the cold nine-process runtime proof (plus PR release-image inspection) and the exact-source admitted-cache proof |
+| `compose-production` | Requires both isolated cold/cache runtime proofs and the reusable native foundation recovery workflow. Recovery runs for foundation/toolchain changes; release calls without a path comparison run the complete proof |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact

@@ -29,6 +29,7 @@ export const applicationCoverage = {
 };
 /** @type {Record<string, string>} */
 export const ciJobNames = {
+  security: "Secrets and production advisories",
   plan: "Coverage plan (isolated reruns)",
   docs: "Documentation contracts",
   contracts: "Tooling contracts",

@@ -1,0 +1,94 @@
+{
+  "jactionlint": {
+    "repository": "jdx/jactionlint",
+    "version": "v2.3.0",
+    "member": "jactionlint",
+    "assets": {
+      "darwin-arm64": {
+        "file": "jactionlint_2.3.0_darwin_arm64.tar.gz",
+        "sha256": "f96afa36578b21290203ae8df4fa7ac3bf5aba08ed288df28cb0530af7ca6e55"
+      },
+      "darwin-x64": {
+        "file": "jactionlint_2.3.0_darwin_amd64.tar.gz",
+        "sha256": "a61006b669ec0ab1266c73e3561eecf839537eb6e8b3b6be766a55ba17fcbe42"
+      },
+      "linux-arm64": {
+        "file": "jactionlint_2.3.0_linux_arm64.tar.gz",
+        "sha256": "deea7744e5769e1e5cc8c9898a838f80a941ec68476d9f2814a61474d5652dac"
+      },
+      "linux-x64": {
+        "file": "jactionlint_2.3.0_linux_amd64.tar.gz",
+        "sha256": "907e6f6a59e181879f7e6936e19ee2eca1cbc51de134fb85460cfa8d65a71f28"
+      }
+    }
+  },
+  "hadolint": {
+    "repository": "hadolint/hadolint",
+    "version": "v2.15.1",
+    "member": null,
+    "assets": {
+      "darwin-arm64": {
+        "file": "hadolint-macos-arm64",
+        "sha256": "5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2"
+      },
+      "darwin-x64": {
+        "file": "hadolint-macos-x86_64",
+        "sha256": "ffe9bb18b23d5ed1eae50237aecdbb523d016e96da0bd4e7aa432040acfc3fde"
+      },
+      "linux-arm64": {
+        "file": "hadolint-linux-arm64",
+        "sha256": "f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d"
+      },
+      "linux-x64": {
+        "file": "hadolint-linux-x86_64",
+        "sha256": "c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507"
+      }
+    }
+  },
+  "shellcheck": {
+    "repository": "koalaman/shellcheck",
+    "version": "v0.11.0",
+    "member": "shellcheck-v0.11.0/shellcheck",
+    "assets": {
+      "darwin-arm64": {
+        "file": "shellcheck-v0.11.0.darwin.aarch64.tar.gz",
+        "sha256": "339b930feb1ea764467013cc1f72d09cd6b869ebf1013296ba9055ab2ffbd26f"
+      },
+      "darwin-x64": {
+        "file": "shellcheck-v0.11.0.darwin.x86_64.tar.gz",
+        "sha256": "c2c15e08df0e8fbc374c335b230a7ee958c313fa5714817a59aa59f1aa594f51"
+      },
+      "linux-arm64": {
+        "file": "shellcheck-v0.11.0.linux.aarch64.tar.gz",
+        "sha256": "68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc"
+      },
+      "linux-x64": {
+        "file": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
+        "sha256": "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6"
+      }
+    }
+  },
+  "betterleaks": {
+    "repository": "betterleaks/betterleaks",
+    "version": "v1.9.0",
+    "member": "betterleaks",
+    "assets": {
+      "darwin-arm64": {
+        "file": "betterleaks_1.9.0_darwin_arm64.tar.gz",
+        "sha256": "83dd7eaab13d44a1e8e347a17064cdef153a1478db473276d41b38d55613d3f2"
+      },
+      "darwin-x64": {
+        "file": "betterleaks_1.9.0_darwin_x64.tar.gz",
+        "sha256": "68dfd83458d9e7f90663daa7a81c7f944083b170dae82e4f5f8d0581ed519ef1"
+      },
+      "linux-arm64": {
+        "file": "betterleaks_1.9.0_linux_arm64.tar.gz",
+        "sha256": "1d39116e0a58dc94574715e2aa12a2dbd5062f193eee3fec011fef6ba06bd13b"
+      },
+      "linux-x64": {
+        "file": "betterleaks_1.9.0_linux_x64.tar.gz",
+        "sha256": "f8b185a39ffcece2a1ca82bf3a4e7435cd81963ffd16b7a9128daf75f35f6de7"
+      }
+    }
+  }
+}

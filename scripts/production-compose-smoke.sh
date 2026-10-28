@@ -295,6 +295,8 @@ wait_for_foundation_sql() {
   local result
   for ((attempt = 1; attempt <= foundation_sql_poll_attempts; attempt += 1)); do
     # The temporary init-server listens on Unix sockets only; require the main server over TCP.
+    # The container shell expands its own POSTGRES_PASSWORD.
+    # shellcheck disable=SC2016
     if result="$("${foundation_compose[@]}" exec -T postgres sh -c '
       PGPASSWORD="$POSTGRES_PASSWORD" PGCONNECT_TIMEOUT=1 PGOPTIONS="-c statement_timeout=1000" \
         psql --no-psqlrc --host 127.0.0.1 --username postgres --dbname postgres \
@@ -342,6 +344,8 @@ application_data_digest() {
 }
 
 read_schema_marker() {
+  # JavaScript optional chaining and template literals are not shell substitutions.
+  # shellcheck disable=SC2016
   node -e '
     const value = JSON.parse(process.argv[1]);
     if (
@@ -616,6 +620,8 @@ record_stage_timing application-startup
 # eight quorum queues. It accepts only TLS that verifies against the environment CA as `rabbitmq`.
 broker_users="$("${application_compose[@]}" exec -T rabbitmq rabbitmqctl list_users --silent --formatter json)"
 broker_queues="$("${application_compose[@]}" exec -T rabbitmq rabbitmqctl list_queues --vhost "$broker_vhost" name type --silent --formatter json)"
+# JavaScript template literals remain literal until Node evaluates them.
+# shellcheck disable=SC2016
 node --input-type=module --eval '
   const [users, queues] = process.argv.slice(1).map(value => JSON.parse(value));
   const names = users.map(user => user.user).sort().join(",");
