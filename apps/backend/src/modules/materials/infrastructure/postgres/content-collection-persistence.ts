@@ -64,8 +64,8 @@ function topicPersistence(
     record: ContentCollectionRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
-    const [materialCount, covers] = await Promise.all([
-      prisma.material.count({ where: { topicId: record.id } }),
+    const [counts, covers] = await Promise.all([
+      topicMaterialCounts(prisma, record.id),
       loadContentCoverProjections(
         transactionHandle(prisma),
         record.coverId === null ? [] : [record.coverId],
@@ -75,7 +75,7 @@ function topicPersistence(
       "topic",
       record,
       null,
-      materialCount,
+      counts.get(record.id) ?? noMaterials,
       record.coverId === null ? null : (covers.get(record.coverId) ?? null),
       null,
     );
@@ -83,24 +83,15 @@ function topicPersistence(
   return {
     create: async (data) => {
       const record = await prisma.topic.create({ data });
-      return toDto("topic", record, null, 0, null, null);
+      return toDto("topic", record, null, noMaterials, null, null);
     },
     list: async () => {
-      const [records, counts] = await Promise.all([
+      const [records, countById] = await Promise.all([
         prisma.topic.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
-        prisma.material.groupBy({
-          by: ["topicId"],
-          where: { topicId: { not: null } },
-          _count: { _all: true },
-        }),
+        topicMaterialCounts(prisma),
       ]);
-      const countById = new Map(
-        counts.flatMap(({ topicId, _count }) =>
-          topicId === null ? [] : [[topicId, _count._all] as const],
-        ),
-      );
       const covers = await loadContentCoverProjections(
         transactionHandle(prisma),
         records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
@@ -110,7 +101,7 @@ function topicPersistence(
           "topic",
           record,
           null,
-          countById.get(record.id) ?? 0,
+          countById.get(record.id) ?? noMaterials,
           record.coverId === null ? null : (covers.get(record.coverId) ?? null),
           null,
         ),
@@ -152,11 +143,49 @@ interface CollectionSource {
   readonly sourceId: string | null;
 }
 
+/** How many Materials a Topic holds, and how many of them are published now. */
+interface MaterialCounts {
+  readonly materialCount: number;
+  readonly publishedMaterialCount: number;
+}
+
+const noMaterials: MaterialCounts = {
+  materialCount: 0,
+  publishedMaterialCount: 0,
+};
+
+/**
+ * Material counts of every Topic, or of one, in one grouped statement: all Materials of the Topic
+ * and those whose publication state is `published`.
+ */
+async function topicMaterialCounts(
+  prisma: MaterialsPrisma,
+  topicId?: string,
+): Promise<ReadonlyMap<string, MaterialCounts>> {
+  const groups = await prisma.material.groupBy({
+    by: ["topicId", "publicationState"],
+    where: { topicId: topicId ?? { not: null } },
+    _count: { _all: true },
+  });
+  const counts = new Map<string, MaterialCounts>();
+  for (const { topicId: id, publicationState, _count } of groups) {
+    if (id === null) continue;
+    const current = counts.get(id) ?? noMaterials;
+    counts.set(id, {
+      materialCount: current.materialCount + _count._all,
+      publishedMaterialCount:
+        current.publishedMaterialCount +
+        (publicationState === "published" ? _count._all : 0),
+    });
+  }
+  return counts;
+}
+
 function toDto(
   kind: ContentCollectionKind,
   record: ContentCollectionRecord,
   introduction: ProductIntroductionDto | null,
-  materialCount: number,
+  counts: MaterialCounts,
   cover: ContentCoverProjection | null,
   source: CollectionSource | null,
 ): ContentCollectionDto {
@@ -169,7 +198,8 @@ function toDto(
     id: record.id,
     introduction,
     kind,
-    materialCount,
+    materialCount: counts.materialCount,
+    publishedMaterialCount: counts.publishedMaterialCount,
     name: record.name,
     slug: record.slug,
     summary: record.summary,

@@ -57,7 +57,7 @@ export function assembleReserveSourceProduct(
         const result = await contentCollectionPersistence(
           transaction,
           "product",
-          dependencies.loadCovers,
+          dependencies,
         ).load(current.id);
         if (result === undefined)
           throw new Error("Reserved Product disappeared");

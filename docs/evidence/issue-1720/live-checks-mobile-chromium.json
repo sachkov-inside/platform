@@ -1,0 +1,74 @@
+[
+  {
+    "file": "live-products-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-description-tab-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=description",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-topics-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/topics",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-materials-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/materials",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-materials-filtered-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/materials?topic=97000000-0000-4000-8000-000000000101&format=video",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-submissions-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/submissions",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-submission-detail-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/submissions?submission=30000000-0000-4000-8000-000000000003",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-more-sheet-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/materials",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-search-mobile-chromium.png",
+    "project": "mobile-chromium",
+    "url": "/authoring/materials",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "axeViolations": 0
+  }
+]

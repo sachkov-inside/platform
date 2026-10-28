@@ -25,6 +25,7 @@ const PAGE_SIZE = 20;
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 const pageSchema = z.coerce.number().int().min(1).max(10_000);
 const searchSchema = z.string().trim().min(1).max(160);
+const topicIdSchema = z.uuid();
 const referenceSchema = z
   .object({ id: z.uuid(), name: z.string().min(1) })
   .strict();
@@ -78,6 +79,20 @@ export class ListMaterialsController {
     required: false,
     schema: toOpenApiSchema(searchSchema),
   })
+  @ApiQuery({
+    name: "topicId",
+    required: false,
+    description:
+      "Only Materials of this Topic; combines with the other filters, and the totals count only matching Materials",
+    schema: toOpenApiSchema(topicIdSchema),
+  })
+  @ApiQuery({
+    name: "format",
+    required: false,
+    description:
+      "Only Materials of this format; combines with the other filters, and the totals count only matching Materials",
+    schema: toOpenApiSchema(materialFormatSchema),
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(responseSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 500, 503)
   async list(
@@ -85,18 +100,24 @@ export class ListMaterialsController {
     @Query("page") pageInput: string | undefined,
     @Query("publicationState") publicationStateInput: string | undefined,
     @Query("search") searchInput: string | undefined,
+    @Query("topicId") topicIdInput: string | undefined,
+    @Query("format") formatInput: string | undefined,
   ) {
     const parsed = z
       .object({
         page: pageSchema.default(1),
         publicationState: publicationStateSchema.optional(),
         search: searchSchema.optional(),
+        topicId: topicIdSchema.optional(),
+        format: materialFormatSchema.optional(),
       })
       .strict()
       .safeParse({
         page: pageInput,
         publicationState: publicationStateInput,
         search: searchInput?.trim() === "" ? undefined : searchInput,
+        topicId: topicIdInput,
+        format: formatInput,
       });
     if (!parsed.success) {
       throw problemException(
@@ -115,6 +136,12 @@ export class ListMaterialsController {
       ...(parsed.data.search === undefined
         ? {}
         : { search: parsed.data.search }),
+      ...(parsed.data.topicId === undefined
+        ? {}
+        : { topicId: parsed.data.topicId }),
+      ...(parsed.data.format === undefined
+        ? {}
+        : { format: parsed.data.format }),
     });
     if (!result.ok) {
       throwMaterialAuthoringError(result.error);

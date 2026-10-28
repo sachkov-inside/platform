@@ -32,6 +32,7 @@ import {
 } from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
+import { createQueryEventClient } from "./setup/query-events.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -742,6 +743,269 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await reading.getProductProgress({ accountId: randomUUID(), productId }),
     ).toMatchObject({ ok: true, value: { total: 101, read: 0 } });
+  });
+
+  test("batch Product learning uses the progress rule for many Accounts with a statement count independent of their number (#1718)", async () => {
+    const productId = await product();
+    const first = await material([productId]);
+    const second = await material([productId]);
+    const attachment = await material([productId]);
+    await database.prisma.productProgrammePlacement.deleteMany({
+      where: { productId, materialId: attachment },
+    });
+    const learner = randomUUID();
+    const idle = randomUUID();
+    const starter = randomUUID();
+    for (const materialId of [first, attachment])
+      await reading.setReadingState({
+        ...command(materialId),
+        accountId: learner,
+      });
+    const opened = new Date("2026-10-20T09:15:00.000Z");
+    const later = new Date("2026-10-21T18:40:00.000Z");
+    await database.prisma.readingMaterialVisit.createMany({
+      data: [
+        {
+          accountId: learner,
+          materialId: first,
+          firstOpenedAt: opened,
+          lastOpenedAt: opened,
+        },
+        {
+          accountId: learner,
+          materialId: second,
+          firstOpenedAt: later,
+          lastOpenedAt: later,
+        },
+        // Outside the programme: not learning activity in this Product.
+        {
+          accountId: starter,
+          materialId: attachment,
+          firstOpenedAt: later,
+          lastOpenedAt: later,
+        },
+      ],
+    });
+    const started = new Date("2026-10-19T07:00:00.000Z");
+    await database.prisma.productLearningStarted.create({
+      data: { accountId: starter, productId, startedAt: started },
+    });
+
+    expect(
+      await reading.readProductLearning({
+        productId,
+        accountIds: [learner.toUpperCase(), idle, starter, learner],
+      }),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          accountId: learner,
+          readCount: 1,
+          totalCount: 2,
+          startedAt: null,
+          lastActivityAt: later.toISOString(),
+        },
+        {
+          accountId: idle,
+          readCount: 0,
+          totalCount: 2,
+          startedAt: null,
+          lastActivityAt: null,
+        },
+        {
+          accountId: starter,
+          readCount: 0,
+          totalCount: 2,
+          startedAt: started.toISOString(),
+          lastActivityAt: null,
+        },
+      ],
+    });
+    // The single-Account progress agrees on the numerator and the total.
+    expect(
+      await reading.getProductProgress({ accountId: learner, productId }),
+    ).toMatchObject({ ok: true, value: { read: 1, total: 2 } });
+
+    const observer = createQueryEventClient(database.url);
+    try {
+      const observed = new ReadingActivity({
+        prisma: observer.prisma,
+        materialContent: materials.materialContent,
+        contentAccess: assembleContentAccess({
+          materialResourceFacts: assembleMaterialResourceFacts(
+            materials.materialContent,
+          ),
+          accountPermissions: {
+            hasMaterialsManage: () => Promise.resolve(false),
+          },
+          accountRights: membership,
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
+          clock: () => new Date(),
+        }),
+        composition: new PublishedProductComposition(
+          observer.prisma,
+          assembleProductMaterialReading(observer.prisma),
+        ),
+      });
+      const measure = async (accountIds: readonly string[]) => {
+        const { result, statements } = await observer.measure(() =>
+          observed.readProductLearning({ productId, accountIds }),
+        );
+        expect(result).toMatchObject({ ok: true });
+        return statements.length;
+      };
+      const one = await measure([learner]);
+      const hundred = await measure([
+        learner,
+        idle,
+        starter,
+        ...Array.from({ length: 97 }, () => randomUUID()),
+      ]);
+      expect(hundred).toBe(one);
+    } finally {
+      await observer.prisma.$disconnect();
+    }
+
+    // An archived Product keeps its holders' learning readable for the owner.
+    await database.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: new Date("2026-10-22T00:00:00.000Z") },
+    });
+    expect(
+      await reading.readProductLearning({ productId, accountIds: [learner] }),
+    ).toMatchObject({ ok: true, value: [{ readCount: 1, totalCount: 2 }] });
+    expect(
+      await reading.readProductLearning({
+        productId: randomUUID(),
+        accountIds: [learner],
+      }),
+    ).toEqual({ ok: false, error: { code: "product_not_found" } });
+    expect(
+      await reading.readProductLearning({
+        productId,
+        accountIds: Array.from({ length: 101 }, () => randomUUID()),
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  });
+
+  test("the owner learning summary measures the published composition whatever the learner's access", async () => {
+    const productId = await product();
+    const archived = await product();
+    const missing = randomUUID();
+    const first = await material([productId], "closed");
+    const second = await material([productId]);
+    await material([archived]);
+    await reading.setReadingState(command(second));
+    const learner = randomUUID();
+    await database.prisma.readingMaterialState.create({
+      data: {
+        accountId: learner,
+        materialId: first,
+        isRead: true,
+        readAt: new Date("2030-01-02T00:00:00.000Z"),
+        version: 1,
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+      },
+    });
+    await database.prisma.readingMaterialVisit.createMany({
+      data: [
+        {
+          accountId: learner,
+          materialId: first,
+          firstOpenedAt: new Date("2030-01-01T00:00:00.000Z"),
+          lastOpenedAt: new Date("2030-01-03T00:00:00.000Z"),
+        },
+        {
+          accountId: learner,
+          materialId: second,
+          firstOpenedAt: new Date("2030-01-02T00:00:00.000Z"),
+          lastOpenedAt: new Date("2030-01-04T00:00:00.000Z"),
+        },
+      ],
+    });
+    await database.prisma.productLearningStarted.create({
+      data: {
+        accountId: learner,
+        productId,
+        startedAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+    });
+    await database.prisma.product.update({
+      where: { id: archived },
+      data: { archivedAt: new Date("2030-01-05T00:00:00.000Z") },
+    });
+    // The learner holds no Product Access at all: the owner still sees the closed Material.
+    expect(
+      await reading.readLearningSummary(learner, [
+        productId.toUpperCase(),
+        archived,
+        missing,
+      ]),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          productId: productId.toUpperCase(),
+          startedAt: "2030-01-01T00:00:00.000Z",
+          progress: {
+            state: "measured",
+            read: 1,
+            total: 2,
+            lastActivityAt: "2030-01-04T00:00:00.000Z",
+          },
+        },
+        {
+          productId: archived,
+          startedAt: null,
+          progress: { state: "unavailable" },
+        },
+        {
+          productId: missing,
+          startedAt: null,
+          progress: { state: "unavailable" },
+        },
+      ],
+    });
+    expect(
+      await reading.readLearningSummary(randomUUID(), [productId]),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          productId,
+          startedAt: null,
+          progress: {
+            state: "measured",
+            read: 0,
+            total: 2,
+            lastActivityAt: null,
+          },
+        },
+      ],
+    });
+    expect(
+      await reading.readLearningSummary(
+        learner,
+        Array.from({ length: 51 }, () => randomUUID()),
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+
+    const idle = randomUUID();
+    expect(
+      await reading.readLastActivity([learner.toUpperCase(), idle]),
+    ).toEqual({
+      ok: true,
+      accounts: new Map([
+        [learner.toUpperCase(), "2030-01-04T00:00:00.000Z"],
+        [idle, null],
+      ]),
+    });
+    expect(
+      await reading.readLastActivity(
+        Array.from({ length: 51 }, () => randomUUID()),
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
   });
 
   test("database constraints reject invalid state and duplicate event versions", async () => {

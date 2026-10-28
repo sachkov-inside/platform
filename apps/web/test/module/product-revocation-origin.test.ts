@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { productRevocationPreviewResponseSchema } from "@/features/billing-admin/model/product-revocation";
+import { productRevocationPreviewResponseSchema } from "@/entities/subscription/model/product-revocation";
 
 it.each(["paid", "manual", "legacy", "course_activation", "unknown"])(
   "owner preview decodes factual %s origin without changing unified affected count",
@@ -12,6 +12,7 @@ it.each(["paid", "manual", "legacy", "course_activation", "unknown"])(
         revision: 1,
         affectedCount: 1,
         affected: [{ source, capabilities: ["materials"], validUntil: null }],
+        community: "remains",
       },
     };
     expect(

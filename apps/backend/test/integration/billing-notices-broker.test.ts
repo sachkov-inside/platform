@@ -119,6 +119,7 @@ test("подтверждённая оплата доходит до обоих �
   });
   const contact = new BillingContact({
     prisma: database.prisma,
+    emailFingerprintKey: "synthetic-broker-fingerprint-000000",
     protection,
     documents,
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.

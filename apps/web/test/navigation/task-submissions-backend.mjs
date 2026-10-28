@@ -13,6 +13,7 @@ const schema = z
       z
         .object({
           submissionId: z.string(),
+          authorFeedback: z.unknown(),
           task: z
             .object({
               productId: z.string(),
@@ -39,6 +40,9 @@ const feedbackSchema = z
 /** @type {Map<string, {comment: string | null, reviewedAt: string | null, updatedAt: string} | null>} */
 const feedbacks = new Map();
 let writes = 0;
+/** Query strings of list and detail reads, in arrival order, for `GET /__submissions/reads`. */
+/** @type {string[]} */
+let reads = [];
 /** @type {Promise<void> | undefined} */
 let gate;
 /** @type {(() => void) | undefined} */
@@ -57,6 +61,7 @@ export async function taskSubmissionsRoute(request, url, readBody) {
     gate = undefined;
     feedbacks.clear();
     writes = 0;
+    reads = [];
     return { status: 200, value: { reset: true } };
   }
   if (url.pathname === "/__submissions/hold") {
@@ -72,6 +77,8 @@ export async function taskSubmissionsRoute(request, url, readBody) {
       : undefined;
     return { status: 200, value: { hold } };
   }
+  if (url.pathname === "/__submissions/reads")
+    return { status: 200, value: { reads } };
   const token = request.headers.authorization;
   if (!url.pathname.startsWith("/authoring/product-tasks/submissions"))
     return null;
@@ -84,6 +91,26 @@ export async function taskSubmissionsRoute(request, url, readBody) {
     return { status: 503, value: { code: "dependency_unavailable" } };
   if (token === undefined)
     return { status: 401, value: { code: "invalid_proof" } };
+  /** @param {(typeof fixture.submissions)[number]} row */
+  const feedbackOf = (row) =>
+    feedbacks.has(row.submissionId)
+      ? feedbacks.get(row.submissionId)
+      : row.authorFeedback;
+  // The shell counter shares the list prefix, so it is answered before the list and the write.
+  if (
+    url.pathname ===
+    "/authoring/product-tasks/submissions/awaiting-feedback-count"
+  )
+    return {
+      status: 200,
+      value: {
+        count:
+          token === "Bearer submissions-empty"
+            ? 0
+            : fixture.submissions.filter((row) => feedbackOf(row) === null)
+                .length,
+      },
+    };
   if (request.method === "PUT") {
     const id = url.pathname.split("/").at(-2);
     if (
@@ -107,6 +134,7 @@ export async function taskSubmissionsRoute(request, url, readBody) {
     feedbacks.set(id, authorFeedback);
     return { status: 200, value: { authorFeedback } };
   }
+  reads.push(url.search);
   const cursor = url.searchParams.get("cursor");
   if (cursor !== null && cursor !== "page-2")
     return { status: 400, value: { code: "invalid_request_shape" } };
@@ -123,6 +151,14 @@ export async function taskSubmissionsRoute(request, url, readBody) {
   );
   if (token === "Bearer submissions-empty") rows = [];
   const chosen = url.searchParams.get("submissionId");
+  // As the backend: «awaiting» means no stored Author Feedback; a detail read ignores the filter.
+  const feedback = url.searchParams.get("feedback");
+  if (feedback !== null && feedback !== "awaiting" && feedback !== "given")
+    return { status: 400, value: { code: "invalid_request_shape" } };
+  if (chosen === null && feedback !== null)
+    rows = rows.filter(
+      (row) => (feedbackOf(row) === null) === (feedback === "awaiting"),
+    );
   const selected = rows.find((row) => row.submissionId === chosen);
   const history =
     selected === undefined
@@ -156,9 +192,7 @@ export async function taskSubmissionsRoute(request, url, readBody) {
       history,
       submissions: page.map((row) => ({
         ...row,
-        authorFeedback: feedbacks.has(row.submissionId)
-          ? feedbacks.get(row.submissionId)
-          : row["authorFeedback"],
+        authorFeedback: feedbackOf(row),
       })),
       nextCursor:
         chosen === null && cursor === null && rows.length > 2 ? "page-2" : null,

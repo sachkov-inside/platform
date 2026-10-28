@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { beforeAll, afterAll, describe, expect, test } from "vitest";
+import {
+  beforeAll,
+  afterAll,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+} from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import type { BillingPricing } from "../../src/modules/billing/index.js";
@@ -74,6 +81,44 @@ describe.each([1, 10, 100])(
         ...productIds.map((productId) => ({ productId, sold: true })),
         ...(size === 100 ? [] : [{ productId: absent, sold: false }]),
       ]);
+      // Price rows, Product catalogue and active promotions. No fixture promotion has a usage
+      // limit, so the shared promotion usage read is skipped. The count is the same at every size.
+      expect(
+        read.statements.filter((sql) => sql.startsWith("SELECT")).length,
+      ).toBe(3);
+    });
+    test("reads promotion usage once for a usage-limited promotion at any size", async () => {
+      if (measured === undefined || db === undefined)
+        throw new Error("Missing measured fixture client");
+      const promotionId = randomUUID();
+      await db.prisma.billingPromotion.create({
+        data: {
+          id: promotionId,
+          revision: 1,
+          name: "Limited promotion",
+          percent: 10,
+          startsAt: new Date("2029-12-01T00:00:00Z"),
+          endsAt: new Date("2030-02-01T00:00:00Z"),
+          productIds,
+          usageLimit: 5,
+        },
+      });
+      // The promotion would otherwise change the read count of the other tests of this size.
+      onTestFinished(async () => {
+        await db?.prisma.billingPromotion.delete({
+          where: { id: promotionId },
+        });
+      });
+      const read = await measured.measure(() =>
+        pricing.saleAvailability({ productIds }),
+      );
+      expect(read.result).toEqual({
+        ok: true,
+        value: {
+          items: productIds.map((productId) => ({ productId, sold: true })),
+        },
+      });
+      // The shared promotion usage read joins the three reads above, once per batch.
       expect(
         read.statements.filter((sql) => sql.startsWith("SELECT")).length,
       ).toBe(4);

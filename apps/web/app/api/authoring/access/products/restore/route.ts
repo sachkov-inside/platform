@@ -1,2 +1,2 @@
-import { handleRestoreProductAccess } from "@/features/billing-admin.server";
+import { handleRestoreProductAccess } from "@/entities/subscription.server";
 export const POST = handleRestoreProductAccess;

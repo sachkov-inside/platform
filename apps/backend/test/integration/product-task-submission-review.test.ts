@@ -26,6 +26,7 @@ import { assembleMaterials } from "../../src/entrypoints/composition/assemble-ma
 import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { telegramWithoutContactsV2 } from "../support/telegram-contacts-v1.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import {
   createMigratedTestDatabase,
@@ -503,6 +504,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     );
     let unlink = false;
     const identities = new TelegramAccountLinks(db.prisma, {
+      ...telegramWithoutContactsV2,
       read: async (queries) => {
         expect(queries).toEqual([
           { accountRef: principalRef, telegramIdentityRef: identityRef },
@@ -650,6 +652,78 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         error: { code: "forbidden" },
       },
     );
+  });
+
+  test("the person card summary counts one Account's submissions per Product without person data", async () => {
+    const [summaryProduct, secondProduct] = [randomUUID(), randomUUID()];
+    const [summaryChapter, cardChapter] = [randomUUID(), randomUUID()];
+    for (const [id, chapterId] of [
+      [summaryProduct, summaryChapter],
+      [secondProduct, cardChapter],
+    ] as const) {
+      await db.prisma.product.create({
+        data: { id, slug: `card-${id}`, name: "Card" },
+      });
+      await db.prisma.productChapter.create({
+        data: { id: chapterId, productId: id, name: "Card", ordinal: 1 },
+      });
+    }
+    const task = await imported({
+      productId: summaryProduct,
+      chapterId: summaryChapter,
+      title: "Сводка",
+    });
+    const foreign = await imported({
+      productId: secondProduct,
+      chapterId: cardChapter,
+      title: "Сводка в другом продукте",
+    });
+    const carla = await learner();
+    const someoneElse = await learner();
+    await submitted(carla, task.code, "Первая.");
+    const latest = await submitted(carla, task.code, "Вторая.");
+    const only = await submitted(carla, foreign.code, "Единственная.");
+    await submitted(someoneElse, task.code, "Чужая.");
+    const rows = await db.prisma.productTaskSubmission.findMany({
+      where: { id: { in: [latest, only] } },
+    });
+    const at = (id: string) =>
+      rows.find((row) => row.id === id)?.submittedAt.toISOString();
+    const expected = [
+      {
+        productId: summaryProduct,
+        count: 2,
+        lastSubmission: {
+          submissionId: latest,
+          submittedAt: at(latest),
+          taskCode: task.code,
+        },
+      },
+      {
+        productId: secondProduct,
+        count: 1,
+        lastSubmission: {
+          submissionId: only,
+          submittedAt: at(only),
+          taskCode: foreign.code,
+        },
+      },
+    ].sort((left, right) => (left.productId < right.productId ? -1 : 1));
+    expect(
+      await review().summarizeAccount(owner, carla.accountId.toUpperCase()),
+    ).toEqual({ ok: true, value: expected });
+    expect(await review().summarizeAccount(owner, randomUUID())).toEqual({
+      ok: true,
+      value: [],
+    });
+    expect(await review().summarizeAccount(outsider, carla.accountId)).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(await review().summarizeAccount(owner, "x")).toEqual({
+      ok: false,
+      error: { code: "invalid_request_shape" },
+    });
   });
 
   test("only materials:manage reads submissions and writes feedback", async () => {
@@ -958,6 +1032,126 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         value: { submissions: [{ submissionId, authorFeedback: null }] },
       },
     );
+  });
+
+  test("the author narrows submissions to those awaiting feedback or given it, pages under the filter and counts those awaiting (#1720)", async () => {
+    const before = await review().countAwaitingFeedback(owner);
+    if (!before.ok) throw new Error(before.error.code);
+    const task = await imported({
+      productId,
+      chapterId: firstChapter,
+      title: "Фильтр отзыва",
+    });
+    const subject = await learner();
+    const [first, second, third, fourth] = [
+      await submitted(subject, task.code, "Первая."),
+      await submitted(subject, task.code, "Вторая."),
+      await submitted(subject, task.code, "Третья."),
+      await submitted(subject, task.code, "Четвёртая."),
+    ];
+    const save = (
+      submissionId: string,
+      comment: string | null,
+      reviewed = false,
+    ) => review().saveFeedback(owner, { submissionId, comment, reviewed });
+    // A comment and the «посмотрел автор» mark alone both store Author Feedback.
+    expect(await save(second, "Комментарий автора.")).toMatchObject({
+      ok: true,
+    });
+    expect(await save(fourth, null, true)).toMatchObject({ ok: true });
+    // A cleared comment without the mark stores nothing: the submission awaits feedback again.
+    expect(await save(third, "Временный комментарий.")).toMatchObject({
+      ok: true,
+    });
+    expect(await save(third, "  ")).toEqual({ ok: true, value: null });
+
+    const listed = async (input: Record<string, unknown>) => {
+      const result = await review().list(owner, {
+        taskCode: task.code,
+        ...input,
+      });
+      if (!result.ok) throw new Error(result.error.code);
+      return {
+        ids: result.value.submissions.map((item) => item.submissionId),
+        nextCursor: result.value.nextCursor,
+      };
+    };
+    expect((await listed({})).ids).toEqual([fourth, third, second, first]);
+    expect((await listed({ feedback: "awaiting" })).ids).toEqual([
+      third,
+      first,
+    ]);
+    expect((await listed({ feedback: "given" })).ids).toEqual([fourth, second]);
+
+    // The client resends the filter with its cursor; the next page continues the filtered order.
+    for (const [feedback, expected] of [
+      ["awaiting", [third, first]],
+      ["given", [fourth, second]],
+    ] as const) {
+      const page = await listed({ feedback, limit: 1 });
+      expect(page.ids).toEqual([expected[0]]);
+      expect(page.nextCursor).not.toBeNull();
+      const next = await listed({
+        feedback,
+        limit: 1,
+        cursor: page.nextCursor,
+      });
+      expect(next).toEqual({ ids: [expected[1]], nextCursor: null });
+      // The cursor keeps the filter it was produced under: another filter or none is refused.
+      for (const other of [
+        { feedback: feedback === "awaiting" ? "given" : "awaiting" },
+        {},
+      ])
+        expect(
+          await review().list(owner, {
+            taskCode: task.code,
+            limit: 1,
+            cursor: page.nextCursor,
+            ...other,
+          }),
+        ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
+      // A detail read opened from a filtered page ignores the cursor and its filter.
+      expect(
+        (
+          await listed({
+            submissionId: expected[0],
+            cursor: page.nextCursor,
+          })
+        ).ids,
+      ).toEqual([expected[0]]);
+    }
+
+    // The detail read ignores the filter, so a submission stays readable once its comment is saved.
+    expect(
+      (await listed({ submissionId: second, feedback: "awaiting" })).ids,
+    ).toEqual([second]);
+    expect(await review().list(owner, { feedback: "reviewed" })).toEqual({
+      ok: false,
+      error: { code: "invalid_request_shape" },
+    });
+
+    const awaiting = await review().countAwaitingFeedback(owner);
+    expect(awaiting).toEqual({
+      ok: true,
+      value: { count: before.value.count + 2 },
+    });
+    expect(await save(first, "Теперь с комментарием.")).toMatchObject({
+      ok: true,
+    });
+    expect(await review().countAwaitingFeedback(owner)).toEqual({
+      ok: true,
+      value: { count: before.value.count + 1 },
+    });
+
+    // Without materials:manage both the filtered list and the counter are refused, not empty.
+    expect(await review().list(outsider, { feedback: "awaiting" })).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(await review().countAwaitingFeedback(outsider)).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
   });
 
   test("a submission of a task whose chapter the author removed stays listed (#948)", async () => {

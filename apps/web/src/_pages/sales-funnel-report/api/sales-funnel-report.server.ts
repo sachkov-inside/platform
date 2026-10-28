@@ -6,6 +6,7 @@ import {
   requestSalesFunnelReport,
 } from "@/shared/api/backend/index.server";
 import { readAuthenticatedSession } from "@/shared/auth/index.server";
+import type { SalesFunnelPeriodPreset } from "@/shared/routing/authoring";
 
 import {
   presentSalesFunnelReport,
@@ -24,6 +25,7 @@ export type SalesFunnelReportOutcome =
 export interface SalesFunnelReportParams {
   readonly from?: string;
   readonly to?: string;
+  readonly preset?: SalesFunnelPeriodPreset;
   readonly productId?: string;
   readonly chapterId?: string;
 }
@@ -40,7 +42,7 @@ type Attempt =
     };
 
 /**
- * Отчёт воронки для `/authoring/sales-funnel`. Без выбранного продукта берётся первый; глава
+ * Отчёт воронки для `/authoring/sales/funnel`. Без выбранного продукта берётся первый; глава
  * другого продукта после смены выбора заменяется первой главой нового.
  */
 export async function loadSalesFunnelReport(

@@ -51,6 +51,85 @@ describe("GrammyUpdateAdapter", () => {
     });
   });
 
+  it.each([
+    [
+      "name and username",
+      { first_name: " Анна", last_name: "Смирнова", username: "anna_example" },
+      { displayName: "Анна Смирнова", username: "anna_example" },
+    ],
+    [
+      "first name only",
+      { first_name: "Анна" },
+      { displayName: "Анна", username: null },
+    ],
+    [
+      "username only",
+      { first_name: "", username: "anna" },
+      { displayName: null, username: "anna" },
+    ],
+    ["invalid username", { first_name: "Анна", username: "@anna" }, undefined],
+    ["no name or username", {}, undefined],
+  ])(
+    "carries the verified sender profile of a private message: %s",
+    (_case, sender, profile) => {
+      const update = privateStartUpdate(9, 42);
+      const command = adapter.translate(
+        "inside",
+        "9",
+        {
+          ...update,
+          message: {
+            ...update.message,
+            from: { ...update.message.from, ...sender },
+          },
+        },
+        observedAt,
+      );
+      expect(command.kind).toBe("start");
+      expect(command.kind === "start" && command.value.contact.profile).toEqual(
+        profile ?? undefined,
+      );
+    },
+  );
+
+  it("carries the sender profile of contactability and access callbacks", () => {
+    const sender = { first_name: "Анна", username: "anna_example" };
+    const profile = { displayName: "Анна", username: "anna_example" };
+    const contactability = privateContactabilityUpdate(10, 42, "kicked");
+    const blocked = adapter.translate(
+      "inside",
+      "10",
+      {
+        ...contactability,
+        my_chat_member: {
+          ...contactability.my_chat_member,
+          from: { ...contactability.my_chat_member.from, ...sender },
+        },
+      },
+      observedAt,
+    );
+    expect(blocked.kind === "contactability" && blocked.value.profile).toEqual(
+      profile,
+    );
+    const callback = adapter.translate(
+      "inside",
+      "11",
+      {
+        update_id: 11,
+        callback_query: {
+          id: "callback-11",
+          data: "access:own",
+          from: { id: 42, is_bot: false, ...sender },
+          message: { message_id: 5, chat: { id: 42, type: "private" } },
+        },
+      },
+      observedAt,
+    );
+    expect(callback.kind === "access-action" && callback.value.profile).toEqual(
+      profile,
+    );
+  });
+
   it("replaces a valid link bearer with its digest before durable storage", () => {
     const rawToken = "abcdefghijklmnopqrstuvwxyzABCDEFGH012345678";
     const prepared = prepareTelegramUpdateForInbox(

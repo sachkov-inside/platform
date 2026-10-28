@@ -70,7 +70,7 @@ export function assembleSetContentCollectionArchive(
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,
-          dependencies.loadCovers,
+          dependencies,
         );
         const updated = await persistence.setArchive({
           archived: command.archived,

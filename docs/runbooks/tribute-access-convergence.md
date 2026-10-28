@@ -9,8 +9,9 @@ operating procedure. Use [Product purchase acceptance](local-acceptance-sale.md)
 принимает подтверждённые оплаченные периоды `confirmed_period`. Для продолжения подписки
 Inside владелец выдаёт человеку приглашение к покупке; бесплатной активации по реестру нет.
 
-Platform #625 выполняет контракт Workspace #180. Это инструкция для владельческого интерфейса
-`/authoring/billing`, его authenticated API и тех же MCP-команд. Она не разрешает production
+Platform #625 выполняет контракт Workspace #180. Это инструкция для прежнего владельческого
+интерфейса `/authoring/billing` (удалён в #1718, адрес ведёт в «Платежи» `/authoring/sales/payments`),
+его authenticated API и тех же MCP-команд. Она не разрешает production
 inventory, включение внешнего источника, выдачу реальных прав, списания или deploy.
 
 ## Подтверждение провайдера

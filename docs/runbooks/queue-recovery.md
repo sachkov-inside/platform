@@ -96,7 +96,8 @@ psql_read --command "select delivery, result_status, count(*), min(issued_at) as
    следующей минуты; перезапускайте только `billing-worker`, если он завершился.
 3. **Покупка застряла** в `sent`, `unknown` или `pending`. Сверка идёт автоматически. Для одной
    покупки владелец может запросить её явно: владельческая операция `payments.reconcile` с
-   `purchaseRef` в `/authoring/billing` или MCP. Повтор `Init` приложение не делает никогда.
+   `purchaseRef` на странице платежа `/authoring/sales/payments/<purchaseRef>` или через MCP.
+   Повтор `Init` приложение не делает никогда.
 4. **Исторический возврат с потерянным ответом** остаётся `unknown` до чтения банковского состояния.
    С #1420 сверка не отправляет `Cancel`. Читайте `refunds.read`; при пропущенном полном
    возврате из кабинета банка выполните `payments.reconcile` по точной покупке.

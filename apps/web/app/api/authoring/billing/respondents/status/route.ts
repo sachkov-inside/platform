@@ -1,4 +1,5 @@
-import { handleRespondentsStatus } from "@/features/billing-admin.server";
+import { handleQuestionnaireRespondents } from "@/features/promotions.server";
+
 export function POST(request: Request): Promise<Response> {
-  return handleRespondentsStatus(request);
+  return handleQuestionnaireRespondents(request);
 }

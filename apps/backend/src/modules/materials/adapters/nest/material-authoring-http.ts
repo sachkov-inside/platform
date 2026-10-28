@@ -196,6 +196,13 @@ export const contentCollectionSchema = z
     introduction: productIntroductionSchema.nullable(),
     kind: contentCollectionKindSchema,
     materialCount: z.number().int().nonnegative(),
+    publishedMaterialCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe(
+        "Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials",
+      ),
     name: z.string().min(1).max(120),
     page: productPageSchema.nullable(),
     pageRejected: z.boolean(),
@@ -207,7 +214,18 @@ export const contentCollectionSchema = z
     cover: contentCoverProjectionHttpSchema.nullable(),
   })
   .strict();
-export const contentCollectionListSchema = z.array(contentCollectionSchema);
+export const contentCollectionListSchema = z.array(
+  contentCollectionSchema.extend({
+    holderCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullable()
+      .describe(
+        "Accounts whose Product Access is active now, a count without personal data. Null when it is not available: the actor lacks billing:manage, the collection is a Topic, or the Product Access owner did not answer; never a stand-in 0",
+      ),
+  }),
+);
 export const createContentCollectionBodySchema = z
   .object({
     kind: contentCollectionKindSchema,

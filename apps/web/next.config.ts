@@ -124,6 +124,25 @@ const nextConfig: NextConfig = {
         destination: "/account/purchases",
         permanent: true,
       },
+      // Продажи админки живут под `/authoring/sales` (#1718). Прежние адреса ведут в «Платежи» и
+      // «Воронку продаж», как требует спецификация #1717 («Навигация и каркас»); запрос адреса Next
+      // переносит сам.
+      {
+        source: "/authoring/billing",
+        destination: "/authoring/sales/payments",
+        permanent: false,
+      },
+      {
+        source: "/authoring/sales-funnel",
+        destination: "/authoring/sales/funnel",
+        permanent: false,
+      },
+      // Прежняя вкладка «Люди и доступ» заменена списком людей и карточкой человека (#1721).
+      {
+        source: "/authoring/access",
+        destination: "/authoring/people",
+        permanent: false,
+      },
       // Темы живут в фильтре главной; прежние публичные страницы больше не обслуживаются.
       {
         source: "/topics/:slug",

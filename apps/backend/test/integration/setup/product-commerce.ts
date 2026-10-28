@@ -77,6 +77,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     };
     const contact = new BillingContact({
       prisma: db.prisma,
+      emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
       protection: billingContactProtection(
         Buffer.alloc(32, 42).toString("base64"),
       ),
@@ -92,6 +93,8 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       discount?: number;
       usageLimit?: number;
       legalDocuments?: readonly LegalDocument[];
+      /** The quote is priced by this individual Payment Link. */
+      paymentLinkId?: string;
     } = {},
   ) {
     const buyer = randomUUID(),
@@ -143,6 +146,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         operationId: randomUUID(),
         productId,
         priceRevision: 1,
+        ...(options.paymentLinkId === undefined
+          ? {}
+          : { paymentLinkId: options.paymentLinkId }),
       }),
     );
     const consent = await facets.contact.acceptConsents(

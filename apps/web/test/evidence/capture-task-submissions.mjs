@@ -1,6 +1,6 @@
 // @ts-check
 /// <reference lib="dom" />
-/** Production-owned Storybook evidence for #1351. Run after pnpm build:storybook. */
+/** Production-owned Storybook evidence for #1351 and #1717. Run after pnpm build:storybook. */
 import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { stat, writeFile } from "node:fs/promises";
@@ -75,10 +75,9 @@ try {
     try {
       const page = await context.newPage();
       for (const [story, text] of [
-        [
-          "submissions",
-          "Сдачи учеников и результаты самопроверки, новые сверху.",
-        ],
+        ["submissions", "Без комментария"],
+        ["all-submissions", "Все сдачи"],
+        ["long-list", "Более ранние"],
         ["submission", "Нужны исправления"],
         ["expanded-submission", "Подробный отчёт по критериям"],
         ["passed", "Первая успешная самопроверка — попытка 2."],
@@ -92,9 +91,10 @@ try {
           "Сессия закончилась. Войди на сайт в другой вкладке и повтори сохранение. Черновик здесь сохранён.",
         ],
         ["not-found", "Сдача не найдена"],
+        ["nothing-awaiting", "Все сдачи прокомментированы"],
         ["empty", "Сдач пока нет"],
-        ["empty-filter", "По этому фильтру сдач нет."],
-        ["loading", "Загружаем сдачи…"],
+        ["no-results", "По этому фильтру нет сдач без комментария."],
+        ["loading", "Загружаем сдачи"],
         ["forbidden", "Нет доступа к сдачам"],
         ["unauthorized", "Нужен вход"],
         ["unavailable", "Сдачи не загрузились"],

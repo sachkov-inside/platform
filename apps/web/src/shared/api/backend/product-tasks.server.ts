@@ -90,7 +90,11 @@ export function requestSubmitProductTaskForm(
   );
 }
 
-/** The author's «Сдачи» section: submissions by Product, chapter and task, newest first (#948). */
+/**
+ * The author's «Сдачи» section: submissions by Product, chapter and task, newest first (#948).
+ * `feedback` narrows them to those awaiting Author Feedback or given it; resend it with the cursor.
+ * The backend ignores it on a detail read by `submissionId`.
+ */
 export function requestAuthorTaskSubmissions(
   query: {
     readonly productCursor?: string;
@@ -98,6 +102,7 @@ export function requestAuthorTaskSubmissions(
     readonly productId?: string;
     readonly chapterId?: string;
     readonly taskCode?: string;
+    readonly feedback?: "awaiting" | "given";
     readonly cursor?: string;
   },
   accessToken: string,
@@ -118,8 +123,23 @@ export function requestAuthorTaskSubmissions(
           ? {}
           : { chapterId: query.chapterId }),
         ...(query.taskCode === undefined ? {} : { taskCode: query.taskCode }),
+        ...(query.feedback === undefined ? {} : { feedback: query.feedback }),
         ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
       }),
+    200,
+    { accessToken },
+  );
+}
+
+/** How many submissions await Author Feedback: the «Сдачи» menu counter; 403 without the right. */
+export function requestSubmissionsAwaitingFeedbackCount(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new ProductTaskAuthoringService(
+        request,
+      ).countSubmissionsAwaitingFeedback(),
     200,
     { accessToken },
   );

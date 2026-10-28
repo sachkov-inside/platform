@@ -3,12 +3,12 @@ import {
   type AbortSignal as GrammyAbortSignal,
 } from "abort-controller";
 import { Api } from "grammy";
-import { telegramContactSchema } from "@inside/contracts/telegram-contact";
 import type {
   ContactProfileResult,
   TelegramContactProfile,
 } from "../../modules/identity-linking/telegram-contact-profile.js";
 import { reportFailure } from "../../shared/failure-diagnostics.js";
+import { telegramUserProfile } from "./telegram-user-profile.js";
 
 interface TelegramApi {
   getChat(
@@ -41,23 +41,9 @@ export class GrammyContactProfileAdapter implements TelegramContactProfile {
       const chat = await this.api.getChat(id, controller.signal);
       if (chat.type !== "private" || chat.id !== id)
         return { kind: "unavailable" };
-      const name = [chat.first_name, chat.last_name]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      const parsed = telegramContactSchema.safeParse({
-        accountRef: "projection",
-        telegramIdentityRef: "projection",
-        status: "available",
-        displayName: name === "" ? null : name.slice(0, 160),
-        username: chat.username ?? null,
-      });
-      return parsed.success
-        ? {
-            kind: "available",
-            displayName: parsed.data.displayName,
-            username: parsed.data.username,
-          }
+      const profile = telegramUserProfile(chat);
+      return profile
+        ? { kind: "available", ...profile }
         : { kind: "unavailable" };
     } catch (error) {
       reportFailure("telegram.contact-profile", error);

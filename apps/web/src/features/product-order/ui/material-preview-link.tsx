@@ -26,7 +26,7 @@ export function MaterialPreviewLink({
         aria-label={label}
         href={authoringMaterialPreviewHref(
           materialId,
-          authoringProductEditorHref(productId),
+          authoringProductEditorHref(productId, "program"),
           productId,
         )}
         title={label}

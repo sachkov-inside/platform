@@ -543,6 +543,126 @@ describe("MaterialAuthoring", () => {
     ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
   });
 
+  test("narrows the authoring corpus by Topic and format together with search and state (#1720)", async () => {
+    const [designTopic, opsTopic] = [
+      "95000000-0000-4000-8000-000000000041",
+      "95000000-0000-4000-8000-000000000042",
+    ] as const;
+    await testDatabase.prisma.topic.createMany({
+      data: [
+        { id: designTopic, name: "Filter design", slug: "filter-design" },
+        { id: opsTopic, name: "Filter ops", slug: "filter-ops" },
+      ],
+    });
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+    });
+    const corpus = [
+      ["Filtered guide design", designTopic, "guide"],
+      ["Filtered note design", designTopic, "note"],
+      ["Filtered guide ops", opsTopic, "guide"],
+    ] as const;
+    const ids: string[] = [];
+    for (const [title, topicId, formatId] of corpus) {
+      const created = await authoring.createDraft({
+        actor,
+        idempotencyKey: `list-filter-${title}`,
+        metadata: {
+          title,
+          summary: `${title} summary.`,
+          access: "free",
+          topicId,
+          formatId,
+          tagIds: [],
+          difficulty: null,
+          outcomes: [],
+          productIds: [],
+        },
+        body: representativeDocument(title),
+      });
+      if (!created.ok) throw new Error(created.error.code);
+      ids.push(created.value.materialId);
+    }
+    const published = await authoring.transitionPublication({
+      actor,
+      materialId: ids[0] ?? "",
+      expectedContentVersion: 1,
+      publicationState: "published",
+      idempotencyKey: "list-filter-publish-design-guide",
+    });
+    if (!published.ok) throw new Error(published.error.code);
+    await Promise.all(
+      ids.map((materialId, index) =>
+        testDatabase.prisma.material.update({
+          data: {
+            updatedAt: new Date(`2026-09-0${String(index + 1)}T10:00:00.000Z`),
+          },
+          where: { id: materialId },
+        }),
+      ),
+    );
+    const listed = async (filters: {
+      readonly topicId?: string;
+      readonly format?: "video" | "guide" | "note";
+      readonly publicationState?: "draft" | "published" | "unpublished";
+      readonly search?: string;
+    }) => {
+      const result = await authoring.listMaterials({
+        actor,
+        first: 20,
+        page: 1,
+        search: "filtered",
+        ...filters,
+      });
+      if (!result.ok) throw new Error(result.error.code);
+      return {
+        ids: result.value.items.map((item) => item.materialId),
+        totalItems: result.value.totalItems,
+        totalPages: result.value.totalPages,
+      };
+    };
+
+    await expect(listed({ topicId: designTopic })).resolves.toEqual({
+      ids: [ids[1], ids[0]],
+      totalItems: 2,
+      totalPages: 1,
+    });
+    await expect(listed({ format: "guide" })).resolves.toEqual({
+      ids: [ids[2], ids[0]],
+      totalItems: 2,
+      totalPages: 1,
+    });
+    await expect(
+      listed({ topicId: designTopic, format: "guide" }),
+    ).resolves.toEqual({ ids: [ids[0]], totalItems: 1, totalPages: 1 });
+    await expect(
+      listed({ topicId: designTopic, publicationState: "draft" }),
+    ).resolves.toEqual({ ids: [ids[1]], totalItems: 1, totalPages: 1 });
+    await expect(
+      listed({ format: "guide", search: "guide ops" }),
+    ).resolves.toEqual({ ids: [ids[2]], totalItems: 1, totalPages: 1 });
+    await expect(listed({ format: "video" })).resolves.toEqual({
+      ids: [],
+      totalItems: 0,
+      totalPages: 0,
+    });
+
+    const unauthorized = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    await expect(
+      unauthorized.authoring.listMaterials({
+        actor,
+        first: 20,
+        format: "guide",
+        page: 1,
+        topicId: designTopic,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
+  });
+
   test("fails closed on Video validation and changes published playback only after a successful Save", async () => {
     const topicId = "96000000-0000-4000-8000-000000000031";
     const formatId = "guide";

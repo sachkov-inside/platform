@@ -237,9 +237,11 @@ describe.each([1, 10, 100])(
           })),
         },
       });
+      // Reader visibility, price rows, Product catalogue and active promotions. No fixture
+      // promotion has a usage limit, so the shared promotion usage read is skipped.
       expect(
         read.statements.filter((sql) => /^\s*SELECT\b/iu.test(sql)),
-      ).toHaveLength(5);
+      ).toHaveLength(4);
     });
     test("does not invite a guest to an archived or nonexistent Product even with an active price", async () => {
       expect(

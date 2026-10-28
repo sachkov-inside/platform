@@ -112,6 +112,7 @@ describe("служебные сообщения подписки (реальны
     });
     contact = new BillingContact({
       prisma: db.prisma,
+      emailFingerprintKey: "synthetic-notice-fingerprint-000000",
       protection,
       documents,
       now: () => now,

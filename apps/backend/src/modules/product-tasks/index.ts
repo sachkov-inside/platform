@@ -10,3 +10,7 @@ export {
   learningTaskInstructions,
   registerLearningTaskTools,
 } from "./adapters/mcp/learning-tasks-mcp.js";
+export {
+  SUBMISSION_REVIEW,
+  type SubmissionReview,
+} from "./facets/submission-review/submission-review.js";

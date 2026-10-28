@@ -1,6 +1,6 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   flushPendingEdits,
   useAutosave,
@@ -36,6 +36,11 @@ export function useCollectionDraft(
   );
   const [cover, setCover] = useState(collection.cover ?? null);
   const version = useRef(collection.version);
+  // Архив из меню списка тем меняет версию мимо этого черновика: следующая запись ждёт новую.
+  useLayoutEffect(() => {
+    if (collection.version > version.current)
+      version.current = collection.version;
+  }, [collection.version]);
   const attempted = useRef<UpdateContentCollectionInput | null>(null);
   const update = useMutation({ mutationFn: updateContentCollection });
   const archive = useMutation({

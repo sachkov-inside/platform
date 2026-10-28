@@ -48,3 +48,6 @@ export { requestCurrentCommunityAdmission } from "./billing.server";
 export { requestProductSaleAvailability } from "./billing.server";
 
 export * from "./product-waitlists.server";
+export * from "./product-learners.server";
+export * from "./people.server";
+export * from "./authoring-overview.server";

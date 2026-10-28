@@ -18,8 +18,19 @@ export interface ListContentCollectionsQuery {
   readonly kind: ContentCollectionKind;
 }
 
+/** One row of the authoring list: the collection and how many people hold it now. */
+export interface ContentCollectionListItemDto extends ContentCollectionDto {
+  /**
+   * Accounts whose Product Access is active now, a count without personal data. `null` means the
+   * count is not available here: the actor lacks `billing:manage` (the right of Product holder
+   * reads), the collection is a Topic, or the Product Access owner did not answer. Never a
+   * stand-in 0.
+   */
+  readonly holderCount: number | null;
+}
+
 export type ListContentCollectionsResult = Result<
-  readonly ContentCollectionDto[],
+  readonly ContentCollectionListItemDto[],
   ForbiddenError | SystemError
 >;
 

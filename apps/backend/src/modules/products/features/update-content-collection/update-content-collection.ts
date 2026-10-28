@@ -118,7 +118,7 @@ export function assembleUpdateContentCollection(
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,
-          dependencies.loadCovers,
+          dependencies,
         );
         // An omitted introduction preserves the stored one, so renaming a Product
         // from the collection list never clears the stored text.
@@ -171,7 +171,7 @@ export function assembleUpdateContentCollection(
           contentCollectionPersistence(
             dependencies.prisma,
             command.kind,
-            dependencies.loadCovers,
+            dependencies,
           ).slugConstraint,
         )
           ? { code: "content_collection_slug_conflict" }

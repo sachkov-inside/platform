@@ -41,7 +41,11 @@ test("author Home pin persists for guests and members, replaces and removes thro
     );
     await page.goto("/authoring/products");
     const releaseName = "Demo · Релиз своего проекта";
-    const pin = page.getByRole("list", { name: "Все продукты" });
+    // Список продуктов: таблица на компьютере, список строк на телефоне (#1720).
+    const pin = page.getByRole(
+      (page.viewportSize()?.width ?? 1440) < 768 ? "list" : "table",
+      { name: "Все продукты" },
+    );
     const pinButton = () =>
       pin.getByRole("button", {
         name: `Закрепить «${releaseName}» на главной`,
@@ -77,12 +81,12 @@ test("author Home pin persists for guests and members, replaces and removes thro
       editorHref.replace("/authoring/products/", "/authoring/playlists/"),
     );
     await page
-      .getByRole("tab", { name: "Описание и обложка", exact: true })
+      .getByRole("tab", { name: "Описание и витрина", exact: true })
       .click();
     await expect(
       page.getByRole("textbox", { name: "Название продукта" }),
     ).toHaveValue(releaseName);
-    await page.getByRole("tab", { name: "Настройки", exact: true }).click();
+    // Закреп на главной живёт во вкладке «Описание и витрина» (#1718).
     await expect(
       page.getByRole("button", { name: "Снять закреп с главной", exact: true }),
     ).toBeEnabled();
@@ -109,9 +113,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       path: testInfo.outputPath("product-editor-text-200.png"),
     });
     await page.reload();
-    await page
-      .getByRole("button", { name: "Все продукты", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Все продукты", exact: true }).click();
     await expect(page).toHaveURL(/\/authoring\/products$/u);
     await expect(
       pin.getByRole("button", { name: `Снять закреп «${releaseName}»` }),

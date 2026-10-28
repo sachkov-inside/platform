@@ -1,0 +1,1157 @@
+/*
+ * Общие модули админки (#1717). Только токены `app/globals.css`: своих цветов у модулей нет.
+ * Раскладку переключает ширина колонки, которую модулю дала страница (container query), а не окно:
+ * тот же список стоит и во всю страницу, и во вкладке продукта. Порог 40rem равен ширине колонки
+ * страницы при окне 48rem.
+ */
+
+.admin-table-root,
+.admin-filter-bar {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+/* Таблица и её телефонный список. */
+
+.admin-table-root {
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+.admin-table-root[aria-busy="true"] {
+  opacity: 0.55;
+}
+.admin-table {
+  display: none;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.admin-table th {
+  height: 2.5rem;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: start;
+  vertical-align: middle;
+}
+/*
+ * Строка 56px: заголовок и подстрока (по 1.35) или кнопка 44px умещаются в неё с полями, поэтому
+ * скелет той же высоты не прыгает при приходе данных.
+ */
+.admin-table td {
+  height: 3.5rem;
+  padding: 6px 12px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.admin-table tbody tr + tr > td {
+  border-top: 1px solid var(--border);
+}
+.admin-table [data-align="end"] {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.admin-table [data-actions] {
+  padding-inline: 4px;
+  text-align: end;
+}
+.admin-table tbody tr:is([data-href], [data-opens]) {
+  cursor: pointer;
+}
+.admin-table tbody tr:is(:hover, :focus-within) > td {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+.admin-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.admin-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.admin-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  /* Заголовок, подстрока и строка плашки; скелет держит ту же высоту. */
+  min-height: 6rem;
+  padding: 12px 4px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.admin-list-item:is([data-href], [data-opens]) {
+  cursor: pointer;
+}
+.admin-list-item:is(:hover, :focus-within) {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+.admin-list-item-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-list-item-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.admin-list-item-caption,
+.admin-cell-caption {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.admin-list-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+.admin-list-item-metric {
+  margin-inline-start: auto;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+@container (min-width: 40rem) {
+  .admin-table {
+    display: table;
+  }
+  .admin-list {
+    display: none;
+  }
+}
+
+.admin-row-link {
+  color: var(--foreground);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 4px;
+}
+/* Название строки без своего адреса: кнопка выглядит как ссылка строки. */
+.admin-row-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+/* На телефоне касание всей строки попадает в кнопку названия; «⋯» остаётся над ней. */
+.admin-list-item:has(> .admin-list-item-main .admin-row-button) {
+  position: relative;
+}
+.admin-list-item .admin-row-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.admin-list-item:has(> .admin-list-item-main .admin-row-button)
+  > .admin-row-actions {
+  position: relative;
+  z-index: 1;
+}
+.admin-row-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.admin-row-link:focus-visible,
+.admin-focus-ring:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.admin-cell-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.35;
+}
+/* Обложка 16:9 высотой 36px умещается в строку 56px рядом с заголовком и подстрокой. */
+.admin-cell-with-media {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.admin-cell-media {
+  display: block;
+  flex: 0 0 4rem;
+  width: 4rem;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+/* Меню «⋯» строки. */
+
+.admin-row-menu-trigger {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-lg);
+  color: var(--muted-foreground);
+  transition: background-color var(--motion-duration-fast);
+}
+.admin-row-menu-trigger:hover,
+.admin-row-menu-trigger[data-state="open"] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.admin-row-menu-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+/* Точный указатель в таблице получает 36px; телефонный список всегда держит 44px. */
+@media (pointer: fine) {
+  .admin-table .admin-row-menu-trigger {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
+
+/* Плашки состояний: тон всегда вместе со словом и значком. */
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 1.5rem;
+  padding: 2px 10px 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+.admin-badge-mark {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+}
+.admin-badge[data-tone="neutral"] {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.admin-badge[data-tone="neutral"] .admin-badge-mark {
+  border: 1.5px solid var(--muted-foreground);
+}
+.admin-badge[data-tone="positive"] {
+  background: color-mix(in oklch, var(--primary) 11%, var(--card));
+  color: var(--foreground);
+}
+.admin-badge[data-tone="positive"] .admin-badge-mark {
+  background: var(--primary);
+}
+.admin-badge[data-tone="attention"] {
+  background: color-mix(in oklch, var(--accent) 10%, var(--background));
+  color: var(--action);
+}
+.admin-badge[data-tone="attention"] .admin-badge-mark {
+  background: var(--accent);
+}
+.admin-badge[data-tone="critical"] {
+  background: color-mix(in oklch, var(--destructive) 9%, var(--card));
+  color: var(--destructive);
+}
+.admin-badge[data-tone="critical"] .admin-badge-mark {
+  background: var(--destructive);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+.admin-badge[data-tone="muted"] {
+  border-color: var(--border);
+  color: var(--muted-foreground);
+}
+.admin-badge[data-tone="muted"] .admin-badge-mark {
+  border: 1.5px dashed var(--muted-foreground);
+}
+
+/* Строка поиска и фильтров. */
+
+.admin-filter-bar {
+  display: grid;
+}
+.admin-filter-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.admin-filter-controls > [data-wide] {
+  grid-column: 1 / -1;
+}
+.admin-search {
+  position: relative;
+  min-width: 0;
+}
+.admin-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.admin-search input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 44px 0 38px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-xl);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+}
+.admin-search input::placeholder {
+  color: var(--placeholder-strong);
+}
+.admin-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+.admin-search input:hover {
+  background: var(--muted);
+}
+.admin-search input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+}
+.admin-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-lg);
+  color: var(--muted-foreground);
+  transform: translateY(-50%);
+}
+.admin-search-clear:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.admin-search-clear:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.admin-filter-applied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.admin-filter-applied:not(:has(> ul, > button, > p:not(:empty))) {
+  margin-top: 0;
+}
+.admin-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--secondary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.admin-filter-chip[data-removable] {
+  padding-inline-end: 2px;
+}
+.admin-filter-chip button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+}
+.admin-filter-chip button:hover {
+  background: color-mix(in oklch, var(--secondary), var(--foreground) 8%);
+  color: var(--foreground);
+}
+.admin-filter-chip button:focus-visible,
+.admin-text-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.admin-text-button {
+  min-height: 2.75rem;
+  padding: 0 8px;
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--foreground) 35%,
+    transparent
+  );
+  text-underline-offset: 3px;
+}
+.admin-text-button:hover {
+  text-decoration-color: currentColor;
+}
+.admin-filter-result {
+  margin: 0 0 0 auto;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+@container (min-width: 40rem) {
+  .admin-filter-controls {
+    display: flex;
+    align-items: center;
+  }
+  .admin-search {
+    flex: 1 1 16rem;
+  }
+  .admin-filter-controls > .admin-filter-select {
+    flex: 0 0 13rem;
+    min-width: 0;
+  }
+  .admin-filter-chip {
+    min-height: 2rem;
+  }
+  .admin-filter-chip button {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .admin-text-button {
+    min-height: 2rem;
+  }
+}
+
+/* Заголовок списка. */
+
+.admin-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+.admin-list-header-titles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-width: 0;
+}
+.admin-list-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+.admin-list-header-count {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 47.999rem) {
+  .admin-list-header h1 {
+    font-size: 24px;
+  }
+}
+
+/* Пустые состояния, ошибки, загрузка. */
+
+.admin-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 20px;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  text-align: center;
+}
+.admin-state h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.admin-state p {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.admin-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.admin-state[data-tone="critical"] h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-state[data-tone="critical"] h2 svg {
+  color: var(--destructive);
+}
+.admin-state .admin-state-reference {
+  color: var(--muted-foreground);
+  font-family: var(--font-utility);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.admin-skeleton-bar {
+  display: block;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--muted);
+  animation: admin-skeleton-pulse 1.6s ease-in-out infinite;
+}
+@keyframes admin-skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-skeleton-bar {
+    animation: none;
+  }
+  .admin-table-root,
+  .admin-row-menu-trigger {
+    transition: none;
+  }
+}
+
+/* Постраничный вывод. */
+
+.admin-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.admin-pagination-summary {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-pagination-controls {
+  display: flex;
+  /* При 200% текста шаги и номер страницы не помещаются в колонку телефона: ряд переносится. */
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  margin-inline-start: auto;
+}
+.admin-pagination-page {
+  min-width: 7.5rem;
+  margin: 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Карточка показателя. */
+
+.admin-metric {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--foreground);
+  text-align: start;
+}
+button.admin-metric {
+  cursor: pointer;
+  transition:
+    border-color var(--motion-duration-fast),
+    box-shadow var(--motion-duration-fast);
+}
+button.admin-metric:hover {
+  border-color: color-mix(in oklch, var(--foreground) 30%, var(--border));
+}
+button.admin-metric[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+button.admin-metric:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.admin-metric-label {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.admin-metric-value {
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.admin-metric-value[data-unavailable] {
+  color: var(--muted-foreground);
+  font-size: 17px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  overflow-wrap: normal;
+}
+.admin-metric-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.admin-metric-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.admin-metric-period {
+  color: var(--muted-foreground);
+}
+.admin-metric-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-metric-change svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.admin-metric-change[data-meaning="good"] {
+  background: color-mix(in oklch, var(--primary) 11%, var(--card));
+  color: var(--foreground);
+}
+.admin-metric-change[data-meaning="bad"] {
+  background: color-mix(in oklch, var(--destructive) 9%, var(--card));
+  color: var(--destructive);
+}
+.admin-metric-change[data-meaning="neutral"],
+.admin-metric-change[data-meaning="none"] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+/* График по дням. */
+
+.admin-trend {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+}
+.admin-trend-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.admin-trend-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.admin-trend-summary {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.admin-trend-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-trend-frame {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-rows: 14rem auto;
+  /* Отметка последнего дня не обрезается краем колонки. */
+  padding-inline-end: 6px;
+}
+.admin-trend-y-axis {
+  position: relative;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-trend-y-axis span {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.admin-trend-plot {
+  position: relative;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.admin-trend-plot:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.admin-trend-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.admin-trend-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.admin-trend-current {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.admin-trend-previous {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  stroke-linejoin: round;
+}
+.admin-trend-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid color-mix(in oklch, var(--foreground) 35%, transparent);
+  pointer-events: none;
+}
+.admin-trend-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+.admin-trend-dot[data-series="current"] {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--card);
+}
+.admin-trend-dot[data-series="single"] {
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--card);
+}
+.admin-trend-dot[data-series="previous"] {
+  border: 2px solid var(--muted-foreground);
+  background: var(--card);
+}
+.admin-trend-x-axis {
+  position: relative;
+  grid-column: 2;
+  height: 1.75rem;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.admin-trend-x-axis span {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+}
+.admin-trend-x-axis span[data-edge="start"] {
+  transform: none;
+}
+.admin-trend-x-axis span[data-edge="end"] {
+  transform: translateX(-100%);
+}
+.admin-trend-readout {
+  min-height: 1.5em;
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-trend-empty {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  min-height: calc(14rem + 1.75rem + 1.5em + 12px);
+  padding: 24px;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  text-align: center;
+}
+.admin-trend-empty p {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.admin-trend-empty p:first-child {
+  color: var(--foreground);
+  font-weight: 600;
+}
+@media (max-width: 47.999rem) {
+  .admin-trend-x-axis span[data-minor] {
+    display: none;
+  }
+  .admin-trend-frame {
+    grid-template-columns: 4rem minmax(0, 1fr);
+    grid-template-rows: 10rem auto;
+  }
+  .admin-trend-empty {
+    min-height: calc(10rem + 1.75rem + 1.5em + 12px);
+  }
+}
+
+/* Диалог с причиной: на телефоне лист снизу во всю ширину. */
+
+.admin-dialog {
+  width: min(34rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--elevation-card);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.admin-dialog::backdrop {
+  background: color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+.admin-dialog-body {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+.admin-dialog-body h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.admin-dialog-consequence {
+  margin: 8px 0 0;
+  color: var(--body-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.admin-dialog-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.admin-dialog-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -10px -10px 0 0;
+  border-radius: var(--radius-xl);
+  color: var(--muted-foreground);
+}
+.admin-dialog-close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.admin-dialog-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.admin-dialog-close:disabled {
+  opacity: 0.45;
+}
+.admin-dialog-banner {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklch, var(--destructive) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--destructive) 7%, var(--card));
+  font-size: 14px;
+  line-height: 1.5;
+}
+.admin-dialog-banner svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--destructive);
+}
+.admin-reasons {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.admin-reasons legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.admin-reason {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 2.75rem;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.admin-reason:hover {
+  background: var(--muted);
+}
+.admin-reason:has(input:checked) {
+  background: var(--secondary);
+}
+.admin-reason input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+.admin-reason input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.admin-dialog-footer {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+}
+@media (min-width: 30rem) {
+  .admin-dialog-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 47.999rem) {
+  .admin-dialog {
+    width: 100%;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+  }
+  .admin-dialog-body {
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Поля формы. */
+
+.admin-checklist {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Выбранный вариант убирается целью нажатия в 44 px, как и остальные элементы формы. */
+.admin-checklist-selected .admin-filter-chip button {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.admin-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 2.75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.admin-checklist-item:hover {
+  background: var(--muted);
+}
+.admin-checklist-item input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.admin-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.admin-field-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.admin-field-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-field-input {
+  width: 100%;
+  max-width: 14rem;
+  min-height: 2.75rem;
+  padding: 0 12px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-xl);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+/*
+ * Поле во всю ширину колонки: адрес ссылки, поиск по длинному списку. Утилита `max-w-none` предел
+ * выше не снимает: этот файл стоит вне слоёв Tailwind, и его правила сильнее утилит.
+ */
+.admin-field-input-wide {
+  max-width: none;
+}
+/* Короткое число (процент скидки): поле в несколько знаков; утилита `max-w-*` его тоже не задаёт. */
+.admin-field-input-narrow {
+  max-width: 8rem;
+}
+.admin-field-input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+}
+.admin-field-input[aria-invalid="true"],
+.admin-field-textarea[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+.admin-field-textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  padding: 10px 12px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-xl);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.admin-field-textarea:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+}
+.admin-field-suffix {
+  color: var(--muted-foreground);
+  font-size: 15px;
+  font-weight: 500;
+}
+.admin-field-hint {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-field-error {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  color: var(--destructive);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.admin-field-error svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+}
+@media (max-width: 47.999rem) {
+  .admin-field-input,
+  .admin-field-textarea,
+  .admin-search input {
+    font-size: 16px;
+  }
+}

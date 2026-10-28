@@ -32,7 +32,7 @@ import { handleSaveAuthorFeedback } from "@/_pages/task-submissions/api/save-aut
 import {
   consistentSelection,
   repositoryLink,
-  selectionHref,
+  submissionsListHref,
   type FilterProduct,
 } from "@/_pages/task-submissions/model/task-submissions";
 
@@ -212,9 +212,15 @@ describe("submission filter (#948)", () => {
   });
 
   it("builds the address of a filtered page", () => {
-    expect(selectionHref({})).toBe("/authoring/submissions");
+    expect(submissionsListHref({ selection: {}, feedback: "awaiting" })).toBe(
+      "/authoring/submissions",
+    );
     expect(
-      selectionHref({ productId: "g1", taskCode: "t1" }, "next-page"),
+      submissionsListHref({
+        selection: { productId: "g1", taskCode: "t1" },
+        feedback: "awaiting",
+        cursor: "next-page",
+      }),
     ).toBe("/authoring/submissions?productId=g1&task=t1&cursor=next-page");
   });
 

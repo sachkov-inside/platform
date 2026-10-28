@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+import {
+  addMoscowDays,
+  moscowDayOf,
+  moscowDayStart,
+} from "@/shared/lib/moscow-day";
+import { MOSCOW_TIME_ZONE } from "@/shared/lib/moscow-format";
+import {
+  defaultSalesFunnelPeriodPreset,
+  type SalesFunnelPeriodPreset,
+} from "@/shared/routing/authoring";
+
 const amountSchema = z.int().nonnegative();
 const countSchema = amountSchema.nullable();
 const countsSchema = z.strictObject({
@@ -74,15 +85,18 @@ export const salesFunnelReportSchema = z.strictObject({
 export type SalesFunnelReport = z.infer<typeof salesFunnelReportSchema>;
 type Counts = SalesFunnelReport["total"];
 
-/** Шаги воронки по порядку. Первые два считают контакты бота, остальные — аккаунты Platform. */
+/**
+ * Шаги воронки по порядку. Первый считает контакты бота, остальные аккаунты Platform. Согласие на
+ * рассылку больше не шаг: по #1693 явный выбор не обязателен для покупки, поэтому отчёт показывает
+ * его отдельной исторической метрикой (`historicalConsent`).
+ */
 export const funnelSteps = [
   { key: "entered", label: "Вход в бот", unit: "контакты бота" },
-  { key: "consented", label: "Согласие на рассылку", unit: "контакты бота" },
   { key: "openedChapter", label: "Открыл главу", unit: "аккаунты" },
   { key: "checkout", label: "Перешёл к оплате", unit: "аккаунты" },
   { key: "paid", label: "Оплатил", unit: "аккаунты" },
 ] as const satisfies readonly {
-  readonly key: keyof Counts;
+  readonly key: Exclude<keyof Counts, "consented">;
   readonly label: string;
   readonly unit: string;
 }[];
@@ -109,6 +123,13 @@ export interface SalesFunnelReportView {
     readonly counts: readonly StepCount[];
   }[];
   readonly total: readonly StepCount[];
+  /**
+   * Согласий на рассылку за период: историческая метрика, не шаг воронки. `null`: бот её не
+   * присылает, и отчёт её не показывает.
+   */
+  readonly historicalConsent: number | null;
+  /** Готовый период в днях или `null` для своего периода. */
+  readonly preset: SalesFunnelPeriodPreset | null;
   /** `null` — список анкеты ещё не загружен: доли нет, а не ноль купивших. */
   readonly surveyRespondents: SurveyRespondentsView | null;
   readonly notice: string | null;
@@ -130,44 +151,30 @@ export interface SurveyRespondentsView {
   } | null;
 }
 
-const MOSCOW = "Europe/Moscow";
-/** Москва живёт без перехода на летнее время: смещение постоянно. */
-const MOSCOW_OFFSET_MS = 3 * 3_600_000;
-const MOSCOW_OFFSET = "+03:00";
-const DAY_MS = 86_400_000;
-const DEFAULT_DAYS = 30;
-export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(DEFAULT_DAYS)} дней.`;
+export const correctedPeriodNotice = `Период задан неверно: показаны последние ${String(defaultSalesFunnelPeriodPreset)} дней.`;
 const dateSchema = z.iso.date();
 
-/** Календарная дата по Москве для мгновения. */
-function moscowDate(instant: Date): string {
-  return new Date(instant.getTime() + MOSCOW_OFFSET_MS)
-    .toISOString()
-    .slice(0, 10);
-}
-
-/** Начало московских суток даты как мгновение. */
-function moscowStart(date: string): Date {
-  return new Date(`${date}T00:00:00${MOSCOW_OFFSET}`);
-}
-
 /**
- * Период отчёта из параметров адреса: даты включительно по Москве. Пустой или неверный период
- * заменяется последними тридцатью днями, и страница говорит об этом.
+ * Период отчёта из параметров адреса: свой период датами включительно по Москве или готовый
+ * период в днях, считая сегодня. Неверный свой период заменяется последними тридцатью днями, и
+ * страница говорит об этом.
  */
 export function readReportPeriod(
-  params: { readonly from?: string; readonly to?: string },
+  params: {
+    readonly from?: string;
+    readonly to?: string;
+    readonly preset?: SalesFunnelPeriodPreset;
+  },
   now: Date,
 ): {
   readonly from: string;
   readonly to: string;
   readonly query: { readonly from: string; readonly to: string };
   readonly corrected: boolean;
+  readonly preset: SalesFunnelPeriodPreset | null;
 } {
-  const today = moscowDate(now);
-  const fallbackFrom = moscowDate(
-    new Date(moscowStart(today).getTime() - (DEFAULT_DAYS - 1) * DAY_MS),
-  );
+  const today = moscowDayOf(now);
+  const startFor = (days: number) => addMoscowDays(today, -(days - 1));
   const requested =
     params.from === undefined && params.to === undefined
       ? undefined
@@ -177,23 +184,30 @@ export function readReportPeriod(
     dateSchema.safeParse(requested.from).success &&
     dateSchema.safeParse(requested.to).success &&
     (requested.from ?? "") <= (requested.to ?? "");
-  const from = valid ? (requested.from ?? fallbackFrom) : fallbackFrom;
-  const to = valid ? (requested.to ?? today) : today;
+  const preset =
+    requested === undefined
+      ? (params.preset ?? defaultSalesFunnelPeriodPreset)
+      : valid
+        ? null
+        : defaultSalesFunnelPeriodPreset;
+  const from = preset === null ? (requested?.from ?? today) : startFor(preset);
+  const to = preset === null ? (requested?.to ?? today) : today;
   return {
     from,
     to,
     query: {
-      from: moscowStart(from).toISOString(),
-      to: new Date(moscowStart(to).getTime() + DAY_MS).toISOString(),
+      from: moscowDayStart(from).toISOString(),
+      to: moscowDayStart(addMoscowDays(to, 1)).toISOString(),
     },
     corrected: requested !== undefined && !valid,
+    preset,
   };
 }
 
 const moscowDateTime = new Intl.DateTimeFormat("ru-RU", {
   dateStyle: "long",
   timeStyle: "short",
-  timeZone: MOSCOW,
+  timeZone: MOSCOW_TIME_ZONE,
 });
 
 function sourceLabel(source: SalesFunnelReport["rows"][number]["source"]) {
@@ -245,6 +259,7 @@ export function presentSalesFunnelReport(
     readonly from: string;
     readonly to: string;
     readonly corrected: boolean;
+    readonly preset: SalesFunnelPeriodPreset | null;
   },
 ): SalesFunnelReportView {
   const product = report.products.find(
@@ -272,6 +287,8 @@ export function presentSalesFunnelReport(
       counts: countsOf(row.counts),
     })),
     total: countsOf(report.total),
+    historicalConsent: report.total.consented,
+    preset: period.preset,
     surveyRespondents: presentSurveyRespondents(report.surveyRespondents),
     notice: period.corrected ? correctedPeriodNotice : null,
   };

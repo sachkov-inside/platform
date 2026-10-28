@@ -1,6 +1,7 @@
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { z } from "zod";
+import { readProgrammeMaterials } from "../../shared/product-progress.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type {
@@ -49,8 +50,7 @@ export async function getProductProgress(
     const read = await dependencies.prisma.readingMaterialState.count({
       where: {
         accountId: parsed.data.accountId,
-        materialId: { in: [...composition.value] },
-        isRead: true,
+        ...readProgrammeMaterials(composition.value),
       },
     });
     return {

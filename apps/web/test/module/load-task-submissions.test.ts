@@ -144,3 +144,83 @@ it("a malformed or missing selected submission does not fall back to an unrelate
   ).toEqual({ kind: "not_found" });
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("sends the feedback filter with list reads and the cursor, and none for «все сдачи» (#1717)", async () => {
+  const urls: URL[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      urls.push(
+        new URL(input instanceof Request ? input.url : input.toString()),
+      );
+      return Promise.resolve(Response.json(reviewedSubmissions));
+    }),
+  );
+  expect(await loadTaskSubmissions({}, undefined)).toMatchObject({
+    kind: "ready",
+    feedback: "awaiting",
+  });
+  expect(urls[0]?.searchParams.get("feedback")).toBe("awaiting");
+  expect(
+    await loadTaskSubmissions({}, "page-2", undefined, undefined, "given"),
+  ).toMatchObject({ kind: "ready", feedback: "given", cursor: "page-2" });
+  expect(urls[1]?.searchParams.get("feedback")).toBe("given");
+  expect(urls[1]?.searchParams.get("cursor")).toBe("page-2");
+  expect(
+    await loadTaskSubmissions({}, undefined, undefined, undefined, "all"),
+  ).toMatchObject({ kind: "ready", feedback: "all" });
+  expect(urls[2]?.searchParams.has("feedback")).toBe(false);
+});
+
+it("opens a submission chosen in the «без комментария» view after it was commented (#1717)", async () => {
+  const id = "30000000-0000-4000-8000-000000000002";
+  const urls: URL[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      urls.push(
+        new URL(input instanceof Request ? input.url : input.toString()),
+      );
+      return Promise.resolve(
+        Response.json({
+          ...reviewedSubmissions,
+          submissions: reviewedSubmissions.submissions.filter(
+            (row) => row.submissionId === id,
+          ),
+        }),
+      );
+    }),
+  );
+  expect(
+    await loadTaskSubmissions({}, undefined, id, undefined, "awaiting"),
+  ).toMatchObject({ kind: "ready", submissionId: id, feedback: "awaiting" });
+  expect(urls).toHaveLength(1);
+  expect(urls[0]?.searchParams.get("submissionId")).toBe(id);
+  expect(urls[0]?.searchParams.has("feedback")).toBe(false);
+});
+
+it("keeps the feedback choice when a stale address falls back to the whole list (#1717)", async () => {
+  const urls: URL[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockImplementationOnce((input: RequestInfo | URL) => {
+        urls.push(
+          new URL(input instanceof Request ? input.url : input.toString()),
+        );
+        return Promise.resolve(new Response(null, { status: 400 }));
+      })
+      .mockImplementationOnce((input: RequestInfo | URL) => {
+        urls.push(
+          new URL(input instanceof Request ? input.url : input.toString()),
+        );
+        return Promise.resolve(Response.json(reviewedSubmissions));
+      }),
+  );
+  expect(
+    await loadTaskSubmissions({}, "broken", undefined, undefined, "given"),
+  ).toMatchObject({ kind: "ready", feedback: "given", cursor: undefined });
+  expect(urls[1]?.searchParams.get("feedback")).toBe("given");
+  expect(urls[1]?.searchParams.has("cursor")).toBe(false);
+});

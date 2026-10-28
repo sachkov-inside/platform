@@ -216,6 +216,20 @@ test("the author comments an agent's submission; the learner reads the comment t
         document.documentElement.clientWidth + 1,
     ),
   ).toBe(true);
+  // The default list shows submissions without Author Feedback (#1717): the commented one leaves
+  // it and stays in «Все сдачи».
+  const commentedRow = page.locator(
+    `a[href*="submission=${submitted.value.submissionId}"]:visible`,
+  );
+  await page.getByRole("link", { name: "Все сдачи", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`\\?task=${code}$`, "u"));
+  await expect(page.getByRole("region", { name: "Список сдач" })).toBeVisible();
+  await expect(commentedRow).toHaveCount(0);
+  await page.goto(`/authoring/submissions?task=${code}&feedback=all`);
+  await expect(commentedRow).toHaveCount(1);
+  await page.goto(
+    `/authoring/submissions?task=${code}&submission=${submitted.value.submissionId}`,
+  );
   const evidence = await prepareEvidenceDirectory("issue-1351");
   await page
     .getByRole("heading", { name: "Синтетическое задание", exact: true })

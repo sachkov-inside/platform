@@ -13,13 +13,27 @@ codec сохраняют прежние правила `ajv-formats`, включ
 `@inside/contracts/community-members-without-right`. Platform и команда отчёта Telegram
 используют одну схему; перенос схемы не меняет HTTP-ответ.
 
-Runtime codec `@inside/contracts/telegram-contact` задаёт read-only
+Runtime codec `@inside/contracts/telegram-contact` задаёт
 `POST /integrations/platform/v1/telegram-contacts`: общий секрет identity linking, версия
 `inside.telegram-contact.v1`, до 100 точных пар `accountRef` и `telegramIdentityRef`.
 Ответ содержит текущее имя, необязательный username и состояние `available`, `not_found`
 или `unavailable`. Это проекция для авторской поддержки, а не получатель сообщений.
 Старый Telegram отвечает 404; Platform сохраняет список сдач и обозначает недоступный контакт.
 Обе стороны повторно читают текущую связь после внешнего запроса, чтобы исключить прежний контакт.
+Формат v1 не изменился, но с выпуском v2 Telegram при чтении сохраняет полученное имя и username
+текущей привязки для поиска. Запись выполняется без гарантии: при её сбое ответ на чтение всё равно
+приходит, а в журнал попадает только технический код.
+
+Runtime codec `@inside/contracts/telegram-contact-v2` задаёт версию `inside.telegram-contact.v2`
+с тем же секретом: `POST /integrations/platform/v2/telegram-contacts/read` отвечает как v1 и
+добавляет состояние `/stop` (`enabled`, `stopped`, `unknown`), а
+`POST /integrations/platform/v2/telegram-contacts/search` ищет подстроку в имени или username
+(1–64 символа, ведущий `@` отбрасывается, до 50 совпадений и признак `truncated`). Telegram
+хранит имя и username только текущих привязок и удаляет их при переносе привязки; Platform
+принимает совпадение только для текущей однозначной привязки. Старый Telegram отвечает 404:
+чтение переходит на v1 с `unknown`, а поиск возвращает `not_supported`, а не пустой результат.
+[Протокол](runtime/telegram-contact.md) и [corpus](runtime/telegram-contact-v2.fixtures.json)
+описывают обе версии.
 
 Runtime codec `@inside/contracts/waitlist-confirmation` задаёт фиксированное сервисное
 подтверждение записи; [протокол](runtime/waitlist-confirmation.md) описывает два существующих

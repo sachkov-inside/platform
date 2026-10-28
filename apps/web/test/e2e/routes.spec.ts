@@ -509,7 +509,7 @@ test("authoring route owns a dedicated shell outside the public application shel
     0,
   );
   const authoringSidebar = page.getByRole("complementary", {
-    name: "Редактор",
+    name: "Админка",
   });
   await expect(authoringSidebar).toBeVisible();
   await expect(page.getByRole("main")).toHaveCount(1);
@@ -521,10 +521,40 @@ test("authoring route owns a dedicated shell outside the public application shel
   expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
 });
 
+test("the admin entry is the Overview page itself, not a redirect (#1719)", async ({
+  request,
+}) => {
+  const response = await request.get("/authoring", { maxRedirects: 0 });
+
+  expect(response.status()).toBe(200);
+  expect(response.headers()["location"]).toBeUndefined();
+});
+
+test("former sales addresses lead to the new sales section with their query (#1718)", async ({
+  request,
+}) => {
+  for (const [source, destination] of [
+    ["/authoring/billing", "/authoring/sales/payments"],
+    [
+      "/authoring/billing?state=unknown",
+      "/authoring/sales/payments?state=unknown",
+    ],
+    ["/authoring/sales-funnel", "/authoring/sales/funnel"],
+    [
+      "/authoring/sales-funnel?from=2026-10-01&to=2026-10-20",
+      "/authoring/sales/funnel?from=2026-10-01&to=2026-10-20",
+    ],
+  ] as const) {
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(response.headers()["location"]).toBe(destination);
+  }
+});
+
 test("sales funnel report asks a signed-out visitor to sign in inside the authoring shell", async ({
   page,
 }, testInfo) => {
-  const response = await page.goto("/authoring/sales-funnel");
+  const response = await page.goto("/authoring/sales/funnel");
 
   expect(response?.status()).toBe(200);
   await expect(page).toHaveTitle(/^Воронка продаж · Authoring/u);
@@ -536,11 +566,11 @@ test("sales funnel report asks a signed-out visitor to sign in inside the author
   );
   await expect(
     signIn.locator("xpath=ancestor::form").locator("input[name=returnTo]"),
-  ).toHaveValue("/authoring/sales-funnel");
+  ).toHaveValue("/authoring/sales/funnel");
   if (navigationMode(testInfo.project.name) === "desktop")
     await expect(
       page
-        .getByRole("complementary", { name: "Редактор" })
+        .getByRole("complementary", { name: "Админка" })
         .getByRole("link", { name: "Воронка продаж" }),
     ).toHaveAttribute("aria-current", "page");
   expect(

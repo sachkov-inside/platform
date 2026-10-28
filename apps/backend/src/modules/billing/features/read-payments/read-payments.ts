@@ -2,10 +2,11 @@ import {
   PAYMENT_AUDIT_PAGE_SIZE,
   paymentAuditCursorSchema,
 } from "@inside/contracts/payment-audit";
-import type { z } from "zod";
-import type {
-  BillingPrisma,
-  BillingPrismaClient,
+import { z } from "zod";
+import {
+  Prisma,
+  type BillingPrisma,
+  type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import {
   auditEntryViewSchema,
@@ -135,49 +136,118 @@ export async function refundDecisionViews(
   );
 }
 
+type ListPaymentsCommand = Extract<
+  OwnerOperation,
+  { operation: "payments.list" }
+>;
+
+/**
+ * Неизменяемая часть фильтра: покупатель, вид, продукт оплаченного снимка и период создания.
+ * Cursor обязан лежать внутри неё. Состояние и незавершённость выдачи (`fulfillment`) меняются
+ * со временем, поэтому позиция платежа, сменившего состояние или получившего выдачу, остаётся
+ * допустимым продолжением.
+ */
+function scopeOf(command: ListPaymentsCommand): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [Prisma.sql`true`];
+  if (command.accountId !== undefined)
+    conditions.push(
+      Prisma.sql`purchase.account_id = ${command.accountId}::uuid`,
+    );
+  if (command.kind !== undefined)
+    conditions.push(Prisma.sql`purchase.kind = ${command.kind}`);
+  if (command.productId !== undefined)
+    conditions.push(
+      Prisma.sql`purchase.snapshot -> 'product' -> 'id' = to_jsonb(${command.productId}::text)`,
+    );
+  if (command.from !== undefined)
+    conditions.push(
+      Prisma.sql`purchase.created_at >= ${new Date(command.from)}`,
+    );
+  if (command.to !== undefined)
+    conditions.push(Prisma.sql`purchase.created_at < ${new Date(command.to)}`);
+  return Prisma.join(conditions, " and ");
+}
+
+function statesOf(command: ListPaymentsCommand): readonly string[] | null {
+  if (command.states !== undefined) return command.states;
+  return command.state === undefined ? null : [command.state];
+}
+
+const pageIdsSchema = z.array(z.object({ id: z.uuid() }));
+
 export async function listPayments(
   prisma: BillingPrismaClient,
-  command: Extract<OwnerOperation, { operation: "payments.list" }>,
+  command: ListPaymentsCommand,
 ): Promise<OwnerResult> {
-  // Cursor — идентификатор последнего показанного платежа: его позиция читается на сервере.
-  const after =
-    command.cursor === undefined
-      ? null
-      : await prisma.billingPurchase.findUnique({
-          where: { id: command.cursor },
-          select: { id: true, createdAt: true },
-        });
-  // Неизвестный идентификатор не выдаётся за начало списка.
-  if (command.cursor !== undefined && after === null)
+  if (command.state !== undefined && command.states !== undefined)
     return ownerFailure("invalid_request");
-  const rows = await prisma.billingPurchase.findMany({
-    where: {
-      ...(command.accountId === undefined
-        ? {}
-        : { accountId: command.accountId }),
-      ...(command.state === undefined ? {} : { state: command.state }),
-      ...(command.kind === undefined ? {} : { kind: command.kind }),
-      ...(after === null
-        ? {}
-        : {
-            OR: [
-              { createdAt: { lt: after.createdAt } },
-              { createdAt: after.createdAt, id: { lt: after.id } },
-            ],
-          }),
-    },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: command.limit + 1,
+  if (
+    command.states !== undefined &&
+    new Set(command.states).size !== command.states.length
+  )
+    return ownerFailure("invalid_request");
+  if (
+    command.from !== undefined &&
+    command.to !== undefined &&
+    Date.parse(command.from) >= Date.parse(command.to)
+  )
+    return ownerFailure("invalid_request");
+  const scope = scopeOf(command);
+  // Cursor — идентификатор последнего показанного платежа: его позиция читается на сервере.
+  if (command.cursor !== undefined) {
+    const inScope = pageIdsSchema.parse(
+      await prisma.$queryRaw(Prisma.sql`
+        select purchase.id::text as id from billing.purchases as purchase
+        where purchase.id = ${command.cursor}::uuid and ${scope}
+      `),
+    );
+    // Неизвестный идентификатор и платёж вне фильтра не выдаются за начало списка.
+    if (inScope.length === 0) return ownerFailure("invalid_request");
+  }
+  const states = statesOf(command);
+  // Страница выбирается одним запросом: незавершённая выдача — полусоединение с очередью выдачи,
+  // а не список идентификаторов, поэтому её размер не упирается в предел параметров PostgreSQL.
+  const ids = pageIdsSchema
+    .parse(
+      await prisma.$queryRaw(Prisma.sql`
+      select purchase.id::text as id from billing.purchases as purchase
+      where ${scope}
+        ${states === null ? Prisma.empty : Prisma.sql`and purchase.state = any(${[...states]}::text[])`}
+        ${
+          command.fulfillment === undefined
+            ? Prisma.empty
+            : Prisma.sql`and purchase.state = 'confirmed' and exists (
+                select 1 from billing.fulfillment_outbox as fulfillment
+                where fulfillment.purchase_ref = purchase.id and fulfillment.applied_at is null)`
+        }
+        ${
+          command.cursor === undefined
+            ? Prisma.empty
+            : Prisma.sql`and (purchase.created_at, purchase.id) < (
+                select position.created_at, position.id from billing.purchases as position
+                where position.id = ${command.cursor}::uuid)`
+        }
+      order by purchase.created_at desc, purchase.id desc
+      limit ${command.limit + 1}
+    `),
+    )
+    .map((row) => row.id);
+  const pageIds = ids.slice(0, command.limit);
+  const found = await prisma.billingPurchase.findMany({
+    where: { id: { in: pageIds } },
   });
-  const page = rows.slice(0, command.limit);
+  const byId = new Map(found.map((row) => [row.id, row]));
+  const page = pageIds.flatMap((id) => {
+    const row = byId.get(id);
+    return row === undefined ? [] : [row];
+  });
   return {
     ok: true,
     operationRef: command.operationId,
     result: {
       outcome: "payments",
       items: await paymentViews(prisma, page),
-      nextCursor:
-        rows.length > command.limit ? (page.at(-1)?.id ?? null) : null,
+      nextCursor: ids.length > command.limit ? (pageIds.at(-1) ?? null) : null,
     },
   };
 }

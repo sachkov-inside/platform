@@ -116,6 +116,81 @@ describe("Product access HTTP", () => {
     expect((await read(null)).statusCode).toBe(401);
   });
 
+  test("previews whether revoking one Product closes the community", async () => {
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const ownerBearer = await signToken("access-owner", "owner@example.test");
+    const holderBearer = await signToken(
+      "preview-holder",
+      "single@example.test",
+    );
+    const pairBearer = await signToken("preview-pair", "pair@example.test");
+    const authorBearer = await signToken(
+      "preview-author",
+      "author@example.test",
+    );
+    for (const bearer of [ownerBearer, holderBearer, pairBearer, authorBearer])
+      expect(
+        (
+          await server.inject({
+            method: "POST",
+            url: "/accounts",
+            headers: { authorization: `Bearer ${bearer}` },
+          })
+        ).statusCode,
+      ).toBe(201);
+    const account = (subject: string) =>
+      database.prisma.account.findFirstOrThrow({
+        where: { logtoSubject: subject },
+      });
+    const [ownerAccount, holder, pair, author] = await Promise.all(
+      ["access-owner", "preview-holder", "preview-pair", "preview-author"].map(
+        account,
+      ),
+    );
+    if (
+      ownerAccount === undefined ||
+      holder === undefined ||
+      pair === undefined ||
+      author === undefined
+    )
+      throw new Error("missing preview Accounts");
+    await database.prisma.accountPermission.create({
+      data: { accountId: ownerAccount.id, permission: "billing:manage" },
+    });
+    await database.prisma.accountPermission.create({
+      data: { accountId: author.id, permission: "materials:manage" },
+    });
+    const [single, paired] = [randomUUID(), randomUUID()];
+    for (const id of [single, paired])
+      await database.prisma.product.create({
+        data: { id, slug: id, name: "Preview Product" },
+      });
+    await grantProductFixture(database.prisma, holder.id, single);
+    await grantProductFixture(database.prisma, pair.id, single);
+    await grantProductFixture(database.prisma, pair.id, paired);
+    const preview = (bearer: string, accountId: string) =>
+      server.inject({
+        method: "POST",
+        url: "/admin/access/products/preview-revoke",
+        headers: { authorization: `Bearer ${bearer}` },
+        payload: { accountId, productId: single },
+      });
+
+    const closes = await preview(ownerBearer, holder.id);
+    expect(closes.statusCode).toBe(200);
+    expect(closes.json()).toMatchObject({
+      ok: true,
+      value: { affectedCount: 1, community: "closes" },
+    });
+    const remains = await preview(ownerBearer, pair.id);
+    expect(remains.statusCode).toBe(200);
+    expect(remains.json()).toMatchObject({
+      ok: true,
+      value: { affectedCount: 1, community: "remains" },
+    });
+    expect((await preview(authorBearer, holder.id)).statusCode).toBe(403);
+  });
+
   async function signToken(subject: string, email: string): Promise<string> {
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
