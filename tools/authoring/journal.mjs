@@ -28,7 +28,8 @@ export async function writeAtomic(path, value) {
 }
 
 /**
- * One serial writer per environment; credentials and media bytes never enter the journal.
+ * One serial writer per environment. The journal file is private to the owner (0600): it keeps a
+ * recording upload's endpoint for that one attempt, but never a bearer token or media bytes.
  *
  * @template T
  * @param {string} directory

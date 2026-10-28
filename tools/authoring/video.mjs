@@ -5,11 +5,13 @@ import { basename, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
+import { z } from "zod";
 import { fileChecksum } from "./package.mjs";
 import { withJournal } from "./journal.mjs";
 import {
   parseLocalResponse,
   parseReceipt,
+  uploadReceiptKey,
   uploadReceiptSchema,
 } from "./local-boundaries.mjs";
 import { keychainStore, ownerSession } from "./credentials.mjs";
@@ -24,14 +26,30 @@ import {
 export const videoReconcileIntervalMs = 3_000;
 // The editor's browser client sends the same part size to the provider's Tus endpoint.
 export const tusChunkBytes = 8 * 1024 * 1024;
-// A part that fails is resent from the server's offset after each of these pauses, then the run stops.
-const tusRetryDelaysMs = [1_000, 3_000, 5_000];
+// A failed request is repeated after each of these pauses, from the server's offset; then the run stops.
+export const tusRetryDelaysMs = [1_000, 3_000, 10_000, 30_000];
+const tusVersion = "1.0.0";
+// Besides 5xx, these answers say "not now" rather than "never" and are retried.
+const tusRetryableStatuses = new Set([408, 409, 423, 429]);
+// The provider no longer knows the upload; only the owner decides whether to start another one.
+const tusExpiredStatuses = new Set([404, 410]);
 const tusHeadTimeoutMs = 30_000;
 // One part on a slow uplink; the server keeps what arrived, so a timeout loses no progress.
 const tusPatchTimeoutMs = 300_000;
-const sha256Pattern = /^[0-9a-f]{64}$/u;
 // The only provider that receives recording bytes; the backend checks the same domain (#1794).
 const providerUploadHost = "kinescope.io";
+const expectedChecksumSchema = z.hash("sha256").lowercase();
+// A Tus byte count: a nonnegative safe integer in plain decimal digits.
+const tusByteCount = z
+  .string()
+  .refine((value) => String(Number(value)) === value)
+  .transform(Number)
+  .pipe(z.int().nonnegative());
+// HEAD answers both counts; PATCH answers the new offset.
+const tusHeadersSchema = z.object({
+  "upload-offset": tusByteCount,
+  "upload-length": tusByteCount.optional(),
+});
 
 /**
  * @param {import("./local-boundaries.mjs").LocalRequest} request
@@ -66,6 +84,14 @@ export async function waitUntilReady(
   );
 }
 
+/** @param {URL} url */
+const isProviderEndpoint = (url) =>
+  url.protocol === "https:" &&
+  url.username === "" &&
+  url.password === "" &&
+  (url.hostname === providerUploadHost ||
+    url.hostname.endsWith(`.${providerUploadHost}`));
+
 /**
  * How the bytes of an initialized upload reach the provider. The test adapter of a local runtime
  * answers with an `.invalid` endpoint that takes no bytes; every real transfer goes to Kinescope
@@ -79,13 +105,7 @@ function transferKind(target, uploadEndpoint) {
   const url = new URL(uploadEndpoint);
   if (target.kind === "local" && url.hostname.endsWith(".invalid"))
     return "none";
-  if (
-    url.protocol !== "https:" ||
-    url.username !== "" ||
-    url.password !== "" ||
-    (url.hostname !== providerUploadHost &&
-      !url.hostname.endsWith(`.${providerUploadHost}`))
-  )
+  if (!isProviderEndpoint(url))
     throw new Error(
       `${target.id} returned an upload endpoint that is not a Kinescope HTTPS upload endpoint`,
     );
@@ -93,25 +113,41 @@ function transferKind(target, uploadEndpoint) {
 }
 
 /**
- * @param {Headers} headers
- * @param {string} name
+ * The Tus byte counts of an answer; the endpoint's values stay unknown until parsed.
+ *
+ * @param {Response} response
  */
-function byteCount(headers, name) {
-  const value = headers.get(name);
-  if (value === null || !/^\d+$/u.test(value))
-    throw new Error(`The upload endpoint sent no valid ${name}`);
-  return Number(value);
+function tusHeaders(response) {
+  const parsed = tusHeadersSchema.safeParse(
+    Object.fromEntries(response.headers),
+  );
+  if (!parsed.success)
+    throw new Error("The upload endpoint sent no valid Upload-Offset");
+  return {
+    offset: parsed.data["upload-offset"],
+    length: parsed.data["upload-length"],
+  };
 }
+
+/** @param {unknown} error fetch rejects so only when no HTTP answer arrived */
+const isNetworkFailure = (error) =>
+  error instanceof TypeError ||
+  (error instanceof DOMException && error.name === "TimeoutError");
+
+/** @param {number} status */
+const isRetryable = (status) =>
+  status >= 500 || tusRetryableStatuses.has(status);
 
 /**
  * Sends a finished file to a Tus 1.0.0 upload that already exists. The server's offset decides
  * where each part starts, so a repeated run continues where the last one stopped. The file is read
- * one part at a time; the endpoint itself is a credential and never appears in a message.
+ * one part at a time. The endpoint grants upload access to this attempt, so no message names it.
  *
  * @param {{
  *   endpoint: string;
  *   path: string;
  *   size: number;
+ *   attempt: { videoId: string; idempotencyKey: string };
  *   fetcher?: typeof fetch;
  *   sleep?: (milliseconds: number) => Promise<unknown>;
  *   onProgress?: (sent: number, total: number) => void;
@@ -121,36 +157,97 @@ async function tusTransfer({
   endpoint,
   path,
   size,
+  attempt,
   fetcher = fetch,
   sleep = delay,
   onProgress = () => {},
 }) {
+  /**
+   * One Tus request. Like the editor's tus-js-client it follows a redirect, but only once and only
+   * to another Kinescope HTTPS address; the same part is sent again there.
+   *
+   * @param {"HEAD" | "PATCH"} method
+   * @param {Record<string, string>} headers
+   * @param {Buffer<ArrayBuffer> | undefined} body
+   * @param {number} timeoutMs
+   */
+  const tusRequest = async (method, headers, body, timeoutMs) => {
+    let url = endpoint;
+    for (let followed = false; ; followed = true) {
+      const response = await fetcher(url, {
+        method,
+        redirect: "manual",
+        headers: { "tus-resumable": tusVersion, ...headers },
+        ...(body === undefined ? {} : { body }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (response.status < 300 || response.status > 399) return response;
+      await response.body?.cancel();
+      const location = response.headers.get("location");
+      const next =
+        location !== null && URL.canParse(location, url)
+          ? new URL(location, url)
+          : undefined;
+      if (followed || next === undefined || !isProviderEndpoint(next))
+        throw new Error(
+          `The upload endpoint redirected ${method} other than once to a Kinescope HTTPS address`,
+        );
+      url = next.href;
+    }
+  };
+  /** @param {number} status */
+  const expired = (status) =>
+    new Error(
+      `The provider upload of video ${attempt.videoId} (key ${attempt.idempotencyKey}) expired with HTTP ${String(status)}; this attempt cannot continue. Starting another upload is the owner's decision`,
+    );
+  let offset = 0;
+  let failures = 0;
+  /** Pauses before the next attempt, or stops the run once the budget is spent. @param {number | undefined} status */
+  const retryOrStop = async (status) => {
+    const pause = tusRetryDelaysMs[failures++];
+    if (pause === undefined)
+      throw new Error(
+        `The transfer stopped at ${String(offset)} of ${String(size)} bytes${status === undefined ? "" : ` (HTTP ${String(status)})`}; run the same command again to continue`,
+      );
+    await sleep(pause);
+  };
   const serverOffset = async () => {
-    const response = await fetcher(endpoint, {
-      method: "HEAD",
-      redirect: "error",
-      headers: { "tus-resumable": "1.0.0" },
-      signal: AbortSignal.timeout(tusHeadTimeoutMs),
-    });
-    if (!response.ok)
-      throw new Error(
-        `The upload endpoint answered ${String(response.status)}; this attempt cannot continue`,
-      );
-    const length = byteCount(response.headers, "upload-length");
-    if (length !== size)
-      throw new Error(
-        `The upload's Upload-Length ${String(length)} differs from the file size ${String(size)}; this attempt belongs to another file`,
-      );
-    const offset = byteCount(response.headers, "upload-offset");
-    if (offset > size)
-      throw new Error("The upload endpoint reports more bytes than the file");
-    return offset;
+    for (;;) {
+      /** @type {Response} */
+      let response;
+      try {
+        response = await tusRequest("HEAD", {}, undefined, tusHeadTimeoutMs);
+      } catch (error) {
+        if (!isNetworkFailure(error)) throw error;
+        await retryOrStop(undefined);
+        continue;
+      }
+      if (tusExpiredStatuses.has(response.status))
+        throw expired(response.status);
+      if (!response.ok) {
+        if (!isRetryable(response.status))
+          throw new Error(
+            `The upload endpoint answered ${String(response.status)}; this attempt cannot continue`,
+          );
+        await retryOrStop(response.status);
+        continue;
+      }
+      const head = tusHeaders(response);
+      if (head.length === undefined)
+        throw new Error("The upload endpoint sent no valid Upload-Length");
+      if (head.length !== size)
+        throw new Error(
+          `The upload's Upload-Length ${String(head.length)} differs from the file size ${String(size)}; this attempt belongs to another file`,
+        );
+      if (head.offset > size)
+        throw new Error("The upload endpoint reports more bytes than the file");
+      return head.offset;
+    }
   };
   const file = await open(path, "r");
   try {
     const buffer = Buffer.alloc(Math.min(tusChunkBytes, size));
-    let offset = await serverOffset();
-    let failures = 0;
+    offset = await serverOffset();
     onProgress(offset, size);
     while (offset < size) {
       const { bytesRead } = await file.read(
@@ -163,29 +260,23 @@ async function tusTransfer({
       /** @type {Response | undefined} */
       let response;
       try {
-        response = await fetcher(endpoint, {
-          method: "PATCH",
-          redirect: "error",
-          headers: {
-            "tus-resumable": "1.0.0",
+        response = await tusRequest(
+          "PATCH",
+          {
             "upload-offset": String(offset),
             "content-type": "application/offset+octet-stream",
           },
-          body: buffer.subarray(0, bytesRead),
-          signal: AbortSignal.timeout(tusPatchTimeoutMs),
-        });
+          buffer.subarray(0, bytesRead),
+          tusPatchTimeoutMs,
+        );
       } catch (error) {
         // No HTTP answer: the connection dropped or the part timed out.
-        if (
-          !(error instanceof TypeError) &&
-          !(error instanceof DOMException && error.name === "TimeoutError")
-        )
-          throw error;
+        if (!isNetworkFailure(error)) throw error;
       }
       // Tus answers 204; like the editor's tus-js-client, any success status is accepted.
       if (response?.ok) {
         await response.body?.cancel();
-        const next = byteCount(response.headers, "upload-offset");
+        const next = tusHeaders(response).offset;
         if (next <= offset || next > size)
           throw new Error("The upload endpoint reported an impossible offset");
         offset = next;
@@ -194,22 +285,14 @@ async function tusTransfer({
         continue;
       }
       await response?.body?.cancel();
-      // A definitive refusal other than an offset conflict or throttling will not change on retry.
       const status = response?.status;
-      if (
-        status !== undefined &&
-        status < 500 &&
-        ![408, 409, 423, 429].includes(status)
-      )
+      if (status !== undefined && tusExpiredStatuses.has(status))
+        throw expired(status);
+      if (status !== undefined && !isRetryable(status))
         throw new Error(
           `The upload endpoint refused a part with ${String(status)}`,
         );
-      const pause = tusRetryDelaysMs[failures++];
-      if (pause === undefined)
-        throw new Error(
-          `The transfer stopped at ${String(offset)} of ${String(size)} bytes${status === undefined ? "" : ` (HTTP ${String(status)})`}; run the same command again to continue`,
-        );
-      await sleep(pause);
+      await retryOrStop(status);
       offset = await serverOffset();
     }
   } finally {
@@ -257,7 +340,10 @@ export async function uploadVideo({
     throw new Error(
       `Upload to ${target.name} needs --sha256 with the checksum of the accepted file`,
     );
-  if (expected !== undefined && !sha256Pattern.test(expected))
+  if (
+    expected !== undefined &&
+    !expectedChecksumSchema.safeParse(expected).success
+  )
     throw new Error("--sha256 must be 64 lowercase hex characters");
   const path = resolve(file);
   const [info, sha256] = await Promise.all([stat(path), fileChecksum(path)]);
@@ -283,7 +369,7 @@ export async function uploadVideo({
         throw new Error(
           `Synchronize ${sourceId} before attaching its recording`,
         );
-      const receiptKey = `upload:${material.materialId}:${sha256}`;
+      const receiptKey = uploadReceiptKey(material.materialId, sha256);
       let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
       // A failed provider outcome is known, so the same file may start a fresh attempt.
       if (receipt?.phase === "failed") receipt = undefined;
@@ -335,6 +421,7 @@ export async function uploadVideo({
         if (transferKind(target, receipt.uploadEndpoint) === "tus")
           await tusTransfer({
             endpoint: receipt.uploadEndpoint,
+            attempt: receipt,
             path,
             size: receipt.byteSize,
             ...(fetcher === undefined ? {} : { fetcher }),

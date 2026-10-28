@@ -47,7 +47,9 @@ pnpm authoring:video upload --target production --state ~/.inside-authoring/prod
 
 - `--state` is the same state directory that `authoring:release` and `authoring:deliver` use for
   that target; the journal must already know the Material (released, or adopted through
-  `authoring:deliver reconcile --adopt`). One command at a time holds that directory.
+  `authoring:deliver reconcile --adopt`). One command at a time holds that directory, for the
+  whole transfer. If the Mac sleeps longer than two minutes, the journal lock may be treated as stale
+  and the command may stop; repeat the same command, it continues from the server's offset.
 - `production` uses the owner's Keychain session from `authoring:login`, like `authoring:release`,
   and stops when the target does not report the expected runtime. Local targets need no session.
 - `--sha256` (64 lowercase hex characters) is required for `production` and optional for local
@@ -55,11 +57,20 @@ pnpm authoring:video upload --target production --state ~/.inside-authoring/prod
 - The server creates the upload; the Kinescope token stays on the server. The command sends the
   bytes to the returned Tus endpoint in 8 MiB parts (`HEAD` for the offset, then `PATCH`), reading
   the file one part at a time. Only an HTTPS endpoint on `kinescope.io` or a subdomain receives bytes;
-  the local test adapter's `.invalid` endpoint skips the transfer. A failed part is resent from the
-  server's offset up to three times. Progress goes to stderr without the endpoint or tokens.
-- The journal keeps the idempotency key, phase and endpoint under `upload:MATERIAL_ID:SHA256`, never
-  offsets or bytes. Repeating the same command continues an interrupted transfer from the server's
-  offset without a new upload, and waits for processing again when it has not finished.
+  the local test adapter's `.invalid` endpoint skips the transfer. A redirect is followed once, and
+  only to another Kinescope HTTPS address. A request that fails without an answer, with 5xx, 408,
+  409, 423 or 429 is repeated after 1, 3, 10 and 30 seconds, from the server's offset; then the run
+  stops. Progress goes to stderr without the endpoint or tokens.
+- The journal file (mode 0600) keeps the idempotency key, phase and endpoint under
+  `upload:MATERIAL_ID:SHA256`. The endpoint grants upload access to that one attempt; the journal
+  never holds a bearer token, offsets or media bytes. Repeating the same command continues an
+  interrupted transfer from the server's offset without a new upload, and waits for processing
+  again when it has not finished.
+- When the provider no longer knows the upload (`HEAD` answers 404 or 410), the command stops and
+  names the `videoId` and idempotency key; repeating it stops the same way. Report both to the owner.
+  Starting a replacement upload is the owner's decision after checking that attempt in Kinescope
+  and Platform; the command never starts one by itself and offers no way to discard the stored
+  attempt. Do not edit the journal by hand.
 - Success prints one JSON document on stdout with `target`, `sourceId`, `materialId`, `videoId`,
   `providerVideoId`, `durationSeconds`, `sha256` and `next`, and exits 0. The journal then holds
   `source-video:SOURCE_ID`, which the next release attaches as the primary Video.

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { reviewOrigin } from "./local-sync.mjs";
-import { tusChunkBytes, uploadVideo } from "./video.mjs";
+import { tusChunkBytes, tusRetryDelaysMs, uploadVideo } from "./video.mjs";
 import {
   sourceVideoReceiptSchema,
   uploadReceiptSchema,
@@ -22,6 +22,10 @@ const videoId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceId = "inside-content:lesson";
 const production = trustedTargets.production.id;
 const ownerToken = async () => "owner-access-token";
+// Every pause is skipped, so a transfer test that waits longer than this is stuck.
+const transferTest = { timeout: 15_000 };
+// One run sends a failing request this many times before it stops.
+const attemptsPerRun = tusRetryDelaysMs.length + 1;
 
 /** @typedef {import("./target.mjs").LocalTransport} LocalTransport */
 
@@ -123,28 +127,65 @@ function providerApi({
 }
 
 /**
- * A Tus 1.0.0 server double on loopback. It keeps the received bytes; a scheduled fault stores
- * half of a PATCH body and then drops the connection, as an interrupted network does.
+ * A Tus 1.0.0 server double on loopback. It keeps the received bytes. A PATCH fault stores half of
+ * the body and then drops the connection, as an interrupted network does; a HEAD fault drops the
+ * connection before any answer. `gone` answers every HEAD with that status, and `redirects`
+ * answers a path with 307 to another address.
  *
  * @param {import("node:test").TestContext} t
- * @param {{ length: number; faults?: number; reportedLength?: number }} options
+ * @param {{
+ *   length: number;
+ *   faults?: number;
+ *   headFaults?: number;
+ *   reportedLength?: number;
+ *   gone?: number;
+ *   redirects?: Record<string, string>;
+ * }} options
  */
-async function tusServer(t, { length, faults = 0, reportedLength = length }) {
+async function tusServer(
+  t,
+  {
+    length,
+    faults = 0,
+    headFaults = 0,
+    reportedLength = length,
+    gone,
+    redirects = {},
+  },
+) {
   /** @type {Buffer[]} */
   const stored = [];
   let offset = 0;
   let remainingFaults = faults;
-  /** @type {{ method: string; offset: string | undefined; headers: import("node:http").IncomingHttpHeaders }[]} */
+  let remainingHeadFaults = headFaults;
+  /** @type {{ method: string; path: string; offset: string | undefined; headers: import("node:http").IncomingHttpHeaders }[]} */
   const requests = [];
   const server = createServer(async (request, response) => {
     const header = request.headers["upload-offset"];
+    const path = request.url ?? "";
     requests.push({
       method: request.method ?? "",
+      path,
       offset: typeof header === "string" ? header : undefined,
       headers: request.headers,
     });
     if (request.headers["tus-resumable"] !== "1.0.0") {
       response.writeHead(412).end();
+      return;
+    }
+    const location = redirects[path];
+    if (location !== undefined) {
+      request.resume();
+      response.writeHead(307, { location }).end();
+      return;
+    }
+    if (request.method === "HEAD" && remainingHeadFaults > 0) {
+      remainingHeadFaults--;
+      request.socket.destroy();
+      return;
+    }
+    if (request.method === "HEAD" && gone !== undefined) {
+      response.writeHead(gone).end();
       return;
     }
     if (request.method === "HEAD") {
@@ -196,22 +237,24 @@ async function tusServer(t, { length, faults = 0, reportedLength = length }) {
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  t.after(() => {
+  t.after(async () => {
     server.closeAllConnections();
-    server.close();
+    await new Promise((accept) => server.close(accept));
   });
   const address = server.address();
   assert.ok(address !== null && typeof address === "object");
   const base = `http://127.0.0.1:${String(address.port)}`;
   /**
-   * Sends requests for the provider's HTTPS upload host to the loopback double.
+   * Sends requests for the provider's HTTPS upload hosts to the loopback double.
    *
    * @type {typeof fetch}
    */
   const fetcher = (input, init) => {
     const url = new URL(String(input));
     assert.equal(url.protocol, "https:");
-    assert.equal(url.hostname, "uploader.kinescope.io");
+    assert.ok(
+      url.hostname === "kinescope.io" || url.hostname.endsWith(".kinescope.io"),
+    );
     return fetch(`${base}${url.pathname}`, init);
   };
   return {
@@ -311,43 +354,91 @@ test("a production upload transfers the file over Tus with the owner's session a
   assert.doesNotMatch(await setup.raw(), /offset/iu);
 });
 
-test("an interrupted transfer resumes from the server offset without a second upload", async (t) => {
-  const bytes = longRecording();
-  const setup = await fixture(t, { target: production, bytes });
-  // One dropped connection is retried within the run; more than the retry budget stops it.
-  const tus = await tusServer(t, { length: bytes.length, faults: 5 });
-  const api = providerApi({
-    mode: "production",
-    endpoint: tus.endpoint,
-    byteSize: bytes.length,
-  });
-  const options = {
-    origin: "production",
-    accessToken: ownerToken,
-    sha256: setup.sha256,
-    fetcher: tus.fetcher,
-  };
-  await assert.rejects(upload(setup, api, options), /transfer stopped/u);
-  assert.equal(
-    uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
-      .phase,
-    "transfer",
-  );
-  const received = tus.received().length;
-  assert.ok(received > 0 && received < bytes.length);
-  const result = await upload(setup, api, options);
-  assert.equal(result.videoId, videoId);
-  assert.ok(tus.received().equals(bytes));
-  assert.equal(
-    api.calls.filter((call) => call.path.endsWith("/uploads")).length,
-    1,
-  );
-  // Each retry continues from the offset the server reports, never from zero.
-  const resumed = tus.requests.filter(
-    (item) => item.method === "PATCH" && item.offset !== "0",
-  );
-  assert.ok(resumed.some((item) => Number(item.offset) % tusChunkBytes !== 0));
-});
+test(
+  "a dropped connection is resent within the run from the server offset",
+  transferTest,
+  async (t) => {
+    const bytes = longRecording();
+    const setup = await fixture(t, { target: production, bytes });
+    const tus = await tusServer(t, {
+      length: bytes.length,
+      faults: 1,
+      headFaults: 1,
+    });
+    const api = providerApi({
+      mode: "production",
+      endpoint: tus.endpoint,
+      byteSize: bytes.length,
+    });
+    const result = await upload(setup, api, {
+      origin: "production",
+      accessToken: ownerToken,
+      sha256: setup.sha256,
+      fetcher: tus.fetcher,
+    });
+    assert.equal(result.videoId, videoId);
+    assert.ok(tus.received().equals(bytes));
+    // The failed HEAD is repeated, and the part after the dropped connection starts where the server stopped.
+    assert.deepEqual(
+      tus.requests.slice(0, 3).map((item) => item.method),
+      ["HEAD", "HEAD", "PATCH"],
+    );
+    assert.ok(
+      tus.requests.some(
+        (item) =>
+          item.method === "PATCH" && Number(item.offset) % tusChunkBytes !== 0,
+      ),
+    );
+  },
+);
+
+test(
+  "an interrupted transfer resumes from the server offset without a second upload",
+  transferTest,
+  async (t) => {
+    const bytes = longRecording();
+    const setup = await fixture(t, { target: production, bytes });
+    // The first run spends its whole retry budget and stops; the repeated command meets one more drop.
+    const tus = await tusServer(t, {
+      length: bytes.length,
+      faults: attemptsPerRun + 1,
+    });
+    const api = providerApi({
+      mode: "production",
+      endpoint: tus.endpoint,
+      byteSize: bytes.length,
+    });
+    const options = {
+      origin: "production",
+      accessToken: ownerToken,
+      sha256: setup.sha256,
+      fetcher: tus.fetcher,
+    };
+    await assert.rejects(upload(setup, api, options), /transfer stopped/u);
+    assert.equal(
+      uploadReceiptSchema.parse(
+        Object.values(resourcesOf(await setup.read()))[0],
+      ).phase,
+      "transfer",
+    );
+    const received = tus.received().length;
+    assert.ok(received > 0 && received < bytes.length);
+    const result = await upload(setup, api, options);
+    assert.equal(result.videoId, videoId);
+    assert.ok(tus.received().equals(bytes));
+    assert.equal(
+      api.calls.filter((call) => call.path.endsWith("/uploads")).length,
+      1,
+    );
+    // Each retry continues from the offset the server reports, never from zero.
+    const resumed = tus.requests.filter(
+      (item) => item.method === "PATCH" && item.offset !== "0",
+    );
+    assert.ok(
+      resumed.some((item) => Number(item.offset) % tusChunkBytes !== 0),
+    );
+  },
+);
 
 test("a trusted target needs the owner's session and the expected checksum", async (t) => {
   const setup = await fixture(t, { target: production });
@@ -560,3 +651,103 @@ test("a failed provider outcome lets the same file start a new attempt", async (
   assert.equal(new Set(keys).size, 2);
   assert.equal(result.providerVideoId, "provider-2");
 });
+
+test(
+  "an expired provider upload stops with its Video and key and starts nothing new",
+  transferTest,
+  async (t) => {
+    for (const status of [404, 410])
+      await t.test(String(status), async (t) => {
+        const setup = await fixture(t, { target: production });
+        const tus = await tusServer(t, { length: 15, gone: status });
+        const api = providerApi({ mode: "production", endpoint: tus.endpoint });
+        const options = {
+          origin: "production",
+          accessToken: ownerToken,
+          sha256: setup.sha256,
+          fetcher: tus.fetcher,
+        };
+        const stopped = await upload(setup, api, options).catch(
+          (/** @type {unknown} */ error) => error,
+        );
+        const receipt = uploadReceiptSchema.parse(
+          Object.values(resourcesOf(await setup.read()))[0],
+        );
+        assert.ok(stopped instanceof Error);
+        assert.match(stopped.message, /expired/u);
+        assert.ok(stopped.message.includes(videoId));
+        assert.ok(stopped.message.includes(receipt.idempotencyKey));
+        assert.doesNotMatch(stopped.message, /files\/provider-one/u);
+        assert.equal(receipt.phase, "transfer");
+        await assert.rejects(upload(setup, api, options), /expired/u);
+        assert.equal(
+          api.calls.filter((call) => call.path.endsWith("/uploads")).length,
+          1,
+        );
+        assert.equal(
+          tus.requests.some((item) => item.method === "PATCH"),
+          false,
+        );
+      });
+  },
+);
+
+test(
+  "a redirect is followed once, and only to another Kinescope HTTPS address",
+  transferTest,
+  async (t) => {
+    const moved = "https://upload-2.kinescope.io/files/moved";
+    await t.test("to Kinescope", async (t) => {
+      const setup = await fixture(t, { target: production });
+      const tus = await tusServer(t, {
+        length: 15,
+        redirects: { "/files/provider-one": moved },
+      });
+      const api = providerApi({ mode: "production", endpoint: tus.endpoint });
+      await upload(setup, api, {
+        origin: "production",
+        accessToken: ownerToken,
+        sha256: setup.sha256,
+        fetcher: tus.fetcher,
+      });
+      assert.ok(tus.received().equals(setup.bytes));
+      assert.deepEqual(
+        tus.requests.map((item) => `${item.method} ${item.path}`),
+        [
+          "HEAD /files/provider-one",
+          "HEAD /files/moved",
+          "PATCH /files/provider-one",
+          "PATCH /files/moved",
+        ],
+      );
+    });
+    /** @type {[string, Record<string, string>][]} */
+    const refused = [
+      [
+        "outside Kinescope",
+        { "/files/provider-one": "https://uploads.example.com/files/moved" },
+      ],
+      [
+        "to plain HTTP",
+        { "/files/provider-one": "http://upload-2.kinescope.io/files/moved" },
+      ],
+      ["twice", { "/files/provider-one": moved, "/files/moved": moved }],
+    ];
+    for (const [name, redirects] of refused)
+      await t.test(name, async (t) => {
+        const setup = await fixture(t, { target: production });
+        const tus = await tusServer(t, { length: 15, redirects });
+        const api = providerApi({ mode: "production", endpoint: tus.endpoint });
+        await assert.rejects(
+          upload(setup, api, {
+            origin: "production",
+            accessToken: ownerToken,
+            sha256: setup.sha256,
+            fetcher: tus.fetcher,
+          }),
+          /redirected HEAD other than once to a Kinescope HTTPS address/u,
+        );
+        assert.equal(tus.received().length, 0);
+      });
+  },
+);

@@ -27,7 +27,7 @@ import {
   parseReceipt,
   publishSelectionSchema,
   sourceVideoReceiptSchema,
-  uploadReceiptSchema,
+  uploadReceiptsOf,
 } from "./local-boundaries.mjs";
 import {
   archiveProposalKeys,
@@ -127,27 +127,20 @@ export function releaseTarget(value) {
  *
  * @param {Record<string, unknown>} resources
  * @param {string} materialId
- * @param {string} key the Material's source key
+ * @param {string} sourceId the Material's source key, as its upload receipts name it
  * @param {{ sha256: string } | undefined} ready its `source-video` receipt
  * @returns {VideoUpload[]}
  */
-function videoUploads(resources, materialId, key, ready) {
-  const prefix = `upload:${materialId}:`;
+function videoUploads(resources, materialId, sourceId, ready) {
   /** @type {VideoUpload[]} */
-  const pending = Object.entries(resources)
-    .filter(([name]) => name.startsWith(prefix))
-    .flatMap(([name, value]) => {
-      const receipt = parseReceipt(uploadReceiptSchema, value);
-      return receipt?.sourceId === key &&
-        ["initializing", "transfer", "processing"].includes(receipt.phase)
-        ? [
-            {
-              state: /** @type {const} */ ("pending"),
-              sha256: name.slice(prefix.length),
-            },
-          ]
-        : [];
-    })
+  const pending = uploadReceiptsOf(resources, materialId)
+    .filter(
+      ({ receipt }) =>
+        receipt.sourceId === sourceId &&
+        receipt.phase !== "ready" &&
+        receipt.phase !== "failed",
+    )
+    .map(({ sha256 }) => ({ state: /** @type {const} */ ("pending"), sha256 }))
     .sort((left, right) => left.sha256.localeCompare(right.sha256));
   return [
     ...(ready === undefined
@@ -988,7 +981,7 @@ if (
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, videoUploads: preview.materials.flatMap((item) => (item.videoUploads ?? []).map((upload) => ({ sourceId: item.sourceId, ...upload }))), changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, videoUploads: preview.materials.flatMap((item) => (item.videoUploads ?? []).map((upload) => ({ sourceId: item.sourceId, ...upload }))), changes: preview.materials.filter((item) => item.change !== "unchanged").map(({ videoUploads: _listedAbove, ...item }) => item) }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z

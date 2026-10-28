@@ -647,6 +647,33 @@ export const uploadReceiptSchema = z.discriminatedUnion("phase", [
 ]);
 
 /**
+ * @param {string} materialId
+ * @param {string} sha256 the recording's checksum
+ */
+export const uploadReceiptKey = (materialId, sha256) =>
+  `upload:${materialId}:${sha256}`;
+
+/**
+ * Every recording upload of one Material the journal holds, with the checksum its key names.
+ *
+ * @param {Record<string, unknown>} resources
+ * @param {string} materialId
+ */
+export function uploadReceiptsOf(resources, materialId) {
+  const prefix = uploadReceiptKey(materialId, "");
+  return Object.entries(resources).flatMap(([key, value]) =>
+    key.startsWith(prefix)
+      ? [
+          {
+            sha256: hash.parse(key.slice(prefix.length)),
+            receipt: uploadReceiptSchema.parse(value),
+          },
+        ]
+      : [],
+  );
+}
+
+/**
  * The receipt stored under a resource key, checked against the shape its prefix names.
  *
  * @template T

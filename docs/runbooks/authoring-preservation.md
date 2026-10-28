@@ -69,7 +69,9 @@ and derived `package`, `selection`, the immutable `receipt` path, the release `p
 `rows` and `hasChanges`. Each row names `kind` (`material` or `task`), `sourceId`, target `id`,
 `change` (`changed` or `unchanged`), the preserved `access` and `publicationState`, the target version or
 revision and `sourceCommit` with the target's recorded commit and its `relation` to the package.
-Review the rows; when `hasChanges` is `false` there is nothing to apply.
+A Material with a recording uploaded by `authoring:video` also lists `videoUploads` (`state` `pending`
+or `ready`, `sha256`); apply attaches only a `ready` one
+([command contract](video-authoring.md#pnpm-authoringvideo-upload-1794)). Review the rows; when `hasChanges` is `false` there is nothing to apply.
 
 ### Apply
 
