@@ -9,8 +9,9 @@ import { z } from "zod";
 
 import { parsePlatformDatabaseConfig } from "../config/platform-config.js";
 import { platformMigrations } from "../migrations/index.js";
+import { runtimeSchemaReadiness } from "../migrations/runtime-schema.js";
 import { describeError, writeLog } from "./observability/index.js";
-import { runtimeSchemaReadiness } from "./operational-readiness.js";
+
 import { verifyMigrationState } from "./postgres/migrate-to-latest.js";
 import {
   parseRuntimeIdentity,
