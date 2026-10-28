@@ -85,11 +85,17 @@ Timeout, `ECONNREFUSED` и необъяснённая ошибка не счит
 Публичный отчёт не заменяет private evidence, которое upload шага не выбирает.
 При отказе native CLI отчёт сохраняет закрытую категорию фактически вызванной операции
 и формы аргументов, nullable exit status, размеры и хеши private stdout/stderr.
-Последний шаг каждой engine отмечен как `started`, `succeeded` или `failed`.
+Последняя логическая операция `Engine.call` после проверки identity отмечена как
+`started`, `succeeded` или `failed`. Внутренние raw-вызовы freeze/identify не входят в этот статус.
 Текст stderr и значения аргументов не публикуются. Категория stderr определяется только
 по точному разрешённому образцу; `unclassified` означает неизвестную причину, а не
 подтверждённую ошибку registry, Docker API или provider. Такой отчёт не разрешает повторять
 неуспешный запуск без разбора причины и не меняет его результат на успешный.
+Загрузка образа явно выбирает `linux/amd64`; последующий `image inspect` использует
+совместимый вызов без `--platform`, который [Docker относит к API 1.49+](https://docs.docker.com/reference/cli/docker/image/inspect/).
+Проверки native архитектуры, обязательного child Descriptor, закреплённых digest/config,
+RepoDigests и volumes сохраняются. Отсутствующий Descriptor или другая архитектура
+останавливают admission, без перехода к ослабленной проверке.
 
 Supervisor находится вне session worker. Native CLI создают собственные process groups
 внутри этой session, чтобы recovery после `SIGKILL` worker мог завершить их все. При

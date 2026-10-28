@@ -88,7 +88,9 @@ def native_operation(args):
 
 def stderr_category(raw):
     # Exact finite signatures only. Never quote a prefix, suffix, path or native message.
-    return 'unknown_platform_flag' if raw==b'unknown flag: --platform\n' else 'unclassified'
+    full=(b"unknown flag: --platform\n\nUsage:  docker image inspect [OPTIONS] IMAGE [IMAGE...]\n\n"
+          b"Run 'docker image inspect --help' for more information\n")
+    return 'unknown_platform_flag' if raw in (b'unknown flag: --platform\n',full) else 'unclassified'
 
 
 def healthy_states(states):
@@ -519,7 +521,9 @@ def require_child_descriptor(value, child, arch):
 
 def checked_image(engine, row, arch):
     child=row['linux_'+arch+'_manifest'];need(type(child) is str and re.fullmatch('sha256:[a-f0-9]{64}',child) is not None,'locked_child_required')
-    selected=json.loads(engine.call(['image','inspect','--platform','linux/'+arch,row['pinned']]))[0]
+    # Pull already selects the platform. Older CLIs reject inspect --platform;
+    # plain inspect remains admissible only with all exact native identity checks below.
+    selected=json.loads(engine.call(['image','inspect',row['pinned']]))[0]
     need(selected.get('Os')=='linux' and selected.get('Architecture')==arch,'image_platform')
     require_child_descriptor(selected.get('Descriptor'),child,arch)
     metadata=verify_packet()['image_config_metadata'][row['repository']][arch]
