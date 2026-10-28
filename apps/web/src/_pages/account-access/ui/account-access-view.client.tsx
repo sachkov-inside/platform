@@ -19,7 +19,6 @@ export interface AccountAccessViewProps {
   readonly displayName?: string | undefined;
   readonly billingSlot?: ReactNode;
   readonly profileSlot?: ReactNode;
-  readonly emailSlot?: ReactNode;
   readonly continuationSlot?: ReactNode;
   readonly loading?: boolean;
   readonly sessionExpired?: boolean;
@@ -34,7 +33,6 @@ export function AccountAccessView({
   telegramContact,
   billingSlot,
   profileSlot,
-  emailSlot,
   continuationSlot,
   loading = false,
   sessionExpired = false,
@@ -88,7 +86,6 @@ export function AccountAccessView({
               </h2>
             </div>
             <div className="space-y-5">
-              {emailSlot}
               {loading ? (
                 <p className="py-4 text-sm text-muted-foreground" role="status">
                   Загружаем аккаунт…
