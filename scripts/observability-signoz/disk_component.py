@@ -139,8 +139,8 @@ def recovery_preflight(output,source,value):
     expected=lifecycle.make_plan(output,lifecycle.verify_packet(PROFILE)['images'],value['project'],value['nonce'],os.getuid(),os.getgid(),profile_id=PROFILE)
     require(plan==expected)
     prior_path=output/'resources.json'
-    prior=evidence.read(prior_path) if prior_path.exists() or prior_path.is_symlink() else None
-    if prior is None:return
+    if not prior_path.exists() and not prior_path.is_symlink():return
+    prior=evidence.read(prior_path)
     require(type(prior) is dict and set(prior)=={'project','nonce','profile_id','containers','created','volumes','networks'})
     require(all(prior[k]==value[k] for k in ('project','nonce','profile_id')))
     require(all(type(prior[k]) is dict for k in ('containers','created','volumes','networks')))

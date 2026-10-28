@@ -357,6 +357,17 @@ r=Path(__file__).parent;(r/'entered').touch();time.sleep(30)
                 with patch.object(runtime,'verify_source'),patch.object(runtime,'stop_worker') as stop,patch.object(runtime,'engine') as engine,patch.object(component,'component_engine') as current,patch.object(runtime,'recover') as delegated,patch.object(lifecycle,'acquire_image') as acquire:
                     with self.assertRaises((ValueError,lifecycle.Refusal,OSError)):component.recover(output)
                     stop.assert_not_called();engine.assert_not_called();current.assert_not_called();delegated.assert_not_called();acquire.assert_not_called()
+        for primitive in (None,False,0,1.5,'private-receipt',[],[1]):
+            for entry in ('recover','cleanup_worker'):
+                with self.subTest(receipt=type(primitive).__name__,entry=entry),tempfile.TemporaryDirectory() as tmp:
+                    output=Path(tmp).resolve();collection_fixture(output)
+                    source=evidence.read(output/'source.json');value=evidence.read(output/'component-request.json')
+                    lifecycle.private_json(output/'resources.json',primitive)
+                    lifecycle.private_json(output/'component-cleaner.json',{'pid':12345,'group':12345,'start_ticks':'owned'})
+                    with patch.object(runtime,'require_native_host'),patch.object(runtime,'verify_source'),patch.object(component,'registered_phase',return_value=(source,value,time.monotonic()+90)),patch.object(component,'require_opt_in',side_effect=AssertionError('cleanup must ignore marker')),patch.object(runtime,'stop_worker') as stop,patch.object(runtime,'engine') as engine,patch.object(component,'component_engine') as current,patch.object(runtime,'recover',return_value={'passed':True}) as delegated,patch.object(lifecycle,'acquire_image') as acquire:
+                        with self.assertRaises((ValueError,lifecycle.Refusal,OSError)):
+                            component.recover(output) if entry=='recover' else component.worker(output,'cleanup')
+                        stop.assert_not_called();engine.assert_not_called();current.assert_not_called();delegated.assert_not_called();acquire.assert_not_called()
         for state in ('partial','absent'):
             with self.subTest(valid=state),tempfile.TemporaryDirectory() as tmp:
                 output=Path(tmp).resolve();collection_fixture(output)
