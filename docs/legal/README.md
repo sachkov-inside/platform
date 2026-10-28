@@ -341,17 +341,17 @@ cookies и локальное хранение, реквизиты и обращ
 
 ## Prospective Product community decision — #1464
 
-The owner selected explicit Product community benefits on 2026-10-14 (#1443). The current edition 5
-still describes the common group as part of the Product purchase. [#1464](https://github.com/sachkov-inside/platform/issues/1464)
+The owner selected explicit Product community benefits on 2026-10-14 (#1443). Edition 5 described
+the common group as part of every Product purchase. [#1464](https://github.com/sachkov-inside/platform/issues/1464)
 tracked the prospective edition and consent mapping. The resulting edition 7 is described in
 [its own section](#редакция-7-разовой-покупки-принята-публикуется-выпуском-28102026). Published
 editions and accepted purchase snapshots remain immutable.
 
-## Редакция 6 — подготовлена к выпуску в #1464
+## Редакция 6: принята 15.10.2026, заменена редакцией 7
 
-Владелец принял текст 15.10.2026 в #1359, commit `48f2fc49320c77b3fe632868aa847ff99df3a761`. [Редакция 6](purchase-v6.md) подключена в коде отдельной редакцией. Чат и сопровождение входят только при явном указании в предложении. Индивидуальная ссылка фиксирует цену и допускает одну успешную покупку.
+Владелец принял текст 15.10.2026 в #1359, commit `48f2fc49320c77b3fe632868aa847ff99df3a761`. [Редакция 6](purchase-v6.md) подключена в коде отдельной редакцией с датой действия 15.10.2026. Чат и сопровождение входят только при явном указании в предложении. Индивидуальная ссылка фиксирует цену и допускает одну успешную покупку.
 
-Редакция 5, её digest и исторические согласия сохраняются. Выпуск координирует #854. Плановая дата действия — 15.10.2026; если выпуск состоится позже, координатор сверяет дату до публикации. Эта запись не подтверждает выпуск в production.
+Модели `product-lifetime-v1` у неё нет, поэтому новые покупки Product по ней не оформляются. Для новых покупок её заменяет [редакция 7](#редакция-7-разовой-покупки-принята-публикуется-выпуском-28102026). Текст v6, её digest, адрес `/legal/purchase/v6`, исторические согласия и снимки покупок сохраняются, как и у редакции 5.
 
 
 ## Политика персональных данных, редакция 5, #1599

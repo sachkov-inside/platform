@@ -360,14 +360,54 @@ test("the published purchase v7 catalog admits a fresh Product payment and a pri
   ).toContain(published.digest);
 });
 
-test("a purchase sent on an earlier edition is confirmed on it after purchase v7 takes effect, without a new Init", async () => {
-  const { consentDocuments } = await import("@inside/legal");
+test("a purchase sent on the real purchase v6 is confirmed on v6 after purchase v7 takes effect, without a new Init", async () => {
+  const { consentDocuments, findLegalEdition } = await import("@inside/legal");
+  const v6 = findLegalEdition("purchase", 6);
+  if (v6 === undefined) throw new Error("Purchase v6 must stay published");
   const s = await scenario();
-  const earlier = s.document;
   s.loseInit();
   const started = await s.payments.purchase(s.buyer, s.command);
   expect(started).toMatchObject({ ok: true, value: { state: "unknown" } });
   const ref = value(started).purchaseRef;
+  // The operation reached the bank before the release, on immutable v6, which has no lifetime
+  // marker: its stored acceptance names v6 exactly as a historical purchase does.
+  const historical = {
+    [s.document.documentId]: "purchase",
+    [s.document.version]: String(v6.version),
+    [s.document.digest]: v6.digest,
+    [s.document.url]: "https://inside.example.test/legal/purchase/v6",
+    [s.document.text]: v6.text,
+  };
+  const onV6 = (node: unknown): unknown =>
+    typeof node === "string"
+      ? (historical[node] ?? node)
+      : Array.isArray(node)
+        ? node.map(onV6)
+        : node !== null && typeof node === "object"
+          ? Object.fromEntries(
+              Object.entries(node)
+                .filter(([key]) => key !== "commercialModel")
+                .map(([key, item]) => [key, onV6(item)]),
+            )
+          : node;
+  const sent = await db.prisma.billingPurchase.findUniqueOrThrow({
+    where: { id: ref },
+  });
+  // Current code cannot send on v6 any more, and stored conditions are immutable. The historical
+  // row is therefore seeded with the immutability trigger suspended for this one transaction.
+  await db.prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SET LOCAL session_replication_role = replica`;
+    await tx.billingPurchase.update({
+      where: { id: ref },
+      data: { acceptance: onV6(sent.acceptance) as Prisma.InputJsonValue },
+    });
+  });
+  const v6Acceptance = JSON.stringify(
+    (await db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: ref } }))
+      .acceptance,
+  );
+  expect(v6Acceptance).toContain(v6.digest);
+  expect(v6Acceptance).not.toContain("product-lifetime-v1");
   // Release: the API now serves the published catalog, and the sent operation is recovered there.
   const released = new BillingPayments({
     contentCatalog: new CoverageCatalog(
@@ -396,12 +436,16 @@ test("a purchase sent on an earlier edition is confirmed on it after purchase v7
   expect(value(await released.status(s.buyer, ref))).toMatchObject({
     access: "ready",
   });
-  const acceptance = JSON.stringify(
-    (await db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: ref } }))
-      .acceptance,
-  );
-  expect(acceptance).toContain(earlier.digest);
-  expect(acceptance).not.toContain("/legal/purchase/v7");
+  // The accepted v6 snapshot is kept as it was; v7 is not substituted.
+  expect(
+    JSON.stringify(
+      (
+        await db.prisma.billingPurchase.findUniqueOrThrow({
+          where: { id: ref },
+        })
+      ).acceptance,
+    ),
+  ).toBe(v6Acceptance);
 });
 
 test("a distinct approved-model synthetic legal edition is persisted from the server catalog", async () => {

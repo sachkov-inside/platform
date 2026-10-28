@@ -18,9 +18,6 @@ describe("one-time purchase terms shown before payment", () => {
 
   it("repeat the calculation term, the refund window and the equal price split of the offer text", () => {
     const text = flat(currentLegalEdition("purchase").text);
-    // Редакция 7 пишет число дней словом: сверяем с ним то же число на оплате.
-    const daysInWords: Record<number, string> = { 7: "семи" };
-
     expect(oneTimePurchaseTerms).toMatchObject({
       unlimitedPartRefundMonths: 12,
       fullRefundDays: 7,
@@ -28,8 +25,9 @@ describe("one-time purchase terms shown before payment", () => {
     expect(text).toContain(
       `расчётного срока ${String(oneTimePurchaseTerms.unlimitedPartRefundMonths)} календарных месяцев с подтверждения оплаты`,
     );
+    // Редакция 7 пишет эти 7 дней словом «семи».
     expect(text).toContain(
-      `Если отказ направлен в течение ${daysInWords[oneTimePurchaseTerms.fullRefundDays] ?? "?"} календарных дней, не считая дня подтверждения оплаты`,
+      "Если отказ направлен в течение семи календарных дней, не считая дня подтверждения оплаты",
     );
     expect(text).toContain(
       "Половина цены относится к части «материалы и сообщество продукта», половина к части «сопровождение автора», с суммой каждой части.",

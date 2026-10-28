@@ -45,7 +45,8 @@ test("individual payment link shows its fixed price and terms, revokes across op
   // Раздел «Ссылки на оплату», суженный адресом до продукта фикстуры с его сохранённой ссылкой.
   const linksPath = `/authoring/sales/links?product=${product.id}`;
   await page.goto(linksPath);
-  // Published v7 admits new Product links. A different discount keeps the saved 26 100 ₽ link unique.
+  // Published v7 admits new Product links. The new link uses another discount, so only the saved
+  // fixture link shows 26 100 ₽ in the rows checked below.
   const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-links/create",
