@@ -4,6 +4,11 @@ Start with the [local stand runbook](local-stand.md): stand ownership, start and
 Compose smoke, diagnosis and the destructive reset. The pages below hold the remaining local
 procedures; open the one that matches the task.
 
+## Worktrees
+
+- [Worktree preparation and resources](local-worktrees.md): dependency-only preparation, tracked
+  task previews and cleanup, including optional host CLI behavior.
+
 ## Stand and stack
 
 - [Compose stack contents](local-compose-stack.md): services, images, configuration, object storage,
