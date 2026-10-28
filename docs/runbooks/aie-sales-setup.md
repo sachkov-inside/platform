@@ -1,5 +1,11 @@
 # AIE sales setup — #1359
 
+**Historical preparation, 12 October 2026.** The current
+[access model](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026) and
+[ADR 0040](../adr/0040-unified-product-access.md) replace the Offer/PaymentOption model used below.
+The payloads and apply steps record the original preparation; they are not the current procedure
+for configuring Product sales. This document is retained to explain the saved evidence.
+
 This is a prepared configuration for the existing #854 production writer. It is not a sales-opening receipt.
 The owner's [12 October decision](https://github.com/sachkov-inside/platform/issues/1359)
 authorizes preparation alongside #1358. Production application remains serialized through #854.
@@ -27,7 +33,7 @@ Subsequent editorial changes require their own authorized package.
 | Author's code review | Not included |
 
 The catalogue payloads in [the preparation directory](../evidence/issue-1359/) contain integer kopecks.
-They retain one Offer and one PaymentOption when the price changes, as [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) requires.
+They retain one Offer and one PaymentOption when the price changes, as the historical [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) requires.
 The option's `months: 1` does not override the explicit lifetime Material/community periods or the Support term.
 The prepared Offer does not enable tariff assignments or a subscription.
 
