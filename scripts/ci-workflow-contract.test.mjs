@@ -506,7 +506,7 @@ describe("application CI workflow contract", () => {
   it("bounds dependency installation and reuses pnpm's policy-aware cache (#1763)", () => {
     const install =
       setupAction.match(
-        /- name: Install dependencies\n([\s\S]*?)(?=\n    - name:|$)/u,
+        /- name: Install dependencies\n([\s\S]*?)(?=\n {4}- name:|$)/u,
       )?.[1] ?? "";
     assert.doesNotMatch(setupAction, /timeout-minutes:/u);
     assert.match(
@@ -515,7 +515,7 @@ describe("application CI workflow contract", () => {
     );
     const cache =
       setupAction.match(
-        /- name: Cache pnpm metadata and verification\n([\s\S]*?)(?=\n    - name:|$)/u,
+        /- name: Cache pnpm metadata and verification\n([\s\S]*?)(?=\n {4}- name:|$)/u,
       )?.[1] ?? "";
     assert.match(cache, /uses: actions\/cache@/u);
     assert.match(cache, /~\/\.cache\/pnpm\/v11\/metadata/u);
