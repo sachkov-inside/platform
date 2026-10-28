@@ -79,6 +79,10 @@ def _synthetic_source_checkout(*,build_inputs=False):
         for directory, directories, names in os.walk(checkout / '.git'):
             os.chmod(directory, 0o700)
             for name in names:
+                # Git can remove its own transient lock after os.walk lists it.
+                # The private 0700 ancestors already protect this metadata lock.
+                if Path(directory) == checkout / '.git/objects' and name == 'maintenance.lock':
+                    continue
                 os.chmod(Path(directory) / name, 0o600)
         result = subprocess.run(['git', '-C', str(checkout), 'ls-files', '-z'],
             env=environment, check=True, capture_output=True, timeout=5)
@@ -161,6 +165,29 @@ class Routing(unittest.TestCase):
 
 
 class EvidenceTrust(unittest.TestCase):
+    def test_transient_git_lock_disappearance_preserves_source_binding(self):
+        actual_walk = os.walk
+        disappeared = []
+        def walk(top, *args, **kwargs):
+            lock = Path(top) / 'objects' / 'maintenance.lock'
+            lock.write_bytes(b'owned transient Git lock\n')
+            for directory, directories, names in actual_walk(top, *args, **kwargs):
+                if Path(directory) == lock.parent and lock.name in names:
+                    lock.unlink()
+                    disappeared.append(lock)
+                yield directory, directories, names
+        with patch.object(os, 'walk', side_effect=walk):
+            with _synthetic_source_checkout() as checkout:
+                self.assertEqual(len(disappeared), 1)
+                self.assertFalse(disappeared[0].exists())
+                self.assertEqual((checkout / '.git').stat().st_mode & 0o777, 0o700)
+                receipt = json.loads((checkout.parent / 'source-receipt.json').read_text())
+                for name, digest in receipt['inputs'].items():
+                    self.assertEqual(hashlib.sha256((checkout / name).read_bytes()).hexdigest(), digest)
+        self.assertFalse(checkout.parent.exists())
+        self.assertIs(binding.ROOT, _SOURCE_ROOT)
+        self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+
     def test_collection_preserves_provider_binding_and_never_exports_private_inputs(self):
         with _synthetic_source_checkout() as checkout, tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
