@@ -40,7 +40,8 @@ class SenderPressure(unittest.TestCase):
                     value={'cpu_periods':20,'cpu_throttled_periods':1,'cpu_throttled_ns':100} if load_started.is_set() else {'cpu_periods':10,'cpu_throttled_periods':0,'cpu_throttled_ns':0}
                     if missing_baseline and not load_started.is_set():value.pop('cpu_throttled_ns')
                     return {'at_seconds':2 if load_started.is_set() else 1,'services':{'loadgen':value},'errors':{}}
-                def sample_sources(*args):
+                def sample_sources(*args,**options):
+                    self.assertEqual(set(options),{'observer'});self.assertTrue(callable(options['observer']))
                     source_entered.set()
                     self.assertTrue(release_source.wait(1),'source must finish under its owner')
                     return {'postgresql':'observed','caddy':'observed'}
@@ -57,3 +58,4 @@ class SenderPressure(unittest.TestCase):
                 expected='unavailable' if missing_baseline else 'throttled'
                 self.assertEqual(row['errors'],['fixture_loadgen_cpu_'+expected])
                 self.assertEqual(row['loadgen_cpu_pressure']['state'],expected)
+                self.assertEqual(row['source_publication_timing']['state'],'invalid')
