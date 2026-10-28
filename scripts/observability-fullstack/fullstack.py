@@ -36,6 +36,7 @@ import contact_job
 import stability
 import slot_refusal
 import startup_refusal
+import health_timing
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -546,7 +547,11 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
     pressure=loadgen_cpu_pressure(samples)
     if pressure['state']!='unthrottled':errors.append('fixture_loadgen_cpu_'+pressure['state'])
-    return {'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'source_publication_timing':publications.value,'errors':errors}
+    result={'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'source_publication_timing':publications.value,'errors':errors}
+    # Outside the original latency/counter/pressure windows; next-phase offsets can change.
+    if diagnostic_ordinal is None and timing is not None and stage_timing.source_ok(timing.source) and type(index) is int and 0<=index<12:
+        result['health_probe_timing']=health_timing.capture(project,states,current,timing.source,output,index,resource_runtime.invoke)
+    return result
 
 
 def await_collector(output):
@@ -658,6 +663,7 @@ def worker(output):
                         measured['load'].pop('slot_refusal',None)
                         measured['load'].pop('source_cache_sample_diagnostic',None)
                         measured.pop('source_publication_timing',None)
+                        measured.pop('health_probe_timing',None)
                         report['phases'].append(measured)
                         call('phase_report',pilot.write_json,output/'fullstack-proof.json',report,group=group,phase=index)
             # One explicitly accounted outage, then a fresh known probe after restart.
@@ -741,6 +747,7 @@ def collect(output, metadata, destination):
             load=row['load']
             leaf=slot_refusal.validate(load.get('slot_refusal'),phase,mode=='on',load.get('missed'))
             if load.get('completed') is True and leaf['state']=='captured':raise ValueError('closed_slot_refusal')
+            if 'health_probe_timing' in row:health_timing.validate(row['health_probe_timing'],source['checkout_sha'],output,ordinal)
     resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name not in (stage_timing.NAME,stage_timing.CONTACTS_NAME)))
     for name,value in timings.items():stage_timing.write(destination,value,source['checkout_sha'],binding_output=output,name=name)
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
