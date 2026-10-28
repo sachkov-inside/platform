@@ -126,16 +126,19 @@
     "@logto/node": "4.0.0",
     "@types/node": "26.6.4",
     "@types/proper-lockfile": "4.1.4",
+    "fastify": "5.12.5",
     "jose": "6.2.12",
     "knip": "6.43.0",
     "markdown-it": "15.0.2",
     "oxc-parser": "0.152.0",
     "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
+    "pg": "8.23.1",
     "prettier": "3.9.9",
     "proper-lockfile": "4.1.2",
     "sharp": "0.35.5",
     "shell-quote": "1.12.0",
+    "tsx": "4.23.15",
     "typescript": "7.0.2"
   }
 }

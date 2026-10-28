@@ -2,6 +2,7 @@
 # Private disposable runtime configuration, shared by smoke and bounded resource fixture.
 # Caller owns directories, source identity and synthetic values; this file has no startup effects.
 write_disposable_runtime_configuration() {
+  : "${runtime_config_dir:?}" "${release_version:?}" "${source_sha:?}" "${smoke_encryption_key:?}"
   cat >"$runtime_config_dir/runtime.env" <<EOF
 PLATFORM_RELEASE_VERSION=$release_version
 PLATFORM_SOURCE_SHA=$source_sha

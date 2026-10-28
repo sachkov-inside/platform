@@ -1,13 +1,100 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { it } from "node:test";
+import { qualityCommand } from "./quality-command.mjs";
+import { readPackageManifest } from "./package-manifest.mjs";
 
 const cli = fileURLToPath(new URL("./quality-check.mjs", import.meta.url));
+
+it("declares root proof dependencies at their application owners' exact versions", () => {
+  const rootManifest = new URL("../package.json", import.meta.url);
+  const root = readPackageManifest(fileURLToPath(rootManifest));
+  const rootRequire = createRequire(rootManifest);
+  for (const { dependency, application, section } of [
+    { dependency: "pg", application: "backend", section: "dependencies" },
+    { dependency: "fastify", application: "backend", section: "dependencies" },
+    { dependency: "tsx", application: "telegram", section: "devDependencies" },
+  ]) {
+    const ownerManifest = new URL(
+      `../apps/${application}/package.json`,
+      import.meta.url,
+    );
+    const owner = readPackageManifest(fileURLToPath(ownerManifest));
+    const expected = (
+      section === "dependencies" ? owner.dependencies : owner.devDependencies
+    )[dependency];
+    assert.ok(expected, `${dependency} must have an application owner`);
+    assert.equal(root.devDependencies[dependency], expected);
+    assert.equal(
+      root.dependencies[dependency],
+      undefined,
+      "proof packages must stay development-only",
+    );
+    assert.equal(
+      realpathSync(rootRequire.resolve(`${dependency}/package.json`)),
+      realpathSync(
+        createRequire(ownerManifest).resolve(`${dependency}/package.json`),
+      ),
+      "the proof and its application owner must resolve the same installed package",
+    );
+  }
+});
+
+// deterministic-test-allow unit-io: real sourced Bash writer input contract; qualityCommand owns and reaps each five-second process tree.
+it("rejects missing disposable writer inputs before creating configuration files", async () => {
+  const writer = fileURLToPath(
+    new URL("./production-runtime-configuration.sh", import.meta.url),
+  );
+  const inputs = {
+    runtime_config_dir: "",
+    release_version: "v1",
+    source_sha: "a".repeat(40),
+    smoke_encryption_key: "A".repeat(43) + "=",
+  };
+  for (const missing of Object.keys(inputs)) {
+    const directory = mkdtempSync(join(tmpdir(), "quality-writer-inputs-"));
+    try {
+      /** @type {NodeJS.ProcessEnv} */
+      const env = {
+        PATH: process.env["PATH"],
+        ...inputs,
+        runtime_config_dir: directory,
+      };
+      delete env[missing];
+      const result = await qualityCommand(
+        "/bin/bash",
+        [
+          "-c",
+          'set -eu; source "$1"; write_disposable_runtime_configuration',
+          "writer-proof",
+          writer,
+        ],
+        { env, timeout: 5000 },
+      );
+      assert.equal(result.status, 1, `missing ${missing} must fail`);
+      assert.deepEqual(
+        readdirSync(directory),
+        [],
+        `missing ${missing} must not write configuration`,
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
+});
 
 it("accepts the shared MCP endpoint and rejects disagreement or malformed JSON", () => {
   const directory = mkdtempSync(join(tmpdir(), "quality-agent-config-"));

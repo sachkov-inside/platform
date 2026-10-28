@@ -2,6 +2,8 @@ title = "Inside Platform secrets"
 
 # Public local/smoke credentials and instructional placeholders. These are exact synthetic
 # value families, not directory exclusions: provider-shaped credentials in tests still fail.
+# The storage proof identity additionally requires exact source/rule boundaries and its
+# complete loopback URI. Snapshot and Git history scans use repository-relative paths.
 filter = '''
 matchesAny(finding["secret"], [
   `^(?:inside|inside-local|inside-proof|telegram_checks|platform-production-smoke-password)$`,
@@ -9,6 +11,25 @@ matchesAny(finding["secret"], [
   `^inside-production-smoke-[a-z%_-]+$`,
   `^replace-with-[a-z0-9-]+$`
 ])
+|| (
+  finding["secret"] == "tracking_fixture" &&
+  (
+    (
+      finding["rule_id"] == "generic-password" &&
+      attributes["path"] == "scripts/observability-tracking-storage/ownership.py"
+    ) || (
+      finding["rule_id"] == "generic-credential-uri" &&
+      matchesAny(finding["match"], [
+        `^postgresql://tracking:` + `tracking_fixture` + `@127\.0\.0\.1:15432/tracking["']$`
+      ]) &&
+      attributes["path"] in [
+        "scripts/observability-tracking-storage/producer.mjs",
+        "scripts/observability-tracking-storage/producer_phase_contract.py",
+        "scripts/observability-waitlist-storage/producer.mjs"
+      ]
+    )
+  )
+)
 '''
 
 [extend]
