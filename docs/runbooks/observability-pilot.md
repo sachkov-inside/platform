@@ -1736,9 +1736,11 @@ including the genuine identity lookup. SDK serializer tests check mandatory role
 and protobuf. This source route is not a completed native run or a capacity measurement.
 
 Focused API integration tests cover restart/replay and ON, OFF and exporter503 business continuity.
-Migration0113 appends a nullable field without backfill as entry116 after the canonical115-entry
-prefix. The independent historical114 fixture, matching legacy replay, nullable row, old
-named-column writer and no-op migration are checked separately. Native PostgreSQL and storage
+The full canonical registry contains 129 entries and preserves the current 115-entry main prefix.
+`0126_waitlist_trace_context` is entry 128, after the preceding feature migrations, and adds a
+nullable field without backfill. Apply it through the full registry, not separately. The independent
+historical114 fixture and historical `0113_waitlist_trace_context`, matching legacy replay,
+nullable row, old named-column writer and no-op migration are checked separately. Native PostgreSQL and storage
 checks require their hosted CI evidence. Failure/retry/rootless/OFF/503 through pinned storage,
 Telegram receipt/worker/reverse authorization/BotAPI causal continuation, production and seven
 actual days remain outside this success proof. No deployment is authorized for this work.
