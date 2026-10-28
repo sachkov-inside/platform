@@ -129,7 +129,7 @@ Preparation reuses that accepted description and programme; it does not publish 
 | Product and programme | https://sachkov.dev/products/ai-engineering | Published programme, planned chapters, honest support promise |
 | Purchase | https://sachkov.dev/products/ai-engineering/buy | One-time price and explicit access periods; personal code where applicable |
 | One-time purchase terms | https://sachkov.dev/legal/purchase/v5 | Version 5; checkout accepts this document, without recurring consent |
-| Data policy | https://sachkov.dev/legal/privacy/v4 | Version 4, effective 12 October 2026 |
+| Data policy | https://sachkov.dev/legal/privacy/v6 | Version 6, effective 28 October 2026 |
 | Seller contacts | https://sachkov.dev/legal/contacts/v2 | Version 2; support/refund contact is available |
 
 ## Evidence and remaining acceptance

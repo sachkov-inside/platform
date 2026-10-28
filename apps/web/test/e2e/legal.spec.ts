@@ -58,20 +58,33 @@ test("документ открывается по своему адресу и 
   await expect(page.getByText(/^[0-9a-f]{64}$/u)).toBeVisible();
 });
 
-test("политика v5 раскрывает размещение данных и сохраняет архив v4", async ({
+test("политика v6 описывает раздел управления и сохраняет архивы v5 и v4", async ({
   page,
 }) => {
-  for (const path of ["/legal/privacy", "/legal/privacy/v5"]) {
+  for (const path of ["/legal/privacy", "/legal/privacy/v6"]) {
     const response = await page.goto(path);
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "Политика обработки персональных данных Sachkov Dev",
     );
     await expect(
-      page.getByText(/Версия 5\. Действует с /u).first(),
+      page.getByText(/Версия 6\. Действует с 28 октября 2026 года/u).first(),
     ).toBeVisible();
     await expect(page.getByText(/Амстердаме, Нидерланды/u)).toBeVisible();
+    await expect(
+      page.getByText(/Раздел управления платформой закрыт/u),
+    ).toBeVisible();
   }
+  const fifth = await page.goto("/legal/privacy/v5");
+  expect(fifth?.status()).toBe(200);
+  await expect(
+    page.getByText(/^Версия 5\. Действует с /u).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "eca2837cc449c577a2ccc3d100505d1e8c09f118a45f9a68e02f7eff4093b985",
+    ),
+  ).toBeVisible();
   const archived = await page.goto("/legal/privacy/v4");
   expect(archived?.status()).toBe(200);
   await expect(
