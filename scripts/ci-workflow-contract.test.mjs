@@ -33,6 +33,90 @@ const setupAction = readFileSync(
   resolve(repositoryRoot, ".github/actions/setup-platform/action.yml"),
   "utf8",
 );
+const resourceWorkflow = readFileSync(
+  resolve(repositoryRoot, ".github/workflows/observability-resource.yml"),
+  "utf8",
+);
+const signozWorkflow = readFileSync(
+  resolve(repositoryRoot, ".github/workflows/observability-signoz.yml"),
+  "utf8",
+);
+
+/** @param {string} source */
+function assertResourceHostNode(source) {
+  const reference = signozWorkflow.match(
+    /uses: (actions\/setup-node@[^\n]+)/u,
+  )?.[1];
+  assert.ok(reference);
+  const jobs = [
+    ...source.matchAll(
+      /^ {2}(resource|fullstack|stability):\n([\s\S]*?)(?=^ {2}\w+:\n|(?![\s\S]))/gmu,
+    ),
+  ];
+  assert.deepEqual(
+    jobs.map(([, name]) => name),
+    ["resource", "fullstack", "stability"],
+  );
+  for (const [, name, body = ""] of jobs) {
+    const setup = body.indexOf(`uses: ${reference}`);
+    const facts = body.indexOf("- name: Verify pinned host Node facts");
+    const contracts = body.indexOf("run: bash scripts/heavy-check.sh python3");
+    assert.ok(
+      setup >= 0 && setup < facts && facts < contracts,
+      `${name}: pinned host Node must precede process contracts`,
+    );
+    assert.match(
+      body.slice(setup, facts),
+      /node-version-file: \.node-version\n\s+architecture: x64/u,
+    );
+    const verification = body.slice(facts, contracts);
+    assert.match(verification, /readFileSync\("\.node-version", "utf8"\)/u);
+    assert.match(verification, /process\.version !== expected/u);
+    assert.match(verification, /process\.arch !== "x64"/u);
+    assert.match(verification, /process\.platform !== "linux"/u);
+    assert.match(
+      verification,
+      /JSON\.stringify\(\{ node: process\.version, architecture: process\.arch, platform: process\.platform \}\)/u,
+    );
+  }
+  assert.doesNotMatch(
+    source,
+    /uses: \.\/\.github\/actions\/setup-platform|(?:pnpm|npm) install/u,
+  );
+}
+
+it("pins host Node before every Resource job's process contracts without application installation", () => {
+  assertResourceHostNode(resourceWorkflow);
+});
+
+it("rejects Resource host Node pin drift and setup after process contracts", () => {
+  assertResourceHostNode(resourceWorkflow);
+  const nodeSteps = resourceWorkflow.match(
+    / {6}- name: Use repository-pinned Node without application dependencies\n[\s\S]*?(?= {6}- name: Verify hosted trust contracts)/u,
+  )?.[0];
+  assert.ok(nodeSteps);
+  const lateSetup = resourceWorkflow
+    .replace(nodeSteps, "")
+    .replace(
+      "      - name: Bind complete source and measure disk admission",
+      `${nodeSteps}      - name: Bind complete source and measure disk admission`,
+    );
+  for (const broken of [
+    resourceWorkflow.replace(
+      "node-version-file: .node-version",
+      "node-version: latest",
+    ),
+    resourceWorkflow.replace("architecture: x64", "architecture: arm64"),
+    resourceWorkflow.replace("actions/setup-node@", "actions/setup-platform@"),
+    resourceWorkflow.replace("process.version !== expected", "false"),
+    resourceWorkflow.replace(
+      "- name: Verify pinned host Node facts",
+      "- name: Late host Node facts",
+    ),
+    lateSetup,
+  ])
+    assert.throws(() => assertResourceHostNode(broken));
+});
 /**
  * Сторонний action закреплён коммитом: тег можно перезаписать, и чужой код выполнится с токеном
  * задачи. Комментарий хранит версию для человека и для Dependabot.
