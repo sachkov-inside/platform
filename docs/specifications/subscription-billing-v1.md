@@ -5,8 +5,8 @@
 Шестимесячные примеры поставки #775 ниже описывают прежнюю конфигурацию. Новая целевая
 конфигурация курса использует срок из текущей модели доступа; её реализация входит в план рефакторинга.
 
-[ADR 0037](../adr/0037-products-without-subscriptions.md), accepted 2026-10-20, supersedes the
-subscription-commerce paths below for the current runtime. Product purchases are one-time;
+[ADR 0040](../adr/0040-unified-product-access.md) records the accepted 2026-10-23 model and
+supersedes the subscription-commerce paths below for the current runtime. Product purchases are one-time;
 subscription quote/purchase/resume/paid changes and new recurring effects are unavailable.
 Subscription invitations cannot be issued or redeemed into checkout, including old redeemed
 links. Renewal reminders are neither scheduled nor allowed through pre-send validation.

@@ -1,8 +1,8 @@
 # Platform v1 application specification
 
-Current Product commerce follows [ADR 0037](../adr/0037-products-without-subscriptions.md), accepted
-2026-10-20: one-time Product purchases and grants, with no current subscription sales, renewal
-controls, invitation checkout or new recurring charges. Historical financial reconciliation and
+Current Product commerce follows the [2026-10-23 access model](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026),
+recorded in [ADR 0040](../adr/0040-unified-product-access.md): one-time Product purchases and grants,
+with subscription functionality removed, including renewal controls, invitation checkout and new recurring charges. Historical financial reconciliation and
 rights remain intact. The account presents Products, including retained revoked/expired
 assignments, and keeps financial history separate. A Product's community entry uses its explicit
 Telegram-group association and Account-scoped admission; the current provider serves `primary`.
@@ -1859,9 +1859,9 @@ group and starting learning. Explicit programme return links keep their target. 
 remain available. Completed onboarding disappears from desktop and mobile navigation.
 Learning-start persistence is independent of the current lesson composition.
 
-[The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)
-owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
-owns the module boundary and historical-policy trade-offs. This implementation does not authorize
+[The access model](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+owns Product acquisition, preservation and owner withdrawal. [ADR 0040](../adr/0040-unified-product-access.md)
+owns the current module-boundary rationale; ADR 0034 retains the historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the legal edition for this model is purchase
 edition 7, accepted and published through #1464.
 
