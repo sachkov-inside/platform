@@ -10,8 +10,9 @@ import type {
 } from "./operational-readiness.js";
 import { describeError, writeLog } from "./observability/index.js";
 import { listenForProcessShutdown } from "./process-shutdown.js";
+import { WORKER_READINESS_PATH } from "./worker-readiness-marker.js";
 
-export const WORKER_READINESS_PATH = "/tmp/inside-platform-worker-ready.json";
+export { WORKER_READINESS_PATH } from "./worker-readiness-marker.js";
 const WORKER_LEASE_CONNECTION_TIMEOUT_MILLISECONDS = 5_000;
 const WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MILLISECONDS = 10_000;
 

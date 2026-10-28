@@ -99,7 +99,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `web-e2e` | Two isolated `web-e2e-browser` profiles run `pnpm check:web-e2e --project=<profile>`. Each builds once, checks prerendered/standalone output, then runs its complete e2e and navigation profile on that build. Local execution without arguments retains both profiles |
 | `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.4 и RabbitMQ, synthetic non-guest user |
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
-| `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
+| `integration-serial` | `pnpm test:integration:serial`: builds the backend, then runs RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | Two isolated `compose-production-checks` parts require both the cold nine-process runtime proof (plus PR release-image inspection) and the exact-source admitted-cache proof |
 
@@ -443,6 +443,10 @@ copies a template migrated once per run, while migration tests start from an emp
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
+The backend `test:integration` and `test:integration:serial` commands build the backend before
+Vitest in the same heavy-check slot with incremental compilation disabled, so compiled process
+probes use the selected source even when `dist` was removed but the compiler cache remains.
+`test:integration:parallel` excludes those process files and does not need this build.
 The pinned Testcontainers 12.2.0 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
 messages and transport errors, closes a failed pull stream, and inspects the requested image before
 acquisition returns. A completed stream alone does not prove local image availability. The contract

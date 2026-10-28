@@ -4,8 +4,8 @@ import { isAbsolute } from "node:path";
 
 const marker = process.env["INSIDE_TEST_WORKER_READINESS_PATH"];
 assert.ok(typeof marker === "string" && isAbsolute(marker));
-const runtime = new URL(
-  "../../../dist/infrastructure/worker-runtime.js",
+const markerContract = new URL(
+  "../../../dist/infrastructure/worker-readiness-marker.js",
   import.meta.url,
 ).href;
 
@@ -13,7 +13,7 @@ const runtime = new URL(
 registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);
-    if (url !== runtime) return loaded;
+    if (url !== markerContract) return loaded;
     const source = Buffer.from(loaded.source).toString("utf8");
     const declaration =
       'export const WORKER_READINESS_PATH = "/tmp/inside-platform-worker-ready.json";';
