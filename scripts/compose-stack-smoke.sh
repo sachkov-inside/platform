@@ -44,8 +44,8 @@ if [[ "$catalog_response" == *"Закрытое содержимое для уч
   exit 1
 fi
 
-# Публичная витрина использует текущий Product API. Текущая редакция условий ещё не
-# разрешает новые Product-покупки, поэтому сборка Billing скрывает цены через saleCapability.
+# Публичная витрина использует текущий Product API. Опубликованная редакция 7 оферты разрешает
+# новые Product-покупки (#1464), поэтому витрина показывает засеянную цену продукта.
 # Сам засеянный Product и его цена проверяются отдельно в PostgreSQL ниже.
 retired_offers_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_base_url/billing/offers")"
 if [[ "$retired_offers_status" != "404" ]]; then
@@ -58,7 +58,10 @@ import json
 import sys
 
 page = json.loads(sys.argv[1])
-assert page == {'items': [], 'nextCursor': None}, 'Expected no public Product prices under the current unapproved Product terms'
+seeded = [item for item in page['items'] if (item.get('product') or {}).get('id') == '72000000-0000-4000-8000-000000000007']
+assert len(seeded) == 1, 'Expected the seeded Product price on the public storefront under published purchase v7'
+assert seeded[0]['firstPriceKopecks'] == 3000, 'Seeded Product price differs from the seed'
+assert seeded[0]['paymentOption']['mode'] == 'one_time', 'Seeded Product price must be a one-time payment'
 PYTHON
 
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
