@@ -41,7 +41,7 @@ by `refresh` returns every role to the deterministic test adapter.
 - Videos recorded before the switch hold test-adapter provider IDs; they never played and do not
   play now. Upload the recording again.
 
-## Accepted risk
+## Risk of the production token
 
 The production token can also delete: Kinescope documents no read-and-upload-only token for both
 projects. "No deletion" therefore rests on the stand's code paths, not on the token. Any process
