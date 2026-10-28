@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: observability-horizon-${{ github.event.pull_request.number }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
 jobs:
   guard:
     runs-on: ubuntu-24.04

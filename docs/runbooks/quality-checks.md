@@ -32,6 +32,19 @@ fixture is excluded from the snapshot. Betterleaks' built-in binary/vendor/lockf
 placeholders, without excluding test directories. Low-confidence generic matches are not blocking.
 Tool proofs verify that a provider-shaped key still fails with this configuration.
 
+The tracking/waitlist storage proof also uses one public disposable PostgreSQL identity.
+Its exceptions require the exact credential value, rule and repository-relative source file;
+URI findings additionally require the complete fixed loopback endpoint. Snapshot scans run
+from their isolated source directory so nested lookalike paths cannot inherit an exception.
+CLI proofs retain rejection of other credentials, endpoints, nested paths and provider keys,
+and exercise accepted and rejected credentials after their removal from Git history.
+
+Root proof scripts consume PostgreSQL/Fastify from Backend and the TypeScript loader from
+Telegram. Root development dependencies declare those consumers at the application owners'
+exact versions; the proof contract checks both manifest equality and installed resolution.
+The existing application-relative runtime loading paths and production dependencies remain
+owned by their application manifests.
+
 PR/queue security also scans the candidate's new commit history from `QUALITY_BASE_SHA`; the
 value must be a full SHA. Scheduled/release runs scan the current source snapshot, not the entire
 historical repository. The daily `.github/workflows/security.yml` detects newly published advisories

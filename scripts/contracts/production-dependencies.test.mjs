@@ -1241,12 +1241,20 @@ test("real removal preserves the complete owned payload vector and the independe
 // deterministic-test-allow unit-io: unchanged real identity writer imports exact-pinned zod copied read-only to a private deployed tree; no install/package-manager or image build runs.
 test("late identity recaptures stage-local roots and uses only the existing deployed dependency closure", async () => {
   const zod = realpathSync(join(root, "node_modules/zod"));
+  const expectedVersion = z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/u)
+    .parse(
+      packageManifestSchema.parse(
+        JSON.parse(read("packages/runtime-identity/package.json")),
+      ).dependencies["zod"],
+    );
   assert.equal(
     z
-      .object({ version: z.literal("4.6.5") })
+      .object({ version: z.literal(expectedVersion) })
       .parse(JSON.parse(readFileSync(join(zod, "package.json"), "utf8")))
       .version,
-    "4.6.5",
+    expectedVersion,
   );
   for (const fault of [
     "success",

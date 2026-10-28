@@ -78,8 +78,8 @@ async function secrets() {
       "--exit-code=1",
     ];
     const report = join(directory, "quality-findings.json");
-    /** @param {string[]} source */
-    const scan = (source) =>
+    /** @param {string[]} source @param {string} [cwd] */
+    const scan = (source, cwd = process.cwd()) =>
       withPinnedTool("betterleaks", async (executable) => {
         const execution = await qualityCommand(
           executable,
@@ -89,7 +89,7 @@ async function secrets() {
             "--report-format=json",
             `--report-path=${report}`,
           ],
-          { timeout: 200_000 },
+          { timeout: 200_000, cwd },
         );
         if (
           ![0, 1].includes(execution.status ?? -1) ||
@@ -119,7 +119,8 @@ async function secrets() {
           );
         return execution.status;
       });
-    const result = await scan(["dir", snapshot]);
+    // Both snapshot and Git findings use exact repository-relative paths for scoped filters.
+    const result = await scan(["dir", "."], snapshot);
     if (result !== 0) return result;
     const base = process.env["QUALITY_BASE_SHA"];
     if (base !== undefined && base !== "") {
