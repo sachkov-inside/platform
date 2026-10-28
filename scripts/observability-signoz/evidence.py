@@ -132,16 +132,26 @@ def inside_failures(output):
 def images(value):
     require(type(value) is dict and set(value) == set(lifecycle.SERVICES))
     lock = lifecycle.verify_packet(); rows = {r['repository'].split('/')[-1]: r for r in lock['images']}
+    proofs=lifecycle.image_proof.load(lifecycle.CONFIG/'oci',lock)
     result = {}
     for role, row in value.items():
         require(type(row) is dict); pin = rows[lifecycle.ROLE_IMAGES[role]]
-        config = lock['image_config_metadata'][pin['repository']]['amd64']['config_digest']
-        allowed = {pin['pinned'].split('@')[1], pin['linux_amd64_manifest'], config}
+        config = proofs[pin['pinned']].config_digest
         require(row.get('reference') == pin['pinned'] and row.get('architecture') == 'amd64'
-                and row.get('child_manifest') == pin['linux_amd64_manifest'])
-        require(row.get('image_id') in allowed and row.get('selected_image_id') in allowed)
-        result[role] = {k: row[k] for k in ('reference', 'architecture', 'child_manifest', 'image_id', 'selected_image_id')}
-    return {'available': True, 'roles': result}
+                and row.get('child_manifest') == pin['linux_amd64_manifest']
+                and row.get('runtime_reference') == lifecycle.image_proof.runtime_reference(pin)
+                and row.get('config_digest') == config)
+        require(type(row.get('image_descriptor_available')) is bool)
+        container=row.get('container_descriptor_available')
+        require(container is None or type(container) is bool)
+        require(row.get('relation') in ('config_id','child_id'))
+        expected=config if row['relation']=='config_id' else pin['linux_amd64_manifest']
+        require(row.get('image_id')==row.get('selected_image_id')==expected)
+        if row['relation']=='child_id':require(row['image_descriptor_available'] and container is not False)
+        row={**row,'container_descriptor_available':container}
+        result[role] = {k: row[k] for k in ('reference','runtime_reference','config_digest','relation',
+            'image_descriptor_available','container_descriptor_available','architecture','child_manifest','image_id','selected_image_id')}
+    return {'available': True, 'container_bindings_complete':all(type(r['container_descriptor_available']) is bool for r in result.values()),'roles': result}
 
 
 def storage(value):
@@ -249,6 +259,7 @@ def collect(output, destination, verify_source):
         except Exception: report[name] = {'available': False}
     report['passed'] = all(report[k]['available'] for k in ('source', 'outcome', 'cleanup', 'functional', 'postgres', 'states', 'images', 'disk-admission', 'native_identity','isolation','agent')) and (
         report['outcome'].get('passed') is True and report['cleanup'].get('passed') is True
+        and report['images'].get('container_bindings_complete') is True
         and report['cleanup'].get('exact_containers')==len(lifecycle.SERVICES)
         and report['cleanup'].get('exact_volumes')==len(lifecycle.VOLUMES)
         and report['cleanup'].get('exact_networks')==1

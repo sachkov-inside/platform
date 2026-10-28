@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 import lifecycle
+from test_oci_admission import Native
 from test_lifecycle import benign_engine
 
 UNSUPPORTED_PLATFORM=(b"unknown flag: --platform\n\nUsage:  docker image inspect [OPTIONS] IMAGE [IMAGE...]\n\n"
@@ -20,11 +21,12 @@ class ImageCompatibility(unittest.TestCase):
         self.lock=lifecycle.verify_packet()
         self.row=next(r for r in self.lock['images'] if r['repository']=='docker.io/library/python')
         metadata=self.lock['image_config_metadata'][self.row['repository']]['amd64']
+        proof=lifecycle.image_proof.load(lifecycle.CONFIG/'oci',self.lock)[self.row['pinned']]
         self.image={'Os':'linux','Architecture':'amd64','Id':metadata['config_digest'],
             'Descriptor':{'mediaType':'application/vnd.oci.image.manifest.v1+json','digest':self.row['linux_amd64_manifest'],
-                          'size':1000,'platform':{'os':'linux','architecture':'amd64'}},
+                          'size':proof.descriptor['size'],'platform':{'os':'linux','architecture':'amd64'}},
             'Config':{native:metadata[key] for native,key in [('Entrypoint','entrypoint'),('Cmd','cmd'),('WorkingDir','working_dir'),('User','user')]},
-            'RepoDigests':[self.row['pinned']]}
+            'RepoDigests':[proof.runtime_reference],'RootFS':{'Type':'layers','Layers':list(proof.diff_ids)}}
 
     def inspect(self,image):
         with tempfile.TemporaryDirectory() as tmp:
@@ -58,7 +60,8 @@ class ImageCompatibility(unittest.TestCase):
         wrong=copy.deepcopy(self.image);wrong['Descriptor']['platform']['architecture']='arm64';cases.append((wrong,'selected_image_platform'))
         wrong=copy.deepcopy(self.image);wrong['Config']['Cmd']=['foreign'];cases.append((wrong,'image_configuration_identity'))
         for image,reason in cases:
-            with self.subTest(reason=reason),self.assertRaisesRegex(lifecycle.Refusal,'^'+reason+'$'):self.inspect(image)
+            with self.subTest(reason=reason),self.assertRaisesRegex(lifecycle.Refusal,'^'+reason+'$'):
+                lifecycle.checked_image(Native(image),self.row,'amd64')
 
 
 if __name__=='__main__':unittest.main()
