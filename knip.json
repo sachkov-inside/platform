@@ -1,0 +1,44 @@
+{
+  "$schema": "https://unpkg.com/knip@6.43.0/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.mjs",
+        "tools/**/*.mjs",
+        "tools/**/*.mts",
+        "release/**/*.mjs"
+      ]
+    },
+    "apps/backend": {
+      "entry": [
+        "src/entrypoints/**/*.ts",
+        "src/release/**/*.ts",
+        "scripts/**/*.{mjs,ts}",
+        "test/**/*.ts"
+      ],
+      "ignoreDependencies": ["@prisma/client"]
+    },
+    "apps/web": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "src/**/*.stories.tsx",
+        "scripts/**/*.mjs",
+        "test/**/*.{ts,mjs}"
+      ]
+    },
+    "apps/telegram": {
+      "entry": [
+        "src/operations/**/*.ts",
+        "scripts/**/*.{mjs,ts,sh}",
+        "test/**/*.ts"
+      ]
+    },
+    "packages/*": {
+      "entry": ["**/*.{ts,mjs}"]
+    },
+    "docs/contracts": {
+      "entry": ["**/*.ts"]
+    }
+  },
+  "ignore": ["**/fixtures/**", "**/generated/**", "**/dist/**"]
+}

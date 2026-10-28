@@ -235,3 +235,37 @@ if (allowedExternalFetch.status !== 0) {
 }
 
 process.stdout.write("Negative Web transport guardrails passed.\n");
+
+for (const fixture of [
+  { file: "allowed.tsx", diagnostic: undefined },
+  { file: "invalid.tsx", diagnostic: "jsx-a11y(iframe-has-title)" },
+  { file: "cycle-left.ts", diagnostic: "import(no-cycle)" },
+]) {
+  const result = spawnSync(
+    "pnpm",
+    [
+      "exec",
+      "oxlint",
+      "--no-ignore",
+      "--deny-warnings",
+      "--import-plugin",
+      "--deny",
+      "import/no-cycle",
+      `test/guardrails/fixtures/oxlint/${fixture.file}`,
+      ...(fixture.file === "cycle-left.ts"
+        ? ["test/guardrails/fixtures/oxlint/cycle-right.ts"]
+        : []),
+    ],
+    { cwd: webRoot, encoding: "utf8", timeout: 30_000 },
+  );
+  if (result.error !== undefined) throw result.error;
+  const output = `${result.stdout}${result.stderr}`;
+  if (
+    fixture.diagnostic === undefined
+      ? result.status !== 0
+      : result.status === 0 || !output.includes(fixture.diagnostic)
+  )
+    throw new Error(
+      `Web lint fixture ${fixture.file} did not enforce its contract\n${output}`,
+    );
+}

@@ -1,23 +1,26 @@
 name: Foundation recovery proof
 
 on:
-  pull_request:
-    paths:
-      - infra/production/database/**
-      - scripts/foundation-recovery-proof*
-      - scripts/foundation-repository-transition.py
-      - scripts/backup-repository-inventory.py
-      - scripts/test_backup_repository*.py
-      - scripts/test_foundation_recovery_proof.py
-      - scripts/test_foundation_recovery_lifecycle_docker.py
-      - .github/workflows/foundation-recovery.yml
-  merge_group:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact candidate commit
+        required: true
+        type: string
+      base_sha:
+        description: Comparison base; empty release comparisons run the complete proof
+        required: false
+        type: string
+      head_sha:
+        description: Comparison head
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: foundation-recovery-${{ github.event.pull_request.number || github.ref }}-${{ github.run_attempt }}
+  group: foundation-recovery-${{ github.run_id }}-${{ github.run_attempt }}
   cancel-in-progress: true
 
 jobs:
@@ -29,17 +32,24 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Select only foundation recovery changes
         id: paths
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          HEAD_SHA: ${{ inputs.head_sha }}
         run: |
           set -euo pipefail
+          if test -z "$BASE_SHA" && test -z "$HEAD_SHA"; then
+            echo 'required=true' >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
           status=0
           git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            pnpm-lock.yaml package.json pnpm-workspace.yaml \
             infra/production/database scripts/foundation-recovery-proof.py \
             scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \
             scripts/foundation-repository-transition.py scripts/backup-repository-inventory.py \
@@ -69,6 +79,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
       - name: Run admission and ownership contracts
         run: |
@@ -115,7 +126,8 @@ jobs:
       - name: Verify real resource cleanup on success, failure, timeout and interruption
         run: |
           set -euo pipefail
-          export FOUNDATION_PROOF_IMAGE="$(cat "$RUNNER_TEMP/foundation-image.id")"
+          FOUNDATION_PROOF_IMAGE="$(cat "$RUNNER_TEMP/foundation-image.id")"
+          export FOUNDATION_PROOF_IMAGE
           python3 -B scripts/test_foundation_recovery_lifecycle_docker.py
           python3 - <<'PY'
           import json, os, pathlib

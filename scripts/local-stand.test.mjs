@@ -56,7 +56,7 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean; resumeCold?: boolean; failedBootstrapAfterIdentity?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean; refresh?: boolean; upgrade?: boolean; resumeCold?: boolean; failedBootstrapAfterIdentity?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
@@ -70,6 +70,7 @@ async function launch({
   runningStand = false,
   diagnosticLog = false,
   refresh = false,
+  upgrade = false,
   resumeCold = false,
   failedBootstrapAfterIdentity = false,
 } = {}) {
@@ -136,14 +137,14 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       "fixture",
     ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
-    if (refresh || resumeCold)
+    if (refresh || upgrade || resumeCold)
       writeFileSync(
         join(root, "refresh-entry.mjs"),
         `import {launchLocalStand} from "./scripts/local-stand.mjs";
 import {acquireLocalSetupLock} from "./scripts/local-setup-lock.mjs";
 import {appendFile} from "node:fs/promises";
 const release = await acquireLocalSetupLock("busy");
-try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: ${refresh}, resumeCold: ${resumeCold}, onIdentityReady: async (expected) => appendFile(process.env.CALL_LOG, JSON.stringify({command:"checkpoint",args:[expected]})+"\\n")}); }
+try { await launchLocalStand({repositoryRoot: process.cwd(), pnpmPath: process.env.npm_execpath, refresh: ${refresh}, upgrade: ${upgrade}, resumeCold: ${resumeCold}, onIdentityReady: async (expected) => appendFile(process.env.CALL_LOG, JSON.stringify({command:"checkpoint",args:[expected]})+"\\n")}); }
 finally { await release(); }`,
       );
     if (envFileStoragePort !== undefined)
@@ -167,7 +168,7 @@ finally { await release(); }`,
         join(root, "capacity.mjs"),
         join(
           root,
-          refresh || resumeCold
+          refresh || upgrade || resumeCold
             ? "refresh-entry.mjs"
             : "scripts/local-stand.mjs",
         ),
@@ -269,6 +270,50 @@ test("a controlled refresh rebuilds the application roles without touching infra
   assert.ok(
     !calls.some((call) =>
       call.args.some((arg) => arg.startsWith("identity:") || arg === "down"),
+    ),
+  );
+});
+
+test("a controlled upgrade migrates once, starts infrastructure without forced recreation, then recreates roles, without seed or bootstrap (CLI adapter)", async () => {
+  const { result, calls } = await launch({ upgrade: true, runningStand: true });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    calls
+      .filter((call) => call.args.includes("build"))
+      .map((call) => call.args.at(-1)),
+    ["api", "rabbitmq", "logto"],
+  );
+  const migration = calls.findIndex((call) => call.args.includes("run"));
+  assert.ok(migration >= 0);
+  assert.deepEqual(calls[migration]?.args.slice(-5), [
+    "run",
+    "--rm",
+    "--no-deps",
+    "-T",
+    "migrations",
+  ]);
+  const ups = calls
+    .map((call, index) => ({ call, index }))
+    .filter(({ call }) => call.args.includes("up"));
+  assert.equal(ups.length, 2);
+  const [infrastructure, application] = ups;
+  assert.ok(infrastructure && application);
+  assert.ok(migration < infrastructure.index);
+  assert.ok(infrastructure.call.args.includes("--no-deps"));
+  assert.ok(!infrastructure.call.args.includes("--force-recreate"));
+  for (const service of ["postgres", "logto", "rabbitmq"])
+    assert.ok(infrastructure.call.args.includes(service));
+  assert.ok(application.call.args.includes("--force-recreate"));
+  assert.ok(application.call.args.includes("api"));
+  assert.ok(
+    !calls.some((call) =>
+      call.args.some(
+        (arg) =>
+          arg === "seed" ||
+          arg.startsWith("identity:") ||
+          arg === "down" ||
+          arg === "--volumes",
+      ),
     ),
   );
 });

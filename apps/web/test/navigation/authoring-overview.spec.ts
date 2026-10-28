@@ -274,7 +274,12 @@ test("the product page opens on its Overview tab with a period in the address (#
     `/authoring/products/${architectureId}?period=7&tab=program`,
   );
   await page.goBack();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?period=7`,
+  );
   await expect(tab("Обзор")).toHaveAttribute("aria-selected", "true");
+  await page.goForward();
+  await expect(tab("Программа")).toHaveAttribute("aria-selected", "true");
 });
 
 test("a materials-only author gets a refusal on the product Overview with a way to the programme (#1719)", async ({

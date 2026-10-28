@@ -86,3 +86,6 @@ registry, checks that the ledger then equals the registry by name and position, 
 applies nothing. `historical-upgrade.test.ts` pins the identity of the registry as it stood on
 22.10.2026, so removing, renaming, reordering or editing a historical migration still fails a test.
 A new migration at the end of the registry therefore needs no edits in existing upgrade tests.
+
+Telegram additionally preserves its shipped migration prefix through its guardrails; see
+[quality checks](quality-checks.md#existing-checks-strengthened).

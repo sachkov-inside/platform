@@ -44,7 +44,8 @@ Repository dependency changes preserve:
 
 ## Security overrides
 
-`pnpm audit --prod` stays free of moderate and higher advisories. Fix an advisory by updating the
+`pnpm quality:audit` runs `pnpm audit --prod --audit-level=moderate` in required candidate CI
+and the daily security workflow. Production dependencies stay free of moderate and higher advisories. Fix an advisory by updating the
 direct dependency first. When the fix exists only in a transitive package that a parent pins
 exactly, and the parent has no fixed release on our major line, `pnpm-workspace.yaml` may override
 that one package to the fixed version. Each override names its parent and removal condition in a

@@ -23,6 +23,8 @@ RUN apk add --no-cache \
 
 # Bind compilation to the PostgreSQL installed by the pinned base, not Alpine's libpq APK.
 COPY libpq-version.c /build/libpq-version.c
+# pkg-config deliberately emits multiple compiler/linker arguments.
+# hadolint ignore=SC2046
 RUN test "$(pkg-config --modversion libpq)" = "18.4" \
     && test "$(pkg-config --variable=pcfiledir libpq)" = "/usr/local/lib/pkgconfig" \
     && cc $(pkg-config --cflags libpq libcrypto) /build/libpq-version.c -o /build/libpq-version $(pkg-config --libs libpq libcrypto) \
