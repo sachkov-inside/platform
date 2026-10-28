@@ -121,6 +121,9 @@ def recover(output,deadline=None,*,profile_id=lifecycle.BASELINE_PROFILE):
             or re.fullmatch(r'signoz1566-[a-f0-9]{12}',owner.get('project','')) is None
             or re.fullmatch(r'[a-f0-9]{32}',owner.get('nonce','')) is None
             or lifecycle.digest(output/'compose.json')!=owner['plan_sha256']):raise ValueError('recovery_ownership_refused')
+    prior_path=output/'resources.json'
+    prior=evidence.read(prior_path) if prior_path.exists() else None
+    if prior is not None and (prior.get('project')!=owner['project'] or prior.get('nonce')!=owner['nonce'] or prior.get('profile_id')!=profile_id):raise ValueError('recovery_receipt_changed')
     worker_path=output/'worker.json'
     if worker_path.exists():stop_worker(evidence.read(worker_path))
     current=engine(output,max(.001,deadline-time.monotonic()));current.deadline=deadline
@@ -128,9 +131,6 @@ def recover(output,deadline=None,*,profile_id=lifecycle.BASELINE_PROFILE):
     own=lifecycle.Owned(current,output,{},owner['project'],owner['nonce'],profile_id=profile_id);own.plan=plan
     lock=lifecycle.verify_packet(profile_id)
     # Acquisition may have failed part-way. Only actual owned roles need cached images.
-    prior_path=output/'resources.json'
-    prior=evidence.read(prior_path) if prior_path.exists() else None
-    if prior is not None and (prior.get('project')!=owner['project'] or prior.get('nonce')!=owner['nonce'] or prior.get('profile_id')!=profile_id):raise ValueError('recovery_receipt_changed')
     own.discover()
     if prior is not None:
         for role,cid in own.containers.items():

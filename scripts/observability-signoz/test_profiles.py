@@ -172,6 +172,29 @@ class Profiles(unittest.TestCase):
                     self.assertEqual(saved['profile_id'],CANDIDATE)
                     self.assertEqual(saved['passed'],outcome=='success')
 
+    def test_recovery_receipt_mismatch_refuses_before_worker_signal_and_native_access(self):
+        runtime=self.runtime()
+        for profile_id in (BASELINE,CANDIDATE):
+            for broken in ('profile_id','project','nonce'):
+                with self.subTest(profile=profile_id,broken=broken),tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory).resolve();source={'profile_id':profile_id,'commit':'a'*40,'tree':'b'*40}
+                    own=attach_profile(root,source,profile_id)
+                    lifecycle.private_json(root/'source.json',source)
+                    owner={'source_sha':'a'*40,'source_tree':'b'*40,'profile_id':profile_id,
+                           'cwd':str(runtime.ROOT),'daemon':{},'project':own.project,'nonce':own.nonce,
+                           'plan_sha256':lifecycle.digest(root/'compose.json')}
+                    lifecycle.private_json(root/'owner.json',owner)
+                    receipt={'profile_id':profile_id,'project':own.project,'nonce':own.nonce}
+                    receipt[broken]={'profile_id':CANDIDATE if profile_id==BASELINE else BASELINE,
+                                     'project':'signoz1566-'+'f'*12,'nonce':'f'*32}[broken]
+                    lifecycle.private_json(root/'resources.json',receipt)
+                    lifecycle.private_json(root/'worker.json',{'pid':999999,'group':999999,'start_ticks':'owned-birth'})
+                    with patch.object(runtime,'verify_source'),patch.object(runtime,'stop_worker') as stop,\
+                         patch.object(runtime,'engine',return_value=SimpleNamespace(identity={})) as native:
+                        with self.assertRaisesRegex(ValueError,'recovery_receipt_changed'):
+                            runtime.recover(root,profile_id=profile_id)
+                        stop.assert_not_called();native.assert_not_called()
+
     def test_workflow_selects_same_closed_candidate_for_run_recover_and_collect(self):
         workflow=(lifecycle.ROOT/'.github/workflows/observability-signoz.yml').read_text()
         self.assertEqual(workflow.count('--profile '+CANDIDATE),3)
