@@ -4,7 +4,27 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { test } from "node:test";
-import { technicalTelemetryFromEnvironment } from "../../apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js";
+/** @typedef {typeof import("../../apps/backend/src/infrastructure/observability/technical-telemetry-runtime.js")} RuntimeApi */
+/** @param {unknown} value @returns {value is RuntimeApi} */
+function isRuntimeApi(value) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Object.getOwnPropertyDescriptor(
+      value,
+      "technicalTelemetryFromEnvironment",
+    )?.value === "function"
+  );
+}
+// Types come from tracked source even before build. Execution still uses the actual compiled SDK.
+const runtimeUrl = new URL(
+  "../../apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js",
+  import.meta.url,
+).href;
+/** @type {unknown} */
+const runtimeModule = await import(runtimeUrl);
+assert.ok(isRuntimeApi(runtimeModule), "compiled SDK API unavailable");
+const { technicalTelemetryFromEnvironment } = runtimeModule;
 
 for (const mode of ["http400", "reset", "delayed", "positive200"]) {
   test(
