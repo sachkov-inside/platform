@@ -18,30 +18,32 @@ describe("one-time purchase terms shown before payment", () => {
 
   it("repeat the calculation term, the refund window and the equal price split of the offer text", () => {
     const text = flat(currentLegalEdition("purchase").text);
-
     expect(oneTimePurchaseTerms).toMatchObject({
       unlimitedPartRefundMonths: 12,
       fullRefundDays: 7,
     });
     expect(text).toContain(
-      "расчётный срок: 12 календарных месяцев с подтверждения оплаты",
+      `расчётного срока ${String(oneTimePurchaseTerms.unlimitedPartRefundMonths)} календарных месяцев с подтверждения оплаты`,
+    );
+    // Редакция 7 пишет эти 7 дней словом «семи».
+    expect(text).toContain(
+      "Если отказ направлен в течение семи календарных дней, не считая дня подтверждения оплаты",
     );
     expect(text).toContain(
-      "Если отказ направлен в течение 7 календарных дней, не считая дня подтверждения оплаты",
-    );
-    expect(text).toContain(
-      "половина — часть «материалы и чат продукта», половина — часть «сопровождение автора»",
-    );
-    expect(text).toContain(
-      "Если предложение не включает сопровождение автора, вся цена относится к части «материалы и чат продукта»",
+      "Половина цены относится к части «материалы и сообщество продукта», половина к части «сопровождение автора», с суммой каждой части.",
     );
   });
 
-  it("leave the terms of materials, chat and support to the offer of the product", () => {
-    // С редакции 5 оферта не называет этих сроков числом: их задаёт предложение.
-    expect(flat(currentLegalEdition("purchase").text)).toContain(
-      "является условием предложения конкретного продукта",
+  it("give the whole Product without an end date and three calendar months of support", () => {
+    const text = flat(currentLegalEdition("purchase").text);
+
+    expect(text).toContain(
+      "Одна учётная запись получает один бессрочный доступ к одному продукту (Product Access)",
     );
+    expect(text).toContain(
+      "Обещание сопровождения действует три календарных месяца с подтверждения успешной оплаты.",
+    );
+    expect(text).toContain("Три календарных месяца не заменяются 90 днями.");
   });
 
   it("split an even price into two equal parts", () => {

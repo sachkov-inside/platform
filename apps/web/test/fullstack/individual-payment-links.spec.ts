@@ -42,11 +42,12 @@ test("individual payment link shows its fixed price and terms, revokes across op
     throw new Error("Missing saved payment-link fixture for browser profile");
   const product = { id: fixture.productId };
   const link = { id: fixture.linkId, revision: fixture.revision };
-  // Раздел «Ссылки на оплату», суженный адресом до продукта фикстуры: у него одна ссылка.
+  // Раздел «Ссылки на оплату», суженный адресом до продукта фикстуры с его сохранённой ссылкой.
   const linksPath = `/authoring/sales/links?product=${product.id}`;
   await page.goto(linksPath);
-  // Current published v6 does not authorize a new Product link. Existing immutable links still read and revoke.
-  const refused = await fullStackBrowserJsonRequest(
+  // Published v7 admits new Product links. The new link uses another discount, so only the saved
+  // fixture link shows 26 100 ₽ in the rows checked below.
+  const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-links/create",
     "POST",
@@ -54,15 +55,12 @@ test("individual payment link shows its fixed price and terms, revokes across op
       operationId: randomUUID(),
       productId: product.id,
       priceRevision: 1,
-      price: { kind: "discount", percent: 10 },
+      price: { kind: "discount", percent: 20 },
       expiresAt: null,
     },
   );
-  expect(refused.status()).toBe(200);
-  expect(await refused.json()).toMatchObject({
-    ok: false,
-    code: "method_unavailable",
-  });
+  expect(created.status()).toBe(200);
+  expect(await created.json()).toMatchObject({ ok: true });
   await page.reload();
   const ownerRegion = page.getByRole("region", {
     name: "Ссылки на оплату",
@@ -175,8 +173,8 @@ test("individual payment link shows its fixed price and terms, revokes across op
         (document) => document.documentId === "purchase",
       ),
     ).toMatchObject({
-      version: "6",
-      url: expect.stringContaining("/legal/purchase/v6"),
+      version: "7",
+      url: expect.stringContaining("/legal/purchase/v7"),
     });
     const secondOwner = await context.newPage();
     await secondOwner.addLocatorHandler(

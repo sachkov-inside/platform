@@ -95,6 +95,7 @@ const price = {
 
 for (const scenario of [
   "current",
+  "hidden",
   "wrong-price",
   "subscription",
   "retired-route-live",
@@ -117,10 +118,8 @@ for (const scenario of [
         }
         response.end(
           JSON.stringify({
-            items:
-              scenario === "current" || scenario === "retired-route-live"
-                ? []
-                : [item],
+            // Published purchase v7 admits Product sales, so the seeded price is public.
+            items: scenario === "hidden" ? [] : [item],
             nextCursor: null,
           }),
         );

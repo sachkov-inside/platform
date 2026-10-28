@@ -76,24 +76,35 @@ describe("published editions", () => {
     expect(findLegalEdition("purchase", 2)).toBeUndefined();
   });
 
-  it("puts the one-time offer v6 and contacts v2 in force and keeps earlier texts readable", () => {
-    expect(currentLegalEdition("purchase").version).toBe(6);
+  it("puts the one-time offer v7 and contacts v2 in force and keeps earlier texts readable", () => {
+    const purchase = currentLegalEdition("purchase");
+    expect(purchase.version).toBe(7);
+    expect(purchase.effectiveFrom).toBe("2026-10-28");
+    expect(purchase.commercialModel).toBe("product-lifetime-v1");
+    expect(purchase.text).toContain(
+      "Версия 7. Действует с 28 октября 2026 года.",
+    );
+    expect(purchase.text).toContain(
+      "в личных сообщениях или по электронной почте",
+    );
+    expect(purchase.text).toContain("### Набор, поток и дата старта");
+    expect(purchase.title).toBe("Оферта разовой покупки продукта Inside");
+    // Принятые прежде тексты остаются по своим адресам с прежней контрольной суммой.
+    expect(findLegalEdition("purchase", 6)?.digest).toBe(
+      "176005f144e3c4f6cf12dd00cad9fc1fe3a1a4ea847a836413be6f167ef1a6b4",
+    );
+    expect(findLegalEdition("purchase", 6)?.commercialModel).toBeUndefined();
     expect(findLegalEdition("purchase", 5)?.digest).toBe(
       "783f031a7904cfd2b7fef3735aa2f195ba30011a083aade2fb5398b994856490",
     );
-    expect(currentLegalEdition("purchase").text).toContain(
-      "в личных сообщениях или по электронной почте",
-    );
-    // Редакция 5: срок задаёт предложение, набор на поток — обычная покупка с доступом сразу.
-    expect(currentLegalEdition("purchase").text).toContain(
-      "### Набор, поток и дата старта",
-    );
-    expect(currentLegalEdition("purchase").title).toBe(
-      "Оферта разовой покупки продукта Inside",
-    );
     expect(
       supersededLegalEditions("purchase").map((edition) => edition.version),
-    ).toEqual([5, 4, 3, 1]);
+    ).toEqual([6, 5, 4, 3, 1]);
+    expect(
+      legalEditions.filter(
+        (edition) => edition.commercialModel === "product-lifetime-v1",
+      ),
+    ).toEqual([purchase]);
     expect(currentLegalEdition("contacts").version).toBe(2);
     expect(currentLegalEdition("contacts").text).toContain(
       "Межрайонная инспекция Федеральной налоговой службы № 46 по г. Москве",
@@ -222,8 +233,9 @@ describe("consent catalogue", () => {
 
   it("addresses the accepted edition on the public site", () => {
     const [purchase] = consentDocuments(origin);
-    expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase/v6");
-    expect(purchase?.version).toBe("6");
+    expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase/v7");
+    expect(purchase?.version).toBe("7");
+    expect(purchase?.commercialModel).toBe("product-lifetime-v1");
     expect(purchase?.digest).toBe(currentLegalEdition("purchase").digest);
     expect(purchase?.text).toBe(currentLegalEdition("purchase").text);
   });

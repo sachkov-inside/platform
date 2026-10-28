@@ -4,18 +4,14 @@ Use the session-owned local stand or isolated PostgreSQL with a synthetic bank. 
 moves no real money, sends no external mail and grants no production access. Follow the
 [stand ownership contract](local-stand.md) before any Compose command.
 
-The published purchase edition 6 does not authorize the new Product/community/three-calendar-month
-terms. The ordinary stand therefore reports new payments unavailable until the separately approved
-edition is published through #1464. Positive automated checks use an explicit synthetic legal
-provider at the public buyer seam; they do not register a prospective edition in the runtime catalog.
-The steps below describe that approved-fixture path and the later authorized operational path.
-`pnpm smoke:buyer-journey` intentionally exercises the unchanged published-v6 path: Telegram sign-in,
-free/protected Materials and unavailable new sales, without commerce writes. Its backend uses the
-real direct Product seed, not retired tariff operations. Positive approved-model payment and
-recovery proof remains on the explicit synthetic legal-provider composition.
+Published purchase edition 7 carries the Product/community/three-calendar-month terms
+(`commercialModel: product-lifetime-v1`, #1464). The ordinary stand therefore admits new payments on
+the bank double. `pnpm smoke:buyer-journey` exercises the published path: Telegram sign-in,
+free/protected Materials, acceptance of v7 by the payment button, payment on the bank double and
+the opened protected Material. Its backend uses the real direct Product seed.
 The full-stack private-link reader test separately seeds two already saved links through real
-Pricing and a distinct synthetic legal-provider composition. The running API retains the published
-v6 provider and rejects new link creation. Reading fixed terms, revoking the saved link and updating
+Pricing and a distinct synthetic legal-provider composition. The running API serves the published
+catalog and creates a further link. Reading fixed terms, revoking the saved link and updating
 another open owner tab remain real API/browser checks. The fixture CLI is restricted to the isolated
 loopback `inside_checks` database and synthetic identity; it creates no bank operation or legal
 acceptance and publishes no legal edition.
@@ -78,7 +74,6 @@ Retired recurring-card and card-binding configuration fields are rejected. Use `
 as the return page; it reads authoritative server state. Preserve encryption keys needed to read
 historical order contacts. Never log credentials or personal email.
 
-Accepted financial and legal snapshots remain immutable. Approval and publication of the concrete
-Product/community/three-calendar-month edition belongs to
-[#1464](https://github.com/sachkov-inside/platform/issues/1464). Code checks and synthetic editions do
-not publish that edition or authorize opening real sales on changed terms.
+Accepted financial and legal snapshots remain immutable. The concrete
+Product/community/three-calendar-month edition is purchase edition 7, accepted and published through
+[#1464](https://github.com/sachkov-inside/platform/issues/1464). Opening real sales remains an owner action.

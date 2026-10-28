@@ -726,7 +726,7 @@ rows are progressively revealed. Ordinal lesson numbers are smaller than chapter
 агентов или деплоя. По передаче #616 иллюстрация содержит пять сцен. Позднее владелец подтвердил
 замедление в 1,25 раза и повторение: полный цикл 24,25 секунды; вне экрана и в скрытой вкладке приостанавливается, reduced motion показывает сцену 5.
 Автор подтвердил закрытое сообщество, ответы на вопросы, видеоразборы и обновление материалов.
-Условия страницы повторяют действующую оферту разовой покупки (редакция 5; Workspace #241, #780) и
+Исходная версия условий страницы повторяла оферту разовой покупки редакции 5 (Workspace #241, #780) и
 предложение продукта: материалы и сообщество — на срок предложения, без продлений и доплат; помощь
 автора — на срок предложения с покупки, личные встречи и обязательная проверка кода в неё не входят; общие
 разборы проводятся без обещанной частоты; у бонусных материалов срок появления не назначен, в покупку
@@ -1855,7 +1855,8 @@ Learning-start persistence is independent of the current lesson composition.
 [The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)
 owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
 owns the module boundary and historical-policy trade-offs. This implementation does not authorize
-new sales, group changes or legal-edition publication; the prospective legal decision is #1464.
+new sales, group changes or legal-edition publication; the legal edition for this model is purchase
+edition 7, accepted and published through #1464.
 
 ## Individual one-time payment links — #1450
 
@@ -1865,7 +1866,7 @@ The first successful buyer receives the normal Product benefits. The buyer signs
 
 Quote creation and payment initiation recheck the link. Concurrent purchases reserve only once. A begun or uncertain payment retains its reservation until an authentic bank result. A definitive failure permits retry; a confirmed purchase consumes the link permanently, including after refund. Revocation is available before payment begins and does not revoke an existing purchase. Composition changes invalidate unused links; public publication or base-price changes do not change their saved amount.
 
-The owner can recover issued links through a paginated list, copy their URL and revoke unused links. Issuing or copying sends no message. The accepted layout A comes from #1500 at `48f2fc49320c77b3fe632868aa847ff99df3a761`; the production implementation requires its own visual acceptance. Edition 6 is prepared separately under #1464; runtime publication remains coordinated by #854.
+The owner can recover issued links through a paginated list, copy their URL and revoke unused links. Issuing or copying sends no message. The accepted layout A comes from #1500 at `48f2fc49320c77b3fe632868aa847ff99df3a761`; the production implementation requires its own visual acceptance. New links are accepted on purchase edition 7 (#1464); links accepted earlier keep their own edition.
 
 The former survey-specific issuing form is replaced by this common workflow. Survey eligibility is checked manually. Historical survey counts and issued-code facts remain readable in a read-only archive; existing codes and compatibility endpoints are preserved.
 
