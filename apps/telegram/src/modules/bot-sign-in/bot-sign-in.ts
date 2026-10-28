@@ -201,14 +201,17 @@ export class BotSignIn {
         })
         .where("request_ref", "=", decision.requestRef)
         .execute();
-      if (decision.decision === "deny") {
-        await queueSignInResult(
-          transaction,
-          decision.requestRef,
-          now,
-          "Вход отменён.",
-        );
-      }
+      await queueSignInResult(
+        transaction,
+        decision.requestRef,
+        now,
+        decision.decision === "approve"
+          ? "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход."
+          : "Вход отменён.",
+        decision.decision === "approve"
+          ? this.config.signInReturnUrl
+          : undefined,
+      );
     });
   }
 

@@ -1,5 +1,5 @@
-import { sql, type Transaction } from "kysely";
-import type { Database, DatabaseSchema } from "../../database/database.js";
+import { type Transaction } from "kysely";
+import type { DatabaseSchema } from "../../database/database.js";
 
 /** Reuses a reservation for the same Account even after expiry, as sign-in retries require. */
 export async function reserveSignInLink(
@@ -38,16 +38,4 @@ export async function reserveSignInLink(
     })
     .execute();
   return true;
-}
-
-/** Composable linked-proof predicate, evaluated in the caller's statement snapshot. */
-export function linkedSignInProof(
-  database: Database | Transaction<DatabaseSchema>,
-  request: string,
-) {
-  return sql<boolean>`exists (${database
-    .selectFrom("link_transactions")
-    .select("link_transaction_ref")
-    .where("link_transaction_ref", "=", sql<string>`${sql.ref(request)}::text`)
-    .where("state", "=", "linked")})`;
 }
