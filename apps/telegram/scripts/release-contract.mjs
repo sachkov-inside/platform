@@ -131,14 +131,20 @@ function retainedOrdinals(existingTags, existingReleases, pattern, prefix) {
  * Identity of the ordered migration set: names and contents of every file.
  * Equal identities mean that two releases expect the same database schema.
  */
-export async function migrationsIdentity(directory = migrationsDirectory) {
+export async function migrationsIdentity(
+  directory = migrationsDirectory,
+  prefixLength = Infinity,
+) {
   const names = (await readdir(directory, { withFileTypes: true }))
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
-    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+    .slice(0, prefixLength);
   if (names.length === 0) {
     throw new Error(`no migrations in ${directory}`);
   }
+  if (prefixLength !== Infinity && names.length !== prefixLength)
+    throw new Error("historical migration prefix is incomplete");
   const lines = [];
   for (const name of names) {
     const content = await readFile(path.join(directory, name));

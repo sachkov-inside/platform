@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { expect, test, type Request } from "@playwright/test";
+import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
 
 declare global {
   interface Window {
@@ -48,6 +49,7 @@ test("completed intent response renders the guest Reader before navigation respo
   page,
 }, testInfo) => {
   // Observe rendered product DOM only; hidden streamed fallbacks are not visible skeletons.
+  await page.addInitScript(installAppShellPrefetchClassifier);
   await page.addInitScript(() => {
     const nativeFetch = window.fetch;
     const shellResponses: NonNullable<
@@ -104,7 +106,7 @@ test("completed intent response renders the guest Reader before navigation respo
                 byteLength: bytes.byteLength,
                 completedAt: performance.now(),
               };
-            if (headers.get("next-router-prefetch") === "3")
+            if (window.__isAppShellPrefetch(headers))
               shellResponses.push({
                 url: result.url,
                 status: result.status,

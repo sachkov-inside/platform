@@ -45,6 +45,7 @@ jobs:
               { ...request, attempt_number: 1, per_page: 100 },
             );
             const requiredNames = [
+              'Secrets and production advisories',
               // This name marks the selected-plan and isolated-rerun contract.
               'Coverage plan (isolated reruns)', 'Documentation contracts', 'Tooling contracts',
               'Static checks (isolated reruns)', 'Unit tests', 'UI components', 'Web E2E',
@@ -61,7 +62,8 @@ jobs:
             ];
             const matrixJobs = jobs.filter(job => matrixGroups.some(group =>
               group.names.includes(job.name) || job.name === (group.prefix === 'Full-stack browser' ? 'Full-stack browser (, )' : `${group.prefix} ()`)));
-            const prerequisites = jobs.filter(job => !matrixJobs.includes(job));
+            // Production Compose already requires the reusable proof; these are its child jobs.
+            const prerequisites = jobs.filter(job => !matrixJobs.includes(job) && !job.name.startsWith('Foundation recovery / '));
             const matricesComplete = matrixGroups.every(group => {
               const aggregate = prerequisites.find(job => job.name === group.aggregate);
               const members = matrixJobs.filter(job => group.names.includes(job.name) || job.name === (group.prefix === 'Full-stack browser' ? 'Full-stack browser (, )' : `${group.prefix} ()`));
@@ -73,7 +75,7 @@ jobs:
             if (!matricesComplete || prerequisites.length !== requiredNames.length ||
                 !requiredNames.every(name => prerequisites.filter(job =>
                   job.name === name && job.status === 'completed' &&
-                  (name === 'Coverage plan (isolated reruns)' ?
+                  (['Coverage plan (isolated reruns)', 'Secrets and production advisories'].includes(name) ?
                     job.conclusion === 'success' :
                     ['success', 'skipped'].includes(job.conclusion))).length === 1)) {
               core.info('A gate exists, or the selected-plan prerequisites are incomplete or unsuccessful.');

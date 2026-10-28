@@ -59,6 +59,9 @@ describe("agent documentation contract", () => {
       "REPOSITORIES.md",
       "docs/agents/change-risk.md",
       "docs/runbooks/continuous-integration.md",
+      "docs/product/access-model.md",
+      "docs/specifications/platform-v1.md",
+      "docs/adr/0029-acyclic-module-dependencies.md",
       "apps/web/AGENTS.md",
     ]) {
       assert.ok(documents.includes(path), path);

@@ -20,7 +20,7 @@
     "dev": "tsx watch src/main.ts",
     "format": "pnpm --dir ../.. format",
     "format:check": "pnpm --dir ../.. format:check",
-    "guardrails": "node scripts/check-architecture.mjs",
+    "guardrails": "node scripts/check-architecture.mjs && node scripts/check-migration-history.mjs",
     "infra:down": "docker compose down",
     "infra:up": "docker compose up -d --wait postgres rabbitmq",
     "owner:recover-identity": "tsx src/operations/recover-identity-link.ts",
@@ -60,12 +60,9 @@
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.4",
     "@types/pg": "8.23.1",
-    "oxlint": "1.86.0",
-    "oxlint-tsgolint": "7.0.2003",
-    "prettier": "3.9.9",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "4.1.11",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

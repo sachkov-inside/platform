@@ -1,0 +1,29 @@
+name: Scheduled security checks
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-security-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+      - name: Verify scanner rejection, current source and new advisories
+        run: pnpm quality:proof secrets && pnpm quality:security
+      - name: Check expiring workflow exceptions
+        run: pnpm quality:workflows

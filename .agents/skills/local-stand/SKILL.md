@@ -31,8 +31,10 @@ controller; keep using that checkout while its stand state exists.
 4. Return the URL only after `ready`. State the task, preview mode, source revision and reservation.
    Preserve the reservation through delays, session completion and cleanup until the owner releases
    it or requests another task. For `recovery`, keep the state and use `refresh` on the reserved task
-   after the failed operation has ended. Apply the runbook's handoff procedure for incompatible
-   schema, infrastructure, identity or an unmanaged runtime.
+   after the failed operation has ended; after a failed upgrade, rerun the same `upgrade`. For a
+   newer schema or infrastructure on an owner request, run `pnpm stand upgrade --worktree <task>`.
+   Apply the runbook's handoff procedure for
+   changed identity or an unmanaged runtime.
 
 Inspect command options with `pnpm stand --help`. Use `--production-web` for navigation-speed
 checks; it retains the existing clean-source requirement. Run isolated tests and Storybook without

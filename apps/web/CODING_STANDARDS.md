@@ -194,8 +194,10 @@ These rules require review. An effect count or a passing dependency linter canno
 
 ## Interaction and enforcement
 
-- Navigation tests wait for the completed RuntimeShell prefetch response of a compatible route shell.
-  Route-tree responses, headers and the private Next.js queue cannot prove that shell arrived (#1182).
+- Navigation tests wait for a completed App Shell prefetch response: RuntimeShell or a static page
+  segment in Next 16.4. `test/support/app-shell-prefetch.ts` owns the transport classifier.
+  Route-tree/layout responses, per-link PPR data, headers and the private Next.js queue cannot prove
+  that shell arrived (#1182).
   Optimistic routing may skip requests for other links sharing the shell. Root quiet-window checks
   reject `networkidle`; wait on the required response or applied state instead.
 - Where `strict-boolean-expressions` rejects text, use `hasText` and `presentText` from

@@ -24,12 +24,14 @@ const { values, positionals } = parseArgs({
 
 if (values.help) {
   process.stdout
-    .write(`Usage: pnpm stand [status|show|refresh|release] [--worktree PATH] [--live|--production-web] [--replace RESERVATION_ID] [--json]
+    .write(`Usage: pnpm stand [status|show|refresh|release|upgrade] [--worktree PATH] [--live|--production-web] [--replace RESERVATION_ID] [--json]
 
 status   Inspect the shared stand and its durable review reservation.
 show     Prepare this worktree and reserve it for review.
 refresh  Update this worktree, preserving its current preview mode.
 release  Release the reservation; keep the application running.
+upgrade  Move the running stand forward to this worktree's schema and infrastructure,
+         keeping its data. Dumps the databases first; an owner request is required.
 
 --live connects Web app/src/public to the development server. Other edits need refresh.
 --replace requires the current reservation ID and an explicit owner request to change tasks.
@@ -37,7 +39,7 @@ release  Release the reservation; keep the application running.
 } else {
   try {
     const command = z
-      .enum(["status", "show", "refresh", "release"])
+      .enum(["status", "show", "refresh", "release", "upgrade"])
       .parse(positionals[0] ?? "status");
     if (positionals.length > 1 || (values.live && values["production-web"]))
       throw new Error("Choose one command and one preview mode; use --help");
@@ -45,9 +47,9 @@ release  Release the reservation; keep the application running.
       (command === "status" || command === "release") &&
       (values.live || values["production-web"])
     )
-      throw new Error("Preview mode applies to show and refresh only");
-    if (values.replace && command !== "show")
-      throw new Error("--replace applies to show only");
+      throw new Error("Preview mode applies to show, refresh and upgrade only");
+    if (values.replace && command !== "show" && command !== "upgrade")
+      throw new Error("--replace applies to show and upgrade only");
     for (const name of [
       "COMPOSE_FILE",
       "COMPOSE_PROFILES",

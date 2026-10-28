@@ -1,5 +1,5 @@
 import { fn } from "storybook/test";
-import { ReadonlyURLSearchParams } from "next/dist/client/components/navigation.react-server";
+import { ReadonlyURLSearchParams } from "next/dist/client/components/readonly-url-search-params";
 
 export { ReadonlyURLSearchParams };
 

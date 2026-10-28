@@ -62,11 +62,48 @@ uses the existing stand bootstrap below. Switching an existing managed stand
 rebuilds the shared application image and recreates its application roles, including the local
 account gateway, without rerunning migrations, seed or identity bootstrap. Infrastructure stays up.
 The source migration files, migration engine, backend manifest, dependency lockfile, infrastructure
-configuration and identity settings must match the recorded stand. Different versions require a separate owner-directed handoff; the controller does
-not migrate backwards, infer compatibility or erase volumes. The initial version conservatively
-requires a handoff for dependency lockfile changes because database dependencies can change their
-own schema. Image builds retain the existing disk budget. Development mode and production-Web mode
+configuration and identity settings must match the recorded stand. `show` and `refresh` refuse a
+different schema or infrastructure; the owner-requested [upgrade](#upgrade-to-newer-schema-or-infrastructure)
+moves the stand forward. The controller does not migrate backwards, infer compatibility or erase
+volumes. A dependency lockfile change counts as a schema change because database dependencies can
+change their own schema. Image builds retain the existing disk budget. Development mode and production-Web mode
 retain their existing runtime limits.
+
+### Upgrade to newer schema or infrastructure
+
+```bash
+pnpm stand upgrade --worktree <path>
+```
+
+Use it when the owner asks for the running stand on newer code whose migrations or infrastructure
+differ, for example current `main`. It keeps accounts, purchases and progress. It requires a ready
+managed stand, the reservation rules of `show` (`--replace` included) and unchanged identity
+settings; identity changes and unmanaged stacks keep the handoff procedure below.
+
+1. It records the incomplete upgrade, then dumps both database clusters (`pg_dumpall`, gzip) to
+   `inside-platform-stand/backups/<generation>/` under the shared Git common directory, mode `0600`.
+2. It builds the selected source's images and runs the `migrations` job once. The migration engine
+   refuses a database ledger that is not a prefix of the source's registry, so only forward
+   migrations apply. Seed and the identity bootstrap do not run.
+3. Compose replaces infrastructure services whose configuration or image changed, with volumes
+   attached; a source in another worktree changes bind paths, so Logto is then recreated too. It
+   recreates every application role, and the controller records the new receipt.
+
+The dumps cover PostgreSQL only; object storage, broker and mail volumes stay in place untouched.
+New seed data and sign-in bootstrap changes from the newer source are not applied. A new
+infrastructure service in Compose needs an entry in `scripts/stand-services.mjs` before an upgrade
+starts it. Commit the source before an upgrade with `--production-web`.
+
+Until it finishes, `status` reports `recovery` and `show`/`refresh` refuse. Rerun the same
+`upgrade` after a failure: a completed backup is reused, and Compose and migrations repeat safely.
+The dumps are plain SQL from `pg_dumpall --clean --if-exists` and contain account data and
+sign-in secrets: keep them in place and delete superseded ones once the owner no longer needs them.
+A dump that is still being written, or that failed, ends in `.partial`; it is not a backup. Restoring one is a manual recovery outside the
+controller that replaces newer stand data, so it needs a separate owner request. Stop every service
+except the two database clusters (Logto included), replay each dump with
+`gunzip -c <file> | docker exec -i <container> psql -U <user> -d postgres` in its own cluster
+(errors about the connected role are expected), and hand off the controller state: its recorded
+schema no longer matches the restored database.
 
 An existing stack without a controller receipt is **unmanaged**. The controller reports it and
 refuses takeover. The owning session first hands it off and stops it without deleting volumes;
