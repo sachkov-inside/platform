@@ -147,7 +147,11 @@ export function ProductJourney({
   );
 }
 
-/** Отрезок части с готовыми строками: порядковый номер и адрес возврата известны на сервере. */
+/**
+ * Отрезок части с готовыми строками: порядковый номер и адрес возврата известны на сервере.
+ * Каждый элемент отрезка уходит клиентскому компоненту внутри массива, поэтому у каждого есть
+ * ключ: иначе React в dev пишет предупреждение о ключах (#1802).
+ */
 function journeyRun(
   run: {
     readonly chapter: ProductChapter | null;
@@ -206,8 +210,6 @@ function journeyRun(
         ? null
         : {
             header: (
-              // Заголовок уходит клиентскому компоненту в массиве глав: React требует ключ и у
-              // элемента, переданного как значение, иначе пишет предупреждение в консоль.
               <header
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
@@ -247,6 +249,7 @@ function journeyRun(
       run.chapter == null ? null : (
         <CourseReferenceNavigation
           courseHref={currentHref}
+          key={`supplementary-${run.chapter.id}`}
           references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
             (id) => {
               const material =
@@ -305,6 +308,7 @@ function journeyRun(
         available: material.availability === "available",
         card: (
           <MaterialCard
+            key={`card-${placementId ?? material.slug}`}
             readerContext={{ placementId }}
             showFormat={!unified}
             accessPending={accessPending}
