@@ -114,20 +114,33 @@ describe("published editions", () => {
     ).toEqual([1]);
   });
 
-  it("puts privacy v5 in force with actual hosting and preserves accepted v4 and v3", () => {
+  it("puts privacy v6 in force with the operator's admin data and preserves accepted v5, v4 and v3", () => {
     const privacy = currentLegalEdition("privacy");
-    expect(privacy.version).toBe(5);
+    expect(privacy.version).toBe(6);
+    expect(privacy.effectiveFrom).toBe("2026-10-28");
+    expect(privacy.text).toContain(
+      "Версия 6. Действует с 28 октября 2026 года.",
+    );
     expect(privacy.text).toContain("Амстердаме, Нидерланды");
     expect(privacy.text).toContain("Yandex");
-    expect(findLegalEdition("privacy", 4)?.digest).toBe(
-      "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
-    );
     expect(privacy.text).toContain("профиль виден только ему самому");
     expect(privacy.text).toContain("Сдача учебного задания и отзыв автора");
     expect(privacy.text).toContain("не обращается по адресу репозитория");
+    expect(privacy.text).toContain(
+      "Ведение аккаунтов, доступа, оплат и поддержки оператором",
+    );
+    expect(privacy.text).toContain(
+      "Список ожидания набора и сообщение об открытии",
+    );
+    expect(findLegalEdition("privacy", 5)?.digest).toBe(
+      "eca2837cc449c577a2ccc3d100505d1e8c09f118a45f9a68e02f7eff4093b985",
+    );
+    expect(findLegalEdition("privacy", 4)?.digest).toBe(
+      "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
+    );
     expect(
       supersededLegalEditions("privacy").map((edition) => edition.version),
-    ).toEqual([4, 3, 2]);
+    ).toEqual([5, 4, 3, 2]);
     expect(findLegalEdition("privacy", 3)?.text).toContain(
       "Версия 3. Действует с 24 сентября 2026 года.",
     );
