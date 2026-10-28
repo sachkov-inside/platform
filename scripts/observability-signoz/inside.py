@@ -67,6 +67,21 @@ def functional():
     functional_witness.run()
 
 
+def socket_identity():
+    import agent_probe
+    try:identity=agent_probe.socket_identity()
+    except FileNotFoundError:print('{"available":false}');return
+    print(json.dumps({'available':True,'identity':identity}))
+
+
+def agent_result(raw):
+    import agent_probe
+    value=agent_probe.result(json.loads(raw,object_pairs_hook=agent_probe.unique),agent_probe.admission(agent_probe.read_private('/private/client.json')))
+    descriptor=os.open('/disk/agent-result.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    with os.fdopen(descriptor,'w') as stream:json.dump(value,stream,separators=(',',':'));stream.write('\n')
+    print('{"stored":1}')
+
+
 if __name__=='__main__':
     try:
         mode=sys.argv[1]
@@ -76,6 +91,8 @@ if __name__=='__main__':
         elif mode=='histogram':histogram()
         elif mode=='ready':ready(sys.argv[2]);print('{"ready":1}')
         elif mode=='functional':functional()
+        elif mode=='socket-identity':socket_identity()
+        elif mode=='agent-result':agent_result(sys.argv[2])
         else:raise RuntimeError('unknown internal operation')
     except BaseException as error:
         # Runtime diagnostics never echo native HTTP/query bodies, keys or exception strings.

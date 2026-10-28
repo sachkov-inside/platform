@@ -33,7 +33,12 @@ class Admission(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             lock=runtime.lifecycle.verify_packet()
             plan=runtime.lifecycle.make_plan(pathlib.Path(tmp),lock['images'],'signoz1566-'+'a'*12,'b'*32,1001,1001)
-        self.assertEqual(len(plan['services']),10);self.assertIn('mcp',plan['services'])
+        self.assertEqual(len(plan['services']),11);self.assertIn('mcp',plan['services'])
+        self.assertEqual(plan['services']['agent']['network_mode'],'none');self.assertNotIn('networks',plan['services']['agent'])
+        self.assertEqual(set(plan['services']['disk']['networks']),{'backend'})
+        self.assertEqual({m['target'] for m in plan['services']['agent']['volumes']},{'/driver','/admission','/gateway'})
+        self.assertTrue(all(m['read_only'] for m in plan['services']['agent']['volumes']))
+        self.assertEqual([m['source'] for m in plan['services']['agent']['volumes'] if m['type']=='volume'],['gateway'])
         self.assertAlmostEqual(sum(s['cpus'] for s in plan['services'].values()),2)
         self.assertEqual(sum(int(s['mem_limit'][:-1]) for s in plan['services'].values()),4096)
         self.assertTrue(plan['networks']['backend']['internal'])

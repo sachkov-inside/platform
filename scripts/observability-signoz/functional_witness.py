@@ -3,11 +3,11 @@ import http.client
 import json
 import math
 from pathlib import Path
-import secrets
 import time
 
 import control
 import gateway
+import agent_probe
 from metric_recipe import FixedMetricReads
 
 TRACE_ID='00000000000000000000000000001566'
@@ -140,15 +140,17 @@ def run():
             if operation=='correlated_traces':return control.scalar(query(scalar_query('traces',TRACE_ID),key))
             if operation=='correlated_logs':return control.scalar(query(scalar_query('logs',TRACE_ID),key))
             require(operation=='mcp_correlated_traces');return mcp_count(scalar_query('traces',TRACE_ID),key)
-        agent_key=secrets.token_hex(32)
         control.FUNCTIONAL_STAGE='finite_gateway'
-        with gateway.serve(agent_key,read) as address:
-            for operation,expected in [('retained_metrics',400),('correlated_traces',1),('correlated_logs',1),('mcp_correlated_traces',1)]:
-                _,value=wire(*address,'/read','POST',{'operation':operation,'parameters':{}},{'Authorization':'Bearer '+agent_key});require(value=={'state':'observed','count':expected})
-            for method,path,body in [('POST','/v1/metrics',{}),('POST','/v1/logs',{}),('POST','/v1/traces',{}),('DELETE','/api/v1/service_accounts/x',None),('POST','/api/v5/query_range',{}),('POST','/read',{'operation':'raw_sql','parameters':{}}),('POST','/read',{'operation':'retained_metrics','parameters':{'query':'SELECT 1'}})]:
-                _,value=wire(*address,path,method,body,{'Authorization':'Bearer '+agent_key},accepted=(403,));require(value=={'state':'denied'})
-            wire(*address,'/read','POST',{'operation':'retained_metrics','parameters':{}},{'Authorization':'Bearer wrong'},accepted=(403,))
-        facts['finite_gateway']=1
+        client=agent_probe.read_private('/private/client.json')
+        with gateway.serve_unix(client['agent_key'],read,agent_probe.SOCKET):
+            def completed():
+                try:return agent_probe.result(agent_probe.read_private('/disk/agent-result.json'),
+                    agent_probe.admission(agent_probe.read_private('/private/client.json')))
+                except FileNotFoundError:return None
+            # The external controller starts the distinct network-none client and
+            # delivers only its checked numeric result through an owned native exec.
+            await_fact(completed,lambda value:value is not None,max(0,control.DEADLINE-time.monotonic()))
+        facts.update({'finite_gateway':1,'isolated_client':1,'direct_bypass_denied':1,'unix_gateway':1})
     control.FUNCTIONAL_HOOK=exercise
     result=control.bootstrap();result.update(facts);result['full_workload_acceptance']=0;result['capacity_acceptance']=0
     print(json.dumps(result,separators=(',',':')))

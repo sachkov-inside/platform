@@ -6,6 +6,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 import lifecycle
 
@@ -17,11 +18,30 @@ def benign_engine(directory):
     native=engine.invocation.lstat()
     engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
     engine.cli_hash=lifecycle.digest(engine.cli);engine.plugin=None
-    engine.lock=threading.RLock();engine.child=set();engine.cancel_requested=set()
+    engine.lock=threading.RLock();engine.child=set();engine.child_threads={};engine.cancel_requested=set()
     return engine
 
 
 class NativeFaults(unittest.TestCase):
+    def test_role_inventory_rejects_missing_extra_and_duplicate_image_pins(self):
+        original=lifecycle.verify_packet()
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for name in original['config_sha256']:(root/name).write_bytes((lifecycle.CONFIG/name).read_bytes())
+            for pins in (original['images'][:-1],original['images']+[dict(original['images'][0],repository='docker.io/foreign/image')],original['images']+[original['images'][0]]):
+                lifecycle.private_json(root/'inputs.lock.json',{**original,'images':pins})
+                with patch.object(lifecycle,'CONFIG',root),self.assertRaisesRegex(lifecycle.Refusal,'complete_role_image_coverage'):
+                    lifecycle.verify_packet()
+
+    def test_complete_final_role_health_requires_exited_init_live_backends_and_no_restart(self):
+        roles={'volume-init','disk','histogram-init','keeper','postgres','clickhouse','migrator','collector','server','mcp','agent'}
+        states={role:{'exit_code':0,'running':role not in ('volume-init','histogram-init','migrator'),'oom_killed':False,'restart_count':0} for role in roles}
+        self.assertTrue(lifecycle.healthy_states(states))
+        for role,field,value in [('agent','running',False),('migrator','exit_code',1),('server','running',False),('mcp','oom_killed',True),('collector','restart_count',1),('disk','restart_count',False)]:
+            with self.subTest(role=role,field=field):
+                self.assertFalse(lifecycle.healthy_states({**states,role:{**states[role],field:value}}))
+        self.assertFalse(lifecycle.healthy_states({k:v for k,v in states.items() if k!='agent'}))
+
     def test_genuine_exit_and_bounded_private_bytes_precede_process_reap(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory=Path(tmp);engine=benign_engine(directory)

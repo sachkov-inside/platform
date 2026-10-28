@@ -17,6 +17,7 @@ import threading
 import time
 import urllib.request
 import uuid
+from types import MappingProxyType
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -33,13 +34,18 @@ GIB = 1024**3
 CPU_LIMIT = 2
 MEM_LIMIT = 4096 * 1024**2
 OUTPUT_LIMIT = 1024**2
-SERVICES = ('volume-init', 'disk', 'histogram-init', 'keeper', 'postgres',
-            'clickhouse', 'migrator', 'collector', 'server', 'mcp')
+ROLE_IMAGES = MappingProxyType({'volume-init':'python','disk':'python','histogram-init':'python',
+    'keeper':'clickhouse-keeper','postgres':'postgres','clickhouse':'clickhouse-server',
+    'migrator':'signoz-otel-collector','collector':'signoz-otel-collector','server':'signoz',
+    'mcp':'signoz-mcp-server','agent':'python'})
+SERVICES = tuple(ROLE_IMAGES)
+EXITED_ROLES = frozenset(('volume-init','histogram-init','migrator'))
+VOLUMES = ('ch-data','keeper-data','keeper-default-data','pg-data','histogram','probe','gateway')
 # Includes every container, including stopped init jobs and native MCP.
 BUDGETS = {'volume-init': (.025, 32), 'disk': (.1, 96),
-           'histogram-init': (.1, 128), 'keeper': (.1, 128), 'postgres': (.1, 256),
+           'histogram-init': (.05, 64), 'keeper': (.1, 128), 'postgres': (.1, 256),
            'clickhouse': (.6, 1792), 'migrator': (.2, 448), 'collector': (.3, 448),
-           'server': (.4, 640), 'mcp': (.075, 128)}
+           'server': (.4, 640), 'mcp': (.075, 128), 'agent': (.05,64)}
 ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
            'postgres': 'signoz-metastore-postgres-0',
            'clickhouse': 'signoz-telemetrystore-clickhouse-0-0',
@@ -58,6 +64,17 @@ def need(ok, reason):
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def healthy_states(states):
+    if type(states) is not dict or set(states)!=set(SERVICES):return False
+    for role,row in states.items():
+        if (type(row) is not dict or set(row)!={'exit_code','running','oom_killed','restart_count'}
+                or type(row['exit_code']) is not int or row['exit_code']!=0
+                or type(row['restart_count']) is not int or row['restart_count']!=0
+                or row['oom_killed'] is not False or row['running'] is not (role not in EXITED_ROLES)):
+            return False
+    return True
 
 
 def private_json(path,value):
@@ -100,9 +117,8 @@ def make_plan(run, locked_images, project, nonce, uid, gid):
     """All mounts are explicit, finite and task-owned; no global names or host ports."""
     by_repo = {r['repository'].split('/')[-1]: r['pinned'] for r in locked_images}
     helper_arch='amd64'
-    names = {name: project + '_' + name for name in ('ch-data','keeper-data','keeper-default-data','pg-data','histogram','probe')}
+    names = {name: project + '_' + name for name in VOLUMES}
     limits = labels(project, nonce)
-    network = project + '_backend'
     def volume(name, target, read_only=False):
         return {'type':'volume','source':name,'target':target,'read_only':read_only,'volume':{'nocopy':True}}
     def bind(path, target):
@@ -122,11 +138,11 @@ def make_plan(run, locked_images, project, nonce, uid, gid):
         return value
     services = {}
     services['volume-init']=base('volume-init',by_repo['python'],
-        ['python','-c',"import os; [ (os.chmod('/v/'+n,0o700),os.chown('/v/'+n,"+str(uid)+","+str(gid)+")) for n in ('ch-data','keeper-data','keeper-default-data','pg-data','histogram','probe')]"], [])
+        ['python','-c',"import os; [ (os.chmod('/v/'+n,0o700),os.chown('/v/'+n,"+str(uid)+","+str(gid)+")) for n in "+repr(VOLUMES)+"]"], [])
     services['volume-init'].update({'user':'0:0','cap_add':['CHOWN'],
         'volumes':[volume(n,'/v/'+n) for n in names]})
     services['disk']=base('disk',by_repo['python'],['python','-u','/driver/inside.py','serve'],[])
-    services['disk'].update({'volumes':[bind(run/'driver','/driver'),bind(run/'private','/private'),volume('probe','/disk',True)]})
+    services['disk'].update({'volumes':[bind(run/'driver','/driver'),bind(run/'private','/private'),volume('probe','/disk'),volume('gateway','/gateway')]})
     services['histogram-init']=base('histogram-init',by_repo['python'],
         ['python','/driver/inside.py','histogram'],[])
     services['histogram-init']['volumes']=[bind(run/'driver','/driver'),bind(run/'private','/private'),volume('histogram','/histogram')]
@@ -158,9 +174,12 @@ def make_plan(run, locked_images, project, nonce, uid, gid):
     services['mcp']=base('mcp',by_repo['signoz-mcp-server'],[])
     services['mcp'].update({'profiles':['functional'],
         'environment':{'SIGNOZ_URL':'http://signoz-signoz-0:8080','SIGNOZ_INSTANCE_URL_ALLOWLIST':'signoz-signoz-0','TRANSPORT_MODE':'http','MCP_SERVER_PORT':'8000','ANALYTICS_ENABLED':'false','SIGNOZ_DOCS_REFRESH_INTERVAL':'0','SIGNOZ_DOCS_FULL_REFRESH_INTERVAL':'0','MCP_MAX_REQUEST_BYTES':'16384'}})
+    services['agent']=base('agent',by_repo['python'],['python','-B','/driver/agent_probe.py','serve'],[])
+    services['agent'].pop('networks')
+    services['agent'].update({'network_mode':'none','volumes':[bind(run/'agent-driver','/driver'),bind(run/'agent-admission','/admission'),volume('gateway','/gateway',True)]})
     return {'name':project,'services':services,
         'volumes':{n:{'name':real,'labels':limits} for n,real in names.items()},
-        'networks':{'backend':{'name':network,'internal':True,'driver':'bridge','labels':limits}}}
+        'networks':{'backend':{'name':project+'_backend','internal':True,'driver':'bridge','labels':limits}}}
 
 
 class Engine:
@@ -178,6 +197,7 @@ class Engine:
         self.cleanup=False
         self.lock=threading.RLock()
         self.child=set()
+        self.child_threads={}
         self.cancel_requested=set()
     def raw(self,args,timeout=10,*,binary=None):
         if threading.current_thread().name=='owned-signoz-storage':
@@ -194,7 +214,8 @@ class Engine:
         proc=subprocess.Popen(command,executable=str(binary or self.cli),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
             # Separate cancellable group, retaining the registered worker session.
             process_group=0,env={k:v for k,v in os.environ.items() if not k.startswith(('DOCKER_','COMPOSE_'))})
-        with self.lock:self.child.add(proc)
+        with self.lock:
+            self.child.add(proc);self.child_threads[proc]=threading.get_ident()
         selector=selectors.DefaultSelector();data=[bytearray(),bytearray()];deadline=time.monotonic()+timeout
         for i,stream in enumerate((proc.stdout,proc.stderr)):
             os.set_blocking(stream.fileno(),False);selector.register(stream,selectors.EVENT_READ,i)
@@ -248,7 +269,13 @@ class Engine:
             for stream in (proc.stdout,proc.stderr):stream.close()
             with self.lock:
                 self.child.discard(proc)
+                self.child_threads.pop(proc,None)
                 self.cancel_requested.discard(proc)
+    def cancel_thread_children(self,thread):
+        with self.lock:children=[proc for proc in self.child if self.child_threads.get(proc)==thread.ident and proc.poll() is None]
+        for proc in children:
+            try:os.killpg(proc.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
     def cancel_children(self):
         with self.lock:
             children=[proc for proc in self.child if proc.poll() is None]
@@ -323,14 +350,15 @@ class Owned:
             identity={k:native[k] for k in ('Name','CreatedAt','Mountpoint','Driver')}
             if real in self.volumes:need(self.volumes[real]==identity,'replaced_volume')
             self.volumes[real]=identity
-        real=self.plan['networks']['backend']['name']
-        listing=self.engine.call(['network','ls','-q','--no-trunc','--filter','name=^'+real+'$']).split()
-        if listing:
-            need(len(listing)==1,'network_name_collision')
-            native=self.engine.inspect('network',listing[0]);self.owned_labels(native['Labels'])
-            need(native['Name']==real and native['Internal'] is True and native['Driver']=='bridge','network_boundary')
-            if real in self.networks:need(self.networks[real]==native['Id'],'replaced_network')
-            self.networks[real]=native['Id']
+        for spec in self.plan['networks'].values():
+            real=spec['name']
+            listing=self.engine.call(['network','ls','-q','--no-trunc','--filter','name=^'+real+'$']).split()
+            if listing:
+                need(len(listing)==1,'network_name_collision')
+                native=self.engine.inspect('network',listing[0]);self.owned_labels(native['Labels'])
+                need(native['Name']==real and native['Internal'] is True and native['Driver']=='bridge','network_boundary')
+                if real in self.networks:need(self.networks[real]==native['Id'],'replaced_network')
+                self.networks[real]=native['Id']
     def validate(self,name):
         cid=self.containers[name];v=self.engine.inspect('container',cid)
         self.owned_labels(v['Config']['Labels']);need(v['Id']==cid,'container_identity')
@@ -346,8 +374,16 @@ class Owned:
         need(v['HostConfig'].get('LogConfig',{}).get('Type')=='none','container_logging')
         actual_env=dict(e.split('=',1) for e in v['Config'].get('Env',[]) if '=' in e)
         need(all(actual_env.get(k)==val for k,val in spec.get('environment',{}).items()),'container_environment')
-        need(v['HostConfig'].get('NetworkMode')==self.plan['networks']['backend']['name'],'network_mode')
-        need(set(v['NetworkSettings']['Networks'])=={self.plan['networks']['backend']['name']},'network_attachment')
+        if name=='agent':
+            need(spec.get('network_mode')=='none' and v['HostConfig'].get('NetworkMode')=='none','agent_network_none')
+            attached=v['NetworkSettings']['Networks']
+            need(type(attached) is dict and set(attached) in (set(),{'none'}),'agent_network_attachment')
+            need(all(not row.get(k) for row in attached.values() for k in ('IPAddress','GlobalIPv6Address','Gateway','IPv6Gateway')),'agent_network_address')
+            need(v['HostConfig'].get('PidMode')=='' and v['HostConfig'].get('UTSMode')=='','agent_namespace_authority')
+        else:
+            networks={self.plan['networks'][key]['name'] for key in spec['networks']}
+            need(v['HostConfig'].get('NetworkMode') in networks,'network_mode')
+            need(set(v['NetworkSettings']['Networks'])==networks,'network_attachment')
         need(v['HostConfig'].get('RestartPolicy',{}).get('Name')=='no','restart_policy')
         expected=self.plan['services'][name].get('volumes',[])
         actual=v.get('Mounts',[]);need(len(actual)==len(expected),'mount_set')
@@ -375,6 +411,13 @@ class Owned:
     def exec(self,args,timeout=10):
         self.validate('disk')
         return self.engine.call(['exec',self.containers['disk'],'python','/driver/inside.py',*args],timeout)
+    def snapshot_states(self):
+        states={}
+        for name in SERVICES:
+            value=self.validate(name)
+            states[name]={'exit_code':value['State']['ExitCode'],'running':value['State']['Running'],
+                'oom_killed':value['State']['OOMKilled'],'restart_count':value['RestartCount']}
+        return states
     def cleanup_exact(self):
         failures=[]
         # Register resources left by an interrupted create only after exact nonce ownership.
@@ -385,9 +428,15 @@ class Owned:
             try:
                 value=self.validate(name)
                 states[name]={'exit_code':value['State']['ExitCode'],'running':value['State']['Running'],'oom_killed':value['State']['OOMKilled'],'restart_count':value['RestartCount']}
-                self.engine.call(['rm','-f',cid],timeout=5)
             except BaseException:failures.append('container')
         private_json(self.run/'states.json',states)
+        # The state witness precedes every deletion. Dependency shutdown cannot
+        # retroactively turn required live roles into expected exited roles.
+        for name,cid in list(self.containers.items()):
+            try:
+                self.validate(name)
+                self.engine.call(['rm','-f',cid],timeout=5)
+            except BaseException:failures.append('container')
         for real,nid in self.networks.items():
             try:
                 current=self.engine.inspect('network',nid);self.owned_labels(current['Labels'])
@@ -412,6 +461,9 @@ def verify_packet():
     lock=json.loads((CONFIG/'inputs.lock.json').read_text())
     for name,expected in lock['config_sha256'].items():
         need(digest(CONFIG/name)==expected,'source_configuration_changed')
+    need(set(BUDGETS)==set(ROLE_IMAGES),'complete_role_budget_coverage')
+    repositories=[row['repository'].split('/')[-1] for row in lock['images']]
+    need(len(repositories)==len(set(repositories)) and set(repositories)==set(ROLE_IMAGES.values()),'complete_role_image_coverage')
     need(abs(sum(v[0] for v in BUDGETS.values())-CPU_LIMIT)<1e-9,'aggregate_cpu')
     need(sum(v[1] for v in BUDGETS.values())*1024**2==MEM_LIMIT,'aggregate_memory')
     return lock
@@ -461,10 +513,8 @@ def inspect_images(engine, lock, *, acquire=False):
         if acquire:
             engine.call(['pull','--platform','linux/'+arch,row['pinned']],timeout=180)
         admitted[row['repository'].split('/')[-1]]=checked_image(engine,row,arch)
-    role={'volume-init':'python','disk':'python','histogram-init':'python',
-          'keeper':'clickhouse-keeper','postgres':'postgres','clickhouse':'clickhouse-server',
-          'migrator':'signoz-otel-collector','collector':'signoz-otel-collector','server':'signoz','mcp':'signoz-mcp-server'}
-    return {service:admitted[repo] for service,repo in role.items()}
+    need(set(admitted)==set(ROLE_IMAGES.values()),'complete_admitted_image_coverage')
+    return {service:admitted[repo] for service,repo in ROLE_IMAGES.items()}
 
 
 def require_declared_volume_coverage(plan, images):
@@ -585,9 +635,10 @@ def storage_guard(engine, owned, run):
 
 def write_private_files(run,lock):
     private=run/'private';driver=run/'driver'
-    for path in (private,driver):path.mkdir(mode=0o700)
-    for name in ('inside.py','control.py','metric_recipe.py','functional_witness.py','gateway.py'):
+    for path in (private,driver,run/'agent-driver',run/'agent-admission'):path.mkdir(mode=0o700)
+    for name in ('inside.py','control.py','metric_recipe.py','functional_witness.py','gateway.py','agent_probe.py'):
         shutil.copyfile(HERE/name,driver/name);(driver/name).chmod(0o600)
+    shutil.copyfile(HERE/'agent_probe.py',run/'agent-driver/agent_probe.py');(run/'agent-driver/agent_probe.py').chmod(0o600)
     for name in ('ingester.yaml','opamp.yaml','keeper-0.yaml','functions.yaml'):
         shutil.copyfile(CONFIG/name,private/name);(private/name).chmod(0o600)
     # JSON is valid YAML. Config file URI is the pinned CLI --config, not an assumed env flag.

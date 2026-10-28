@@ -13,8 +13,10 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import secrets
 import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -25,6 +27,7 @@ import lifecycle
 import evidence
 import observer
 import supervisor
+import agent_probe
 sys.path.insert(0,str(ROOT/'scripts/observability-resource'))
 import binding as source_binding
 import hosted
@@ -135,10 +138,7 @@ def recover(output,deadline=None):
     prior_states=evidence.read(output/'states.json') if (output/'states.json').exists() else None
     if prior_cleanup is not None and prior_cleanup.get('passed') is True and not own.containers and not own.volumes and not own.networks:return {'passed':True,'state':'already_clean'}
     rows={r['repository'].split('/')[-1]:r for r in lock['images']}
-    mapping={'volume-init':'python','disk':'python','histogram-init':'python','keeper':'clickhouse-keeper',
-        'postgres':'postgres','clickhouse':'clickhouse-server','migrator':'signoz-otel-collector',
-        'collector':'signoz-otel-collector','server':'signoz','mcp':'signoz-mcp-server'}
-    for role in own.containers:own.images[role]=lifecycle.checked_image(current,rows[mapping[role]],'amd64')
+    for role in own.containers:own.images[role]=lifecycle.checked_image(current,rows[lifecycle.ROLE_IMAGES[role]],'amd64')
     # Resource identity is a monotonic registry, including objects already removed.
     # A later cleanup retry must still refuse a recreated role/volume/network.
     registry={'project':owner['project'],'nonce':owner['nonce']}
@@ -152,9 +152,67 @@ def recover(output,deadline=None):
         lifecycle.private_json(output/'recovery-states.json',evidence.read(output/'states.json'))
         if prior_states is not None:lifecycle.private_json(output/'states.json',prior_states)
     if passed:
-        for name in ('private','driver'):
+        for name in ('private','driver','agent-driver','agent-admission'):
             if (output/name).exists():shutil.rmtree(output/name)
-    return {'passed':passed}
+    return {'passed':passed,'roles_healthy':lifecycle.healthy_states(evidence.read(output/'states.json'))}
+
+
+def client_namespace(own):
+    value=own.validate('agent');helper=own.validate('disk')
+    pid=value['State']['Pid'];helper_pid=helper['State']['Pid']
+    lifecycle.need(type(pid) is int and pid>1 and type(helper_pid) is int and helper_pid>1,'native_namespace_PID')
+    birth=process_start(pid);namespace=os.readlink('/proc/'+str(pid)+'/ns/net')
+    host=os.readlink('/proc/self/ns/net');backend=os.readlink('/proc/'+str(helper_pid)+'/ns/net')
+    lifecycle.need(all(re.fullmatch(r'net:\[[1-9][0-9]*\]',v) for v in (namespace,host,backend)),'native_namespace_identity')
+    lifecycle.need(len({namespace,host,backend})==3 and own.validate('agent')['State']['Pid']==pid
+        and process_start(pid)==birth,'native_namespace_changed')
+    return namespace,{'schema':1,'network_mode':'none','namespace_inode':int(namespace[5:-1]),
+        'host_namespace_inode':int(host[5:-1]),'backend_namespace_inode':int(backend[5:-1])}
+
+
+def functional_with_client(own,output,remaining):
+    current=own.engine;client={'schema':1,'nonce':secrets.token_hex(16),'agent_key':secrets.token_hex(32)}
+    lifecycle.private_json(output/'private/client.json',client)
+    completed={}
+    def functional():
+        try:completed['value']=json.loads(own.exec(['functional'],timeout=remaining))
+        except BaseException as error:completed['error']=error
+    thread=threading.Thread(target=functional,name='owned-signoz-functional',daemon=False);thread.start()
+    try:
+        identity=None
+        while time.monotonic()<current.deadline:
+            if 'error' in completed:raise completed['error']
+            if not thread.is_alive():raise lifecycle.Refusal('limited_client_gateway_missing')
+            candidate=json.loads(own.exec(['socket-identity'],timeout=10))
+            lifecycle.need(type(candidate) is dict and type(candidate.get('available')) is bool,'closed_socket_identity')
+            if candidate['available']:
+                lifecycle.need(set(candidate)=={'available','identity'},'closed_socket_identity')
+                identity=candidate['identity'];break
+            lifecycle.need(set(candidate)=={'available'},'closed_socket_identity');time.sleep(.1)
+        lifecycle.need(identity is not None,'global_deadline')
+        own.start('agent');namespace,isolation=client_namespace(own)
+        targets={role:own.validate(role)['NetworkSettings']['Networks'][own.plan['networks']['backend']['name']]['IPAddress'] for role in agent_probe.ENDPOINTS}
+        config=agent_probe.admission({**client,'remaining_seconds':int(current.deadline-time.monotonic())-1,
+            'socket_identity':identity,'targets':targets,'network_namespace':namespace})
+        lifecycle.private_json(output/'private/client.json',config)
+        lifecycle.private_json(output/'agent-admission/fixture.json',config)
+        isolation['socket_identity']=identity;lifecycle.private_json(output/'isolation.json',isolation)
+        own.validate('agent')
+        raw=own.engine.call(['exec',own.containers['agent'],'python','-B','/driver/agent_probe.py'],
+            timeout=max(.001,current.deadline-time.monotonic()))
+        result=agent_probe.result(json.loads(raw,object_pairs_hook=agent_probe.unique),config)
+        lifecycle.need(client_namespace(own)[0]==namespace,'native_namespace_changed')
+        lifecycle.private_json(output/'agent.json',result)
+        delivered=json.loads(own.exec(['agent-result',json.dumps(result,separators=(',',':'))],timeout=10))
+        lifecycle.need(delivered=={'stored':1},'limited_client_result_unavailable')
+        thread.join(timeout=max(0,current.deadline-time.monotonic()))
+        lifecycle.need(not thread.is_alive(),'global_deadline')
+        if 'error' in completed:raise completed['error']
+        return completed['value']
+    finally:
+        if thread.is_alive():
+            current.cancel_thread_children(thread);thread.join(timeout=2)
+        lifecycle.need(not thread.is_alive(),'functional_thread_not_reaped')
 
 
 def worker(output):
@@ -200,10 +258,12 @@ def worker(output):
             lifecycle.need(remaining>1,'global_deadline')
             lifecycle.private_json(output/'private/admission.json',{'remaining_seconds':remaining-1,'owner':lifecycle.OWNER})
             phase='functional';lifecycle.stage(output,phase)
-            result=json.loads(own.exec(['functional'],timeout=remaining))
-            required={'bootstrap','viewer_identity','fixed_read','admin_read_denied','revoke_denied','retained_400','trace_log_correlation','native_mcp','finite_gateway'}
+            result=functional_with_client(own,output,remaining)
+            required=evidence.FACTS
             lifecycle.need(all(type(result.get(k)) is int and result[k]==1 for k in required),'incomplete_functional_witness')
             lifecycle.private_json(output/'functional.json',result)
+            final_states=own.snapshot_states();lifecycle.private_json(output/'final-states.json',final_states)
+            lifecycle.need(lifecycle.healthy_states(final_states),'unhealthy_final_roles')
     except BaseException as error:
         lifecycle.private_json(output/'failure.json',{'phase':phase,'category':type(error).__name__,'reason':error.reason if isinstance(error,lifecycle.Refusal) else 'functional_failure','native_failure_capture_unavailable':getattr(current,'failure_capture_unavailable',False)})
         raise
@@ -228,7 +288,8 @@ def run(output):
         lifecycle.private_json(output/'worker.json',{'pid':process.pid,'group':process.pid,'start_ticks':process_start(process.pid)})
         status=supervisor.wait(process,started+RUNTIME_SECONDS,lambda:cancelled[0])
     finally:
-        cleanup_deadline=time.monotonic()+CLEANUP_SECONDS
+        cleanup_started=time.monotonic();cleanup_deadline=cleanup_started+CLEANUP_SECONDS
+        worker_seconds=cleanup_started-started
         for s in previous:signal.signal(s,signal.SIG_IGN)
         stopped=True
         if process is not None:
@@ -239,13 +300,13 @@ def run(output):
                     if stopped:process.wait(timeout=1)
                     else:supervisor.stop(process)
                 except Exception:stopped=False
-        worker_seconds=time.monotonic()-started
         try:cleanup=recover(output,cleanup_deadline)
         except Exception:cleanup={'passed':False,'state':'exact_cleanup_unavailable'}
         cleanup['passed']=cleanup['passed'] and stopped
         for s,value in previous.items():signal.signal(s,value)
-        lifecycle.private_json(output/'outcome.json',{'passed':status==0 and cleanup['passed'],'worker_exit':status,'worker_seconds':worker_seconds,'runtime_limit_seconds':RUNTIME_SECONDS,'cleanup':cleanup,'full_workload':False,'capacity_acceptance':False})
-    return 0 if status==0 and cleanup['passed'] else 1
+        accepted=status==0 and worker_seconds<=RUNTIME_SECONDS and cleanup['passed'] and cleanup.get('roles_healthy') is True
+        lifecycle.private_json(output/'outcome.json',{'passed':accepted,'worker_exit':status,'worker_seconds':worker_seconds,'runtime_limit_seconds':RUNTIME_SECONDS,'cleanup':cleanup,'full_workload':False,'capacity_acceptance':False})
+    return 0 if accepted else 1
 
 
 def collect(output,destination):

@@ -7,18 +7,16 @@ import stat
 
 import lifecycle
 import observer
+import agent_probe
 
 FACTS = frozenset(('bootstrap', 'viewer_identity', 'fixed_read', 'admin_read_denied',
-                  'revoke_denied', 'retained_400', 'trace_log_correlation', 'native_mcp', 'finite_gateway'))
+                  'revoke_denied', 'retained_400', 'trace_log_correlation', 'native_mcp', 'finite_gateway',
+                  'isolated_client','direct_bypass_denied','unix_gateway'))
 PHASES = frozenset(('acquire', 'native_create', 'PG_keeper', 'CH', 'migrations',
                     'collector_server', 'postgres_counts', 'native_MCP', 'functional'))
-REASONS = frozenset(('command_failed', 'command_deadline', 'global_deadline', 'init_failed',
+REASONS = frozenset(('command_failed', 'command_deadline', 'global_deadline', 'init_failed','unhealthy_final_roles',
                      'init_deadline', 'storage_monitor_failed', 'worker_interrupted_or_storage',
                      'incomplete_functional_witness', 'migration_counts_unavailable', 'functional_failure'))
-ROLE_IMAGES = {'volume-init': 'python', 'disk': 'python', 'histogram-init': 'python',
-               'keeper': 'clickhouse-keeper', 'postgres': 'postgres', 'clickhouse': 'clickhouse-server',
-               'migrator': 'signoz-otel-collector', 'collector': 'signoz-otel-collector',
-               'server': 'signoz', 'mcp': 'signoz-mcp-server'}
 
 
 def require(ok):
@@ -78,6 +76,7 @@ def outcome(value):
     code = value.get('worker_exit'); require(type(code) is int and -128 <= code <= 255)
     require(value.get('capacity_acceptance') is False and value.get('full_workload') is False)
     clean = value.get('cleanup'); require(type(clean) is dict)
+    require(value.get('passed') is not True or code==0 and clean.get('passed') is True and number(value['worker_seconds'])<=600)
     return {'available': True, 'passed': boolean(value['passed']), 'worker_exit': code,
             'worker_seconds': number(value['worker_seconds'], 720), 'runtime_limit_seconds': 600,
             'cleanup_passed': boolean(clean['passed'])}
@@ -88,9 +87,10 @@ def cleanup(value):
     operations = value.get('failed_operations')
     require(type(operations) is list and len(operations) <= 32
             and all(k in ('discovery', 'container', 'network', 'volume', 'residue') for k in operations))
+    require(value.get('passed') is (not operations))
     return {'available': True, 'passed': boolean(value['passed']), 'failed_operations': operations,
-            'exact_containers': integer(value['exact_containers'], 10),
-            'exact_volumes': integer(value['exact_volumes'], 6), 'exact_networks': integer(value['exact_networks'], 1)}
+            'exact_containers': integer(value['exact_containers'], len(lifecycle.SERVICES)),
+            'exact_volumes': integer(value['exact_volumes'], len(lifecycle.VOLUMES)), 'exact_networks': integer(value['exact_networks'], 1)}
 
 
 def states(value):
@@ -100,7 +100,7 @@ def states(value):
         require(type(row) is dict and set(row) == {'exit_code', 'running', 'oom_killed', 'restart_count'})
         result[role] = {'exit_code': integer(row['exit_code'], 255), 'running': boolean(row['running']),
                         'oom_killed': boolean(row['oom_killed']), 'restart_count': integer(row['restart_count'], 1000000)}
-    return {'available': True, 'roles': result}
+    return {'available': True, 'healthy':lifecycle.healthy_states(result), 'roles': result}
 
 
 def failure(value):
@@ -134,7 +134,7 @@ def images(value):
     lock = lifecycle.verify_packet(); rows = {r['repository'].split('/')[-1]: r for r in lock['images']}
     result = {}
     for role, row in value.items():
-        require(type(row) is dict); pin = rows[ROLE_IMAGES[role]]
+        require(type(row) is dict); pin = rows[lifecycle.ROLE_IMAGES[role]]
         config = lock['image_config_metadata'][pin['repository']]['amd64']['config_digest']
         allowed = {pin['pinned'].split('@')[1], pin['linux_amd64_manifest'], config}
         require(row.get('reference') == pin['pinned'] and row.get('architecture') == 'amd64'
@@ -152,6 +152,28 @@ def storage(value):
     vm = {k: integer(value['vm'][k]) for k in ('fsid', 'device', 'block', 'blocks', 'available', 'files', 'free_files')}
     require(vm['block'] > 0 and 0 <= vm['available'] <= vm['blocks'])
     return {'available': True, 'host_filesystems': rows, 'vm': vm}
+
+
+def isolation(value):
+    require(type(value) is dict and set(value)=={'schema','network_mode','namespace_inode','host_namespace_inode','backend_namespace_inode','socket_identity'})
+    require(value['schema']==1 and type(value['schema']) is int and value['network_mode']=='none')
+    namespaces={k:integer(value[k]) for k in ('namespace_inode','host_namespace_inode','backend_namespace_inode')}
+    require(all(v>0 for v in namespaces.values()) and len(set(namespaces.values()))==3)
+    identity=value['socket_identity'];require(type(identity) is dict and set(identity)==agent_probe.IDENTITY_FIELDS)
+    identity={k:integer(v) for k,v in identity.items()}
+    require(identity['inode']>0 and identity['links']==1 and identity['mode']==0o600)
+    return {'available':True,'network_mode':'none',**namespaces,'socket_identity':identity}
+
+
+def agent(value):
+    require(type(value) is dict and set(value)==agent_probe.RESULT_FIELDS)
+    require(type(value['nonce']) is str and re.fullmatch('[a-f0-9]{32}',value['nonce']) is not None)
+    numbers={k:integer(v) for k,v in value.items() if k!='nonce'}
+    require(numbers['schema']==1 and numbers['reads']==4 and numbers['gateway_denials']==9
+        and numbers['backend_denials']==sum(len(v) for v in agent_probe.ENDPOINTS.values())
+        and numbers['filesystem_isolated']==1 and numbers['namespace_inode']>0 and numbers['socket_inode']>0
+        and sum(numbers[k] for k in ('dns_noname','dns_unavailable','dns_resolved'))==1)
+    return {'available':True,**numbers}
 
 
 def identities(output):
@@ -190,11 +212,12 @@ def collect(output, destination, verify_source):
     safe_root = output.is_dir() and not output.is_symlink()
     contracts = {'outcome': outcome, 'cleanup': cleanup, 'functional': functional, 'postgres': postgres,
                  'states': states, 'failure': failure, 'images': images, 'disk-admission': storage,
-                 'recovery-cleanup':cleanup,'recovery-states':states}
+                 'recovery-cleanup':cleanup,'recovery-states':states,'isolation':isolation,'agent':agent}
     for name, project in contracts.items():
         try:
             require(safe_root); report[name] = project(read(output / (name + '.json')))
         except Exception: report[name] = {'available': False}
+    report['failure']['absent']=safe_root and not (output/'failure.json').exists() and not (output/'failure.json').is_symlink()
     try:
         require(safe_root); source = read(output / 'source.json'); verify_source(source)
         report['source'] = {'available': True, 'binding': source}
@@ -203,8 +226,16 @@ def collect(output, destination, verify_source):
         try:
             require(safe_root); report[name] = project(output)
         except Exception: report[name] = {'available': False}
-    report['passed'] = all(report[k]['available'] for k in ('source', 'outcome', 'cleanup', 'functional', 'postgres', 'states', 'images', 'disk-admission', 'native_identity')) and (
+    report['passed'] = all(report[k]['available'] for k in ('source', 'outcome', 'cleanup', 'functional', 'postgres', 'states', 'images', 'disk-admission', 'native_identity','isolation','agent')) and (
         report['outcome'].get('passed') is True and report['cleanup'].get('passed') is True
+        and report['cleanup'].get('exact_containers')==len(lifecycle.SERVICES)
+        and report['cleanup'].get('exact_volumes')==len(lifecycle.VOLUMES)
+        and report['cleanup'].get('exact_networks')==1
+        and report['failure'].get('absent') is True
+        and report['states'].get('healthy') is True
+        and report['agent']['namespace_inode']==report['isolation']['namespace_inode']
+        and report['agent']['socket_inode']==report['isolation']['socket_identity']['inode']
+        and report['agent']['socket_device']==report['isolation']['socket_identity']['device']
         and report['postgres'].get('counts', {}).get('applied_migrations', 0) > 0)
     lifecycle.private_json(destination / 'witness.json', report)
     return report['passed']

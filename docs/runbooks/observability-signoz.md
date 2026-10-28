@@ -8,10 +8,12 @@ GitHub-hosted `ubuntu-24.04` с настоящей архитектурой Linu
 ## Что проверяется
 
 [Workflow](../../.github/workflows/observability-signoz.yml) является источником команд запуска.
-Он проверяет исходники, получает семь закреплённых образов и запускает десять ролей,
+Он проверяет исходники, получает семь закреплённых образов и запускает одиннадцать ролей,
 включая три вспомогательные роли, PostgreSQL, ClickHouse Keeper, ClickHouse, migrator,
-collector, SigNoz server и native MCP. Суммарные ограничения всех ролей составляют
+collector, SigNoz server, native MCP и отдельный ограниченный клиент. Суммарные ограничения всех ролей составляют
 2 CPU и 4 GiB памяти. Остановленные init-контейнеры также входят в эту сумму.
+Клиент получает 0.05 CPU/64 MiB из прежних 0.1 CPU/128 MiB `histogram-init`;
+у `histogram-init` остаются 0.05 CPU/64 MiB. Остальные лимиты, включая MCP 128 MiB, сохраняются.
 
 У worker один внешний срок 600 секунд, включая получение образов и инициализацию.
 Завершение процессов и удаление зарегистрированных ресурсов имеют отдельный общий срок
@@ -29,11 +31,16 @@ collector, SigNoz server и native MCP. Суммарные ограничени�
   с общими `traceId`/`spanId`, положительного запроса корреляции и пустого контрольного trace;
 - созданного managed `signoz-viewer` service account, проверки его идентичности,
   отказа `403` на административное чтение и последовательности revoke `204`, затем `401`;
-- четырёх разрешённых чтений через конечный локальный HTTP gateway и отказов для
-  прямого ingest, delete, произвольного пути, SQL, параметров и неверного ключа;
+- четырёх разрешённых HTTP-over-Unix чтений из отдельного клиента, девяти `403` для
+  запрещённых gateway paths, delete, SQL, параметров и неверного ключа;
+- явного kernel `ENETUNREACH` при десяти TCP попытках клиента к настоящим IP/ports
+  PostgreSQL, ClickHouse, Keeper, collector, server, MCP и backend helper;
+- полного состояния всех одиннадцати ролей до удаления: init jobs завершены с кодом 0,
+  остальные роли работают, ни у одной роли нет OOM или неожиданного restart;
 - подтверждённой очистки собственных containers, volumes и network.
 
-Gateway представляет границу тестового клиента внутри disposable fixture. Его интерфейс
+Gateway представляет границу тестового клиента внутри disposable fixture. Его единственный
+runtime listener является Unix socket, TCP control endpoint отсутствует. Его интерфейс
 принимает только имя одной из четырёх операций и пустой объект параметров. Он не является
 готовым production gateway. Полный native MCP имеет более широкую поверхность инструментов,
 поэтому его ключ не выдаётся этому клиенту.
@@ -50,8 +57,24 @@ Docker CLI, Compose plugin, socket, daemon и файловые системы х
 Каждый ресурс имеет случайный project/nonce и проверенные native ID, время создания,
 image/platform, ограничения, mounts и labels. Очистка отказывается удалять заменённый
 или чужой ресурс. Нет опубликованных host ports, Docker socket внутри контейнеров,
-production credentials и внешнего telemetry payload. Сеть внутренняя; native MCP использует
+production credentials и внешнего telemetry payload. Backend сеть внутренняя; native MCP использует
 встроенную документацию release с отключёнными плановыми обновлениями.
+
+У ограниченного клиента `network_mode: none`, отдельный network namespace и единственный
+интерфейс `lo`. Native inspect связывает CID, PID/start time, mounts и namespaces клиента,
+helper и host; namespace клиента отличается от двух остальных. Клиент получает только
+source driver, минимальный admission с finite token и адресами проверяемых backend,
+а также RO mount отдельного socket-only volume. У него нет `/private`, DSN, viewer key,
+probe volume и Docker socket. Семь volumes, включая отдельный gateway volume, имеют
+точное владение и входят в cleanup. Перед и после соединения клиент сверяет inode/device,
+тип, владельца и `0600` socket; kernel peer credentials должны совпадать с ожидаемым uid/gid.
+
+Успешное TCP соединение, даже если backend вернул бы `401`, является ошибкой проверки.
+Timeout, `ECONNREFUSED` и необъяснённая ошибка не считаются доказанным сетевым запретом.
+Единственное положительное основание для backend IP denial здесь является `ENETUNREACH`
+в подтверждённом network-none контексте. Диагностический DNS probe имеет отдельные поля:
+`EAI_AGAIN` и незавершённый probe означают недоступность наблюдения. DNS не объявляется
+успешным запретом и не подменяет доказательство kernel IP denial.
 
 Каталоги fixture создаются с правами `0700`, файлы с паролями и private evidence с `0600`.
 Учётные данные генерируются на каждый запуск. Ответы HTTP, ключи, email, DSN, raw SQL
@@ -67,6 +90,13 @@ Supervisor находится вне session worker. Native CLI создают �
 и очистки session. Поздняя recovery без доказуемой идентичности живой session отказывает
 в таком завершении и оставляет результат очистки неуспешным, не затрагивая чужие процессы.
 Повторная recovery не превращает первый неуспешный запуск или cleanup в успешный.
+
+Tooling wrapper и workflow используют один `verify.mjs` с исходным сроком suite 30 секунд.
+Workflow закрепляет Node через `.node-version` и pinned `setup-node`. Существующий внешний
+`owned-process.py` владеет всем деревом тестов, включая отдельные sessions, при timeout,
+SIGTERM и SIGKILL Node owner. Регрессионные проверки завершаются по фактическому отсутствию
+всех зарегистрированных PID, сохраняя независимый foreign sentinel; вложенный fault fixture
+пропускает только рекурсивный запуск самого wrapper test. Обычный suite выполняет эти тесты полностью.
 
 ## Закреплённые API и выпуск
 
