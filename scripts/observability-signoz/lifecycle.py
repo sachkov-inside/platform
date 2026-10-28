@@ -52,6 +52,9 @@ NATIVE_OPERATIONS = frozenset((('unknown','unknown'),('image_pull','amd64_digest
     ('image_inspect','amd64_digest_reference'),('image_inspect','digest_reference'),
     ('compose_create','initial_helpers'),('compose_create','all_roles')))
 STDERR_CATEGORIES = frozenset(('unclassified','unknown_platform_flag'))
+RAW_COMMAND_CLASSES = frozenset(('context_show','context_inspect','daemon_info',
+    'container_inspect','disk_exec','unknown'))
+_RAW_FAILURE_AUTHORITY = object()
 ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
            'postgres': 'signoz-metastore-postgres-0',
            'clickhouse': 'signoz-telemetrystore-clickhouse-0-0',
@@ -116,6 +119,31 @@ class Refusal(Exception):
 def need(ok, reason):
     if not ok:
         raise Refusal(reason)
+
+
+def raw_command_class(args, engine, binary):
+    """Recognize owned command forms without retaining their private arguments."""
+    if binary is not None:return 'unknown'
+    if args==['context','show']:return 'context_show'
+    if len(args)==5 and args[:2]==['context','inspect'] and args[3:]==['--format','{{.Endpoints.docker.Host}}']:
+        return 'context_inspect'
+    if len(args)==5 and args[0] in ('--context','--host') and args[2:4]==['info','--format'] and args[4] in ('{{json .}}','{{.Architecture}}','{{json .ClientInfo.Plugins}}'):
+        return 'daemon_info'
+    if len(args)>=4 and args[:4]==['--config',str(engine.anon),'--host',engine.endpoint]:
+        logical=args[4:]
+        if len(logical)==2 and logical[0]=='inspect':return 'container_inspect'
+        if len(logical)==5 and logical[0]=='exec' and logical[2:]==['python','/driver/inside.py','disk']:
+            return 'disk_exec'
+    return 'unknown'
+
+
+def first_raw_command(error):
+    try:
+        context=vars(error).get('_signoz_raw_failure')
+        if type(context) is tuple and len(context)==2 and context[0] is _RAW_FAILURE_AUTHORITY:
+            return dict(context[1])
+    except BaseException:pass
+    return None
 
 
 def digest(path):
@@ -296,7 +324,7 @@ class Engine:
             process_group=0,env={k:v for k,v in os.environ.items() if not k.startswith(('DOCKER_','COMPOSE_'))})
         with self.lock:
             self.child.add(proc);self.child_threads[proc]=threading.get_ident()
-        selector=selectors.DefaultSelector();data=[bytearray(),bytearray()];deadline=time.monotonic()+timeout
+        selector=selectors.DefaultSelector();data=[bytearray(),bytearray()];started=time.monotonic();deadline=started+timeout
         def monitor_cancelled_before_deadline():
             if threading.current_thread().name!='owned-signoz-storage' or not getattr(self,'monitor_stop',threading.Event()).is_set():return False
             with self.lock:
@@ -335,8 +363,17 @@ class Engine:
         except BaseException as error:
             # Genuine exit is captured before owned group termination. Raw bytes stay private.
             try:
+                native_exit=proc.poll();alive_before_reap=native_exit is None
+                try:
+                    # Bind to this exact exception, never the mutable latest engine failure.
+                    # A non-raw exception cannot supply this in-memory authority marker.
+                    vars(error).setdefault('_signoz_raw_failure',(_RAW_FAILURE_AUTHORITY,{
+                        'command_class':raw_command_class(args,self,binary),
+                        'timeout_seconds':timeout,'elapsed_seconds':time.monotonic()-started,
+                        'native_exit':native_exit,'alive_before_reap':alive_before_reap}))
+                except BaseException:pass
                 index=getattr(self,'failure_index',0)+1;self.failure_index=index
-                row={'native_exit':proc.poll(),'alive_before_reap':proc.poll() is None,
+                row={'native_exit':native_exit,'alive_before_reap':alive_before_reap,
                     'category':type(error).__name__,'reason':error.reason if isinstance(error,Refusal) else 'native_failure'}
                 row.update(operation or {'operation':'unknown','argument_category':'unknown'})
                 row['stderr_category']=stderr_category(bytes(data[1]))
@@ -746,7 +783,8 @@ def storage_guard(engine, owned, run):
                 if reason=='monitor_stopping':stage=StorageMonitorStage.CANCELLATION
                 # One sticky first monitor failure. Arbitrary exception classes and
                 # reasons stay private; the public projection accepts enums only.
-                if not failed:failed.append({'stage':stage,'category':type(error).__name__,'reason':reason})
+                if not failed:failed.append({'stage':stage,'category':type(error).__name__,'reason':reason,
+                    'inner_command':first_raw_command(error)})
                 if not stop.is_set():
                     os.kill(os.getpid(),signal.SIGUSR1)
                 return
