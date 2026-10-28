@@ -120,6 +120,7 @@ class Preparation(unittest.TestCase):
             self.assertIn('storage',plan['services']['loadgen']['networks'])
             self.assertEqual(plan['services']['loadgen']['cpus'],2)
             self.assertEqual(plan['services']['loadgen']['mem_limit'],'96m')
+            self.assertIn(str(fullstack.HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',plan['services']['loadgen']['volumes'])
             self.assertEqual(plan['services']['provider']['cpus'],'0.25')
             self.assertNotIn('profiles',plan['services']['host-agent'])
             for name in fullstack.APPS:

@@ -4,6 +4,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
+import { phaseTiming } from "./phase-timing.mjs";
 import {
   sourceCacheObservation,
   sourceCacheQuery,
@@ -141,7 +142,7 @@ async function call(
     throw new Error("private target only");
   const started = performance.now();
   return await new Promise(
-    /** @param {(value: {status:number,value:unknown,seconds:number}) => void} resolve */ (
+    /** @param {(value: {status:number,value:unknown,seconds:number,started_ms:number,ended_ms:number}) => void} resolve */ (
       resolve,
     ) => {
       let done = false,
@@ -154,10 +155,13 @@ async function call(
         if (done) return;
         done = true;
         clearTimeout(timer);
+        const ended = performance.now();
         resolve({
           status,
           value,
-          seconds: (performance.now() - started) / 1000,
+          seconds: (ended - started) / 1000,
+          started_ms: started,
+          ended_ms: ended,
         });
       };
       const tls = host === "site.resource.test" || host === "api.resource.test";
@@ -524,6 +528,8 @@ async function operation(index, enabled, phase) {
       status: 204,
       value: null,
       seconds: 0,
+      started_ms: 0,
+      ended_ms: 0,
       label: "analytics_disabled",
     };
   const site = analytics().site;
@@ -628,10 +634,12 @@ async function load(definition, enabled, pair) {
     acknowledged = 0,
     telegramAccepted = 0;
   const epoch = Date.now(),
+    anchorAfter = performance.now(),
     phase =
       pair * 6 +
       (enabled ? 3 : 0) +
       ["idle", "steady", "spike"].indexOf(definition.name);
+  const timing = phaseTiming(phase, pair, start, epoch, anchorAfter);
   /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
   /** @type {number[]} */ const querySeconds = [];
   /** Closed finite corpus keys only; no response, URL or credential is retained.
@@ -644,11 +652,19 @@ async function load(definition, enabled, pair) {
   let sourceCacheFailureOverflow = 0;
   /** @type {Set<Promise<void>>} */ const active = new Set();
   let querying = true,
-    queryFailure = false;
+    queryFailure = false,
+    queryOrdinal = 0;
   const queries = enabled
     ? (async () => {
         while (querying) {
+          const roundStart = performance.now();
           const value = await readMonitoring();
+          timing.observer(
+            queryOrdinal++,
+            roundStart,
+            performance.now(),
+            "failure" in value ? value.failure : undefined,
+          );
           if ("failure" in value) {
             queryFailure = true;
             if ("sourceCache" in value && value.sourceCache) {
@@ -729,11 +745,13 @@ async function load(definition, enabled, pair) {
               "telegram_webhook",
               "logto_discovery",
             ].includes(value.label)
-          )
+          ) {
             latency.push({
               label: value.label,
               elapsed_ms: value.seconds * 1000,
             });
+            timing.request(index, index % 8, value.started_ms, value.ended_ms);
+          }
         })
         .finally(() => active.delete(work));
       active.add(work);
@@ -745,6 +763,7 @@ async function load(definition, enabled, pair) {
     querying = false;
     await queries;
   }
+  timing.finish(performance.now(), Date.now(), performance.now());
   let stored = enabled ? await retained(phase) : 0;
   const flushStart = performance.now();
   while (
@@ -777,6 +796,7 @@ async function load(definition, enabled, pair) {
     success,
     unexpected_failures: unexpected,
     latency,
+    timing_diagnostics: timing.result,
     query_seconds: querySeconds,
     query_failure_counts: queryFailureCounts,
     query_failure_status_counts: queryFailureStatuses,

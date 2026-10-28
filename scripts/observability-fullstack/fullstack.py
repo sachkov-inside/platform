@@ -126,7 +126,7 @@ def inputs(output, images):
     storage.configure(output,plan)
     for item in plan['services'].values():item['pull_policy']='never';item.pop('restart',None)
     for name in ('loadgen','provider'):
-        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
+        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
@@ -475,6 +475,9 @@ def worker(output):
                         measured['counter_summary']=technical.summarize([sample['counters'] for sample in measured['samples']])
                         if any(sample['counters']['errors'] for sample in measured['samples']):measured['errors'].append('counter_missing')
                         del measured['samples']
+                        # Detailed windows stay in the already collected raw phase,
+                        # avoiding twelve duplicate ledgers in the bounded summary.
+                        measured['load'].pop('timing_diagnostics',None)
                         report['phases'].append(measured)
                         call('phase_report',pilot.write_json,output/'fullstack-proof.json',report,group=group,phase=index)
             # One explicitly accounted outage, then a fresh known probe after restart.

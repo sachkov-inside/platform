@@ -14,6 +14,7 @@ import {
   assertResourceContracts,
   resourceTimingSummary,
 } from "./observability-resource/source-progress.mjs";
+import "./observability-fullstack/test-phase-timing.mjs";
 
 /** Synthetic source callbacks only; this fixture never runs the real item84 modes. */
 function timingWire() {

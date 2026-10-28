@@ -7,6 +7,7 @@ import { createServer } from "node:http";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 const directory = process.argv[2];
 assert.ok(directory);
 const client = fileURLToPath(new URL("./client.mjs", import.meta.url));
@@ -27,6 +28,14 @@ function field(value, key) {
 function first(value) {
   assert.ok(Array.isArray(value) && value.length > 0);
   return value[0];
+}
+/** @param {unknown} value @returns {value is [number, number, number, number]} */
+function timingRow(value) {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
+  );
 }
 /** @param {unknown} value @param {string} key */
 function attribute(value, key) {
@@ -82,6 +91,8 @@ const server = createServer(async (request, response) => {
   let status = 200;
   /** @type {unknown} */ let value;
   if (host === "alloy") {
+    // deterministic-test-allow duration-wait: model the actual probe prelude in the externally owned HTTP contract; it must remain outside application HTTP timing.
+    await delay(15);
     /** @type {unknown} */ const input = JSON.parse(body);
     const resource = first(field(input, "resourceMetrics"));
     const version = attribute(
@@ -264,8 +275,77 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       "unexpected_failures" in result &&
       "completed" in result,
   );
+  const timing = field(result, "timing_diagnostics");
+  assert.equal(field(timing, "state"), "complete");
+  assert.equal(field(timing, "phase"), queryFailures ? 3 : enabled ? 5 : 2);
+  assert.equal(field(timing, "pair"), 0);
+  const phaseStart = field(timing, "phase_start");
+  const phaseEnd = field(timing, "phase_end");
+  assert.ok(Array.isArray(phaseStart) && Array.isArray(phaseEnd));
+  for (const anchor of [phaseStart, phaseEnd]) {
+    assert.equal(anchor.length, 3);
+    assert.ok(
+      anchor.every(
+        (value) => typeof value === "number" && Number.isFinite(value),
+      ),
+    );
+    assert.ok(anchor[0] <= anchor[2]);
+    assert.ok(Number.isSafeInteger(anchor[1]) && anchor[1] >= 0);
+  }
+  assert.ok(phaseEnd[0] - phaseStart[0] >= 10000);
+  const requests = field(timing, "requests");
+  const rounds = field(timing, "observer_rounds");
+  assert.ok(Array.isArray(requests) && Array.isArray(rounds));
+  const latencies = field(result, "latency");
+  assert.ok(Array.isArray(latencies));
+  assert.equal(requests.length, latencies.length);
+  const labels = [
+    "web_home",
+    "web_material",
+    "api_catalog",
+    "api_account",
+    "",
+    "",
+    "telegram_webhook",
+    "logto_discovery",
+  ];
+  for (const [index, row] of requests.entries()) {
+    assert.ok(timingRow(row));
+    assert.equal(row[0] % 8, row[1]);
+    assert.equal(field(latencies[index], "label"), labels[row[1]]);
+    assert.ok(
+      Math.abs(
+        row[3] - row[2] - Number(field(latencies[index], "elapsed_ms")),
+      ) < 1e-8,
+    );
+    assert.ok(row[2] >= 0 && row[3] >= row[2]);
+  }
+  for (const [index, row] of rounds.entries()) {
+    assert.ok(timingRow(row));
+    assert.equal(row[0], index);
+    assert.ok(row[1] >= 0 && row[2] >= row[1]);
+    if (index > 0) {
+      /** @type {unknown} */ const previous = rounds[index - 1];
+      assert.ok(timingRow(previous));
+      assert.ok(row[1] - previous[2] >= 499);
+    }
+    assert.ok(Number.isInteger(row[3]) && row[3] >= 0 && row[3] <= 9);
+  }
+  assert.equal(field(timing, "request_overflow"), 0);
+  assert.equal(field(timing, "observer_overflow"), 0);
+  assert.equal(field(timing, "invalid_rows"), 0);
+  assert.equal(JSON.stringify(timing).includes("synthetic"), false);
+  if (enabled) assert.ok(rounds.length > 0);
+  else assert.deepEqual(rounds, []);
   if (queryFailures) {
     assert.equal(result.completed, false);
+    assert.deepEqual(
+      rounds.slice(0, 17).map((row) => {
+        assert.ok(timingRow(row));
+        return row[3];
+      }),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 1, 8, 9, 9, 9, 9, 9],
+    );
     assert.deepEqual(field(result, "query_failure_counts"), {
       metrics_http: 3,
       metrics_response: 1,
