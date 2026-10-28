@@ -467,6 +467,94 @@ describe("bot sign-in provider", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("acknowledges a request approved before the update when the browser completes it", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await callback(challenge, 42);
+    await database
+      .deleteFrom("start_response_deliveries")
+      .where("source_key", "=", `sign-in-decision:${challenge.requestRef}`)
+      .execute();
+    const proof = await status(challenge, true);
+    if (proof.status !== "verified") throw new Error("Expected verified proof");
+    expect(
+      (
+        await request(`/${challenge.requestRef}/account-link`, {
+          contractVersion,
+          subjectRef: proof.subjectRef,
+          accountRef: randomUUID(),
+        })
+      ).json(),
+    ).toMatchObject({ status: "linked" });
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    );
+    expect(
+      await queue.claimNext(new Date(fixedTestInstant()), true),
+    ).toMatchObject({
+      editMessageId: "100",
+      messageText:
+        "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
+    });
+    expect(
+      await queue.claimNext(new Date(fixedTestInstant()), true),
+    ).toBeUndefined();
+  });
+
+  it("keeps legacy Account completion messages blocked until linked", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await callback(challenge, 42);
+    await database
+      .deleteFrom("start_response_deliveries")
+      .where("source_key", "=", `sign-in-decision:${challenge.requestRef}`)
+      .execute();
+    const proof = await status(challenge, true);
+    if (proof.status !== "verified") throw new Error("Expected verified proof");
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    );
+    await queue.enqueue({
+      botIdentity: config.botIdentity,
+      telegramUserId: "42",
+      privateChatId: "42",
+      messageText: "Вход подтверждён. Вернитесь на сайт.",
+      sourceKey: `sign-in-result:${challenge.requestRef}`,
+      signInRequestRef: challenge.requestRef,
+      editMessageId: "100",
+      now: new Date(fixedTestInstant()),
+    });
+    expect(
+      await queue.claimNext(
+        new Date(fixedTestInstant()),
+        true,
+        `sign-in-result:${challenge.requestRef}`,
+      ),
+    ).toBeUndefined();
+    expect(
+      (
+        await request(`/${challenge.requestRef}/account-link`, {
+          contractVersion,
+          subjectRef: proof.subjectRef,
+          accountRef: randomUUID(),
+        })
+      ).json(),
+    ).toMatchObject({ status: "linked" });
+    expect(
+      await queue.claimNext(
+        new Date(fixedTestInstant()),
+        true,
+        `sign-in-result:${challenge.requestRef}`,
+      ),
+    ).toMatchObject({ messageText: "Вход подтверждён. Вернитесь на сайт." });
+  });
+
   it("rolls back approval when its acknowledgement cannot be persisted and accepts a retry", async () => {
     const challenge = await register();
     await start(challenge, 42);

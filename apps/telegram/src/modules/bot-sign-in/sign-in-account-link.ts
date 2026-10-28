@@ -11,6 +11,8 @@ import { CLOCK, type Clock } from "../../shared/clock.js";
 import { IdentityLinking } from "../identity-linking/identity-linking.js";
 import { isRequestRef } from "./bot-sign-in.js";
 
+import { queueSignInResult } from "./queue-sign-in-result.js";
+
 /** Finalizes an already consumed proof for the Account selected by the trusted Platform. */
 @Injectable()
 export class SignInAccountLink {
@@ -56,6 +58,14 @@ export class SignInAccountLink {
           now,
         });
         if (!reserved) return false;
+        // Also covers requests approved by a build that did not queue a decision receipt.
+        await queueSignInResult(
+          transaction,
+          requestRef,
+          now,
+          "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
+          this.config.signInReturnUrl,
+        );
         return true;
       });
     if (!accepted) return { status: "unavailable" } as const;

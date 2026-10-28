@@ -10,6 +10,13 @@ export async function queueSignInResult(
   text: string,
   returnUrl?: string,
 ): Promise<void> {
+  // An older build may already own the result; retain its delivery semantics and avoid a second edit.
+  const legacy = await database
+    .selectFrom("start_response_deliveries")
+    .select("id")
+    .where("source_key", "=", `sign-in-result:${requestRef}`)
+    .executeTakeFirst();
+  if (legacy) return;
   const request = await database
     .selectFrom("sign_in_requests")
     .select([
@@ -34,7 +41,7 @@ export async function queueSignInResult(
     ...(hasText(returnUrl)
       ? { buttons: [{ text: "Открыть Inside", url: returnUrl }] }
       : {}),
-    sourceKey: `sign-in-result:${requestRef}`,
+    sourceKey: `sign-in-decision:${requestRef}`,
     signInRequestRef: requestRef,
     editMessageId: request.confirmation_message_id,
     now,
