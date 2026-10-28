@@ -129,6 +129,22 @@ def inside_failures(output):
     return {'available':bool(result),'samples':result}
 
 
+def storage_monitor(value):
+    require(type(value) is dict and type(value.get('monitor_failed')) is bool)
+    failed=value['monitor_failed'];rows=value.get('failure')
+    require(type(rows) is list and len(rows)<=1 and bool(rows)==failed)
+    first=None
+    if failed:
+        row=rows[0];require(type(row) is dict)
+        stage=row.get('stage');reason=row.get('reason')
+        first={'stage':stage if type(stage) is str and stage in lifecycle.StorageMonitorStage else 'unknown',
+               'reason':reason if type(reason) is str and reason in lifecycle.StorageMonitorReason else 'unknown'}
+    finalization=value.get('finalization_stage')
+    require(type(finalization) is str and finalization in ('complete','cancel_children','monitor_join','monitor_not_reaped'))
+    return {'available':True,'failed':failed,'first_failure':first,
+            'monitor_reaped':boolean(value.get('monitor_reaped')),'finalization_stage':finalization}
+
+
 def images(value):
     require(type(value) is dict and set(value) == set(lifecycle.SERVICES))
     lock = lifecycle.verify_packet(); rows = {r['repository'].split('/')[-1]: r for r in lock['images']}
@@ -249,6 +265,9 @@ def collect(output, destination, verify_source):
             require(safe_root); report[name] = project(read(output / (name + '.json')))
         except Exception: report[name] = {'available': False}
     report['failure']['absent']=safe_root and not (output/'failure.json').exists() and not (output/'failure.json').is_symlink()
+    try:
+        require(safe_root);report['storage_monitor']=storage_monitor(read(output/'disk-last.json'))
+    except Exception:report['storage_monitor']={'available':False}
     try:
         require(safe_root); source = read(output / 'source.json'); verify_source(source)
         report['source'] = {'available': True, 'binding': source}
