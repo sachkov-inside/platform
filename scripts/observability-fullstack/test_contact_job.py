@@ -101,7 +101,7 @@ sys.exit(0)
             with self.subTest(name=name),tempfile.TemporaryDirectory() as directory:
                 output=self.output(directory);(output/name).write_text('foreign')
                 with patch.object(contact_job.subprocess,'Popen') as spawn:
-                    with self.assertRaises((ValueError,OSError)): 
+                    with self.assertRaises((ValueError,OSError)):
                         with contact_job.start(output,['never']):pass
                     spawn.assert_not_called()
                 self.assertEqual((output/name).read_text(),'foreign')
