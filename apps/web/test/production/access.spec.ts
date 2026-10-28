@@ -30,7 +30,7 @@ import {
 import {
   expiredGrantEndsAt,
   productA,
-  retiredPracticeId,
+  retiredTaskCode,
   freeTaskCode,
   identityEmail,
   passCells,
@@ -130,14 +130,14 @@ test("production access observes every live cell in one isolated scenario", asyn
           const call = await callMcpTool(
             productionTarget.learnerMcp,
             await learnerTokenOf(identity),
-            "learning_practice_read",
-            { practiceId: retiredPracticeId, part: 0 },
+            "learning_task_read",
+            { code: retiredTaskCode, part: 0 },
           );
-          expectDenial(identity, call, "practice_not_available");
-          assertMcpDenial(call.raw, "practice_not_available");
+          expectDenial(identity, call, "task_not_available");
+          assertMcpDenial(call.raw, "task_not_available");
           return {
             observed: "denied",
-            note: "practice_not_available; контекст не выдан",
+            note: "task_not_available; контекст не выдан",
           };
         }
         return action === "read-free-practice"
@@ -458,8 +458,8 @@ test("production access observes every live cell in one isolated scenario", asyn
   /** Все части одного snapshot: проверяются pins, bytes, SHA-256 и завершающий маркер. */
   async function readContextParts(
     token: string | null,
-    tool: "learning_task_read" | "learning_practice_read",
-    reference: { readonly code: string } | { readonly practiceId: string },
+    tool: "learning_task_read",
+    reference: { readonly code: string },
     firstCall: McpToolCall,
   ): Promise<unknown> {
     const partSchema = z.object({
@@ -611,8 +611,8 @@ test("production access observes every live cell in one isolated scenario", asyn
     const call = await callMcpTool(
       productionTarget.ownerMcp,
       await platformTokenOf(actor),
-      "billing_tiers_list",
-      { operationId: randomUUID(), limit: 1 },
+      "billing_productPrices_list",
+      { operationId: randomUUID(), productId: productA.id, limit: 1 },
     );
     const observation = mcpObservation(call, undefined);
     if (observation.observed === "denied")

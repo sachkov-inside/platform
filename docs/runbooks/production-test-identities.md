@@ -31,11 +31,12 @@ Product Task `aie-ch2-accounts-design` для задания. Эти fixtures п
 Клетки матрицы с названием `practice` проверяют закрытый Product Task через страницу задания и
 read-only `learning_task_read`. Код и заголовок задания публичны; отказ проверяет отсутствие
 закрытого текста. Разрешённое MCP-чтение проверяет все закреплённые части, SHA-256 и `END_CONTEXT`.
-Account `no-entitlement` также читает все закреплённые части бесплатной практики
-`inside-content:aie-github-app` через learner MCP (#938, решение владельца 06.10.2026).
-Проход сверяет версию, SHA-256 полного контекста и `END_CONTEXT`; закрытые уроки Product A
-остаются клетками отказа. Бесплатный доступ этой практики должен сохраняться при переносах Content
-(inside-content#33).
+Account `no-entitlement` проверяет отказ `task_not_available` без контекста на прежний код
+снятой практики `aie-github-app` через действующий `learning_task_read`. Это отрицательная
+проверка: старую практику не переносят в Product Tasks ради прохода. Положительная клетка
+бесплатной практики отложена, как описано ниже. Materials-only и Billing-only проверяют
+`billing:manage` через read-only `billing_productPrices_list` для Product A: первый получает
+`forbidden`, второй читает цену.
 
 Второго опубликованного Product и опубликованного видео Product A в production нет. По решениям
 владельца в #905 и #906 клетки Product B помечены «отложено до второго Product», а клетки video —

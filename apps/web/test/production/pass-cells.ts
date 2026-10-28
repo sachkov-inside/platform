@@ -83,7 +83,7 @@ const surfaceChecks: Readonly<Record<string, string>> = {
   "practice@learner-mcp": "часть 0 задания через learning_task_read",
   "materials-authoring@browser":
     "инструменты материалов: GET /api/authoring/materials",
-  "billing-operations@owner-mcp": "каталог тарифов: billing_tiers_list",
+  "billing-operations@owner-mcp": "цена Product A: billing_productPrices_list",
 };
 const actionLabels: Readonly<Record<string, string>> = {
   "read-product-a": "Product A",
@@ -99,7 +99,7 @@ export function passCellCheck(id: string): string {
   const { action, surface, transport } = passCellParts(id);
   const check =
     action === "read-retired-practice"
-      ? "learning_practice_read не отдаёт контекст старой практики"
+      ? "learning_task_read не отдаёт контекст снятого задания"
       : action === "read-free-practice" &&
           surface === "practice" &&
           transport === "learner-mcp"

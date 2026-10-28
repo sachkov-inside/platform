@@ -10,12 +10,12 @@ import { problemLine } from "../production/pass-report";
 
 describe("production access pass MCP answers", () => {
   it("rejects retired-practice denials with context in any envelope or content block", () => {
-    const denial = { ok: false, error: { code: "practice_not_available" } };
+    const denial = { ok: false, error: { code: "task_not_available" } };
     const content = { type: "text", text: JSON.stringify(denial) };
     const rpc = (result: unknown) =>
       JSON.stringify({ jsonrpc: "2.0", id: 1, result });
     expect(() => {
-      assertMcpDenial(rpc({ content: [content] }), "practice_not_available");
+      assertMcpDenial(rpc({ content: [content] }), "task_not_available");
     }).not.toThrow();
     const leaking = [
       { content: [content, { type: "text", text: "protected context" }] },
@@ -39,7 +39,7 @@ describe("production access pass MCP answers", () => {
     ];
     for (const result of leaking)
       expect(() => {
-        assertMcpDenial(rpc(result), "practice_not_available");
+        assertMcpDenial(rpc(result), "task_not_available");
       }).toThrow();
   });
   it("reads the owner MCP result, which has no value field", () => {
@@ -47,7 +47,7 @@ describe("production access pass MCP answers", () => {
       parseToolPayload({
         ok: true,
         operationRef: "b9c1f1d2-7f5e-4f53-9d1e-3c2a0e9f4a11",
-        result: { outcome: "tiers", value: { items: [] } },
+        result: { outcome: "productPrices", value: { items: [] } },
       }),
     ).toMatchObject({ ok: true });
     expect(
@@ -59,7 +59,7 @@ describe("production access pass MCP answers", () => {
     expect(() =>
       parseToolPayload({
         ok: false,
-        error: { code: "practice_not_available" },
+        error: { code: "task_not_available" },
         value: { data: "{}" },
       }),
     ).toThrow();
