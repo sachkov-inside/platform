@@ -391,7 +391,8 @@ class Stability(unittest.TestCase):
 
     def test_additive_workflow_does_not_change_existing_jobs_or_release_coverage(self):
         workflow=(fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text();original=workflow.split('\n  stability:\n')[0]
-        self.assertEqual(hashlib.sha256(original.rstrip().encode()).hexdigest(),'5f674342ab4e6ebb7e91d3696076b2b24666f36a66d9d9c19592c2e8095bc8f1')
+        # #1566 host-Node-only baseline at 188f5b69a; the exact hash still protects both original jobs.
+        self.assertEqual(hashlib.sha256(original.rstrip().encode()).hexdigest(),'1473ec8f69a7102099a27fe95fdae45ab4b0997c3b5ce708f7f9eef7e224faff')
         diagnostic=workflow.split('\n  stability:\n')[1]
         self.assertIn("contains(github.event.pull_request.body || '', '<!-- monitoring-stability: run -->')",diagnostic)
         self.assertIn('fullstack.py diagnostic-admission',diagnostic)
