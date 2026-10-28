@@ -5,6 +5,8 @@ import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import {
+  sourceCacheObservation,
+  sourceCacheQuery,
   probeVersion,
   nativeStats,
   accountId,
@@ -103,7 +105,7 @@ function queryOne(raw) {
     pair[1] === "1"
   );
 }
-/** @param {string} host @param {number} port @param {string} path @param {string} [method] @param {unknown} [body] @param {Record<string,string>} [headers] */
+/** @param {string} host @param {number} port @param {string} path @param {string} [method] @param {unknown} [body] @param {Record<string,string>} [headers] @param {number} [maximumBytes] */
 async function call(
   host,
   port,
@@ -111,6 +113,7 @@ async function call(
   method = "GET",
   body = undefined,
   headers = {},
+  maximumBytes = 1_048_576,
 ) {
   if (
     (host === "inside-web-http" &&
@@ -187,7 +190,7 @@ async function call(
               return;
             }
             bytes += chunk.length;
-            if (bytes > 1_048_576) {
+            if (bytes > maximumBytes) {
               finish(0, null);
               req.destroy();
             } else chunks.push(chunk);
@@ -231,14 +234,16 @@ async function sourceCacheReady() {
     "gateway",
     8080,
     "/metrics/api/v1/query?query=" +
-      encodeURIComponent(expression) +
+      encodeURIComponent(sourceCacheQuery(expression)) +
       "&nocache=1",
     "GET",
     undefined,
     { authorization: "Bearer " + key() },
+    4096,
   );
+  const observation = sourceCacheObservation(result);
   return {
-    ok: result.status === 200 && vector(result.value) === 2,
+    ...observation,
     failure:
       result.status !== 200 ? "source_cache_http" : "source_cache_response",
     status: result.status,
@@ -394,7 +399,11 @@ async function readMonitoring() {
   const sources = await sourceCacheReady();
   return sources.ok
     ? { seconds: Math.max(maximum, stats.seconds, sources.seconds) }
-    : { failure: sources.failure, status: sources.status };
+    : {
+        failure: sources.failure,
+        status: sources.status,
+        sourceCache: sources.diagnostic,
+      };
 }
 async function lag() {
   const result = await call(
@@ -629,6 +638,10 @@ async function load(definition, enabled, pair) {
    * @type {Record<string, number>} */ const queryFailureCounts = {};
   /** @type {Record<string, Record<string, number>>} */ const queryFailureStatuses =
     {};
+  /** @type {Record<string,number>} */ const sourceCacheFailureCounts = {};
+  /** @type {import("./responses.mjs").SourceCacheDiagnostic[]} */ const sourceCacheFailures =
+    [];
+  let sourceCacheFailureOverflow = 0;
   /** @type {Set<Promise<void>>} */ const active = new Set();
   let querying = true,
     queryFailure = false;
@@ -638,6 +651,14 @@ async function load(definition, enabled, pair) {
           const value = await readMonitoring();
           if ("failure" in value) {
             queryFailure = true;
+            if ("sourceCache" in value && value.sourceCache) {
+              const diagnostic = value.sourceCache;
+              sourceCacheFailureCounts[diagnostic.reason] =
+                (sourceCacheFailureCounts[diagnostic.reason] ?? 0) + 1;
+              if (sourceCacheFailures.length < 4)
+                sourceCacheFailures.push(diagnostic);
+              else sourceCacheFailureOverflow++;
+            }
             queryFailureCounts[value.failure] =
               (queryFailureCounts[value.failure] ?? 0) + 1;
             const statuses = (queryFailureStatuses[value.failure] ??= {});
@@ -759,6 +780,9 @@ async function load(definition, enabled, pair) {
     query_seconds: querySeconds,
     query_failure_counts: queryFailureCounts,
     query_failure_status_counts: queryFailureStatuses,
+    source_cache_failure_counts: sourceCacheFailureCounts,
+    source_cache_failures: sourceCacheFailures,
+    source_cache_failure_overflow: sourceCacheFailureOverflow,
     ingestion_lag_seconds: age,
   };
 }

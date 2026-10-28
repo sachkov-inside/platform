@@ -745,7 +745,7 @@ test("fullstack ON load reads native stats and reconciles the admitted privacy c
               scheduled: 400,
               mcp_sse: 50,
             }
-          : { ok: true, closed_query_failures: 11, scheduled: 0 },
+          : { ok: true, closed_query_failures: 17, scheduled: 0 },
       );
     }
   } finally {

@@ -271,3 +271,167 @@ export function nativeStats(value) {
     Number(value["pageviews"]) >= 1
   );
 }
+
+/** The original predicate remains the only positive verdict. Diagnostic branches share its evaluation cut.
+ * Known fixed exporter labels are removed; unexpected native labels survive for strict refusal.
+ * `job` distinguishes union branches because vector `or` ignores metric names.
+ * @param {string} predicate
+ */
+export function sourceCacheQuery(predicate) {
+  const selector =
+    '{job="platform-owner-cache",instance="production-host",source=~"postgresql|caddy"}';
+  const available = "inside_production_source_available" + selector;
+  const observed = "inside_production_source_observed_at_seconds" + selector;
+  /** @param {string} expression */
+  const clean = (expression) =>
+    "label_del(" + expression + ',"__name__","job","instance")';
+  return [
+    "label_set((" +
+      predicate +
+      '),"source","cohort","job","source_cache_ready")',
+    'label_set(time(),"source","cohort","job","source_cache_evaluation")',
+    "label_set(" + clean(available) + ',"job","source_cache_available")',
+    "label_set(" + clean(observed) + ',"job","source_cache_observed")',
+    "label_set(" + clean("time()-" + observed) + ',"job","source_cache_age")',
+  ].join(" or ");
+}
+
+/** @typedef {{available:number|null,observed_at_seconds:number|null,age_seconds:number|null}} CacheSource */
+/** @typedef {{reason:string,ready:number|null,evaluation_seconds:number|null,sources:{postgresql:CacheSource,caddy:CacheSource}}} SourceCacheDiagnostic */
+/** One bounded native response, never raw labels or values outside the closed numeric domain.
+ * Missing ready is unknown, not zero. Diagnostics never manufacture a positive verdict.
+ * @param {{status:number,value:unknown}} response
+ * @returns {{ok:boolean,diagnostic:SourceCacheDiagnostic}}
+ */
+export function sourceCacheObservation(response) {
+  /** @type {SourceCacheDiagnostic} */
+  const diagnostic = {
+    reason: "schema",
+    ready: null,
+    evaluation_seconds: null,
+    sources: {
+      postgresql: {
+        available: null,
+        observed_at_seconds: null,
+        age_seconds: null,
+      },
+      caddy: { available: null, observed_at_seconds: null, age_seconds: null },
+    },
+  };
+  /** @param {string} reason */
+  const refuse = (reason) => {
+    diagnostic.reason = reason;
+    return { ok: false, diagnostic };
+  };
+  if (response.status !== 200) return refuse("http");
+  const raw = response.value;
+  if (
+    !record(raw) ||
+    raw["status"] !== "success" ||
+    !record(raw["data"]) ||
+    raw["data"]["resultType"] !== "vector" ||
+    !Array.isArray(raw["data"]["result"])
+  )
+    return refuse("schema");
+  const rows = raw["data"]["result"];
+  if (rows.length > 8) return refuse("row_count");
+  const seen = new Set();
+  /** @type {Record<string,number>} */
+  const numbers = {};
+  let cut = null;
+  for (const row of rows) {
+    if (
+      !record(row) ||
+      Object.keys(row).length !== 2 ||
+      !record(row["metric"]) ||
+      !Array.isArray(row["value"]) ||
+      row["value"].length !== 2
+    )
+      return refuse("schema");
+    const labels = row["metric"];
+    /** @type {unknown[]} */ const pair = row["value"];
+    if (
+      Object.keys(labels).length !== 2 ||
+      Object.keys(labels).some((key) => key !== "job" && key !== "source") ||
+      typeof labels["job"] !== "string" ||
+      typeof labels["source"] !== "string"
+    )
+      return refuse("labels");
+    const job = labels["job"],
+      source = labels["source"];
+    const cohort = source === "cohort";
+    if (
+      !(cohort
+        ? ["source_cache_ready", "source_cache_evaluation"].includes(job)
+        : ["postgresql", "caddy"].includes(source) &&
+          [
+            "source_cache_available",
+            "source_cache_observed",
+            "source_cache_age",
+          ].includes(job))
+    )
+      return refuse("labels");
+    const timestamp = pair[0],
+      text = pair[1];
+    if (
+      typeof timestamp !== "number" ||
+      !Number.isFinite(timestamp) ||
+      timestamp <= 0 ||
+      timestamp >= Number.MAX_SAFE_INTEGER ||
+      typeof text !== "string" ||
+      !/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(text)
+    )
+      return refuse("numeric");
+    const number = Number(text);
+    if (
+      !Number.isFinite(number) ||
+      Math.abs(number) >= Number.MAX_SAFE_INTEGER ||
+      (job === "source_cache_ready" &&
+        (!Number.isSafeInteger(number) || number < 0 || number > 2)) ||
+      (job === "source_cache_available" && number !== 0 && number !== 1) ||
+      (job === "source_cache_observed" && number <= 0)
+    )
+      return refuse("numeric");
+    if (cut !== null && cut !== timestamp) return refuse("evaluation");
+    cut = timestamp;
+    const identity = source + ":" + job;
+    if (seen.has(identity)) return refuse("duplicate");
+    seen.add(identity);
+    numbers[identity] = number;
+  }
+  if (cut === null || numbers["cohort:source_cache_evaluation"] !== cut)
+    return refuse("evaluation");
+  diagnostic.evaluation_seconds = cut;
+  diagnostic.ready = numbers["cohort:source_cache_ready"] ?? null;
+  for (const source of /** @type {const} */ (["postgresql", "caddy"])) {
+    diagnostic.sources[source] = {
+      available: numbers[source + ":source_cache_available"] ?? null,
+      observed_at_seconds: numbers[source + ":source_cache_observed"] ?? null,
+      age_seconds: numbers[source + ":source_cache_age"] ?? null,
+    };
+  }
+  const sources = Object.values(diagnostic.sources);
+  if (
+    sources.some((value) =>
+      Object.values(value).some((number) => number === null),
+    )
+  )
+    return refuse("missing");
+  if (diagnostic.ready === 2) {
+    diagnostic.reason = "ready";
+    return { ok: true, diagnostic };
+  }
+  if (sources.some((value) => value.available !== 1))
+    return refuse("unavailable");
+  if (
+    sources.some((value) => value.age_seconds !== null && value.age_seconds < 0)
+  )
+    return refuse("future");
+  if (
+    sources.some(
+      (value) => value.age_seconds !== null && value.age_seconds > 10,
+    )
+  )
+    return refuse("stale");
+  return refuse(diagnostic.ready === null ? "ready_missing" : "ready_count");
+}

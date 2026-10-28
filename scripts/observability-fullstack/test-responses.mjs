@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  sourceCacheObservation,
+  sourceCacheQuery,
   probeVersion,
   nativeStats,
   operationOk,
@@ -384,4 +386,173 @@ test("native stats require a stored positive integral count and reject the MCP w
     { pageviews: Infinity },
   ])
     assert.equal(nativeStats(value), false);
+});
+
+/** Closed vector fixture uses the eight native VM rows witnessed by the pinned control. */
+function cacheVector() {
+  return {
+    status: "success",
+    data: {
+      resultType: "vector",
+      result: [
+        {
+          metric: { job: "source_cache_ready", source: "cohort" },
+          value: [1000, "2"],
+        },
+        {
+          metric: { job: "source_cache_evaluation", source: "cohort" },
+          value: [1000, "1000"],
+        },
+        ...["postgresql", "caddy"].flatMap((source) => [
+          {
+            metric: { job: "source_cache_available", source },
+            value: [1000, "1"],
+          },
+          {
+            metric: { job: "source_cache_observed", source },
+            value: [1000, "995"],
+          },
+          { metric: { job: "source_cache_age", source }, value: [1000, "5"] },
+        ]),
+      ],
+    },
+  };
+}
+/** @param {ReturnType<typeof cacheVector>} raw @param {number} index */
+function cacheRow(raw, index) {
+  const row = raw.data.result[index];
+  assert.ok(row);
+  return row;
+}
+test("source-cache projection keeps the original native predicate as the sole positive verdict", () => {
+  const raw = cacheVector();
+  const healthy = sourceCacheObservation({ status: 200, value: raw });
+  assert.equal(healthy.ok, true);
+  assert.deepEqual(healthy.diagnostic, {
+    reason: "ready",
+    ready: 2,
+    evaluation_seconds: 1000,
+    sources: {
+      postgresql: { available: 1, observed_at_seconds: 995, age_seconds: 5 },
+      caddy: { available: 1, observed_at_seconds: 995, age_seconds: 5 },
+    },
+  });
+  cacheRow(raw, 0).value[1] = "1";
+  assert.equal(sourceCacheObservation({ status: 200, value: raw }).ok, false);
+  raw.data.result.shift();
+  const absent = sourceCacheObservation({ status: 200, value: raw });
+  assert.equal(absent.ok, false);
+  assert.equal(absent.diagnostic.ready, null);
+  assert.equal(absent.diagnostic.reason, "ready_missing");
+  assert.ok(
+    sourceCacheQuery("count(vector(7))").startsWith(
+      'label_set((count(vector(7))),"source","cohort","job","source_cache_ready") or ',
+    ),
+  );
+});
+
+test("source-cache diagnostics distinguish native future, stale, unavailable and absent series without zero substitution", () => {
+  for (const [mode, field, number] of [
+    ["future", "source_cache_age", "-0.25"],
+    ["stale", "source_cache_age", "10.25"],
+    ["unavailable", "source_cache_available", "0"],
+  ]) {
+    const raw = cacheVector();
+    raw.data.result.shift();
+    const row = raw.data.result.find(
+      (value) =>
+        value.metric.source === "postgresql" && value.metric.job === field,
+    );
+    assert.ok(row);
+    row.value[1] = String(number);
+    const result = sourceCacheObservation({ status: 200, value: raw });
+    assert.equal(result.ok, false);
+    assert.equal(result.diagnostic.reason, mode);
+    assert.equal(result.diagnostic.ready, null);
+  }
+  const missing = cacheVector();
+  missing.data.result.splice(2, 3);
+  const result = sourceCacheObservation({ status: 200, value: missing });
+  assert.equal(result.ok, false);
+  assert.equal(result.diagnostic.reason, "missing");
+  assert.deepEqual(result.diagnostic.sources.postgresql, {
+    available: null,
+    observed_at_seconds: null,
+    age_seconds: null,
+  });
+});
+
+test("source-cache observation refuses private, duplicate, malformed and nonfinite native rows with only closed output", () => {
+  const sentinel = "private-sentinel";
+  /** @type {unknown[]} */
+  const cases = [
+    null,
+    {},
+    { status: "success", data: { resultType: "scalar", result: [] } },
+  ];
+  for (const label of ["extra", "cache_field", "cohort", "__name__"]) {
+    const raw = cacheVector();
+    Object.assign(cacheRow(raw, 2).metric, { [label]: sentinel });
+    cases.push(raw);
+  }
+  for (const text of [
+    "NaN",
+    "Infinity",
+    "",
+    " ",
+    "0x10",
+    "9007199254740992",
+    sentinel,
+  ]) {
+    const raw = cacheVector();
+    cacheRow(raw, 2).value[1] = text;
+    cases.push(raw);
+  }
+  for (const label of ["source", "job"]) {
+    const raw = cacheVector();
+    Object.assign(cacheRow(raw, 2).metric, { [label]: sentinel });
+    cases.push(raw);
+  }
+  const duplicate = cacheVector();
+  duplicate.data.result.splice(7, 1, cacheRow(duplicate, 2));
+  cases.push(duplicate);
+  const conflicting = cacheVector();
+  conflicting.data.result.splice(
+    7,
+    1,
+    structuredClone(cacheRow(conflicting, 2)),
+  );
+  cacheRow(conflicting, 7).value[1] = "0";
+  cases.push(conflicting);
+  const clock = cacheVector();
+  cacheRow(clock, 2).value[0] = 1001;
+  cases.push(clock);
+  const badTime = cacheVector();
+  cacheRow(badTime, 2).value[0] = NaN;
+  cases.push(badTime);
+  const wrongEvaluation = cacheVector();
+  cacheRow(wrongEvaluation, 1).value[1] = "999";
+  cases.push(wrongEvaluation);
+  const extraRow = cacheVector();
+  extraRow.data.result.push(cacheRow(extraRow, 2));
+  cases.push(extraRow);
+  for (const raw of cases) {
+    const result = sourceCacheObservation({ status: 200, value: raw });
+    assert.equal(result.ok, false);
+    assert.ok(
+      [
+        "schema",
+        "labels",
+        "numeric",
+        "duplicate",
+        "evaluation",
+        "row_count",
+      ].includes(result.diagnostic.reason),
+    );
+    assert.equal(JSON.stringify(result).includes(sentinel), false);
+  }
+  assert.equal(
+    sourceCacheObservation({ status: 503, value: sentinel }).diagnostic.reason,
+    "http",
+  );
 });

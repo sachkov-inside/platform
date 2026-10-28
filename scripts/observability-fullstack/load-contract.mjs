@@ -43,6 +43,37 @@ function attribute(value, key) {
 }
 /** @type {Map<string, number>} */ const stored = new Map();
 let monitoringQueries = 0;
+/** @param {number} ready */
+function sourceVector(ready = 2) {
+  const cut = Math.floor(Date.now() / 1000);
+  return {
+    status: "success",
+    data: {
+      resultType: "vector",
+      result: [
+        {
+          metric: { job: "source_cache_ready", source: "cohort" },
+          value: [cut, String(ready)],
+        },
+        {
+          metric: { job: "source_cache_evaluation", source: "cohort" },
+          value: [cut, String(cut)],
+        },
+        ...["postgresql", "caddy"].flatMap((source) => [
+          {
+            metric: { job: "source_cache_available", source },
+            value: [cut, "1"],
+          },
+          {
+            metric: { job: "source_cache_observed", source },
+            value: [cut, String(cut - 1)],
+          },
+          { metric: { job: "source_cache_age", source }, value: [cut, "1"] },
+        ]),
+      ],
+    },
+  };
+}
 const server = createServer(async (request, response) => {
   const host = String(request.headers["x-fixture-host"]);
   counts[host] = (counts[host] ?? 0) + 1;
@@ -85,13 +116,17 @@ const server = createServer(async (request, response) => {
       else if (query.startsWith("max(timestamp"))
         number = Date.now() / 1000 - 1;
       else monitoringQueries++;
-      value = {
-        status: "success",
-        data: {
-          resultType: "vector",
-          result: [{ metric: {}, value: [Date.now() / 1000, String(number)] }],
-        },
-      };
+      value = query.includes("inside_production_source_available")
+        ? sourceVector()
+        : {
+            status: "success",
+            data: {
+              resultType: "vector",
+              result: [
+                { metric: {}, value: [Date.now() / 1000, String(number)] },
+              ],
+            },
+          };
     }
   } else if (host === "umami-query") {
     // The pinned native HTTP endpoint returns stats directly. MCP adds `current`.
@@ -157,6 +192,8 @@ const server = createServer(async (request, response) => {
       } else if (request.url?.includes("inside_production_source_available")) {
         if (queryCycle === 8) status = 503;
         if (queryCycle === 9) value = {};
+        if (queryCycle === 12) value = "private-sentinel".repeat(400);
+        if (queryCycle >= 13 && queryCycle <= 17) value = sourceVector(1);
       }
     } else if (host === "umami-query") {
       if (queryCycle === 6) status = 503;
@@ -237,8 +274,8 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       traces_response: 1,
       umami_http: 1,
       umami_response: 1,
-      source_cache_http: 1,
-      source_cache_response: 1,
+      source_cache_http: 2,
+      source_cache_response: 6,
     });
     assert.deepEqual(field(result, "query_failure_status_counts"), {
       metrics_http: { 0: 1, 503: 1, unknown: 1 },
@@ -248,15 +285,29 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       traces_response: { 200: 1 },
       umami_http: { 503: 1 },
       umami_response: { 200: 1 },
-      source_cache_http: { 503: 1 },
-      source_cache_response: { 200: 1 },
+      source_cache_http: { 0: 1, 503: 1 },
+      source_cache_response: { 200: 6 },
     });
+    assert.deepEqual(field(result, "source_cache_failure_counts"), {
+      http: 2,
+      schema: 1,
+      ready_count: 5,
+    });
+    const evidence = field(result, "source_cache_failures");
+    assert.ok(Array.isArray(evidence));
+    assert.equal(evidence.length, 4);
+    assert.deepEqual(
+      evidence.map((value) => field(value, "reason")),
+      ["http", "schema", "http", "ready_count"],
+    );
+    assert.equal(field(result, "source_cache_failure_overflow"), 4);
+    assert.equal(JSON.stringify(result).includes("private-sentinel"), false);
     const timings = field(result, "query_seconds");
     assert.ok(Array.isArray(timings) && timings.length > 0);
     assert.equal(result.scheduled, 0);
     assert.equal(result.success, 0);
     console.log(
-      JSON.stringify({ ok: true, closed_query_failures: 11, scheduled: 0 }),
+      JSON.stringify({ ok: true, closed_query_failures: 17, scheduled: 0 }),
     );
   } else {
     assert.deepEqual(
