@@ -96,7 +96,7 @@ def validate(value,source,roles=()):
     need(all(type(v) is str and re.fullmatch('sha256:[a-f0-9]{64}',v) is not None for v in images.values()))
     warm=value['warmup'];rows=value['measurements']
     need(type(warm) is list and type(rows) is list and len(warm)<=6 and len(rows)<=len(warm) and len(warm)-len(rows)<=1)
-    for index,row in enumerate(warm):need(type(row) is dict and set(row)=={'ordinal','completed'} and row['ordinal']==index*2 and type(row['completed']) is bool)
+    for index,row in enumerate(warm):need(type(row) is dict and set(row)=={'ordinal','completed'} and type(row['ordinal']) is int and row['ordinal']==index*2 and type(row['completed']) is bool)
     def anchor(value):return value is None or type(value) is list and len(value)==3 and all(number(v) for v in value) and value[0]<=value[2]
     for index,row in enumerate(rows):
         need(type(row) is dict and set(row)=={'ordinal','completed','scheduled','missed','success','unexpected_failures','latency','requests','phase_start','phase_end','host'})

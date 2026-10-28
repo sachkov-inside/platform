@@ -86,6 +86,8 @@ class Stability(unittest.TestCase):
         for body in (None,'','<!-- monitoring-stability: RUN -->','private-sentinel'):
             with self.subTest(body=body),self.assertRaises(ValueError):stability.require_marker({'pull_request':{'body':body}})
         stability.require_marker({'pull_request':{'body':'before\n<!-- monitoring-stability: run -->\nafter'}})
+        invalid=stability.record('a'*40);invalid['warmup']=[{'ordinal':False,'completed':True}]
+        with self.assertRaises(ValueError):stability.validate(invalid,'a'*40)
         source='a'*40;seen=[]
         def measure(row):
             value=measurement(row['ordinal']);value['completed']=False;return value
