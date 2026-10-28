@@ -114,3 +114,37 @@ test("programme references keep course navigation without adding a numbered step
   ).toBeVisible();
   await expect(page.locator("[data-course-reading]")).toHaveCount(0);
 });
+
+test("supplementary navigation expands with keyboard and preserves the course anchor", async ({
+  page,
+}) => {
+  await page.goto(lesson);
+  const group = await referenceGroup(page);
+  const links = group.getByRole("link");
+  await expect(links).toHaveCount(3);
+  const toggle = group.getByRole("button", { name: "Показать ещё" });
+  const controlledId = await toggle.getAttribute("aria-controls");
+  if (controlledId === null || controlledId.length === 0)
+    throw new Error("Missing aria-controls");
+  await expect(group.locator("ul")).toHaveAttribute("id", controlledId);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.focus();
+  await page.keyboard.press("Enter");
+  await expect(links).toHaveCount(6);
+  await expect(group.getByRole("button", { name: "Скрыть" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await page.keyboard.press("Space");
+  await expect(links).toHaveCount(3);
+  await toggle.click();
+  const extra = group.getByRole("link", { name: "Дополнение 2" });
+  await expect(extra).toHaveAttribute(
+    "href",
+    /anchor=material%3Areference-lesson-5/u,
+  );
+  await extra.click();
+  await expect(
+    page.getByRole("heading", { name: "Дополнение 2", exact: true }),
+  ).toBeVisible();
+});

@@ -725,6 +725,24 @@ button.step {
 .references a[aria-current="page"] {
   color: var(--action);
 }
+.references button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--action);
+  cursor: pointer;
+}
+.references button svg {
+  margin: 0;
+}
+.references button[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.references button:focus-visible,
 .references a:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
