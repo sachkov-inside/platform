@@ -822,30 +822,72 @@ test(
         .videoId,
       videoId,
     );
-    // The new upload is real, so repeating the flag leaves it alone.
-    await assert.rejects(
-      upload(setup, api, { ...options, replaceTestUpload: true }),
-      /not a test-adapter upload/u,
+    // The new upload is real, so repeating the flag returns it without another upload.
+    const repeated = await upload(setup, api, {
+      ...options,
+      replaceTestUpload: true,
+    });
+    assert.equal(repeated.videoId, videoId);
+    assert.equal(
+      api.calls.filter((call) => call.path.endsWith("/uploads")).length,
+      1,
     );
   },
 );
 
-test("--replace-test-upload refuses an upload that reached the real provider and changes nothing", async (t) => {
-  const setup = await fixture(t, { target: stand });
-  const before = await earlierUpload(
-    setup,
-    "https://uploader.kinescope.io/files/earlier-provider",
-  );
-  const api = providerApi();
-  await assert.rejects(
-    upload(setup, api, { origin: "stand", replaceTestUpload: true }),
-    /not a test-adapter upload/u,
-  );
-  assert.deepEqual(resourcesOf(await setup.read()), before);
-  assert.equal(
-    api.calls.some((call) => call.path.endsWith("/uploads")),
-    false,
-  );
+test("--replace-test-upload leaves an upload that reached the real provider and repeats the command", async (t) => {
+  await t.test("ready", async (t) => {
+    const setup = await fixture(t, { target: stand });
+    const before = await earlierUpload(
+      setup,
+      "https://uploader.kinescope.io/files/earlier-provider",
+    );
+    const api = providerApi();
+    const result = await upload(setup, api, {
+      origin: "stand",
+      replaceTestUpload: true,
+    });
+    assert.equal(result.providerVideoId, "earlier-provider");
+    assert.deepEqual(resourcesOf(await setup.read()), before);
+    assert.deepEqual(
+      api.calls.map((call) => call.path),
+      ["/authoring/import/materials/environment"],
+    );
+  });
+  // A run whose transfer finished and whose reconcile failed is continued, not refused.
+  await t.test("processing", async (t) => {
+    const setup = await fixture(t, { target: stand });
+    await earlierUpload(
+      setup,
+      "https://uploader.kinescope.io/files/provider-one",
+    );
+    const journal = await setup.read();
+    const resources = resourcesOf(journal);
+    const key = uploadReceiptKey(materialId, setup.sha256);
+    resources[key] = {
+      ...uploadReceiptSchema.parse(resources[key]),
+      phase: "processing",
+      videoId,
+      providerVideoId: "provider-one",
+    };
+    delete resources[`source-video:${sourceId}`];
+    await writeFile(join(setup.state, "journal.json"), canonical(journal));
+    const api = providerApi();
+    const result = await upload(setup, api, {
+      origin: "stand",
+      replaceTestUpload: true,
+    });
+    assert.equal(result.videoId, videoId);
+    assert.equal(
+      api.calls.some((call) => call.path.endsWith("/uploads")),
+      false,
+    );
+    assert.equal(
+      uploadReceiptSchema.parse(resourcesOf(await setup.read())[key])
+        .idempotencyKey,
+      "video-upload:earlier",
+    );
+  });
 });
 
 test("--replace-test-upload is refused on a trusted target before any request", async (t) => {

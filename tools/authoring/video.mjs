@@ -422,15 +422,14 @@ export async function uploadVideo({
           );
         const receiptKey = uploadReceiptKey(material.materialId, sha256);
         let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
-        if (replaceTestUpload && receipt !== undefined) {
-          // Only the test adapter's attempt is discarded; a real provider record is never orphaned.
-          if (
-            !("uploadEndpoint" in receipt) ||
-            !new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
-          )
-            throw new Error(
-              `The stored upload of ${sourceId} for this file is not a test-adapter upload; nothing was replaced`,
-            );
+        // Only the test adapter's attempt is discarded. Any other receipt is a real or unfinished
+        // provider record: the command continues it as usual, so repeating the same command is safe.
+        if (
+          replaceTestUpload &&
+          receipt !== undefined &&
+          "uploadEndpoint" in receipt &&
+          new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
+        ) {
           const attached = `source-video:${sourceId}`;
           if (
             parseReceipt(sourceVideoReceiptSchema, resources[attached])
@@ -550,7 +549,7 @@ export async function uploadVideo({
 }
 
 const usage =
-  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took";
+  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took; any other upload continues as usual";
 
 if (
   process.argv[1] &&

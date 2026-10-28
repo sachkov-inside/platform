@@ -88,8 +88,9 @@ On a local stand that now runs the real Kinescope adapter, a file uploaded earli
 adapter still has a `ready` receipt whose endpoint ends in `.invalid`, so a rerun returns the fake
 provider ID. `--replace-test-upload` discards that receipt, and the `source-video:SOURCE_ID` receipt
 when it names the same `videoId`, then uploads the file as new with a fresh idempotency key. It is
-refused on trusted targets before any request. When the stored receipt for this file is not a
-test-adapter upload, it refuses and changes nothing; without a stored receipt it changes nothing.
+refused on trusted targets before any request. Any other stored receipt for this file, or none,
+is left as it is and the command runs as without the flag: it continues an unfinished upload or
+returns the ready one. So an interrupted run can be repeated with the same flag.
 
 `authoring:release preview` lists every such upload in `videoUploads` (`sourceId`, `state`
 `pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches
