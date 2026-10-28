@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
+import type { ProductAccessHolders } from "../../src/modules/materials/index.js";
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -177,6 +185,7 @@ describe("Topic and Playlist authoring", () => {
       expect.objectContaining({
         archived: true,
         materialCount: 1,
+        publishedMaterialCount: 0,
         slug: "architecture",
       }),
     );
@@ -184,9 +193,136 @@ describe("Topic and Playlist authoring", () => {
       expect.objectContaining({
         archived: true,
         materialCount: 1,
+        publishedMaterialCount: 0,
         slug: "platform-path",
       }),
     );
+  });
+
+  test("counts published Materials of a Topic and published programme memberships of a Product next to all of them (#1720)", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const topic = await authoring.createContentCollection({
+      actor,
+      kind: "topic",
+      name: "Published counts",
+      slug: "published-counts",
+      summary: "",
+    });
+    const product = await authoring.createContentCollection({
+      actor,
+      kind: "product",
+      name: "Published counts product",
+      slug: "published-counts-product",
+      summary: "",
+    });
+    const emptyProduct = await authoring.createContentCollection({
+      actor,
+      kind: "product",
+      name: "Published counts empty",
+      slug: "published-counts-empty",
+      summary: "",
+    });
+    if (!topic.ok || !product.ok || !emptyProduct.ok)
+      throw new Error("Expected collections");
+    expect(topic.value).toMatchObject({
+      materialCount: 0,
+      publishedMaterialCount: 0,
+    });
+
+    const materialIds: string[] = [];
+    for (const title of ["Published one", "Published two", "Still draft"]) {
+      const created = await authoring.createDraft({
+        actor,
+        idempotencyKey: `published-counts-${title}`,
+        metadata: metadata(topic.value.id, product.value.id, title),
+        body: representativeDocument(`${title} body.`),
+      });
+      if (!created.ok) throw new Error(created.error.code);
+      materialIds.push(created.value.materialId);
+    }
+    const receipts = [];
+    for (const materialId of materialIds.slice(0, 2)) {
+      const published = await authoring.transitionPublication({
+        actor,
+        expectedContentVersion: 1,
+        idempotencyKey: `published-counts-publish-${materialId}`,
+        materialId,
+        publicationState: "published",
+      });
+      if (!published.ok) throw new Error(published.error.code);
+      receipts.push(published.value);
+    }
+    // A Material taken off publication counts among all Materials, not among published ones.
+    const retired = receipts[1];
+    if (retired === undefined) throw new Error("Expected a published Material");
+    const unpublished = await authoring.transitionPublication({
+      actor,
+      expectedContentVersion: retired.contentVersion,
+      idempotencyKey: `published-counts-unpublish-${retired.materialId}`,
+      materialId: retired.materialId,
+      publicationState: "unpublished",
+    });
+    if (!unpublished.ok) throw new Error(unpublished.error.code);
+
+    const topics = await authoring.listContentCollections({
+      actor,
+      kind: "topic",
+    });
+    const products = await authoring.listContentCollections({
+      actor,
+      kind: "product",
+    });
+    if (!topics.ok || !products.ok) throw new Error("Expected lists");
+    expect(topics.value).toContainEqual(
+      expect.objectContaining({
+        id: topic.value.id,
+        materialCount: 3,
+        publishedMaterialCount: 1,
+      }),
+    );
+    expect(products.value).toContainEqual(
+      expect.objectContaining({
+        id: product.value.id,
+        materialCount: 3,
+        publishedMaterialCount: 1,
+      }),
+    );
+    expect(products.value).toContainEqual(
+      expect.objectContaining({
+        id: emptyProduct.value.id,
+        materialCount: 0,
+        publishedMaterialCount: 0,
+      }),
+    );
+
+    // One collection read back after a write carries the same counts.
+    const renamedTopic = await authoring.updateContentCollection({
+      actor,
+      collectionId: topic.value.id,
+      expectedVersion: topic.value.version,
+      kind: "topic",
+      name: "Published counts renamed",
+      summary: "",
+    });
+    const renamedProduct = await authoring.updateContentCollection({
+      actor,
+      collectionId: product.value.id,
+      expectedVersion: product.value.version,
+      kind: "product",
+      name: "Published counts product renamed",
+      summary: "",
+    });
+    expect(renamedTopic).toMatchObject({
+      ok: true,
+      value: { materialCount: 3, publishedMaterialCount: 1 },
+    });
+    expect(renamedProduct).toMatchObject({
+      ok: true,
+      value: { materialCount: 3, publishedMaterialCount: 1 },
+    });
   });
 
   test("writes the Product introduction, preserves it on an ordinary edit and refuses it on a Topic", async () => {
@@ -276,6 +412,93 @@ describe("Topic and Playlist authoring", () => {
         issues: [{ code: "invalid_command", path: "/introduction" }],
       },
     });
+  });
+
+  test("lists active holder counts by 100 Products only for an actor with the holder right, and never fakes 0 (#1718)", async () => {
+    const holderId = (n: number) =>
+      `17180000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+    const productIds = Array.from({ length: 101 }, (_, index) =>
+      holderId(1000 + index),
+    );
+    for (const [index, id] of productIds.entries())
+      await testDatabase.prisma.product.create({
+        data: { id, slug: `holder-count-${String(index)}`, name: "Held" },
+      });
+    const [first, last] = [productIds[0], productIds[100]];
+    if (first === undefined || last === undefined)
+      throw new Error("Expected Products");
+    await grantProductFixture(testDatabase.prisma, holderId(1), first);
+    await grantProductFixture(testDatabase.prisma, holderId(2), first);
+    await grantProductFixture(testDatabase.prisma, holderId(3), last);
+    // A revoked holder holds nothing now.
+    await revokeProductFixture(
+      testDatabase.prisma,
+      await grantProductFixture(testDatabase.prisma, holderId(4), last),
+    );
+    const grants = assembleAccessGrants({
+      prisma: testDatabase.prisma,
+      accounts: assembleAccounts({
+        prisma: testDatabase.prisma,
+        emailFingerprintKey: "holder-count-fingerprint-key-000000000000",
+      }),
+    });
+    const countProductHolders = vi.fn(grants.countProductHolders.bind(grants));
+    const billingActor = "17180000-0000-4000-8000-000000000099";
+    const assemble = (holders: ProductAccessHolders) =>
+      assembleMaterials({
+        prisma: testDatabase.prisma,
+        authorPolicy: { canManage: () => true },
+        productAccessHolders: holders,
+        holderCountPolicy: {
+          canReadHolderCounts: (accountId) =>
+            Promise.resolve(accountId === billingActor),
+        },
+      }).authoring;
+    const authoring = assemble({ countProductHolders });
+    const counts = async (account: string) => {
+      const listed = await authoring.listContentCollections({
+        actor: account,
+        kind: "product",
+      });
+      if (!listed.ok) throw new Error(listed.error.code);
+      return new Map(listed.value.map((row) => [row.id, row.holderCount]));
+    };
+
+    const held = await counts(billingActor);
+    expect(held.get(first)).toBe(2);
+    expect(held.get(last)).toBe(1);
+    expect(held.get(productIds[50] ?? "")).toBe(0);
+    expect(countProductHolders).toHaveBeenCalledTimes(2);
+    for (const [, ids] of countProductHolders.mock.calls)
+      expect(ids.length).toBeLessThanOrEqual(100);
+
+    // The list is a materials:manage read; without the holder right the count is absent.
+    countProductHolders.mockClear();
+    const hidden = await counts(actor);
+    expect(hidden.get(first)).toBeNull();
+    expect([...hidden.values()].every((count) => count === null)).toBe(true);
+    expect(countProductHolders).not.toHaveBeenCalled();
+
+    // An unanswered count owner leaves the count absent and the list readable.
+    const unanswered = assemble({
+      countProductHolders: () =>
+        Promise.reject(new Error("synthetic holder owner outage")),
+    });
+    const listed = await unanswered.listContentCollections({
+      actor: billingActor,
+      kind: "product",
+    });
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    expect(listed.value.find((row) => row.id === first)?.holderCount).toBe(
+      null,
+    );
+    const topics = await authoring.listContentCollections({
+      actor: billingActor,
+      kind: "topic",
+    });
+    if (!topics.ok) throw new Error(topics.error.code);
+    expect(topics.value.every((row) => row.holderCount === null)).toBe(true);
   });
 });
 

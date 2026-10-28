@@ -15,16 +15,24 @@ import { createTestDatabase } from "./setup/test-database.js";
 import { z } from "zod";
 import { frozenRegistry } from "../support/observability-migration-fixtures.js";
 
-it.each(["main101", "main102", "main103", "main104"] as const)(
-  "upgrades exact frozen %s to canonical128 without changing its prefix",
+it.each([
+  "main101",
+  "main102",
+  "main103",
+  "main104",
+  "main114",
+  "main115",
+] as const)(
+  "upgrades exact frozen %s to canonical129 without changing its prefix",
   async (label) => {
     const mainRegistry = frozenRegistry(label);
     expect(platformMigrations.slice(0, mainRegistry.length)).toEqual(
       mainRegistry,
     );
-    expect(platformMigrations).toHaveLength(128);
-    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(128);
+    expect(platformMigrations).toHaveLength(129);
+    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(129);
     expect(platformMigrations.slice(0, 114)).toEqual(frozenRegistry("main114"));
+    expect(platformMigrations.slice(0, 115)).toEqual(frozenRegistry("main115"));
     const database = await createTestDatabase();
     const ledger = async () =>
       parseAppliedMigrations(

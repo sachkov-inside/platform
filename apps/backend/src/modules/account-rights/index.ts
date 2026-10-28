@@ -47,3 +47,7 @@ export {
 } from "./domain/course-activation.js";
 
 export { announcementQuerySchema } from "./domain/activation-announcement.js";
+export {
+  productAccessOriginSchema,
+  type ProductAccessOrigin,
+} from "./shared/product-access-origins.js";

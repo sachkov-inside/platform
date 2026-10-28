@@ -1,16 +1,21 @@
-import { CircleAlert, LockKeyhole, LogIn } from "lucide-react";
-import Link from "next/link";
+import { LockKeyhole, LogIn } from "lucide-react";
 
+import { internalRoute } from "@/shared/routing/internal-route";
+import {
+  AdminErrorState,
+  AdminNotFound,
+  AdminTableSkeleton,
+} from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
-import { internalRoute } from "@/shared/routing/internal-route";
 
-import { submissionsHref } from "../model/task-submissions";
 import {
-  SubmissionFilter,
-  TaskSubmissionsFrame,
-} from "./task-submissions-view.client";
+  defaultFeedbackFilter,
+  submissionsHref,
+} from "../model/task-submissions";
+import { SubmissionFilters } from "./submission-filters.client";
+import { TaskSubmissionsFrame } from "./task-submissions-view.client";
 
 export function TaskSubmissionsState({
   kind,
@@ -25,13 +30,14 @@ export function TaskSubmissionsState({
   return (
     <TaskSubmissionsFrame>
       {kind === "not_found" ? (
-        <StatusPanel
-          action={<Link href={internalRoute(listHref)}>Все сдачи</Link>}
-          icon={<CircleAlert aria-hidden="true" />}
-          message="Сдача отсутствует или больше недоступна."
-          state={{ "data-task-submissions-state": "not_found" }}
-          title="Сдача не найдена"
-        />
+        <div data-task-submissions-state="not_found">
+          <AdminNotFound
+            backHref={internalRoute(listHref)}
+            backLabel="Все сдачи"
+            description="Сдача отсутствует или больше недоступна."
+            title="Сдача не найдена"
+          />
+        </div>
       ) : kind === "unauthorized" ? (
         <StatusPanel
           action={
@@ -57,63 +63,37 @@ export function TaskSubmissionsState({
           title="Нет доступа к сдачам"
         />
       ) : (
-        <StatusPanel
-          action={<RetryPageButton />}
-          icon={<CircleAlert aria-hidden="true" />}
-          message="Сдачи сейчас не загрузились. Попробуйте обновить страницу чуть позже."
-          state={{ "data-task-submissions-state": "unavailable" }}
-          title="Сдачи не загрузились"
-        />
+        <div data-task-submissions-state="unavailable">
+          <AdminErrorState
+            description="Сдачи сейчас не загрузились. Попробуйте обновить страницу чуть позже."
+            retry={<RetryPageButton />}
+            title="Сдачи не загрузились"
+          />
+        </div>
       )}
     </TaskSubmissionsFrame>
   );
 }
 
+/**
+ * The route skeleton in the frame of the default view: the same header, filter bar and table
+ * geometry, so the arriving list moves nothing. The filters already work while the list loads.
+ */
 export function TaskSubmissionsLoading() {
   return (
     <TaskSubmissionsFrame>
-      <search
-        className="submission-filters"
-        aria-label="Найти сдачу на странице"
-      >
-        <label className="submission-search">
-          <span className="sr-only">
-            Имя ученика или задание на этой странице
-          </span>
-          <input disabled type="search" placeholder="Имя ученика или задание" />
-        </label>
-        <label className="submission-status-filter">
-          <span className="sr-only">Результат проверки на этой странице</span>
-          <select disabled>
-            <option>Все результаты</option>
-            <option>Самопроверка пройдена</option>
-            <option>Нужны исправления</option>
-            <option>Не хватает подтверждений</option>
-            <option>Без самопроверки</option>
-          </select>
-        </label>
-        <span className="course-filter-label">На этой странице: …</span>
-      </search>
-      <details className="submission-filter-more">
-        <summary>Продукт, глава и задание</summary>
-        <SubmissionFilter disabled products={[]} selection={{}} />
-      </details>
-      <div
+      <SubmissionFilters
+        feedback={defaultFeedbackFilter}
+        products={[]}
+        selection={{}}
+      />
+      <section
         aria-busy="true"
         aria-label="Загружаем сдачи"
-        className="grid gap-3"
-        role="status"
         data-submissions-part="workspace"
       >
-        <p className="text-sm text-muted-foreground">Загружаем сдачи…</p>
-        {["first", "second", "third"].map((key) => (
-          <div
-            aria-hidden="true"
-            className="h-24 rounded-xl bg-muted"
-            key={key}
-          />
-        ))}
-      </div>
+        <AdminTableSkeleton columns={5} label="Загружаем сдачи" />
+      </section>
     </TaskSubmissionsFrame>
   );
 }

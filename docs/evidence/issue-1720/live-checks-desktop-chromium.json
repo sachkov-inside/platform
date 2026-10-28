@@ -1,0 +1,66 @@
+[
+  {
+    "file": "live-products-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/products",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-product-description-tab-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/products/c0110000-0000-4000-8000-000000000001?tab=description",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-topics-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/topics",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-materials-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/materials",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-materials-filtered-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/materials?topic=97000000-0000-4000-8000-000000000101&format=video",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-submissions-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/submissions",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-submission-detail-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/submissions?submission=30000000-0000-4000-8000-000000000003",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  },
+  {
+    "file": "live-search-desktop-chromium.png",
+    "project": "desktop-chromium",
+    "url": "/authoring/materials",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "axeViolations": 0
+  }
+]

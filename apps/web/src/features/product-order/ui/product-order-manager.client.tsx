@@ -640,7 +640,7 @@ function OrderFeedback({
           <input
             name="returnTo"
             type="hidden"
-            value={authoringProductEditorHref(productId)}
+            value={authoringProductEditorHref(productId, "program")}
           />
           <Button size="sm" type="submit">
             Войти через Telegram

@@ -19,10 +19,12 @@ import {
 } from "./setup/test-database.js";
 
 import { createQueryEventClient } from "./setup/query-events.js";
+import { fingerprintEmail } from "../../src/modules/accounts/shared/account-input.js";
 
 const protection = billingContactProtection(
   Buffer.alloc(32, 42).toString("base64"),
 );
+const emailFingerprintKey = "billing-contact-test-fingerprint-key-000";
 const document = (
   kind: LegalDocument["kind"],
   version = "test-v1",
@@ -48,6 +50,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     billing = new BillingContact({
       prisma: database.prisma,
       protection,
+      emailFingerprintKey,
       sendCode: (message) => {
         messages.push(message);
         return Promise.resolve();
@@ -220,6 +223,114 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       contact: { email: "new@example.test", revision: 2 },
     });
   });
+  async function contactRow(accountId: string) {
+    return database.prisma.billingContact.findUniqueOrThrow({
+      where: { accountId },
+    });
+  }
+  const fingerprintOf = (email: string) =>
+    fingerprintEmail(email, emailFingerprintKey);
+  test("confirm fingerprints only the verified address, in the statement that verifies it", async () => {
+    const owner = await account();
+    const start = await billing.start(owner, {
+      operationId: randomUUID(),
+      email: "Fingerprinted@Example.Test",
+      expectedRevision: 0,
+    });
+    if (!start.ok) throw new Error(start.error.code);
+    expect(await contactRow(owner)).toMatchObject({
+      revision: 0,
+      emailFingerprint: null,
+      emailFingerprintRevision: null,
+    });
+    const correct = messageFor(start.challengeRef).code;
+    expect(
+      await billing.confirm(owner, {
+        operationId: randomUUID(),
+        challengeRef: start.challengeRef,
+        code: correct === "000000" ? "000001" : "000000",
+      }),
+    ).toMatchObject({ error: { code: "challenge_invalid" } });
+    expect(await contactRow(owner)).toMatchObject({
+      emailFingerprint: null,
+      emailFingerprintRevision: null,
+    });
+    const measured = createQueryEventClient(database.url);
+    try {
+      const confirming = new BillingContact({
+        prisma: measured.prisma,
+        protection,
+        emailFingerprintKey,
+        sendCode: undefined,
+        documents: [],
+        now: () => instant,
+      });
+      const confirmed = await measured.measure(() =>
+        confirming.confirm(owner, {
+          operationId: randomUUID(),
+          challengeRef: start.challengeRef,
+          code: correct,
+        }),
+      );
+      expect(confirmed.result).toEqual({ ok: true, revision: 1 });
+      const contactWrites = confirmed.statements.filter(
+        (sql) => sql.startsWith("UPDATE") && sql.includes('"billing_contacts"'),
+      );
+      expect(contactWrites).toHaveLength(1);
+      expect(contactWrites[0]).toContain('"email_fingerprint"');
+      expect(contactWrites[0]).toContain('"email_fingerprint_revision"');
+      expect(contactWrites[0]).toContain('"revision"');
+    } finally {
+      await measured.prisma.$disconnect();
+    }
+    const row = await contactRow(owner);
+    expect(row).toMatchObject({ revision: 1, emailFingerprintRevision: 1 });
+    expect(row.emailFingerprint).toBe(
+      fingerprintOf("fingerprinted@example.test"),
+    );
+    expect(row.emailFingerprint).not.toContain("fingerprinted");
+  });
+  test("a newly confirmed address replaces the fingerprint and its revision; a pending one does not", async () => {
+    const owner = await account();
+    await verify(owner, "first-address@example.test");
+    advance();
+    const next = await billing.start(owner, {
+      operationId: randomUUID(),
+      email: "second-address@example.test",
+      expectedRevision: 1,
+    });
+    if (!next.ok) throw new Error(next.error.code);
+    expect(await contactRow(owner)).toMatchObject({
+      revision: 1,
+      emailFingerprint: fingerprintOf("first-address@example.test"),
+      emailFingerprintRevision: 1,
+    });
+    expect(
+      await billing.confirm(owner, {
+        operationId: randomUUID(),
+        challengeRef: next.challengeRef,
+        code: messageFor(next.challengeRef).code,
+      }),
+    ).toEqual({ ok: true, revision: 2 });
+    expect(await contactRow(owner)).toMatchObject({
+      revision: 2,
+      emailFingerprint: fingerprintOf("second-address@example.test"),
+      emailFingerprintRevision: 2,
+    });
+  });
+  test("the same verified address keeps a fingerprint on every Account that confirmed it", async () => {
+    const first = await account();
+    const second = await account();
+    await verify(first, "shared-address@example.test");
+    await verify(second, "Shared-Address@example.test");
+    const fingerprint = fingerprintOf("shared-address@example.test");
+    if (fingerprint === undefined) throw new Error("Unnormalizable address");
+    expect(
+      await database.prisma.billingContact.count({
+        where: { emailFingerprint: fingerprint, emailFingerprintRevision: 1 },
+      }),
+    ).toBe(2);
+  });
   test("wrong-code budget persists across retries and parallel requests; operation payloads cannot change", async () => {
     const owner = await account();
     const operationId = randomUUID();
@@ -311,6 +422,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     const flaky = new BillingContact({
       prisma: database.prisma,
       protection,
+      emailFingerprintKey,
       sendCode: () => {
         calls += 1;
         return Promise.reject(new Error("ambiguous SMTP outcome"));
@@ -368,6 +480,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     const next = new BillingContact({
       prisma: database.prisma,
       protection,
+      emailFingerprintKey,
       sendCode: undefined,
       documents: [document("terms", "test-v2")],
       now: () => instant,
@@ -478,6 +591,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       const reader = new BillingContact({
         prisma: measured.prisma,
         protection,
+        emailFingerprintKey,
         sendCode: undefined,
         documents: [terms, recurring],
         now: () => instant,

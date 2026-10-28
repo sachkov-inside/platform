@@ -688,6 +688,29 @@ node --input-type=module --eval '
   ) throw new Error("Production owner bootstrap is not idempotent");
 ' "$first_owner_bootstrap" "$second_owner_bootstrap"
 
+# The post-deploy Billing Contact fingerprint backfill (production-delivery.md) also runs from the
+# compiled image with the API container's configuration. It prints only counts; a rerun finds
+# nothing left to write.
+fingerprint_backfill=(
+  "${application_compose[@]}" exec -T
+  api node dist/release/fingerprint-billing-contacts.js
+)
+first_fingerprint_backfill="$("${fingerprint_backfill[@]}")"
+second_fingerprint_backfill="$("${fingerprint_backfill[@]}")"
+node --input-type=module --eval '
+  const keys = ["scanned", "written", "skippedConcurrent", "unreadable"];
+  const [first, second] = process.argv.slice(1).map(value => JSON.parse(value));
+  for (const result of [first, second]) {
+    const names = Object.keys(result).sort();
+    if (
+      names.join() !== [...keys].sort().join() ||
+      keys.some(key => !Number.isSafeInteger(result[key]) || result[key] < 0)
+    ) throw new Error("Billing Contact fingerprint backfill printed more than its counts");
+  }
+  if (first.unreadable !== 0 || second.scanned !== 0 || second.written !== 0)
+    throw new Error("Billing Contact fingerprint backfill is not idempotent");
+' "$first_fingerprint_backfill" "$second_fingerprint_backfill"
+
 caddy_container_id="$("${application_compose[@]}" ps --quiet caddy-smoke)"
 docker cp "$caddy_container_id:/data/caddy/pki/authorities/local/root.crt" "$runtime_config_dir/caddy-root.crt"
 if curl \

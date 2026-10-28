@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { formatMoscowDate } from "@/shared/lib/moscow-format";
+import { authoringSalesFunnelHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
+
 import type { SalesFunnelReport } from "../model/sales-funnel-report";
 export function WaitlistDemandView({
   data,
@@ -12,6 +15,7 @@ export function WaitlistDemandView({
   readonly from: string;
   readonly to: string;
 }) {
+  const period = `${formatMoscowDate(from)} – ${formatMoscowDate(to)}`;
   const empty = data?.active === 0 && data.joined === 0 && data.withdrawn === 0;
   return (
     <section
@@ -37,7 +41,7 @@ export function WaitlistDemandView({
             Данные ожидания недоступны. Число записавшихся пока неизвестно.
           </p>
           <Button asChild variant="outline">
-            <Link href="/authoring/sales-funnel">Повторить загрузку</Link>
+            <Link href={authoringSalesFunnelHref}>Повторить загрузку</Link>
           </Button>
         </div>
       ) : (
@@ -52,12 +56,12 @@ export function WaitlistDemandView({
               {
                 label: "Записались за период",
                 value: data.joined,
-                note: `${from} / ${to}`,
+                note: period,
               },
               {
                 label: "Отказались за период",
                 value: data.withdrawn,
-                note: `${from} / ${to}`,
+                note: period,
               },
             ].map((item) => (
               <div key={item.label}>
@@ -165,7 +169,7 @@ export function WaitlistDemandView({
                           scope="row"
                           className="py-3 pr-3 text-left font-medium"
                         >
-                          {row.from}
+                          {formatMoscowDate(row.from)}
                         </th>
                         <td className="p-2 text-right tabular-nums">
                           {row.joined}

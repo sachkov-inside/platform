@@ -17,6 +17,8 @@ import {
   routeContent,
 } from "@/storybook/story-environment";
 import {
+  awaitingSubmissions,
+  manySubmissions,
   reviewedSubmissions,
   submissionsProductId,
   submissionsSecondChapter,
@@ -33,12 +35,59 @@ import {
   type StoryViewport,
 } from "@/storybook/loads-in-place";
 
+import { getStoryRouter } from "../../../../.storybook/mocks/next-navigation";
+
 const environment = authoringPageEnvironment("/authoring/submissions");
+/** The default view: new submissions only, as the route asks the backend (#1717). */
 const presentation = presentTaskSubmissions({
-  submissions: reviewedSubmissions,
+  submissions: awaitingSubmissions,
   selection: {},
   continued: false,
 });
+const allPresentation = presentTaskSubmissions({
+  submissions: reviewedSubmissions,
+  selection: {},
+  feedback: "all",
+  continued: false,
+});
+const routerPush = fn();
+/** Filter choices are addresses: the story records where the page would go. */
+function captureRouterPush() {
+  environment.beforeEach();
+  routerPush.mockClear();
+  const router = getStoryRouter();
+  const original = router.push;
+  router.push = routerPush;
+  return () => {
+    router.push = original;
+  };
+}
+const rowsName = "Сдачи, новые сверху";
+function rowLinks(canvasElement: HTMLElement, width: "desktop" | "mobile") {
+  const page = routeContent(canvasElement);
+  return within(
+    width === "desktop"
+      ? page.getByRole("table", { name: rowsName })
+      : page.getByRole("list", { name: rowsName }),
+  ).getAllByRole("link");
+}
+/** Radix Select hides the page and blocks the pointer until it has closed. */
+async function selectClosed() {
+  await waitFor(() => {
+    if (
+      document.body.style.pointerEvents === "none" ||
+      document.querySelector("[data-aria-hidden='true']") !== null
+    )
+      throw new Error("Выбор ещё закрывается");
+  });
+}
+async function expectNoHorizontalOverflow() {
+  await waitFor(() =>
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    ),
+  );
+}
 const firstId = "30000000-0000-4000-8000-000000000003";
 function detail(
   submissionId = firstId,
@@ -105,34 +154,165 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Submissions: Story = {
+  globals: desktop.globals,
+  beforeEach: captureRouterPush,
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
       page.getByRole("heading", { level: 1, name: "Сдачи" }),
     ).toBeVisible();
+    const table = page.getByRole("table", { name: rowsName });
     await expect(
-      within(
-        page.getByRole("list", { name: "Сдачи, новые сверху" }),
-      ).getAllByRole("link"),
-    ).toHaveLength(3);
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual([
+      "Человек",
+      "Продукт и задание",
+      "Версия требований",
+      "Время",
+      "Состояние",
+    ]);
+    await expect(rowLinks(canvasElement, "desktop")).toHaveLength(2);
+    await expect(within(table).getAllByText("Новая")).toHaveLength(2);
+    await expect(
+      within(table).getByText("Нужны исправления, попытка 2"),
+    ).toBeVisible();
+    await expect(within(table).getByText("Сейчас 2")).toBeVisible();
+    await expect(within(table).getByText("5 окт. 2026, 19:40")).toBeVisible();
+    await expect(page.queryByText("Марк Белов")).not.toBeInTheDocument();
     await expect(page.queryByRole("article")).not.toBeInTheDocument();
-    await expect(page.getAllByText("Анна Смирнова")).toHaveLength(2);
-    await userEvent.type(page.getByRole("searchbox"), "Марк");
     await expect(
-      within(
-        page.getByRole("list", { name: "Сдачи, новые сверху" }),
-      ).getAllByRole("link"),
-    ).toHaveLength(1);
-    await userEvent.clear(page.getByRole("searchbox"));
-    await userEvent.selectOptions(
-      page.getByRole("combobox", { name: /Результат проверки/u }),
-      "changes",
+      within(page.getByRole("list", { name: "Применённые фильтры" })).getByText(
+        "Без комментария",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole("button", { name: "Сбросить" }),
+    ).not.toBeInTheDocument();
+    await expect(page.queryByRole("searchbox")).not.toBeInTheDocument();
+    await userEvent.click(
+      page.getByRole("combobox", { name: "Комментарий автора" }),
+    );
+    await userEvent.click(
+      await within(document.body).findByRole("option", { name: "Все сдачи" }),
+    );
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenCalledWith(
+        "/authoring/submissions?feedback=all",
+      ),
+    );
+    await selectClosed();
+    await expectNoHorizontalOverflow();
+  },
+};
+export const SubmissionsMobile: Story = {
+  globals: mobile.globals,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.queryByRole("table", { name: rowsName }),
+    ).not.toBeInTheDocument();
+    const links = rowLinks(canvasElement, "mobile");
+    await expect(links).toHaveLength(2);
+    await expect(links[0]).toHaveAttribute(
+      "href",
+      "/authoring/submissions?submission=30000000-0000-4000-8000-000000000003",
     );
     await expect(
-      within(
-        page.getByRole("list", { name: "Сдачи, новые сверху" }),
-      ).getAllByRole("link"),
-    ).toHaveLength(1);
+      within(page.getByRole("list", { name: rowsName })).getAllByText("Новая"),
+    ).toHaveLength(2);
+    await expectNoHorizontalOverflow();
+  },
+};
+export const AllSubmissions: Story = {
+  globals: desktop.globals,
+  beforeEach: captureRouterPush,
+  args: { presentation: allPresentation },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(rowLinks(canvasElement, "desktop")).toHaveLength(3);
+    const table = within(page.getByRole("table", { name: rowsName }));
+    await expect(table.getByText("Прокомментирована")).toBeVisible();
+    await expect(table.getByText("Без самопроверки")).toBeVisible();
+    await expect(
+      page.queryByRole("list", { name: "Применённые фильтры" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(page.getByRole("button", { name: "Сбросить" }));
+    await expect(routerPush).toHaveBeenCalledWith("/authoring/submissions");
+  },
+};
+export const AllSubmissionsMobile: Story = {
+  ...AllSubmissions,
+  globals: mobile.globals,
+  play: async ({ canvasElement }) => {
+    await expect(rowLinks(canvasElement, "mobile")).toHaveLength(3);
+    await expectNoHorizontalOverflow();
+  },
+};
+const single = presentTaskSubmissions({
+  submissions: {
+    ...reviewedSubmissions,
+    submissions: reviewedSubmissions.submissions.slice(0, 1),
+  },
+  selection: {},
+  continued: false,
+});
+export const SingleSubmission: Story = {
+  globals: desktop.globals,
+  args: { presentation: single },
+  play: async ({ canvasElement }) => {
+    await expect(rowLinks(canvasElement, "desktop")).toHaveLength(1);
+    await expect(
+      routeContent(canvasElement).getByText("На странице: 1 сдача"),
+    ).toBeInTheDocument();
+  },
+};
+export const SingleSubmissionMobile: Story = {
+  globals: mobile.globals,
+  args: { presentation: single },
+  play: async ({ canvasElement }) => {
+    await expect(rowLinks(canvasElement, "mobile")).toHaveLength(1);
+    await expectNoHorizontalOverflow();
+  },
+};
+const long = presentTaskSubmissions({
+  submissions: manySubmissions(20),
+  selection: {},
+  feedback: "all",
+  continued: false,
+});
+export const LongList: Story = {
+  globals: desktop.globals,
+  args: { presentation: long },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(rowLinks(canvasElement, "desktop")).toHaveLength(20);
+    await expect(
+      page.getAllByText("Екатерина Александровна Иванова-Петрова", {
+        selector: "a",
+      }).length,
+    ).toBeGreaterThan(0);
+    await expect(
+      page.getByRole("link", { name: "Более ранние" }),
+    ).toHaveAttribute(
+      "href",
+      "/authoring/submissions?feedback=all&cursor=page-2",
+    );
+    await expectNoHorizontalOverflow();
+  },
+};
+export const LongListMobile: Story = {
+  globals: mobile.globals,
+  args: { presentation: long },
+  play: async ({ canvasElement }) => {
+    await expect(rowLinks(canvasElement, "mobile")).toHaveLength(20);
+    await expect(
+      routeContent(canvasElement).getAllByText("@konstantin_vasilevsky_dev", {
+        selector: "a",
+      }).length,
+    ).toBeGreaterThan(0);
+    await expectNoHorizontalOverflow();
   },
 };
 export const Submission: Story = {
@@ -150,6 +330,18 @@ export const Submission: Story = {
       "/authoring/submissions",
     );
     await expect(page.getByText(/Роль приходит от клиента/u)).not.toBeVisible();
+  },
+};
+export const SubmissionMobile: Story = {
+  globals: mobile.globals,
+  args: { presentation: detail() },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Онбординг команды" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Все сдачи" })).toBeVisible();
+    await expectNoHorizontalOverflow();
   },
 };
 export const ExpandedSubmission: Story = {
@@ -257,6 +449,10 @@ export const FeedbackSaves: Story = {
     await expect(save).toBeDisabled();
   },
 };
+export const FeedbackSavesMobile: Story = {
+  ...FeedbackSaves,
+  globals: mobile.globals,
+};
 export const FeedbackSaveFails: Story = {
   args: { presentation: detail(), expanded: true },
   decorators: [
@@ -310,6 +506,8 @@ export const NotFound: Story = {
 };
 
 export const FilteredByChapter: Story = {
+  globals: desktop.globals,
+  beforeEach: captureRouterPush,
   args: {
     presentation: presentTaskSubmissions({
       continued: false,
@@ -317,6 +515,7 @@ export const FilteredByChapter: Story = {
         productId: submissionsProductId,
         chapterId: submissionsSecondChapter,
       },
+      feedback: "all",
       submissions: {
         ...reviewedSubmissions,
         submissions: reviewedSubmissions.submissions.filter(
@@ -327,49 +526,114 @@ export const FilteredByChapter: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue(
-      submissionsSecondChapter,
-    );
-    const task = page.getByRole("combobox", { name: "Задание" });
     await expect(
-      within(task)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
-    ).toEqual(["Все задания", "Заявки клиентов"]);
-    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: "Глава или задание" }),
+    ).toHaveTextContent("Глава 2. Заявки: все задания");
+    await expect(
       page.getByRole("combobox", { name: "Продукт" }),
-      "",
+    ).toHaveTextContent("AI Engineering");
+    const chips = within(
+      page.getByRole("list", { name: "Применённые фильтры" }),
     );
-    await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue("");
-    await expect(page.getByRole("combobox", { name: "Глава" })).toBeDisabled();
-    await expect(task).toHaveValue("");
+    await expect(chips.getByText("AI Engineering")).toBeVisible();
+    await expect(chips.getByText("Глава 2. Заявки")).toBeVisible();
+    await userEvent.click(
+      page.getByRole("combobox", { name: "Глава или задание" }),
+    );
+    await expect(
+      (await within(document.body).findAllByRole("option")).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual([
+      "Все задания",
+      "Глава 1. Онбординг: все задания",
+      "Онбординг команды",
+      "Глава 2. Заявки: все задания",
+      "Заявки клиентов",
+    ]);
+    await userEvent.click(
+      within(document.body).getByRole("option", { name: "Заявки клиентов" }),
+    );
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenLastCalledWith(
+        `/authoring/submissions?productId=${submissionsProductId}&task=aie-ch2-requests&feedback=all`,
+      ),
+    );
+    await selectClosed();
+    await userEvent.click(
+      page.getByRole("button", { name: "Убрать фильтр «AI Engineering»" }),
+    );
+    await expect(routerPush).toHaveBeenLastCalledWith(
+      "/authoring/submissions?feedback=all",
+    );
   },
 };
 
 export const Paged: Story = {
+  globals: desktop.globals,
   args: {
     presentation: presentTaskSubmissions({
       continued: true,
       cursor: "page-2",
       selection: {},
-      submissions: { ...reviewedSubmissions, nextCursor: "next-page" },
+      submissions: { ...awaitingSubmissions, nextCursor: "next-page" },
     }),
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
+    const pages = within(
+      page.getByRole("navigation", { name: "Страницы сдач" }),
+    );
     await expect(
-      page.getByRole("link", { name: "Более ранние сдачи" }),
+      pages.getByRole("link", { name: "Более ранние" }),
     ).toHaveAttribute("href", "/authoring/submissions?cursor=next-page");
-    await expect(
-      page.getByRole("link", { name: "К новым сдачам" }),
-    ).toHaveAttribute("href", "/authoring/submissions");
+    await expect(pages.getByRole("link", { name: "К новым" })).toHaveAttribute(
+      "href",
+      "/authoring/submissions",
+    );
+    await expect(rowLinks(canvasElement, "desktop")[0]).toHaveAttribute(
+      "href",
+      "/authoring/submissions?cursor=page-2&submission=30000000-0000-4000-8000-000000000003",
+    );
   },
 };
 
-export const Empty: Story = {
-  args: { presentation: { ...presentation, rows: [] } },
+const nothingAwaiting = { ...presentation, rows: [] };
+export const NothingAwaiting: Story = {
+  globals: desktop.globals,
+  args: { presentation: nothingAwaiting },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { name: "Все сдачи прокомментированы" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Показать все сдачи" }),
+    ).toHaveAttribute("href", "/authoring/submissions?feedback=all");
+    await expect(
+      page.queryByRole("table", { name: rowsName }),
+    ).not.toBeInTheDocument();
+  },
 };
-export const EmptyFilter: Story = {
+export const NothingAwaitingMobile: Story = {
+  ...NothingAwaiting,
+  globals: mobile.globals,
+};
+export const Empty: Story = {
+  globals: desktop.globals,
+  args: { presentation: { ...allPresentation, rows: [] } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      routeContent(canvasElement).getByRole("heading", {
+        name: "Сдач пока нет",
+      }),
+    ).toBeVisible();
+  },
+};
+export const EmptyMobile: Story = { ...Empty, globals: mobile.globals };
+export const NoResults: Story = {
+  globals: desktop.globals,
+  beforeEach: captureRouterPush,
   args: {
     presentation: {
       ...presentation,
@@ -377,8 +641,53 @@ export const EmptyFilter: Story = {
       rows: [],
     },
   },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByText("По этому фильтру нет сдач без комментария."),
+    ).toBeVisible();
+    await userEvent.click(
+      page.getByRole("button", { name: "Сбросить фильтры" }),
+    );
+    await expect(routerPush).toHaveBeenCalledWith("/authoring/submissions");
+  },
 };
-export const Loading: Story = { render: () => <TaskSubmissionsLoading /> };
+export const NoResultsMobile: Story = { ...NoResults, globals: mobile.globals };
+export const EmptyPageWithContinuation: Story = {
+  globals: desktop.globals,
+  args: {
+    presentation: presentTaskSubmissions({
+      continued: false,
+      selection: {},
+      submissions: {
+        ...awaitingSubmissions,
+        submissions: [],
+        nextCursor: "page-2",
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { name: "На этой странице сдач нет" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Более ранние" }),
+    ).toHaveAttribute("href", "/authoring/submissions?cursor=page-2");
+  },
+};
+export const Loading: Story = {
+  globals: desktop.globals,
+  render: () => <TaskSubmissionsLoading />,
+  play: async ({ canvasElement }) => {
+    await expect(
+      routeContent(canvasElement).getByRole("region", {
+        name: "Загружаем сдачи",
+      }),
+    ).toBeVisible();
+  },
+};
+export const LoadingMobile: Story = { ...Loading, globals: mobile.globals };
 export const Forbidden: Story = {
   render: () => <TaskSubmissionsState kind="forbidden" />,
 };
@@ -386,7 +695,19 @@ export const Unauthorized: Story = {
   render: () => <TaskSubmissionsState kind="unauthorized" />,
 };
 export const Unavailable: Story = {
+  globals: desktop.globals,
   render: () => <TaskSubmissionsState kind="unavailable" />,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(page.getByRole("alert")).toHaveTextContent(
+      "Сдачи не загрузились",
+    );
+    await expect(page.getByRole("button", { name: "Повторить" })).toBeVisible();
+  },
+};
+export const UnavailableMobile: Story = {
+  ...Unavailable,
+  globals: mobile.globals,
 };
 
 function ArrivedSubmissions({
@@ -411,7 +732,7 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
       await settleStoryFrame(width);
       const page = routeContent(canvasElement);
       await expect(
-        page.getByRole("status", { name: "Загружаем сдачи" }),
+        page.getByRole("region", { name: "Загружаем сдачи" }),
       ).toBeVisible();
       const anchors = () =>
         ["title", "workspace"].map((part) =>
@@ -521,9 +842,6 @@ export const PagedProductChoices: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await userEvent.click(
-      page.getByText("Продукт, глава и задание", { exact: true }),
-    );
     await expect(
       page.getByRole("link", { name: "Другие продукты" }),
     ).toHaveAttribute(

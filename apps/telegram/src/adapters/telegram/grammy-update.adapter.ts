@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import type { Update } from "grammy/types";
 
 import type {
+  TelegramUserProfile,
   VerifiedPrivateContactability,
   VerifiedPrivateStart,
 } from "../../shared/telegram-contact.js";
@@ -18,6 +19,7 @@ import type {
 import { translateAuthorInput } from "./grammy-author-admin.adapter.js";
 import { translateTemplateIntake } from "./grammy-template-intake.adapter.js";
 import { toTelegramChatMember } from "./grammy-membership.adapter.js";
+import { telegramUserProfile } from "./telegram-user-profile.js";
 
 const LINK_TOKEN_FIELD = "_inside_link_token";
 const SIGN_IN_TOKEN_FIELD = "_inside_sign_in_token";
@@ -191,6 +193,7 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
             telegramUserId: user,
             privateChatId: user,
             messageId: String(callback.message.message_id),
+            ...senderProfile(callback.from),
           },
           action: callbackAction.action,
           ...(callbackAction.code === undefined
@@ -446,6 +449,7 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         privateChatId,
         telegramUserId,
         updateId,
+        ...senderProfile(from),
       },
       ...(isRecord(message["_inside_activation"]) &&
       (message["_inside_activation"]["code"] === null ||
@@ -499,6 +503,7 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
       observedAt,
       telegramUserId,
       updateId,
+      ...senderProfile(from),
     };
   }
 }
@@ -606,6 +611,16 @@ function accessCallbackAction(
   if (scoped?.[1] !== undefined) return { action: "retry", code: scoped[1] };
   const action = ACCESS_ACTIONS.find((value) => data === `access:${value}`);
   return action === undefined ? undefined : { action };
+}
+
+/** The verified sender's profile; Telegram always sends a first name, so an empty one is absent. */
+function senderProfile(from: Parameters<typeof telegramUserProfile>[0]): {
+  readonly profile?: TelegramUserProfile;
+} {
+  const profile = telegramUserProfile(from);
+  return profile && (profile.displayName !== null || profile.username !== null)
+    ? { profile }
+    : {};
 }
 
 function telegramId(value: unknown): string | undefined {

@@ -588,6 +588,7 @@ curl --silent --output /dev/null --write-out '%{http_code}\n' \
 | `/integrations/platform/v1/identity-links`, `/identity-links/<ref>/confirm` | Platform API |
 | `/integrations/platform/v1/community-entitlements` | Platform billing-worker |
 | `/integrations/platform/v2/communications` | Platform API и MCP |
+| `/integrations/platform/v1/telegram-contacts`, `/integrations/platform/v2/telegram-contacts/read`, `/v2/telegram-contacts/search` | Platform API |
 | `/integrations/identity/v1/sign-in`, `/sign-in/<ref>/status`, `/consume`, `/account-link` | Logto и Platform API |
 
 Reference занимает один сегмент пути; вложенные пути не допускаются. Остальные пути дают `404`,
@@ -676,6 +677,27 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 Каждая команда вызывается как `"${telegram_compose[@]}" --profile operations …` и не открывает порты.
 `community-restriction` и `activation-review` видят только сеть базы. `activation-announcement` видит базу и egress;
 `webhook-registration` — только внешнюю сеть.
+
+### Поиск контактов по имени (`inside.telegram-contact.v2`)
+
+Выпуск с migration `038-platform-link-profiles` хранит имя и username только текущих привязок
+бота (`platform_link_profiles`): при сообщениях и кнопках привязанного человека в личном чате и
+при чтении контакта из Platform. Перенос привязки удаляет запись в той же транзакции. Новых
+переменных окружения нет, секрет тот же, что у `/integrations/platform/v1/telegram-contacts`.
+[Протокол](../../../../docs/contracts/runtime/telegram-contact.md) описывает обе версии.
+
+Порядок выпуска: сначала Platform, затем Telegram. Пока работает прежний Telegram, его Caddy и
+приложение отвечают `404` на v2-адреса: Platform читает контакты по v1 с состоянием `/stop`
+«неизвестно» и сообщает, что поиск по имени временно недоступен. Новый Telegram при прежнем
+Platform безопасен: v2-адреса никто не вызывает. После выкладки Telegram запрос без секрета на
+каждый v2-адрес отвечает `401`.
+
+Массового заполнения при выпуске нет. Профили уже существующих привязок появляются, только когда
+человек пишет боту или нажимает его кнопки, либо когда Platform читает его контакт: список людей,
+карточка человека, список сдач или страница привязки Telegram в кабинете самого человека. Поэтому
+сразу после выпуска поиск по имени находит немногих; до первого такого события имени человека
+в хранилище нет. Сбой записи профиля при чтении не мешает ответу и пишется в stderr строкой
+`identity-linking.link-profile-observe` с техническим кодом.
 
 ## Совместная выкладка с Platform
 

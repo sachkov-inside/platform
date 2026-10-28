@@ -228,8 +228,9 @@ export const Chapters: Story = {
       `/authoring/materials/${firstMaterialId}/preview`,
     );
     await expect(chapterPreview.searchParams.get("product")).toBe(productId);
+    // Возврат из предпросмотра ведёт в «Программу», а не на первую вкладку «Обзор» (#1719).
     await expect(chapterPreview.searchParams.get("from")).toBe(
-      `/authoring/products/${productId}`,
+      `/authoring/products/${productId}?tab=program`,
     );
     await expect(
       canvas.getAllByRole("link", { name: /^Предпросмотр «/u }),

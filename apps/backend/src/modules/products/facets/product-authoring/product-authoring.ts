@@ -5,6 +5,7 @@ import { assembleCreateContentCollection } from "../../features/create-content-c
 import { assembleUpdateContentCollection } from "../../features/update-content-collection/update-content-collection.js";
 import { assembleSetContentCollectionArchive } from "../../features/set-content-collection-archive/set-content-collection-archive.js";
 import { assembleListContentCollections } from "../../features/list-content-collections/list-content-collections.js";
+import { assembleSearchAuthoringProducts } from "../../features/search-authoring-products/search-authoring-products.js";
 import { assembleLoadProductOrder } from "../../features/load-product-order/load-product-order.js";
 import { assembleReorderProduct } from "../../features/reorder-product/reorder-product.js";
 import { assembleUpdateChapterAttachments } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
@@ -23,6 +24,8 @@ export function assembleProductAuthoring(
     setContentCollectionArchive:
       assembleSetContentCollectionArchive(dependencies),
     listContentCollections: assembleListContentCollections(dependencies),
+    /** The Products group of the authoring search (#1720). */
+    searchProducts: assembleSearchAuthoringProducts(dependencies),
     loadProductOrder: assembleLoadProductOrder(dependencies),
     reorderProduct: assembleReorderProduct(dependencies),
     updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),

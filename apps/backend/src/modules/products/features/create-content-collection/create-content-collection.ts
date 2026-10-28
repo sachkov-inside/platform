@@ -54,7 +54,7 @@ export function assembleCreateContentCollection(
         return contentCollectionPersistence(
           transaction,
           command.kind,
-          dependencies.loadCovers,
+          dependencies,
         ).create({
           id: randomUUID(),
           name: command.name,

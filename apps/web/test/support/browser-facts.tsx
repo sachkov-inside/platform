@@ -2,7 +2,7 @@ import {
   useCurrentBilling,
   ProductAccessList,
 } from "@/features/billing-subscription";
-import { ProductAccessPanel } from "@/features/billing-admin";
+import { AuthoringPersonQuery } from "@/_pages/authoring-person/ui/authoring-person-query.client";
 import { AccountProductCommunity } from "@/_pages/account-access/ui/account-product-community.client";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -127,16 +127,20 @@ function BillingFacts() {
     />
   ) : null;
 }
+/** The person card of the owner with its access actions; each surface has its own cache. */
 function ProductAccessFacts() {
+  const accountId = "00000000-0000-4000-8000-000000000001";
   return (
     <>
       <QueryClientProvider client={client}>
-        <ProductAccessPanel />
+        <section aria-label="Primary access">
+          <AuthoringPersonQuery accountId={accountId} />
+        </section>
       </QueryClientProvider>
       {new URLSearchParams(window.location.search).has("secondary") ? (
         <QueryClientProvider client={secondaryClient}>
           <section aria-label="Secondary access">
-            <ProductAccessPanel />
+            <AuthoringPersonQuery accountId={accountId} />
           </section>
         </QueryClientProvider>
       ) : null}

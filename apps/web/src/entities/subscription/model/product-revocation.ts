@@ -1,0 +1,41 @@
+import { z } from "zod";
+import { accessCapabilitySchema, accessSourceSchema } from "./billing-contract";
+export const productRevocationTargetSchema = z.strictObject({
+  accountId: z.uuid(),
+  productId: z.uuid(),
+});
+export const productRevocationCommandSchema =
+  productRevocationTargetSchema.extend({
+    operationId: z.uuid(),
+    expectedRevision: z.number().int().nonnegative(),
+    reason: z.string().trim().min(1).max(1000),
+  });
+export const productRevocationPreviewSchema =
+  productRevocationTargetSchema.extend({
+    revision: z.number().int().nonnegative(),
+    affectedCount: z.number().int().nonnegative(),
+    affected: z.array(
+      z.strictObject({
+        source: accessSourceSchema,
+        capabilities: z.array(accessCapabilitySchema),
+        validUntil: z.iso.datetime().nullable(),
+      }),
+    ),
+    /**
+     * `closes`: after this revocation no other active Product of the Account keeps the community
+     * group; `remains`: another Product keeps it, or nothing is revoked.
+     */
+    community: z.enum(["closes", "remains"]),
+  });
+export const productRevocationPreviewResponseSchema = z.strictObject({
+  ok: z.literal(true),
+  value: productRevocationPreviewSchema,
+});
+export const productRevocationResponseSchema = z.strictObject({
+  ok: z.literal(true),
+  value: productRevocationTargetSchema.extend({
+    revision: z.number().int().positive(),
+    access: z.literal("revoked"),
+    firstIssuedAt: z.iso.datetime().nullable(),
+  }),
+});

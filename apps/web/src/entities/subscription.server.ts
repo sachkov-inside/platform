@@ -7,6 +7,10 @@ export {
   readAuthenticatedBilling,
   readBillingResource,
 } from "./subscription/api/billing-command.server";
+export {
+  handleOwnerPriceCatalogRead,
+  ownerBillingCommand,
+} from "./subscription/api/owner-billing.server";
 export { handleBillingConsents } from "./subscription/api/billing-consents.server";
 export {
   loadBillingOffers,
@@ -17,3 +21,11 @@ export {
   type CatalogQuery,
   type OffersResult,
 } from "./subscription/api/billing-catalog.server";
+export {
+  handleIssueProductAccess,
+  handleRestoreProductAccess,
+} from "./subscription/api/product-access.server";
+export {
+  handlePreviewProductRevocation,
+  handleRevokeProductAccess,
+} from "./subscription/api/product-revocation.server";

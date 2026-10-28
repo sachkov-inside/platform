@@ -34,6 +34,17 @@ export interface ListOffersOptions {
   readonly publishedOnly?: boolean;
   readonly sale?: SaleCapability;
 }
+
+/**
+ * Каталог владельца: действующие цены и продукты, чья цена в архиве. Архивную цену нельзя вернуть
+ * или заменить (`productPrices.save` отвечает `not_found`), поэтому такой продукт больше не
+ * продаётся; владелец видит это, а не «без цены».
+ */
+export interface OwnerCatalogPage {
+  readonly items: z.infer<typeof priceSnapshotSchema>[];
+  readonly archivedProductIds: string[];
+  readonly nextCursor: string | null;
+}
 export async function listOffers(
   prisma: BillingPrismaClient,
   input: unknown,
@@ -44,6 +55,40 @@ export async function listOffers(
     z.infer<typeof offersPageSchema>,
     "invalid_request" | "dependency_unavailable"
   >
+> {
+  const result = await readCatalog(prisma, input, clock, {
+    ...options,
+    withArchived: false,
+  });
+  return result.ok
+    ? {
+        ok: true,
+        value: {
+          items: result.value.items,
+          nextCursor: result.value.nextCursor,
+        },
+      }
+    : result;
+}
+
+/** Страница каталога владельца: цены, включённые и не включённые в продажу, и архивные. */
+export async function listOwnerCatalog(
+  prisma: BillingPrismaClient,
+  input: unknown,
+  clock: () => Date,
+): Promise<
+  PricingResult<OwnerCatalogPage, "invalid_request" | "dependency_unavailable">
+> {
+  return await readCatalog(prisma, input, clock, { withArchived: true });
+}
+
+async function readCatalog(
+  prisma: BillingPrismaClient,
+  input: unknown,
+  clock: () => Date,
+  options: ListOffersOptions & { readonly withArchived: boolean },
+): Promise<
+  PricingResult<OwnerCatalogPage, "invalid_request" | "dependency_unavailable">
 > {
   const parsed = listOffersSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
@@ -60,7 +105,7 @@ export async function listOffers(
     const productId = parsed.data.productId ?? legacyProductId;
     const rows = await prisma.billingProductPrice.findMany({
       where: {
-        archived: false,
+        ...(options.withArchived ? {} : { archived: false }),
         ...(options.publishedOnly === true ? { published: true } : {}),
         ...(productId === null ? {} : { productId }),
         ...(hasText(cursor) ? { AND: [{ productId: { gt: cursor } }] } : {}),
@@ -69,21 +114,29 @@ export async function listOffers(
       take: limit + 1,
     });
     const page = rows.slice(0, limit);
+    const archivedProductIds = page
+      .filter((row) => row.archived)
+      .map((row) => row.productId);
+    const current = page.filter((row) => !row.archived);
     const items = [];
     const now = clock();
-    const prices = await selectPricesForOptions(prisma, page, now, undefined, {
-      allowUnpublished: options.publishedOnly !== true,
-    });
+    const prices = await selectPricesForOptions(
+      prisma,
+      current,
+      now,
+      undefined,
+      { allowUnpublished: options.publishedOnly !== true },
+    );
     const metadata =
       options.publishedOnly !== true
         ? undefined
         : await options.contentCatalog?.resolveMany(
-            page.map((row) => ({
+            current.map((row) => ({
               productIds: [row.productId],
               materialIds: [],
             })),
           );
-    for (const [index, row] of page.entries()) {
+    for (const [index, row] of current.entries()) {
       if (
         options.publishedOnly === true &&
         metadata?.[index]?.some(
@@ -107,6 +160,7 @@ export async function listOffers(
       ok: true,
       value: {
         items,
+        archivedProductIds,
         nextCursor:
           rows.length > limit ? (page.at(-1)?.productId ?? null) : null,
       },

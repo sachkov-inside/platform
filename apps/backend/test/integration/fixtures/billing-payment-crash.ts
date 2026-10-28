@@ -38,6 +38,7 @@ const accounts = assembleAccounts({
 });
 const contact = new BillingContact({
   prisma,
+  emailFingerprintKey: "synthetic-billing-fingerprint-key-000000",
   protection: billingContactProtection(Buffer.alloc(32, 42).toString("base64")),
   documents: input.documents,
   now: clock,

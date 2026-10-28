@@ -2,7 +2,7 @@
 version: 1
 slug: "admin-workspace"
 primary_target: "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx"
-related_targets: ["apps/web/src/shared/ui/workspace-tabs.client.tsx", "apps/web/src/_pages/content-collections/ui/series-editor-page.client.tsx", "apps/web/src/widgets/material-authoring/ui/material-authoring-workspace.client.tsx", "apps/web/src/features/billing-admin/ui/billing-admin-view.client.tsx", "apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.tsx"]
+related_targets: ["apps/web/src/shared/ui/workspace-tabs.client.tsx", "apps/web/src/_pages/content-collections/ui/product-editor-page.client.tsx", "apps/web/src/widgets/material-authoring/ui/material-authoring-workspace.client.tsx", "apps/web/src/_pages/sales-payments/ui/sales-payments-page.tsx", "apps/web/src/_pages/sales-links/ui/sales-links-page.client.tsx", "apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.client.tsx"]
 ---
 
 # Admin workspace
@@ -22,13 +22,20 @@ records the #1617 task-tab composition that supersedes its continuous editor lay
 
 ## Composition and responsive behavior
 
-At `64rem` and above, a light sidebar (232px) separates text navigation from the task canvas.
-«Контент» contains products, Materials and topics. «Управление» contains submissions, people and
-access, sales and payments, and the sales funnel. Public-site links stay separate at the bottom.
-No communications route is introduced. Current route is marked by `aria-current`, a light card
-surface and a fine border. Icons serve identifiable actions, not every navigation label.
+Since #1720 the shell follows specification #1717 (decisions 2, 8 and 13); the menu is defined
+once in `src/widgets/authoring-shell/model/navigation.ts`. At `64rem` and above, a light sidebar
+(232px) holds «Обзор», then «Контент» (products, Materials, topics), «Ученики» (people,
+submissions) and «Продажи» (payments, payment links, discounts, sales funnel); every item has a
+lucide icon and label, and «Сдачи» carries the counter of submissions without author feedback.
+Items whose screens later tickets build link to today's pages. Public-site links stay separate at
+the bottom. No communications route is introduced. A global search row sits above the page and
+`⌘K`/`Ctrl+K` opens the same search dialog. Current route is marked by `aria-current`, a light
+card surface, a fine border and an orange icon.
 
-Below `64rem`, «Меню» exposes those same routes; navigation closes on route change or Escape.
+Below `64rem`, a top row names the section and opens search; sibling sections of the current group
+appear as tabs under it on section roots. A fixed bottom panel (safe-area aware, 44px+ targets)
+holds «Обзор», «Люди», «Продажи», «Сдачи» and «Ещё»; «Ещё» opens a modal sheet with the remaining
+sections and site links, which closes on route change, Escape or the backdrop.
 At narrow mobile widths the document scrolls naturally. From `48rem` the task content owns its
 scroll region. Shared page bodies are bounded at 1280px, with 36px/40px/64px vertical/horizontal/
 bottom padding on desktop and 24px/16px/48px below `48rem`. These are local composition values,
@@ -45,22 +52,28 @@ graphite buttons carry primary actions, and orange stays a restrained task/focus
 Drafts, preview state and retry identities survive a local task switch. Tabs wrap on mobile,
 use a 44px minimum target, and support ArrowLeft/ArrowRight, Home and End with roving focus.
 
-- Product editor: «Программа», «Описание и обложка», «Материалы продукта», «Настройки».
-  ImportedProduct source-owned restrictions remain in force.
+- Product editor: «Программа», «Описание и витрина», «Продажа» (price, sale state and the
+  product's payment links), «Ученики», «Сообщество и активация». The tab lives in the address
+  (`?tab=`). ImportedProduct source-owned restrictions remain in force.
 - Material editor: «Содержимое», «Параметры», «Обложка и видео», «Карточка ссылки».
   Save, publication and Preview retain their application contracts.
-- People/access: «Люди и доступ», «Тарифы», «Приглашения», «Сводка».
-- Sales/payments: «Платежи», «Предложения», «Ссылки на оплату», «Наборы»,
-  «Назначения и перенос», «Служебные операции». The last group separates grant/bulk actions
-  from account classification. Offer benefits use readable named choices.
-- Sales funnel: «Воронка», «Ожидание набора», «Анкетные скидки».
+- People (#1721): no tabs. `/authoring/people` is the shared list pattern, and
+  `/authoring/people/[accountId]` is one person card with anchors «Продукты и история», «Оплаты и
+  ссылки», «Обучение», «Telegram», «Списки ожидания». «Выдать продукт», «Отозвать» and
+  «Восстановить» open modal dialogs. The former tabbed `/authoring/access` («Люди и доступ»,
+  «Тарифы», «Приглашения», «Сводка») is removed and redirects to `/authoring/people`.
+- Sales (#1718): separate pages under `/authoring/sales` rather than tabs. «Платежи» lists
+  payments and opens one payment at `/authoring/sales/payments/[purchaseRef]`; «Ссылки на оплату»
+  and «Скидки» are lists with a create dialog, and questionnaire discounts are a read-only
+  archive in «Скидки». Prices, sale state and activation rules live on the product page.
+- Sales funnel: one page at `/authoring/sales/funnel` with product, chapter and period filters;
+  bot steps, waitlist demand and questionnaire respondents are sections of it, and consent is a
+  separate historical metric, never a step.
 
-Payment state filtering stays visible. Account, kind and row limit live in a native additional
-filters disclosure; collapsing it preserves field values. Below the `sm` breakpoint, a payment
-row presents state and amount first, kind and access second, and a wrapping opening action last.
-Larger screens retain the table. Banking state, access and receipt remain distinct facts.
-The [operation inventory](../../../../docs/research/2026-10-20-admin-operations.md) maps the existing
-operations retained by this grouping.
+The payments list keeps its state, product and period filters in the address. Banking state,
+access and receipt remain distinct facts. The
+[operation inventory](../../../../docs/research/2026-10-20-admin-operations.md) records the
+operations of the earlier grouping that these pages retain.
 
 ## Evidence and limits
 

@@ -1,4 +1,5 @@
 import type { PublicationState } from "../../domain/material.js";
+import type { MaterialFormat } from "../../domain/material-format.js";
 import type {
   ForbiddenError,
   SystemError,
@@ -35,6 +36,10 @@ export interface ListMaterialsQuery {
   readonly page: number;
   readonly publicationState?: PublicationState;
   readonly search?: string;
+  /** Only Materials of this Topic. */
+  readonly topicId?: string;
+  /** Only Materials of this format. */
+  readonly format?: MaterialFormat;
 }
 
 export type ListMaterialsError = ForbiddenError | SystemError;

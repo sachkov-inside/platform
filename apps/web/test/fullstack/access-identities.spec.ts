@@ -137,8 +137,11 @@ async function seededOffer(observer: Page) {
     "/api/authoring/billing/catalog",
   );
   const prices = z
-    .object({ ok: z.literal(true), value: z.array(priceSchema) })
-    .parse(await response.json()).value;
+    .object({
+      ok: z.literal(true),
+      value: z.object({ items: z.array(priceSchema) }),
+    })
+    .parse(await response.json()).value.items;
   const price = prices.find((item) => item.product.id === productA.id);
   if (price === undefined) throw new Error("Seeded Product price is missing");
   return price;
@@ -154,6 +157,13 @@ function renameSeededOffer(page: Page, price: z.infer<typeof priceSchema>) {
     },
   });
 }
+/** An owner people read (#1721) answered to an Account without `billing:manage`. */
+async function peopleRead(page: Page, path: string) {
+  const response = await fullStackBrowserRequest(page, path);
+  return { status: response.status(), body: await response.json() };
+}
+const peopleDenial = { status: 403, body: { kind: "forbidden" } } as const;
+
 async function access(
   page: Page,
   operation: string,
@@ -251,7 +261,9 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
     await expect(
       author.page
         .getByRole("region", { name: "Список материалов" })
-        .getByText(publishedMaterial.title, { exact: true }),
+        .getByText(publishedMaterial.title, { exact: true })
+        // The list renders a table and a phone list; CSS shows one of them.
+        .filter({ visible: true }),
     ).toBeVisible();
     expect((await authoringMaterial(author.page)).publicationState).toBe(
       "published",
@@ -259,8 +271,8 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
 
     const before = await seededOffer(observer.page);
     expect(await renameSeededOffer(author.page, before)).toEqual(billingDenial);
-    expect(await access(author.page, "list", { limit: 100 })).toEqual(
-      billingDenial,
+    expect(await peopleRead(author.page, "/api/authoring/people")).toEqual(
+      peopleDenial,
     );
     expect(await seededOffer(observer.page)).toEqual(before);
   } finally {
@@ -276,11 +288,11 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
   const billingManager = await openAs(browser, "BILLING_ONLY", context);
   const observer = await openAs(browser, "MATERIALS_ONLY");
   try {
-    await billingManager.page.goto("/authoring/billing");
+    await billingManager.page.goto("/authoring/sales/payments");
     await expect(
       billingManager.page.getByRole("heading", {
         level: 1,
-        name: "Оплата",
+        name: "Платежи",
         exact: true,
       }),
     ).toBeVisible();
@@ -517,19 +529,19 @@ test("two separate Accounts cannot read or change each other's progress and book
     await setBookmark(stranger.page, false);
     await setRead(stranger.page, true);
     await setRead(stranger.page, false);
-    // Account ID принимают только маршруты Billing, и они требуют `billing:manage`.
+    // Account ID принимают только маршруты людей и Billing, и они требуют `billing:manage`.
     expect(
-      await access(stranger.page, "read", {
-        accountId: ownerAccountId,
-        productId: productA.id,
-      }),
-    ).toEqual(billingDenial);
+      await peopleRead(
+        stranger.page,
+        `/api/authoring/people/${ownerAccountId}`,
+      ),
+    ).toEqual(peopleDenial);
     expect(
-      await access(stranger.page, "list", {
-        accountId: ownerAccountId,
-        limit: 50,
-      }),
-    ).toEqual(billingDenial);
+      await peopleRead(
+        stranger.page,
+        `/api/authoring/people?query=${ownerAccountId}`,
+      ),
+    ).toEqual(peopleDenial);
 
     expect(await bookmarks(owner.page)).toEqual([
       expect.objectContaining({ materialId, bookmarked: true }),

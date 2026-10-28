@@ -1,0 +1,434 @@
+[
+  {
+    "id": "pages-authoring-обзор--owner-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--owner-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--empty-period-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--empty-period-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--one-sale-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--one-sale-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--long-lists-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--long-lists-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--materials-only-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--materials-only-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--unavailable-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--unavailable-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--all-clear-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-overview--all-clear-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--ready-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-overview--ready-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--empty-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-overview--empty-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--unavailable-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-overview--unavailable-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--materials-only-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-overview--materials-only-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-editor--mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--sale-tab-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-editor--sale-tab-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--learners-tab-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-product-editor--learners-tab-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-люди--mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-people--mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-карточка-человека--all-blocks-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-person--all-blocks-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-платежи--one-sale-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-payments--one-sale-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-materials--mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--submissions-mobile",
+    "width": 390,
+    "file": "storybook-pages-authoring-task-submissions--submissions-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-metriccard--overview-row-mobile",
+    "width": 390,
+    "file": "storybook-components-admin-metric-card--overview-row-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-metriccard--unavailable-mobile",
+    "width": 390,
+    "file": "storybook-components-admin-metric-card--unavailable-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--thirty-days-mobile",
+    "width": 390,
+    "file": "storybook-components-admin-trend-chart--thirty-days-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--negative-day-mobile",
+    "width": 390,
+    "file": "storybook-components-admin-trend-chart--negative-day-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--empty-mobile",
+    "width": 390,
+    "file": "storybook-components-admin-trend-chart--empty-mobile-390.png",
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--owner",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--owner-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--empty-period",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--empty-period-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--one-sale",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--one-sale-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--long-lists",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--long-lists-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--materials-only",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--materials-only-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--unavailable",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--unavailable-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор--all-clear",
+    "width": 1440,
+    "file": "storybook-pages-authoring-overview--all-clear-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--ready",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-overview--ready-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--empty",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-overview--empty-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--unavailable",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-overview--unavailable-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-обзор-продукта--materials-only",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-overview--materials-only-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--desktop",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-editor--desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--sale-tab-desktop",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-editor--sale-tab-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-редактор-продукта--learners-tab-desktop",
+    "width": 1440,
+    "file": "storybook-pages-authoring-product-editor--learners-tab-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-люди--populated",
+    "width": 1440,
+    "file": "storybook-pages-authoring-people--populated-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-карточка-человека--all-blocks",
+    "width": 1440,
+    "file": "storybook-pages-authoring-person--all-blocks-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-платежи--one-sale",
+    "width": 1440,
+    "file": "storybook-pages-authoring-payments--one-sale-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-материалы--populated",
+    "width": 1440,
+    "file": "storybook-pages-authoring-materials--populated-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "pages-authoring-task-submissions--submissions",
+    "width": 1440,
+    "file": "storybook-pages-authoring-task-submissions--submissions-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-metriccard--overview-row-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-metric-card--overview-row-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-metriccard--with-detail-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-metric-card--with-detail-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--thirty-days-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-trend-chart--thirty-days-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--negative-day-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-trend-chart--negative-day-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  },
+  {
+    "id": "components-админка-trendchart--empty-desktop",
+    "width": 1440,
+    "file": "storybook-components-admin-trend-chart--empty-desktop-1440.png",
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "noOverflow": true,
+    "axeViolations": []
+  }
+]

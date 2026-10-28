@@ -1,2 +1,2 @@
-import { handleIssueProductAccess } from "@/features/billing-admin.server";
+import { handleIssueProductAccess } from "@/entities/subscription.server";
 export const POST = handleIssueProductAccess;

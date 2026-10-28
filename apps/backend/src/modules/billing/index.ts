@@ -9,6 +9,10 @@ export {
 export { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 export { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 export { BillingPayments } from "./facets/billing-payments/billing-payments.js";
+export {
+  BillingPaymentSearch,
+  PAYMENT_SEARCH_ACCOUNT_LIMIT,
+} from "./features/search-payments/search-payments.js";
 
 // Подпись протокола банка нужна и вне модуля: двойник банка на стенде подписывает нотификации
 // тем же алгоритмом, иначе приложение не приняло бы их своим обычным путём.
@@ -17,6 +21,7 @@ export { tbankToken } from "./infrastructure/tbank/tbank.js";
 export { CourseActivation } from "./facets/course-activation/course-activation.js";
 
 export { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
+export { BillingSalesOverview } from "./facets/billing-sales-overview/billing-sales-overview.js";
 export { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 
 export {

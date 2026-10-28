@@ -5,6 +5,7 @@ import { mocked, within } from "storybook/test";
 
 import { currentLegalEdition } from "@inside/legal";
 
+import { ProductEditorPageFrame } from "@/_pages/content-collections";
 import { PublicApplicationFrame } from "@/_app/ui/public-application-frame.client";
 import { PublicShellContent } from "@/_app/ui/public-shell-content";
 import { type PriceSnapshot } from "@/entities/subscription";
@@ -235,21 +236,39 @@ export function accountSectionEnvironment(
 }
 
 /**
- * Авторская оболочка: тот же боковой список и мобильная нижняя навигация, что и в `/authoring`.
- * `frame` добавляет рамку самой страницы, когда story показывает её отдельный раздел.
+ * Каркас админки: та же боковая панель, верхняя строка с поиском и нижняя панель телефона, что и в
+ * `/authoring`. `frame` добавляет рамку самой страницы, когда story показывает её отдельный
+ * раздел. `awaitingFeedbackCount` — счётчик «Сдач», который на маршруте приносит чтение браузера;
+ * `null` — счётчика нет (нет права или чтение не удалось).
  */
 export function authoringPageEnvironment(
   currentPath: string,
-  { frame }: { readonly frame?: PageFrame } = {},
+  {
+    awaitingFeedbackCount = 4,
+    frame,
+  }: {
+    readonly awaitingFeedbackCount?: number | null;
+    readonly frame?: PageFrame;
+  } = {},
 ): StoryEnvironment {
   return routeEnvironment(currentPath, [
     ...(frame === undefined ? [] : [frameDecorator(frame)]),
     (Story) => (
-      <AuthoringShell>
+      <AuthoringShell awaitingFeedbackCount={awaitingFeedbackCount}>
         <Story />
       </AuthoringShell>
     ),
   ]);
+}
+
+/**
+ * Вкладка страницы продукта в каркасе админки и в настоящей рамке этой страницы
+ * (`ProductEditorPageFrame`), без копии её разметки в story.
+ */
+export function productPageEnvironment(currentPath: string): StoryEnvironment {
+  return authoringPageEnvironment(currentPath, {
+    frame: ProductEditorPageFrame,
+  });
 }
 
 /**

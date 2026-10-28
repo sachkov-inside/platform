@@ -28,12 +28,14 @@ export function assembleListContentCollections(
     if (!authorization.ok) return failure(authorization.error);
 
     try {
+      const topics = await contentCollectionPersistence(
+        dependencies.prisma,
+        parsed.value.kind,
+      ).list();
+      // A Topic is not held: its holder count is not a fact, not zero.
       return {
         ok: true,
-        value: await contentCollectionPersistence(
-          dependencies.prisma,
-          parsed.value.kind,
-        ).list(),
+        value: topics.map((topic) => ({ ...topic, holderCount: null })),
       };
     } catch (error) {
       return failure(

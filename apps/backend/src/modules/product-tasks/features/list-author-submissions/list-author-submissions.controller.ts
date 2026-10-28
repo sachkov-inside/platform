@@ -211,6 +211,13 @@ export class ListAuthorSubmissionsController {
     schema: toOpenApiSchema(query.taskCode),
   })
   @ApiQuery({
+    name: "feedback",
+    required: false,
+    description:
+      "awaiting: submissions without stored Author Feedback (no comment and no «посмотрел автор» mark); given: submissions with it; absent: all. Resend it with the cursor to continue the filtered order. Ignored when submissionId is given, so a submission stays readable after its comment is saved.",
+    schema: toOpenApiSchema(query.feedback),
+  })
+  @ApiQuery({
     name: "productCursor",
     required: false,
     schema: toOpenApiSchema(submissionsCursorSchema),

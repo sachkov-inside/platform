@@ -151,6 +151,8 @@ it.each(["communications-first", "sign-in-first"] as const)(
     await assertPreserved();
     await migrateDown(database); // 038: additive nullable receipt carrier.
     await assertPreserved();
+    await migrateDown(database); // 038-platform-link-profiles: additive profile projection.
+    await assertPreserved();
     await expect(migrateDown(database)).rejects.toMatchObject({
       message: "Database rollback failed",
       cause: {
@@ -164,7 +166,7 @@ it.each(["communications-first", "sign-in-first"] as const)(
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("40");
+    expect(ledger.rows[0]?.count).toBe("41");
     const receipt = await sql<{
       name: string;
     }>`select name from kysely_migration where name = '038-waitlist-receipt-tracing'`.execute(
@@ -217,6 +219,8 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
   await migrateDown(database); // 039
   expect(await read()).toEqual(historical);
   await migrateDown(database); // 038
+  expect(await read()).toEqual(historical);
+  await migrateDown(database); // 038-platform-link-profiles
   expect(await read()).toEqual(historical);
   await expect(migrateDown(database)).rejects.toMatchObject({
     message: "Database rollback failed",

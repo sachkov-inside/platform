@@ -1,0 +1,120 @@
+/*
+ * Платежи владельца (#1718): поля фильтра продукта и периода над общей строкой фильтров. Только
+ * токены `app/globals.css`; раскладку переключает ширина колонки, как у общих модулей админки.
+ */
+
+.owner-payments {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.owner-payments-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.owner-payments-fields > .owner-payments-product {
+  grid-column: 1 / -1;
+}
+.owner-payments-fields .admin-field-input {
+  max-width: none;
+}
+
+@container (min-width: 40rem) {
+  .owner-payments-fields {
+    grid-template-columns: minmax(0, 20rem) minmax(0, 11rem) minmax(0, 11rem);
+    align-items: start;
+  }
+  .owner-payments-fields > .owner-payments-product {
+    grid-column: auto;
+  }
+}
+
+/* Выбор продукта по названию: поле с подсказками, а не список на сотни строк. */
+
+.owner-payments-product {
+  position: relative;
+}
+.owner-payments-product-control {
+  position: relative;
+}
+.owner-payments-product-control .admin-field-input {
+  padding-inline-end: 44px;
+}
+.owner-payments-product-clear {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-lg);
+  color: var(--muted-foreground);
+  transform: translateY(-50%);
+}
+.owner-payments-product-clear:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.owner-payments-product-clear:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.owner-payments-product-list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: min(20rem, 60vh);
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-card);
+  list-style: none;
+}
+.owner-payments-product-option {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: default;
+  overflow-wrap: anywhere;
+}
+.owner-payments-product-option[aria-selected="true"] {
+  font-weight: 600;
+}
+.owner-payments-product-option[data-active] {
+  background: var(--muted);
+}
+.owner-payments-product-note {
+  padding: 8px 12px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+/* Номер в строке и на странице платежа: моноширинно, без переноса посреди группы. */
+
+.owner-payments-ref {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.owner-payments-state {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

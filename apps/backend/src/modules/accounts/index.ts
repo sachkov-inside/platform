@@ -20,6 +20,7 @@ export {
   type AccountId,
 } from "./domain/account-identifiers.js";
 export { bootstrapOwnerAccount } from "./features/bootstrap-owner-account/bootstrap-owner-account.js";
+export { backfillBillingContactFingerprints } from "./features/backfill-billing-contact-fingerprints/backfill-billing-contact-fingerprints.js";
 export {
   type Accounts,
   type AuthenticatedAccount,
@@ -35,6 +36,10 @@ export { platformPermissions } from "./domain/platform-permission.js";
 export { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
 
 export { BillingContact } from "./facets/billing-contact/billing-contact.js";
+export {
+  AccountDirectory,
+  type AccountDirectoryFacts,
+} from "./facets/account-directory/account-directory.js";
 export { LegalAcceptances } from "./facets/legal-acceptances/legal-acceptances.js";
 export { AcceptedTermsEndpoint } from "./adapters/nest/accepted-terms.guard.js";
 

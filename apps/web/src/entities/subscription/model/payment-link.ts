@@ -20,7 +20,7 @@ export const paymentLinkSchema = z.object({
 });
 export const paymentLinksPageSchema = z.object({
   items: z.array(paymentLinkSchema),
-  nextCursor: z.uuid().nullable(),
+  nextCursor: z.string().min(1).nullable(),
 });
 export const paymentLinkDetailSchema = paymentLinkSchema.extend({
   product: coverageEntrySchema.nullable(),
@@ -39,3 +39,9 @@ export const paymentLinkStateLabels: Record<PaymentLink["state"], string> = {
 export function paymentLinkHref(id: string): `/payment/links/${string}` {
   return `/payment/links/${id}`;
 }
+
+/**
+ * Ключ списков ссылок на оплату владельца в TanStack Query: фильтр добавляется к нему. Запись ссылки
+ * или цены продукта сбрасывает все списки под этим ключом.
+ */
+export const paymentLinksQueryKey = ["owner-payment-links"] as const;

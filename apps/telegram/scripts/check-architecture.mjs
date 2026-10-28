@@ -89,6 +89,7 @@ const tableOwners = {
   notification_deliveries: "modules/notifications",
   notification_quarantine: "modules/notifications",
   notification_result_outbox: "modules/notifications",
+  platform_link_profiles: "modules/identity-linking",
   platform_links: "modules/identity-linking",
   sales_funnel_event_outbox: "modules/sales-funnel",
   sign_in_requests: "modules/bot-sign-in",

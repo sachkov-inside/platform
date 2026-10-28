@@ -21,13 +21,16 @@ test("imported product opens read-only in the editor and lets the author leave",
   });
 
   await page.goto("/authoring/products");
-  const product = page.locator(`a[href="/authoring/products/${productId}"]`);
+  // Список рисует таблицу и список для телефона; CSS показывает одно из них.
+  const product = page
+    .locator(`a[href="/authoring/products/${productId}"]`)
+    .filter({ visible: true });
   await expect(product).toHaveCount(1);
   await product.click();
   await expect(page).toHaveURL(`/authoring/products/${productId}`);
 
   await page
-    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .getByRole("tab", { name: "Описание и витрина", exact: true })
     .click();
   await expect(page.getByRole("note")).toContainText(
     "Продукт перенесён из источника.",
@@ -54,7 +57,7 @@ test("imported product opens read-only in the editor and lets the author leave",
   for (const name of ["Добавить главу", "Добавить материал"])
     await expect(page.getByRole("button", { name })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Все продукты" }).click();
+  await page.getByRole("link", { name: "Все продукты", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products$/u);
   expect(writes).toEqual([]);
 });

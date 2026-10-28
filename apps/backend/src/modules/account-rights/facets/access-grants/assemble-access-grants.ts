@@ -21,13 +21,10 @@ import type {
   ProductAccessContext,
 } from "../../domain/product-access.js";
 import {
-  productAccessListQuerySchema,
-  productAccessListScope,
-  decodeProductAccessCursor,
-  encodeProductAccessCursor,
   productAccessTargetSchema,
   productAccessViewSchema,
 } from "../../domain/product-access.js";
+import { listProductAccess } from "../../features/list-product-access/list-product-access.js";
 import {
   activateCourse,
   beginActivation,
@@ -38,6 +35,15 @@ import {
   readActivationIntent,
 } from "../../features/activate-course/read-activation-continuation.js";
 import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
+import { listAccessAccounts } from "../../features/list-access-accounts/list-access-accounts.js";
+import { readAccessSummaries } from "../../features/read-access-summaries/read-access-summaries.js";
+import {
+  countActiveHolders,
+  listRecentAccessActions,
+  readNewAccessByDay,
+} from "../../features/read-access-overview/read-access-overview.js";
+import type { DailyWindow } from "../../../../infrastructure/contracts/daily-window.js";
+import { readAccountProductAccess } from "../../features/read-account-product-access/read-account-product-access.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
@@ -391,55 +397,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       );
     },
     listProductAccess: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", async () => {
-        const query = productAccessListQuerySchema.safeParse(input);
-        if (!query.success) return accessFailure("invalid_input");
-        const scope = productAccessListScope(query.data);
-        const cursor =
-          query.data.cursor === undefined
-            ? undefined
-            : decodeProductAccessCursor(query.data.cursor, scope);
-        if (cursor === null) return accessFailure("invalid_input");
-        const rows = await prisma.productAccess.findMany({
-          where: {
-            ...(scope.accountId === null ? {} : { accountId: scope.accountId }),
-            ...(scope.productId === null ? {} : { productId: scope.productId }),
-            ...(cursor === undefined
-              ? {}
-              : {
-                  OR: [
-                    { accountId: { gt: cursor[0] } },
-                    {
-                      accountId: cursor[0],
-                      productId: { gt: cursor[1] },
-                    },
-                  ],
-                }),
-          },
-          orderBy: [{ accountId: "asc" }, { productId: "asc" }],
-          take: query.data.limit + 1,
-        });
-        const last = rows[query.data.limit - 1];
-        return {
-          ok: true as const,
-          value: rows.slice(0, query.data.limit).map((row) =>
-            productAccessViewSchema.parse({
-              accountId: row.accountId,
-              productId: row.productId,
-              revision: row.revision,
-              firstIssuedAt: row.firstIssuedAt?.toISOString() ?? null,
-              access: row.revokedAt === null ? "active" : "revoked",
-            }),
-          ),
-          nextCursor:
-            rows.length > query.data.limit && last !== undefined
-              ? encodeProductAccessCursor(scope, [
-                  last.accountId,
-                  last.productId,
-                ])
-              : null,
-        };
-      }),
+      manage(
+        actorId,
+        "billing:manage",
+        () => listProductAccess(prisma, input),
+        "listProductAccess",
+      ),
     readProductAccess: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", async () => {
         const target = productAccessTargetSchema.safeParse(input);
@@ -490,6 +453,65 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           };
         });
       }),
+    /**
+     * The complete Account set behind the people list filters (`productId`, first acquisition
+     * `origin`, `state`), at most `ACCESS_ACCOUNTS_LIMIT` IDs; a larger set is `unavailable`.
+     */
+    listAccessAccounts: (actorId: string, filter: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => listAccessAccounts(prisma, filter),
+        "listAccessAccounts",
+      ),
+    /** The admin Overview (#1719): Product Access first issued per day, by origin. */
+    readNewAccessByDay: (
+      actorId: string,
+      window: DailyWindow,
+      productId?: string,
+    ) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => readNewAccessByDay(prisma, window, productId),
+        "readNewAccessByDay",
+      ),
+    /** The admin Overview (#1719): the latest issues, revocations and restorations. */
+    listRecentAccessActions: (
+      actorId: string,
+      limit: number,
+      productId?: string,
+    ) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => listRecentAccessActions(prisma, limit, productId),
+        "listRecentAccessActions",
+      ),
+    /** The admin Overview (#1719): active Product Access per Product and origin. */
+    countActiveHolders: (actorId: string, productId?: string) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => countActiveHolders(prisma, productId),
+        "countActiveHolders",
+      ),
+    /** Product, state and first acquisition origin per Account for one page of at most 50. */
+    readAccessSummaries: (actorId: string, accountIds: readonly string[]) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => readAccessSummaries(prisma, accountIds),
+        "readAccessSummaries",
+      ),
+    /** Every Product Access of one Account with its sources, actions and their actors. */
+    readAccountProductAccess: (actorId: string, targetAccountId: string) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () => readAccountProductAccess(prisma, targetAccountId),
+        "readAccountProductAccess",
+      ),
     previewProductRevocation: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
         previewProductRevocation(prisma, accounts, input, clock()),

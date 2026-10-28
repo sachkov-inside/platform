@@ -52,6 +52,7 @@ async function main() {
       "Synthetic Product lifetime and three-month support test fixture, never published legal terms";
     const contact = new BillingContact({
       prisma,
+      emailFingerprintKey: "synthetic-existing-link-fixture-fingerprint-key",
       protection: undefined,
       sendCode: undefined,
       now: () => new Date(),

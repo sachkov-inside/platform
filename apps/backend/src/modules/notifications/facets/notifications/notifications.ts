@@ -32,6 +32,7 @@ import {
   readDeliveries,
   resolveUnknown,
 } from "../../features/read-deliveries/read-deliveries.js";
+import { listTelegramDeliveryProblems } from "../../features/list-telegram-delivery-problems/list-telegram-delivery-problems.js";
 import type {
   QuarantineNotification,
   SendNotificationEmail,
@@ -123,6 +124,13 @@ export class Notifications {
       ok: true as const,
       deliveries: await this.readDeliveries(accountId, after),
     };
+  }
+  /**
+   * Accounts with a recent failed or unknown Telegram delivery at `now`, at most 50 000 (#1719).
+   * No actor: the composing read checks its own right first.
+   */
+  listTelegramProblemAccounts(now: Date) {
+    return listTelegramDeliveryProblems(this.deps.prisma, now);
   }
   resolveUnknown(actorId: string, input: unknown) {
     return resolveUnknown(
