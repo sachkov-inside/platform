@@ -38,8 +38,13 @@ by `refresh` returns every role to the deterministic test adapter.
 - Readiness comes from polling: the editor, MCP `video_reconcile` and `authoring:video` call
   `reconcile`, which reads the video from the Kinescope API. Provider webhooks keep pointing to
   production, which stores an unmatched event for a stand upload and does nothing else.
-- Videos recorded before the switch hold test-adapter provider IDs; they never played and do not
-  play now. Upload the recording again.
+- Videos recorded before the switch hold test-adapter provider IDs and the placeholder projects;
+  they never played. A Save that keeps one fails with `video_provider_mismatch`, including a
+  release that only preserves it. Detach them once after the switch:
+  `pnpm stand:kinescope detach-test-videos` clears those references in one transaction and keeps
+  the Video rows. Upload the recording again with
+  `authoring:video upload --target stand … --replace-test-upload`, so the journal drops its
+  test-adapter receipt, then sync the lesson.
 
 ## Risk of the production token
 

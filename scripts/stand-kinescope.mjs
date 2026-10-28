@@ -97,6 +97,54 @@ export async function removeStandKinescope(path) {
   await rm(path, { force: true });
 }
 
+// Test-adapter Videos keep the stand's placeholder projects. Once the real projects are configured,
+// a Save that keeps such a reference fails with `video_provider_mismatch`, and the recording never
+// played. Detaching them is what the editor's detach does; the Video rows stay for audit.
+export const detachTestVideosSql = `\\set ON_ERROR_STOP on
+BEGIN;
+CREATE TEMPORARY TABLE stand_test_videos ON COMMIT DROP AS
+  SELECT id FROM videos.videos WHERE project_id LIKE 'inside-local-%' AND deleted_at IS NULL;
+UPDATE materials.materials SET primary_video_id = NULL
+  WHERE primary_video_id IN (SELECT id FROM stand_test_videos);
+UPDATE materials.published_materials SET primary_video_id = NULL
+  WHERE primary_video_id IN (SELECT id FROM stand_test_videos);
+UPDATE videos.videos SET detached_at = now()
+  WHERE id IN (SELECT id FROM stand_test_videos) AND detached_at IS NULL;
+SELECT 'detached ' || count(*) FROM stand_test_videos;
+COMMIT;
+`;
+
+/**
+ * @param {(args: string[], input?: string) => string} docker
+ * @returns {string} a one-line count, never row contents
+ */
+export function detachTestVideos(docker) {
+  const container = docker([
+    "ps",
+    "--quiet",
+    "--filter",
+    "label=com.docker.compose.project=inside-platform",
+    "--filter",
+    "label=com.docker.compose.service=postgres",
+  ]).trim();
+  if (!/^[0-9a-f]+$/u.test(container))
+    throw new Error("The stand database is not running");
+  const output = docker(
+    [
+      "exec",
+      "-i",
+      container,
+      "sh",
+      "-c",
+      'exec psql -X -q -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"',
+    ],
+    detachTestVideosSql,
+  );
+  const line = /^detached \d+$/mu.exec(output)?.[0];
+  if (!line) throw new Error("The stand database did not confirm the detach");
+  return line;
+}
+
 if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -120,8 +168,24 @@ if (
         standKinescopeEnvironment(await text(process.stdin)),
       );
     } else if (command === "remove") await removeStandKinescope(path);
-    else if (command !== "status")
-      throw new Error("Usage: pnpm stand:kinescope [status|import|remove]");
+    else if (command === "detach-test-videos") {
+      if ((await readStandKinescope(path)) !== "real")
+        throw new Error(
+          "Test-adapter Videos still play their role under the test adapter; import first",
+        );
+      const result = detachTestVideos((args, input) =>
+        execFileSync("docker", args, {
+          encoding: "utf8",
+          timeout: 60_000,
+          ...(input === undefined ? {} : { input }),
+          stdio: ["pipe", "pipe", "ignore"],
+        }),
+      );
+      process.stdout.write(`Stand test-adapter Videos ${result}\n`);
+    } else if (command !== "status")
+      throw new Error(
+        "Usage: pnpm stand:kinescope [status|import|remove|detach-test-videos]",
+      );
     const mode = await readStandKinescope(path);
     // The file selects the adapter for roles created after it; running roles change on refresh.
     process.stdout.write(

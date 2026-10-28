@@ -6,6 +6,8 @@ import { join } from "node:path";
 import test from "node:test";
 import { standKinescopeFile } from "./stand-source.mjs";
 import {
+  detachTestVideos,
+  detachTestVideosSql,
   readStandKinescope,
   removeStandKinescope,
   standKinescopeEnvironment,
@@ -124,4 +126,26 @@ test("only api and mcp read the private file; the deletion worker keeps the test
     "utf8",
   );
   assert.match(worker, /^KINESCOPE_PROVIDER_MODE=test$/mu);
+});
+
+test("detaching test-adapter Videos touches only placeholder projects in one transaction", () => {
+  assert.match(detachTestVideosSql, /^\\set ON_ERROR_STOP on\nBEGIN;/u);
+  assert.match(detachTestVideosSql, /COMMIT;\n$/u);
+  assert.match(detachTestVideosSql, /project_id LIKE 'inside-local-%'/u);
+  assert.ok(!/\bDELETE\s+FROM\b|\bDROP\s+TABLE\b/iu.test(detachTestVideosSql));
+  /** @type {string[][]} */
+  const calls = [];
+  const line = detachTestVideos((args, input) => {
+    calls.push(args);
+    if (args[0] === "ps") return "abc123\n";
+    assert.equal(input, detachTestVideosSql);
+    return "detached 7\n";
+  });
+  assert.equal(line, "detached 7");
+  assert.deepEqual(calls[1]?.slice(0, 3), ["exec", "-i", "abc123"]);
+  assert.throws(() => detachTestVideos(() => ""), /not running/u);
+  assert.throws(
+    () => detachTestVideos((args) => (args[0] === "ps" ? "abc123" : "ERROR")),
+    /did not confirm/u,
+  );
 });
