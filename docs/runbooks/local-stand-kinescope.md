@@ -41,8 +41,11 @@ by `refresh` returns every role to the deterministic test adapter.
 - Videos recorded before the switch hold test-adapter provider IDs and the placeholder projects;
   they never played. A Save that keeps one fails with `video_provider_mismatch`, including a
   release that only preserves it. Detach them once after the switch:
-  `pnpm stand:kinescope detach-test-videos` clears those references in one transaction and keeps
-  the Video rows. Upload the recording again with
+  `pnpm stand:kinescope detach-test-videos` clears those references and their chapters in one
+  transaction, keeps the Video rows and prints how many Materials it changed. It writes to the
+  shared stand database, so run it for the reserved review or on the owner's request. It bypasses
+  the editor: reload an open editor tab, and a cached public page may show the old player until
+  the next Save of that Material. Upload the recording again with
   `authoring:video upload --target stand … --replace-test-upload`, so the journal drops its
   test-adapter receipt, then sync the lesson.
 

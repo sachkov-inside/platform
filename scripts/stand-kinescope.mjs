@@ -99,18 +99,23 @@ export async function removeStandKinescope(path) {
 
 // Test-adapter Videos keep the stand's placeholder projects. Once the real projects are configured,
 // a Save that keeps such a reference fails with `video_provider_mismatch`, and the recording never
-// played. Detaching them is what the editor's detach does; the Video rows stay for audit.
+// played. Detaching them is what the editor's detach does; the Video rows stay for audit. The
+// count names the Materials whose draft lost such a reference.
 export const detachTestVideosSql = `\\set ON_ERROR_STOP on
 BEGIN;
 CREATE TEMPORARY TABLE stand_test_videos ON COMMIT DROP AS
   SELECT id FROM videos.videos WHERE project_id LIKE 'inside-local-%' AND deleted_at IS NULL;
-UPDATE materials.materials SET primary_video_id = NULL
+CREATE TEMPORARY TABLE stand_detached_materials ON COMMIT DROP AS
+  SELECT id FROM materials.materials
   WHERE primary_video_id IN (SELECT id FROM stand_test_videos);
+-- Chapters require a Video; the domain's detach clears them with the reference.
+UPDATE materials.materials SET primary_video_id = NULL, video_chapters = '[]'::jsonb
+  WHERE id IN (SELECT id FROM stand_detached_materials);
 UPDATE materials.published_materials SET primary_video_id = NULL
   WHERE primary_video_id IN (SELECT id FROM stand_test_videos);
 UPDATE videos.videos SET detached_at = now()
   WHERE id IN (SELECT id FROM stand_test_videos) AND detached_at IS NULL;
-SELECT 'detached ' || count(*) FROM stand_test_videos;
+SELECT 'detached ' || count(*) FROM stand_detached_materials;
 COMMIT;
 `;
 

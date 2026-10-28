@@ -132,6 +132,10 @@ test("detaching test-adapter Videos touches only placeholder projects in one tra
   assert.match(detachTestVideosSql, /^\\set ON_ERROR_STOP on\nBEGIN;/u);
   assert.match(detachTestVideosSql, /COMMIT;\n$/u);
   assert.match(detachTestVideosSql, /project_id LIKE 'inside-local-%'/u);
+  assert.match(
+    detachTestVideosSql,
+    /SET primary_video_id = NULL, video_chapters = '\[\]'::jsonb/u,
+  );
   assert.ok(!/\bDELETE\s+FROM\b|\bDROP\s+TABLE\b/iu.test(detachTestVideosSql));
   /** @type {string[][]} */
   const calls = [];
