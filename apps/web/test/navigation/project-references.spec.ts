@@ -131,7 +131,10 @@ test("supplementary navigation expands with keyboard and preserves the course an
   await toggle.focus();
   await page.keyboard.press("Enter");
   await expect(links).toHaveCount(6);
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(group.getByRole("button", { name: "Скрыть" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   await page.keyboard.press("Space");
   await expect(links).toHaveCount(3);
   await toggle.click();
