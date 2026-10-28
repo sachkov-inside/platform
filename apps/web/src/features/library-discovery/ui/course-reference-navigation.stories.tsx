@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
+import { internalRoute } from "@/shared/routing/internal-route";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { CourseReferenceNavigation } from "./course-reference-navigation";
 
@@ -8,14 +9,14 @@ const references = Array.from({ length: 6 }, (_, index) => ({
   id: `reference-${String(index + 1)}`,
   slug: `reference-${String(index + 1)}`,
   title: `Материал ${String(index + 1)}`,
-  href: `/materials/reference-${String(index + 1)}` as const,
+  href: internalRoute(`/materials/reference-${String(index + 1)}`),
 }));
 
 const meta = {
   ...publicPageEnvironment("/materials/reference-1"),
   title: "Features/Library/Course References",
   component: CourseReferenceNavigation,
-  args: { references, courseHref: "/products/course/programme" },
+  args: { references, courseHref: internalRoute("/products/course/programme") },
 } satisfies Meta<typeof CourseReferenceNavigation>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -61,7 +62,7 @@ export const CountsAndChapterChange: Story = {
         </button>
         <CourseReferenceNavigation
           references={items}
-          courseHref="/products/course/programme"
+          courseHref={internalRoute("/products/course/programme")}
           activeReferenceId="reference-1"
           anchor={{ kind: "material", slug: "lesson" }}
         />
