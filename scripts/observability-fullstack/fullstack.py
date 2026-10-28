@@ -35,6 +35,7 @@ import source_guard
 import contact_job
 import stability
 import slot_refusal
+import startup_refusal
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -176,9 +177,12 @@ def readiness_output(raw,outcome):
     return {**result,'output':'valid','observation':value}
 
 
-def readiness_containers(compose):
+def readiness_containers(compose,*,roles=READINESS_ROLES):
     """Fixed disposable owner only; no logs, paths, labels, IDs or raw errors are published."""
-    unavailable={name:{'state':'unavailable'} for name in READINESS_ROLES}
+    if (type(roles) is not tuple or not 1<=len(roles)<=3 or len(set(roles))!=len(roles)
+            or any(name not in (*READINESS_ROLES,*BACKENDS,'rabbitmq') for name in roles)):
+        raise ValueError('fixed_readiness_roles_required')
+    unavailable={name:{'state':'unavailable'} for name in roles}
     if (type(compose) is not list or len(compose)!=6 or compose[:3]!=['docker','compose','-p']
             or compose[4]!='-f' or type(compose[3]) is not str
             or re.fullmatch(PREFIX+r'[0-9a-f]{12}',compose[3]) is None):return unavailable
@@ -188,18 +192,18 @@ def readiness_containers(compose):
         if remaining<=0:raise TimeoutError()
         return invoke(prefix,args,timeout=remaining)
     try:
-        ids=read(compose,['ps','--all','--quiet',*READINESS_ROLES]).split()
-        if not ids:return {name:{'state':'missing'} for name in READINESS_ROLES}
+        ids=read(compose,['ps','--all','--quiet',*roles]).split()
+        if not ids:return {name:{'state':'missing'} for name in roles}
         if len(ids)>3 or len(set(ids))!=len(ids) or any(re.fullmatch(r'[a-f0-9]{64}',value) is None for value in ids):return unavailable
         projection='{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"state":{{json .State.Status}},"running":{{json .State.Running}},"oom":{{json .State.OOMKilled}},"exit_code":{{json .State.ExitCode}},"restarts":{{json .RestartCount}}}'
         raw=read(['docker'],['inspect','--format',projection,*ids])
         if len(raw.encode())>4096:return unavailable
-        result={name:{'state':'missing'} for name in READINESS_ROLES};seen=set()
+        result={name:{'state':'missing'} for name in roles};seen=set()
         for line in raw.splitlines():
             row=json.loads(line)
             if (type(row) is not dict or set(row)!={'id','project','service','state','running','oom','exit_code','restarts'}
                     or type(row['id']) is not str or row['id'] not in ids or row['id'] in seen
-                    or row['project']!=compose[3] or row['service'] not in READINESS_ROLES
+                    or row['project']!=compose[3] or row['service'] not in roles
                     or result[row['service']]['state']!='missing' or row['state'] not in READINESS_STATES
                     or type(row['running']) is not bool or type(row['oom']) is not bool
                     or type(row['exit_code']) is not int or not -255<=row['exit_code']<=255
@@ -558,6 +562,31 @@ def await_collector(output):
     pilot.await_fact(recovered,bool,budget=pilot.FACT_TIMEOUT_SECONDS,probe='collector_recovery_query')
 
 
+def await_startup_role(compose,output,role,command):
+    if role not in (*BACKENDS,'rabbitmq'):raise ValueError('fixed_startup_role_required')
+    last={'reason':'unavailable','exit_code':None}
+    def healthy():
+        nonlocal last
+        try:invoke(compose,['exec','-T',role,*command],timeout=5);return True
+        except resource_runtime.CommandFailure as error:
+            last={'reason':error.reason,'exit_code':error.exit_code};return False
+        except subprocess.TimeoutExpired:
+            last={'reason':'timeout','exit_code':None};return False
+        except (RuntimeError,subprocess.SubprocessError):
+            last={'reason':'unavailable','exit_code':None};return False
+    try:pilot.await_fact(healthy,bool,probe='fullstack_'+role+'_ready')
+    except BaseException as primary:
+        traceback=primary.__traceback__
+        try:
+            source=stage_timing.source(output)
+            roles=(role,) if role=='rabbitmq' else (role,'rabbitmq')
+            value={'schema':1,'source':source,'role':role,'probe':last,
+                   'containers':readiness_containers(compose,roles=roles)}
+            startup_refusal.write(output,value,source,BACKENDS)
+        except BaseException:BaseException.__traceback__.__set__(primary,traceback)
+        raise
+
+
 def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
     mode_call=partial(stage_timing.call,timing,group=group)
     report={} if report is None else report
@@ -569,16 +598,16 @@ def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
         mode_call('mode_core_stop',invoke,compose,['stop','--timeout','2',*CORE],timeout=30)
     mode_call('mode_database_broker_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps','postgres','rabbitmq'],timeout=30)
     mode_call('mode_database_ready',resource_runtime.wait_ready,compose)
+    # Preserve production's RabbitMQ service_healthy dependency before worker startup.
+    mode_call('mode_broker_ready',await_startup_role,compose,output,'rabbitmq',
+              ['rabbitmq-diagnostics','-q','check_port_listener','5671'])
     mode_call('mode_applications_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps',*BACKENDS,'web','telegram','logto','caddy'],timeout=30)
     mode_call('mode_api_ready',ready,compose,'/health/ready');mode_call('mode_web_ready',ready,compose,'/_health/ready','web',3000)
     mode_call('mode_telegram_ready',ready,compose,'/ready','telegram',3002)
     mode_call('mode_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
     for name in BACKENDS:
         command=['node','healthcheck/http-healthcheck.mjs',name] if name in ('api','mcp') else ['node','dist/infrastructure/worker-healthcheck.js']
-        def healthy(name=name,command=command):
-            try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
-            except (RuntimeError,subprocess.SubprocessError):return False
-        mode_call('mode_backend_'+name+'_ready',pilot.await_fact,healthy,bool,probe='fullstack_'+name+'_ready')
+        mode_call('mode_backend_'+name+'_ready',await_startup_role,compose,output,name,command)
     mode_call('mode_warmup',extra.warmup,compose,invoke)
     if enabled:
         report.setdefault('web_http_initial_series',[]).append(mode_call('mode_web_initial_series',initialize_web_http,compose))
@@ -689,6 +718,7 @@ def collect(output, metadata, destination):
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
     source,_=hosted.metadata_source(metadata)
+    refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     path=metadata/preparation_evidence.NAME
     evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
     timings={}
@@ -712,6 +742,7 @@ def collect(output, metadata, destination):
     resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name not in (stage_timing.NAME,stage_timing.CONTACTS_NAME)))
     for name,value in timings.items():stage_timing.write(destination,value,source['checkout_sha'],binding_output=output,name=name)
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
+    if refusal is not None:startup_refusal.write(destination,refusal,source['checkout_sha'],BACKENDS)
 
 
 
@@ -747,11 +778,13 @@ def stability_worker(output,owner,compose):
 
 def stability_collect(output,metadata,destination):
     source,_=hosted.metadata_source(metadata)
+    refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     if (output/stability.NAME).exists() or (output/stability.NAME).is_symlink():
         stability.read(output,source['checkout_sha'],SERVICES)
     else:
         pilot.write_json(output/stability.NAME,stability.record(source['checkout_sha'],SERVICES))
     resource_runtime.ci.collect(output,metadata,destination,artifacts=(stability.NAME,'cleanup.json','worker-outcome.json','monitor-failure.json'))
+    if refusal is not None:startup_refusal.write(destination,refusal,source['checkout_sha'],BACKENDS)
 
 
 def main():
