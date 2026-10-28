@@ -898,6 +898,15 @@ const statusIcons: readonly CourseIconName[] = [
   "telegram",
 ];
 
+/**
+ * Личная часть нижнего блока для участника курса. Состав курса и кнопка в программу ему уже не
+ * нужны: продолжить обучение можно с анимации первого экрана. Метка приходит вместе с личной
+ * частью страницы и скрывает весь блок.
+ */
+export function LearnerCourseStatus() {
+  return <span className="aie-status-learner" hidden />;
+}
+
 function Status({
   block,
   call,
@@ -906,7 +915,8 @@ function Status({
   readonly block: ProductPageBlockOf<"list">;
   /**
    * Плашка набора на поток. Пока она есть, она стоит вместо заголовка и кнопки блока; без неё
-   * блок показывает свой текст из описания курса.
+   * блок показывает свой текст из описания курса. Метка участника `LearnerCourseStatus` убирает
+   * блок целиком.
    */
   readonly call?: ReactNode;
   readonly programme: Route;

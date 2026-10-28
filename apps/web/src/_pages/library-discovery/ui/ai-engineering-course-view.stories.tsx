@@ -26,6 +26,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { ProductLandingView } from "./product-landing-view";
 
 function fail(message: string): never {
@@ -325,23 +326,18 @@ export const CohortPreorderMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+/** Участник продолжает обучение с анимации; нижний блок «что входит» ему не нужен. */
 async function expectParticipantActions(canvasElement: HTMLElement) {
-  for (const selector of [".aie-hero-film", ".aie-status"]) {
-    const section =
-      canvasElement.querySelector<HTMLElement>(selector) ?? fail(selector);
-    await expect(
-      within(section).getByRole("link", { name: "Продолжить обучение" }),
-    ).toHaveAttribute("href", "/products/ai-engineering/programme");
-  }
+  const film =
+    canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+    fail("Анимация курса");
+  await expect(
+    within(film).getByRole("link", { name: "Продолжить обучение" }),
+  ).toHaveAttribute("href", "/products/ai-engineering/programme");
   const status =
     canvasElement.querySelector<HTMLElement>(".aie-status") ??
     fail("Нижний блок");
-  await expect(
-    within(status).queryByText(/В программе восемь глав/u),
-  ).toBeNull();
-  await expect(
-    within(status).getByText("Бессрочный доступ к курсу"),
-  ).toBeInTheDocument();
+  await expect(status).not.toBeVisible();
 }
 
 export const CourseParticipant: Story = {
@@ -350,10 +346,10 @@ export const CourseParticipant: Story = {
     heroBadge: (
       <>
         <StartCountdownBadge text="до старта 10 дней" />
-        <CourseLearningLink slug="ai-engineering" placement="film" />
+        <CourseLearningLink slug="ai-engineering" />
       </>
     ),
-    statusCall: <CourseLearningLink slug="ai-engineering" placement="status" />,
+    statusCall: <LearnerCourseStatus />,
     heroCall: (
       <CohortCallView
         call={cohortCall({
@@ -436,20 +432,14 @@ export const CourseParticipantResolving: Story = {
     const status =
       canvasElement.querySelector<HTMLElement>(".aie-status") ??
       fail("Нижний блок");
-    const list = status.querySelector("ul") ?? fail("Преимущества");
-    const offset = () =>
-      list.getBoundingClientRect().top - status.getBoundingClientRect().top;
-    const before = offset();
-    const heightBefore = status.getBoundingClientRect().height;
+    await expect(
+      within(status).getByText("Бессрочный доступ к курсу"),
+    ).toBeVisible();
     await userEvent.click(
       within(canvasElement).getByRole("button", {
         name: "Завершить проверку доступа",
       }),
     );
-    await expect(Math.abs(offset() - before)).toBeLessThan(1);
-    await expect(
-      Math.abs(status.getBoundingClientRect().height - heightBefore),
-    ).toBeLessThan(1);
     await expectParticipantActions(canvasElement);
   },
 };
@@ -681,10 +671,14 @@ function ExistingWaitlistCourseFixture({
         </>
       }
       statusCall={
-        <>
-          {status === null ? null : <CohortStatusView status={status} />}
-          {learning ? null : membership}
-        </>
+        learning ? (
+          <LearnerCourseStatus />
+        ) : (
+          <>
+            {status === null ? null : <CohortStatusView status={status} />}
+            {membership}
+          </>
+        )
       }
     />
   );

@@ -144,7 +144,8 @@ test("active membership is hidden when learning is available", async () => {
   expect(html).not.toContain("списке ожидания");
   expect(html).not.toContain("Отказаться от ожидания");
   expect(html).not.toContain("Вступить в список ожидания");
-  expect(html).toContain("aie-learning-status");
+  expect(html).toContain("aie-status-learner");
+  expect(html).not.toContain("aie-learning-status");
 });
 test("the film displays the same learning state and sales countdown", async () => {
   fakes.state.mockResolvedValue(readerState("open"));
