@@ -350,16 +350,20 @@ describe("scoped Account access over Nest HTTP", () => {
     bearer: string | null,
   ): Promise<Exposure> {
     const auth = headers(bearer);
-    const [body, asset, video, task] = await Promise.all([
+    const assetUrl = `/materials/${product.materialId}/assets/${product.assetId}?contentVersion=${String(product.contentVersion)}`;
+    const [body, asset, edgeAsset, video, task] = await Promise.all([
       server.inject({
         method: "GET",
         url: `/materials/${product.slug}`,
         headers: auth,
       }),
+      server.inject({ method: "GET", url: assetUrl, headers: auth }),
+      // Caddy's protected-delivery route marks the request (#1766): the same access decision, but
+      // the signed address goes to the internal header for the edge instead of a browser redirect.
       server.inject({
         method: "GET",
-        url: `/materials/${product.materialId}/assets/${product.assetId}?contentVersion=${String(product.contentVersion)}`,
-        headers: auth,
+        url: assetUrl,
+        headers: { ...auth, "x-inside-storage-delivery": "edge" },
       }),
       playback(product, bearer),
       server.inject({
@@ -378,15 +382,38 @@ describe("scoped Account access over Nest HTTP", () => {
           !body.body.includes(product.bodySecret),
       }),
       // Защищённый файл — короткая подписанная ссылка на объект; отказ маскируется как 404.
-      assets: classify("assets", asset, {
-        open:
-          asset.statusCode === 302 &&
-          (asset.headers.location ?? "").includes(product.protectedObjectKey),
-        closed:
-          asset.statusCode === 404 &&
-          asset.headers.location === undefined &&
-          !asset.body.includes(product.protectedObjectKey),
-      }),
+      // Ответ для Caddy (#1766) открыт и закрыт ровно там же, где redirect для браузера.
+      assets: agreed(
+        classify("assets", asset, {
+          open:
+            asset.statusCode === 302 &&
+            (asset.headers.location ?? "").includes(
+              product.protectedObjectKey,
+            ) &&
+            asset.headers["x-inside-storage-location"] === undefined,
+          closed:
+            asset.statusCode === 404 &&
+            asset.headers.location === undefined &&
+            !asset.body.includes(product.protectedObjectKey),
+        }),
+        classify("assets", edgeAsset, {
+          open:
+            edgeAsset.statusCode === 204 &&
+            edgeAsset.headers.location === undefined &&
+            String(edgeAsset.headers["x-inside-storage-location"]).includes(
+              product.protectedObjectKey,
+            ) &&
+            edgeAsset.headers["x-inside-storage-cache-control"] ===
+              "private, max-age=31536000, immutable" &&
+            edgeAsset.headers["cache-control"] === "private, no-store" &&
+            edgeAsset.body === "",
+          closed:
+            edgeAsset.statusCode === 404 &&
+            edgeAsset.headers.location === undefined &&
+            edgeAsset.headers["x-inside-storage-location"] === undefined &&
+            !edgeAsset.body.includes(product.protectedObjectKey),
+        }),
+      ),
       video: classify("video", video, {
         open:
           video.statusCode === 200 &&
@@ -411,6 +438,15 @@ describe("scoped Account access over Nest HTTP", () => {
           !task.body.includes(product.taskSecret),
       }),
     };
+  }
+
+  function agreed(
+    browser: "open" | "closed",
+    edge: "open" | "closed",
+  ): "open" | "closed" {
+    if (browser !== edge)
+      throw new Error(`asset redirect is ${browser}, edge answer is ${edge}`);
+    return browser;
   }
 
   function classify(

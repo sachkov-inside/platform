@@ -6,6 +6,7 @@ import {
   readBackendBaseUrl,
   type BackendTransportResult,
 } from "./transport-core.server";
+import { storageEdgeRequestHeaders } from "./storage-edge-delivery.server";
 
 const PROFILE_AVATAR_MUTATION_TIMEOUT_MS = 60_000;
 const PROFILE_AVATAR_DELIVERY_TIMEOUT_MS = 10_000;
@@ -82,12 +83,16 @@ export function requestOwnProfileAvatarDelivery(input: {
   readonly accessToken: string;
   readonly avatarId: string;
   readonly signal: AbortSignal;
+  readonly viaStorageEdge: boolean;
   readonly size: string;
 }): Promise<Response> {
   const path = `/account/profile/avatar/${encodeURIComponent(input.avatarId)}/${encodeURIComponent(input.size)}`;
   return fetch(`${readBackendBaseUrl()}${path}`, {
     cache: "no-store",
-    headers: { authorization: `Bearer ${input.accessToken}` },
+    headers: {
+      ...storageEdgeRequestHeaders(input.viaStorageEdge),
+      authorization: `Bearer ${input.accessToken}`,
+    },
     redirect: "manual",
     signal: AbortSignal.any([
       input.signal,

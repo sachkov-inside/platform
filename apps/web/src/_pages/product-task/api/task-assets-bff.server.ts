@@ -3,6 +3,7 @@ import "server-only";
 import {
   backendProxyProblem,
   copyBackendResponse,
+  isStorageEdgeRequest,
   requestProductTaskAssetDelivery,
 } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
@@ -26,6 +27,7 @@ export async function proxyProductTaskAssetDelivery(
         ...(width === null ? {} : { variantWidth: Number(width) }),
         ...(accessToken === undefined ? {} : { accessToken }),
         signal: request.signal,
+        viaStorageEdge: isStorageEdgeRequest(request),
       }),
     );
   } catch {

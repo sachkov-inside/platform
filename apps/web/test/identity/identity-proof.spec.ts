@@ -405,7 +405,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       .click();
     const signOut = await signOutResponse;
     expect(signOut.status()).toBe(200);
-    expect(await signOut.headerValue("clear-site-data")).toBe('"storage"');
+    expect(await signOut.headerValue("clear-site-data")).toBe(
+      '"cache", "storage"',
+    );
     expect((await providerLogout).method()).toBe("GET");
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     const signedOut = await recovery.request.get("/auth/status");

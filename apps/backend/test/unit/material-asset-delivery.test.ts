@@ -250,6 +250,76 @@ describe("Material asset delivery", () => {
     },
   );
 
+  test("lets the reader's browser keep published protected bytes no longer than access, never a preview (#1766)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-01T12:00:00.000Z"));
+    try {
+      const deliveryWith = (
+        decision: Awaited<ReturnType<ContentAccess["authorize"]>>,
+      ) =>
+        assembleMaterialAssetDelivery({
+          assets: assetsFor({
+            contentType: "image/webp",
+            filename: "source.png",
+            kind: "image",
+            object: { protectedKey: "protected/image", publicKey: null },
+            size: 3,
+          }),
+          contentAccess: accessDecision(decision),
+          materialContent: currentReference(),
+          objectStorage: storage({
+            signGet: vi
+              .fn<ObjectStorage["signGet"]>()
+              .mockResolvedValue("signed"),
+          }),
+          signedGetTtlSeconds: 60,
+        });
+      const decided = {
+        checkedContentVersion: contentVersion,
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
+        decisionId: "allow",
+        effect: "allow",
+        policyVersion: "content-access-v1",
+      } as const;
+      const input = {
+        assetId,
+        contentVersion,
+        materialId,
+        subject: { kind: "anonymous" } as const,
+        variantWidth: 960,
+      };
+      const redirect = {
+        cacheScope: "private-no-store",
+        kind: "redirect",
+        location: "signed",
+      } as const;
+      const manager = deliveryWith({ ...decided, reason: "materials_manager" });
+
+      await expect(
+        manager.deliver({ ...input, preview: false }),
+      ).resolves.toEqual({
+        ok: true,
+        value: { ...redirect, keepSeconds: 31_536_000 },
+      });
+      await expect(
+        manager.deliver({ ...input, preview: true }),
+      ).resolves.toEqual({ ok: true, value: redirect });
+      // A membership ending in two hours bounds the kept copy like the signed address.
+      await expect(
+        deliveryWith({
+          ...decided,
+          reason: "active_membership",
+          validUntil: "2026-09-01T14:00:00.000Z",
+        }).deliver({ ...input, preview: false }),
+      ).resolves.toEqual({
+        ok: true,
+        value: { ...redirect, keepSeconds: 7_199 },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("maps object storage read and signing outages to dependency unavailable", async () => {
     const values = {
       contentType: "application/pdf",

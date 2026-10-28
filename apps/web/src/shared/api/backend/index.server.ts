@@ -16,6 +16,7 @@ export {
   backendProxyProblem,
   copyBackendResponse,
 } from "./backend-proxy-response.server";
+export { isStorageEdgeRequest } from "./storage-edge-delivery.server";
 export * from "./content-library.server";
 export * from "./content-covers.server";
 export * from "./product-artifacts.server";

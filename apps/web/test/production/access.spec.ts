@@ -551,7 +551,8 @@ test("production access observes every live cell in one isolated scenario", asyn
   }
 
   /**
-   * Закрытая картинка: Platform отвечает redirect на подписанный адрес хранилища, а отказ — 404.
+   * Закрытая картинка: с v52 Caddy отдаёт её байты с sachkov.dev с `Cache-Control: private` (#1766).
+   * Перенаправление в хранилище значит, что перехват не сработал, и проход краснеет. Отказ: 404.
    * Адрес картинки даёт страница урока у ученика A, ровно как его запрашивает Reader.
    */
   async function observeAsset(
@@ -578,12 +579,12 @@ test("production access observes every live cell in one isolated scenario", asyn
       required(learnerA.assetPath, "Protected image address"),
     );
     const status = response.status();
-    const location = response.headers()["location"];
-    if (status === 302 && location !== undefined) {
-      expect(new URL(location).origin).not.toBe(productionTarget.web);
-      return { observed: "allowed", note: "HTTP 302" };
-    }
     if (status === 404) return browserDenial(context, actor, "HTTP 404");
+    if (
+      status === 200 &&
+      /^private\b/u.test(response.headers()["cache-control"] ?? "")
+    )
+      return { observed: "allowed", note: "HTTP 200 private с sachkov.dev" };
     if (status === 200 && actor === "learner-product-a")
       throw new Error("The image is public: it proves no protected delivery");
     if (status === 200) return { observed: "allowed", note: "HTTP 200" };

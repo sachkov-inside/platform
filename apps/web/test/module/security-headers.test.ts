@@ -37,9 +37,11 @@ describe("Web security headers", () => {
 
     expect(policy).not.toMatch(/127\.0\.0\.1|localhost|http:\/\//u);
     expect(directive(policy, "script-src")).not.toContain("'unsafe-eval'");
-    expect(directive(policy, "img-src")).toContain(
-      "https://storage.yandexcloud.net",
+    // Закрытые картинки приходят через Caddy с собственного origin (#1766).
+    expect(directive(policy, "img-src")).not.toContain(
+      "storage.yandexcloud.net",
     );
+    expect(directive(policy, "img-src")).toContain("https://*.kinescope.io");
     for (const fixed of [
       "frame-ancestors 'none'",
       "object-src 'none'",

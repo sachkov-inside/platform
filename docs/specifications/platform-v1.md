@@ -1164,7 +1164,10 @@ owns editor and source-authoring instructions.
    подтверждает current body reference conditional query до чтения locator; stale URL или replaced
    Asset возвращает masked 404. Public delivery возвращает immutable bytes через stable
    version-bound Platform route; protected delivery получает private/no-store redirect, а TTL не
-   длиннее adapter cap и remaining access permit validity. Save, replacement и access transition
+   длиннее adapter cap и remaining access permit validity. Через Caddy production (#1766) тот же
+   подписанный адрес уходит не браузеру, а Caddy, и байты приходят с собственного origin как
+   `private, immutable` не дольше года и `validUntil` доступа; отзыв доступа сохранённую копию не
+   сокращает (preview: `private, no-store`). Save, replacement и access transition
    меняют `contentVersion`, поэтому новый Reader не переиспользует старый public cache key.
 6. `material-assets-worker` через durable `pg-boss` schedule после grace period удаляет
    unreferenced pending/failed/ready objects. Cleanup и concurrent Save сериализуются Material

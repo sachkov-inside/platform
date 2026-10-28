@@ -7,6 +7,7 @@ import type { MaterialAssets } from "../../../assets/index.js";
 import { materialId as checkedMaterialId } from "../../domain/material-identifiers.js";
 import {
   attachmentDisposition,
+  PROTECTED_BYTES_KEEP_SECONDS,
   readPublicObject,
   signedDeliveryTtlSeconds,
 } from "../../shared/protected-delivery.js";
@@ -27,6 +28,12 @@ export type DeliveredMaterialAsset =
       cacheScope: "private-no-store";
       kind: "redirect";
       location: string;
+      /**
+       * Bytes behind a published, version-bound address never change, so the reader's browser may
+       * keep them when the site edge delivers them (#1766), but no longer than the access that
+       * allowed them. A preview follows the draft and is never kept. The redirect is never stored.
+       */
+      keepSeconds?: number;
     }>;
 
 export type DeliverMaterialAssetResult =
@@ -131,9 +138,11 @@ export function assembleMaterialAssetDelivery(dependencies: {
           },
         };
       }
+      const validUntil =
+        access.reason === "active_membership" ? access.validUntil : undefined;
       const ttlSeconds = signedDeliveryTtlSeconds(
         dependencies.signedGetTtlSeconds,
-        access.reason === "active_membership" ? access.validUntil : undefined,
+        validUntil,
       );
       if (ttlSeconds === null) return notFound();
       let location: string;
@@ -152,12 +161,16 @@ export function assembleMaterialAssetDelivery(dependencies: {
           dependencyUnavailable(),
         );
       }
+      const keepSeconds = input.preview
+        ? null
+        : signedDeliveryTtlSeconds(PROTECTED_BYTES_KEEP_SECONDS, validUntil);
       return {
         ok: true,
         value: {
           cacheScope: "private-no-store",
           kind: "redirect",
           location,
+          ...(keepSeconds === null ? {} : { keepSeconds }),
         },
       };
     },

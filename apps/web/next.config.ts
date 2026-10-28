@@ -14,7 +14,9 @@ const scriptSources = isDevelopment
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://player.kinescope.io"
   : "script-src 'self' 'unsafe-inline' https://player.kinescope.io";
 /**
- * Хранилище стенда отдаёт превью по HTTP с локального адреса; production берёт картинки по HTTPS.
+ * Хранилище стенда отдаёт превью по HTTP с локального адреса. В production закрытые картинки
+ * приходят с собственного origin: Caddy сам читает объект из хранилища (#1766), поэтому адресов
+ * Yandex Object Storage в политике нет.
  * Full-stack smoke и production-web локального стенда передают адрес явно и только loopback.
  * Сборка выпуска без переменной получает production-политику без локального адреса.
  */
@@ -40,7 +42,7 @@ const contentSecurityPolicy = [
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  `img-src 'self' data: blob:${localImageSources()} https://storage.yandexcloud.net https://*.storage.yandexcloud.net https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net`,
+  `img-src 'self' data: blob:${localImageSources()} https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net`,
   "media-src 'self' blob: https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
   scriptSources,
   "style-src 'self' 'unsafe-inline'",

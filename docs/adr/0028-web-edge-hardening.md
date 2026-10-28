@@ -67,6 +67,13 @@ dependency stage и production release без local build input не получ�
 `test/contracts/local-stand-csp.test.ts` проверяет Compose config / Next headers и source ARG scope;
 actual image/header/render proof требует отдельного runtime прохода. Решение о скриптах и #713 не меняется.
 
+Дополнение 28.10.2026 ([#1766](https://github.com/sachkov-inside/platform/issues/1766)): закрытые
+картинки и файлы приходят с собственного origin, Caddy сам читает объект из protected bucket
+([production release](../runbooks/production-release.md#защищённые-файлы-через-caddy)). Production
+`img-src` больше не содержит `https://storage.yandexcloud.net` и `https://*.storage.yandexcloud.net`;
+Kinescope и локальные адреса стенда не меняются. Откат на выпуск до v52 возвращает прежнюю политику
+вместе с его фрагментом Caddy.
+
 Пересмотреть решение, когда выполнится одно из условий: Next.js научится ставить nonce или hash во
 встроенные скрипты предсобранной оболочки, или появится фрагмент, который сознательно рендерится
 только на запрос и может жить без общей оболочки. Остаток ведёт
