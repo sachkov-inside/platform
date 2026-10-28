@@ -1,5 +1,8 @@
 import { hasText } from "../../shared/text.js";
-import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
+import {
+  enqueueReply,
+  hasRecordedReply,
+} from "../outbound/start-response-delivery-queue.js";
 import type { Database } from "../../database/database.js";
 
 /** The callback's verified message is the edit target, even when the original send acknowledgement was lost. */
@@ -10,6 +13,8 @@ export async function queueSignInResult(
   text: string,
   returnUrl?: string,
 ): Promise<void> {
+  // An older build may already own the result; retain its delivery semantics and avoid a second edit.
+  if (await hasRecordedReply(database, `sign-in-result:${requestRef}`)) return;
   const request = await database
     .selectFrom("sign_in_requests")
     .select([
@@ -34,7 +39,7 @@ export async function queueSignInResult(
     ...(hasText(returnUrl)
       ? { buttons: [{ text: "Открыть Inside", url: returnUrl }] }
       : {}),
-    sourceKey: `sign-in-result:${requestRef}`,
+    sourceKey: `sign-in-decision:${requestRef}`,
     signInRequestRef: requestRef,
     editMessageId: request.confirmation_message_id,
     now,
