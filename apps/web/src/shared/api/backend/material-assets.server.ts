@@ -1,6 +1,7 @@
 import "server-only";
 
 import { readBackendBaseUrl } from "./transport-core.server";
+import { storageEdgeRequestHeaders } from "./storage-edge-delivery.server";
 
 const BACKEND_UPLOAD_TIMEOUT_MS = 60_000;
 
@@ -40,6 +41,7 @@ export function requestMaterialAssetDelivery(input: {
   readonly materialId: string;
   readonly preview: boolean;
   readonly signal: AbortSignal;
+  readonly viaStorageEdge: boolean;
   readonly variantWidth?: string;
 }): Promise<Response> {
   const path =
@@ -51,10 +53,12 @@ export function requestMaterialAssetDelivery(input: {
   if (input.preview) url.searchParams.set("preview", "true");
   return fetch(url, {
     cache: "no-store",
-    headers:
-      input.accessToken === undefined
+    headers: {
+      ...storageEdgeRequestHeaders(input.viaStorageEdge),
+      ...(input.accessToken === undefined
         ? {}
-        : { authorization: `Bearer ${input.accessToken}` },
+        : { authorization: `Bearer ${input.accessToken}` }),
+    },
     redirect: "manual",
     signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
   });

@@ -39,7 +39,11 @@ function signOutRedirect(
   returnUri?: string,
   baseUrl?: string,
 ): Response {
-  const headers: Record<string, string> = { "clear-site-data": '"storage"' };
+  // "cache" drops protected bytes the browser keeps under `private, immutable` (#1766), so the next
+  // person on this browser cannot reopen them from the cache after this sign-out.
+  const headers: Record<string, string> = {
+    "clear-site-data": '"cache", "storage"',
+  };
   if (returnUri !== undefined && returnUri !== baseUrl) {
     const target = new URL(returnUri);
     headers["set-cookie"] =

@@ -3,6 +3,7 @@ import "server-only";
 import {
   backendProxyProblem,
   copyBackendResponse,
+  isStorageEdgeRequest,
   requestMaterialAssetDelivery,
   requestMaterialAssetUpload,
 } from "@/shared/api/backend/index.server";
@@ -107,6 +108,7 @@ export async function proxyMaterialAssetDelivery(
       materialId: input.materialId,
       preview: preview === "true",
       signal: request.signal,
+      viaStorageEdge: isStorageEdgeRequest(request),
       ...(input.variantWidth === undefined
         ? {}
         : { variantWidth: input.variantWidth }),

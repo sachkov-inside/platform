@@ -2,6 +2,7 @@ import "server-only";
 import {
   backendProxyProblem,
   copyBackendResponse,
+  isStorageEdgeRequest,
   requestReaderProductArtifactFile,
 } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
@@ -48,6 +49,7 @@ export async function downloadInlineArtifact(
         preview: false,
         ...(accessToken === undefined ? {} : { accessToken }),
         signal: request.signal,
+        viaStorageEdge: isStorageEdgeRequest(request),
       }),
     );
     // This source URL is stable across versions and access changes.

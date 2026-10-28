@@ -348,6 +348,21 @@ test("an archived Product keeps Task pages, embedded tasks and files for holders
   });
   expect(file.statusCode).toBe(302);
   expect(file.headers.location).toContain(world.productA.protectedObjectKey);
+  // Through Caddy (#1766) the same decision hands the signed address to the edge; a Task asset
+  // address carries no version, so its bytes are never kept.
+  const edgeFile = await server.inject({
+    method: "GET",
+    url: `${page}/assets/${world.productA.assetId}`,
+    headers: { ...headers, "x-inside-storage-delivery": "edge" },
+  });
+  expect(edgeFile.statusCode).toBe(204);
+  expect(edgeFile.headers.location).toBeUndefined();
+  expect(String(edgeFile.headers["x-inside-storage-location"])).toContain(
+    world.productA.protectedObjectKey,
+  );
+  expect(edgeFile.headers["x-inside-storage-cache-control"]).toBe(
+    "private, no-store",
+  );
   expect(await readMcp(holderMcp, world.productA.taskCode)).toContain(
     world.productA.taskSecret,
   );
@@ -365,7 +380,12 @@ test("an archived Product keeps Task pages, embedded tasks and files for holders
   expect(
     (await server.inject({ method: "GET", url: sourcePage })).body,
   ).not.toContain(linkUrl);
-  for (const deniedHeaders of [{}, strangerHeaders]) {
+  for (const deniedHeaders of [
+    {},
+    strangerHeaders,
+    { "x-inside-storage-delivery": "edge" },
+    { ...strangerHeaders, "x-inside-storage-delivery": "edge" },
+  ]) {
     for (const url of [
       page,
       `/library/materials/${world.productA.materialId}/task`,
@@ -380,6 +400,7 @@ test("an archived Product keeps Task pages, embedded tasks and files for holders
       expect(denied.statusCode).toBe(404);
       expect(denied.body).not.toContain(world.productA.taskSecret);
       expect(denied.headers.location).toBeUndefined();
+      expect(denied.headers["x-inside-storage-location"]).toBeUndefined();
     }
   }
   expect(

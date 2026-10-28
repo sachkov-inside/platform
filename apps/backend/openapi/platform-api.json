@@ -7466,6 +7466,22 @@
           }
         ],
         "responses": {
+          "204": {
+            "description": "Protected object for the site edge: only with the edge request marker",
+            "headers": {
+              "x-inside-storage-cache-control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "x-inside-storage-location": {
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "302": {
             "description": "Short-lived protected avatar redirect",
             "headers": {
@@ -126868,6 +126884,22 @@
           }
         ],
         "responses": {
+          "204": {
+            "description": "Protected object for the site edge: only with the edge request marker",
+            "headers": {
+              "x-inside-storage-cache-control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "x-inside-storage-location": {
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "302": {
             "description": "Protected asset redirect",
             "headers": {
@@ -129203,6 +129235,22 @@
             },
             "description": "Public immutable file bytes"
           },
+          "204": {
+            "description": "Protected object for the site edge: only with the edge request marker",
+            "headers": {
+              "x-inside-storage-cache-control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "x-inside-storage-location": {
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
+          },
           "302": {
             "description": "Short-lived protected redirect",
             "headers": {
@@ -129441,6 +129489,22 @@
               }
             },
             "description": "Public immutable image bytes"
+          },
+          "204": {
+            "description": "Protected object for the site edge: only with the edge request marker",
+            "headers": {
+              "x-inside-storage-cache-control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "x-inside-storage-location": {
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
           },
           "302": {
             "description": "Short-lived protected redirect",
@@ -133438,6 +133502,22 @@
               }
             },
             "description": "Public immutable file bytes"
+          },
+          "204": {
+            "description": "Protected object for the site edge: only with the edge request marker",
+            "headers": {
+              "x-inside-storage-cache-control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "x-inside-storage-location": {
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              }
+            }
           },
           "302": {
             "description": "Short-lived protected redirect",

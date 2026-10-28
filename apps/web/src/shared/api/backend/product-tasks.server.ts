@@ -9,6 +9,7 @@ import {
   readBackendBaseUrl,
   type BackendTransportResult,
 } from "./transport-core.server";
+import { storageEdgeRequestHeaders } from "./storage-edge-delivery.server";
 
 /** The task page: full requirements when open, its place when closed; a token adds personal access. */
 export function requestProductTaskPage(
@@ -162,7 +163,7 @@ export function requestSaveAuthorTaskFeedback(
   );
 }
 
-/** Task assets use the same viewer identity as the Task page and keep the backend redirect. */
+/** Task assets use the same viewer identity as the Task page and keep the backend delivery answer. */
 export function requestProductTaskAssetDelivery(input: {
   readonly productSlug: string;
   readonly code: string;
@@ -170,6 +171,7 @@ export function requestProductTaskAssetDelivery(input: {
   readonly variantWidth?: number;
   readonly accessToken?: string;
   readonly signal: AbortSignal;
+  readonly viaStorageEdge: boolean;
 }): Promise<Response> {
   const url = new URL(
     `${readBackendBaseUrl()}/library/products/${encodeURIComponent(input.productSlug)}/tasks/${encodeURIComponent(input.code)}/assets/${encodeURIComponent(input.assetId)}`,
@@ -179,10 +181,12 @@ export function requestProductTaskAssetDelivery(input: {
   return fetch(url, {
     cache: "no-store",
     redirect: "manual",
-    headers:
-      input.accessToken === undefined
+    headers: {
+      ...storageEdgeRequestHeaders(input.viaStorageEdge),
+      ...(input.accessToken === undefined
         ? {}
-        : { authorization: `Bearer ${input.accessToken}` },
+        : { authorization: `Bearer ${input.accessToken}` }),
+    },
     signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
   });
 }

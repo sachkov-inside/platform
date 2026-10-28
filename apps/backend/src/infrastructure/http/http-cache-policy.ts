@@ -11,6 +11,13 @@ import type { FastifyReply } from "fastify";
 import type { FastifyRequest } from "fastify";
 import { map, type Observable, tap } from "rxjs";
 
+import {
+  STORAGE_EDGE_CACHE_CONTROL_HEADER,
+  STORAGE_EDGE_LOCATION_HEADER,
+  STORAGE_EDGE_REQUEST_HEADER,
+  STORAGE_EDGE_REQUEST_VALUE,
+} from "./storage-edge-delivery.js";
+
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
 export const PRIVATE_NO_STORE_HEADERS = {
   "cache-control": "private, no-store",
@@ -73,9 +80,17 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
 
     const response = context.switchToHttp().getResponse<FastifyReply>();
     if (policy === "asset-delivery") {
+      const request = context.switchToHttp().getRequest<FastifyRequest>();
+      const viaStorageEdge =
+        request.headers[STORAGE_EDGE_REQUEST_HEADER] ===
+        STORAGE_EDGE_REQUEST_VALUE;
       return next
         .handle()
-        .pipe(map((body: unknown) => sendAssetDelivery(response, body)));
+        .pipe(
+          map((body: unknown) =>
+            sendAssetDelivery(response, body, viaStorageEdge),
+          ),
+        );
     }
     return next.handle().pipe(
       tap((body: unknown) => {
@@ -91,6 +106,7 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
 function sendAssetDelivery(
   response: FastifyReply,
   body: unknown,
+  viaStorageEdge: boolean,
 ): Buffer | undefined {
   if (!isAssetDelivery(body)) {
     throw new TypeError(
@@ -104,6 +120,18 @@ function sendAssetDelivery(
       : cacheControlByPolicy["private-no-store"],
   );
   response.header("X-Content-Type-Options", "nosniff");
+  if (body.kind === "redirect" && viaStorageEdge) {
+    response.status(204);
+    response.header(STORAGE_EDGE_LOCATION_HEADER, body.location);
+    // Only the reader's browser may keep the bytes, and only for the delivery's own bound.
+    response.header(
+      STORAGE_EDGE_CACHE_CONTROL_HEADER,
+      body.keepSeconds === undefined
+        ? cacheControlByPolicy["private-no-store"]
+        : `private, max-age=${String(body.keepSeconds)}, immutable`,
+    );
+    return undefined;
+  }
   if (body.kind === "redirect") {
     response.status(302);
     response.header("Location", body.location);
@@ -130,6 +158,7 @@ function isAssetDelivery(value: unknown): value is
       cacheScope: "private-no-store";
       kind: "redirect";
       location: string;
+      keepSeconds?: number;
     }> {
   if (typeof value !== "object" || value === null || !("kind" in value))
     return false;
@@ -138,7 +167,12 @@ function isAssetDelivery(value: unknown): value is
       "cacheScope" in value &&
       value.cacheScope === "private-no-store" &&
       "location" in value &&
-      typeof value.location === "string"
+      typeof value.location === "string" &&
+      (!("keepSeconds" in value) ||
+        value.keepSeconds === undefined ||
+        (typeof value.keepSeconds === "number" &&
+          Number.isInteger(value.keepSeconds) &&
+          value.keepSeconds >= 1))
     );
   }
   return (

@@ -24,6 +24,7 @@ import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { ApiStorageEdgeResponse } from "../../../../infrastructure/http/storage-edge-delivery.js";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   problemDetailsContent,
@@ -245,6 +246,7 @@ export class PrivateProfileAvatarController {
   @Get(":avatarId/:size")
   @Header("X-Robots-Tag", "noindex, nofollow")
   @AssetDeliveryCache()
+  @ApiStorageEdgeResponse()
   @ApiOperation({
     operationId: "readOwnProfileAvatar",
     summary:
