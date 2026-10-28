@@ -53,6 +53,10 @@ const chapters: readonly ProductChapter[] = [
   },
 ];
 
+function placement(id: string, materialId: string, chapterId: string) {
+  return { id, materialId, chapterId, stepGroup: null };
+}
+
 function journeyProps(
   result: Parameters<typeof ProductJourney>[0]["result"],
 ): ComponentProps<typeof ProductJourneyControls> {
@@ -65,8 +69,9 @@ function journeyProps(
 }
 
 /**
- * Paths of keyless elements nested anywhere below an array in `ProductJourneyControls` props.
- * The programme page reported such elements in React's development key warning (#1802).
+ * Paths of keyless elements below an array in `ProductJourneyControls` props, excluding props of
+ * other elements. The programme page reported such elements in React's development key warning
+ * (#1802).
  */
 function keylessListElements(
   value: unknown,
@@ -108,16 +113,12 @@ describe("Product programme elements handed to the client", () => {
       ...productJourneyCorpus(),
       chapters,
       programmePlacements: [
-        ["placement-1", "material-1", "chapter-1"],
-        ["placement-2", "material-5", "chapter-3"],
-        ["placement-3", "material-2", "chapter-1"],
-        ["placement-4", "material-1", "chapter-1"],
-      ].map(([id = "", materialId = "", chapterId = null]) => ({
-        id,
-        materialId,
-        chapterId,
-        stepGroup: null,
-      })),
+        placement("placement-1", "material-1", "chapter-1"),
+        placement("placement-2", "material-2", "chapter-1"),
+        placement("placement-3", "material-1", "chapter-1"),
+        placement("placement-4", "material-5", "chapter-3"),
+        placement("placement-5", "material-3", "chapter-1"),
+      ],
     });
     const runs = props.parts.flatMap((part) =>
       part.kind === "materials" ? part.runs : [],
@@ -129,12 +130,19 @@ describe("Product programme elements handed to the client", () => {
       "chapter-1",
       "chapter-4",
     ]);
-    expect(runs.flatMap((run) => run.rows.map((row) => row.id))).toEqual([
-      "placement-1",
-      "placement-2",
-      "placement-3",
-      "placement-4",
+    expect(runs.map((run) => run.rows.map((row) => row.id))).toEqual([
+      ["placement-1", "placement-2", "placement-3"],
+      [],
+      ["placement-4"],
+      ["placement-5"],
+      [],
     ]);
+    for (const run of runs) {
+      const cardKeys = run.rows.map((row) =>
+        isValidElement(row.card) ? row.card.key : null,
+      );
+      expect(new Set(cardKeys).size).toBe(cardKeys.length);
+    }
 
     expect(keylessListElements(props, "props", false)).toEqual([]);
   });
