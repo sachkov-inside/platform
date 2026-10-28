@@ -398,8 +398,10 @@ Public projections и free bodies могут быть shared-cacheable. Personal
 накладывается после public cache. Membership body, protected decision, credential и permission
 path всегда `private, no-store`; protected prefetch, static generation и shared route/data cache
 запрещены. Исключение (#1766): неизменяемые байты защищённого MaterialAsset по version-bound адресу
-браузер читателя может хранить как `private, immutable`, но не дольше remaining access permit
-validity; preview и остальные защищённые файлы остаются `private, no-store`. Caller не кэширует availability или decision между requests.
+браузер читателя может хранить как `private, immutable` не дольше года и не дольше `validUntil`
+доступа. Отзыв доступа до этого срока и бессрочный доступ эту копию не сокращают: её убирает
+только выход из аккаунта (`Clear-Site-Data: "cache"`). Preview и остальные защищённые файлы
+остаются `private, no-store`. Caller не кэширует availability или decision между requests.
 
 ## Decision metadata и privacy
 

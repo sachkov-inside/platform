@@ -692,6 +692,22 @@ describe("production runtime architecture contract", () => {
         /only the protected-delivery route may send the storage delivery marker/u,
       ],
       [
+        (caddy) =>
+          caddy.replace(
+            "\t\t\t\t\tcopy_response_headers {\n\t\t\t\t\t\tinclude Set-Cookie\n\t\t\t\t\t}\n",
+            "",
+          ),
+        /must keep its ordered rules: .*include Set-Cookie/su,
+      ],
+      [
+        (caddy) => caddy.replace("\n\t\t\t\troute {\n", "\n\t\t\t\t{\n"),
+        /must keep its ordered rules/u,
+      ],
+      [
+        (caddy) => caddy.replace("\t\t\t\t\t\theader_down -Set-Cookie\n", ""),
+        /must keep its ordered rules: .*header_down -Set-Cookie/su,
+      ],
+      [
         (caddy) => caddy.replace("\t\t\t\t\t\theader_up -Cookie\n", ""),
         /must not forward client Cookie to storage/u,
       ],
@@ -1151,6 +1167,33 @@ function assertProtectedDelivery(files) {
   ]) {
     if (!route.includes(`\t\t\t\t\t\theader_up -${header}\n`))
       throw new Error(`Caddy must not forward client ${header} to storage`);
+  }
+  // Without `route` Caddy orders `respond` before `reverse_proxy`, and every file would get 502.
+  const handler = route.split(
+    /\t\t\thandle_response @protected_object \{\n(?:\t\t\t\t#[^\n]*\n)*\t\t\t\troute \{\n/u,
+  )[1];
+  const requiredRules = [
+    "\t\t\t\t\tcopy_response_headers {\n\t\t\t\t\t\tinclude Set-Cookie\n\t\t\t\t\t}\n",
+    "\t\t\t\t\theader X-Content-Type-Options nosniff\n",
+    `\t\t\t\t\theader Content-Security-Policy "default-src 'none'; sandbox"\n`,
+    "\t\t\t\t\t\theader_down -Set-Cookie\n",
+    "\t\t\t\t\t\theader_down -Server\n",
+    "\t\t\t\t\t\theader_down -Strict-Transport-Security\n",
+    "\t\t\t\t\t\theader_down -X-*\n",
+  ];
+  const missing = requiredRules.filter(
+    (rule) => handler === undefined || !handler.includes(rule),
+  );
+  if (
+    handler === undefined ||
+    missing.length > 0 ||
+    !handler.includes(
+      `\t\t\t\t\t}\n\n\t\t\t\t\theader Cache-Control "private, no-store"\n\t\t\t\t\trespond 502\n\t\t\t\t}\n\t\t\t}\n`,
+    )
+  ) {
+    throw new Error(
+      `the protected object handler must keep its ordered rules: ${missing.join(", ").trim() || "route and the closing 502"}`,
+    );
   }
   const matcher = /path_regexp (\^[^\n]+\$)\n/u.exec(
     caddy.split("@protected_delivery {")[1] ?? "",

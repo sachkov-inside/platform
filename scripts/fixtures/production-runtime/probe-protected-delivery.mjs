@@ -577,8 +577,11 @@ try {
   before = webCalls.length;
   await close(storage);
   const unreachable = await query("GET", paths.image, browserHeaders);
-  record("storage-unreachable", unreachable);
+  record("storage-unreachable", unreachable, {
+    setCookie: unreachable.headers["set-cookie"],
+  });
   assert.equal(unreachable.status, 502);
+  assert.deepEqual(unreachable.headers["set-cookie"], [refreshedSession]);
   assert.equal(unreachable.body.length, 0);
   assertNoInternalHeaders(unreachable);
   assert.equal(webCalls.length, before + 1);
