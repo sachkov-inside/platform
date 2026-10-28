@@ -100,10 +100,11 @@ product selection; confirm each one before naming it with `--archive`.
 Video keeps the access it was attached with, so that change needs a separate recording decision.
 
 A finished recording for a synchronized Material is uploaded with
-`pnpm authoring:video upload --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE`.
+`pnpm authoring:video upload --target editor|stand --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE [--sha256 HEX] [--replace-test-upload]`.
 The idempotency key is journaled before the first call; an unknown outcome stops for inspection.
-Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is accepted; a real
-provider transfer is refused without a separate owner approval. The next transfer saves the
+The test Kinescope adapter's `.invalid` endpoint takes no bytes; a real Kinescope endpoint receives
+the file over Tus, and the same command continues an interrupted transfer
+([command contract](video-authoring.md#pnpm-authoringvideo-upload-1794)). The next transfer saves the
 recording with the original's chapters; the returned `providerVideoId` belongs in the original.
 
 A package with `selection.scope: "product-shell"` releases only a product's page, card, summary and

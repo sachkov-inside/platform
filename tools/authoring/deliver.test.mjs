@@ -9,7 +9,11 @@ import { promisify } from "node:util";
 
 import { runDelivery } from "./deliver.mjs";
 import { pinnedNode } from "./delivery-environment.mjs";
-import { materialApplyRequest, parseJournal } from "./local-boundaries.mjs";
+import {
+  materialApplyRequest,
+  parseJournal,
+  uploadReceiptKey,
+} from "./local-boundaries.mjs";
 import { canonical, supportedPackageFeatures } from "./package.mjs";
 import { previewRelease } from "./release.mjs";
 import { authoringTarget } from "./target.mjs";
@@ -346,9 +350,31 @@ test("production content-only delivery: reconcile, preview, apply, verification 
     "reconciliation writes nothing to the target",
   );
 
+  // A recording authoring:video is still transferring is shown, and the apply leaves it alone.
+  const uploading = parseJournal(
+    JSON.parse(await readFile(journalPath, "utf8")),
+  );
+  const recording = "c".repeat(64);
+  (uploading.resources ??= {})[uploadReceiptKey(materialId, recording)] = {
+    sourceId: "synthetic:one",
+    idempotencyKey: "video-upload:one",
+    byteSize: 15,
+    filename: "final.mp4",
+    title: "Final",
+    access: "closed",
+    phase: "transfer",
+    videoId: otherId,
+    providerVideoId: "provider-one",
+    uploadEndpoint: "https://uploader.kinescope.io/files/provider-one",
+  };
+  await writeFile(journalPath, canonical(uploading));
+
   const reviewed = await preview(f.commits.newer);
   assert.equal(reviewed.exitCode, 0, JSON.stringify(reviewed.document));
   const document = reviewed.document;
+  assert.deepEqual(at(document, "rows", 0, "videoUploads"), [
+    { state: "pending", sha256: recording },
+  ]);
   assert.equal(at(document, "receiver", "environment"), "production");
   assert.equal(at(document, "receiver", "contract", "version"), 2);
   assert.equal(at(document, "hasChanges"), true);
@@ -389,6 +415,9 @@ test("production content-only delivery: reconcile, preview, apply, verification 
     (row) => row.path === "/authoring/import/materials/apply",
   );
   assert.equal(writes.length, 1);
+  const [write] = writes;
+  assert.ok(write);
+  assert.equal(materialApplyRequest(write)?.body.primaryVideoId, null);
   // The unselected context Material links to the target's own Reader path, unknown to the journal.
   assert.match(JSON.stringify(writes[0]?.body), /\/materials\/two-on-target/u);
   assert.doesNotMatch(JSON.stringify(writes[0]?.body), /stale-journal-path/u);

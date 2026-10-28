@@ -321,6 +321,10 @@ export async function deliveryPreview({
           target: state?.sourceCommit ?? null,
           relation: receipt.relations[key] ?? null,
         },
+        // Recordings authoring:video uploaded; the apply attaches only a ready one.
+        ...("videoUploads" in row && row.videoUploads !== undefined
+          ? { videoUploads: row.videoUploads }
+          : {}),
       };
     });
     return {
