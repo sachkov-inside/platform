@@ -164,7 +164,9 @@ export async function emit(endpoint, release, phase = null) {
       observationPhase?.enter("sdk_flush");
       await sdk.flush();
       observationPhase?.enter("sdk_diagnostics");
-      assert.deepEqual(sdk.diagnostics(), {
+      const sdkDiagnostics = sdk.diagnostics();
+      observationPhase?.diagnostics(sdkDiagnostics);
+      assert.deepEqual(sdkDiagnostics, {
         droppedSpans: 0,
         failedTraceExports: 0,
         failedMetricExports: 0,

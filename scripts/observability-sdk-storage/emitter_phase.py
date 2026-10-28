@@ -13,6 +13,8 @@ PHASES = ('input_validation','hooks_setup','modules_import','provider_acquisitio
           'storage_acquisition','scoped_read','read_contract','sdk_flush','sdk_diagnostics','sdk_shutdown',
           'witness_contract','result_ready','cleanup_sdk','cleanup_provider','cleanup_hooks')
 _FIELDS = {'schema','scope','source','state','phase','reason'}
+COUNTER_LIMIT = 1_000_000
+_COUNTERS = ('droppedSpans','failedTraceExports','failedMetricExports')
 _SOURCE_FIELDS = {'checkout_sha','checkout_tree','repository','run_id','run_attempt','event',
                   'provider_execution_sha','provider_pr_head_sha','provider_pr_base_sha','inputs','scope'}
 
@@ -25,9 +27,22 @@ def _sha(value, width):
     return type(value) is str and re.fullmatch('[0-9a-f]{'+str(width)+'}',value) is not None
 
 
+def _counters(value):
+    # Optional diagnostics never weaken the owning phase or invent absent zeros.
+    unavailable = {'available':False}
+    if type(value) is not dict or any(type(key) is not str for key in value):return unavailable
+    if set(value) == {'available'} and value['available'] is False:return unavailable
+    if (set(value) != {'available','saturated',*_COUNTERS} or value['available'] is not True
+            or type(value['saturated']) is not bool
+            or any(type(value[key]) is not int or not 0 <= value[key] <= COUNTER_LIMIT for key in _COUNTERS)
+            or value['saturated'] and not any(value[key] == COUNTER_LIMIT for key in _COUNTERS)):
+        return unavailable
+    return {key:value[key] for key in ('available','saturated',*_COUNTERS)}
+
+
 def validate(value, *, source):
     if (not _sha(source,40) or type(value) is not dict or any(type(key) is not str for key in value)
-            or set(value) != _FIELDS or type(value['schema']) is not int or value['schema'] != 1
+            or set(value) not in (_FIELDS,_FIELDS|{'diagnostics'}) or type(value['schema']) is not int or value['schema'] != 1
             or any(type(value[key]) is not str for key in _FIELDS-{'schema'})
             or value['scope'] != 'sdk' or value['source'] != source):
         _refuse()
@@ -38,7 +53,9 @@ def validate(value, *, source):
             or (state == 'unknown' and name == 'unknown' and reason == 'unavailable')
             or (state == 'refused' and name == 'unknown' and reason == 'contract')):
         _refuse()
-    return {key:value[key] for key in sorted(_FIELDS)}
+    projected = {key:value[key] for key in sorted(_FIELDS)}
+    if 'diagnostics' in value:projected['diagnostics'] = _counters(value['diagnostics'])
+    return projected
 
 
 def _projection(source, state='unknown'):
@@ -224,7 +241,8 @@ def source_from_metadata(metadata):
 
 
 def load_for_collection(output,*,source):
-    return read(Path(output)/NAME,source=source)
+    value = read(Path(output)/NAME,source=source)
+    return {**value,'diagnostics':_counters(value.get('diagnostics'))}
 
 
 class OwnedSdkPhase:
