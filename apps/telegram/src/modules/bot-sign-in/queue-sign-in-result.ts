@@ -1,5 +1,8 @@
 import { hasText } from "../../shared/text.js";
-import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
+import {
+  enqueueReply,
+  hasRecordedReply,
+} from "../outbound/start-response-delivery-queue.js";
 import type { Database } from "../../database/database.js";
 
 /** The callback's verified message is the edit target, even when the original send acknowledgement was lost. */
@@ -11,12 +14,7 @@ export async function queueSignInResult(
   returnUrl?: string,
 ): Promise<void> {
   // An older build may already own the result; retain its delivery semantics and avoid a second edit.
-  const legacy = await database
-    .selectFrom("start_response_deliveries")
-    .select("id")
-    .where("source_key", "=", `sign-in-result:${requestRef}`)
-    .executeTakeFirst();
-  if (legacy) return;
+  if (await hasRecordedReply(database, `sign-in-result:${requestRef}`)) return;
   const request = await database
     .selectFrom("sign_in_requests")
     .select([
