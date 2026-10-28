@@ -22,7 +22,7 @@ Type-only import, реэкспорт и динамический import тоже
 правила. Старые глобальные adapters в истории #732 описывают этап устранения циклов,
 а не обязательную нынешнюю сборку Materials или Account Rights.
 
-Правило проверяет [check-backend-architecture](../../scripts/check-backend-architecture.mjs).
+Правило проверяет [check-backend-architecture](../../apps/backend/scripts/check-backend-architecture.mjs).
 Текущие владельцы указаны в [карте контекстов](../product/domain-context-map.md),
 критерии ревью в [стандартах backend](../../apps/backend/CODING_STANDARDS.md).
 Пример нынешней сборки: [ContentAccess composition](../../apps/backend/src/entrypoints/composition/content-access-composition.module.ts).

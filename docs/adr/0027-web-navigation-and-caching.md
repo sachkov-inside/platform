@@ -78,7 +78,7 @@ Proxy не читает сессию и backend. Исключение для о�
 
 - [Next config](../../apps/web/next.config.ts) владеет профилями кеша.
 - [Стандарты web](../../apps/web/CODING_STANDARDS.md) и
-  [проверка архитектуры](../../scripts/check-web-architecture.mjs) владеют текущими ограничениями.
+  [проверка архитектуры](../../apps/web/scripts/check-web-architecture.mjs) владеют текущими ограничениями.
 - [Набор навигации](../../apps/web/test/navigation/) проверяет поведение production-сборки;
   [legal proxy](../../apps/web/test/module/legal-proxy.test.ts) проверяет локальный список адресов.
 - Замеры принятия решения сохранены в [свидетельствах #670](../evidence/issue-670/).
