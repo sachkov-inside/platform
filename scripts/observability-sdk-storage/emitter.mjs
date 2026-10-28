@@ -115,6 +115,8 @@ export async function emit(endpoint, release, phase = null) {
         service: "platform-api",
         mode: "test",
         identity: { release, sourceSha: release },
+        onExportFailureObservation: (signal, failure) =>
+          observationPhase?.exportFailure(signal, failure),
       });
       observationPhase?.enter("storage_acquisition");
       const storage = objectStorage.createS3ObjectStorage({
