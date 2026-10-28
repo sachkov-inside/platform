@@ -371,25 +371,33 @@ test("a purchase sent on the real purchase v6 is confirmed on v6 after purchase 
   const ref = value(started).purchaseRef;
   // The operation reached the bank before the release, on immutable v6, which has no lifetime
   // marker: its stored acceptance names v6 exactly as a historical purchase does.
-  const historical = {
-    [s.document.documentId]: "purchase",
-    [s.document.version]: String(v6.version),
-    [s.document.digest]: v6.digest,
-    [s.document.url]: "https://inside.example.test/legal/purchase/v6",
-    [s.document.text]: v6.text,
+  // Only the accepted document's own fields change; its consent kind stays `terms`. The linked
+  // legal_acceptances evidence row keeps the synthetic document: recovery does not read it.
+  const historical: Readonly<Record<string, readonly [string, string]>> = {
+    documentId: [s.document.documentId, "purchase"],
+    version: [s.document.version, String(v6.version)],
+    digest: [s.document.digest, v6.digest],
+    url: [s.document.url, "https://inside.example.test/legal/purchase/v6"],
+    text: [s.document.text, v6.text],
   };
   const onV6 = (node: unknown): unknown =>
-    typeof node === "string"
-      ? (historical[node] ?? node)
-      : Array.isArray(node)
-        ? node.map(onV6)
-        : node !== null && typeof node === "object"
-          ? Object.fromEntries(
-              Object.entries(node)
-                .filter(([key]) => key !== "commercialModel")
-                .map(([key, item]) => [key, onV6(item)]),
-            )
-          : node;
+    Array.isArray(node)
+      ? node.map(onV6)
+      : node !== null && typeof node === "object"
+        ? Object.fromEntries(
+            Object.entries(node)
+              .filter(([key]) => key !== "commercialModel")
+              .map(([key, item]) => {
+                const replaced = historical[key];
+                return [
+                  key,
+                  replaced !== undefined && item === replaced[0]
+                    ? replaced[1]
+                    : onV6(item),
+                ];
+              }),
+          )
+        : node;
   const sent = await db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: ref },
   });
@@ -404,6 +412,8 @@ test("a purchase sent on the real purchase v6 is confirmed on v6 after purchase 
       .acceptance,
   );
   expect(v6Acceptance).toContain(v6.digest);
+  expect(v6Acceptance).toContain('"kind":"terms"');
+  expect(v6Acceptance).toContain('"documentId":"purchase"');
   expect(v6Acceptance).not.toContain("product-lifetime-v1");
   // Release: the API now serves the published catalog, and the sent operation is recovered there.
   const released = new BillingPayments({
