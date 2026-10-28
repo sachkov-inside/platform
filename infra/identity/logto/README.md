@@ -81,6 +81,10 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
+Fork revision `inside.13` simplifies the Telegram sign-in copy (#1715, PR #1750) in
+`fork/packages/core/src/routes/inside-telegram-view.ts`: the loading, expired and consumed statuses,
+the return action and the page title. Polling, the app handoff and the HTTPS fallback are unchanged.
+
 Fork revision `inside.12` opens the automatic app handoff in a separate browsing context with
 `noopener,noreferrer`. External-protocol handlers must not target and replace the waiting document.
 If the browser blocks the automatic popup, the existing user-activated HTTPS fallback remains.
