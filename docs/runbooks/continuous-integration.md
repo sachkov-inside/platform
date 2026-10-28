@@ -46,8 +46,7 @@ without exceeding the runner's per-environment-string process limit.
 
 | Input category | Explicit paths | PR | Merge queue |
 |---|---|---|---|
-| Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `security` | `pnpm quality:proof secrets && pnpm quality:security`; required by CI Gate independently of the path plan |
-| `docs` | `docs` |
+| Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `docs` | `docs` |
 | Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, other `.github` paths; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
 | Web | everything under `apps/web`, including runtime Markdown | `static`, `unit`, `ui`, `web-e2e` | full Platform |
 | Backend | everything under `apps/backend`, including runtime Markdown | `static`, `unit`, `integration`, `integration-serial` | full Platform |

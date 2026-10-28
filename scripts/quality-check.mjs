@@ -36,7 +36,9 @@ function trackedFiles(patterns = []) {
 }
 
 async function secrets() {
-  const snapshot = mkdtempSync(join(tmpdir(), "inside-quality-source-"));
+  const directory = mkdtempSync(join(tmpdir(), "inside-quality-source-"));
+  const snapshot = join(directory, "source");
+  mkdirSync(snapshot);
   try {
     // Tracked and non-ignored new regular files enter the scan. Local credentials, dependencies, reports and
     // symlink targets outside this repository never enter the temporary snapshot.
@@ -74,7 +76,7 @@ async function secrets() {
       "--timeout=180",
       "--exit-code=1",
     ];
-    const report = join(snapshot, "quality-findings.json");
+    const report = join(directory, "quality-findings.json");
     /** @param {string[]} source */
     const scan = (source) =>
       withPinnedTool("betterleaks", (executable) => {
@@ -128,7 +130,7 @@ async function secrets() {
     console.log("Tracked-source secret scan passed (medium/high confidence).");
     return 0;
   } finally {
-    rmSync(snapshot, { recursive: true, force: true });
+    rmSync(directory, { recursive: true, force: true });
   }
 }
 

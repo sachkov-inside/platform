@@ -1,7 +1,13 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,6 +70,19 @@ try {
       directory,
     );
     writeFileSync(file, "POSTGRES_PASSWORD=inside\n");
+    const collision = join(directory, "quality-findings.json");
+    const collisionContent = JSON.stringify({ token });
+    writeFileSync(collision, collisionContent);
+    probe(
+      process.execPath,
+      [cli, "secrets"],
+      "",
+      false,
+      /github-pat/u,
+      directory,
+    );
+    assert.equal(readFileSync(collision, "utf8"), collisionContent);
+    rmSync(collision);
     probe(
       process.execPath,
       [cli, "secrets"],
