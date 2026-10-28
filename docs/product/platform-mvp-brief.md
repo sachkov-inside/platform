@@ -289,7 +289,7 @@ text Profile vertical; это не расширяет brief до публичн�
 продукта читателя встречает одна кнопка «Оплатить сейчас». Такая покупка не создаёт подписку,
 не требует согласия на списания и по умолчанию открывает продукт бессрочно; продаются только
 те продукты, которым владелец завёл цену. По решению владельца от 12.09.2026 любой купленный
-community access follows the explicit Product benefit and its configured group. Historical grants retain their original community rights. See the current [access model](access-model.md#product-community-and-revocation--owner-decision-2026-10-14).
+community access follows the explicit Product benefit and its configured group. Historical grants retain their original community rights. See the current [access model](access-model.md#product-community-and-revocation-owner-decision-2026-10-14).
 Бессрочность и срок чата из #495 и #524 заменены: сроки материалов, чата и сопровождения теперь
 задаёт тариф (#775, раздел «Продукты и подписки»).
 The Product checkout restores the Account's latest purchase from the server on every visit.
@@ -680,7 +680,7 @@ surface integration order принадлежит
 актуальную покупку и явно запускает одну рассылку. Закрытая продажа запрещает запуск; выпуск кода
 не включает продажи и общую маркетинговую цепочку. Записи ожидания, аудитория запуска и исходы
 доставки учитываются раздельно. Подробное поведение принадлежит
-[спецификации Platform](../specifications/platform-v1.md#ai-engineering-ожидание-набора-1568).
+[спецификации Platform](../specifications/platform-v1.md#ожидание-набора-product-1568-1710).
 
 Веб-страницы управления `/authoring/communications` (воронки) и `/authoring/communications/broadcasts`
 (разовые рассылки, контакты, источники, доставки и переходы) с #419 отключены и отвечают 404:

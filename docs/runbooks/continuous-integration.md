@@ -101,7 +101,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | Two isolated `compose-production-checks` parts require both the cold nine-process runtime proof (plus PR release-image inspection) and the exact-source admitted-cache proof |
+| `compose-production` | Requires both isolated cold/cache runtime proofs and the reusable native foundation recovery workflow. Recovery runs for foundation/toolchain changes; release calls without a path comparison run the complete proof |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact

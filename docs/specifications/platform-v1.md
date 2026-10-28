@@ -1855,7 +1855,7 @@ group and starting learning. Explicit programme return links keep their target. 
 remain available. Completed onboarding disappears from desktop and mobile navigation.
 Learning-start persistence is independent of the current lesson composition.
 
-[The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)
+[The access model](../product/access-model.md#product-community-and-revocation-owner-decision-2026-10-14)
 owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
 owns the module boundary and historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the legal edition for this model is purchase

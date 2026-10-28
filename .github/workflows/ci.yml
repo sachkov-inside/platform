@@ -423,9 +423,18 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  foundation-recovery:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'compose-production') }}
+    uses: ./.github/workflows/foundation-recovery.yml
+    with:
+      source_sha: ${{ inputs.source_sha || github.sha }}
+      base_sha: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+      head_sha: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+
   compose-production:
     name: Production Compose
-    needs: [plan, compose-production-checks]
+    needs: [plan, compose-production-checks, foundation-recovery]
     if: ${{ always() && contains(fromJSON(needs.plan.outputs.required), 'compose-production') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -433,7 +442,8 @@ jobs:
       - name: Require cold and admitted-cache runtime proofs
         env:
           RESULT: ${{ needs.compose-production-checks.result }}
-        run: test "$RESULT" = success
+          RECOVERY_RESULT: ${{ needs.foundation-recovery.result }}
+        run: test "$RESULT" = success && test "$RECOVERY_RESULT" = success
 
   telegram:
     needs: plan

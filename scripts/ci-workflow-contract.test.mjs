@@ -126,7 +126,13 @@ describe("application CI workflow contract", () => {
         /ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/u,
       );
       const aggregate = jobBlock(aggregateId);
-      assert.match(aggregate, new RegExp(`needs: \\[plan, ${childId}\\]`, "u"));
+      assert.match(
+        aggregate,
+        new RegExp(
+          `needs: \\[plan, ${childId}(?:, foundation-recovery)?\\]`,
+          "u",
+        ),
+      );
       assert.match(aggregate, /if: \$\{\{ always\(\) && contains/u);
       assert.match(
         aggregate,
@@ -137,7 +143,7 @@ describe("application CI workflow contract", () => {
       for (const result of ["success", "failure", "cancelled", "skipped", ""]) {
         /** @type {import("node:child_process").SpawnSyncReturns<string>} */
         const execution = spawnSync("bash", ["-euc", command], {
-          env: { ...process.env, RESULT: result },
+          env: { ...process.env, RESULT: result, RECOVERY_RESULT: "success" },
           encoding: "utf8",
           timeout: 5_000,
         });
@@ -269,6 +275,48 @@ describe("application CI workflow contract", () => {
     assert.match(
       production,
       /run: bash scripts\/heavy-check.sh bash scripts\/production-cache-smoke-ci.sh/u,
+    );
+  });
+  it("requires the path-selected native recovery proof before production coverage succeeds", () => {
+    const recovery = jobBlock("foundation-recovery");
+    assert.match(
+      recovery,
+      /uses: \.\/\.github\/workflows\/foundation-recovery\.yml/u,
+    );
+    assert.match(
+      recovery,
+      /contains\(fromJSON\(needs.plan.outputs.required\), 'compose-production'\)/u,
+    );
+    assert.match(
+      recovery,
+      /source_sha: \$\{\{ inputs.source_sha \|\| github.sha \}\}/u,
+    );
+    const aggregate = jobBlock("compose-production");
+    assert.match(
+      aggregate,
+      /needs: \[plan, compose-production-checks, foundation-recovery\]/u,
+    );
+    assert.match(
+      aggregate,
+      /RECOVERY_RESULT: \$\{\{ needs.foundation-recovery.result \}\}/u,
+    );
+    const command = aggregate.match(/run: (test .*RECOVERY_RESULT.*)/u)?.[1];
+    assert.ok(command);
+    for (const result of ["success", "failure", "cancelled", "skipped"]) {
+      const execution = spawnSync("bash", ["-c", command], {
+        env: { ...process.env, RESULT: "success", RECOVERY_RESULT: result },
+        timeout: 5_000,
+      });
+      assert.equal(execution.status, result === "success" ? 0 : 1, result);
+    }
+    const reusable = readFileSync(
+      resolve(repositoryRoot, ".github/workflows/foundation-recovery.yml"),
+      "utf8",
+    );
+    assert.match(reusable, /workflow_call:/u);
+    assert.match(
+      reusable,
+      /ref: \$\{\{ inputs.source_sha \|\| github.sha \}\}/u,
     );
   });
   it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
@@ -446,7 +494,13 @@ describe("application CI workflow contract", () => {
     for (const reference of actionReferences.filter((value) =>
       value.startsWith("./"),
     )) {
-      assert.equal(reference, "./.github/actions/setup-platform");
+      assert.ok(
+        [
+          "./.github/actions/setup-platform",
+          "./.github/workflows/foundation-recovery.yml",
+        ].includes(reference),
+        reference,
+      );
     }
     for (const action of [
       "actions/checkout",
