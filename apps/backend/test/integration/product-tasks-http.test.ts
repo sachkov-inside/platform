@@ -485,6 +485,22 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
       nextCursor: null,
     });
 
+    const foreignCursor = Buffer.from(
+      JSON.stringify({
+        at: "2030-01-01T00:00:00.000Z",
+        id: submissionId,
+        productId: randomUUID(),
+        taskCode: freeCode,
+      }),
+    ).toString("base64url");
+    const mismatched = await server.inject({
+      method: "GET",
+      url: `${listUrl}&cursor=${foreignCursor}`,
+      headers: author,
+    });
+    expect(mismatched.statusCode).toBe(400);
+    expect(mismatched.json()).toMatchObject({ code: "invalid_request_shape" });
+
     const countUrl =
       "/authoring/product-tasks/submissions/awaiting-feedback-count";
     expect(

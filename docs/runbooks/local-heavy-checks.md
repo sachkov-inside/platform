@@ -5,7 +5,11 @@ How repository commands share the machine's two heavy-check slots.
 ## Automatic slots for heavy local checks
 
 Use the checked-in `pnpm` commands for heavy checks. `scripts/heavy-check.sh` admits at most two
-independent command trees across all worktrees on this machine. A third invocation prints
+independent command trees across all worktrees on this machine. The installed optional
+`agent-heavy -- COMMAND [ARG ...]` host CLI shares the same slot files and nesting marker
+(`INSIDE_HEAVY_CHECK_OWNER`), so other participating projects consume this same machine budget.
+The checked-in wrapper remains usable without the host CLI or a sibling checkout. Inspect the
+host queue with `agent-heavy --status --json` when it is installed. A third invocation prints
 `heavy-check: waiting for one of two local slots` and waits; admission needs no coordinator request.
 
 `pnpm test:tooling` first builds the backend under the same shared slot, then runs the bounded

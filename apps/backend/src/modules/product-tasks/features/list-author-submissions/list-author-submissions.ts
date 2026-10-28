@@ -40,19 +40,23 @@ const productCursorValueSchema = z
   .strict();
 
 /**
- * The row position plus the feedback filter it was produced under (#1720): a cursor of one filter
- * never continues another. A cursor without `feedback` belongs to the unfiltered list.
+ * The row position and complete filter scope (#1720, #1726): a cursor of one list never
+ * continues another. An omitted filter belongs to the unfiltered dimension.
  */
 const cursorSchema = z
   .object({
     at: z.iso.datetime(),
     id: z.uuid(),
     feedback: feedbackStateSchema.optional(),
+    productId: z.uuid().optional(),
+    chapterId: z.uuid().optional(),
+    taskCode: taskCodeSchema.optional(),
   })
   .strict();
 
 /** The page cursor and size; the controller publishes these same schemas in OpenAPI. */
-export const submissionsCursorSchema = z.string().min(1).max(200);
+// Complete scope plus the longest accepted Task code encodes to 447 base64url characters.
+export const submissionsCursorSchema = z.string().min(1).max(512);
 export const submissionsLimitSchema = z.number().int().min(1).max(100);
 
 export const authorSubmissionsQuerySchema = z
@@ -151,13 +155,19 @@ export type AuthorSubmissionsResult = Result<
 function encodeCursor(
   at: Date,
   id: string,
-  feedback: z.infer<typeof feedbackStateSchema> | undefined,
+  filters: Pick<
+    z.infer<typeof cursorSchema>,
+    "productId" | "chapterId" | "taskCode" | "feedback"
+  >,
 ): string {
   return Buffer.from(
     JSON.stringify({
       at: at.toISOString(),
       id,
-      ...(feedback === undefined ? {} : { feedback }),
+      productId: filters.productId,
+      chapterId: filters.chapterId,
+      taskCode: filters.taskCode,
+      feedback: filters.feedback,
     }),
     "utf8",
   ).toString("base64url");
@@ -179,9 +189,8 @@ function decodeCursor(cursor: string): z.infer<typeof cursorSchema> | null {
  * Submissions for the author, newest first, narrowed by Product, chapter and task (#948). Published
  * and unpublished tasks alike: a task taken off publication keeps its submissions for reviews.
  * `feedback` narrows them to those awaiting Author Feedback or given it (#1720; see
- * `feedbackStateSchema`). The cursor carries the position and its `feedback` filter: a cursor sent
- * with another `feedback` is a bad request. The client resends the Product, chapter and task scope
- * with the cursor, and the next page continues the same filtered order. A detail read by
+ * `feedbackStateSchema`). The cursor carries the position and all four filters; adding, removing
+ * or changing a filter on continuation is a bad request. A detail read by
  * `submissionId` ignores `feedback`, so a submission stays readable after its comment is saved.
  */
 export async function listAuthorSubmissions(
@@ -199,10 +208,15 @@ export async function listAuthorSubmissions(
   if (
     !parsed.success ||
     cursor === null ||
-    // A detail read ignores both the cursor and `feedback`, so only a list read compares them.
+    // A detail read ignores cursor position and feedback; its explicit Task scope still applies.
     (cursor !== undefined &&
       parsed.data.submissionId === undefined &&
-      cursor.feedback !== parsed.data.feedback)
+      (cursor.feedback !== parsed.data.feedback ||
+        cursor.productId?.toLowerCase() !==
+          parsed.data.productId?.toLowerCase() ||
+        cursor.chapterId?.toLowerCase() !==
+          parsed.data.chapterId?.toLowerCase() ||
+        cursor.taskCode !== parsed.data.taskCode))
   )
     return { ok: false, error: { code: "invalid_request_shape" } };
   const productCursor =
@@ -403,7 +417,7 @@ export async function listAuthorSubmissions(
           query.submissionId === undefined &&
           rows.length > limit &&
           last !== undefined
-            ? encodeCursor(last.submittedAt, last.id, query.feedback)
+            ? encodeCursor(last.submittedAt, last.id, query)
             : null,
       },
     };
