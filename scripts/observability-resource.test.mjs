@@ -753,3 +753,43 @@ test("fullstack ON load reads native stats and reconciles the admitted privacy c
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// deterministic-test-allow unit-io: the existing external process owner bounds each real diagnostic client and loopback fixture, and reaps all descendants on failure, timeout or interruption.
+for (const [mode, ordinal] of [
+  ["off", 1],
+  ["on", 7],
+]) {
+  // deterministic-test-allow unit-io: the existing external process owner bounds this real diagnostic client and loopback fixture, and reaps all descendants on failure, timeout or interruption.
+  test(`stability diagnostic ${String(mode).toUpperCase()} real client retains400operations8slots fixed cohort and unique transport identities`, async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "inside-stability-contract-"),
+    );
+    try {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          String(mode),
+          `stability-${ordinal}`,
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.deepEqual(JSON.parse(result.stdout), {
+        ok: true,
+        scheduled: 400,
+        mcp_sse: 50,
+        diagnosticOrdinal: ordinal,
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}

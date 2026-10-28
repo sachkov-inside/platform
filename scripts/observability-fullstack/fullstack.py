@@ -33,6 +33,7 @@ import storage
 import stage_timing
 import source_guard
 import contact_job
+import stability
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -473,7 +474,7 @@ class SourcePublicationTiming:
         self.active=None
 
 
-def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1):
+def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1,diagnostic_ordinal=None):
     call=partial(stage_timing.call,timing,group=group,phase=index)
     states=call('phase_ownership_before',technical.owned,compose,project,active)
     def captured():
@@ -487,12 +488,13 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
             return value if 0<=value<=2**53-1 and math.isfinite(value) else None
         before=clock_ms(time.monotonic);epoch=clock_ms(time.time)
         counters=technical.capture(states);host_sample=host()
+        diagnostic_context=stability.context() if diagnostic_ordinal is not None else None
         after=clock_ms(time.monotonic);at=counters.get('at_seconds')
         anchor=None
         if (before is not None and epoch is not None and after is not None
                 and type(at) in (int,float) and 0<=at<=(2**53-1)/1000 and math.isfinite(at)
                 and before<=at*1000<=after):anchor=[before,epoch,after]
-        return {'counters':counters,'host':host_sample,'counter_clock_anchor':anchor}
+        return {'counters':counters,'host':host_sample,'counter_clock_anchor':anchor,**({'diagnostic_context':diagnostic_context} if diagnostic_ordinal is not None else {})}
     # A delayed native source read must not let the load outrun its CPU baseline.
     samples=[call('phase_baseline',captured)]
     stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
@@ -520,8 +522,11 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
             lambda *args,**options:call('phase_storage_'+position+'_database',sql,*args,**options))
     try:
         storage_samples.append(observed('before'))
-        value=json.loads(call('phase_load',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','load',json.dumps(definition),'on' if enabled else 'off',str(pair)],timeout=definition['seconds']+65))
+        command=['load',json.dumps(definition),'on' if enabled else 'off',str(pair)] if diagnostic_ordinal is None else ['stability-load','on' if enabled else 'off',str(diagnostic_ordinal)]
+        value=json.loads(call('phase_load',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs',*command],timeout=definition['seconds']+65))
+        if diagnostic_ordinal is not None and (value.get('diagnostic_only') is not True or value.get('actor_cohort')!=0 or type(value.get('maximum_inflight')) is not int or not 1<=value['maximum_inflight']<=8):raise ValueError('diagnostic_client_required')
         phase_id=pair*6+(3 if enabled else 0)+('idle','steady','spike').index(definition['name'])
+        if diagnostic_ordinal is not None:phase_id=diagnostic_ordinal
         acknowledged=value.get('telegram_acknowledged')
         if type(acknowledged) is not int or not 0<=acknowledged<=1000:raise ValueError('synthetic_telegram_acknowledgement')
         value['telegram_processed']=call('phase_telegram',pilot.await_fact,lambda:telegram.processed(compose,sql,2000000+phase_id*1000,2001000+phase_id*1000,acknowledged),bool,budget=30,probe='synthetic_telegram_phase_processed')
@@ -552,11 +557,44 @@ def await_collector(output):
     pilot.await_fact(recovered,bool,budget=pilot.FACT_TIMEOUT_SECONDS,probe='collector_recovery_query')
 
 
+def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
+    mode_call=partial(stage_timing.call,timing,group=group)
+    report={} if report is None else report
+    mode_call('mode_configure',mode,output,enabled)
+    if enabled:
+        mode_call('mode_core_up',invoke,compose,['up','-d',*pilot.SERVICES],timeout=30)
+        mode_call('mode_source_up',invoke,compose,['--profile','host-metrics','up','-d','host-agent','umami-ingest','umami-query'],timeout=30)
+    else:
+        mode_call('mode_core_stop',invoke,compose,['stop','--timeout','2',*CORE],timeout=30)
+    mode_call('mode_database_broker_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps','postgres','rabbitmq'],timeout=30)
+    mode_call('mode_database_ready',resource_runtime.wait_ready,compose)
+    mode_call('mode_applications_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps',*BACKENDS,'web','telegram','logto','caddy'],timeout=30)
+    mode_call('mode_api_ready',ready,compose,'/health/ready');mode_call('mode_web_ready',ready,compose,'/_health/ready','web',3000)
+    mode_call('mode_telegram_ready',ready,compose,'/ready','telegram',3002)
+    mode_call('mode_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
+    for name in BACKENDS:
+        command=['node','healthcheck/http-healthcheck.mjs',name] if name in ('api','mcp') else ['node','dist/infrastructure/worker-healthcheck.js']
+        def healthy(name=name,command=command):
+            try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
+            except (RuntimeError,subprocess.SubprocessError):return False
+        mode_call('mode_backend_'+name+'_ready',pilot.await_fact,healthy,bool,probe='fullstack_'+name+'_ready')
+    mode_call('mode_warmup',extra.warmup,compose,invoke)
+    if enabled:
+        report.setdefault('web_http_initial_series',[]).append(mode_call('mode_web_initial_series',initialize_web_http,compose))
+        report.setdefault('web_http',[]).append(mode_call('mode_web_witness',prove_web_http,compose))
+    # The bounded Web witness must not age a previously ready source cohort.
+    mode_call('mode_source_barrier',await_sources,compose,output,enabled=enabled)
+    active=(*APPS,*CORE) if enabled else APPS
+    return active
+
+
 def worker(output):
     if sys.platform!='linux':raise ValueError('fullstack_linux_required')
     owner=json.loads((output/'owner.json').read_text())
     if owner['supervisor_pid']!=os.getppid():raise ValueError('external_supervisor_required')
     compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
+    if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
+        return stability_worker(output,owner,compose)
     profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
     report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
     pilot.write_json(output/'fullstack-proof.json',report)
@@ -572,32 +610,8 @@ def worker(output):
             for pair,order in enumerate(profile['pairs']):
                 for position,state in enumerate(order):
                     group=pair*2+position
-                    mode_call=partial(call,group=group)
-                    enabled=state=='on';mode_call('mode_configure',mode,output,enabled)
-                    if enabled:
-                        mode_call('mode_core_up',invoke,compose,['up','-d',*pilot.SERVICES],timeout=30)
-                        mode_call('mode_source_up',invoke,compose,['--profile','host-metrics','up','-d','host-agent','umami-ingest','umami-query'],timeout=30)
-                    else:
-                        mode_call('mode_core_stop',invoke,compose,['stop','--timeout','2',*CORE],timeout=30)
-                    mode_call('mode_database_broker_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps','postgres','rabbitmq'],timeout=30)
-                    mode_call('mode_database_ready',resource_runtime.wait_ready,compose)
-                    mode_call('mode_applications_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps',*BACKENDS,'web','telegram','logto','caddy'],timeout=30)
-                    mode_call('mode_api_ready',ready,compose,'/health/ready');mode_call('mode_web_ready',ready,compose,'/_health/ready','web',3000)
-                    mode_call('mode_telegram_ready',ready,compose,'/ready','telegram',3002)
-                    mode_call('mode_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
-                    for name in BACKENDS:
-                        command=['node','healthcheck/http-healthcheck.mjs',name] if name in ('api','mcp') else ['node','dist/infrastructure/worker-healthcheck.js']
-                        def healthy(name=name,command=command):
-                            try:invoke(compose,['exec','-T',name,*command],timeout=5);return True
-                            except (RuntimeError,subprocess.SubprocessError):return False
-                        mode_call('mode_backend_'+name+'_ready',pilot.await_fact,healthy,bool,probe='fullstack_'+name+'_ready')
-                    mode_call('mode_warmup',extra.warmup,compose,invoke)
-                    if enabled:
-                        report.setdefault('web_http_initial_series',[]).append(mode_call('mode_web_initial_series',initialize_web_http,compose))
-                        report.setdefault('web_http',[]).append(mode_call('mode_web_witness',prove_web_http,compose))
-                    # The bounded Web witness must not age a previously ready source cohort.
-                    mode_call('mode_source_barrier',await_sources,compose,output,enabled=enabled)
-                    active=(*APPS,*CORE) if enabled else APPS
+                    active=configure_mode(compose,output,enabled=state=='on',timing=timing,group=group,report=report)
+                    enabled=state=='on'
                     for definition in profile['phases']:
                         index=len(report['phases'])
                         measured=phase(compose,owner['project'],definition,active,enabled,pair,output,timing=timing,group=group,index=index)
@@ -669,6 +683,7 @@ def evaluate(report):
 
 
 def collect(output, metadata, destination):
+    if any((output/name).exists() or (output/name).is_symlink() for name in (stability.MARKER,stability.NAME)):raise ValueError('diagnostic_is_not_acceptance')
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
     source,_=hosted.metadata_source(metadata)
@@ -683,12 +698,57 @@ def collect(output, metadata, destination):
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
 
 
+
+def stability_inputs(output,images):
+    inputs(output,images)
+    pilot.write_json(output/stability.MARKER,{'schema':1,'source':pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),'scope':'diagnostic_only'})
+
+
+def stability_worker(output,owner,compose):
+    source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
+    marker=stability.read_json(output/stability.MARKER)
+    if type(marker) is not dict or type(marker.get('schema')) is not int or marker!={'schema':1,'source':source,'scope':'diagnostic_only'}:raise ValueError('diagnostic_plan_binding')
+    prepared=stability.read_json(output/'fullstack-source.json')
+    if prepared.get('source')!=source:raise ValueError('diagnostic_image_source')
+    images={key:prepared['images'][key] for key in ('backend','foundation','web','telegram','logto')}
+    def persist(value):
+        stability.validate(value,source,SERVICES);pilot.write_json(output/stability.NAME,value)
+    active=None
+    def configure(enabled):
+        nonlocal active
+        active=configure_mode(compose,output,enabled)
+    def measure(row):
+        measured=phase(compose,owner['project'],row['definition'],active,row['enabled'],row['ordinal']//6,output,diagnostic_ordinal=row['ordinal'])
+        return stability.project(measured,row['ordinal'],SERVICES)
+    # Persist before setup, so deadline/seed failures still have non-acceptance evidence.
+    persist(stability.record(source,SERVICES,images))
+    with pilot.worker_storage_guard(owner,compose,output):
+        mode(output,False);invoke(compose,['up','-d','postgres','provider','loadgen'],timeout=30)
+        invoke(compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
+        seed(compose,output)
+        stability.experiment(source,configure,measure,persist,SERVICES,images)
+
+
+def stability_collect(output,metadata,destination):
+    source,_=hosted.metadata_source(metadata)
+    if (output/stability.NAME).exists() or (output/stability.NAME).is_symlink():
+        stability.read(output,source['checkout_sha'],SERVICES)
+    else:
+        pilot.write_json(output/stability.NAME,stability.record(source['checkout_sha'],SERVICES))
+    resource_runtime.ci.collect(output,metadata,destination,artifacts=(stability.NAME,'cleanup.json','worker-outcome.json','monitor-failure.json'))
+
+
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect'))
-    parser.add_argument('--output',type=Path,required=True);parser.add_argument('--images',type=Path)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission'))
+    parser.add_argument('--output',type=Path);parser.add_argument('--images',type=Path)
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
+    if args.action=='diagnostic-admission':
+        hosted.context();stability.require_marker(stability.read_json(Path(os.environ['GITHUB_EVENT_PATH'])))
+        return
+    if args.output is None:parser.error('--output required')
     if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)
+    if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public)
     if args.action=='collect':
         return collect(args.output,args.metadata,args.public)
     if args.action=='recover':
@@ -704,9 +764,9 @@ def main():
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
-        pilot.run(args.output,prepare_inputs=lambda output:inputs(output,args.images),worker_script=Path(__file__).resolve(),
+        pilot.run(args.output,prepare_inputs=lambda output:(stability_inputs if args.action=='diagnostic-run' else inputs)(output,args.images),worker_script=Path(__file__).resolve(),
             ports=(18427,13000,14318,1514,13301),services=SERVICES,project_prefix=PREFIX,
-            scope='representative whole-process Linux resource corpus; production rollout evidence incomplete',missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
+            scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
 
 
 if __name__=='__main__':
