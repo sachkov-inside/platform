@@ -9,7 +9,8 @@ import { reservePort, startWithRoutes } from "./smoke-stand.mjs";
 
 /**
  * Сквозной путь покупателя курса: страница продукта, вход через Telegram у тестового провайдера,
- * бесплатный материал, защищённый материал и честный отказ новой продажи при текущей редакции v6.
+ * бесплатный материал, защищённый материал, оплата на двойнике банка по опубликованной редакции v7
+ * и открытый после неё защищённый материал.
  * Стенд поднимает `apps/backend/scripts/buyer-journey-fixture.ts`, браузер ходит в настоящий web.
  */
 // The backend fixture writes the stand addresses the browser and the web process need.
@@ -198,7 +199,7 @@ try {
   const code = await commandExit(test);
   if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
-    "Current-v6 unavailable-sale buyer journey passed on desktop and mobile against real Nest/PostgreSQL, the stand bank double and a synthetic Telegram sign-in provider.\n",
+    "Published-v7 Product purchase buyer journey passed on desktop and mobile against real Nest/PostgreSQL, the stand bank double and a synthetic Telegram sign-in provider.\n",
   );
 } catch (error) {
   process.stderr.write(output.join("").slice(-18000));

@@ -3,8 +3,15 @@ import AxeBuilder from "@axe-core/playwright";
 import { z } from "zod";
 import { fullStackBrowserRequest } from "../support/full-stack-session";
 
-/** Current published v6 remains immutable. It cannot authorize the new lifetime Product sale. */
-test("buyer signs in through Telegram and sees honest unavailable sales until approved Product terms exist", async ({
+const paidBody = "Закрытое содержимое для участников.";
+const paidChapter = "/materials/developer-pipeline-bez-poteri-konteksta";
+
+/**
+ * Published purchase v7 carries the lifetime Product model, so the real seeded Product Price is on
+ * sale: the buyer signs in, accepts v7 by the payment button, pays on the bank double and reads the
+ * protected Material.
+ */
+test("buyer signs in through Telegram, pays for the Product on published v7 and opens its Materials", async ({
   page,
 }, info) => {
   const slug = process.env["BUYER_JOURNEY_PRODUCT_SLUG"];
@@ -12,17 +19,6 @@ test("buyer signs in through Telegram and sees honest unavailable sales until ap
     throw new Error("Missing disposable buyer Product");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const commerceWrites: string[] = [];
-  page.on("request", (request) => {
-    const path = new URL(request.url()).pathname;
-    if (
-      request.method() === "POST" &&
-      /\/billing\/(?:purchase|quote|consents|contact\/start|contact\/confirm)$/u.test(
-        path,
-      )
-    )
-      commerceWrites.push(path);
-  });
   await page.goto(`/products/${slug}`);
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
@@ -35,9 +31,9 @@ test("buyer signs in through Telegram and sees honest unavailable sales until ap
   await expect(
     page.getByRole("heading", { name: "Тестовый провайдер входа" }),
   ).toBeVisible();
-  await page
-    .getByLabel("Telegram ID")
-    .fill(info.project.name === "mobile-chromium" ? "775000002" : "775000001");
+  const telegramUserId =
+    info.project.name === "mobile-chromium" ? "775000002" : "775000001";
+  await page.getByLabel("Telegram ID").fill(telegramUserId);
   await page.getByRole("button", { name: "Войти через Telegram" }).click();
   await page
     .locator("dialog:modal")
@@ -54,18 +50,12 @@ test("buyer signs in through Telegram and sees honest unavailable sales until ap
       )
       .first(),
   ).toBeVisible();
-  await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
+  await page.goto(paidChapter);
   await expect(
     page.locator('[data-material-reader-state="access-required"]').first(),
   ).toBeVisible();
-  await expect(
-    page.getByText("Закрытое содержимое для участников."),
-  ).toHaveCount(0);
-  await page.goto(`/products/${slug}/buy`);
-  await expect(
-    page.getByText("Этот продукт сейчас не продаётся отдельно."),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Оплатить/u })).toHaveCount(0);
+  await expect(page.getByText(paidBody)).toHaveCount(0);
+
   const contact = await fullStackBrowserRequest(
     page,
     "/api/account/billing/contact",
@@ -86,14 +76,33 @@ test("buyer signs in through Telegram and sees honest unavailable sales until ap
   expect(
     catalogue.documents.find((document) => document.documentId === "purchase"),
   ).toMatchObject({
-    version: "6",
-    url: expect.stringContaining("/legal/purchase/v6"),
+    version: "7",
+    url: expect.stringContaining("/legal/purchase/v7"),
   });
-  const billing = await fullStackBrowserRequest(page, "/api/account/billing");
-  expect(await billing.json()).toMatchObject({
-    ok: true,
-    value: { products: [], access: { grounds: [] }, payments: [] },
+
+  await page.goto(`/products/${slug}/buy`);
+  await expect(
+    page.getByText("Этот продукт сейчас не продаётся отдельно."),
+  ).toHaveCount(0);
+  const pay = page.getByRole("button", { name: /^Оплатить/u });
+  await expect(pay).toBeEnabled();
+  const checkout = page.getByRole("form", { name: "Оплата продукта" });
+  await checkout
+    .getByText("Условия и документы покупки", { exact: true })
+    .click();
+  await expect(
+    checkout.getByText(/Сопровождение автора по условиям оферты/u),
+  ).toBeVisible();
+  // Срок сопровождения остаётся в оферте и на странице оплаты не рекламируется.
+  await expect(checkout.getByText(/\b3 (календарных )?месяц/u)).toHaveCount(0);
+  const cookieNotice = page.getByRole("button", {
+    name: "Понятно",
+    exact: true,
   });
+  if (await cookieNotice.isVisible()) await cookieNotice.click();
+  const email = page.getByLabel("Почта для чека");
+  if ((await email.count()) > 0)
+    await email.fill(`buyer-${telegramUserId}@inside.test`);
   const scan = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
@@ -109,10 +118,50 @@ test("buyer signs in through Telegram and sees honest unavailable sales until ap
         document.documentElement.clientWidth,
     ),
   ).toBe(true);
-  expect(commerceWrites).toEqual([]);
-  expect(errors).toEqual([]);
-  await info.attach("current-terms-sale-unavailable", {
+  await info.attach("published-v7-checkout", {
     body: await page.screenshot(),
     contentType: "image/png",
   });
+
+  await pay.click();
+  await expect(page).toHaveURL(/\/pay\/[^/]+$/u);
+  await page.getByRole("button", { name: "Оплата прошла" }).click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === `/products/${slug}/buy` &&
+      url.searchParams.has("purchaseRef"),
+  );
+  const purchaseRef = z
+    .uuid()
+    .parse(new URL(page.url()).searchParams.get("purchaseRef"));
+  await expect(
+    page.getByRole("heading", { name: "Продукт открыт", exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+  const purchaseStatus = await fullStackBrowserRequest(
+    page,
+    `/api/account/billing/purchase-status?purchaseRef=${purchaseRef}`,
+  );
+  expect(await purchaseStatus.json()).toMatchObject({
+    value: { purchaseRef, state: "confirmed", access: "ready" },
+  });
+  await expect
+    .poll(
+      async () => {
+        await page.goto(paidChapter);
+        return page.getByText(paidBody).count();
+      },
+      { timeout: 60_000 },
+    )
+    .toBeGreaterThan(0);
+  await expect(
+    page.locator('[data-material-reader-state="access-required"]'),
+  ).toHaveCount(0);
+  const billing = await fullStackBrowserRequest(page, "/api/account/billing");
+  expect(await billing.json()).toMatchObject({
+    ok: true,
+    value: {
+      payments: [expect.objectContaining({ purchaseRef, state: "confirmed" })],
+    },
+  });
+  expect(errors).toEqual([]);
 });
