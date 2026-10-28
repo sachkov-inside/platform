@@ -65,6 +65,8 @@ def checked_quality(value,roles):
                      'phase_errors','counter_samples','counter_errors','loadgen_cpu_pressure'})
     need(type(value['client_completed']) is bool)
     need(all(type(value[k]) is int and 0<=value[k]<=400 for k in ('scheduled','missed','success','unexpected_failures')))
+    # Success and missed consume distinct scheduled slots; probe failures do not.
+    need(value['success']+value['missed']<=value['scheduled'])
     need(not value['client_completed'] or value['scheduled']==value['success']==400 and value['missed']==value['unexpected_failures']==0)
     errors=value['phase_errors']
     need(type(errors) is list and len(errors)<=len(PHASE_ERRORS) and all(type(v) is str and v in PHASE_ERRORS for v in errors))

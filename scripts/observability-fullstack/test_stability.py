@@ -216,6 +216,47 @@ class Stability(unittest.TestCase):
             with self.assertRaises(ValueError):fullstack.stability_collect(output,admitted,root/'duplicate-public')
             self.assertFalse((root/'duplicate-public').exists())
 
+    def test_warmup_quality_counts_cannot_exceed_scheduled_slots(self):
+        import stability
+        from test_hosted import metadata
+        def phase(scheduled,success,missed):
+            m=measurement(0)
+            return {'load':{**m,'completed':False,'scheduled':scheduled,'success':success,'missed':missed,
+                'unexpected_failures':3,'timing_diagnostics':{'requests':m['requests'],
+                    'phase_start':m['phase_start'],'phase_end':m['phase_end']}},
+                'errors':[],'loadgen_cpu_pressure':{'state':'unthrottled'},
+                'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],
+                    'diagnostic_context':dict.fromkeys(stability.CONTEXT)} for _ in range(2)]}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);admitted=metadata(root)
+            source=json.loads((admitted/'source.json').read_text())['checkout_sha']
+            valid=stability.project(phase(4,2,1),0,fullstack.SERVICES)
+            self.assertTrue(valid['quality']['available']);self.assertFalse(valid['completed'])
+            base=stability.record(source,fullstack.SERVICES)
+            base['warmup']=[{k:valid[k] for k in ('ordinal','completed','quality')}]
+            output=root/'valid-partial';output.mkdir();fullstack.pilot.write_json(output/stability.NAME,base)
+            fullstack.stability_collect(output,admitted,root/'valid-public')
+            collected=stability.read(root/'valid-public',source,fullstack.SERVICES)
+            self.assertEqual(collected['warmup'][0]['quality']['unexpected_failures'],3)
+            self.assertEqual(collected['state'],'incomplete');self.assertFalse(collected['acceptance']['capacity'])
+            # No equality requirement: two success plus one missed leaves one unfinished.
+            # Additional probe failures are deliberately outside this slot inequality.
+            for index,(scheduled,success,missed) in enumerate(((0,400,0),(1,0,2),(4,3,2))):
+                with self.subTest(public_counts=index):
+                    bad=copy.deepcopy(base);bad['warmup'][0]['quality'].update(scheduled=scheduled,success=success,missed=missed)
+                    output=root/('impossible-'+str(index));output.mkdir();fullstack.pilot.write_json(output/stability.NAME,bad)
+                    public=root/('impossible-public-'+str(index))
+                    try:fullstack.stability_collect(output,admitted,public)
+                    except ValueError:pass
+                    else:
+                        published=stability.read(public,source,fullstack.SERVICES)['warmup'][0]['quality']
+                        self.fail('collector published impossible counts: '+json.dumps(
+                            {k:published[k] for k in ('scheduled','success','missed')}))
+                    self.assertFalse(public.exists())
+                with self.subTest(raw_counts=index):
+                    projected=stability.project(phase(scheduled,success,missed),0,fullstack.SERVICES)
+                    self.assertFalse(projected['completed']);self.assertEqual(projected['quality'],{'available':False})
+
     def test_context_is_numeric_bounded_and_actual_reset_becomes_unknown(self):
         import stability
         with tempfile.TemporaryDirectory() as directory:
