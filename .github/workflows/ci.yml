@@ -29,12 +29,29 @@ env:
   CI: "true"
 
 jobs:
+  security:
+    name: Secrets and production advisories
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+      - name: Verify scanner rejection and source security
+        env:
+          QUALITY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: pnpm quality:proof secrets && pnpm quality:security
+
   plan:
     name: Coverage plan (isolated reruns)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      plan: ${{ steps.select.outputs.plan }}
       plan_sha256: ${{ steps.select.outputs.plan_sha256 }}
       required: ${{ steps.select.outputs.required }}
     steps:
@@ -424,6 +441,7 @@ jobs:
           retention-days: 7
 
   foundation-recovery:
+    name: Foundation recovery
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'compose-production') }}
     uses: ./.github/workflows/foundation-recovery.yml
@@ -567,6 +585,7 @@ jobs:
     timeout-minutes: 5
     if: ${{ always() }}
     needs:
+      - security
       - plan
       - docs
       - contracts
@@ -581,6 +600,10 @@ jobs:
       - telegram
       - fullstack
     steps:
+      - name: Require security checks for every change
+        env:
+          SECURITY_RESULT: ${{ needs.security.result }}
+        run: test "$SECURITY_RESULT" = success
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

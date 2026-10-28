@@ -62,6 +62,7 @@
     "@fastify/multipart": "10.1.2",
     "@fastify/static": "10.1.5",
     "@inside/access-capabilities": "workspace:*",
+    "@inside/contracts": "workspace:*",
     "@inside/legal": "workspace:*",
     "@inside/material-blocks": "workspace:*",
     "@inside/runtime-identity": "workspace:*",
@@ -80,15 +81,14 @@
     "fastify": "5.12.5",
     "file-type": "22.1.1",
     "jose": "6.2.12",
-    "nodemailer": "10.0.13",
+    "nodemailer": "10.1.4",
     "pg": "8.23.1",
     "pg-boss": "12.36.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "sharp": "0.35.5",
-    "undici": "8.11.2",
-    "zod": "4.6.5",
-    "@inside/contracts": "workspace:*"
+    "undici": "8.12.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.0",

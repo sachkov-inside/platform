@@ -23,12 +23,12 @@
   },
   "dependencies": {
     "@tiptap/core": "3.31.4",
+    "@tiptap/extension-code": "3.31.4",
     "@tiptap/extension-table": "3.31.4",
     "@tiptap/extension-unique-id": "3.31.4",
     "@tiptap/pm": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
-    "zod": "4.6.5",
-    "@tiptap/extension-code": "3.31.4"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "typescript": "7.0.2"

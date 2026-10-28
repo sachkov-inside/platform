@@ -1,0 +1,39 @@
+profile: default
+shellcheck:
+  args: ["--severity=warning"]
+
+# These exceptions retain existing, executable trust/release contracts. They expire instead
+# of silently becoming a permanent baseline for new workflows or jobs.
+ignores:
+  - rule: concurrency-limits
+    file: .github/workflows/acquisition-diagnostic.yml
+    reason: One-shot hosted grant for PR 1340; cancellation would invalidate its resource-closure evidence (scripts/acquisition-workflow-contract.test.mjs).
+    expires: "2027-01-26"
+  - rule: [dangerous-triggers, excessive-permissions]
+    file: .github/workflows/ci-gate-recovery.yml
+    reason: Checkout-free trusted default-branch recovery validates provider identity and never executes PR code or reads its artifacts (scripts/ci-gate-recovery.test.mjs).
+    expires: "2027-01-26"
+  - rule: secrets-inherit
+    file: .github/workflows/deploy.yml
+    job: access-pass
+    reason: Same-repository production access workflow uses the existing Production environment; changing credential delivery is outside this tooling task.
+    expires: "2027-01-26"
+  - rule: gate-job-skipped-on-failure
+    file: .github/workflows/release.yml
+    job: finalize
+    reason: Not a required merge status; release finalization explicitly validates reused and executed CI receipts (scripts/release-source-evidence.test.mjs).
+    expires: "2027-01-26"
+  - rule: gate-job-skipped-on-failure
+    file: .github/workflows/telegram-release.yml
+    job: publish
+    reason: Not a required merge status; publication checks the successful CI result or verified reuse receipt before creating a release.
+    expires: "2027-01-26"
+  - rule: cache-poisoning
+    file: .github/workflows/release.yml
+    job: finalize
+    reason: Main-only captured source with frozen integrity-checked pnpm installation; this job publishes verified manifest metadata, not cached build outputs.
+    expires: "2027-01-26"
+  - rule: dependabot-cooldown
+    file: .github/dependabot.yml
+    reason: npm quarantine is minimumReleaseAge 1440; Docker and Actions use reviewed digest/SHA updates. A second generic cooldown would change that policy.
+    expires: "2027-01-26"

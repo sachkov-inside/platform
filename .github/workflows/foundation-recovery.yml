@@ -126,7 +126,8 @@ jobs:
       - name: Verify real resource cleanup on success, failure, timeout and interruption
         run: |
           set -euo pipefail
-          export FOUNDATION_PROOF_IMAGE="$(cat "$RUNNER_TEMP/foundation-image.id")"
+          FOUNDATION_PROOF_IMAGE="$(cat "$RUNNER_TEMP/foundation-image.id")"
+          export FOUNDATION_PROOF_IMAGE
           python3 -B scripts/test_foundation_recovery_lifecycle_docker.py
           python3 - <<'PY'
           import json, os, pathlib

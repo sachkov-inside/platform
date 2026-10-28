@@ -147,6 +147,8 @@ compose --profile operations run --rm --interactive=false migrate
 compose up --detach --no-build --wait app
 assert_ready
 [[ "$(query 'select count(*) from kysely_migration')" == 31 ]] || refuse 'Legacy migration count mismatch'
+# PostgreSQL dollar-quoted text must not expand in the shell.
+# shellcheck disable=SC2016
 query 'create table delivery_smoke_sentinel (value text primary key); insert into delivery_smoke_sentinel values ($$preserved$$)' >/dev/null
 
 

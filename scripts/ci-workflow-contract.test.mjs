@@ -65,6 +65,30 @@ const requiredJobs = [
 ];
 
 describe("application CI workflow contract", () => {
+  it("requires the independent security job even for documentation-only coverage", () => {
+    const security = jobBlock("security");
+    assert.doesNotMatch(security, /\n {4}if:|secrets\.|continue-on-error/u);
+    assert.match(
+      security,
+      /run: pnpm quality:proof secrets && pnpm quality:security/u,
+    );
+    assert.match(jobBlock("ci-gate"), /- security\n/u);
+    const gate = jobBlock("ci-gate");
+    assert.match(gate, /SECURITY_RESULT: \$\{\{ needs.security.result \}\}/u);
+    assert.match(gate, /run: test "\$SECURITY_RESULT" = success/u);
+    for (const result of ["success", "failure", "cancelled", "skipped"]) {
+      const checked = spawnSync(
+        "bash",
+        ["-c", 'test "$SECURITY_RESULT" = success'],
+        {
+          env: { ...process.env, SECURITY_RESULT: result },
+          timeout: 5_000,
+          encoding: "utf8",
+        },
+      );
+      assert.equal(checked.status, result === "success" ? 0 : 1);
+    }
+  });
   it("isolates both full-stack profiles and rejects failed or absent profile coverage", () => {
     const profiles = jobBlock("fullstack-browser");
     assert.match(profiles, /shard: \[1, 2\]/u);
@@ -303,7 +327,9 @@ describe("application CI workflow contract", () => {
     const command = aggregate.match(/run: (test .*RECOVERY_RESULT.*)/u)?.[1];
     assert.ok(command);
     for (const result of ["success", "failure", "cancelled", "skipped"]) {
+      /** @type {import("node:child_process").SpawnSyncReturns<string>} */
       const execution = spawnSync("bash", ["-c", command], {
+        encoding: "utf8",
         env: { ...process.env, RESULT: "success", RECOVERY_RESULT: result },
         timeout: 5_000,
       });
@@ -768,7 +794,7 @@ describe("application CI workflow contract", () => {
     );
     assert.equal(
       [...workflow.matchAll(/^ {4}name: /gmu)].length,
-      Object.keys(ciJobNames).length + Object.keys(ciMatrixJobs).length,
+      Object.keys(ciJobNames).length + Object.keys(ciMatrixJobs).length + 1,
     );
   });
 
@@ -849,7 +875,7 @@ describe("application CI workflow contract", () => {
       [...gate.matchAll(/^ {6}- ([a-z0-9-]+)$/gmu)]
         .map((match) => match[1])
         .sort(),
-      ["plan", ...coverageIds].sort(),
+      ["security", "plan", ...coverageIds].sort(),
     );
     assert.match(gate, /run: node scripts\/ci-coverage-run\.mjs gate/u);
   });

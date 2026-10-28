@@ -1,0 +1,15 @@
+title = "Inside Platform secrets"
+
+# Public local/smoke credentials and instructional placeholders. These are exact synthetic
+# value families, not directory exclusions: provider-shaped credentials in tests still fail.
+filter = '''
+matchesAny(finding["secret"], [
+  `^(?:inside|inside-local|inside-proof|telegram_checks|platform-production-smoke-password)$`,
+  `^inside-local-[a-z-]+$`,
+  `^inside-production-smoke-[a-z%_-]+$`,
+  `^replace-with-[a-z0-9-]+$`
+])
+'''
+
+[extend]
+useDefault = true

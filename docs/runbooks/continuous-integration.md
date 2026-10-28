@@ -46,7 +46,8 @@ without exceeding the runner's per-environment-string process limit.
 
 | Input category | Explicit paths | PR | Merge queue |
 |---|---|---|---|
-| Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `docs` | `docs` |
+| Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `security` | `pnpm quality:proof secrets && pnpm quality:security`; required by CI Gate independently of the path plan |
+| `docs` | `docs` |
 | Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, other `.github` paths; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
 | Web | everything under `apps/web`, including runtime Markdown | `static`, `unit`, `ui`, `web-e2e` | full Platform |
 | Backend | everything under `apps/backend`, including runtime Markdown | `static`, `unit`, `integration`, `integration-serial` | full Platform |
@@ -82,7 +83,9 @@ cannot establish trust or correspondence between different SHAs.
 
 ## Available checks
 
-`pnpm check` is the local aggregate of four stages. CI runs independent work in parallel;
+`pnpm check` is the local aggregate of four stages. Static coverage includes the [quality checks](quality-checks.md).
+The independent security job is required for every candidate, including prose-only changes; it is
+not an optional path-selected coverage ID. CI runs independent work in parallel;
 `unit`, `web-e2e`, `integration`, `compose-production` and `fullstack` retain stable aggregate jobs. Each aggregate
 requires every selected matrix member to succeed, including during reusable release gap checks.
 A failed, cancelled or skipped selected member fails its aggregate. Coverage selection, required

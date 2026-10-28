@@ -9,6 +9,8 @@ assert_public_status() {
   local host=${4:-inside.sachkov.dev}
   if (($# >= 4)); then shift 4; else shift 3; fi
   local actual
+  # Sourced by production-compose-smoke.sh, which owns this temporary directory.
+  # shellcheck disable=SC2154
   local body_path="$runtime_config_dir/public-response-body"
   local headers_path="$runtime_config_dir/public-response-headers"
   actual="$(curl \

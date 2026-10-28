@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import { assertPayloadBudget } from "../support/payload-budgets";
 
 const programme = "/products/performance-course/programme";
 
@@ -12,6 +13,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   expect(response.ok()).toBe(true);
   expect(response.headers()["content-type"]).toContain("text/x-component");
   const flight = await response.text();
+  assertPayloadBudget("programmeFlight", Buffer.byteLength(flight));
   await testInfo.attach("programme-flight.txt", {
     body: flight,
     contentType: "text/plain",
@@ -254,6 +256,13 @@ for (const version of ["v1", "v2", "v3"] as const) {
       )
       .toBe(255);
     const loadedScripts = await Promise.all(scripts);
+    assertPayloadBudget(
+      "courseScripts",
+      loadedScripts.reduce(
+        (total, script) => total + Buffer.byteLength(script.source),
+        0,
+      ),
+    );
     const source = loadedScripts
       .map((script) => script.source)
       .join("\n")
