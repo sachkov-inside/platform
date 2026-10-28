@@ -6,6 +6,7 @@ import secrets
 import time
 
 HERE=Path(__file__).resolve().parent
+SETUP_SECONDS=75
 
 
 def configure(output,plan,images):
@@ -53,8 +54,8 @@ def establish(compose,invoke,wait,sql,actors):
     # The real delivery worker polls every 250ms. Bound admission instead of relaxing
     # the durable-delivery deadline or changing production transport pacing.
     # Preserve the former composed setup ceiling: client45s + durable ledger30s.
-    deadline=time.monotonic()+75
-    def remaining(limit=75):
+    deadline=time.monotonic()+SETUP_SECONDS
+    def remaining(limit=SETUP_SECONDS):
         value=min(limit,deadline-time.monotonic())
         if value<=0:raise TimeoutError('synthetic_telegram_setup_deadline')
         return value
