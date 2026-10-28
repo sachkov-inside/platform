@@ -123,7 +123,12 @@ class Preparation(unittest.TestCase):
             (output/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
             (output/'compose.json').write_text(json.dumps({'services':{'grafana':{'user':'1:1'}}}))
             diagnostic={'schema':1,'state':'complete','cycles':1,'rows':[{'source':'postgresql'}]}
-            measured={'samples':[{'host':{},'counters':{'errors':{}}}],'load':{'timing_diagnostics':{}},'errors':[],'source_publication_timing':diagnostic}
+            sample_diagnostic=dict(state='observed',reason='observed',status=200,evaluation_seconds=1000,
+                sources={source:dict(sample_value_seconds=997,sample_time_seconds=998.5,sample_age_seconds=1.5)
+                         for source in ('postgresql','caddy')})
+            measured={'samples':[{'host':{},'counters':{'errors':{}}}],
+                'load':{'timing_diagnostics':{},'completed':False,'source_cache_sample_diagnostic':sample_diagnostic},
+                'errors':[],'source_publication_timing':diagnostic}
             profile={'pairs':[['on']],'phases':[{'name':'idle','seconds':10,'requests_per_second':0}]}
             with ExitStack() as patches:
                 patches.enter_context(patch.object(fullstack,'sys',SimpleNamespace(platform='linux')))
@@ -151,6 +156,9 @@ class Preparation(unittest.TestCase):
             self.assertEqual(raw['source_publication_timing'],diagnostic)
             self.assertNotIn('source_publication_timing',summary['phases'][0])
             self.assertNotIn('timing_diagnostics',summary['phases'][0]['load'])
+            self.assertEqual(raw['load']['source_cache_sample_diagnostic'],sample_diagnostic)
+            self.assertFalse(raw['load']['completed'])
+            self.assertNotIn('source_cache_sample_diagnostic',summary['phases'][0]['load'])
 
     def test_readiness_failure_keeps_only_the_last_closed_observation_and_original_failure(self):
         import io

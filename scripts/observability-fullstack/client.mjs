@@ -8,6 +8,8 @@ import { phaseTiming } from "./phase-timing.mjs";
 import {
   sourceCacheObservation,
   sourceCacheQuery,
+  sourceCacheSampleQuery,
+  sourceCacheSampleObservation,
   probeVersion,
   nativeStats,
   accountId,
@@ -253,6 +255,40 @@ async function sourceCacheReady() {
     status: result.status,
     seconds: result.seconds,
   };
+}
+/** Already-invalid phase only; same transport ceiling and captured native cut, never a retry.
+ * A later same-cut read can see late ingestion; it is not an atomic snapshot or causal proof.
+ * @param {number|null} cut
+ */
+async function sourceCacheSampleAt(cut) {
+  const unavailable = sourceCacheSampleObservation(
+    { status: 0, value: null },
+    cut,
+  );
+  if (unavailable.evaluation_seconds === null) return unavailable;
+  try {
+    const response = await call(
+      "gateway",
+      8080,
+      "/metrics/api/v1/query?query=" +
+        encodeURIComponent(sourceCacheSampleQuery()) +
+        "&nocache=1&time=" +
+        String(unavailable.evaluation_seconds),
+      "GET",
+      undefined,
+      { authorization: "Bearer " + key() },
+      4096,
+    );
+    const diagnostic = sourceCacheSampleObservation(response, cut);
+    if (Buffer.byteLength(JSON.stringify(diagnostic)) > 1024) {
+      unavailable.reason = "schema";
+      unavailable.status = diagnostic.status;
+      return unavailable;
+    }
+    return diagnostic;
+  } catch {
+    return unavailable;
+  }
 }
 /** Actual before/after Web cohort; only closed numeric evidence leaves the raw source.
  * @param {string} source
@@ -707,6 +743,9 @@ async function load(definition, enabled, pair) {
   /** @type {import("./responses.mjs").SourceCacheDiagnostic[]} */ const sourceCacheFailures =
     [];
   let sourceCacheFailureOverflow = 0;
+  let sourceCacheSampleAttempted = false;
+  /** @type {import("./responses.mjs").SourceCacheSampleDiagnostic|undefined} */
+  let sourceCacheSampleDiagnostic;
   /** @type {Set<Promise<void>>} */ const active = new Set();
   let querying = true,
     queryFailure = false,
@@ -724,6 +763,21 @@ async function load(definition, enabled, pair) {
           );
           if ("failure" in value) {
             queryFailure = true;
+            if (
+              !sourceCacheSampleAttempted &&
+              value.failure === "source_cache_response" &&
+              "sourceCache" in value &&
+              value.sourceCache?.reason === "stale"
+            ) {
+              sourceCacheSampleAttempted = true;
+              try {
+                sourceCacheSampleDiagnostic = await sourceCacheSampleAt(
+                  value.sourceCache.evaluation_seconds,
+                );
+              } catch {
+                // Optional evidence cannot replace the already sticky source failure.
+              }
+            }
             if ("sourceCache" in value && value.sourceCache) {
               const diagnostic = value.sourceCache;
               sourceCacheFailureCounts[diagnostic.reason] =
@@ -860,6 +914,9 @@ async function load(definition, enabled, pair) {
     source_cache_failure_counts: sourceCacheFailureCounts,
     source_cache_failures: sourceCacheFailures,
     source_cache_failure_overflow: sourceCacheFailureOverflow,
+    ...(sourceCacheSampleDiagnostic === undefined
+      ? {}
+      : { source_cache_sample_diagnostic: sourceCacheSampleDiagnostic }),
     ingestion_lag_seconds: age,
   };
 }
