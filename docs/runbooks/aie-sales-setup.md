@@ -27,7 +27,7 @@ Subsequent editorial changes require their own authorized package.
 | Author's code review | Not included |
 
 The catalogue payloads in [the preparation directory](../evidence/issue-1359/) contain integer kopecks.
-They retain one Offer and one PaymentOption when the price changes, as [ADR 0033](../adr/0033-product-tariff-payment-model.md) requires.
+They retain one Offer and one PaymentOption when the price changes, as [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) requires.
 The option's `months: 1` does not override the explicit lifetime Material/community periods or the Support term.
 The prepared Offer does not enable tariff assignments or a subscription.
 

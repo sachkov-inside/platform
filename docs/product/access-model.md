@@ -237,7 +237,7 @@ Platform владеет членством Product Waitlist и текущей д
 
 ### Current product commerce (owner decision 2026-10-20)
 
-[ADR 0037](../adr/0037-products-without-subscriptions.md) supersedes the subscription sales and
+[ADR 0037](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0037-products-without-subscriptions.md) supersedes the subscription sales and
 Product payment-option rules below: current Products have one-time purchases or access granted
 without payment. Subscription sale, invitation checkout and recurring charges are disabled.
 Future subscriptions are separate from Products. Historical snapshots, payments and rights are
@@ -252,7 +252,7 @@ six calendar months of Support. The account presents access by Product, not as a
 приведена к решениям владельца в [Workspace #200](https://github.com/sachkov-inside/workspace/issues/200)
 и [#204](https://github.com/sachkov-inside/workspace/issues/204).
 Текущая модель включает решение владельца от 07.10.2026 —
-[ADR 0033](../adr/0033-product-tariff-payment-model.md) ([#1056](https://github.com/sachkov-inside/platform/issues/1056)):
+[ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) ([#1056](https://github.com/sachkov-inside/platform/issues/1056)):
 продукты, тарифы, способы оплаты, назначения и подписка по приглашению. Оно заменяет решение
 от 05.10.2026 в [Platform #958](https://github.com/sachkov-inside/platform/issues/958) о составе подписки.
 Этот документ владеет общими правилами доступа; [brief Platform](platform-mvp-brief.md) описывает их применение в приложении.
@@ -287,7 +287,7 @@ current grounds, including broad grants, while retaining their access to other P
 refund money or erase learning progress. A later independent grant can give the Product back.
 A bank refund instead revokes only the rights produced by the refunded purchase.
 
-[ADR 0034](../adr/0034-product-community-and-product-revocation.md) records the preservation and ownership trade-offs.
+[ADR 0034](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0034-product-community-and-product-revocation.md) records the preservation and ownership trade-offs.
 
 ### Правило
 
@@ -305,13 +305,13 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 #### Что входит в доступ
 
 Решения владельца от 15.09.2026 с уточнением состава от 05.10.2026 и моделью продукта
-[ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026:
+[ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) от 07.10.2026:
 
 - **Доступ — это материалы и сопровождение**, одинаково для покупки продукта и для подписки.
   Ревью не входит ни в одно основание: право `reviews` не выдаётся.
 - **Материалы — по охвату тарифа.** Тариф открывает материалы продуктов своего охвата: названных
   продуктов или всей платформы, включая продукты, опубликованные позже
-  ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Отдельный
+  ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Отдельный
   доступ к конкретному материалу не выдаётся и не проверяется: материал открывается только через
   продукт, в который входит. Права «на всю библиотеку» нет.
 - **Назначение тарифа только бессрочное.** Тариф без оплаты назначается прежним участникам курса
@@ -371,7 +371,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 - Подписку продают только по приглашению: вариант оплаты `subscription` доступен только Account с
   погашенным приглашением. Допуск в коде задан на весь тариф, поэтому тариф с вариантом подписки
   получает `invitation_only`; отдельный допуск варианта оплаты — будущая задача. Приглашение лишь допускает к оплате; режима «подарок» нет
-  ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Продажа начнётся, когда банк подтвердит
+  ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Продажа начнётся, когда банк подтвердит
   регулярные списания и выйдет новая редакция оферты подписки.
   Состояния и поведение ссылки описывает [billing-контракт](../specifications/subscription-billing-v1.md#текущая-поставка-908).
 - Первое подключение автосписаний в Platform требует её собственного согласия; согласие Tribute не переносится.
@@ -392,7 +392,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
   решает Platform по правилу активации (ActivationRule); бот сам права не назначает.
 - Прежний участник курса получает бессрочное назначение тарифа курса (`tier-via-course`) с тем же
   составом, что у тарифа первого потока, включая сопровождение
-  ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Подписчик Tribute назначения не
+  ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Подписчик Tribute назначения не
   получает: владелец отправляет ему приглашение оплатить «Подписку Inside».
 - Постоянной сверки нет: права по основанию выдаются один раз, выход из группы их не отзывает,
   повторное подтверждение не создаёт дубликатов.
@@ -469,11 +469,11 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 | Материал | `Material` | Может входить в несколько продуктов; открывается правом на любой из них. Отдельного права на материал нет. |
 | Видимость | `access: free \| membership`; `draft \| published \| unpublished` | `free` открыт всем, `membership` — только по основанию. Неопубликованное не читает никто, кроме автора в предпросмотре. |
 | Артефакт | `ProductArtifact` | Видимость как у материала; архивный артефакт считается снятым. |
-| Тариф | `Offer`: `benefits`, `benefitPeriods`, `published`, `availableForAssignment`, `archived` | Охват, права, их сроки, три независимых признака и допуск. Тариф подписки не отдельный вид: подписка — способ оплаты ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). «Предложение» в этом документе — прежнее название тарифа. |
+| Тариф | `Offer`: `benefits`, `benefitPeriods`, `published`, `availableForAssignment`, `archived` | Охват, права, их сроки, три независимых признака и допуск. Тариф подписки не отдельный вид: подписка является способом оплаты ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). «Предложение» в этом документе , прежнее название тарифа. |
 | Вариант оплаты | `PaymentOption` | Цена и способ оплаты тарифа: разовая оплата или подписка с периодом. Новая цена при тех же правах меняет цену варианта, а не тариф. |
 | Охват | `Coverage {productIds}` или `wholePlatform` | Названные продукты или вся платформа, включая продукты, опубликованные позже. Включённый продукт приносит свои новые материалы. Отдельные материалы (`materialIds`) охват не образуют и доступ не открывают. |
 | Назначение и источник | `TariffAssignment`, `origin: course \| tribute \| manual \| platform_payment \| invitation` | Хранит снимок версии тарифа и срок; платежом не является. Новое назначение без оплаты бывает только бессрочным, `course` или `manual`; `tribute` и `invitation` остаются у выданных раньше назначений. |
-| Прямое право | `access_grants` без `enrollment_id` (`source: manual \| legacy`); мост прежних участников с `bridgeBenefits` | Выдано владельцем или перенесено из прежнего доступа без тарифа и покупки; отзывается отдельно. Новое прямое право владельца только бессрочное ([ADR 0033](../adr/0033-product-tariff-payment-model.md)); права со сроком и мост, выданные раньше, действуют до своего конца. Несёт `product:<id>`, `community` или `support`; `materials` прямым правом не выдаётся. |
+| Прямое право | `access_grants` без `enrollment_id` (`source: manual \| legacy`); мост прежних участников с `bridgeBenefits` | Выдано владельцем или перенесено из прежнего доступа без тарифа и покупки; отзывается отдельно. Новое прямое право владельца только бессрочное ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)); права со сроком и мост, выданные раньше, действуют до своего конца. Несёт `product:<id>`, `community` или `support`; `materials` прямым правом не выдаётся. |
 | Разовая покупка | `billing.purchases.kind = one_time` | Даёт `product:<id>`, участие в сообществе и сопровождение на сроки из предложения продукта; подписку и списания не создаёт. |
 | Право | `capability`: `materials`, `product:<id>`, `community`, `support` | `materials` выдаётся только назначением тарифа и действует внутри его состава; `product:<id>` открывает продукт и общий чат; `support` открывает общий чат. `reviews` не выдаётся ни одним основанием. |
 | Сообщество | `community`, `CommunityEntitlement` | Право на единственную общую группу отдельно от фактического присутствия в ней. |
@@ -490,8 +490,8 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 | `account-without-rights` | Account без действующих оснований | — |
 | `one-time-purchase` | Разовая покупка продукта X | Сроки из предложения: право на X, участие в сообществе и сопровождение — месяцы или без срока, с подтверждения оплаты. Покупки на редакциях 3 и 4 оферты: право на X и чат без даты окончания, договор гарантирует 2 года; сопровождение 6 месяцев. |
 | `tier-via-course` | Тариф курса за подтверждённое участие в прежнем курсе; основание подтверждает бот | Без даты окончания; сопровождение на срок из тарифа |
-| `tier-via-tribute` | Заменено [ADR 0033](../adr/0033-product-tariff-payment-model.md): новых назначений по Tribute нет. Столбец описывает назначения, выданные раньше: подтверждённый период подписки Tribute или временный источник для участников группы | Подтверждённый оплаченный период; у временного источника — пока источник не завершён (переход `tribute-temporary-source-lost`), но не дольше предела, заданного политикой Tribute |
-| `manual-assignment` | Тариф, назначенный владельцем вручную | Без даты окончания ([ADR 0033](../adr/0033-product-tariff-payment-model.md)); назначения с концом, выданные раньше, действуют до своего конца |
+| `tier-via-tribute` | Заменено [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md): новых назначений по Tribute нет. Столбец описывает назначения, выданные раньше: подтверждённый период подписки Tribute или временный источник для участников группы | Подтверждённый оплаченный период; у временного источника до тех пор, пока источник не завершён (переход `tribute-temporary-source-lost`), но не дольше предела, заданного политикой Tribute |
+| `manual-assignment` | Тариф, назначенный владельцем вручную | Без даты окончания ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)); назначения с концом, выданные раньше, действуют до своего конца |
 | `hidden-active-tier` | Действующее назначение при любом сочетании признаков предложения тарифа: не продаётся, закрыт для назначений или архивирован после назначения. Решения совпадают со столбцом источника назначения. | Срок назначения; признаки предложения доступ по нему не закрывают |
 | `direct` | Прямое право: выдано владельцем без назначения тарифа или перенесено из прежнего доступа, включая мост прежних участников | Новое — без окончания; выданные раньше права со сроком и мост действуют до своего конца |
 | `expired-or-revoked` | Истёкшее или отозванное основание | Не действует |
@@ -573,12 +573,12 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 
 ### Тарифы и продажа на релизе
 
-Тарифы на релизе задаёт [ADR 0033](../adr/0033-product-tariff-payment-model.md).
+Тарифы на релизе задаёт [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md).
 
 | Тариф | Продаётся | Новые назначения | Действует |
 |---|---|---|---|
 | Тариф курса Inside AI Engineering: продукт и участие в сообществе без срока, `support` на 6 месяцев, вариант `one_time` | Да, когда владелец опубликовал | Да, бессрочно: прежние участники курса через бота, решение владельца | Да, по покупкам и назначениям |
-| «Подписка Inside»: охват «вся платформа», вариант `subscription` | Не продаётся ([ADR 0037](../adr/0037-products-without-subscriptions.md)) | — | Да, по оплатам |
+| «Подписка Inside»: охват «вся платформа», вариант `subscription` | Не продаётся ([ADR 0037](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0037-products-without-subscriptions.md)) | Не применяется | Да, по оплатам |
 
 По ADR 0033 активация назначает тариф курса. До задачи переключения код ещё назначает прежний
 стартовый тариф (в оферте подписки, раздел 9, «Материалы + сообщество») с охватом «вся платформа». Назначения, выданные раньше, сохраняют свой снимок. Отдельные тарифы «Материалы» и
@@ -598,8 +598,8 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 |---|---|---|
 | Истечение срока | На границе срока перестаёт действовать только это основание. Чат — сноска 9. | `expiry` |
 | Отзыв | Явное решение владельца с причиной. Повторная активация, импорт и продление отзыв не снимают; восстановление — отдельная операция владельца. | `revocation` |
-| Подтверждённый период Tribute у участника с мостом | Мост выключается. Остальные основания сохраняются. `reviews` не переносится: его не выдаёт ни одно основание. По [ADR 0033](../adr/0033-product-tariff-payment-model.md) период Tribute больше не переносится бесплатным назначением: подписчик Tribute получает приглашение оплатить «Подписку Inside». Прежний перенос стартовым тарифом ([#238](https://github.com/sachkov-inside/workspace/issues/238), [#150](https://github.com/sachkov-inside/workspace/issues/150)) заменён. | `bridge-replaced-by-tribute` |
-| Временный источник Tribute утратил подтверждение | Относится к источникам, привязанным до [ADR 0033](../adr/0033-product-tariff-payment-model.md): нового временного доступа нет. Если проверка не подтверждает членство — последняя проверка старше пяти минут ([#180](https://github.com/sachkov-inside/workspace/issues/180)), группу нельзя прочитать или политика выключена, — права назначения не действуют до новой успешной проверки (`pending_verification`); после предела политики Tribute новая проверка их не возвращает. На это время чат — как в сноске 9. Подтверждённый выход из группы завершает источник (`suspended_source`): повторный вход его не возвращает, нужен подтверждённый период или решение владельца. Другие основания сохраняются. | `tribute-temporary-source-lost` |
+| Подтверждённый период Tribute у участника с мостом | Мост выключается. Остальные основания сохраняются. `reviews` не переносится: его не выдаёт ни одно основание. По [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) период Tribute больше не переносится бесплатным назначением: подписчик Tribute получает приглашение оплатить «Подписку Inside». Прежний перенос стартовым тарифом ([#238](https://github.com/sachkov-inside/workspace/issues/238), [#150](https://github.com/sachkov-inside/workspace/issues/150)) заменён. | `bridge-replaced-by-tribute` |
+| Временный источник Tribute утратил подтверждение | Относится к источникам, привязанным до [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md): нового временного доступа нет. Если проверка не подтверждает членство (последняя проверка старше пяти минут ([#180](https://github.com/sachkov-inside/workspace/issues/180)), группу нельзя прочитать или политика выключена), права назначения не действуют до новой успешной проверки (`pending_verification`); после предела политики Tribute новая проверка их не возвращает. На это время чат определяется как в сноске 9. Подтверждённый выход из группы завершает источник (`suspended_source`): повторный вход его не возвращает, нужен подтверждённый период или решение владельца. Другие основания сохраняются. | `tribute-temporary-source-lost` |
 | Отказ от договора разовой покупки | Возврат полный или пропорциональный. С момента отказа прекращаются право на X и сопровождение этой покупки; чат — сноска 10. Сопровождение и чат других действующих оснований сохраняются. | `refund` |
 | Историческая компенсация без отказа | Прежние выполненные компенсации [#128](https://github.com/sachkov-inside/workspace/issues/128) сохраняют принятые последствия. С 13.10.2026 (#1420) новые возвраты запускает продавец только в кабинете Т-Банка; полный банковский результат отзывает права покупки, сохраняя другие основания. | `refund-without-withdrawal` |
 | Новый материал в продукте X | Открывается всем, кому X открыт: купившим, держателям назначений с X в составе и прямого права на X. | `material-added-to-product` |
@@ -612,7 +612,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 
 Таблица сохраняет исходную сверку редакций Workspace. Она не подтверждает соответствие условий новым решениям
 о составе тарифа от 05.10.2026, допуске от 04.10.2026 или модели продукта
-[ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026. Статусы и тексты редакций принадлежат
+[ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) от 07.10.2026. Статусы и тексты редакций принадлежат
 [юридическому индексу](../legal/README.md). Перенос не изменяет юридические тексты и не добавляет заключение о готовности.
 
 | Основание | Документ | Обещание | Соответствие модели |
@@ -621,10 +621,10 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 | Разовая покупка с 15.09 по 23.09.2026 | [Оферта, редакция 3](../legal/purchase-v3.md), действовала; подключена в [Platform PR #653](https://github.com/sachkov-inside/platform/pull/653) | Живой состав; снятие материала только решением с записью; архив и снятие с продажи не закрывают купленное; материалы и чат гарантированно 2 года; сопровождение 6 месяцев в общем чате; отказ прекращает доступ и участие в чате по покупке | Модель даёт больше: сопровождение при запрете в чате и общее право при нескольких основаниях. Тексту не противоречит |
 | Разовая покупка с 24.09.2026 до подключения редакции 5 | [Оферта, редакция 4](../legal/purchase-v4.md), действует; подключена в [Platform #658](https://github.com/sachkov-inside/platform/issues/658) | То же, что редакция 3; сопровождение — одно общее право; при запрете в чате — в личных сообщениях или по почте; отказ не прекращает сопровождение и чат других оснований | Совпадает, включая чат на 2 года после окончания сопровождения |
 | Разовая покупка после подключения редакции 5 | [Оферта, редакция 5](../legal/purchase-v5.md), зафиксирована 01.10.2026 ([#241](https://github.com/sachkov-inside/workspace/issues/241)); подключение — [Platform #780](https://github.com/sachkov-inside/platform/issues/780) | Срок материалов, чата и сопровождения — условие предложения, в месяцах или без ограничения; у части цены без срока окончания — расчётный срок 12 месяцев для возврата; полный возврат в первые 7 дней; набор на поток — обычная покупка с доступом сразу; прежние покупки не меняются | Совпадает с разделом «Срок прав задаёт предложение». Выдачу сроков из предложения поставляет [Platform #775](https://github.com/sachkov-inside/platform/issues/775) |
-| Тариф за курс | [Оферта подписки](../legal/subscription-v1.md), раздел 9 | Бессрочное право на состав «Материалы + сообщество», включая новые материалы; индивидуальное сопровождение не гарантируется (раздел 1) | Материалы: модель даёт тариф курса, а не все продукты ([ADR 0033](../adr/0033-product-tariff-payment-model.md)); соответствие разделу 9 не проверено. Расходится по сопровождению: модель включает его в тариф курса на 6 месяцев. Расходится и по порядку выдачи: оферта обещает ручную проверку обращения, а модель выдаёт право по основанию, которое подтверждает бот. Новая редакция оферты подписки — к переносу участников [#150](https://github.com/sachkov-inside/workspace/issues/150) |
-| Тариф через Tribute | [Покупка через Tribute](../legal/tribute-v1.md); переход — [оферта подписки](../legal/subscription-v1.md), раздел 9 | Состав и срок предложения Tribute; отмена продления не отнимает оплаченный срок | Назначения, выданные раньше по подтверждённому периоду и временному источнику, сохраняют оплаченный срок. Новых назначений по Tribute нет: подписчик получает приглашение оплатить «Подписку Inside» ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Новая редакция условий Tribute — к [#150](https://github.com/sachkov-inside/workspace/issues/150) |
+| Тариф за курс | [Оферта подписки](../legal/subscription-v1.md), раздел 9 | Бессрочное право на состав «Материалы + сообщество», включая новые материалы; индивидуальное сопровождение не гарантируется (раздел 1) | Материалы: модель даёт тариф курса, а не все продукты ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)); соответствие разделу 9 не проверено. Расходится по сопровождению: модель включает его в тариф курса на 6 месяцев. Расходится и по порядку выдачи: оферта обещает ручную проверку обращения, а модель выдаёт право по основанию, которое подтверждает бот. Новая редакция оферты подписки , к переносу участников [#150](https://github.com/sachkov-inside/workspace/issues/150) |
+| Тариф через Tribute | [Покупка через Tribute](../legal/tribute-v1.md); переход , [оферта подписки](../legal/subscription-v1.md), раздел 9 | Состав и срок предложения Tribute; отмена продления не отнимает оплаченный срок | Назначения, выданные раньше по подтверждённому периоду и временному источнику, сохраняют оплаченный срок. Новых назначений по Tribute нет: подписчик получает приглашение оплатить «Подписку Inside» ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Новая редакция условий Tribute: к [#150](https://github.com/sachkov-inside/workspace/issues/150) |
 | Ручное назначение и прямое право | [Условия использования](../legal/terms-v1.md), раздел 2 | Объём права определяется основанием | Совпадает |
-| Подписка Platform | [Оферта подписки](../legal/subscription-v1.md), раздел 1 | Закрытые публикации и все опубликованные руководства; индивидуальное сопровождение не гарантируется | Материалы совпадают с охватом «вся платформа» «Подписки Inside». Расходится по сопровождению: модель включает его в подписку. Продажа выключена; откроется только по приглашению после новой редакции оферты подписки ([ADR 0033](../adr/0033-product-tariff-payment-model.md), [#150](https://github.com/sachkov-inside/workspace/issues/150)) |
+| Подписка Platform | [Оферта подписки](../legal/subscription-v1.md), раздел 1 | Закрытые публикации и все опубликованные руководства; индивидуальное сопровождение не гарантируется | Материалы совпадают с охватом «вся платформа» «Подписки Inside». Расходится по сопровождению: модель включает его в подписку. Продажа выключена; откроется только по приглашению после новой редакции оферты подписки ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md), [#150](https://github.com/sachkov-inside/workspace/issues/150)) |
 | Модерационный запрет | [Условия использования](../legal/terms-v1.md), раздел 3 | Ограничение соразмерно нарушению и не удерживает оплату | Совпадает |
 
 ### Слои и владельцы
@@ -649,7 +649,7 @@ Platform в одной поставке меняет спецификацию, �
 - В редакции от 05.10.2026 этой модели ([Platform #958](https://github.com/sachkov-inside/platform/issues/958)) —
   подписка на явный список продуктов, стартовый тариф для прежних участников курса и подписчиков
   Tribute, временный доступ по источнику Tribute и подарок по приглашению. Их заменило
-  [ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026.
+  [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) от 07.10.2026.
 - В [модели подписки и оплаты](subscription-billing-v1.md) — правила состава и доступа: два
   тарифа со всеми опубликованными материалами, ручная выдача за курс, основания и мост при переходе с Tribute, сохранение доступа при
   отказе от договора разовой покупки. Механика оплаты, продления, скидок и уведомлений остаётся там.
@@ -672,10 +672,10 @@ Platform в одной поставке меняет спецификацию, �
 ### Вне модели релиза
 
 - Открытая продажа подписки: подписку продают только по приглашению
-  ([ADR 0033](../adr/0033-product-tariff-payment-model.md)).
+  ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)).
 - Постоянная сверка состава групп и автоматический отзыв прав, выданных по основанию прежнего
   участника.
-- Мастерской нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Право `reviews` не выдаётся ни одним основанием.
+- Мастерской нет ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)). Право `reviews` не выдаётся ни одним основанием.
 - Кто считается участником для профилей участников, не решено; это после релиза.
 
 ### Historical payment review

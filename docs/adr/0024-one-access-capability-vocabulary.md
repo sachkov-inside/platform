@@ -11,7 +11,7 @@ status: accepted
 
 Текущий идентификатор права конкретного продукта имеет форму `product:<id>`. Право открывает
 только названную capability; неявное добавление community отменено решением 14.10.2026
-из [исторического ADR 0034](0034-product-community-and-product-revocation.md).
+из [исторического ADR 0034](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0034-product-community-and-product-revocation.md).
 Получение продукта и связь с группой теперь определены [ADR 0040](0040-unified-product-access.md).
 Наличие старого значения, coverage codec или календарной функции в пакете не разрешает новую
 продажу подписки или автоматическое расширение права.

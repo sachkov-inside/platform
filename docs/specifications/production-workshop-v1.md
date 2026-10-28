@@ -2,7 +2,7 @@
 
 Статус: **superseded** для product/application delivery документом
 [Workshop Tracks and Laboratories](./workshop-tracks.md). Successor снят с плана 16.09.2026, а
-Мастерская отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md).
+Мастерская отменена [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md).
 
 Код, contracts и оценщик удалены в [#1063](https://github.com/sachkov-inside/platform/issues/1063).
 Описание foundations ниже относится к состоянию до удаления.

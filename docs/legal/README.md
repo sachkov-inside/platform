@@ -16,7 +16,7 @@
 Публично сейчас продаётся только разовая покупка продукта; публичная продажа подписки выключена
 ([#178](https://github.com/sachkov-inside/workspace/issues/178),
 [#180](https://github.com/sachkov-inside/workspace/issues/180)), подписочные тексты не меняются.
-По [ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026 подписку продают только
+По [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) от 07.10.2026 подписку продают только
 по приглашению владельца. Продажа начнётся, когда банк подтвердит регулярные списания и выйдет
 новая редакция оферты подписки. Прежнее решение от 27.09.2026 открыть подписку только прежним
 подписчикам Tribute ([#238](https://github.com/sachkov-inside/workspace/issues/238)) заменено.
@@ -205,7 +205,7 @@ garant.ru. Официальные pravo.gov.ru и consultant.ru 06.10.2026 из 
 
 ## Оферта подписки и условия Tribute — к переносу участников
 
-По [ADR 0033](../adr/0033-product-tariff-payment-model.md) прежние участники курса получают
+По [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md) прежние участники курса получают
 назначение тарифа курса, а подписчики Tribute — приглашение оплатить подписку
 ([модель доступа](../product/access-model.md#что-входит-в-доступ)). [Оферта подписки](subscription-v1.md),
 раздел 9, и [условия покупки через Tribute](tribute-v1.md) описывают прежний состав, поэтому к

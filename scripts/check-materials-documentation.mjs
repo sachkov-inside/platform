@@ -4,8 +4,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Current-decision markers for the Materials and Web data-boundary documents: superseded ADRs
- * stay marked as superseded, the current ADRs stay self-contained and active documents do not
+ * Current-decision markers for the Materials and Web data-boundary documents: current ADRs
+ * stay accepted and self-contained, and active documents do not
  * restore the retired revision model.
  */
 
@@ -23,25 +23,25 @@ export const requiredMarkers = [
       "route Materials changes through the current mutable-model ADR",
   },
   {
-    path: "docs/adr/0002-deep-materials-module.md",
-    text: "status: superseded by ADR-0009",
+    path: "docs/adr/0009-one-mutable-material.md",
+    text: "status: accepted",
     explanation:
       "make ADR 0009 the machine-readable current Materials decision",
   },
   {
     path: "docs/adr/0009-one-mutable-material.md",
-    text: "This ADR supersedes ADR 0002 and restates all retained decisions",
+    text: "Materials owns one mutable Material",
     explanation: "keep the current Materials ADR self-contained",
   },
   {
-    path: "docs/adr/0007-generated-openapi-web-transport.md",
-    text: "status: superseded by ADR-0011",
+    path: "docs/adr/0011-client-owned-library-catalog.md",
+    text: "status: accepted",
     explanation:
       "make ADR 0011 the machine-readable current Web data-boundary decision",
   },
   {
     path: "docs/adr/0011-client-owned-library-catalog.md",
-    text: "This ADR supersedes ADR 0007 and restates its retained transport",
+    text: "Nest owns Platform's HTTP wire contract",
     explanation: "keep the current Web data-boundary ADR self-contained",
   },
   {
@@ -77,10 +77,10 @@ export const forbiddenMarkers = [
       "the active glossary must not restore the superseded MaterialRevision term",
   },
   {
-    path: "docs/adr/0002-deep-materials-module.md",
+    path: "docs/adr/0009-one-mutable-material.md",
     text: "MaterialRevisionId",
     explanation:
-      "the retained ADR decision must not present revision identifiers as current",
+      "the current Materials ADR must not present revision identifiers as current",
   },
   ...[
     "MaterialsModule` ещё не потребляет",

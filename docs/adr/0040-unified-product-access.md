@@ -7,9 +7,9 @@ status: accepted
 Решение владельца от 23.10.2026 записано в
 [модели доступа](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026).
 Этот ADR оформляет уже принятое решение и заменяет
-[ADR 0033](0033-product-tariff-payment-model.md),
-[ADR 0034](0034-product-community-and-product-revocation.md) и
-[ADR 0037](0037-products-without-subscriptions.md), включая сохраняемые границы ниже.
+[ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md),
+[ADR 0034](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0034-product-community-and-product-revocation.md) и
+[ADR 0037](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0037-products-without-subscriptions.md), включая сохраняемые границы ниже.
 Продуктовые условия и их последующие поправки принадлежат модели доступа, не этому пересказу.
 
 ## Решение
@@ -37,7 +37,7 @@ Account Rights владеет выдачей, отзывом и восстано
   Guide и Series в старых документах являются прежними именами Product, а не вторыми каталогами.
 - Публичная лента состоит из открытых Materials. Закрытый Material принадлежит хотя бы одному
   Product и открывается через доступ к содержащему его Product. Права «на всю библиотеку» нет.
-  Мастерская отменена, а не отложена. ADR 0019/0020 остаются историей её evaluator.
+  Мастерская отменена, а не отложена. История прежнего evaluator сохраняется в Git.
 - Products владеет единым каталогом и программой по
   [ADR 0035](0035-product-catalogue-programme-and-attachments.md). Учебная история принадлежит
   Reading Activity; факт начала обучения не исчезает после удаления урока из программы.

@@ -35,7 +35,7 @@ backoff и fencing для долговечной работы в PostgreSQL. Д�
 
 Текущие рабочие циклы перечислены в [BackgroundWorkers](../../src/operations/background-workers.ts).
 Исторический outbox Membership Evidence и его диагностика не являются действующей доставкой.
-Отмена прежнего bridge записана в [Telegram ADR 0003](0003-evidence-delivery-lock.md) и
+Отмена прежнего bridge записана в
 [Platform ADR 0040](../../../../docs/adr/0040-unified-product-access.md).
 
 ## История

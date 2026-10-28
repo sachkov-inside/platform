@@ -74,6 +74,55 @@ describe("Materials documentation contract", () => {
     assert.deepEqual(checkMaterialsDocumentation(repositoryRoot), []);
   });
 
+  it("validates only current decisions and rejects retired state in them", () => {
+    const root = mkdtempSync(join(tmpdir(), "current-materials-docs-"));
+    try {
+      for (const path of [
+        "apps/backend/AGENTS.md",
+        "docs/adr/0009-one-mutable-material.md",
+        "docs/adr/0011-client-owned-library-catalog.md",
+        "docs/specifications/platform-v1.md",
+        "docs/research/backend-architecture-audit.md",
+        "docs/research/platform-v1-engineering-contract.md",
+      ]) {
+        mkdirSync(dirname(join(root, path)), { recursive: true });
+        writeFileSync(
+          join(root, path),
+          readFileSync(join(repositoryRoot, path)),
+        );
+      }
+      assert.deepEqual(checkMaterialsDocumentation(root), []);
+      for (const path of [
+        "docs/adr/0009-one-mutable-material.md",
+        "docs/adr/0011-client-owned-library-catalog.md",
+      ]) {
+        const document = readFileSync(join(root, path), "utf8");
+        writeFileSync(
+          join(root, path),
+          document.replace("status: accepted", "status: deprecated"),
+        );
+        assert.ok(
+          checkMaterialsDocumentation(root).some((failure) =>
+            failure.startsWith(path),
+          ),
+        );
+        writeFileSync(join(root, path), document);
+      }
+      const material = "docs/adr/0009-one-mutable-material.md";
+      writeFileSync(
+        join(root, material),
+        readFileSync(join(root, material), "utf8") + "\nMaterialRevisionId\n",
+      );
+      assert.ok(
+        checkMaterialsDocumentation(root).some((failure) =>
+          failure.includes("revision identifiers"),
+        ),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects a restored superseded term and a missing current marker", () => {
     const root = mkdtempSync(join(tmpdir(), "materials-docs-"));
     try {

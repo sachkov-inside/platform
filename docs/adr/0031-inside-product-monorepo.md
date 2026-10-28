@@ -9,7 +9,7 @@ status: accepted
 [workspace#253](https://github.com/sachkov-inside/workspace/issues/253).
 Platform хранит код Membership и Telegram, общие продуктовые и юридические документы,
 термины и контракты. Это заменяет прежний отдельный репозиторий Telegram и распределение
-документов из [Workspace ADR 0001](workspace/0001-platform-owns-product-brief.md).
+документов из [Workspace ADR 0001](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/workspace/0001-platform-owns-product-brief.md).
 
 Один репозиторий уменьшает число согласуемых копий контракта. Приложения сохраняют отдельные
 процессы, базы, миграции и выпуск: Telegram использует `telegram-vN`, Platform использует `vN`.
