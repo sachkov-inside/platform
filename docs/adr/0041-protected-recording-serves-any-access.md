@@ -32,8 +32,9 @@ closed Material. Platform refuses a recording from any other project.
 
 `authoring:release` treats an access change like any other content change. Its preview still names
 two cases the target would refuse: `video_not_protected` when a lesson with a public recording
-would close, and `video_access_change` for any access change of a lesson with a Video on a target
-that predates this decision (it reports no protection for the recording).
+would close, and `video_access_change` for any access change of a lesson that keeps its Video on a
+target that predates this decision (it reports no protection for the recording). A replacement
+recording named by ID is new to the preview; the target checks it on apply.
 
 ## Considered alternative
 
