@@ -487,6 +487,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       let cleanupFailures = 0;
       let stage = "acquisition";
       let admitted = 0;
+      let terminalConsumerCount: number | null = null;
       const broker = new NotificationBroker(
         url(users.provider),
         {
@@ -549,15 +550,14 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         await broker.open();
         stage = "terminal_connected";
         expect(broker.connected).toBe(false);
-        stage = "terminal_consumers";
-        for (const category of ["subscription", "material"] as const)
-          expect(
-            (
-              await inspector.checkQueue(
-                `telegram.notifications.${category}.v1`,
-              )
-            ).consumerCount,
-          ).toBe(0);
+        for (const category of ["subscription", "material"] as const) {
+          stage = `terminal_consumers_${category}`;
+          const observed = await inspector.checkQueue(
+            `telegram.notifications.${category}.v1`,
+          );
+          terminalConsumerCount = observed.consumerCount;
+          expect(observed.consumerCount).toBe(0);
+        }
         stage = "terminal_later_publish";
         const later = command();
         await publish(publisher, later);
@@ -595,6 +595,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
             stage: firstFailureStage,
             failures: failures.length,
             cleanup_failures: cleanupFailures,
+            terminal_consumer_count: terminalConsumerCount,
           }),
         );
     }, 25_000);
