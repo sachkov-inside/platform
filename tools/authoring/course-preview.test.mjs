@@ -157,7 +157,7 @@ test("unknown course programmes cannot inherit the local access profile", () => 
   assert.equal(original.materials[0]?.access, null);
 });
 
-test("the eight-chapter programme without cloud agents is superseded", () => {
+test("the eight-chapter programme without cloud agents cannot inherit the local access profile", () => {
   const original = fixture();
   const product = original.products[0];
   assert.ok(product);
@@ -177,9 +177,12 @@ test("the superseded five-chapter outline cannot inherit the current local profi
   assert.ok(product);
   product.chapters = product.chapters.filter(
     (chapter) =>
-      !["production-release", "agent-rag", "agent-security"].includes(
-        chapter.sourceId,
-      ),
+      ![
+        "production-release",
+        "agent-rag",
+        "agent-security",
+        "cloud-agents",
+      ].includes(chapter.sourceId),
   );
   assert.throws(
     () => coursePreviewManifest(original),

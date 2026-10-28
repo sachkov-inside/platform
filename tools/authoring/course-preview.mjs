@@ -18,7 +18,7 @@ export function coursePreviewManifest(original) {
   );
   if (product === undefined || manifest.products.length !== 1)
     throw new Error("Course preview requires only Inside AI Engineering");
-  // Programme accepted 2026-10-16, chapter nine added in Content 2026-10-23; the first-chapter
+  // Programme accepted 2026-10-16; chapter nine added in Content 23026bf (#1791). The first-chapter
   // access policy is unchanged.
   const chapterIds = [
     "project-setup",
