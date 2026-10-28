@@ -500,6 +500,39 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(workflow, /pnpm install/u);
   });
 
+  it("bounds dependency installation and reuses pnpm's policy-aware cache (#1763)", () => {
+    const install =
+      setupAction.match(
+        /- name: Install dependencies\n([\s\S]*?)(?=\n    - name:|$)/u,
+      )?.[1] ?? "";
+    assert.match(install, /timeout-minutes: 4$/mu);
+    assert.match(install, /run: pnpm install --frozen-lockfile$/mu);
+    const cache =
+      setupAction.match(
+        /- name: Cache pnpm metadata and verification\n([\s\S]*?)(?=\n    - name:|$)/u,
+      )?.[1] ?? "";
+    assert.match(cache, /uses: actions\/cache@/u);
+    assert.match(cache, /~\/\.cache\/pnpm\/v11\/metadata/u);
+    assert.match(cache, /~\/\.cache\/pnpm\/lockfile-verified\.jsonl/u);
+    for (const file of [
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "package.json",
+      ".npmrc",
+      ".node-version",
+      ".github/actions/setup-platform/action.yml",
+    ])
+      assert.ok(cache.includes(`'${file}'`), `cache key binds ${file}`);
+    assert.doesNotMatch(
+      cache,
+      /restore-keys:|lookup-only:|continue-on-error:/u,
+    );
+    assert.ok(
+      setupAction.indexOf("name: Cache pnpm metadata and verification") <
+        setupAction.indexOf("name: Install dependencies"),
+    );
+  });
+
   // Зеркало Ubuntu отдавало пакеты WebKit с паузами по 30 с, и установка не успевала за таймаут
   // задачи (#827).
   it("installs Playwright system packages from a cache that only main saves", () => {

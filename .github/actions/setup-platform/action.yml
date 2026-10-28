@@ -24,7 +24,19 @@ runs:
         node-version-file: .node-version
         cache: pnpm
         cache-dependency-path: pnpm-lock.yaml
+    # setup-node already caches the package store. pnpm's separate cache retains registry metadata
+    # and its policy-bound lockfile verdict; pnpm still validates whether that verdict is reusable.
+    - name: Cache pnpm metadata and verification
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/pnpm/v11/metadata*
+          ~/.cache/pnpm/lockfile-verified.jsonl
+        key: pnpm-metadata-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', '.npmrc', '.node-version', '.github/actions/setup-platform/action.yml') }}
     - name: Install dependencies
+      # fetchTimeout bounds inactivity, not the total duration of a trickling metadata response.
+      # Keep registry acquisition from consuming the 15-minute test job's entire budget (#1763).
+      timeout-minutes: 4
       shell: bash
       run: pnpm install --frozen-lockfile
     - name: Check peer dependencies
