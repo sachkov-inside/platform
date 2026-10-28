@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/observability-postgres-storage'))
@@ -139,33 +140,80 @@ def _publish(directory, source, text):
         if os.path.exists(name): os.unlink(name)
 
 
-def sample(directory, *, postgres_read, caddy_read, caddy_server, clock):
+def _diagnostic_ms():
+    primary = sys.exception()
+    try:
+        value = time.monotonic()
+        if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= (2**53 - 1) / 1000:
+            return None
+        return value * 1000
+    except BaseException as error:
+        if primary is None and not isinstance(error, Exception):
+            raise
+        return None
+
+
+def sample(directory, *, postgres_read, caddy_read, caddy_server, clock, observer=None):
     """Exactly two read callbacks. Failures publish unavailable, never zero business/native facts.
 
     postgres_read receives only postgres_sql(); caddy_read returns one native exposition.
     caddy_server comes from the caller's admitted adapted public :443 server, never a metric label.
     Cancellation and cache publication errors propagate to the existing outer process owner.
+    The optional observer receives closed timings only; its ordinary failures change no source fact.
     """
     directory = Path(directory)
     result = {}
     for source, read, project in (
             ('postgresql', lambda: postgres_read(postgres_sql()), postgres_projection),
             ('caddy', caddy_read, lambda raw, completed: caddy_projection(raw, caddy_server, completed))):
-        state = 0; projected = ''
+        row = None if observer is None else {
+            'source': source, 'read_outcome': 'interrupted', 'projection_state': 'unknown',
+            'publication_outcome': 'not_attempted', 'read_start_monotonic_ms': None,
+            'read_end_monotonic_ms': None, 'observed_at_seconds': None,
+            'publish_start_monotonic_ms': None, 'publish_end_monotonic_ms': None}
         try:
-            raw = read()
-            completed = clock()
-            if type(completed) not in (int, float) or not math.isfinite(completed) or not 0 < completed <= frame.MAX / 1_000_000:
-                raise ValueError('source_clock')
-            projected = project(raw, completed); state = 1
-        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
-            completed = clock()
-            if type(completed) not in (int, float) or not math.isfinite(completed) or not 0 < completed <= frame.MAX / 1_000_000:
-                raise ValueError('source_clock') from None
-        text = ('inside_production_source_available{source="' + source + '"} ' + str(state) + '\n' +
-                'inside_production_source_observed_at_seconds{source="' + source + '"} ' + str(completed) + '\n' + projected)
-        if len(text.encode()) > 65536:
-            raise ValueError('source_projection_size')
-        _publish(directory, source, text)
-        result[source] = 'observed' if state else 'unavailable'
+            state = 0; projected = ''
+            try:
+                try:
+                    if row is not None: row['read_start_monotonic_ms'] = _diagnostic_ms()
+                    raw = read()
+                    if row is not None: row['read_outcome'] = 'completed'
+                except BaseException as error:
+                    if row is not None: row['read_outcome'] = 'failed' if isinstance(error, Exception) else 'interrupted'
+                    raise
+                finally:
+                    if row is not None: row['read_end_monotonic_ms'] = _diagnostic_ms()
+                completed = clock()
+                if type(completed) not in (int, float) or not math.isfinite(completed) or not 0 < completed <= frame.MAX / 1_000_000:
+                    raise ValueError('source_clock')
+                projected = project(raw, completed); state = 1
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                completed = clock()
+                if type(completed) not in (int, float) or not math.isfinite(completed) or not 0 < completed <= frame.MAX / 1_000_000:
+                    raise ValueError('source_clock') from None
+            text = ('inside_production_source_available{source="' + source + '"} ' + str(state) + '\n' +
+                    'inside_production_source_observed_at_seconds{source="' + source + '"} ' + str(completed) + '\n' + projected)
+            if row is not None:
+                row['observed_at_seconds'] = completed
+                row['projection_state'] = 'observed' if state else 'unavailable'
+            if len(text.encode()) > 65536:
+                raise ValueError('source_projection_size')
+            try:
+                if row is not None: row['publish_start_monotonic_ms'] = _diagnostic_ms()
+                _publish(directory, source, text)
+                if row is not None: row['publication_outcome'] = 'completed'
+            except BaseException:
+                if row is not None: row['publication_outcome'] = 'failed'
+                raise
+            finally:
+                if row is not None: row['publish_end_monotonic_ms'] = _diagnostic_ms()
+            result[source] = 'observed' if state else 'unavailable'
+        finally:
+            if row is not None:
+                primary = sys.exception()
+                try:
+                    observer(row)
+                except BaseException as error:
+                    if primary is None and not isinstance(error, Exception):
+                        raise
     return result
