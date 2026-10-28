@@ -966,3 +966,67 @@ test("archive racing dispatch fails closed instead of authorizing a stale audien
     });
   }
 });
+
+test("the person card reads every waitlist membership of one Account", async () => {
+  const closedProduct = randomUUID();
+  const closedIntake = randomUUID();
+  await db.prisma.product.create({
+    data: {
+      id: closedProduct,
+      slug: closedProduct,
+      name: "Closed",
+      summary: "",
+    },
+  });
+  await db.prisma.productWaitlistIntake.create({
+    data: {
+      id: closedIntake,
+      productId: closedProduct,
+      name: "Прошлый набор",
+      accepting: false,
+    },
+  });
+  await db.prisma.productWaitlistMembership.create({
+    data: {
+      intakeId: closedIntake,
+      accountId,
+      active: false,
+      source: null,
+      joinedAt: new Date("2030-02-01T00:00:00Z"),
+      updatedAt: new Date("2030-02-03T00:00:00Z"),
+    },
+  });
+  expect(
+    await waitlists.join(accountId, {
+      intakeId,
+      operationId: randomUUID(),
+      source: null,
+    }),
+  ).toMatchObject({ ok: true });
+
+  expect(await waitlists.readForAccount(accountId.toUpperCase())).toEqual({
+    ok: true,
+    value: [
+      {
+        productId,
+        intakeName: "Следующий набор",
+        active: true,
+        joinedAt: "2030-03-05T12:00:00.000Z",
+      },
+      {
+        productId: closedProduct,
+        intakeName: "Прошлый набор",
+        active: false,
+        joinedAt: "2030-02-01T00:00:00.000Z",
+      },
+    ],
+  });
+  expect(await waitlists.readForAccount(randomUUID())).toEqual({
+    ok: true,
+    value: [],
+  });
+  expect(await waitlists.readForAccount("x")).toEqual({
+    ok: false,
+    error: { code: "invalid_request" },
+  });
+});

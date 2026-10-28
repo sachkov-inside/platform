@@ -117,6 +117,11 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
         }),
     },
   ],
-  exports: [ReadingActivityRetention, ReadingActivityFacts, MaterialFirstOpens],
+  exports: [
+    ReadingActivityRetention,
+    ReadingActivityFacts,
+    MaterialFirstOpens,
+    ReadingActivity,
+  ],
 })
 export class ReadingActivityModule {}

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 
+import { desktop, mobile } from "@/storybook/loads-in-place";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -11,9 +12,9 @@ import {
   type SalesFunnelReport,
 } from "../model/sales-funnel-report";
 import { SalesFunnelReportState } from "./sales-funnel-report-states";
-import { SalesFunnelReportView } from "./sales-funnel-report-view";
+import { SalesFunnelReportView } from "./sales-funnel-report-view.client";
 
-const environment = authoringPageEnvironment("/authoring/sales-funnel");
+const environment = authoringPageEnvironment("/authoring/sales/funnel");
 const productId = "00000000-0000-4000-8000-000000000816";
 const chapterId = "00000000-0000-4000-8000-000000000817";
 
@@ -101,7 +102,12 @@ const report: SalesFunnelReport = {
   surveyRespondents: { uploaded: 312, issued: 48, paid: 21 },
 };
 
-const period = { from: "2030-03-01", to: "2030-03-31", corrected: false };
+const period = {
+  from: "2030-03-01",
+  to: "2030-03-31",
+  corrected: false,
+  preset: null,
+};
 
 const meta = {
   ...environment,
@@ -113,7 +119,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Воронка продаж продукта по источникам бота: только общие числа за период.",
+          "Воронка продаж продукта по источникам бота в общем образце списков: продукт, глава и период в адресе, таблица источников, на телефоне список. Согласие на рассылку показано отдельной исторической метрикой, а не шагом.",
       },
     },
   },
@@ -122,25 +128,89 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {
+  globals: desktop.globals,
+  name: "Отчёт · широкий экран",
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
       page.getByRole("heading", { level: 1, name: "Воронка продаж" }),
-    ).toBeInTheDocument();
+    ).toBeVisible();
+    const table = page.getByRole("table", { name: "Воронка по источникам" });
     await expect(
-      page.getByRole("columnheader", { name: /Оплатил/u }),
-    ).toBeInTheDocument();
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual([
+      "Источник",
+      "Вход в бот",
+      "Открыл главу",
+      "Перешёл к оплате",
+      "Оплатил",
+    ]);
+    await expect(within(table).getByText("survey")).toBeVisible();
+    await expect(within(table).getByText("Всего")).toBeVisible();
+    await expect(within(table).getAllByText("не измеряется")).toHaveLength(1);
     await expect(
-      page.getByRole("rowheader", { name: "survey" }),
-    ).toBeInTheDocument();
-    await expect(page.getAllByLabelText("не измеряется")).toHaveLength(2);
-    await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue(
-      chapterId,
-    );
-    await userEvent.click(page.getByRole("tab", { name: "Анкетные скидки" }));
+      page.getByRole("combobox", { name: "Глава" }),
+    ).toHaveTextContent("Глава 1. Проекты и локальный MCP");
+    await expect(
+      page.getByRole("heading", { name: "Историческая метрика согласия" }),
+    ).toBeVisible();
     const survey = page.getByRole("region", { name: "Респонденты анкеты" });
     await expect(survey).toHaveTextContent("Выдано личных ссылок48");
     await expect(survey).toHaveTextContent("21 из 48 получивших ссылку");
+  },
+};
+
+export const ReadyMobile: Story = {
+  globals: mobile.globals,
+  name: "Отчёт · телефон",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const list = page.getByRole("list", { name: "Воронка по источникам" });
+    await expect(within(list).getByText("survey")).toBeVisible();
+    await expect(
+      document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ).toBe(true);
+  },
+};
+
+/** Бот не прислал согласий: исторической метрики нет, шаги воронки те же. */
+export const WithoutHistoricalConsent: Story = {
+  args: {
+    view: presentSalesFunnelReport(
+      { ...report, total: { ...report.total, consented: null } },
+      period,
+    ),
+  },
+  globals: desktop.globals,
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("[data-historical-consent]"),
+    ).toBeNull();
+  },
+};
+
+/** Готовый период из фильтра: плашка периода и «Сбросить». */
+export const PresetPeriod: Story = {
+  args: {
+    view: presentSalesFunnelReport(report, {
+      from: "2030-03-25",
+      to: "2030-03-31",
+      corrected: false,
+      preset: 7,
+    }),
+  },
+  globals: mobile.globals,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("combobox", { name: "Период" }),
+    ).toHaveTextContent("Последние 7 дней");
+    await expect(
+      page.getByRole("button", { name: "Убрать фильтр «Последние 7 дней»" }),
+    ).toBeVisible();
   },
 };
 
@@ -210,14 +280,14 @@ export const EmptyPeriod: Story = {
           paid: 0,
         },
       },
-      { ...period, corrected: true },
+      { ...period, corrected: true, preset: 30 },
     ),
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await expect(page.getByRole("status")).toHaveTextContent(
-      "показаны последние 30 дней",
-    );
+    await expect(
+      page.getByText("Период задан неверно: показаны последние 30 дней."),
+    ).toBeVisible();
     await expect(
       canvasElement.querySelector("[data-report-empty]"),
     ).not.toBeNull();
@@ -257,15 +327,9 @@ const waitlist = {
 };
 export const WaitlistDemand: Story = {
   args: {
-    view: presentSalesFunnelReport(
-      { ...report, waitlist },
-      { from: "2030-03-01", to: "2030-03-31", corrected: false },
-    ),
+    view: presentSalesFunnelReport({ ...report, waitlist }, period),
   },
   play: async ({ canvasElement }) => {
-    await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Ожидание набора" }),
-    );
     await expect(
       canvasElement.querySelector("#waitlist-report-title"),
     ).toHaveTextContent("Ожидание набора");
@@ -285,13 +349,10 @@ export const WaitlistEmpty: Story = {
           weeks: [],
         },
       },
-      { from: "2030-03-01", to: "2030-03-31", corrected: false },
+      period,
     ),
   },
   play: async ({ canvasElement }) => {
-    await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "Ожидание набора" }),
-    );
     await expect(canvasElement).toHaveTextContent(
       "В этом наборе пока нет записей.",
     );

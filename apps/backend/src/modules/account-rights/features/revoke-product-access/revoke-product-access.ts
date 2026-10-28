@@ -7,8 +7,13 @@ import { transactionHandle } from "../../../../infrastructure/prisma/transaction
 import { productAccessViewSchema } from "../../domain/product-access.js";
 import { productCapability } from "@inside/access-capabilities";
 import { z } from "zod";
-import type { Accounts } from "../../../accounts/index.js";
 import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { accountId, type Accounts } from "../../../accounts/index.js";
+import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
+import {
+  projectAccessCapabilities,
+  readAccessCapabilityFacts,
+} from "../resolve-access-capabilities/resolve-access-capabilities.js";
 import type {
   AccountRightsPrisma,
   AccountRightsPrismaClient,
@@ -44,6 +49,11 @@ export const productRevocationPreviewSchema =
         validUntil: z.iso.datetime().nullable(),
       }),
     ),
+    /**
+     * `closes` when this revocation leaves the Account no active Product with the community
+     * capability; `remains` when another active Product keeps it or nothing is revoked.
+     */
+    community: z.enum(["closes", "remains"]),
   });
 export const productAccessChangeResultSchema = z.strictObject({
   ok: z.literal(true),
@@ -54,30 +64,44 @@ export const productRevocationResultSchema = z.strictObject({
   value: productAccessViewSchema.extend({ access: z.literal("revoked") }),
 });
 
+/**
+ * What revoking one Product would change, read in one snapshot. Product Access rules decide
+ * nothing here: the community closes only when the revoked Product is active and no other active
+ * Product of the Account keeps the community capability.
+ */
 export async function previewProductRevocation(
   prisma: AccountRightsPrismaClient,
   _accounts: Pick<Accounts, "readIdentityForLink">,
   input: unknown,
-  _now: Date,
+  now: Date,
 ) {
   const parsed = productRevocationTargetSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
-  const row = await prisma.productAccess.findUnique({
-    where: { accountId_productId: parsed.data },
-  });
-  if (row === null) return accessFailure("not_found");
-  const origins =
-    row.revokedAt === null
-      ? await readProductAccessOrigins(prisma, row.accountId, [row.productId])
+  return prisma.$transaction(async (tx) => {
+    await setAccessSnapshotIsolation(tx);
+    const facts = await readAccessCapabilityFacts(
+      tx,
+      accountId(parsed.data.accountId),
+      now,
+    );
+    const productId = parsed.data.productId.toLowerCase();
+    const row = facts.access.find((access) => access.productId === productId);
+    if (row === undefined) return accessFailure("not_found");
+    const active = row.revokedAt === null;
+    const remaining = projectAccessCapabilities(
+      { ...facts, access: facts.access.filter((access) => access !== row) },
+      now,
+    );
+    const origins = active
+      ? await readProductAccessOrigins(tx, row.accountId, [row.productId])
       : undefined;
-  return {
-    ok: true as const,
-    value: productRevocationPreviewSchema.parse({
-      ...parsed.data,
-      revision: row.revision,
-      affectedCount: row.revokedAt === null ? 1 : 0,
-      affected:
-        row.revokedAt === null
+    return {
+      ok: true as const,
+      value: productRevocationPreviewSchema.parse({
+        ...parsed.data,
+        revision: row.revision,
+        affectedCount: active ? 1 : 0,
+        affected: active
           ? (origins?.get(row.productId) ?? ["unknown"]).map(
               (source: string) => ({
                 source,
@@ -86,8 +110,16 @@ export async function previewProductRevocation(
               }),
             )
           : [],
-    }),
-  };
+        community:
+          active &&
+          !remaining.capabilities.some(
+            (entry) => entry.capability === "community",
+          )
+            ? "closes"
+            : "remains",
+      }),
+    };
+  });
 }
 export async function changeProductAccess(
   tx: AccountRightsPrisma,

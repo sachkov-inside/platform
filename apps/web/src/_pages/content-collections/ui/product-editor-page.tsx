@@ -12,12 +12,16 @@ import {
   authoringProductEditorHref,
 } from "@/shared/routing/authoring";
 import { getContentCollections } from "../api/get-content-collections";
+import { parseProductPageTab } from "../model/product-page-tabs";
 import { ProductEditorPageClient } from "./product-editor-page.client";
 
 export async function ProductEditorPage({
   productId,
+  tab = null,
 }: {
   readonly productId: string;
+  /** `?tab=` адреса: вход и повтор возвращают на ту же вкладку. */
+  readonly tab?: string | null;
 }) {
   let token: string | undefined;
   try {
@@ -25,7 +29,11 @@ export async function ProductEditorPage({
   } catch (error) {
     if (!(error instanceof LogtoSessionUnavailableError)) throw error;
   }
-  const returnHref = authoringProductEditorHref(productId);
+  // Вкладка проходит ту же проверку, что и на странице: незнакомое значение даёт «Обзор».
+  const returnHref = authoringProductEditorHref(
+    productId,
+    parseProductPageTab(tab),
+  );
   const unauthorized = (
     <MaterialAuthoringUnauthorizedState
       context="editor"

@@ -53,7 +53,7 @@ describe("production access pass request allowlist", () => {
   it.each([
     ["GET", `${web}/materials/closed`],
     ["GET", `${web}/api/materials/m/assets/a`],
-    ["HEAD", `${web}/authoring/billing`],
+    ["HEAD", `${web}/authoring/sales/payments`],
     ["GET", `${legacyWeb}/materials/closed`],
     ["HEAD", `${logto}/oidc/auth`],
   ])("allows the read %s %s", (method, url) => {

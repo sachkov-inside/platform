@@ -13,27 +13,29 @@ test("owner edits one Product price and reloads the actual catalogue without tar
   page,
 }) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/billing");
+  await page.goto("/authoring/sales/links");
   const initial = await fullStackBrowserRequest(
     page,
     "/api/authoring/billing/catalog",
   );
   const schema = z.object({
     ok: z.literal(true),
-    value: z.array(
-      z.object({
-        product: z
-          .object({
-            id: z.uuid(),
-            name: z.string(),
-            priceRevision: z.int().positive(),
-          })
-          .optional(),
-        paymentOption: z.object({ priceKopecks: z.int() }),
-      }),
-    ),
+    value: z.object({
+      items: z.array(
+        z.object({
+          product: z
+            .object({
+              id: z.uuid(),
+              name: z.string(),
+              priceRevision: z.int().positive(),
+            })
+            .optional(),
+          paymentOption: z.object({ priceKopecks: z.int() }),
+        }),
+      ),
+    }),
   });
-  const catalogue = schema.parse(await initial.json()).value;
+  const catalogue = schema.parse(await initial.json()).value.items;
   const snapshot = catalogue.find((item) => item.product !== undefined);
   if (!snapshot?.product)
     throw new Error("Disposable full-stack Product price is missing");
@@ -57,7 +59,11 @@ test("owner edits one Product price and reloads the actual catalogue without tar
   expect(await result.json()).toMatchObject({ ok: true });
   await page.reload();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Оплата", exact: true }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "Ссылки на оплату",
+      exact: true,
+    }),
   ).toBeVisible();
   const after = schema
     .parse(
@@ -65,7 +71,7 @@ test("owner edits one Product price and reloads the actual catalogue without tar
         await fullStackBrowserRequest(page, "/api/authoring/billing/catalog")
       ).json(),
     )
-    .value.find((item) => item.product?.id === product.id);
+    .value.items.find((item) => item.product?.id === product.id);
   expect(after).toMatchObject({
     product: { id: product.id, priceRevision: product.priceRevision + 1 },
     paymentOption: { priceKopecks: input.value.priceKopecks },
@@ -84,7 +90,7 @@ test("retired commerce routes remain absent for a signed-in owner", async ({
   page,
 }) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/access");
+  await page.goto("/authoring/people");
   for (const path of [
     "/api/authoring/billing/offers/save",
     "/api/authoring/billing/payment-options/save",

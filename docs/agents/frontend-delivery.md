@@ -101,10 +101,12 @@ live in `apps/web/app/globals.css`. Production and Storybook both import that fi
 stylesheet uses those tokens and keeps no copy of their values. The accepted responsive shell is
 exported by `@/widgets/application-shell`, while `@/_app` is the production adapter that supplies
 App Router path and account state. Public routes use that shell. Authoring routes use the
-dedicated authoring shell from `@/widgets/authoring-shell`, accepted in #94: it reuses the same
-tokens, replaces the public navigation instead of nesting beside it, and always exposes explicit
-routes back to the public Library and site. Keep one token system and one navigation system;
-another shell variant needs a new owner decision.
+dedicated authoring shell from `@/widgets/authoring-shell`. Its current variant follows owner
+decisions 2, 8 and 13 of the [admin redesign specification](../specifications/authoring-admin-redesign-v1.md)
+(#1717), which replaced the #94 variant: it reuses the same tokens, replaces the public navigation
+instead of nesting beside it, and always exposes explicit routes back to the public Library and
+site. Keep one token system and one navigation system; another shell variant needs a new owner
+decision.
 
 ## Catalog stays in sync
 

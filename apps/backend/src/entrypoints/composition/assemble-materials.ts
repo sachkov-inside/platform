@@ -28,6 +28,7 @@ import { assemblePublishedMaterialReader } from "../../modules/materials/index.j
 import type { PublishedMaterialReader } from "../../modules/materials/index.js";
 import type { AuthorPolicy } from "../../modules/materials/index.js";
 import type { ProductAccessHolders } from "../../modules/materials/index.js";
+import type { HolderCountPolicy } from "../../modules/products/index.js";
 import type { Videos } from "../../modules/videos/index.js";
 import { materialBodyOperations } from "../../modules/materials/index.js";
 
@@ -47,6 +48,7 @@ export function assembleMaterials(dependencies: {
     "inspectReferences" | "loadPresentations"
   >;
   readonly productAccessHolders?: ProductAccessHolders;
+  readonly holderCountPolicy?: HolderCountPolicy;
   readonly videos?: Pick<
     Videos,
     | "inspectPrimaryReference"
@@ -87,6 +89,9 @@ export function assembleMaterials(dependencies: {
       ...(dependencies.productAccessHolders === undefined
         ? {}
         : { productAccessHolders: dependencies.productAccessHolders }),
+      ...(dependencies.holderCountPolicy === undefined
+        ? {}
+        : { holderCountPolicy: dependencies.holderCountPolicy }),
       loadCovers: (ids, handle) =>
         loadContentCoverProjections(
           handle ?? transactionHandle(dependencies.prisma),

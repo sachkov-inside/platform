@@ -35,7 +35,7 @@ resolved through the current confirmed Telegram link when the report is read.
 ## Report
 
 `GET /sales-funnel/report?from&to[&productId][&chapterId]` needs `billing:manage` (or
-`platform:admin`) and answers only aggregates. The owner reads it at `/authoring/sales-funnel`,
+`platform:admin`) and answers only aggregates. The owner reads it at `/authoring/sales/funnel`,
 where dates are whole Moscow days and the last one is included.
 
 The report follows a cohort (owner decision of 2026-09-30, #816): the bot contacts whose first

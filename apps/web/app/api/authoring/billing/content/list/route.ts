@@ -1,4 +1,0 @@
-import { handleReadContentCatalog } from "@/features/billing-admin.server";
-export function POST(request: Request): Promise<Response> {
-  return handleReadContentCatalog(request);
-}

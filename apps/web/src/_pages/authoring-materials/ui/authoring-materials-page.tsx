@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { AuthoringMaterialsLoading } from "./authoring-materials-view";
+import { AuthoringMaterialsLoading } from "./authoring-materials-loading";
 import { AuthoringMaterialsPageQuery } from "./authoring-materials-page-query.client";
 
 export { AuthoringMaterialsLoading };

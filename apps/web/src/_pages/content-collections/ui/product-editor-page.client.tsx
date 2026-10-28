@@ -1,8 +1,7 @@
 "use client";
-import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
+import { ProductOverviewTab } from "@/features/admin-overview";
 import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { ProductCommunitySettings } from "@/features/product-community-settings";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";
 import { HomeProductPin, ProductOrderPanel } from "@/features/product-order";
@@ -18,6 +17,10 @@ import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { MutationNotice } from "./collection-mutation-notice";
 import { ImportedProductPage } from "./imported-product-page";
 import { ProductPageNavigation } from "./product-page-navigation.client";
+import { ProductCommunityTab } from "./product-community-tab";
+import { ProductLearnersTab } from "./product-learners-tab";
+import { ProductPageTabs } from "./product-page-tabs.client";
+import { ProductSaleTab } from "./product-sale-tab";
 
 /**
  * Продукт, перенесённый из источника, backend из редактора не меняет: ни настройки, ни состав, ни
@@ -95,157 +98,150 @@ function AuthoredProductEditor({
       </ProductPageNavigation>
       <header className="authoring-page-heading">
         <h1>{name}</h1>
-        <p>Программа, описание и настройки продукта.</p>
+        <p>Обзор, программа, витрина, продажа и ученики продукта.</p>
       </header>
-      <WorkspaceTabs
-        label="Разделы продукта"
-        tabs={[
-          {
-            id: "program",
-            label: "Программа",
-            panel: (
+      <ProductPageTabs
+        panels={{
+          overview: <ProductOverviewTab productId={collection.id} />,
+          program: (
+            <>
               <ProductOrderPanel
                 productId={collection.id}
                 archived={collection.archived}
               />
-            ),
-          },
-          {
-            id: "description",
-            label: "Описание и обложка",
-            panel: (
-              <section
-                className="authoring-product-description"
-                aria-label="Описание продукта"
-              >
-                <h2 className="mb-5 text-lg font-semibold">
-                  Описание продукта
-                </h2>
-
-                <form
-                  aria-label="Настройки продукта"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void autosave.retry();
-                  }}
-                >
-                  <label className="block">
-                    <span className="text-sm text-muted-foreground">
-                      Название продукта
-                    </span>
-                    <textarea
-                      name="name"
-                      rows={2}
-                      className="mt-2 block w-full [field-sizing:content] resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-3xl font-semibold leading-tight tracking-tight outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30 sm:text-4xl"
-                      required
-                      maxLength={120}
-                      value={name}
-                      onChange={(event) => {
-                        setName(event.currentTarget.value);
-                      }}
-                    />
-                  </label>
-                  <div className="mt-4 grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
-                    <label className="block">
-                      <span className="text-sm text-muted-foreground">
-                        Краткое описание
-                      </span>
-                      <textarea
-                        name="summary"
-                        rows={3}
-                        className="mt-2 block min-h-24 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-base leading-relaxed outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30"
-                        maxLength={500}
-                        placeholder="Какую задачу помогает решить этот продукт?"
-                        value={summary}
-                        onChange={(event) => {
-                          setSummary(event.currentTarget.value);
-                        }}
-                      />
-                      <span className="mt-2 block break-all text-xs text-muted-foreground">
-                        Адрес: /products/{collection.slug}
-                      </span>
-                    </label>
-                    <ContentCoverEditor
-                      initialCover={cover}
-                      onChange={setCover}
-                      ownerId={collection.id}
-                      ownerKind="product"
-                      ownerLabel={name}
-                    />
-                  </div>
-                  <fieldset className="mt-8 grid gap-6 border-0 p-0 sm:grid-cols-2">
-                    <legend className="mb-4 block text-sm font-semibold">
-                      О продукте для читателя
-                    </legend>
-                    {PRODUCT_INTRODUCTION_FIELDS.map(
-                      ({ field, label, placeholder }) => (
-                        <label className="block" key={field}>
-                          <span className="text-sm text-muted-foreground">
-                            {label}
-                          </span>
-                          <textarea
-                            className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                            maxLength={PRODUCT_INTRODUCTION_FIELD_MAX}
-                            name={field}
-                            onChange={(event) => {
-                              editIntroduction(
-                                field,
-                                event.currentTarget.value,
-                              );
-                            }}
-                            placeholder={placeholder}
-                            rows={4}
-                            value={introduction[field]}
-                          />
-                        </label>
-                      ),
-                    )}
-                  </fieldset>
-                  {autosave.error ? (
-                    <Button className="mt-4" type="submit" variant="outline">
-                      Повторить сохранение
-                    </Button>
-                  ) : null}
-                </form>
-                <MutationNotice
-                  onRefresh={() => {
-                    window.location.reload();
-                  }}
-                  result={
-                    autosave.error
-                      ? (update.data ?? null)
-                      : archive.data?.kind === "saved"
-                        ? null
-                        : (archive.data ?? null)
-                  }
-                />
-              </section>
-            ),
-          },
-          {
-            id: "artifacts",
-            label: "Материалы продукта",
-            panel: (
               <ProductArtifactsPanel
                 archived={collection.archived}
                 productId={collection.id}
               />
-            ),
-          },
-          {
-            id: "settings",
-            label: "Настройки",
-            panel: (
-              <>
-                <HomeProductPin
-                  productId={collection.id}
-                  archived={collection.archived}
-                />
-                <ProductCommunitySettings productId={collection.id} />
-              </>
-            ),
-          },
-        ]}
+            </>
+          ),
+          description: (
+            <section
+              className="authoring-product-description"
+              aria-label="Описание продукта"
+            >
+              <h2 className="mb-5 text-lg font-semibold">Описание продукта</h2>
+
+              <form
+                aria-label="Настройки продукта"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void autosave.retry();
+                }}
+              >
+                <label className="block">
+                  <span className="text-sm text-muted-foreground">
+                    Название продукта
+                  </span>
+                  <textarea
+                    name="name"
+                    rows={2}
+                    className="mt-2 block w-full [field-sizing:content] resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-3xl font-semibold leading-tight tracking-tight outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30 sm:text-4xl"
+                    required
+                    maxLength={120}
+                    value={name}
+                    onChange={(event) => {
+                      setName(event.currentTarget.value);
+                    }}
+                  />
+                </label>
+                <div className="mt-4 grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
+                  <label className="block">
+                    <span className="text-sm text-muted-foreground">
+                      Краткое описание
+                    </span>
+                    <textarea
+                      name="summary"
+                      rows={3}
+                      className="mt-2 block min-h-24 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-base leading-relaxed outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30"
+                      maxLength={500}
+                      placeholder="Какую задачу помогает решить этот продукт?"
+                      value={summary}
+                      onChange={(event) => {
+                        setSummary(event.currentTarget.value);
+                      }}
+                    />
+                    <span className="mt-2 block break-all text-xs text-muted-foreground">
+                      Адрес: /products/{collection.slug}
+                    </span>
+                  </label>
+                  <ContentCoverEditor
+                    initialCover={cover}
+                    onChange={setCover}
+                    ownerId={collection.id}
+                    ownerKind="product"
+                    ownerLabel={name}
+                  />
+                </div>
+                <fieldset className="mt-8 grid gap-6 border-0 p-0 sm:grid-cols-2">
+                  <legend className="mb-4 block text-sm font-semibold">
+                    О продукте для читателя
+                  </legend>
+                  {PRODUCT_INTRODUCTION_FIELDS.map(
+                    ({ field, label, placeholder }) => (
+                      <label className="block" key={field}>
+                        <span className="text-sm text-muted-foreground">
+                          {label}
+                        </span>
+                        <textarea
+                          className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                          maxLength={PRODUCT_INTRODUCTION_FIELD_MAX}
+                          name={field}
+                          onChange={(event) => {
+                            editIntroduction(field, event.currentTarget.value);
+                          }}
+                          placeholder={placeholder}
+                          rows={4}
+                          value={introduction[field]}
+                        />
+                      </label>
+                    ),
+                  )}
+                </fieldset>
+                {autosave.error ? (
+                  <Button className="mt-4" type="submit" variant="outline">
+                    Повторить сохранение
+                  </Button>
+                ) : null}
+              </form>
+              <MutationNotice
+                onRefresh={() => {
+                  window.location.reload();
+                }}
+                result={
+                  autosave.error
+                    ? (update.data ?? null)
+                    : archive.data?.kind === "saved"
+                      ? null
+                      : (archive.data ?? null)
+                }
+              />
+              <HomeProductPin
+                productId={collection.id}
+                archived={collection.archived}
+              />
+            </section>
+          ),
+          sale: (
+            <ProductSaleTab
+              archived={collection.archived}
+              productId={collection.id}
+              productName={collection.name}
+            />
+          ),
+          learners: (
+            <ProductLearnersTab
+              productId={collection.id}
+              productName={collection.name}
+            />
+          ),
+          community: (
+            <ProductCommunityTab
+              productId={collection.id}
+              productName={collection.name}
+            />
+          ),
+        }}
       />
     </ProductEditorPageFrame>
   );

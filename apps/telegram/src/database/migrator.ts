@@ -1,5 +1,6 @@
 import { confirmedUserActivityMigration } from "./migrations/039-confirmed-user-activity.js";
 import { waitlistReceiptTracingMigration } from "./migrations/038-waitlist-receipt-tracing.js";
+import { platformLinkProfilesMigration } from "./migrations/038-platform-link-profiles.js";
 import { canonicalCommunicationSequencesMigration } from "./migrations/037-canonical-communication-sequences.js";
 import { materialAnnouncementsMigration } from "./migrations/036-material-announcements.js";
 import { waitlistConfirmationsMigration } from "./migrations/035-waitlist-confirmations.js";
@@ -51,6 +52,7 @@ import { authorAdminMigration } from "./migrations/014-author-admin.js";
 const migrations = {
   "039-confirmed-user-activity": confirmedUserActivityMigration,
   "038-waitlist-receipt-tracing": waitlistReceiptTracingMigration,
+  "038-platform-link-profiles": platformLinkProfilesMigration,
   "037-canonical-communication-sequences":
     canonicalCommunicationSequencesMigration,
   "036-material-announcements": materialAnnouncementsMigration,

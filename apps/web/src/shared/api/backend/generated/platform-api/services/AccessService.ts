@@ -47,9 +47,12 @@ export class AccessService {
     requestBody,
   }: {
     requestBody: {
+      access?: 'active' | 'revoked';
       accountId?: string;
+      accountIds?: Array<string>;
       cursor?: string;
       limit: number;
+      order?: 'recent';
       productId?: string;
     },
   }): CancelablePromise<{
@@ -92,6 +95,7 @@ export class AccessService {
         validUntil: string | null;
       }>;
       affectedCount: number;
+      community: 'closes' | 'remains';
       productId: string;
       revision: number;
     };
@@ -208,6 +212,67 @@ export class AccessService {
       url: '/admin/access/products/revoke',
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read one Product's holders newest first with their learning progress, without names or emails
+   * @returns any
+   * @throws ApiError
+   */
+  public listProductHolders({
+    productId,
+    accountIds,
+    access,
+    limit,
+    cursor,
+  }: {
+    productId: string,
+    /**
+     * Only these Accounts (repeat the parameter, at most 50); an Account without access is absent
+     */
+    accountIds?: Array<string>,
+    access?: 'active' | 'revoked',
+    limit?: number,
+    cursor?: string,
+  }): CancelablePromise<{
+    items: Array<{
+      access: 'active' | 'revoked';
+      accountId: string;
+      firstIssuedAt: string | null;
+      learning: {
+        /**
+         * The latest open of a programme Material; null when none
+         */
+        lastActivityAt: string | null;
+        /**
+         * Programme Materials marked read, the rule of Product progress
+         */
+        readCount: number;
+        /**
+         * When the Account started the Product; null until it does
+         */
+        startedAt: string | null;
+        /**
+         * Published programme Materials, the rule of Product progress
+         */
+        totalCount: number;
+      };
+      revision: number;
+    }>;
+    nextCursor: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/admin/products/{productId}/holders',
+      path: {
+        'productId': productId,
+      },
+      query: {
+        'accountIds': accountIds,
+        'access': access,
+        'limit': limit,
+        'cursor': cursor,
+      },
     });
   }
 }

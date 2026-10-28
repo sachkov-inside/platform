@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { useState, type ComponentProps } from "react";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { WorkspaceTabs } from "./workspace-tabs.client";
 
 const meta = {
@@ -60,4 +61,49 @@ export const DraftSurvivesTaskSwitch: Story = {
 };
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+const reportedSelection = fn();
+
+/**
+ * Выбор принадлежит странице (например, адресу `?tab=`): вкладки сообщают о нём, а показывают то,
+ * что страница передала. Незнакомое значение показывает первую вкладку.
+ */
+function PageOwnedTabs(args: ComponentProps<typeof WorkspaceTabs>) {
+  const [selectedId, setSelectedId] = useState("unknown");
+  return (
+    <>
+      <p>Выбрано страницей: {selectedId}</p>
+      <WorkspaceTabs
+        {...args}
+        onSelect={(id) => {
+          reportedSelection(id);
+          setSelectedId(id);
+        }}
+        selectedId={selectedId}
+      />
+    </>
+  );
+}
+
+export const ControlledByPage: Story = {
+  render: (args) => <PageOwnedTabs {...args} />,
+  play: async ({ canvasElement }) => {
+    reportedSelection.mockClear();
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("tab", { name: "Описание" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const original = canvas.getByLabelText("Название");
+    await userEvent.type(original, " с правкой");
+    await userEvent.click(canvas.getByRole("tab", { name: "Программа" }));
+    await expect(reportedSelection).toHaveBeenLastCalledWith("program");
+    await expect(canvas.getByText("Выбрано страницей: program")).toBeVisible();
+    await expect(original).not.toBeVisible();
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect(reportedSelection).toHaveBeenLastCalledWith("draft");
+    await expect(canvas.getByRole("tab", { name: "Описание" })).toHaveFocus();
+    await expect(original).toHaveValue("Продукт с правкой");
+  },
 };

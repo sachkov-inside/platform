@@ -58,6 +58,7 @@ import {
   type Tbank,
 } from "../../infrastructure/tbank/tbank.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
+import { openOrderEmail } from "../../shared/order-email.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 
@@ -395,16 +396,9 @@ export class BillingPayments {
       if (!row) return { ok: true, value: null };
       const bank = this.dependencies.bank;
       if (!bank) return paymentFailure("dependency_unavailable");
-      const contact = z
-        .object({ emailCiphertext: z.string() })
-        .parse(row.contact);
       return {
         ok: true,
-        value: z
-          .email()
-          .parse(
-            bank.openBinding(`${purchaseRef}:contact`, contact.emailCiphertext),
-          ),
+        value: openOrderEmail(bank, purchaseRef, row.contact),
       };
     } catch (error) {
       return dependencyFailure(
@@ -1104,12 +1098,7 @@ export class BillingPayments {
     const { row, kind } = prepared;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
-      const contact = z
-        .object({ emailCiphertext: z.string() })
-        .parse(row.contact);
-      const email = z
-        .email()
-        .parse(bank.openBinding(`${row.id}:contact`, contact.emailCiphertext));
+      const email = openOrderEmail(bank, row.id, row.contact);
       const products =
         kind === "one_time"
           ? await this.dependencies.contentCatalog?.resolve(

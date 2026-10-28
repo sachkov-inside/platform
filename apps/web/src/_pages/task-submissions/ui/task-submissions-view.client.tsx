@@ -1,76 +1,52 @@
 "use client";
 
-import {
-  ArrowLeft,
-  Check,
-  ChevronRight,
-  ExternalLink,
-  GitBranch,
-  Inbox,
-} from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, GitBranch } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { formatSubmissionMoment } from "@/entities/product-task";
+import { useTransition, type ReactNode } from "react";
+
+import { formatMoscowDateTime } from "@/shared/lib/moscow-format";
 import { internalRoute } from "@/shared/routing/internal-route";
-import { Button } from "@/shared/ui/button";
+import { AdminListHeader } from "@/shared/ui/admin";
+
+import {
+  contactLabel,
+  personName,
+  selfCheckOutcomes,
+  type SelfCheckOutcome,
+} from "../model/submissions-list";
 import {
   repositoryLink,
-  selectionHref,
-  submissionsHref,
   type AuthorSubmission,
-  type SubmissionSelection,
   type TaskCriterion,
-  type FilterProduct,
 } from "../model/task-submissions";
 import type { TaskSubmissionsPresentation } from "../model/task-submissions-presentation";
 import { AuthorFeedbackForm } from "./author-feedback-form.client";
+import { SubmissionFilters } from "./submission-filters.client";
+import { SubmissionsList } from "./submissions-list.client";
 import "./task-submissions.css";
 
-const fieldClass =
-  "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
 const statusLabels = {
   confirmed: "Подтверждено",
   violation: "Нарушение",
   not_verified: "Не проверено",
 } as const;
-const outcomes = {
-  passed: "Самопроверка пройдена",
-  changes: "Нужны исправления",
-  missing: "Не хватает подтверждений",
-  none: "Без самопроверки",
-} as const;
-type Outcome = keyof typeof outcomes;
-function OutcomeLabel({ outcome }: { readonly outcome: Outcome }) {
+function OutcomeLabel({ outcome }: { readonly outcome: SelfCheckOutcome }) {
   return (
     <span className={`submission-outcome outcome-${outcome}`}>
       {outcome === "passed" ? <Check aria-hidden="true" size={15} /> : null}
-      {outcomes[outcome]}
+      {selfCheckOutcomes[outcome]}
     </span>
   );
 }
-function personName(submission: AuthorSubmission) {
-  return (
-    submission.person.displayName ??
-    (submission.person.telegramUsername === null
-      ? "Имя не указано"
-      : `@${submission.person.telegramUsername}`)
-  );
-}
-function contactLabel(submission: AuthorSubmission) {
-  if (submission.person.telegramUsername !== null)
-    return `@${submission.person.telegramUsername}`;
-  return submission.person.telegramContactState === "not_linked"
-    ? "Telegram не привязан"
-    : submission.person.telegramContactState === "available"
-      ? "В Telegram нет username"
-      : "Контакт Telegram недоступен";
-}
-/** Accepted composition A promoted from proof 7c70aa84 for #1351. */
+/**
+ * The page frame: the list header of the shared pattern (#1717), or the heading of one submission
+ * with the «Все сдачи» return to the list address it was opened from.
+ */
 export function TaskSubmissionsFrame({
   children,
   title = "Сдачи",
-  subtitle = "Сдачи учеников и результаты самопроверки, новые сверху.",
+  subtitle,
   backHref,
 }: {
   readonly children: ReactNode;
@@ -86,28 +62,28 @@ export function TaskSubmissionsFrame({
       id="authoring-content"
       tabIndex={-1}
     >
-      {backHref === undefined ? null : (
-        <Link className="submission-back" href={internalRoute(backHref)}>
-          <ArrowLeft aria-hidden="true" size={17} />
-          Все сдачи
-        </Link>
+      {backHref === undefined ? (
+        <div className="submissions-heading" data-submissions-part="title">
+          <AdminListHeader headingId="task-submissions-title" title={title} />
+        </div>
+      ) : (
+        <>
+          <Link className="submission-back" href={internalRoute(backHref)}>
+            <ArrowLeft aria-hidden="true" size={17} />
+            Все сдачи
+          </Link>
+          <header className="submission-detail-heading">
+            <h1
+              id="task-submissions-title"
+              data-submissions-part="title"
+              tabIndex={-1}
+            >
+              {title}
+            </h1>
+            {subtitle === undefined ? null : <p>{subtitle}</p>}
+          </header>
+        </>
       )}
-      <header
-        className={
-          backHref === undefined
-            ? "submissions-heading"
-            : "submission-detail-heading"
-        }
-      >
-        <h1
-          id="task-submissions-title"
-          data-submissions-part="title"
-          tabIndex={-1}
-        >
-          {title}
-        </h1>
-        <p>{subtitle}</p>
-      </header>
       {children}
     </main>
   );
@@ -119,19 +95,9 @@ export function TaskSubmissionsView({
   readonly presentation: TaskSubmissionsPresentation;
   readonly expanded?: boolean;
 }) {
-  const {
-    rows,
-    selection,
-    products,
-    pageHref,
-    nextHref,
-    newestHref,
-    nextProductsHref,
-    firstProductsHref,
-    submissionId,
-  } = presentation;
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const { rows, submissionId } = presentation;
   const active = rows.find(
     (row) => row.submission.submissionId === submissionId,
   );
@@ -144,174 +110,29 @@ export function TaskSubmissionsView({
         expanded={expanded}
       />
     );
-  const filtered = rows.filter(
-    ({ submission }) =>
-      (status === "all" ||
-        status === (submission.selfCheck?.outcome ?? "none")) &&
-      `${personName(submission)} ${submission.person.telegramUsername ?? ""} ${submission.task.title}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const navigate = (href: string) => {
+    startTransition(() => {
+      router.push(internalRoute(href));
+    });
+  };
   return (
     <TaskSubmissionsFrame>
-      <search
-        className="submission-filters"
-        aria-label="Найти сдачу на странице"
-      >
-        <label className="submission-search">
-          <span className="sr-only">
-            Имя ученика или задание на этой странице
-          </span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-            }}
-            placeholder="Имя ученика или задание"
-          />
-        </label>
-        <label className="submission-status-filter">
-          <span className="sr-only">Результат проверки на этой странице</span>
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-            }}
-          >
-            <option value="all">Все результаты</option>
-            {Object.entries(outcomes).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="course-filter-label">
-          На этой странице: {rows.length}
-        </span>
-      </search>
-      <details
-        className="submission-filter-more"
-        open={
-          selection.productId !== undefined || selection.taskCode !== undefined
-        }
-      >
-        <summary>Продукт, глава и задание</summary>
-        <SubmissionFilter
-          key={pageHref}
-          selection={selection}
-          products={products}
-        />
-        {firstProductsHref === null ? null : (
-          <Link
-            href={internalRoute(firstProductsHref)}
-            className="mb-4 mr-4 inline-block text-sm underline"
-          >
-            Первые продукты
-          </Link>
-        )}
-        {nextProductsHref === null ? null : (
-          <Link
-            href={internalRoute(nextProductsHref)}
-            className="mb-4 inline-block text-sm underline"
-          >
-            Другие продукты
-          </Link>
-        )}
-      </details>
+      <SubmissionFilters
+        feedback={presentation.feedback}
+        firstProductsHref={presentation.firstProductsHref}
+        navigate={navigate}
+        nextProductsHref={presentation.nextProductsHref}
+        productCursor={presentation.productCursor}
+        products={presentation.products}
+        selection={presentation.selection}
+        shownCount={rows.length}
+      />
       <section aria-label="Список сдач" data-submissions-part="workspace">
-        {filtered.length === 0 ? (
-          <div
-            className="submission-empty"
-            data-submissions-empty
-            role="status"
-          >
-            <Inbox aria-hidden="true" className="size-5" />
-            <h2>
-              {rows.length === 0
-                ? selection.productId !== undefined ||
-                  selection.taskCode !== undefined
-                  ? "По этому фильтру сдач нет."
-                  : "Сдач пока нет"
-                : "Сдачи не найдены"}
-            </h2>
-            <p>
-              {rows.length === 0
-                ? selection.productId !== undefined ||
-                  selection.taskCode !== undefined
-                  ? "Выберите другой продукт, главу или задание."
-                  : "Сдачи появятся после отправки задания учеником."
-                : "Попробуйте другое имя или результат проверки."}
-            </p>
-            {rows.length === 0 ? null : (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setQuery("");
-                  setStatus("all");
-                }}
-              >
-                Сбросить поиск
-              </Button>
-            )}
-          </div>
-        ) : (
-          <ul className="submissions-list" aria-label="Сдачи, новые сверху">
-            {filtered.map(({ submission, href }) => (
-              <li key={submission.submissionId}>
-                <Link className="submission-row" href={internalRoute(href)}>
-                  <div className="row-person">
-                    <strong>{personName(submission)}</strong>
-                    <span>{contactLabel(submission)}</span>
-                  </div>
-                  <div className="row-task">
-                    <span>{submission.task.title}</span>
-                    <span>
-                      {submission.task.productName ?? "Продукт не найден"}
-                    </span>
-                  </div>
-                  <div className="row-result">
-                    <OutcomeLabel
-                      outcome={submission.selfCheck?.outcome ?? "none"}
-                    />
-                    <span>
-                      {submission.selfCheck === null
-                        ? "Без сохранённого отчёта агента"
-                        : `Попытка ${String(submission.selfCheck.attempt)}`}
-                    </span>
-                  </div>
-                  <time className="row-date" dateTime={submission.submittedAt}>
-                    {formatSubmissionMoment(submission.submittedAt)}
-                  </time>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="row-arrow"
-                    size={18}
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-        {nextHref === null && newestHref === null ? null : (
-          <nav className="mt-5 flex flex-wrap gap-4" aria-label="Страницы сдач">
-            {newestHref === null ? null : (
-              <Button asChild variant="outline">
-                <Link href={internalRoute(newestHref)}>К новым сдачам</Link>
-              </Button>
-            )}
-            {nextHref === null ? null : (
-              <Button asChild variant="outline">
-                <Link href={internalRoute(nextHref)}>Более ранние сдачи</Link>
-              </Button>
-            )}
-          </nav>
-        )}
-        <p className="list-explanation">
-          Каждая строка — одна сдача. Неуспешные самопроверки тоже остаются в
-          списке. Поиск и результат фильтруют текущую страницу.
-        </p>
+        <SubmissionsList
+          busy={pending}
+          navigate={navigate}
+          presentation={presentation}
+        />
       </section>
     </TaskSubmissionsFrame>
   );
@@ -351,7 +172,7 @@ function SubmissionDetail({
           )}
           <span>
             <time dateTime={submission.submittedAt}>
-              {formatSubmissionMoment(submission.submittedAt)}
+              {formatMoscowDateTime(submission.submittedAt)}
             </time>{" "}
             ·{" "}
             {check === null
@@ -455,7 +276,7 @@ function SubmissionDetail({
                       </p>
                       <span className="history-date">
                         <time dateTime={item.submittedAt}>
-                          {formatSubmissionMoment(item.submittedAt)}
+                          {formatMoscowDateTime(item.submittedAt)}
                         </time>{" "}
                         · требования версии {item.taskVersion}
                         {item.submissionId === submission.submissionId
@@ -475,143 +296,6 @@ function SubmissionDetail({
         </section>
       </article>
     </TaskSubmissionsFrame>
-  );
-}
-
-export function SubmissionFilter({
-  selection,
-  products,
-  disabled = false,
-}: {
-  readonly selection: SubmissionSelection;
-  readonly products: readonly FilterProduct[];
-  readonly disabled?: boolean;
-}) {
-  const [filter, setFilter] = useState(selection);
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
-  const product = products.find((item) => item.id === filter.productId);
-  const chapter = product?.chapters.find(
-    (item) => item.id === filter.chapterId,
-  );
-  const taskGroups =
-    chapter !== undefined
-      ? [chapter]
-      : (product?.chapters ?? products.flatMap((item) => item.chapters));
-  return (
-    <form
-      action={submissionsHref}
-      aria-label="Фильтр сдач"
-      className="grid gap-3 py-5 sm:grid-cols-3"
-      method="get"
-      data-submissions-part="filter"
-      onSubmit={(event) => {
-        event.preventDefault();
-        startTransition(() => {
-          router.push(internalRoute(selectionHref(filter)));
-        });
-      }}
-    >
-      <Field label="Продукт">
-        <select
-          className={fieldClass}
-          disabled={disabled}
-          value={filter.productId ?? ""}
-          onChange={(event) => {
-            setFilter(
-              event.target.value === ""
-                ? {}
-                : { productId: event.target.value },
-            );
-          }}
-          name="productId"
-        >
-          <option value="">Все продукты</option>
-          {products.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Глава">
-        <select
-          className={fieldClass}
-          value={filter.chapterId ?? ""}
-          onChange={(event) => {
-            const value = event.target.value;
-            setFilter({
-              ...(filter.productId === undefined
-                ? {}
-                : { productId: filter.productId }),
-              ...(value === "" ? {} : { chapterId: value }),
-            });
-          }}
-          disabled={disabled || product === undefined}
-          name="chapterId"
-        >
-          <option value="">
-            {product === undefined ? "Выберите продукт" : "Все главы"}
-          </option>
-          {product?.chapters.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Задание">
-        <select
-          disabled={disabled}
-          className={fieldClass}
-          value={filter.taskCode ?? ""}
-          onChange={(event) => {
-            const value = event.target.value;
-            setFilter({
-              ...(filter.productId === undefined
-                ? {}
-                : { productId: filter.productId }),
-              ...(filter.chapterId === undefined
-                ? {}
-                : { chapterId: filter.chapterId }),
-              ...(value === "" ? {} : { taskCode: value }),
-            });
-          }}
-          name="task"
-        >
-          <option value="">Все задания</option>
-          {taskGroups.flatMap((group) =>
-            group.tasks.map((task) => (
-              <option key={task.code} value={task.code}>
-                {task.title}
-              </option>
-            )),
-          )}
-        </select>
-      </Field>
-      <Button
-        className="min-h-11 justify-self-start px-5"
-        disabled={disabled || pending}
-        type="submit"
-      >
-        {pending ? "Загружаем…" : "Показать"}
-      </Button>
-    </form>
-  );
-}
-
-function Field({
-  children,
-  label,
-}: {
-  readonly children: ReactNode;
-  readonly label: string;
-}) {
-  return (
-    <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-      {label}
-      {children}
-    </label>
   );
 }
 

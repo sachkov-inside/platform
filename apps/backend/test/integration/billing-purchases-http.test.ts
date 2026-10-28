@@ -232,6 +232,7 @@ describe("Billing purchases HTTP", () => {
     const codes = new Map<string, string>();
     const contact = new BillingContact({
       prisma: database.prisma,
+      emailFingerprintKey,
       protection: billingContactProtection(
         Buffer.alloc(32, 42).toString("base64"),
       ),

@@ -40,6 +40,11 @@ import {
   readLinkChangedAccounts,
   readBoundaryChangedAccounts,
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
+import { listCommunityProblemAccounts } from "../../features/list-community-problem-accounts/list-community-problem-accounts.js";
+import {
+  readMemberState,
+  type ReadMemberStateResult,
+} from "../../features/read-member-state/read-member-state.js";
 import type { CommunityEntitlementProvider } from "../../ports/community-entitlement-provider.js";
 import type { TelegramAccountLinks } from "../telegram-account-links/telegram-account-links.js";
 
@@ -270,6 +275,24 @@ export class CommunityEntitlements {
         ? {}
         : { groupUrl: result.data.groupUrl }),
     };
+  }
+
+  /**
+   * Accounts whose latest community operation was rejected, failed or is overdue at `now`, at most
+   * 50 000 (#1719). No actor and no right check: only a composing read that has already checked
+   * `billing:manage` calls it.
+   */
+  listProblemAccounts(now: Date) {
+    return listCommunityProblemAccounts(this.dependencies.prisma, now);
+  }
+
+  /**
+   * The person card's community facts: link, last observed membership and admission
+   * restriction. No actor and no right check: only a composing read that has already checked
+   * `billing:manage` calls it.
+   */
+  readMemberState(accountId: string): Promise<ReadMemberStateResult> {
+    return readMemberState(this.dependencies, accountId);
   }
 
   /** Recomputes one Account's desired community state and queues what must be sent. */

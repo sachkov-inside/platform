@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ownerCatalogSchema } from "@/features/billing-admin/model/admin-operations";
+import { ownerPriceCatalogSchema as ownerCatalogSchema } from "@/entities/subscription/model/owner-price-catalog";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
@@ -14,25 +14,38 @@ test("admin workspace exposes every active task on desktop and phone through rea
   context,
 }, info) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/products");
+  await page.goto("/authoring");
+  // Вход в админку открывает Обзор (#1719) на своём адресе, без перенаправления.
+  await expect(page).toHaveURL(/\/authoring$/u);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Обзор" }),
+  ).toBeVisible();
   const phone = (page.viewportSize()?.width ?? 1440) < 1024;
+  // На телефоне «Люди», «Продажи» и «Сдачи» стоят в нижней панели, остальное открывает «Ещё».
   const destinations = [
-    ["Материалы", "/authoring/materials"],
-    ["Темы", "/authoring/topics"],
-    ["Сдачи", "/authoring/submissions"],
-    ["Люди и доступ", "/authoring/access"],
-    ["Продажи и платежи", "/authoring/billing"],
-    ["Воронка продаж", "/authoring/sales-funnel"],
-    ["Продукты", "/authoring/products"],
+    ["Материалы", "/authoring/materials", "more"],
+    ["Темы", "/authoring/topics", "more"],
+    ["Сдачи", "/authoring/submissions", "dock"],
+    ["Люди", "/authoring/people", "dock"],
+    [phone ? "Продажи" : "Платежи", "/authoring/sales/payments", "dock"],
+    ["Воронка продаж", "/authoring/sales/funnel", "more"],
+    ["Продукты", "/authoring/products", "more"],
+    ["Обзор", "/authoring", "dock"],
   ] as const;
-  for (const [label, pathname] of destinations) {
-    if (phone)
-      await page.getByRole("button", { name: "Меню", exact: true }).click();
+  for (const [label, pathname, place] of destinations) {
+    const more = page.getByRole("button", { name: "Ещё", exact: true });
+    if (phone && place === "more") await more.click();
     const navigation = page.getByRole("navigation", {
-      name: phone ? "Редактор на мобильном" : "Редактор",
+      name: phone
+        ? place === "more"
+          ? "Другие разделы"
+          : "Основные разделы"
+        : "Разделы админки",
       exact: true,
     });
-    const link = navigation.getByRole("link", { name: label, exact: true });
+    const link = navigation.getByRole("link", {
+      name: new RegExp(`^${label}(?:, без комментария: \\d+)?$`, "u"),
+    });
     await expect(link).toBeVisible();
     await link.click();
     await expect(page).toHaveURL(new RegExp(`${pathname}(?:\\?.*)?$`, "u"));
@@ -41,10 +54,10 @@ test("admin workspace exposes every active task on desktop and phone through rea
     await expect(
       page.getByRole("main").getByRole("heading", { level: 1 }),
     ).toBeVisible();
-    if (phone)
-      await expect(
-        page.getByRole("button", { name: "Меню", exact: true }),
-      ).toHaveAttribute("aria-expanded", "false");
+    if (phone) {
+      await expect(more).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByRole("dialog", { name: "Ещё" })).toHaveCount(0);
+    }
     expect(
       await page.evaluate(
         () =>
@@ -69,7 +82,6 @@ test("owner creates a price and edits it twice without stale catalogue revisions
   context,
 }) => {
   await signInFullStack(context, "OWNER");
-  await page.goto("/authoring/billing");
   const productId = randomUUID();
   const name = `Цена synthetic ${productId}`;
   await page.goto("/authoring/products");
@@ -83,39 +95,21 @@ test("owner creates a price and edits it twice without stale catalogue revisions
   const createdId = page.url().split("/").at(-1);
   if (createdId === undefined)
     throw new Error("Created Product has no URL identifier");
-  await page.goto("/authoring/billing");
-  const create = page.locator("form").filter({
-    has: page.getByRole("heading", {
-      name: "Добавить цену продукта",
-      exact: true,
-    }),
-  });
-  await create
-    .getByLabel("Идентификатор продукта", { exact: true })
-    .fill(createdId);
-  await create.getByLabel("Название", { exact: true }).fill(name);
-  await create.getByLabel("Цена в копейках", { exact: true }).fill("12000");
-  for (const [index, price] of [12000, 13000, 14000].entries()) {
-    const form =
-      index === 0
-        ? create
-        : page.locator("form").filter({
-            has: page.getByRole("heading", { name: new RegExp(name, "u") }),
-          });
-    await form
-      .getByLabel("Цена в копейках", { exact: true })
-      .fill(String(price));
-    const refreshed = page.waitForResponse(
+  // Вкладка «Продажа»: каждая запись цены перечитывает каталог цен для блока ссылок на оплату.
+  const catalogRead = () =>
+    page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/authoring/billing/catalog") &&
         response.request().method() === "GET",
     );
-    await form
-      .getByRole("button", {
-        name: index === 0 ? "Сохранить без открытия продаж" : "Сохранить цену",
-        exact: true,
-      })
-      .click();
+  const firstRead = catalogRead();
+  await page.goto(`/authoring/products/${createdId}?tab=sale`);
+  expect((await firstRead).status()).toBe(200);
+  const panel = page.getByRole("tabpanel", { name: "Продажа" });
+  for (const [index, rubles] of [120, 130, 140].entries()) {
+    await panel.getByRole("textbox", { name: "Цена, ₽" }).fill(String(rubles));
+    const refreshed = catalogRead();
+    await panel.getByRole("button", { name: "Сохранить цену" }).click();
     const response = await refreshed;
     expect(response.status()).toBe(200);
     const envelope: unknown = await response.json();
@@ -124,21 +118,17 @@ test("owner creates a price and edits it twice without stale catalogue revisions
         ? envelope.value
         : undefined,
     );
-    expect(result.find((item) => item.product?.id === createdId)).toMatchObject(
-      {
-        product: { id: createdId, priceRevision: index + 1 },
-        paymentOption: { priceKopecks: price, mode: "one_time" },
-        offer: { published: false },
-      },
+    expect(
+      result.items.find((item) => item.product?.id === createdId),
+    ).toMatchObject({
+      product: { id: createdId, priceRevision: index + 1 },
+      paymentOption: { priceKopecks: rubles * 100, mode: "one_time" },
+      offer: { published: false },
+    });
+    // Сообщение продажи стоит первым: у блока ссылок ниже своя строка состояния фильтров.
+    await expect(panel.getByRole("status").first()).toHaveText(
+      "Цена сохранена.",
     );
-    await expect(
-      page
-        .locator("form")
-        .filter({
-          has: page.getByRole("heading", { name: new RegExp(name, "u") }),
-        })
-        .getByRole("button", { name: "Сохранить цену", exact: true }),
-    ).toBeEnabled();
   }
 });
 

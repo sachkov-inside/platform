@@ -1,7 +1,10 @@
 import { ArrowLeft, CloudOff } from "lucide-react";
 import Link from "next/link";
 
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
+import {
+  authoringMaterialsRootHref,
+  authoringProductsHref,
+} from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
 type RouteState =
@@ -9,7 +12,7 @@ type RouteState =
   | { readonly kind: "error"; readonly reference: string };
 
 export function ProductOrderRouteState({
-  retryHref = "/authoring/products",
+  retryHref = authoringProductsHref,
   state,
 }: {
   readonly retryHref?: string;

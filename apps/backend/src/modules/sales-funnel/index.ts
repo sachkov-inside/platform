@@ -5,3 +5,4 @@ export { registerFunnelDiagnosticsTool } from "./features/read-funnel-diagnostic
 export { ProductWaitlists } from "./facets/product-waitlists/product-waitlists.js";
 
 export { WaitlistConfirmationPump } from "./adapters/nest/waitlist-confirmation-pump.js";
+export { SalesFunnel } from "./facets/sales-funnel/sales-funnel.js";

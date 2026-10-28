@@ -1,4 +1,5 @@
-import { handleRevokePaymentLink } from "@/features/billing-admin.server";
+import { handleRevokePaymentLink } from "@/features/payment-links.server";
+
 export function POST(request: Request): Promise<Response> {
   return handleRevokePaymentLink(request);
 }

@@ -129,6 +129,7 @@ const currentTableOwners = {
   notification_deliveries: "notifications",
   notification_quarantine: "notifications",
   notification_result_outbox: "notifications",
+  platform_link_profiles: "identity-linking",
   platform_links: "identity-linking",
   sales_funnel_event_outbox: "sales-funnel",
   sign_in_requests: "bot-sign-in",

@@ -1,10 +1,35 @@
 import { describe, expect, it, vi } from "vitest";
 
+const session = vi.hoisted(() => ({ accessToken: vi.fn() }));
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  LogtoSessionUnavailableError: class extends Error {},
+  sessionAdapter: { accessToken: session.accessToken },
+}));
+
+import {
+  handleAuthoringMaterialFiltersRequest,
+  materialFilterOptions,
+} from "@/_pages/authoring-materials/api/authoring-material-filters-route.server";
 import {
   getAuthoringMaterials,
   type AuthoringMaterialsDependencies,
 } from "@/_pages/authoring-materials/api/get-authoring-materials";
-import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model/authoring-materials-query";
+import type {
+  AuthoringMaterialFilterOptions,
+  AuthoringMaterialListItem,
+} from "@/_pages/authoring-materials/model/authoring-materials-presentation";
+import {
+  authoringMaterialsFilterChips,
+  authoringMaterialsHref,
+  authoringMaterialsPageSummary,
+  hasAuthoringMaterialsFilters,
+  parseAuthoringMaterialsQuery,
+  parseAuthoringMaterialsUrlSearchParams,
+  resetAuthoringMaterialsQuery,
+  serializeAuthoringMaterialsQuery,
+  withAuthoringMaterialsFilter,
+  withPublicationReceipt,
+} from "@/_pages/authoring-materials/model/authoring-materials-query";
 import {
   deleteMaterialDraftOperation,
   executeDeleteMaterialDraft,
@@ -23,6 +48,263 @@ import { BackendConnectionError } from "@/shared/api/backend/index.server";
 
 const materialId = "96000000-0000-4000-8000-000000000001";
 const submissionId = "96000000-0000-4000-8000-000000000004";
+const topicId = "96000000-0000-4000-8000-000000000020";
+
+describe("Authoring Materials list address", () => {
+  it("reads the Topic and format filters and drops values the server would reject", () => {
+    expect(
+      parseAuthoringMaterialsQuery({
+        format: "video",
+        page: "3",
+        state: "draft",
+        topic: topicId,
+      }),
+    ).toEqual({
+      format: "video",
+      page: 3,
+      publicationState: "draft",
+      topicId,
+    });
+    expect(
+      parseAuthoringMaterialsQuery({
+        format: "podcast",
+        topic: "platform",
+      }),
+    ).toEqual({ page: 1 });
+    expect(
+      parseAuthoringMaterialsQuery({
+        format: ["video", "note"],
+        topic: [topicId],
+      }),
+    ).toEqual({ page: 1 });
+  });
+
+  it("writes every filter to the address and reads the same query back", () => {
+    const query = {
+      format: "guide",
+      page: 2,
+      publicationState: "published",
+      search: "агент",
+      topicId,
+    } as const;
+    const serialized = serializeAuthoringMaterialsQuery(query);
+    expect(serialized).toBe(
+      `search=%D0%B0%D0%B3%D0%B5%D0%BD%D1%82&state=published&topic=${topicId}&format=guide&page=2`,
+    );
+    expect(
+      parseAuthoringMaterialsUrlSearchParams(new URLSearchParams(serialized)),
+    ).toEqual(query);
+    expect(authoringMaterialsHref({ page: 1 })).toBe("/authoring/materials");
+    expect(authoringMaterialsHref(query, 1)).toBe(
+      `/authoring/materials?search=%D0%B0%D0%B3%D0%B5%D0%BD%D1%82&state=published&topic=${topicId}&format=guide`,
+    );
+    // The editor accepts the full list address as its return destination.
+    expect(parseAuthoringReturnHref(authoringMaterialsHref(query))).toBe(
+      authoringMaterialsHref(query),
+    );
+  });
+
+  it("returns to the first page when a filter changes and keeps the other filters", () => {
+    const query = {
+      format: "note",
+      page: 4,
+      publicationState: "unpublished",
+      search: "ревью",
+    } as const;
+    expect(withAuthoringMaterialsFilter(query, "topicId", topicId)).toEqual({
+      ...query,
+      page: 1,
+      topicId,
+    });
+    expect(withAuthoringMaterialsFilter(query, "format", undefined)).toEqual({
+      page: 1,
+      publicationState: "unpublished",
+      search: "ревью",
+    });
+    expect(withAuthoringMaterialsFilter(query, "search", "")).toEqual({
+      format: "note",
+      page: 1,
+      publicationState: "unpublished",
+    });
+    // The field keeps the typed text; the request normalises it.
+    expect(
+      withAuthoringMaterialsFilter({ page: 1 }, "search", " два  слова"),
+    ).toEqual({ page: 1, search: " два  слова" });
+    // A value outside the closed choices removes the filter instead of sending it.
+    expect(withAuthoringMaterialsFilter(query, "format", "podcast")).toEqual({
+      page: 1,
+      publicationState: "unpublished",
+      search: "ревью",
+    });
+    expect(hasAuthoringMaterialsFilters({ page: 3 })).toBe(false);
+    expect(hasAuthoringMaterialsFilters({ format: "video", page: 1 })).toBe(
+      true,
+    );
+    expect(resetAuthoringMaterialsQuery).toEqual({ page: 1 });
+  });
+
+  it("names one chip per choice filter and removes only that filter", () => {
+    const options: AuthoringMaterialFilterOptions = {
+      formats: [{ label: "Видео", value: "video" }],
+      kind: "ready",
+      topics: [{ label: "Разработка с агентами", value: topicId }],
+    };
+    const query = {
+      format: "video",
+      page: 2,
+      publicationState: "draft",
+      search: "агент",
+      topicId,
+    } as const;
+    expect(authoringMaterialsFilterChips(query, options)).toEqual([
+      {
+        id: "publicationState",
+        label: "Черновики",
+        next: { format: "video", page: 1, search: "агент", topicId },
+      },
+      {
+        id: "topicId",
+        label: "Разработка с агентами",
+        next: {
+          format: "video",
+          page: 1,
+          publicationState: "draft",
+          search: "агент",
+        },
+      },
+      {
+        id: "format",
+        label: "Видео",
+        next: { page: 1, publicationState: "draft", search: "агент", topicId },
+      },
+    ]);
+    expect(
+      authoringMaterialsFilterChips(
+        { format: "note", page: 1, topicId },
+        { kind: "pending" },
+      ).map((chip) => chip.label),
+    ).toEqual(["Выбранная тема", "Выбранный формат"]);
+    expect(
+      authoringMaterialsFilterChips({ page: 1, search: "x" }, options),
+    ).toEqual([]);
+  });
+
+  it("summarises the visible range of a page", () => {
+    expect(
+      authoringMaterialsPageSummary({
+        items: Array.from({ length: 17 }),
+        page: 3,
+        pageSize: 20,
+        totalItems: 57,
+      }),
+    ).toBe("41–57 из 57");
+    expect(
+      authoringMaterialsPageSummary({
+        items: [],
+        page: 4,
+        pageSize: 20,
+        totalItems: 57,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("shows a publication receipt only until the list brings that version", () => {
+    const item: AuthoringMaterialListItem = {
+      canDelete: true,
+      contentVersion: 3,
+      format: "Гайд",
+      materialId,
+      publicationState: "draft",
+      submissionId,
+      title: "Черновик",
+      topic: "Platform",
+      updatedAt: "2026-08-30T10:00:00.000Z",
+    };
+    const receipt = {
+      contentVersion: 4,
+      publicationState: "published",
+      submissionId: "96000000-0000-4000-8000-000000000044",
+    } as const;
+    expect(withPublicationReceipt(item, undefined)).toBe(item);
+    expect(withPublicationReceipt(item, receipt)).toEqual({
+      ...item,
+      canDelete: false,
+      contentVersion: 4,
+      publicationState: "published",
+      submissionId: receipt.submissionId,
+    });
+    const reread = {
+      ...item,
+      contentVersion: 4,
+      publicationState: "published" as const,
+    };
+    expect(withPublicationReceipt(reread, receipt)).toBe(reread);
+  });
+});
+
+describe("Authoring Materials filter choices", () => {
+  it("offers every Topic, marks archived ones and keeps only known formats", () => {
+    expect(
+      materialFilterOptions({
+        formats: [
+          { label: "Видео", value: "video" },
+          { label: "Подкаст", value: "podcast" },
+        ],
+        topics: [
+          { archived: false, label: "AI Engineering", value: topicId },
+          {
+            archived: true,
+            label: "Тестирование",
+            value: "96000000-0000-4000-8000-000000000021",
+          },
+        ],
+      }),
+    ).toEqual({
+      formats: [{ label: "Видео", value: "video" }],
+      kind: "ready",
+      topics: [
+        { label: "AI Engineering", value: topicId },
+        {
+          label: "Тестирование (в архиве)",
+          value: "96000000-0000-4000-8000-000000000021",
+        },
+      ],
+    });
+  });
+
+  it("answers the browser with private choices, a refusal or an unavailable read", async () => {
+    session.accessToken.mockResolvedValue("author-token");
+    const references = vi.fn().mockResolvedValue({
+      kind: "ready",
+      references: {
+        formats: [{ archived: false, label: "Гайд", value: "guide" }],
+        products: [{ archived: false, label: "Продукт", value: materialId }],
+        tags: [],
+        topics: [{ archived: false, label: "Platform", value: topicId }],
+      },
+    });
+    const ready = await handleAuthoringMaterialFiltersRequest({ references });
+    expect(ready.status).toBe(200);
+    expect(ready.headers.get("cache-control")).toContain("no-store");
+    expect(references).toHaveBeenCalledWith("author-token");
+    expect(await ready.json()).toEqual({
+      formats: [{ label: "Гайд", value: "guide" }],
+      kind: "ready",
+      topics: [{ label: "Platform", value: topicId }],
+    });
+
+    const forbidden = await handleAuthoringMaterialFiltersRequest({
+      references: vi.fn().mockResolvedValue({ kind: "unauthorized" }),
+    });
+    expect(forbidden.status).toBe(403);
+    const unavailable = await handleAuthoringMaterialFiltersRequest({
+      references: vi
+        .fn()
+        .mockResolvedValue({ kind: "unexpected_error", reference: "pg" }),
+    });
+    expect(unavailable.status).toBe(503);
+  });
+});
 
 describe("Authoring Materials server adapter", () => {
   it("normalizes URL search, filter, and pagination without trusting repeated values", () => {
@@ -52,6 +334,16 @@ describe("Authoring Materials server adapter", () => {
         "/authoring/materials?search=Platform&state=draft&page=2",
       ),
     ).toBe("/authoring/materials?search=Platform&state=draft&page=2");
+    expect(
+      parseAuthoringReturnHref(
+        "/authoring/materials?topic=96000000-0000-4000-8000-000000000020&format=guide",
+      ),
+    ).toBe(
+      "/authoring/materials?topic=96000000-0000-4000-8000-000000000020&format=guide",
+    );
+    expect(parseAuthoringReturnHref("/authoring/materials?tab=program")).toBe(
+      "/authoring/materials",
+    );
     expect(parseAuthoringReturnHref("https://attacker.example/materials")).toBe(
       "/authoring/materials",
     );
@@ -73,6 +365,14 @@ describe("Authoring Materials server adapter", () => {
     const editorHref = authoringProductEditorHref(productId);
     expect(editorHref).toBe(`/authoring/products/${productId}`);
     expect(parseAuthoringReturnHref(editorHref)).toBe(editorHref);
+    // Возврат из программы ведёт обратно в «Программу», а не на первую вкладку «Обзор» (#1719).
+    const programHref = authoringProductEditorHref(productId, "program");
+    expect(programHref).toBe(`/authoring/products/${productId}?tab=program`);
+    expect(parseAuthoringReturnHref(programHref)).toBe(programHref);
+    expect(authoringReturnLabel(programHref)).toBe("К продукту");
+    expect(authoringMaterialPreviewHref(materialId, programHref)).toBe(
+      `/authoring/materials/${materialId}/preview?from=%2Fauthoring%2Fproducts%2F${productId}%3Ftab%3Dprogram&product=${productId}`,
+    );
     expect(authoringReturnLabel(editorHref)).toBe("К продукту");
     expect(authoringReturnLabel("/authoring/materials?page=2")).toBe(
       "К материалам",
@@ -82,6 +382,7 @@ describe("Authoring Materials server adapter", () => {
       "/authoring/products/not-a-product",
       `/authoring/products/${productId}/preview`,
       `/authoring/products/${productId}?tab=order`,
+      `/authoring/products/${productId}?tab=program&x=1`,
       `https://attacker.example/authoring/products/${productId}`,
     ]) {
       expect(parseAuthoringReturnHref(rejected)).toBe("/authoring/materials");
@@ -140,9 +441,11 @@ describe("Authoring Materials server adapter", () => {
 
     const result = await getAuthoringMaterials(
       {
+        format: "guide",
         page: 2,
         publicationState: "published",
         search: "Управляемый",
+        topicId,
       },
       "access-token",
       dependencies,
@@ -177,9 +480,11 @@ describe("Authoring Materials server adapter", () => {
     });
     expect(dependencies.list).toHaveBeenCalledWith(
       {
+        format: "guide",
         page: 2,
         publicationState: "published",
         search: "Управляемый",
+        topicId,
       },
       "access-token",
     );

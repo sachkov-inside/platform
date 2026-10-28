@@ -1,4 +1,5 @@
-import { handleListPaymentLinks } from "@/features/billing-admin.server";
+import { handleListPaymentLinks } from "@/features/payment-links.server";
+
 export function POST(request: Request): Promise<Response> {
   return handleListPaymentLinks(request);
 }
