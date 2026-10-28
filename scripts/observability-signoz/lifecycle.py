@@ -57,6 +57,36 @@ ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
            'clickhouse': 'signoz-telemetrystore-clickhouse-0-0',
            'server': 'signoz-signoz-0', 'collector': 'signoz-ingester'}
 
+class StorageMonitorStage(StrEnum):
+    HOST_SNAPSHOT = 'host_snapshot'
+    HOST_GUARD = 'host_guard'
+    VM_SAMPLE = 'vm_sample'
+    VM_GUARD = 'vm_guard'
+    CANCELLATION = 'cancellation'
+    UNKNOWN = 'unknown'
+
+
+class StorageMonitorReason(StrEnum):
+    COMMAND_FAILED = 'command_failed'
+    COMMAND_DEADLINE = 'command_deadline'
+    GLOBAL_DEADLINE = 'global_deadline'
+    MONITOR_STOPPING = 'monitor_stopping'
+    HOST_FILESYSTEM_CHANGED = 'host_filesystem_changed'
+    HOST_CAPACITY_CHANGED = 'host_capacity_changed'
+    HOST_DISK_COUNTERS = 'host_disk_counters'
+    BACKING_GROWTH = 'backing_growth'
+    VM_SAMPLE_SHAPE = 'vm_sample_shape'
+    VM_COUNTER_TYPE = 'vm_counter_type'
+    VM_COUNTER_RANGE = 'vm_counter_range'
+    VM_INODE_RANGE = 'vm_inode_range'
+    VM_STORAGE_IDENTITY = 'vm_storage_identity'
+    VM_INODES_EXHAUSTED = 'vm_inodes_exhausted'
+    FLOOR = 'floor'
+    GROWTH = 'growth'
+    FLOOR_GROWTH = 'floor_growth'
+    UNKNOWN = 'unknown'
+
+
 class ImageAdmissionReason(StrEnum):
     """Finite image-admission refusal vocabulary, shared by guards and publication."""
     IMAGE_PROOF_INVALID = 'image_proof_invalid'
@@ -673,10 +703,15 @@ def storage_guard(engine, owned, run):
     stop=threading.Event();failed=[];latest={'host':initial};vm_initial=[None];disk_binding=[None]
     def monitor():
         while not stop.wait(.25):
+            stage=StorageMonitorStage.HOST_SNAPSHOT
             try:
-                current=host_snapshot(engine,run);check_host(initial,current);latest['host']=current
+                current=host_snapshot(engine,run)
+                stage=StorageMonitorStage.HOST_GUARD
+                check_host(initial,current);latest['host']=current
                 if vm_initial[0] is not None:
+                    stage=StorageMonitorStage.VM_SAMPLE
                     current=vm_sample(owned)
+                    stage=StorageMonitorStage.VM_GUARD
                     fields=('fsid','device','block','blocks','available','files','free_files')
                     previous_vm=latest.get('vm',vm_initial[0])
                     snapshot={'initial':{k:vm_initial[0][k] for k in fields},
@@ -695,7 +730,11 @@ def storage_guard(engine, owned, run):
             except BaseException as error:
                 if stop.is_set() and isinstance(error,Refusal) and error.reason=='monitor_stopping':
                     return
-                failed.append({'category':type(error).__name__,'reason':error.reason if isinstance(error,Refusal) else error.reason if isinstance(error,storage_policy.StorageBudgetExceeded) else 'counter_or_identity_unavailable'})
+                reason=error.reason if isinstance(error,(Refusal,storage_policy.StorageBudgetExceeded)) else 'unknown'
+                if reason=='monitor_stopping':stage=StorageMonitorStage.CANCELLATION
+                # One sticky first monitor failure. Arbitrary exception classes and
+                # reasons stay private; the public projection accepts enums only.
+                if not failed:failed.append({'stage':stage,'category':type(error).__name__,'reason':reason})
                 if not stop.is_set():
                     os.kill(os.getpid(),signal.SIGUSR1)
                 return
@@ -715,13 +754,31 @@ def storage_guard(engine, owned, run):
             'disk_attachment_image':owned.images['disk']['image_id'],'daemon_id':engine.identity['daemon_id']}
         vm_initial[0]=first;latest['vm']=first
         private_json(run/'disk-admission.json',{'host':initial,'vm':first,'scope':'functional control soft stopping guard, not disk quota'})
-    try:yield admit_vm
-    finally:
-        stop.set();engine.cancel_children();thread.join(timeout=8)
-        need(not thread.is_alive(),'monitor_not_reaped')
+    def finish():
+        stop.set();finalization_error=None;finalization_stage='complete'
+        try:engine.cancel_children()
+        except BaseException as error:
+            finalization_error=error;finalization_stage='cancel_children'
+        try:thread.join(timeout=8)
+        except BaseException as error:
+            if finalization_error is None:
+                finalization_error=error;finalization_stage='monitor_join'
+        reaped=not thread.is_alive()
+        if not reaped and finalization_error is None:
+            finalization_error=Refusal('monitor_not_reaped');finalization_stage='monitor_not_reaped'
         private_json(run/'disk-last.json',{'initial_host':initial,'initial_vm':vm_initial[0],
-            'latest':latest,'monitor_failed':bool(failed),'failure':failed})
+            'latest':latest,'monitor_failed':bool(failed),'failure':failed,
+            'monitor_reaped':reaped,'finalization_stage':finalization_stage})
+        if finalization_error is not None:raise finalization_error
         need(not failed,'storage_monitor_failed')
+    try:yield admit_vm
+    except BaseException:
+        # Keep the first body object and its traceback. Secondary monitor/reap
+        # failures remain in disk-last; neither can turn the body into success.
+        try:finish()
+        except BaseException:pass
+        raise
+    else:finish()
 
 
 def write_private_files(run,lock):
