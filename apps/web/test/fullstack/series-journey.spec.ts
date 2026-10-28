@@ -332,10 +332,19 @@ test("product programme appends a real composition and restores Reader return po
     await expect(
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
-    // Early reveal can already append row 13 and remove the fallback button. Row 12 remains
-    // mounted in either state, so approaching it must reveal the rest without clicking a button.
-    const loadedBoundary = page.locator('[data-product-ordinal="12"]:visible');
-    await loadedBoundary.scrollIntoViewIfNeeded();
+    // Early reveal can already append row 13 and remove the fallback button. Optional onboarding
+    // can still replace the personal programme, so resolve and scroll its live row in one task.
+    const scrollLoadedBoundary = () =>
+      page.evaluate(() => {
+        const boundaries = Array.from(
+          document.querySelectorAll<HTMLElement>('[data-product-ordinal="12"]'),
+        ).filter((node) => node.getClientRects().length > 0);
+        const [boundary] = boundaries;
+        if (boundaries.length !== 1 || boundary === undefined)
+          throw new Error("Expected one visible programme boundary");
+        boundary.scrollIntoView({ block: "center", behavior: "instant" });
+      });
+    await scrollLoadedBoundary();
     await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
       13,
     );
@@ -384,7 +393,7 @@ test("product programme appends a real composition and restores Reader return po
     const sections = page.getByRole("navigation", { name: "Разделы продукта" });
     await sections.getByRole("button", { name: /^Материалы/u }).click();
     await sections.getByRole("button", { name: /^Программа/u }).click();
-    await loadedBoundary.scrollIntoViewIfNeeded();
+    await scrollLoadedBoundary();
     await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
       13,
     );
