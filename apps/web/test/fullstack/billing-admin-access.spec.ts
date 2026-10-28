@@ -11,9 +11,42 @@ import {
 test("owner edits one Product price and reloads the actual catalogue without tariff controls", async ({
   context,
   page,
-}, testInfo) => {
+}) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/sales/links");
+  // This scenario owns its mutable price; saved-link fixtures and other scenarios keep theirs.
+  const created = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/collections",
+    "POST",
+    {
+      kind: "product",
+      name: "Synthetic price editing",
+      slug: `price-editing-${randomUUID()}`,
+      summary: "Isolated catalogue editing fixture",
+    },
+  );
+  const { collection: ownedProduct } = z
+    .object({
+      kind: z.literal("saved"),
+      collection: z.object({ id: z.uuid() }),
+    })
+    .parse(await created.json());
+  const saved = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/billing/product-prices/save",
+    "POST",
+    {
+      operationId: randomUUID(),
+      value: {
+        productId: ownedProduct.id,
+        name: "Synthetic price editing",
+        priceKopecks: 10000,
+        published: false,
+      },
+    },
+  );
+  expect(await saved.json()).toMatchObject({ ok: true });
   const initial = await fullStackBrowserRequest(
     page,
     "/api/authoring/billing/catalog",
@@ -44,21 +77,19 @@ test("owner edits one Product price and reloads the actual catalogue without tar
     .parse(
       JSON.parse(process.env["FULLSTACK_PAYMENT_LINKS_FIXTURE"] ?? "null"),
     );
-  const adminProductId = fixtures[testInfo.project.name]?.adminProductId;
-  expect(adminProductId).toBeDefined();
   const savedProducts = new Set(
     Object.values(fixtures).map((fixture) => fixture.productId),
   );
-  expect(savedProducts.has(adminProductId ?? "")).toBe(false);
+  expect(savedProducts.has(ownedProduct.id)).toBe(false);
   const savedPrices = catalogue.filter((item) =>
     savedProducts.has(item.product?.id ?? ""),
   );
   expect(savedPrices).toHaveLength(2);
   const snapshot = catalogue.find(
-    (item) => item.product?.id === adminProductId,
+    (item) => item.product?.id === ownedProduct.id,
   );
   if (!snapshot?.product)
-    throw new Error("Disposable full-stack Product price is missing");
+    throw new Error("Owned full-stack Product price is missing");
   const product = snapshot.product;
   const input = {
     operationId: randomUUID(),
@@ -90,6 +121,9 @@ test("owner edits one Product price and reloads the actual catalogue without tar
       await fullStackBrowserRequest(page, "/api/authoring/billing/catalog")
     ).json(),
   ).value.items;
+  expect(
+    afterCatalogue.filter((item) => item.product?.id !== product.id),
+  ).toEqual(catalogue.filter((item) => item.product?.id !== product.id));
   const after = afterCatalogue.find((item) => item.product?.id === product.id);
   expect(after).toMatchObject({
     product: { id: product.id, priceRevision: product.priceRevision + 1 },

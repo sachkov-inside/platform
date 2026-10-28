@@ -5,7 +5,9 @@ Optional host processes, the MCP authoring adapter and host-process smokes.
 ## Optional host Node.js fallback
 
 Use Node.js from `.node-version` and pnpm from `packageManager` only when a faster host loop is
-useful:
+useful. To prepare an assigned worktree without starting services, follow
+[worktree preparation](local-worktrees.md#prepare-without-starting-the-stack). Before the runtime
+commands below, resolve the [singleton stand ownership](local-stand.md#parallel-worktrees-and-singleton-ownership):
 
 ```bash
 cp .env.example .env
