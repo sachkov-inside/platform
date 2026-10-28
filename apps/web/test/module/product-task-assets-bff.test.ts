@@ -7,7 +7,13 @@ vi.mock("@/shared/auth/index.server", () => ({
 vi.mock("@/shared/api/backend/index.server", async () => {
   const responses =
     await import("@/shared/api/backend/backend-proxy-response.server");
-  return { ...responses, requestProductTaskAssetDelivery: fakes.deliver };
+  const edge =
+    await import("@/shared/api/backend/storage-edge-delivery.server");
+  return {
+    ...responses,
+    isStorageEdgeRequest: edge.isStorageEdgeRequest,
+    requestProductTaskAssetDelivery: fakes.deliver,
+  };
 });
 
 import { proxyProductTaskAssetDelivery } from "@/_pages/product-task/api/task-assets-bff.server";

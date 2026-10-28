@@ -1,5 +1,7 @@
 import "server-only";
 
+import { STORAGE_EDGE_RESPONSE_HEADERS } from "./storage-edge-delivery.server";
+
 export function copyBackendResponse(response: Response): Response {
   const headers = new Headers();
   for (const name of [
@@ -10,6 +12,7 @@ export function copyBackendResponse(response: Response): Response {
     "location",
     "x-content-type-options",
     "x-robots-tag",
+    ...STORAGE_EDGE_RESPONSE_HEADERS,
   ]) {
     const value = response.headers.get(name);
     if (value !== null) headers.set(name, value);

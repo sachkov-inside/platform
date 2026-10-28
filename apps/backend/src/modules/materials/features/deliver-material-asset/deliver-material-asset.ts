@@ -27,6 +27,12 @@ export type DeliveredMaterialAsset =
       cacheScope: "private-no-store";
       kind: "redirect";
       location: string;
+      /**
+       * Bytes behind a published, version-bound address never change, so the reader's browser may
+       * keep them when the site edge delivers them (#1766). A preview follows the draft and is
+       * never kept. The redirect itself is never stored.
+       */
+      objectCacheScope?: "private-immutable";
     }>;
 
 export type DeliverMaterialAssetResult =
@@ -158,6 +164,7 @@ export function assembleMaterialAssetDelivery(dependencies: {
           cacheScope: "private-no-store",
           kind: "redirect",
           location,
+          ...(input.preview ? {} : { objectCacheScope: "private-immutable" }),
         },
       };
     },

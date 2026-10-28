@@ -327,7 +327,7 @@ export const passFetch = createPassFetch();
 
 /**
  * GET под cookies browser context без перехода по redirect: проход видит сам ответ Platform,
- * например redirect закрытого файла на хранилище.
+ * например bytes закрытого файла через Caddy или redirect на хранилище у выпуска до #1766.
  */
 export async function passContextGet(
   context: BrowserContext,

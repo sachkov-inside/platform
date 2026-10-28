@@ -11,6 +11,13 @@ import type { FastifyReply } from "fastify";
 import type { FastifyRequest } from "fastify";
 import { map, type Observable, tap } from "rxjs";
 
+import {
+  STORAGE_EDGE_CACHE_CONTROL_HEADER,
+  STORAGE_EDGE_LOCATION_HEADER,
+  STORAGE_EDGE_REQUEST_HEADER,
+  STORAGE_EDGE_REQUEST_VALUE,
+} from "./storage-edge-delivery.js";
+
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
 export const PRIVATE_NO_STORE_HEADERS = {
   "cache-control": "private, no-store",
@@ -22,6 +29,9 @@ type HttpCachePolicy =
   | "public-catalog"
   | "viewer-aware-catalog"
   | "published-material-response";
+
+/** Bytes behind a version-bound address never change; the reader's browser alone may keep them. */
+const PRIVATE_IMMUTABLE_CACHE_CONTROL = "private, max-age=31536000, immutable";
 
 const cacheControlByPolicy = {
   "asset-delivery": PRIVATE_NO_STORE_HEADERS["cache-control"],
@@ -73,9 +83,17 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
 
     const response = context.switchToHttp().getResponse<FastifyReply>();
     if (policy === "asset-delivery") {
+      const request = context.switchToHttp().getRequest<FastifyRequest>();
+      const viaStorageEdge =
+        request.headers[STORAGE_EDGE_REQUEST_HEADER] ===
+        STORAGE_EDGE_REQUEST_VALUE;
       return next
         .handle()
-        .pipe(map((body: unknown) => sendAssetDelivery(response, body)));
+        .pipe(
+          map((body: unknown) =>
+            sendAssetDelivery(response, body, viaStorageEdge),
+          ),
+        );
     }
     return next.handle().pipe(
       tap((body: unknown) => {
@@ -91,6 +109,7 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
 function sendAssetDelivery(
   response: FastifyReply,
   body: unknown,
+  viaStorageEdge: boolean,
 ): Buffer | undefined {
   if (!isAssetDelivery(body)) {
     throw new TypeError(
@@ -104,6 +123,17 @@ function sendAssetDelivery(
       : cacheControlByPolicy["private-no-store"],
   );
   response.header("X-Content-Type-Options", "nosniff");
+  if (body.kind === "redirect" && viaStorageEdge) {
+    response.status(204);
+    response.header(STORAGE_EDGE_LOCATION_HEADER, body.location);
+    response.header(
+      STORAGE_EDGE_CACHE_CONTROL_HEADER,
+      body.objectCacheScope === "private-immutable"
+        ? PRIVATE_IMMUTABLE_CACHE_CONTROL
+        : cacheControlByPolicy["private-no-store"],
+    );
+    return undefined;
+  }
   if (body.kind === "redirect") {
     response.status(302);
     response.header("Location", body.location);
@@ -130,6 +160,7 @@ function isAssetDelivery(value: unknown): value is
       cacheScope: "private-no-store";
       kind: "redirect";
       location: string;
+      objectCacheScope?: "private-immutable";
     }> {
   if (typeof value !== "object" || value === null || !("kind" in value))
     return false;
@@ -138,7 +169,10 @@ function isAssetDelivery(value: unknown): value is
       "cacheScope" in value &&
       value.cacheScope === "private-no-store" &&
       "location" in value &&
-      typeof value.location === "string"
+      typeof value.location === "string" &&
+      (!("objectCacheScope" in value) ||
+        value.objectCacheScope === undefined ||
+        value.objectCacheScope === "private-immutable")
     );
   }
   return (

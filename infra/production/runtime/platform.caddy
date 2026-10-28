@@ -12,6 +12,8 @@ sachkov.dev, inside.sachkov.dev {
 		# Match the socket peer, never a client-supplied forwarding header.
 		@external_probe not remote_ip 127.0.0.1 ::1
 		request_header @external_probe -X-Inside-Production-Verify
+		# Метку доставки защищённых файлов ставит только маршрут @protected_delivery ниже (#1766).
+		request_header -X-Inside-Storage-Delivery
 
 		@private_health path /health /health/* /_health/*
 		respond @private_health 404
@@ -150,7 +152,95 @@ sachkov.dev, inside.sachkov.dev {
 		header @old_web Cache-Control "no-store"
 		redir @old_web https://sachkov.dev{uri} 302
 
-		reverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000}
+		# Защищённые файлы (#1766): картинки и файлы материалов, задания, файлы Product и аватар.
+		# Web и API проверяют доступ как обычно; с меткой API вместо redirect в хранилище отвечает
+		# 204 с подписанным адресом объекта в служебном заголовке. Caddy принимает только адрес
+		# protected bucket, сам читает объект и отдаёт bytes с этого домена. Cookie, Authorization и
+		# прочие X-заголовки клиента в хранилище не уходят; служебные заголовки клиенту не уходят.
+		@protected_delivery {
+			method GET HEAD
+			path_regexp ^/api/(?:materials/[^/]+/assets/[^/]+(?:/images/[^/]+)?|products/[^/]+/(?:artifacts|artifact-sources)/[^/]+/file|products/[^/]+/tasks/[^/]+/assets/[^/]+|account/profile/avatar/[^/]+/[^/]+)$
+		}
+		reverse_proxy @protected_delivery {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {
+			header_up X-Inside-Storage-Delivery edge
+			header_down -X-Inside-Storage-Location
+			header_down -X-Inside-Storage-Cache-Control
+
+			@protected_object header X-Inside-Storage-Location https://inside-production-protected.storage.yandexcloud.net/*
+			handle_response @protected_object {
+				# Значения ответа web фиксируются до запроса в хранилище: у него свои заголовки ответа.
+				vars storage_cache_control {rp.header.X-Inside-Storage-Cache-Control}
+				@no_storage_cache_control vars storage_cache_control ""
+				vars @no_storage_cache_control storage_cache_control "private, no-store"
+				header X-Content-Type-Options nosniff
+
+				@signed_object vars_regexp signed_object {rp.header.X-Inside-Storage-Location} ^https://inside-production-protected\.storage\.yandexcloud\.net(/[A-Za-z0-9][A-Za-z0-9._/-]*)\?([A-Za-z0-9._~%=&-]+)$
+				@unsigned_object not vars_regexp {rp.header.X-Inside-Storage-Location} ^https://inside-production-protected\.storage\.yandexcloud\.net(/[A-Za-z0-9][A-Za-z0-9._/-]*)\?([A-Za-z0-9._~%=&-]+)$
+				header @unsigned_object Cache-Control "private, no-store"
+				respond @unsigned_object 502
+
+				# rewrite кодирует подставленную query, а подпись требует её байт в байт: query
+				# подставляется заменой подстроки, которая query не перекодирует.
+				rewrite @signed_object {re.signed_object.1}?inside-signed-query
+				uri @signed_object replace inside-signed-query {re.signed_object.2}
+				reverse_proxy @signed_object {$PLATFORM_PROTECTED_STORAGE_UPSTREAM:https://inside-production-protected.storage.yandexcloud.net} {
+					method GET
+					header_up Host inside-production-protected.storage.yandexcloud.net
+					header_up -Cookie
+					header_up -Authorization
+					header_up -Proxy-Authorization
+					header_up -X-*
+					header_up -Forwarded
+					header_up -Via
+					header_up -Referer
+					header_up -Origin
+					header_up -Sec-*
+					header_up -If-Match
+					header_up -If-None-Match
+					header_up -If-Modified-Since
+					header_up -If-Unmodified-Since
+					header_down -X-*
+					header_down -Server
+					header_down -Set-Cookie
+					header_down -Strict-Transport-Security
+					header_down Cache-Control {vars.storage_cache_control}
+					transport http {
+						dial_timeout 5s
+						response_header_timeout 30s
+					}
+
+					# Ответ хранилища с ошибкой не уходит клиенту: ни XML, ни redirect, ни его заголовки.
+					@storage_missing status 404
+					handle_response @storage_missing {
+						header Cache-Control "private, no-store"
+						respond 404
+					}
+					@storage_range status 416
+					handle_response @storage_range {
+						header Cache-Control "private, no-store"
+						respond 416
+					}
+					@storage_failed status 1xx 3xx 4xx 5xx
+					handle_response @storage_failed {
+						header Cache-Control "private, no-store"
+						respond 502
+					}
+				}
+			}
+
+			# Адрес чужого bucket или хранилища не перехватывается и не уходит клиенту.
+			@foreign_object header X-Inside-Storage-Location *
+			handle_response @foreign_object {
+				header Cache-Control "private, no-store"
+				respond 502
+			}
+		}
+
+		reverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {
+			# Служебные заголовки доставки не выходят наружу и с других путей web.
+			header_down -X-Inside-Storage-Location
+			header_down -X-Inside-Storage-Cache-Control
+		}
 	}
 }
 

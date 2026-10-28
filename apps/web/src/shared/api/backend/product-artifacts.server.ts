@@ -7,6 +7,7 @@ import {
   readBackendBaseUrl,
   type BackendTransportResult,
 } from "./transport-core.server";
+import { storageEdgeRequestHeaders } from "./storage-edge-delivery.server";
 
 const PRODUCT_ARTIFACT_UPLOAD_TIMEOUT_MS = 60_000;
 
@@ -39,6 +40,7 @@ export function requestReaderProductArtifactFile(input: {
   readonly productId: string;
   readonly preview: boolean;
   readonly signal: AbortSignal;
+  readonly viaStorageEdge: boolean;
   readonly version: number;
 }): Promise<Response> {
   const url = new URL(
@@ -48,10 +50,12 @@ export function requestReaderProductArtifactFile(input: {
   if (input.preview) url.searchParams.set("preview", "true");
   return fetch(url, {
     cache: "no-store",
-    headers:
-      input.accessToken === undefined
+    headers: {
+      ...storageEdgeRequestHeaders(input.viaStorageEdge),
+      ...(input.accessToken === undefined
         ? {}
-        : { authorization: `Bearer ${input.accessToken}` },
+        : { authorization: `Bearer ${input.accessToken}` }),
+    },
     redirect: "manual",
     signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
   });

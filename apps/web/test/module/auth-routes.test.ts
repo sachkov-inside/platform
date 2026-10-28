@@ -377,7 +377,7 @@ describe("Logto BFF route orchestration", () => {
       }),
     );
     expect(response.status).toBe(200);
-    expect(response.headers.get("clear-site-data")).toBe('"storage"');
+    expect(response.headers.get("clear-site-data")).toBe('"cache", "storage"');
     expect(fakes.handleSignOut).toHaveBeenCalledWith(fakes.config.baseUrl);
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
   });

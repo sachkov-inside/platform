@@ -250,6 +250,60 @@ describe("Material asset delivery", () => {
     },
   );
 
+  test("lets the reader's browser keep published protected bytes but never a preview (#1766)", async () => {
+    const delivery = assembleMaterialAssetDelivery({
+      assets: assetsFor({
+        contentType: "image/webp",
+        filename: "source.png",
+        kind: "image",
+        object: { protectedKey: "protected/image", publicKey: null },
+        size: 3,
+      }),
+      contentAccess: accessDecision({
+        checkedContentVersion: contentVersion,
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
+        decisionId: "manager",
+        effect: "allow",
+        policyVersion: "content-access-v1",
+        reason: "materials_manager",
+      }),
+      materialContent: currentReference(),
+      objectStorage: storage({
+        signGet: vi.fn<ObjectStorage["signGet"]>().mockResolvedValue("signed"),
+      }),
+      signedGetTtlSeconds: 60,
+    });
+    const input = {
+      assetId,
+      contentVersion,
+      materialId,
+      subject: { kind: "anonymous" } as const,
+      variantWidth: 960,
+    };
+
+    await expect(
+      delivery.deliver({ ...input, preview: false }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        cacheScope: "private-no-store",
+        kind: "redirect",
+        location: "signed",
+        objectCacheScope: "private-immutable",
+      },
+    });
+    await expect(
+      delivery.deliver({ ...input, preview: true }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        cacheScope: "private-no-store",
+        kind: "redirect",
+        location: "signed",
+      },
+    });
+  });
+
   test("maps object storage read and signing outages to dependency unavailable", async () => {
     const values = {
       contentType: "application/pdf",

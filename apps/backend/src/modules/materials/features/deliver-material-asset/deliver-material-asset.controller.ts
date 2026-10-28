@@ -20,6 +20,7 @@ import {
 import { z } from "zod";
 
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { ApiStorageEdgeResponse } from "../../../../infrastructure/http/storage-edge-delivery.js";
 import { problemDetailsContent } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   accountId as checkedAccountId,
@@ -92,6 +93,7 @@ export class DeliverMaterialAssetController {
     content: problemDetailsContent(assetDependencyProblemSchema),
   })
   @AssetDeliveryCache()
+  @ApiStorageEdgeResponse()
   download(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
@@ -134,6 +136,7 @@ export class DeliverMaterialAssetController {
     content: problemDetailsContent(assetDependencyProblemSchema),
   })
   @AssetDeliveryCache()
+  @ApiStorageEdgeResponse()
   image(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,

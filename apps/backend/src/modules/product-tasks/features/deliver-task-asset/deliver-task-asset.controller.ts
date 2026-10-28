@@ -8,6 +8,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { ApiStorageEdgeResponse } from "../../../../infrastructure/http/storage-edge-delivery.js";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   problemDetailsContent,
@@ -33,6 +34,7 @@ export class DeliverTaskAssetController {
   ) {}
   @Get(":slug/tasks/:code/assets/:assetId")
   @AssetDeliveryCache()
+  @ApiStorageEdgeResponse()
   @ApiOperation({
     operationId: "deliverProductTaskAsset",
     summary: "Read a current Task asset through Task access",

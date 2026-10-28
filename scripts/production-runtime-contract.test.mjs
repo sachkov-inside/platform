@@ -88,10 +88,52 @@ const unpublishedIntegrationRoutes = new Map([
   ],
 ]);
 
+// The protected-delivery route (#1766) proxies to web and, from its response handler, to the
+// protected bucket; neither reaches the API or MCP. `assertProtectedDelivery` owns their form.
+const protectedDeliveryProxies = [
+  "reverse_proxy @protected_delivery {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {",
+  "reverse_proxy @signed_object {$PLATFORM_PROTECTED_STORAGE_UPSTREAM:https://inside-production-protected.storage.yandexcloud.net} {",
+];
+// Every web route whose BFF passes the edge marker, with a sample browser path.
+/** @type {[string, string][]} */
+const protectedDeliveryRoutes = [
+  [
+    "apps/web/app/api/materials/[materialId]/assets/[assetId]/route.ts",
+    "/api/materials/m-1/assets/a-1",
+  ],
+  [
+    "apps/web/app/api/materials/[materialId]/assets/[assetId]/images/[width]/route.ts",
+    "/api/materials/m-1/assets/a-1/images/960",
+  ],
+  [
+    "apps/web/app/api/products/[productId]/artifacts/[artifactId]/file/route.ts",
+    "/api/products/p-1/artifacts/r-1/file",
+  ],
+  [
+    "apps/web/app/api/products/[productId]/artifact-sources/[sourceId]/file/route.ts",
+    "/api/products/p-1/artifact-sources/s-1/file",
+  ],
+  [
+    "apps/web/app/api/products/[productId]/tasks/[code]/assets/[assetId]/route.ts",
+    "/api/products/p-1/tasks/t-1/assets/a-1",
+  ],
+  [
+    "apps/web/app/api/account/profile/avatar/[avatarId]/[size]/route.ts",
+    "/api/account/profile/avatar/v-1/160",
+  ],
+];
+
 const runtime = {
   releaseRunbook: read("docs/runbooks/production-release.md"),
   openApi: read("apps/backend/openapi/platform-api.json"),
   caddy: read("infra/production/runtime/platform.caddy"),
+  backendStorageEdge: read(
+    "apps/backend/src/infrastructure/http/storage-edge-delivery.ts",
+  ),
+  webStorageEdge: read(
+    "apps/web/src/shared/api/backend/storage-edge-delivery.server.ts",
+  ),
+  productionPassConfig: read("apps/web/test/production/pass-config.ts"),
   maintenanceCaddy: read("infra/production/deploy/maintenance.caddy"),
   hostCaddy: read("infra/production/host/Caddyfile"),
   compose: read("compose.production.yaml"),
@@ -632,6 +674,75 @@ describe("production runtime architecture contract", () => {
       /Logto linked-identity callback must allow only POST/u,
     );
   });
+
+  it("delivers protected bytes only through the protected bucket without leaking credentials or internal headers", () => {
+    for (const [change, reason] of [
+      [
+        (/** @type {string} */ caddy) =>
+          caddy.replace("\t\trequest_header -X-Inside-Storage-Delivery\n", ""),
+        /strip a client-supplied storage delivery marker/u,
+      ],
+      [
+        (/** @type {string} */ caddy) =>
+          caddy.replace(
+            "\t\t\t# Служебные заголовки доставки не выходят наружу и с других путей web.\n",
+            "\t\t\theader_up X-Inside-Storage-Delivery edge\n",
+          ),
+        /only the protected-delivery route may send the storage delivery marker/u,
+      ],
+      [
+        (/** @type {string} */ caddy) =>
+          caddy.replace("\t\t\t\t\theader_up -Cookie\n", ""),
+        /must not forward client Cookie to storage/u,
+      ],
+      [
+        (/** @type {string} */ caddy) =>
+          caddy.replace("\t\t\theader_down -X-Inside-Storage-Location\n", ""),
+        /never send the internal X-Inside-Storage-Location header/u,
+      ],
+      [
+        (/** @type {string} */ caddy) =>
+          caddy.replace(
+            "header X-Inside-Storage-Location https://inside-production-protected.storage.yandexcloud.net/*",
+            "header X-Inside-Storage-Location https://*",
+          ),
+        /fetch only the protected bucket/u,
+      ],
+      [
+        (/** @type {string} */ caddy) =>
+          caddy.replace("|account/profile/avatar/[^/]+/[^/]+)$", ")$"),
+        /misses \/api\/account\/profile\/avatar/u,
+      ],
+    ]) {
+      assert.throws(
+        () =>
+          assertRuntimeContract({ ...runtime, caddy: change(runtime.caddy) }),
+        reason,
+      );
+    }
+    assert.throws(
+      () =>
+        assertRuntimeContract({
+          ...runtime,
+          productionPassConfig: runtime.productionPassConfig.replace(
+            "inside-production-protected",
+            "inside-production-renamed",
+          ),
+        }),
+      /fetch only the protected bucket inside-production-renamed/u,
+    );
+    assert.throws(
+      () =>
+        assertRuntimeContract({
+          ...runtime,
+          webStorageEdge: runtime.webStorageEdge.replace(
+            '"x-inside-storage-delivery"',
+            '"x-inside-edge"',
+          ),
+        }),
+      /agree with Caddy on STORAGE_EDGE_REQUEST_HEADER/u,
+    );
+  });
 });
 
 /** @param {typeof runtime} files */
@@ -941,6 +1052,7 @@ function assertRuntimeContract(files) {
       "the authoring API must publish only backend /authoring/* behind its removed prefix",
     );
   }
+  assertProtectedDelivery(files);
   // Published routes and the operator table are checked last, so a broken Caddy rule above reports
   // its own reason first.
   assertExternalRoutesPublished(files);
@@ -948,6 +1060,126 @@ function assertRuntimeContract(files) {
     runbookRoutes(files.releaseRunbook),
     caddyProxiedRoutes(files.caddy),
     "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes",
+  );
+}
+
+/**
+ * Protected bytes through Caddy (#1766). Only Caddy sets the edge marker, and only on the delivery
+ * route; the bucket it fetches is the production protected bucket the access pass names; header
+ * names agree with the API and web owners; client credentials never reach storage and the internal
+ * headers never reach the client. `probe-protected-delivery.mjs` proves the behaviour on Caddy.
+ * @param {typeof runtime} files
+ */
+function assertProtectedDelivery(files) {
+  const caddy = files.caddy;
+  const stripMarker = "\t\trequest_header -X-Inside-Storage-Delivery\n";
+  if (
+    !caddy.includes(stripMarker) ||
+    caddy.indexOf(stripMarker) > caddy.indexOf("reverse_proxy")
+  ) {
+    throw new Error(
+      "Caddy must strip a client-supplied storage delivery marker before proxying",
+    );
+  }
+  const [deliveryProxy = "", storageProxy = ""] = protectedDeliveryProxies;
+  const route = caddy.split(`\t\t${deliveryProxy}\n`)[1]?.split("\n\t\t}\n")[0];
+  if (
+    route === undefined ||
+    caddy.match(/header_up X-Inside-Storage-Delivery /gu)?.length !== 1 ||
+    !route.startsWith("\t\t\theader_up X-Inside-Storage-Delivery edge\n")
+  ) {
+    throw new Error(
+      "only the protected-delivery route may send the storage delivery marker to web",
+    );
+  }
+  const backend = constantValues(files.backendStorageEdge);
+  const web = constantValues(files.webStorageEdge);
+  for (const [name, value] of [
+    ["STORAGE_EDGE_REQUEST_HEADER", "x-inside-storage-delivery"],
+    ["STORAGE_EDGE_REQUEST_VALUE", "edge"],
+  ]) {
+    if (backend.get(name) !== value || web.get(name) !== value)
+      throw new Error(`API and web must agree with Caddy on ${name}`);
+  }
+  for (const name of [
+    "STORAGE_EDGE_LOCATION_HEADER",
+    "STORAGE_EDGE_CACHE_CONTROL_HEADER",
+  ]) {
+    const header = backend.get(name) ?? "";
+    if (!files.webStorageEdge.includes(`"${header}"`))
+      throw new Error(`web must copy the internal ${header} header`);
+    const titled = header.replace(/(?:^|-)[a-z]/gu, (part) =>
+      part.toUpperCase(),
+    );
+    if (
+      !route.includes(`\t\t\theader_down -${titled}\n`) ||
+      !caddy.includes(
+        `\t\treverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000} {\n\t\t\t# Служебные заголовки доставки не выходят наружу и с других путей web.\n\t\t\theader_down -X-Inside-Storage-Location\n\t\t\theader_down -X-Inside-Storage-Cache-Control\n\t\t}\n`,
+      )
+    )
+      throw new Error(
+        `Caddy must never send the internal ${titled} header to a client`,
+      );
+  }
+  const passHost = /protectedStorage:\s*"https:\/\/([^"]+)"/u.exec(
+    files.productionPassConfig,
+  )?.[1];
+  const host = "inside-production-protected.storage.yandexcloud.net";
+  if (
+    passHost !== host ||
+    !route.includes(
+      `\t\t\t@protected_object header X-Inside-Storage-Location https://${host}/*\n`,
+    ) ||
+    !route.includes(`\t\t\t\t${storageProxy}\n`) ||
+    !route.includes(`\t\t\t\t\theader_up Host ${host}\n`) ||
+    !route.includes(
+      `^https://${escapeRegExp(host)}(/[A-Za-z0-9][A-Za-z0-9._/-]*)\\?([A-Za-z0-9._~%=&-]+)$`,
+    )
+  ) {
+    throw new Error(
+      `Caddy must fetch only the protected bucket ${passHost ?? "named by the access pass"}, with its own Host`,
+    );
+  }
+  for (const header of [
+    "Cookie",
+    "Authorization",
+    "Proxy-Authorization",
+    "X-*",
+    "Sec-*",
+  ]) {
+    if (!route.includes(`\t\t\t\t\theader_up -${header}\n`))
+      throw new Error(`Caddy must not forward client ${header} to storage`);
+  }
+  const matcher = /path_regexp (\^[^\n]+\$)\n/u.exec(
+    caddy.split("@protected_delivery {")[1] ?? "",
+  )?.[1];
+  if (matcher === undefined)
+    throw new Error("the protected-delivery route must match exact web paths");
+  const paths = new RegExp(matcher, "u");
+  for (const [file, sample] of protectedDeliveryRoutes) {
+    if (!read(file).includes("export async function GET"))
+      throw new Error(`${file} is no longer a protected delivery route`);
+    if (!paths.test(sample))
+      throw new Error(`the protected-delivery route misses ${sample}`);
+  }
+  for (const other of [
+    "/api/content-covers/c-1/960",
+    "/api/materials/m-1/assets",
+    "/api/materials/m-1/assets/a-1/images/960/extra",
+    "/api/authoring/materials/m-1/assets/a-1",
+  ]) {
+    if (paths.test(other))
+      throw new Error(`the protected-delivery route also matches ${other}`);
+  }
+}
+
+/** String constants a source file declares as `export const NAME = "value"` or `const NAME = …`. */
+/** @param {string} text */
+function constantValues(text) {
+  return new Map(
+    [...text.matchAll(/const ([A-Z_]+) =\s*"([^"]+)"/gu)].map(
+      ([, name = "", value = ""]) => [name, value],
+    ),
   );
 }
 
@@ -1002,8 +1234,11 @@ function assertExternalRoutesPublished(files) {
   if (failClosed === -1) {
     throw new Error("unknown integration routes must fail closed");
   }
+  // The protected-delivery pair serves only web /api/ paths and sits after the fail-closed rules.
   const late = [...files.caddy.matchAll(/reverse_proxy @([a-z_]+) /gu)].filter(
-    ({ index }) => index > failClosed,
+    ({ 0: line, index }) =>
+      index > failClosed &&
+      !protectedDeliveryProxies.some((proxy) => proxy.startsWith(line)),
   );
   if (late.length > 0) {
     throw new Error(
@@ -1103,10 +1338,14 @@ function caddyProxiedRoutes(caddy) {
     understood.add(name);
     routes.push(...paths.split(" ").map((path) => `ANY ${path}`));
   }
-  // Every reverse_proxy except the single web fallback must go through a named matcher parsed above.
+  // Every reverse_proxy except the single web fallback and the protected-delivery pair must go
+  // through a named matcher parsed above.
   const directives = caddy.match(/^\s*reverse_proxy /gmu)?.length ?? 0;
+  const edgeProxies = protectedDeliveryProxies.filter((line) =>
+    caddy.includes(`\t${line}\n`),
+  ).length;
   const unparsed = [...proxied].filter((name) => !understood.has(name));
-  if (unparsed.length > 0 || directives !== proxied.size + 1) {
+  if (unparsed.length > 0 || directives !== proxied.size + 1 + edgeProxies) {
     throw new Error(
       `Caddy API routes are not in a form the runbook route check understands: ${unparsed.join(", ") || "reverse_proxy without a named matcher"}`,
     );
