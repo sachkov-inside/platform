@@ -486,7 +486,10 @@ describe("application CI workflow contract", () => {
   });
 
   it("installs frozen dependencies and cached browser engines in one place", () => {
-    assert.match(setupAction, /run: pnpm install --frozen-lockfile$/mu);
+    assert.match(
+      setupAction,
+      /run: timeout --signal=TERM --kill-after=10s 4m pnpm install --frozen-lockfile$/mu,
+    );
     assert.match(setupAction, /uses: actions\/cache@/u);
     assert.match(setupAction, /path: ~\/\.cache\/ms-playwright$/mu);
     assert.match(
@@ -498,6 +501,42 @@ describe("application CI workflow contract", () => {
       /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
     );
     assert.doesNotMatch(workflow, /pnpm install/u);
+  });
+
+  it("bounds dependency installation and reuses pnpm's policy-aware cache (#1763)", () => {
+    const install =
+      setupAction.match(
+        /- name: Install dependencies\n([\s\S]*?)(?=\n {4}- name:|$)/u,
+      )?.[1] ?? "";
+    assert.doesNotMatch(setupAction, /timeout-minutes:/u);
+    assert.match(
+      install,
+      /run: timeout --signal=TERM --kill-after=10s 4m pnpm install --frozen-lockfile$/mu,
+    );
+    const cache =
+      setupAction.match(
+        /- name: Cache pnpm metadata and verification\n([\s\S]*?)(?=\n {4}- name:|$)/u,
+      )?.[1] ?? "";
+    assert.match(cache, /uses: actions\/cache@/u);
+    assert.match(cache, /~\/\.cache\/pnpm\/v11\/metadata/u);
+    assert.match(cache, /~\/\.cache\/pnpm\/lockfile-verified\.jsonl/u);
+    for (const file of [
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "package.json",
+      ".npmrc",
+      ".node-version",
+      ".github/actions/setup-platform/action.yml",
+    ])
+      assert.ok(cache.includes(`'${file}'`), `cache key binds ${file}`);
+    assert.doesNotMatch(
+      cache,
+      /restore-keys:|lookup-only:|continue-on-error:/u,
+    );
+    assert.ok(
+      setupAction.indexOf("name: Cache pnpm metadata and verification") <
+        setupAction.indexOf("name: Install dependencies"),
+    );
   });
 
   // Зеркало Ubuntu отдавало пакеты WebKit с паузами по 30 с, и установка не успевала за таймаут
