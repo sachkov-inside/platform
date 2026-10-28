@@ -1808,7 +1808,7 @@ Production visual acceptance is recorded separately on #1351.
   criteria, `history` for a selected submission and `nextCursor`. The row cursor carries the Product,
   chapter, task and feedback filters; changing, adding or removing one on continuation returns 400
   `invalid_request_shape`. UUID scope compares canonical values. A stale cursor makes Web read the
-  first page and restore the valid selection. The selected read ignores the cursor
+  first page. The selected read ignores the cursor
   but retains the Product/task scope. Without the permission it returns 403 `forbidden`.
 - `PUT /authoring/product-tasks/submissions/{submissionId}/feedback` (`saveAuthorTaskFeedback`,
   `materials:manage`) accepts `comment` (up to 4000 characters or `null`) and `reviewed`. The existing
