@@ -609,6 +609,7 @@ def worker(output):
                         # Detailed windows stay in the already collected raw phase,
                         # avoiding twelve duplicate ledgers in the bounded summary.
                         measured['load'].pop('timing_diagnostics',None)
+                        measured['load'].pop('source_cache_sample_diagnostic',None)
                         measured.pop('source_publication_timing',None)
                         report['phases'].append(measured)
                         call('phase_report',pilot.write_json,output/'fullstack-proof.json',report,group=group,phase=index)

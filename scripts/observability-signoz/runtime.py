@@ -245,6 +245,9 @@ def worker(output):
             own.compose(['--profile','functional','create','--no-build','--pull','never']);own.discover();own.record()
             lifecycle.need(set(own.containers)==set(lifecycle.SERVICES),'complete_owned_roles')
             for name in lifecycle.SERVICES:own.validate(name)
+            # Durable attachment proof survives any later initialization/functional
+            # failure. It does not replace the final healthy-state acceptance.
+            lifecycle.private_json(output/'images.json',own.images)
             own.start('histogram-init');own.wait('histogram-init',20)
             phase='PG_keeper';lifecycle.stage(output,phase);own.start('keeper','postgres');own.exec(['ready','postgres'],timeout=60)
             phase='CH';lifecycle.stage(output,phase);own.start('clickhouse');own.exec(['ready','clickhouse'],timeout=60)
