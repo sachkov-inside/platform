@@ -279,7 +279,7 @@ export async function launchLocalStand({
         `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
         `  двойник банка     http://127.0.0.1:${process.env["BANK_DOUBLE_HOST_PORT"] ?? "8090"}`,
         "",
-        "Остановить: docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml --profile identity --profile local-accounts down (для --production-web добавьте его Compose override)",
+        "Остановить: docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml -f config/compose/local/stand-kinescope.compose.yaml --profile identity --profile local-accounts down (для --production-web добавьте его Compose override)",
         "",
       ].join("\n"),
     );

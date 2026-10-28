@@ -145,7 +145,7 @@ the [authorization backend](https://docs.kinescope.ru/instrukcii-dlya-razrabotch
 | Setting | «Sachkov Inside» (public, `free`) | «Sachkov Inside Membership» (`closed`) |
 | --- | --- | --- |
 | Кто может смотреть | Все | Все; the authorization backend decides |
-| Где можно показывать плеер | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus the stand origin while the owner reviews on the stand | На указанных доменах: `sachkov.dev`, `*.sachkov.dev` |
+| Где можно показывать плеер | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus `127.0.0.1` while the owner reviews on the stand | На указанных доменах: `sachkov.dev`, `*.sachkov.dev` |
 | Authorization backend | none; set it per project, never for the whole workspace | `https://sachkov.dev/integrations/kinescope/v1/authorize`, Basic `KINESCOPE_CALLBACK_USERNAME`/`_PASSWORD` from the production `api.env`, `strict: true` |
 
 The webhook belongs to the workspace: `https://sachkov.dev/integrations/kinescope/v1/webhook` with

@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { standKinescopeFile } from "./stand-source.mjs";
 import {
   readStandKinescope,
   removeStandKinescope,
@@ -74,7 +75,10 @@ test("import refuses an incomplete or ambiguous provider set without echoing val
           "https://api.example.invalid",
         ),
       ),
-    /kinescope\.io/u,
+    (error) =>
+      error instanceof Error &&
+      /kinescope\.io/u.test(error.message) &&
+      !error.message.includes("example.invalid"),
   );
 });
 
@@ -111,11 +115,7 @@ test("only api and mcp read the private file; the deletion worker keeps the test
     (match) => match[1],
   );
   assert.deepEqual(services, ["api", "mcp"]);
-  assert.equal(
-    [...overlay.matchAll(/path: \.\/\.identity-proof\/stand-kinescope\.env/gu)]
-      .length,
-    2,
-  );
+  assert.equal(overlay.split(`path: ./${standKinescopeFile}`).length - 1, 2);
   const worker = await readFile(
     new URL(
       "../config/compose/local/video-deletions-worker.env",

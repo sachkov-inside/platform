@@ -3,18 +3,21 @@
 // a private stand file that only api and mcp read (config/compose/local/stand-kinescope.compose.yaml).
 // Callback, webhook and playback-signing secrets stay the stand's own local values.
 import { execFileSync } from "node:child_process";
-import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { text } from "node:stream/consumers";
 import { fileURLToPath } from "node:url";
 import { standKinescopeFile } from "./stand-source.mjs";
 
-const required = [
+// Provider access the stand copies, in file order; everything else stays the stand's own value.
+// A hand parser refuses duplicate keys, which the dotenv parsers silently resolve.
+const endpoints = ["KINESCOPE_API_BASE_URL", "KINESCOPE_UPLOADER_BASE_URL"];
+const providerAccess = [
   "KINESCOPE_API_TOKEN",
   "KINESCOPE_PUBLIC_PROJECT_ID",
   "KINESCOPE_MEMBERSHIP_PROJECT_ID",
 ];
-const endpoints = ["KINESCOPE_API_BASE_URL", "KINESCOPE_UPLOADER_BASE_URL"];
+const copiedKeys = [...endpoints, ...providerAccess];
 
 /**
  * The stand file contents for an environment file read from the production runtime.
@@ -28,11 +31,11 @@ export function standKinescopeEnvironment(source) {
     const match = /^(KINESCOPE_[A-Z0-9_]+)=(.*)$/u.exec(line.trim());
     if (!match?.[1] || match[2] === undefined) continue;
     const [, key, value] = match;
-    if (![...endpoints, ...required].includes(key)) continue;
+    if (!copiedKeys.includes(key)) continue;
     if (values.has(key)) throw new Error(`${key} appears twice`);
     values.set(key, value.trim());
   }
-  const missing = required.filter((key) => !values.get(key));
+  const missing = providerAccess.filter((key) => !values.get(key));
   if (missing.length > 0)
     throw new Error(`Missing Kinescope values: ${missing.join(", ")}`);
   for (const key of endpoints) {
@@ -50,7 +53,7 @@ export function standKinescopeEnvironment(source) {
   }
   return `${[
     "KINESCOPE_PROVIDER_MODE=real",
-    ...[...endpoints, ...required].flatMap((key) =>
+    ...copiedKeys.flatMap((key) =>
       values.has(key) ? [`${key}=${values.get(key)}`] : [],
     ),
   ].join("\n")}\n`;
@@ -59,15 +62,21 @@ export function standKinescopeEnvironment(source) {
 /** @param {string} path @param {string} contents */
 export async function writeStandKinescope(path, contents) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await chmod(dirname(path), 0o700);
   const temporary = `${path}.${process.pid}.tmp`;
-  const handle = await open(temporary, "wx", 0o600);
   try {
-    await handle.writeFile(contents);
-    await handle.sync();
-  } finally {
-    await handle.close();
+    const handle = await open(temporary, "wx", 0o600);
+    try {
+      await handle.writeFile(contents);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
   }
-  await rename(temporary, path);
 }
 
 /** @param {string} path @returns {Promise<"real" | "test">} */
@@ -114,8 +123,9 @@ if (
     else if (command !== "status")
       throw new Error("Usage: pnpm stand:kinescope [status|import|remove]");
     const mode = await readStandKinescope(path);
+    // The file selects the adapter for roles created after it; running roles change on refresh.
     process.stdout.write(
-      `Stand Kinescope adapter: ${mode}${command === "status" ? "" : "; apply with pnpm stand refresh"}\n`,
+      `Stand Kinescope file: ${mode}; running roles follow it after pnpm stand refresh\n`,
     );
   } catch (error) {
     process.stderr.write(

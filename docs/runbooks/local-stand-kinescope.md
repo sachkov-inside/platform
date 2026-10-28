@@ -18,8 +18,10 @@ pnpm stand:kinescope status
 pnpm stand refresh --worktree <reserved worktree>
 ```
 
-Run `refresh` from the registered controller checkout (`pnpm stand status`). The file is part of
-the stand source fingerprint, so `refresh` recreates the application roles with it. The first
+Run `refresh` from the registered controller checkout (`pnpm stand status`); that checkout must
+contain this overlay and the matching source fingerprint, otherwise `api` keeps the test adapter
+whatever the file says. `pnpm stand:kinescope status` reports the file, not the running roles. The
+file is part of the stand source fingerprint, so `refresh` recreates the application roles with it. The first
 switch to a source that contains `config/compose/local/stand-kinescope.compose.yaml` changes the
 stand infrastructure and needs `pnpm stand upgrade` once. `pnpm stand:kinescope remove` followed
 by `refresh` returns every role to the deterministic test adapter.
@@ -43,7 +45,7 @@ by `refresh` returns every role to the deterministic test adapter.
 
 | Lesson access | Stand playback |
 | --- | --- |
-| `free` (public project) | Plays when the project's allowed domains include the stand origin, or have no restriction. |
+| `free` (public project) | Plays when the project's allowed domains include the stand host `127.0.0.1` (the stand opens on `http://127.0.0.1:3000`), or have no restriction. |
 | `closed` (membership project) | Plays only while the project has no authorization backend. After the backend is on, Kinescope asks production, which refuses a token signed by the stand (other key, unknown local Video), so the player stays locked. |
 
 Closed playback on the stand therefore ends when production protection starts. Keeping it needs

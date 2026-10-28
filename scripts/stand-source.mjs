@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 
 // The private stand file that selects the real Kinescope adapter (docs/runbooks/local-stand-kinescope.md).
 export const standKinescopeFile = ".identity-proof/stand-kinescope.env";
+const standIdentityFile = ".identity-proof/stand.env";
 
 export const liveWebDirectories = [
   "apps/web/app",
@@ -118,7 +119,7 @@ export async function readStandSource(
   const shared = dirname(
     resolve(root, git(["rev-parse", "--git-common-dir"]).trim()),
   );
-  // Application roles read the private Kinescope file at creation; changing it needs a refresh only.
+  // api and mcp read the private Kinescope file at creation; changing it needs a refresh only.
   const kinescope = digest(
     (await optionalFile(join(shared, standKinescopeFile))) ?? "test-adapter",
   );
@@ -165,8 +166,7 @@ export async function readStandSource(
       ),
     ),
     identity: digest(
-      (await optionalFile(join(shared, ".identity-proof/stand.env"))) ??
-        "unconfigured",
+      (await optionalFile(join(shared, standIdentityFile))) ?? "unconfigured",
     ),
   };
 }
