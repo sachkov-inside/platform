@@ -299,7 +299,7 @@ def host():
         'device_io_read_bytes':io[2]*512 if io else None,'device_io_written_bytes':io[6]*512 if io else None}
 
 
-def sample_sources(compose,output):
+def sample_sources(compose,output,*,observer=None):
     path=output/'caddy-source.json'
     if path.is_symlink() or not path.is_file() or path.stat().st_size>64:raise ValueError('source_caddy_partition')
     partition=json.loads(path.read_text())
@@ -312,7 +312,7 @@ def sample_sources(compose,output):
         raw=invoke(compose,['exec','-T','caddy','wget','-Y','off','-q','-T','2','-O','-','http://127.0.0.1:9091/metrics'],timeout=3).encode()
         if len(raw)>65536:raise ValueError('source_caddy_body')
         return raw
-    return source_cache.sample(output/'watchdog-fixture',postgres_read=postgres_read,caddy_read=caddy_read,caddy_server=partition['server'],clock=time.time)
+    return source_cache.sample(output/'watchdog-fixture',postgres_read=postgres_read,caddy_read=caddy_read,caddy_server=partition['server'],clock=time.time,observer=observer)
 
 
 def await_sources(compose,output,*,enabled=True):
@@ -361,6 +361,75 @@ def loadgen_cpu_pressure(samples):
     return {'state':'throttled' if delta['cpu_throttled_periods'] or delta['cpu_throttled_ns'] else 'unthrottled',**delta}
 
 
+class SourcePublicationTiming:
+    """Bounded phase-only diagnostics; no source or acceptance decision reads this ledger."""
+    def __init__(self,enabled):
+        self.value={'schema':1,'state':'off' if not enabled else 'complete','cycles':0,
+                    'invalid_rows':0,'overflow_rows':0,'rows':[]}
+        self.active=None;self.seen=[];self.deliveries=0
+
+    def _invalid(self,count=1):
+        self.value['invalid_rows']=min(129,self.value['invalid_rows']+count)
+        if self.value['state']!='overflow':self.value['state']='invalid'
+
+    def begin(self,cycle):
+        if type(cycle) is not int or cycle!=self.value['cycles']:
+            self._invalid();self.active=None;return
+        self.active=cycle;self.seen=[];self.deliveries=0
+        if cycle<64:self.value['cycles']=cycle+1
+        else:self.value['state']='overflow'
+
+    @staticmethod
+    def _anchor():
+        primary=sys.exception()
+        try:
+            values=[time.monotonic(),time.time(),time.monotonic()]
+            if any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=(2**53-1)/1000 for v in values):return None
+            if values[0]>values[2]:return None
+            return [v*1000 for v in values]
+        except BaseException as error:
+            if primary is None and not isinstance(error,Exception):raise
+            return None
+
+    def observe(self,row):
+        self.deliveries=min(129,self.deliveries+1)
+        if self.active is None:self._invalid();return
+        if self.active>=64 or len(self.value['rows'])>=128:
+            self.value['state']='overflow';self.value['overflow_rows']=min(129,self.value['overflow_rows']+1);return
+        clocks=('read_start_monotonic_ms','read_end_monotonic_ms','publish_start_monotonic_ms','publish_end_monotonic_ms')
+        fields={'source','read_outcome','projection_state','publication_outcome','observed_at_seconds',*clocks}
+        if (type(row) is not dict or set(row)!=fields or type(row.get('source')) is not str
+                or len(self.seen)>=2 or row['source']!=('postgresql','caddy')[len(self.seen)]
+                or row['read_outcome'] not in ('completed','failed','interrupted')
+                or row['projection_state'] not in ('observed','unavailable','unknown')
+                or row['publication_outcome'] not in ('completed','failed','not_attempted')):
+            self._invalid();return
+        for key in (*clocks,'observed_at_seconds'):
+            v=row[key]
+            if v is not None and (type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=2**53-1):
+                self._invalid();return
+        known=[row[key] for key in clocks if row[key] is not None]
+        if known!=sorted(known):self._invalid();return
+        if ((row['projection_state']=='unknown')!=(row['observed_at_seconds'] is None)
+                or row['observed_at_seconds'] is not None and row['observed_at_seconds']<=0
+                or row['publication_outcome']=='not_attempted' and any(row[k] is not None for k in clocks[2:])
+                or row['publication_outcome']!='not_attempted' and row['projection_state']=='unknown'
+                or row['read_outcome']!='completed' and row['projection_state']=='observed'
+                or row['read_outcome']=='interrupted' and row['projection_state']!='unknown'):
+            self._invalid();return
+        anchor=self._anchor()
+        if anchor is not None and known and known[-1]>anchor[0]:anchor=None
+        self.seen.append(row['source'])
+        self.value['rows'].append({**row,'cycle':self.active,'clock_anchor':anchor})
+        required=clocks[:2] if row['publication_outcome']=='not_attempted' else clocks
+        if anchor is None or any(row[k] is None for k in required):self._invalid()
+
+    def end(self):
+        if self.active is not None and self.active<64 and (self.deliveries!=2 or self.seen!=['postgresql','caddy']):
+            self._invalid(max(1,2-len(self.seen)))
+        self.active=None
+
+
 def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1):
     call=partial(stage_timing.call,timing,group=group,phase=index)
     states=call('phase_ownership_before',technical.owned,compose,project,active)
@@ -384,13 +453,19 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     # A delayed native source read must not let the load outrun its CPU baseline.
     samples=[call('phase_baseline',captured)]
     stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
+    publications=SourcePublicationTiming(enabled)
     def sampling():
         next_source=time.monotonic()
         try:
             while not stop.is_set():
                 if enabled and time.monotonic()>=next_source:
-                    if len(source_samples)>=64:raise ValueError('source_sample_budget')
-                    source_samples.append(sample_sources(compose,output));next_source+=5
+                    if len(source_samples)>=64:
+                        publications.begin(64)
+                        raise ValueError('source_sample_budget')
+                    publications.begin(len(source_samples))
+                    try:source_samples.append(sample_sources(compose,output,observer=publications.observe))
+                    finally:publications.end()
+                    next_source+=5
                 samples.append(captured())
                 stop.wait(min(2,max(0,next_source-time.monotonic())) if enabled else 2)
         except BaseException:errors.append('sampler_failed')
@@ -416,7 +491,7 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
     pressure=loadgen_cpu_pressure(samples)
     if pressure['state']!='unthrottled':errors.append('fixture_loadgen_cpu_'+pressure['state'])
-    return {'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'errors':errors}
+    return {'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'source_publication_timing':publications.value,'errors':errors}
 
 
 def await_collector(output):
@@ -495,6 +570,7 @@ def worker(output):
                         # Detailed windows stay in the already collected raw phase,
                         # avoiding twelve duplicate ledgers in the bounded summary.
                         measured['load'].pop('timing_diagnostics',None)
+                        measured.pop('source_publication_timing',None)
                         report['phases'].append(measured)
                         call('phase_report',pilot.write_json,output/'fullstack-proof.json',report,group=group,phase=index)
             # One explicitly accounted outage, then a fresh known probe after restart.

@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import time
+from unittest.mock import patch
 import unittest
 import source_cache
 sys.path.insert(0, str(source_cache.ROOT / 'scripts/observability-caddy-storage'))
@@ -15,6 +17,124 @@ def pg():
 
 
 class Sources(unittest.TestCase):
+    def test_observer_describes_actual_read_and_atomic_publication_without_changing_cache_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve();events=[];replaced=[];ticks=[]
+            def clock():
+                value=100+len(ticks);ticks.append(value);return value
+            callbacks={'postgres_read':lambda sql:pg(),'caddy_read':lambda:wire()+b'process_start_time_seconds 10\n','caddy_server':'srv0','clock':clock}
+            expected=source_cache.sample(output,**callbacks)
+            baseline={path.name:path.read_bytes() for path in output.iterdir()}
+            ticks.clear();replace=source_cache.os.replace
+            def actual_replace(source,target):
+                replace(source,target);replaced.append(time.monotonic()*1000)
+            def observe(row):
+                self.assertTrue((output/(row['source']+'-source.prom')).is_file())
+                events.append(row)
+            with patch.object(source_cache.os,'replace',side_effect=actual_replace):
+                result=source_cache.sample(output,**callbacks,observer=observe)
+            self.assertEqual(result,expected);self.assertEqual(ticks,[100,101])
+            self.assertEqual({path.name:path.read_bytes() for path in output.iterdir()},baseline)
+            self.assertEqual([row['source'] for row in events],['postgresql','caddy'])
+            for row,at,epoch in zip(events,replaced,(100,101)):
+                self.assertEqual(set(row),{'source','read_outcome','projection_state','publication_outcome','read_start_monotonic_ms','read_end_monotonic_ms','observed_at_seconds','publish_start_monotonic_ms','publish_end_monotonic_ms'})
+                self.assertEqual((row['read_outcome'],row['projection_state'],row['publication_outcome']),('completed','observed','completed'))
+                self.assertEqual(row['observed_at_seconds'],epoch)
+                self.assertLessEqual(row['read_start_monotonic_ms'],row['read_end_monotonic_ms'])
+                self.assertLessEqual(row['read_end_monotonic_ms'],row['publish_start_monotonic_ms'])
+                self.assertLessEqual(row['publish_start_monotonic_ms'],at)
+                self.assertLessEqual(at,row['publish_end_monotonic_ms'])
+
+    def test_default_observer_adds_no_diagnostic_clock_reads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ticks=[]
+            def clock(): ticks.append(100);return 100
+            with patch.object(source_cache.time,'monotonic',side_effect=AssertionError('diagnostic clock must stay disabled')):
+                value=source_cache.sample(Path(directory).resolve(),postgres_read=lambda sql:pg(),caddy_read=lambda:wire()+b'process_start_time_seconds 10\n',caddy_server='srv0',clock=clock)
+            self.assertEqual(value,{'postgresql':'observed','caddy':'observed'});self.assertEqual(ticks,[100,100])
+
+    def test_unavailable_rows_retain_the_original_gauge_clock_and_read_outcome(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve();events=[];ticks=[];bad=json.loads(pg());bad['rows'][0][4]=False
+            def clock(): value=100+len(ticks);ticks.append(value);return value
+            def failed(): raise RuntimeError('private-sentinel')
+            value=source_cache.sample(output,postgres_read=lambda sql:(json.dumps(bad)+'\n').encode(),caddy_read=failed,caddy_server='srv0',clock=clock,observer=events.append)
+            self.assertEqual(value,{'postgresql':'unavailable','caddy':'unavailable'});self.assertEqual(ticks,[100,101,102])
+            self.assertEqual([row['observed_at_seconds'] for row in events],[101,102])
+            self.assertEqual([row['read_outcome'] for row in events],['completed','failed'])
+            for row in events:
+                self.assertEqual((row['projection_state'],row['publication_outcome']),('unavailable','completed'))
+                text=(output/(row['source']+'-source.prom')).read_text()
+                self.assertIn('} '+str(row['observed_at_seconds'])+'\n',text)
+            self.assertNotIn('private-sentinel',json.dumps(events))
+
+    def test_primary_read_cancellation_and_real_publish_failure_survive_diagnostic_failure(self):
+        for primary_kind in ('read','replace'):
+            with self.subTest(primary_kind=primary_kind),tempfile.TemporaryDirectory() as directory:
+                output=Path(directory).resolve();failure=KeyboardInterrupt('private original') if primary_kind=='read' else OSError('private original')
+                def read(sql):
+                    if primary_kind=='read':raise failure
+                    return pg()
+                def diagnostic(row):raise SystemExit('private diagnostic')
+                replacement={'side_effect':failure} if primary_kind=='replace' else {'wraps':source_cache.os.replace}
+                # Keep the actual tempfile/write/fsync flow; fail only its OS replace boundary.
+                original_clock=time.monotonic
+                def diagnostic_clock():
+                    if source_cache.sys.exception() is failure:raise SystemExit('diagnostic cancellation')
+                    return original_clock()
+                with patch.object(source_cache.os,'replace',**replacement),patch.object(source_cache.time,'monotonic',side_effect=diagnostic_clock):
+                    with self.assertRaises(type(failure)) as caught:
+                        source_cache.sample(output,postgres_read=read,caddy_read=lambda:wire()+b'process_start_time_seconds 10\n',caddy_server='srv0',clock=lambda:100,observer=diagnostic)
+                self.assertIs(caught.exception,failure);self.assertEqual(list(output.iterdir()),[])
+
+    def test_original_clock_exception_identity_and_fallback_call_count_survive_observer_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            failure=RuntimeError('original clock failure');calls=[];events=[]
+            def clock():calls.append(1);raise failure
+            def diagnostic(row):events.append(row);raise RuntimeError('diagnostic failure')
+            with self.assertRaises(RuntimeError) as caught:
+                source_cache.sample(Path(directory).resolve(),postgres_read=lambda sql:pg(),caddy_read=lambda:wire()+b'process_start_time_seconds 10\n',caddy_server='srv0',clock=clock,observer=diagnostic)
+            self.assertIs(caught.exception,failure);self.assertEqual(calls,[1,1])
+            self.assertEqual(events[0]['projection_state'],'unknown');self.assertIsNone(events[0]['observed_at_seconds'])
+            self.assertEqual(events[0]['publication_outcome'],'not_attempted')
+
+    def test_uncaught_projection_exception_retains_identity_with_optional_observer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            failure=LookupError('original projection error');clocks=[]
+            def clock():clocks.append(100);return 100
+            def diagnostic(row):raise RuntimeError('diagnostic error')
+            with patch.object(source_cache.frame,'decode',side_effect=failure):
+                with self.assertRaises(LookupError) as caught:
+                    source_cache.sample(Path(directory).resolve(),postgres_read=lambda sql:pg(),caddy_read=lambda:wire()+b'process_start_time_seconds 10\n',caddy_server='srv0',clock=clock,observer=diagnostic)
+            self.assertIs(caught.exception,failure);self.assertEqual(clocks,[100]);self.assertEqual(list(Path(directory).iterdir()),[])
+
+    def test_diagnostic_unknown_clocks_and_ordinary_observer_failure_do_not_change_sources(self):
+        for invalid in (float('nan'),float('inf'),-1,True,'private-sentinel',RuntimeError('private-sentinel')):
+            with self.subTest(kind=type(invalid).__name__),tempfile.TemporaryDirectory() as directory:
+                events=[]
+                def clock():
+                    if isinstance(invalid,Exception):raise invalid
+                    return invalid
+                def diagnostic(row):events.append(row);raise RuntimeError('private-sentinel')
+                with patch.object(source_cache.time,'monotonic',side_effect=clock):
+                    value=source_cache.sample(Path(directory).resolve(),postgres_read=lambda sql:pg(),caddy_read=lambda:wire()+b'process_start_time_seconds 10\n',caddy_server='srv0',clock=lambda:100,observer=diagnostic)
+                self.assertEqual(value,{'postgresql':'observed','caddy':'observed'})
+                self.assertEqual(len(events),2)
+                for row in events:
+                    for key in ('read_start_monotonic_ms','read_end_monotonic_ms','publish_start_monotonic_ms','publish_end_monotonic_ms'):self.assertIsNone(row[key])
+                self.assertNotIn('private-sentinel',json.dumps(events))
+
+    def test_genuine_diagnostic_cancellation_without_primary_error_still_propagates(self):
+        for cancellation in (KeyboardInterrupt,SystemExit):
+            for where in ('clock','observer'):
+                with self.subTest(where=where,cancellation=cancellation.__name__),tempfile.TemporaryDirectory() as directory:
+                    failure=cancellation('owned cancellation')
+                    def interrupted(*args):raise failure
+                    with patch.object(source_cache.time,'monotonic',**({'side_effect':interrupted} if where=='clock' else {'wraps':time.monotonic})):
+                        with self.assertRaises(cancellation) as caught:
+                            source_cache.sample(Path(directory).resolve(),postgres_read=lambda sql:pg(),caddy_read=lambda:wire()+b'process_start_time_seconds 10\n',caddy_server='srv0',clock=lambda:100,observer=interrupted if where=='observer' else lambda row:None)
+                    self.assertIs(caught.exception,failure)
+
     def test_fixed_ordinary_role_contract_and_native_cache_contain_only_closed_observations(self):
         sql = source_cache.postgres_sql()
         self.assertIn("(current_database() = 'inside')", sql)
