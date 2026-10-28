@@ -360,13 +360,27 @@ export async function previewRelease(
     );
     const alreadyPublic = publicationConflictFound !== undefined;
     // A protected recording serves either access, so an access change keeps the Video (ADR 0041).
-    // The target refuses to close a Material whose recording sits in the public project.
+    // A public recording cannot be closed, and a target before ADR 0041 cannot change the access
+    // of a Material with a Video at all; both refuse the Save, so the preview names them first.
     const currentAccess = current.metadata.access ?? entry.access;
+    const keptProtection =
+      current.primaryVideoId !== null && attached === current.primaryVideoId
+        ? current.primaryVideo?.protected
+        : true;
+    const videoAccessConflict =
+      currentAccess === undefined || currentAccess === item.access
+        ? undefined
+        : keptProtection === undefined
+          ? "video_access_change"
+          : !keptProtection && item.access === "closed"
+            ? "video_not_protected"
+            : undefined;
     // On 2026-10-19 an older prepared package replaced newer content; history decides instead.
     const recordedCommit = current.source?.["commit"];
     const commitConflictFound = await commitConflict(recordedCommit);
     const change =
       current.contentVersion !== entry.contentVersion ||
+      videoAccessConflict !== undefined ||
       alreadyPublic ||
       commitConflictFound !== undefined
         ? "conflict"
@@ -399,6 +413,7 @@ export async function previewRelease(
           }
         : {}),
       ...(commitConflictFound ? { conflictReason: commitConflictFound } : {}),
+      ...(videoAccessConflict ? { conflictReason: videoAccessConflict } : {}),
       ...(publicationConflictFound
         ? { conflictReason: publicationConflictFound.code }
         : {}),

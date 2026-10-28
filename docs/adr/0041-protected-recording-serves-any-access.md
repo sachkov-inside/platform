@@ -30,6 +30,11 @@ Material accepts a recording from either project. The public project keeps exist
 and new attachments of public recordings by ID, which play without a token and can never serve a
 closed Material. Platform refuses a recording from any other project.
 
+`authoring:release` treats an access change like any other content change. Its preview still names
+two cases the target would refuse: `video_not_protected` when a lesson with a public recording
+would close, and `video_access_change` for any access change of a lesson with a Video on a target
+that predates this decision (it reports no protection for the recording).
+
 ## Considered alternative
 
 Kinescope can move a video between projects (`PUT /v1/videos/:video_id/move`) and keeps its ID.
@@ -49,6 +54,8 @@ make the move.
   without a token.
 - A rollback to a release before this decision fails closed: older code compares stored access with
   the Material's access, refuses playback of a protected recording on a free lesson and does not
-  open anything.
+  open anything. A retried upload of a free lesson started under this decision then answers
+  `idempotency_key_reused`, because older code expects the public project; the author starts a new
+  upload.
 - Changing the protected project ID does not move earlier recordings; their stored protection keeps
   their playback, and a new Save of their Material checks the configured projects again.

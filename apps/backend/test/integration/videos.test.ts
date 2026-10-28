@@ -439,6 +439,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       ok: true,
       value: {
         origin: "platform_upload",
+        protected: true,
         state: "uploading",
         title: "Interrupted lesson",
         videoId: first.value.video.videoId,

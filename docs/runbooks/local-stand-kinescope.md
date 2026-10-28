@@ -51,6 +51,29 @@ by `refresh` returns every role to the deterministic test adapter.
   `authoring:video upload --target stand … --replace-test-upload`, so the journal drops its
   test-adapter receipt, then sync the lesson.
 
+## Course recordings from the public project
+
+Before [ADR 0041](../adr/0041-protected-recording-serves-any-access.md) the stand's first chapter was
+free, so its uploads went to the public project. Such a recording cannot serve a closed lesson: once
+the course profile keeps Content's access, the release preview names the lesson with
+`video_not_protected` and changes nothing. List those lessons on the stand (read-only):
+
+```bash
+docker exec inside-platform-postgres-1 sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "select m.source_id, v.provider_video_id from materials.materials m join videos.videos v on v.id = m.primary_video_id where v.access = '"'"'free'"'"' and m.source_id is not null"'
+```
+
+For each lesson, give it a protected recording and let the ordinary sync replace the Video:
+
+1. When production already holds a protected recording of the same master, use its provider ID.
+   Otherwise upload the master once with `authoring:video upload --target stand` from a source that
+   contains ADR 0041; the upload lands in the membership project.
+2. Record the ID in the lesson source as `platform_video.kinescope_id` and commit it
+   ([contract](video-authoring.md#one-recording-for-stand-and-production)).
+3. Run the course sync. The release attaches the protected recording, selects it and applies the
+   lesson's access in one Save; production later attaches the same ID.
+4. The old public copies stay in Kinescope, because the stand never deletes provider videos. The
+   owner removes them in the dashboard once no target references them.
+
 ## Risk of the production token
 
 The production token can also delete: Kinescope documents no read-and-upload-only token for both

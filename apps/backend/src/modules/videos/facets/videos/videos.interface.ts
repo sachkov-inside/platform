@@ -29,6 +29,8 @@ export const videoPresentationSchema = z
 export const videoAuthoringPresentationSchema = videoPresentationSchema
   .extend({
     origin: videoOriginSchema,
+    /** Plays only with a Platform token, so it serves a free or a closed Material (ADR 0041). */
+    protected: z.boolean(),
   })
   .strict();
 export const videoDtoSchema = videoAuthoringPresentationSchema

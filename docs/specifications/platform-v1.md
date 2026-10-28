@@ -1229,7 +1229,7 @@ owns editor and source-authoring instructions.
 11. Reader сначала получает только safe Video presentation. При открытии страницы автоматически
     запрашивается playback session; до её allow нет iframe, provider script/request, locator или token.
     Playback session повторно вызывает exact `ContentAccess`
-    `play`; каждая защищённая запись получает short-lived JWT, в том числе для anonymous зрителя
+    `play`; каждая защищённая запись получает short-lived JWT, в том числе для анонимного зрителя
     free Material (пустой `sub`), а strict provider authorization callback ещё раз проверяет token,
     Video mapping и current access Material. Mismatch, tampering, expiry и outage deny.
     Platform-owned responsive frame загружает плеер без дополнительной кнопки и без autoplay;

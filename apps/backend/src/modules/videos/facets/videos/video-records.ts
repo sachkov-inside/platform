@@ -104,10 +104,12 @@ export function toDto(video: {
   failureCode: string | null;
   durationSeconds: number | null;
 }): VideoDto {
+  const access = videoAccessSchema.parse(video.access);
   return videoDtoSchema.parse({
-    access: videoAccessSchema.parse(video.access),
+    access,
     materialId: videoMaterialIdSchema.parse(video.materialId),
     origin: video.origin,
+    protected: access === "closed",
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
@@ -119,6 +121,7 @@ export function toDto(video: {
 }
 
 export function toAuthoringPresentation(video: {
+  readonly access: string;
   readonly failureCode: string | null;
   readonly durationSeconds: number | null;
   readonly id: string;
@@ -128,6 +131,7 @@ export function toAuthoringPresentation(video: {
 }) {
   return videoAuthoringPresentationSchema.parse({
     origin: video.origin,
+    protected: videoAccessSchema.parse(video.access) === "closed",
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),

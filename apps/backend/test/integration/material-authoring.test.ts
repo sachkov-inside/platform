@@ -742,6 +742,7 @@ describe("MaterialAuthoring", () => {
           ok: true as const,
           value: {
             origin: "platform_upload" as const,
+            protected: false,
             state: "ready" as const,
             title:
               videoId === firstVideoId ? "First Video" : "Replacement Video",

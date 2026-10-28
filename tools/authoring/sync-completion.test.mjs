@@ -170,6 +170,7 @@ async function fixture(t) {
  *   providerVideoId: string;
  *   state: string;
  *   reconciles: number;
+ *   protected?: boolean;
  * }} FakeVideo
  * @typedef {{
  *   artifactId: string;
@@ -363,8 +364,17 @@ function applicationApi() {
         return found;
       };
       let match;
-      if ((match = /^\/authoring\/materials\/([^/]+)$/u.exec(path)))
-        return structuredClone(byId(match[1]));
+      if ((match = /^\/authoring\/materials\/([^/]+)$/u.exec(path))) {
+        const material = structuredClone(byId(match[1]));
+        const video =
+          material.primaryVideoId === null
+            ? undefined
+            : videos.get(material.primaryVideoId);
+        // A target before ADR 0041 reports no protection; this double omits it on request.
+        return video === undefined || video.protected === undefined
+          ? material
+          : { ...material, primaryVideo: { protected: video.protected } };
+      }
       if (path === "/authoring/import/materials/apply") {
         const command = materialApplyRequest({ path, body })?.body;
         assert.ok(command);
@@ -408,6 +418,7 @@ function applicationApi() {
           providerVideoId,
           state: "processing",
           reconciles: 0,
+          protected: true,
         };
         videos.set(video.videoId, video);
         return structuredClone(video);
@@ -1240,6 +1251,56 @@ test("release preview reports an access change of a lesson with a Video like any
   assert.ok(replaced);
   assert.equal(replaced.conflictReason, undefined);
   assert.deepEqual(replaced.accessChange, { from: "closed", to: "free" });
+});
+
+test("release preview refuses to close a public recording and any access change on an older target", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  const attachedVideo = valueAt(
+    api.videos,
+    valueAt(api.materials, "inside-content:video").primaryVideoId,
+  );
+  const preview = async () =>
+    (
+      await previewRelease(setup.packagePath, setup.state, {
+        publish: "all",
+        origin,
+        request: api.request,
+      })
+    ).preview.materials.find((item) => item.sourceId === "video");
+
+  // A recording in the public project plays without a token: the lesson opens but never closes.
+  attachedVideo.protected = false;
+  itemAt(setup.manifest.materials, 1).access = "free";
+  await setup.write();
+  const opened = await preview();
+  assert.equal(opened?.change, "changed");
+  assert.equal(opened?.conflictReason, undefined);
+  const free = await applyRelease(
+    (
+      await previewRelease(setup.packagePath, setup.state, {
+        publish: "all",
+        origin,
+        request: api.request,
+      })
+    ).path,
+    setup.state,
+    { request: api.request },
+  );
+  assert.ok(free);
+  itemAt(setup.manifest.materials, 1).access = "closed";
+  await setup.write();
+  const closing = await preview();
+  assert.equal(closing?.change, "conflict");
+  assert.equal(closing?.conflictReason, "video_not_protected");
+
+  // A target before ADR 0041 cannot change the access of a lesson with a Video at all.
+  delete attachedVideo.protected;
+  const older = await preview();
+  assert.equal(older?.change, "conflict");
+  assert.equal(older?.conflictReason, "video_access_change");
 });
 
 test("the local product view pins the transferred product on Home once", async (t) => {
