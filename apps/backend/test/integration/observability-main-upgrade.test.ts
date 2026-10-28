@@ -282,8 +282,8 @@ it.each([
     target: frozenRegistry("legacy116"),
   },
   {
-    label: "currentCanonical125",
-    prefix: platformMigrations.slice(0, 125),
+    label: "currentCanonical126",
+    prefix: platformMigrations.slice(0, 126),
     target: platformMigrations,
   },
 ] as const)(
@@ -362,8 +362,8 @@ it.each([
     target: frozenRegistry("legacy116"),
   },
   {
-    label: "currentCanonical126",
-    prefix: platformMigrations.slice(0, 126),
+    label: "currentCanonical127",
+    prefix: platformMigrations.slice(0, 127),
     target: platformMigrations,
   },
 ] as const)(
