@@ -52,6 +52,9 @@ function sample(){
  {metric:{job:'source_cache_sample_time',source},value:[1000,'998.5']},
  ])},stats:{seriesFetched:'2',executionTimeMsec:1}};
  const rows=value.data.result;
+ if(setup.kind==='during_scrape'){rows[0].value[1]='999.9';rows[1].value[1]='999.8';}
+ if(setup.kind==='future_value')rows[0].value[1]='1000.1';
+ if(setup.kind==='fractional_stats')value.stats.executionTimeMsec=1.5;
  if(setup.kind==='wrong_source')rows[0].metric.source='private-source';
  if(setup.kind==='private_label')rows[0].metric.private='private-sentinel';
  if(setup.kind==='extra')value.private='private-sentinel';
@@ -122,6 +125,20 @@ class SourceAgeDiagnostic(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(leaf).encode()),1024)
         self.assertTrue(all(timeout==2000 for timeout in calls['timeouts']))
 
+    def test_source_observation_can_follow_scrape_start_before_evaluation(self):
+        value,calls=self.client('during_scrape')
+        self.assertFalse(value['completed'])
+        self.assertEqual(value['source_cache_failure_counts'],{'stale':2})
+        self.assertEqual(calls['diagnostic_calls'],1)
+        leaf=value['source_cache_sample_diagnostic']
+        self.assertEqual(leaf['state'],'observed')
+        self.assertEqual(leaf['reason'],'observed')
+        self.assertEqual(leaf['evaluation_seconds'],1000)
+        sample=leaf['sources']['postgresql']
+        self.assertEqual(sample['sample_value_seconds'],999.9)
+        self.assertEqual(sample['sample_time_seconds'],999.8)
+        self.assertAlmostEqual(sample['sample_age_seconds'],0.2)
+
     def test_success_admission_and_nonstale_failure_never_issue_sample_request(self):
         value,calls=self.client('success')
         self.assertTrue(value['completed']);self.assertEqual(calls['diagnostic_calls'],0)
@@ -138,7 +155,7 @@ class SourceAgeDiagnostic(unittest.TestCase):
     def test_bad_native_sample_cannot_erase_original_failure_or_trigger_retry(self):
         cases={'wrong_source':'labels','private_label':'labels','extra':'schema','duplicate':'duplicate',
                'missing':'missing','nonfinite':'numeric','wrong_cut':'evaluation','old_sample':'numeric',
-               'future':'numeric','oversize':'transport','query_failure':'http','timeout':'transport','throw':'transport'}
+               'future':'numeric','future_value':'numeric','fractional_stats':'schema','oversize':'transport','query_failure':'http','timeout':'transport','throw':'transport'}
         for kind,reason in cases.items():
             with self.subTest(kind=kind):
                 value,calls=self.client(kind,rounds=3)

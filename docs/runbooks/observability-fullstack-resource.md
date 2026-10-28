@@ -25,8 +25,10 @@ raw sample timestamp в **значении** ряда, не в его vector tim
 семантика описана в [MetricsQL](https://docs.victoriametrics.com/metricsql/#timestamp).
 Публичный `source_cache_sample_diagnostic` ограничен 1 KiB: конечные state/reason/status,
 cut и numeric sample value/time/age только для PostgreSQL и Caddy. Sample age равен
-`cut - sample_time`; прежний source age и его gate остаются отдельными. Missing, дубликаты,
-лишние или private поля, неверные числа, transport failure и переполнение дают `unavailable`
+`cut - sample_time`; прежний source age и его gate остаются отдельными.
+Значение source observation может быть позже sample time, назначенного в начале scrape,
+но оба времени должны быть не позже evaluation cut.
+Missing, дубликаты, лишние или private поля, неверные числа, transport failure и переполнение дают `unavailable`
 с `null`, а не выдуманные нули. Raw payload, labels, URL, ключ и текст ошибки не публикуются.
 Диагностика остаётся в raw phase JSON и исключается из сводки вместе с подробными окнами.
 

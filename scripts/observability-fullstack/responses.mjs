@@ -580,10 +580,11 @@ export function sourceCacheSampleObservation(response, cut) {
     const timestamp = values[source + ":source_cache_sample_time"];
     if (value === undefined || timestamp === undefined)
       return refuse("missing");
+    // The gauge can update after scrape start; neither time may exceed the native cut.
     if (
       timestamp > evaluation ||
       timestamp < evaluation - 30 ||
-      value > timestamp
+      value > evaluation
     )
       return refuse("numeric");
   }
