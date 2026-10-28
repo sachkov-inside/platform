@@ -130,11 +130,38 @@ def owner_matches(output,value):
     return owner
 
 
+def recovery_preflight(output,source,value):
+    """Pure receipt validation must precede every cleaner/worker signal or engine."""
+    owner=owner_matches(output,value)
+    require(owner['source_sha']==source['commit'] and owner['source_tree']==source['tree'] and owner['profile_id']==source['profile_id']==PROFILE)
+    plan=evidence.read(output/'compose.json');lifecycle.plan_profile(plan,PROFILE)
+    require(lifecycle.digest(output/'compose.json')==owner['plan_sha256'])
+    expected=lifecycle.make_plan(output,lifecycle.verify_packet(PROFILE)['images'],value['project'],value['nonce'],os.getuid(),os.getgid(),profile_id=PROFILE)
+    require(plan==expected)
+    prior_path=output/'resources.json'
+    prior=evidence.read(prior_path) if prior_path.exists() or prior_path.is_symlink() else None
+    if prior is None:return
+    require(type(prior) is dict and set(prior)=={'project','nonce','profile_id','containers','created','volumes','networks'})
+    require(all(prior[k]==value[k] for k in ('project','nonce','profile_id')))
+    require(all(type(prior[k]) is dict for k in ('containers','created','volumes','networks')))
+    require(set(prior['containers'])<=set(ROLES) and set(prior['created'])==set(prior['containers']))
+    require(all(type(cid) is str and re.fullmatch('[a-f0-9]{64}',cid) for cid in prior['containers'].values()))
+    require(len(set(prior['containers'].values()))==len(prior['containers']))
+    require(all(type(created) is str and 0<len(created)<=200 for created in prior['created'].values()))
+    require(set(prior['volumes'])<={v['name'] for v in plan['volumes'].values()})
+    for name,identity in prior['volumes'].items():
+        require(type(identity) is dict and set(identity)=={'Name','CreatedAt','Mountpoint','Driver'}
+                and identity['Name']==name and identity['Driver']=='local')
+        require(all(type(v) is str and 0<len(v)<=4096 for v in identity.values()))
+    require(set(prior['networks'])<={v['name'] for v in plan['networks'].values()})
+    require(all(type(nid) is str and re.fullmatch('[a-f0-9]{64}',nid) for nid in prior['networks'].values()))
+
+
 def recover(output,deadline=None):
     if not output.exists():return {'passed':False,'state':'component_output_unavailable'}
     source,value=request(output)
-    if (output/'owner.json').exists():
-        owner_matches(output,value)
+    if (output/'owner.json').exists() or (output/'owner.json').is_symlink():
+        recovery_preflight(output,source,value)
         if (output/'component-cleaner.json').exists():runtime.stop_worker(evidence.read(output/'component-cleaner.json'))
         return runtime.recover(output,deadline,profile_id=PROFILE)
     # Registration precedes even the initial engine freeze and owner receipt.
@@ -216,7 +243,7 @@ def registered_phase(output,phase):
         if registration.exists() and evidence.read(registration)==expected:break
         time.sleep(.01)
     else:raise ValueError('registered_component_worker_required')
-    if (output/'owner.json').exists():
+    if (output/'owner.json').exists() or (output/'owner.json').is_symlink():
         owner=owner_matches(output,value);require(owner['supervisor_pid']==os.getppid())
     return source,value,deadline
 
@@ -287,7 +314,7 @@ def worker(output,phase):
     if phase=='cleanup':
         # The cleaner has its own registration. Original recovery must stop only
         # the already-stopped setup/measurement worker, never its own session.
-        owner_matches(output,value) if (output/'owner.json').exists() else None
+        if (output/'owner.json').exists() or (output/'owner.json').is_symlink():recovery_preflight(output,source,value)
         result=runtime.recover(output,deadline,profile_id=PROFILE)
         lifecycle.private_json(output/'component-cleanup.json',{'schema':1,'passed':result['passed']})
         return 0 if result['passed'] else 1

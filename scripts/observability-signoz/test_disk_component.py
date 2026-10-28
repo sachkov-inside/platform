@@ -335,3 +335,38 @@ r=Path(__file__).parent;(r/'entered').touch();time.sleep(30)
             with patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'verify_source'),patch.object(runtime,'recover',return_value={'passed':True}) as recovery:
                 self.assertTrue(component.recover(output)['passed'])
                 recovery.assert_called_once_with(output,None,profile_id=component.PROFILE)
+
+    def test_recovery_preflights_plan_and_partial_registry_before_any_signal(self):
+        import copy
+        for changed in ('compose','digest','compose_and_digest','profile_id','project','nonce','owner_symlink','resources_symlink'):
+            with self.subTest(changed=changed),tempfile.TemporaryDirectory() as tmp:
+                output=Path(tmp).resolve();collection_fixture(output)
+                lifecycle.private_json(output/'component-cleaner.json',{'pid':12345,'group':12345,'start_ticks':'owned'})
+                if changed in ('compose','compose_and_digest'):
+                    plan=evidence.read(output/'compose.json');plan['services']['disk']['command']=['changed-command']
+                    lifecycle.private_json(output/'compose.json',plan)
+                    if changed=='compose_and_digest':
+                        owner=evidence.read(output/'owner.json');owner['plan_sha256']=lifecycle.digest(output/'compose.json');lifecycle.private_json(output/'owner.json',owner)
+                elif changed=='digest':
+                    owner=evidence.read(output/'owner.json');owner['plan_sha256']='f'*64;lifecycle.private_json(output/'owner.json',owner)
+                elif changed in ('owner_symlink','resources_symlink'):
+                    name='owner.json' if changed=='owner_symlink' else 'resources.json'
+                    (output/name).unlink();(output/name).symlink_to(output/'missing-private-receipt')
+                else:
+                    registry=evidence.read(output/'resources.json');registry[changed]={'profile_id':lifecycle.BASELINE_PROFILE,'project':'signoz1566-'+'f'*12,'nonce':'f'*32}[changed];lifecycle.private_json(output/'resources.json',registry)
+                with patch.object(runtime,'verify_source'),patch.object(runtime,'stop_worker') as stop,patch.object(runtime,'engine') as engine,patch.object(component,'component_engine') as current,patch.object(runtime,'recover') as delegated,patch.object(lifecycle,'acquire_image') as acquire:
+                    with self.assertRaises((ValueError,lifecycle.Refusal,OSError)):component.recover(output)
+                    stop.assert_not_called();engine.assert_not_called();current.assert_not_called();delegated.assert_not_called();acquire.assert_not_called()
+        for state in ('partial','absent'):
+            with self.subTest(valid=state),tempfile.TemporaryDirectory() as tmp:
+                output=Path(tmp).resolve();collection_fixture(output)
+                cleaner={'pid':12345,'group':12345,'start_ticks':'owned'};lifecycle.private_json(output/'component-cleaner.json',cleaner)
+                if state=='absent':(output/'resources.json').unlink()
+                else:
+                    registry=copy.deepcopy(evidence.read(output/'resources.json'))
+                    registry['containers']={'disk':registry['containers']['disk']};registry['created']={'disk':registry['created']['disk']}
+                    registry['volumes']={next(iter(registry['volumes'])):next(iter(registry['volumes'].values()))};registry['networks']={}
+                    lifecycle.private_json(output/'resources.json',registry)
+                with patch.object(runtime,'verify_source'),patch.object(runtime,'stop_worker') as stop,patch.object(runtime,'recover',return_value={'passed':True}) as delegated,patch.object(component,'require_opt_in',side_effect=AssertionError('cleanup must ignore marker')):
+                    self.assertTrue(component.recover(output)['passed'])
+                    stop.assert_called_once_with(cleaner);delegated.assert_called_once_with(output,None,profile_id=component.PROFILE)
