@@ -709,5 +709,9 @@ export const WaitlistExistingWithLearning: Story = {
       page.queryByRole("button", { name: /список ожидания/u }),
     ).toBeNull();
     await expect(page.queryByText("Отказаться от ожидания")).toBeNull();
+    await expect(
+      canvasElement.querySelector<HTMLElement>(".aie-status") ??
+        fail("Нижний блок"),
+    ).not.toBeVisible();
   },
 };

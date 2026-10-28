@@ -80,7 +80,7 @@ export function AiEngineeringCourseView({
   readonly result: ResolvedProductResult;
   readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
-  /** Личное действие обучения или плашка набора вместо вступления нижнего блока. */
+  /** Плашка набора вместо вступления нижнего блока или метка участника, убирающая блок. */
   readonly statusCall?: ReactNode;
   /** Действие обучения на анимации или наклейка «до старта N дней». */
   readonly heroBadge?: ReactNode;
