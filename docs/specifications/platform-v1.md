@@ -487,7 +487,8 @@ access by itself. Programme placements independently reference catalogue members
 The same Material may appear multiple times within or across chapters; its body and studied mark remain shared.
 Chapter attachments are ordered references to catalogue members outside the mandatory programme. They can also
 reference programme Materials. The sidebar shows the current chapter's “Дополнительные материалы”, not the
-entire catalogue. An active reference remains reachable while retaining its originating lesson context.
+entire catalogue. Lists of more than three attachments initially show the first three and offer a control to
+show or hide the rest. An active reference remains reachable while retaining its originating lesson context.
 The programme shows attachments beside their chapter, and its Materials tab shows the complete catalogue.
 No navigation rule selects Materials by slug. Project and Brief are ordinary first-chapter attachments.
 Counts derive from programme placements; progress counts distinct programme Materials. Attachments do not
@@ -1858,7 +1859,7 @@ group and starting learning. Explicit programme return links keep their target. 
 remain available. Completed onboarding disappears from desktop and mobile navigation.
 Learning-start persistence is independent of the current lesson composition.
 
-[The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)
+[The access model](../product/access-model.md#product-community-and-revocation-owner-decision-2026-10-14)
 owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
 owns the module boundary and historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the legal edition for this model is purchase

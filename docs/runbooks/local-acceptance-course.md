@@ -13,10 +13,10 @@ The source repository can be selected with `--content PATH`;
 
 The local preview leaves the original package and Content files unchanged. It creates a separately
 hashed package using the explicit acceptance profile for #1284: all materials in `project-setup`
-are free; materials in `mvp-platform`, `team-agent-infrastructure`, `business-agent`,
-`quality-and-production` and supplementary materials are closed. The profile requires that exact
-five-chapter programme in that order and a nonempty `project-setup`; it refuses an unknown programme
-until its profile is reviewed. Source IDs and chapter composition remain unchanged. Practice definitions are published only
+are free; materials in the other chapters and supplementary materials are closed. The profile
+requires the exact chapter list `chapterIds` in `tools/authoring/course-preview.mjs`, in that order,
+and a nonempty `project-setup`; it refuses an unknown programme until its profile is reviewed.
+Source IDs and chapter composition remain unchanged. Practice definitions are published only
 in this local copy, while lesson editorial stages stay unchanged. Task access and publication state
 remain authored; this profile does not choose access for Tasks. The receipt records both package
 paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;

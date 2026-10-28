@@ -272,7 +272,8 @@ describe("toolchain contract", () => {
       ...record(manifest["devDependencies"]),
     });
     expect(scripts.get("lint")).toBe("pnpm --dir ../.. lint");
-    expect(dependencies).toEqual(
+    const root = json("../../package.json");
+    expect(Object.keys(record(root["devDependencies"]))).toEqual(
       expect.arrayContaining(["oxlint", "oxlint-tsgolint"]),
     );
     expect(dependencies.filter((name) => /eslint|dotenv/.test(name))).toEqual(

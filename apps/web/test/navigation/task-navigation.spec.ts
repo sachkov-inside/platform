@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
 import { z } from "zod";
+import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
 import {
   protectedTaskMarker,
   taskNavigationSlug,
@@ -50,8 +51,9 @@ function intentSettled(page: Page): Promise<Request> {
   });
 }
 
-/** RuntimeShell must finish before intent upgrades the task to its public page projection. */
+/** App Shell must finish before intent upgrades the task to its public page projection. */
 async function installShellProbe(page: Page) {
+  await page.addInitScript(installAppShellPrefetchClassifier);
   await page.addInitScript(() => {
     const shells: string[] = [];
     Reflect.set(window, "__taskPrefetchedShells", shells);
@@ -61,7 +63,7 @@ async function installShellProbe(page: Page) {
         init?.headers ?? (input instanceof Request ? input.headers : undefined),
       );
       const response = nativeFetch(input, init);
-      if (headers.get("next-router-prefetch") === "3") {
+      if (window.__isAppShellPrefetch(headers)) {
         void response
           .then(async (answer) => {
             await answer.clone().arrayBuffer();

@@ -1,4 +1,7 @@
-import { FileText } from "lucide-react";
+"use client";
+
+import { useId, useState } from "react";
+import { ChevronDown, FileText } from "lucide-react";
 import type { Route } from "next";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import {
@@ -22,10 +25,30 @@ export function CourseReferenceNavigation({
 }) {
   if (references.length === 0) return null;
   return (
+    <ReferenceList
+      key={JSON.stringify(references.map((reference) => reference.id))}
+      references={references}
+      activeReferenceId={activeReferenceId}
+      courseHref={courseHref}
+      anchor={anchor}
+    />
+  );
+}
+
+function ReferenceList({
+  references,
+  activeReferenceId,
+  courseHref,
+  anchor,
+}: Parameters<typeof CourseReferenceNavigation>[0]) {
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
+  const visibleReferences = expanded ? references : references.slice(0, 3);
+  return (
     <nav aria-label="Дополнительные материалы" className={styles["references"]}>
       <h2>Дополнительные материалы</h2>
-      <ul>
-        {references.map((reference) => (
+      <ul id={listId}>
+        {visibleReferences.map((reference) => (
           <li key={reference.id}>
             <IntentPrefetchLink
               href={
@@ -45,6 +68,19 @@ export function CourseReferenceNavigation({
           </li>
         ))}
       </ul>
+      {references.length > 3 ? (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          onClick={() => {
+            setExpanded((value) => !value);
+          }}
+        >
+          <ChevronDown aria-hidden="true" size={16} />
+          {expanded ? "Скрыть" : "Показать ещё"}
+        </button>
+      ) : null}
     </nav>
   );
 }

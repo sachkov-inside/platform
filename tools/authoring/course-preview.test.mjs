@@ -84,6 +84,7 @@ function fixture() {
             "agent-rag",
             "agent-security",
             "quality-and-production",
+            "cloud-agents",
           ].map((sourceId) => ({
             sourceId,
             title: sourceId,
@@ -156,15 +157,32 @@ test("unknown course programmes cannot inherit the local access profile", () => 
   assert.equal(original.materials[0]?.access, null);
 });
 
+test("the eight-chapter programme without cloud agents cannot inherit the local access profile", () => {
+  const original = fixture();
+  const product = original.products[0];
+  assert.ok(product);
+  product.chapters = product.chapters.filter(
+    (chapter) => chapter.sourceId !== "cloud-agents",
+  );
+  assert.throws(
+    () => coursePreviewManifest(original),
+    /unknown course programme/u,
+  );
+  assert.equal(original.materials[0]?.access, null);
+});
+
 test("the superseded five-chapter outline cannot inherit the current local profile", () => {
   const original = fixture();
   const product = original.products[0];
   assert.ok(product);
   product.chapters = product.chapters.filter(
     (chapter) =>
-      !["production-release", "agent-rag", "agent-security"].includes(
-        chapter.sourceId,
-      ),
+      ![
+        "production-release",
+        "agent-rag",
+        "agent-security",
+        "cloud-agents",
+      ].includes(chapter.sourceId),
   );
   assert.throws(
     () => coursePreviewManifest(original),

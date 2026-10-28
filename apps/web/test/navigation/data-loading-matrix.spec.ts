@@ -9,6 +9,7 @@ import { z } from "zod";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
 
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT required");
@@ -117,6 +118,7 @@ async function save(label: string, value: unknown) {
 }
 
 async function instrument(page: Page) {
+  await page.addInitScript(installAppShellPrefetchClassifier);
   await page.addInitScript(() => {
     const events: {
       kind: string;
@@ -148,7 +150,7 @@ async function instrument(page: Page) {
       const headers = new Headers(
         init?.headers ?? (input instanceof Request ? input.headers : undefined),
       );
-      if (headers.get("next-router-prefetch") === "3" && response.ok)
+      if (window.__isAppShellPrefetch(headers) && response.ok)
         void response
           .clone()
           .arrayBuffer()
@@ -341,19 +343,12 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
         const bodyReady = await page.evaluate(() => performance.now());
         if (role === "active-owner") {
           await expect(landing.locator(".aie-cohort-status")).toHaveCount(0);
-          for (const selector of [
-            ".aie-learning-film",
-            ".aie-learning-status",
-          ]) {
-            await expect(
-              landing
-                .locator(selector)
-                .getByRole("link", { name: "Продолжить обучение" }),
-            ).toHaveAttribute("href", "/products/performance-course/programme");
-          }
           await expect(
-            landing.locator(".aie-status-lead .aie-status-default"),
-          ).toBeHidden();
+            landing
+              .locator(".aie-learning-film")
+              .getByRole("link", { name: "Продолжить обучение" }),
+          ).toHaveAttribute("href", "/products/performance-course/programme");
+          await expect(landing.locator(".aie-status")).toBeHidden();
         } else {
           await expect(
             landing.locator(".aie-cohort-status").filter({ visible: true }),

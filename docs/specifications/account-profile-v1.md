@@ -24,7 +24,16 @@ Author submission views use only the current active Account Profile display name
 author's current permission. Telegram display names do not fill a missing or disabled profile name;
 biography, avatar and the private profile projection are never returned to the author.
 
-## Sign-in email
+## Current availability
+
+Owner decision of 28 October 2026 (#1785): sign-in currently uses Telegram only.
+The cabinet does not render the sign-in email panel or request `/api/account/email`.
+Profile editing, Telegram contact data, purchases and accepted documents remain available.
+Billing Contact and Order Email are separate and keep their existing behaviour.
+The provider/BFF implementation below is retained for future re-enablement; it is not an
+available cabinet flow while email sign-in is disabled.
+
+## Sign-in email (retained implementation)
 
 The profile email is Logto's current primary email, read with a user-scoped opaque OIDC token.
 A new address is limited to 128 characters, matching the pinned provider field.
@@ -82,7 +91,7 @@ accepted production modules. No new shared visual system is introduced.
 ## Cabinet presentation
 
 The profile editor is the primary task. Show it in a distinct personal-details section, followed
-by one contacts/access section containing email and Telegram. Learning continuation, purchases
+by one contacts/access section containing Telegram (and email only when that flow is enabled). Learning continuation, purchases
 and documents are supporting sections after settings. Telegram uses the same neutral surfaces
 and shared buttons as email; a provider-specific colored panel must not dominate the page.
 Use spacing and bounded groups rather than repeated full-width horizontal rules. Preserve this
