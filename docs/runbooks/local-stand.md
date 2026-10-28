@@ -62,11 +62,37 @@ uses the existing stand bootstrap below. Switching an existing managed stand
 rebuilds the shared application image and recreates its application roles, including the local
 account gateway, without rerunning migrations, seed or identity bootstrap. Infrastructure stays up.
 The source migration files, migration engine, backend manifest, dependency lockfile, infrastructure
-configuration and identity settings must match the recorded stand. Different versions require a separate owner-directed handoff; the controller does
-not migrate backwards, infer compatibility or erase volumes. The initial version conservatively
-requires a handoff for dependency lockfile changes because database dependencies can change their
-own schema. Image builds retain the existing disk budget. Development mode and production-Web mode
+configuration and identity settings must match the recorded stand. `show` and `refresh` refuse a
+different schema or infrastructure; the owner-requested [upgrade](#upgrade-to-newer-schema-or-infrastructure)
+moves the stand forward. The controller does not migrate backwards, infer compatibility or erase
+volumes. A dependency lockfile change counts as a schema change because database dependencies can
+change their own schema. Image builds retain the existing disk budget. Development mode and production-Web mode
 retain their existing runtime limits.
+
+### Upgrade to newer schema or infrastructure
+
+```bash
+pnpm stand upgrade --worktree <path>
+```
+
+Use it when the owner asks for the running stand on newer code whose migrations or infrastructure
+differ, for example current `main`. It keeps accounts, purchases and progress. It requires a ready
+managed stand, the reservation rules of `show` (`--replace` included) and unchanged identity
+settings; identity changes and unmanaged stacks keep the handoff procedure below.
+
+1. It records the incomplete upgrade, then dumps both database clusters (`pg_dumpall`, gzip) to
+   `inside-platform-stand/backups/<generation>/` under the shared Git common directory, mode `0600`.
+2. It builds the selected source's images and runs the `migrations` job once. The migration engine
+   refuses a database ledger that is not a prefix of the source's registry, so only forward
+   migrations apply. Seed and the identity bootstrap do not run.
+3. Compose replaces only infrastructure services whose configuration or image changed (volumes stay
+   attached), then recreates every application role, and the controller records the new receipt.
+
+Until it finishes, `status` reports `recovery` and `show`/`refresh` refuse. Rerun the same
+`upgrade` after a failure: a completed backup is reused, and Compose and migrations repeat safely.
+Restoring a backup replaces newer stand data, so it needs a separate owner request: stop the
+application roles, then pipe the dump through `gunzip` into `psql -U <user> -d postgres` in the
+matching database container, and refresh the source that matches the restored schema.
 
 An existing stack without a controller receipt is **unmanaged**. The controller reports it and
 refuses takeover. The owning session first hands it off and stops it without deleting volumes;

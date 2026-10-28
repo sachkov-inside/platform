@@ -21,16 +21,30 @@ import {
   orbstackStoragePath,
 } from "./local-stand-budget.mjs";
 
+// Long-running services outside the shared application image. An upgrade lets Compose replace
+// those whose configuration or image changed; their volumes stay attached.
+const standInfrastructureServices = [
+  "postgres",
+  "object-storage",
+  "rabbitmq",
+  "logto-postgres",
+  "logto",
+  "mailpit",
+];
+
 /**
  * The caller holds the shared local-setup lock. Refresh only recreates application roles;
  * the stand controller verifies ownership and schema/configuration compatibility first.
- * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
+ * An upgrade (with refresh) also rebuilds infrastructure images, applies forward migrations and
+ * replaces changed infrastructure, without seed or identity bootstrap.
+ * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; upgrade?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
  */
 export async function launchLocalStand({
   repositoryRoot,
   pnpmPath,
   productionWeb = false,
   refresh = false,
+  upgrade = false,
   resumeCold = false,
   composeOverride,
   logToStderr = false,
@@ -191,7 +205,7 @@ export async function launchLocalStand({
     );
     // BuildKit checks source inputs even on cache hits. API builds the development workspace for
     // all backend roles and Web; only production Web needs its separate build and image.
-    for (const service of refresh
+    for (const service of refresh && !upgrade
       ? productionWeb
         ? ["api", "web"]
         : ["api"]
@@ -199,6 +213,18 @@ export async function launchLocalStand({
         ? ["api", "web", "rabbitmq", "logto"]
         : ["api", "rabbitmq", "logto"]) {
       await compose(["build", service]);
+    }
+    if (upgrade) {
+      // The migration engine refuses a database ledger that is not a prefix of this registry.
+      await compose(["run", "--rm", "--no-deps", "-T", "migrations"]);
+      await compose([
+        "up",
+        "--detach",
+        "--no-build",
+        "--no-deps",
+        "--wait",
+        ...standInfrastructureServices,
+      ]);
     }
     if (refresh) {
       await compose([

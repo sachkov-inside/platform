@@ -1,6 +1,9 @@
 // @ts-check
+import { createWriteStream } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pipeline } from "node:stream/promises";
+import { createGzip } from "node:zlib";
 import { z } from "zod";
 import { commandExit } from "./diagnostic-command.mjs";
 import { launchLocalStand } from "./local-stand.mjs";
@@ -9,6 +12,10 @@ import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { liveWebDirectories } from "./stand-source.mjs";
 
 const apiReadinessBudgetMilliseconds = 5_000;
+// A whole stand database dump; the stand holds product data, not media bytes.
+const backupBudgetMilliseconds = 15 * 60_000;
+// Database clusters an upgrade dumps before it migrates anything.
+const backupDatabases = ["postgres", "logto-postgres"];
 const webReadinessBudgetMilliseconds = 10_000;
 const project = "inside-platform";
 const generationLabel = "inside.local-stand.generation";
@@ -30,12 +37,13 @@ const portSchema = z.record(
 );
 
 /**
- * @param {{ directory: string; pnpmPath: string; run?: (args: string[]) => Promise<string>; probe?: typeof fetch; environment?: NodeJS.ProcessEnv; launch?: typeof launchLocalStand }} options
+ * @param {{ directory: string; pnpmPath: string; run?: (args: string[]) => Promise<string>; dump?: (args: string[], path: string) => Promise<void>; probe?: typeof fetch; environment?: NodeJS.ProcessEnv; launch?: typeof launchLocalStand }} options
  */
 export function createStandRuntime({
   directory,
   pnpmPath,
   run,
+  dump,
   probe = fetch,
   environment = process.env,
   launch = launchLocalStand,
@@ -43,6 +51,7 @@ export function createStandRuntime({
   /** @type {string | undefined} */
   let dockerHost;
   const execute = run ?? ((args) => runDocker(args, dockerHost));
+  const save = dump ?? ((args, path) => dumpDocker(args, path, dockerHost));
   const compose = (/** @type {string} */ sourceRoot) => [
     "compose",
     "--project-name",
@@ -210,11 +219,22 @@ export function createStandRuntime({
           ]),
         ),
       );
+    // An upgrade keeps infrastructure labels, so Compose replaces only services whose
+    // configuration or image changed; application roles always take the new generation.
+    const retained = (/** @type {string} */ service) =>
+      standApplicationServices.includes(service)
+        ? undefined
+        : operation.upgrade?.containers.find((item) => item.service === service)
+            ?.generation;
     /** @type {Record<string, {labels: Record<string, string>; volumes?: {type: string; source: string; target: string; read_only: boolean; bind: {create_host_path: boolean}}[]}>} */
     const services = Object.fromEntries(
       Object.keys(config.services).map((service) => [
         service,
-        { labels: { [generationLabel]: operation.generation } },
+        {
+          labels: {
+            [generationLabel]: retained(service) || operation.generation,
+          },
+        },
       ]),
     );
     if (operation.mode === "live" && services["web"]) {
@@ -240,6 +260,7 @@ export function createStandRuntime({
       pnpmPath,
       productionWeb: operation.mode === "production",
       refresh: !operation.cold,
+      upgrade: operation.upgrade !== undefined,
       resumeCold: operation.resumeCold,
       composeOverride,
       logToStderr: true,
@@ -248,7 +269,67 @@ export function createStandRuntime({
     });
   }
 
-  return { inspect, ready, prepare };
+  /**
+   * Dump every stand database cluster before an upgrade changes it. Restoring one is a separate
+   * owner-directed operation (docs/runbooks/local-stand.md).
+   * @param {import("./stand-controller.mjs").StandSnapshot} snapshot
+   * @param {string} generation
+   */
+  async function backup(snapshot, generation) {
+    const target = join(directory, "backups", generation);
+    const containers = backupDatabases.map((service) => {
+      const container = snapshot.containers.find(
+        (item) => item.service === service,
+      );
+      if (!container?.running)
+        throw new Error(`Stand database ${service} is not running`);
+      return { service, id: container.id };
+    });
+    await mkdir(target, { recursive: true, mode: 0o700 });
+    for (const { service, id } of containers)
+      await save(
+        [
+          "exec",
+          id,
+          "sh",
+          "-c",
+          'exec pg_dumpall --clean --if-exists -U "$POSTGRES_USER"',
+        ],
+        join(target, `${service}.sql.gz`),
+      );
+    return target;
+  }
+
+  return { inspect, ready, prepare, backup };
+}
+
+/** @param {string[]} args @param {string} path @param {string | undefined} dockerHost */
+async function dumpDocker(args, path, dockerHost) {
+  const child = spawnOwned("docker", args, {
+    timeout: backupBudgetMilliseconds,
+    env: {
+      ...process.env,
+      ...(dockerHost ? { DOCKER_HOST: dockerHost, DOCKER_CONTEXT: "" } : {}),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  // Database diagnostics may name roles or tables; report the status only.
+  child.stderr?.resume();
+  try {
+    if (!child.stdout) throw new Error("Docker dump has no output stream");
+    const [code] = await Promise.all([
+      commandExit(child),
+      pipeline(
+        child.stdout,
+        createGzip(),
+        createWriteStream(path, { flags: "wx", mode: 0o600 }),
+      ),
+    ]);
+    if (code !== 0)
+      throw new Error(`Stand database dump failed (${String(code)})`);
+  } finally {
+    await stopOwned(child);
+  }
 }
 
 /** @param {string[]} args @param {string | undefined} dockerHost */
