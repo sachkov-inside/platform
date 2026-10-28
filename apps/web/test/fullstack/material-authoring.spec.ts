@@ -1136,6 +1136,12 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   ).toBeVisible();
   const fileLink = page.getByRole("link", { name: /chooser.txt/u });
   await expect(fileLink).toBeVisible();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(
+    page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible"),
+  ).toHaveAttribute("data-reading-action-state", "ready");
   const readerAccessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
