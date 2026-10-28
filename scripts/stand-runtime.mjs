@@ -7,15 +7,17 @@ import { createGzip } from "node:zlib";
 import { z } from "zod";
 import { commandExit } from "./diagnostic-command.mjs";
 import { launchLocalStand } from "./local-stand.mjs";
-import { standApplicationServices } from "./stand-services.mjs";
+import {
+  standApplicationServices,
+  standDatabaseServices,
+  standInfrastructureServices,
+} from "./stand-services.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { liveWebDirectories } from "./stand-source.mjs";
 
 const apiReadinessBudgetMilliseconds = 5_000;
 // A whole stand database dump; the stand holds product data, not media bytes.
 const backupBudgetMilliseconds = 15 * 60_000;
-// Database clusters an upgrade dumps before it migrates anything.
-const backupDatabases = ["postgres", "logto-postgres"];
 const webReadinessBudgetMilliseconds = 10_000;
 const project = "inside-platform";
 const generationLabel = "inside.local-stand.generation";
@@ -123,12 +125,7 @@ export function createStandRuntime({
   async function ready(snapshot) {
     for (const service of [
       ...standApplicationServices,
-      "postgres",
-      "object-storage",
-      "rabbitmq",
-      "logto",
-      "logto-postgres",
-      "mailpit",
+      ...standInfrastructureServices,
     ]) {
       const container = snapshot.containers.find(
         (item) => item.service === service,
@@ -277,7 +274,7 @@ export function createStandRuntime({
    */
   async function backup(snapshot, generation) {
     const target = join(directory, "backups", generation);
-    const containers = backupDatabases.map((service) => {
+    const containers = standDatabaseServices.map((service) => {
       const container = snapshot.containers.find(
         (item) => item.service === service,
       );
@@ -307,10 +304,7 @@ export function createStandRuntime({
 async function dumpDocker(args, path, dockerHost) {
   const child = spawnOwned("docker", args, {
     timeout: backupBudgetMilliseconds,
-    env: {
-      ...process.env,
-      ...(dockerHost ? { DOCKER_HOST: dockerHost, DOCKER_CONTEXT: "" } : {}),
-    },
+    env: dockerEnvironment(dockerHost),
     stdio: ["ignore", "pipe", "pipe"],
   });
   // Database diagnostics may name roles or tables; report the status only.
@@ -336,10 +330,7 @@ async function dumpDocker(args, path, dockerHost) {
 async function runDocker(args, dockerHost) {
   const child = spawnOwned("docker", args, {
     timeout: 20_000,
-    env: {
-      ...process.env,
-      ...(dockerHost ? { DOCKER_HOST: dockerHost, DOCKER_CONTEXT: "" } : {}),
-    },
+    env: dockerEnvironment(dockerHost),
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
@@ -356,4 +347,12 @@ async function runDocker(args, dockerHost) {
   } finally {
     await stopOwned(child);
   }
+}
+
+/** The verified local endpoint wins over the caller's Docker context. @param {string | undefined} dockerHost */
+function dockerEnvironment(dockerHost) {
+  return {
+    ...process.env,
+    ...(dockerHost ? { DOCKER_HOST: dockerHost, DOCKER_CONTEXT: "" } : {}),
+  };
 }

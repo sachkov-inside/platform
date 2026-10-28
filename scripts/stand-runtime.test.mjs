@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -142,7 +142,7 @@ test("live preparation labels roles, mounts only selected Web source, and binds 
   assert.equal(checkpoint, true);
 });
 
-test("upgrade keeps infrastructure labels so Compose replaces only changed services", async (t) => {
+test("upgrade retains infrastructure labels and gives application roles the new generation", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "stand-upgrade-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const generation = randomUUID();
@@ -213,7 +213,7 @@ test("upgrade keeps infrastructure labels so Compose replaces only changed servi
   assert.equal(launchOptions?.["refresh"], true);
 });
 
-test("backup dumps both databases into a private directory before an upgrade", async (t) => {
+test("backup dumps both database clusters into a private generation directory", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "stand-backup-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   /** @type {string[][]} */
@@ -231,7 +231,6 @@ test("backup dumps both databases into a private directory before an upgrade", a
     },
     dump: async (args, path) => {
       dumps.push(args);
-      const { writeFile } = await import("node:fs/promises");
       await writeFile(path, "dump", { mode: 0o600 });
     },
   });
@@ -261,7 +260,6 @@ test("backup dumps both databases into a private directory before an upgrade", a
     ],
   );
   assert.ok(dumps.every((args) => args.join(" ").includes("pg_dumpall")));
-  const { stat } = await import("node:fs/promises");
   assert.equal((await stat(backup)).mode & 0o777, 0o700);
   assert.equal(
     (await stat(join(backup, "postgres.sql.gz"))).mode & 0o777,

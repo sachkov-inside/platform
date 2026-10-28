@@ -27,6 +27,10 @@ const sourceSchema = z.strictObject({
   identity: z.string(),
 });
 const modeSchema = z.enum(["snapshot", "live", "production"]);
+const identityChanged =
+  "Stand identity settings changed outside the controller; preserve the current accounts and obtain a handoff";
+const upgradeNeedsReady =
+  "The stand must be ready before an upgrade; refresh its current source first";
 const stateSchema = z.strictObject({
   version: z.literal(1),
   controller: z.string(),
@@ -120,9 +124,7 @@ export async function controlStand(request, dependencies) {
         );
     }
     if (previous && previous.source.identity !== source.identity)
-      throw new Error(
-        "Stand identity settings changed outside the controller; preserve the current accounts and obtain a handoff",
-      );
+      throw new Error(identityChanged);
     if (
       previous &&
       (previous.source.schema !== source.schema ||
@@ -324,18 +326,11 @@ async function upgrade(request, source, previous, dependencies) {
       throw new Error(
         "Stand schema and infrastructure already match this source; use show or refresh",
       );
-    if (previous.phase !== "ready" || !previous.health)
-      throw new Error(
-        "The stand must be ready before an upgrade; refresh its current source first",
-      );
-    let health;
-    try {
-      health = await dependencies.ready(snapshot);
-    } catch {
-      throw new Error(
-        "The stand must be ready before an upgrade; refresh its current source first",
-      );
-    }
+    const health =
+      previous.phase === "ready" && previous.health
+        ? await dependencies.ready(snapshot).catch(() => undefined)
+        : undefined;
+    if (!health || !previous.health) throw new Error(upgradeNeedsReady);
     if (health.schema !== previous.health.schema)
       throw new Error(
         "The running database schema changed outside the controller",
@@ -354,10 +349,11 @@ async function upgrade(request, source, previous, dependencies) {
     source,
     mode: request.mode ?? previous.mode,
     // An interrupted upgrade keeps comparing with the stand it started from.
-    receipt: resume ? previous.receipt : snapshot,
-    upgrade: resume ?? { backup: null },
+    receipt: (resume && previous.receipt) || snapshot,
   };
-  const marker = state.upgrade ?? { backup: null };
+  const marker = resume ?? { backup: null };
+  const before = state.receipt ?? snapshot;
+  state.upgrade = marker;
   await writeState(dependencies.directory, state);
   try {
     // Migrations start only after a complete dump of the stand as it was.
@@ -365,7 +361,6 @@ async function upgrade(request, source, previous, dependencies) {
       marker.backup = await dependencies.backup(snapshot, state.generation);
       await writeState(dependencies.directory, state);
     }
-    const before = state.receipt ?? snapshot;
     await dependencies.prepare({
       source,
       mode: state.mode,
@@ -417,7 +412,8 @@ async function upgrade(request, source, previous, dependencies) {
 
 /**
  * Application roles carry the upgrade generation. Infrastructure is unchanged or recreated with
- * the label it had before, which shows it came from this upgrade's Compose configuration.
+ * the label it had before, as the upgrade's Compose configuration retains it; every service the
+ * stand had before is still present.
  * @param {StandSnapshot} before @param {StandSnapshot} after @param {string} generation
  */
 function upgradedRuntime(before, after, generation) {

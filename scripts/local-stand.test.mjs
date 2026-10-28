@@ -137,7 +137,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       "fixture",
     ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
-    if (refresh || resumeCold)
+    if (refresh || upgrade || resumeCold)
       writeFileSync(
         join(root, "refresh-entry.mjs"),
         `import {launchLocalStand} from "./scripts/local-stand.mjs";
@@ -168,7 +168,7 @@ finally { await release(); }`,
         join(root, "capacity.mjs"),
         join(
           root,
-          refresh || resumeCold
+          refresh || upgrade || resumeCold
             ? "refresh-entry.mjs"
             : "scripts/local-stand.mjs",
         ),
@@ -274,12 +274,8 @@ test("a controlled refresh rebuilds the application roles without touching infra
   );
 });
 
-test("a controlled upgrade migrates forward and replaces only changed infrastructure, without seed or bootstrap (CLI adapter)", async () => {
-  const { result, calls } = await launch({
-    refresh: true,
-    upgrade: true,
-    runningStand: true,
-  });
+test("a controlled upgrade migrates once, starts infrastructure without forced recreation, then recreates roles, without seed or bootstrap (CLI adapter)", async () => {
+  const { result, calls } = await launch({ upgrade: true, runningStand: true });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(
     calls

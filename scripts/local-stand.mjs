@@ -13,7 +13,10 @@ import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 import { realpathSync, statfsSync } from "node:fs";
 import { z } from "zod";
 import { standIdentityReceiptPrefix } from "./stand-identity-receipt.mjs";
-import { standApplicationServices } from "./stand-services.mjs";
+import {
+  standApplicationServices,
+  standInfrastructureServices,
+} from "./stand-services.mjs";
 import { requireUnmanagedStand } from "./stand-controller.mjs";
 import {
   createStandBuildBudget,
@@ -21,29 +24,18 @@ import {
   orbstackStoragePath,
 } from "./local-stand-budget.mjs";
 
-// Long-running services outside the shared application image. An upgrade lets Compose replace
-// those whose configuration or image changed; their volumes stay attached.
-const standInfrastructureServices = [
-  "postgres",
-  "object-storage",
-  "rabbitmq",
-  "logto-postgres",
-  "logto",
-  "mailpit",
-];
-
 /**
  * The caller holds the shared local-setup lock. Refresh only recreates application roles;
  * the stand controller verifies ownership and schema/configuration compatibility first.
- * An upgrade (with refresh) also rebuilds infrastructure images, applies forward migrations and
- * replaces changed infrastructure, without seed or identity bootstrap.
+ * An upgrade is a refresh that also rebuilds infrastructure images, applies forward migrations
+ * and replaces changed infrastructure, without seed or identity bootstrap.
  * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; upgrade?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
  */
 export async function launchLocalStand({
   repositoryRoot,
   pnpmPath,
   productionWeb = false,
-  refresh = false,
+  refresh: refreshOnly = false,
   upgrade = false,
   resumeCold = false,
   composeOverride,
@@ -51,6 +43,7 @@ export async function launchLocalStand({
   dockerHost,
   onIdentityReady,
 }) {
+  const refresh = refreshOnly || upgrade;
   const outputStream = logToStderr ? process.stderr : process.stdout;
   const standDiskPollIntervalMilliseconds = 250;
 

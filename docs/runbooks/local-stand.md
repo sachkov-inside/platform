@@ -90,9 +90,12 @@ settings; identity changes and unmanaged stacks keep the handoff procedure below
 
 Until it finishes, `status` reports `recovery` and `show`/`refresh` refuse. Rerun the same
 `upgrade` after a failure: a completed backup is reused, and Compose and migrations repeat safely.
-Restoring a backup replaces newer stand data, so it needs a separate owner request: stop the
-application roles, then pipe the dump through `gunzip` into `psql -U <user> -d postgres` in the
-matching database container, and refresh the source that matches the restored schema.
+The dumps are plain SQL from `pg_dumpall --clean --if-exists` and contain account data and
+sign-in secrets: keep them in place and delete superseded ones once the owner no longer needs them.
+Restoring one is a manual recovery outside the controller that replaces newer stand data, so it
+needs a separate owner request. Stop every service except the two database clusters, replay each
+dump with `gunzip -c <file> | psql -U <user> -d postgres` in its own cluster, and hand off the
+controller state: its recorded schema no longer matches the restored database.
 
 An existing stack without a controller receipt is **unmanaged**. The controller reports it and
 refuses takeover. The owning session first hands it off and stops it without deleting volumes;
