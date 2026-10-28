@@ -206,8 +206,8 @@ function journeyRun(
         ? null
         : {
             header: (
-              // Заголовок уходит клиентскому компоненту в массиве глав: React требует ключ и у
-              // элемента, переданного как значение, иначе пишет предупреждение в консоль.
+              // Элементы отрезка уходят клиентскому компоненту в массиве глав: React требует ключ и
+              // у элемента, переданного как значение, иначе пишет предупреждение в консоль.
               <header
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
@@ -247,6 +247,7 @@ function journeyRun(
       run.chapter == null ? null : (
         <CourseReferenceNavigation
           courseHref={currentHref}
+          key={`supplementary-${run.chapter.id}`}
           references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
             (id) => {
               const material =
@@ -305,6 +306,7 @@ function journeyRun(
         available: material.availability === "available",
         card: (
           <MaterialCard
+            key={`card-${placementId ?? material.slug}`}
             readerContext={{ placementId }}
             showFormat={!unified}
             accessPending={accessPending}
