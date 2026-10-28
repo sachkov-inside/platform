@@ -25,7 +25,7 @@ STAGES=('initial_mode','initial_up','response_contract','seed_database_ready','s
     'mode_backend_material-assets-worker_ready','mode_backend_profile-avatars-worker_ready',
     'mode_backend_video-deletions-worker_ready','mode_backend_billing-worker_ready',
     'mode_backend_notifications-worker_ready','mode_warmup',
-    'mode_web_witness','mode_source_barrier','phase_ownership_before','phase_baseline',
+    'mode_web_initial_series','mode_web_witness','mode_source_barrier','phase_ownership_before','phase_baseline',
     'phase_storage_before_reader','phase_storage_before_database','phase_load','phase_telegram',
     'phase_storage_after_reader','phase_storage_after_database','phase_sampler_join','phase_final_counters',
     'phase_ownership_after','phase_report','outage_core_up','outage_collector_stop','outage_loss',

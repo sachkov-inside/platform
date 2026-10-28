@@ -328,6 +328,26 @@ def await_sources(compose,output,*,enabled=True):
     pilot.await_fact(available,bool,budget=10,probe='source_cache_stored_ready')
 
 
+def initialize_web_http(compose):
+    """Initial series ingestion is readiness, not proof of a newly issued request."""
+    source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
+    deadline=time.monotonic()+pilot.FACT_TIMEOUT_SECONDS
+    def remaining():
+        value=deadline-time.monotonic()
+        if value<=0:raise TimeoutError('web_http_initial_series_deadline')
+        return value
+    seeded=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-seed'],timeout=min(4,remaining())))
+    remaining()
+    if type(seeded) is not dict or set(seeded)!={'ok'} or seeded['ok'] is not True:
+        raise ValueError('web_http_initial_seed_unavailable')
+    def stored():
+        value=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-initial-ready',source],timeout=min(4,remaining())))
+        remaining()
+        return type(value) is dict and set(value)=={'ok'} and value['ok'] is True
+    pilot.await_fact(stored,bool,budget=remaining(),probe='web_http_initial_series_ready')
+    return {'state':'observed','source_sha':source,'initial_series_elapsed_seconds':time.monotonic()-(deadline-pilot.FACT_TIMEOUT_SECONDS)}
+
+
 def prove_web_http(compose):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     raw=invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','web-http-witness',source],timeout=8)
@@ -555,6 +575,7 @@ def worker(output):
                         mode_call('mode_backend_'+name+'_ready',pilot.await_fact,healthy,bool,probe='fullstack_'+name+'_ready')
                     mode_call('mode_warmup',extra.warmup,compose,invoke)
                     if enabled:
+                        report.setdefault('web_http_initial_series',[]).append(mode_call('mode_web_initial_series',initialize_web_http,compose))
                         report.setdefault('web_http',[]).append(mode_call('mode_web_witness',prove_web_http,compose))
                     # The bounded Web witness must not age a previously ready source cohort.
                     mode_call('mode_source_barrier',await_sources,compose,output,enabled=enabled)
