@@ -103,14 +103,18 @@ pnpm stand refresh --worktree <reserved worktree>
 
 `preview-key` adds the key pair to the private stand file once (later runs and later `import`s
 keep it) and prints one line, `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=…`. The public half is no secret;
-the owner adds that line to production's `/etc/inside/runtime/api.env` and restarts `api` in a
-release window. The stand then signs the preview of a protected recording with its private half:
+the owner adds that line to production's `/etc/inside/runtime/api.env`, restarts `api` in a release
+window and adds `127.0.0.1` to the membership project's domain list
+([step 6](runtime-configuration.md#kinescope-provider-settings)). `pnpm stand:kinescope remove`
+deletes the whole file with the private half; a later `preview-key` makes a new pair, whose public
+line replaces the old one on production. The stand then signs the preview of a protected recording with its private half:
 `act=preview`, the recording's provider ID, at most 300 seconds. Production accepts exactly such a
 token and records each acceptance as `stand_preview_authorized` with the token ID, the provider
 video and the stand Account; ordinary playback, other recordings and longer tokens are refused.
 
 Risk: the stand's ContentAccess decides who previews (an Account with `materials:manage`), but
-production only sees the signature. Anyone who reads the private stand file can open any recording
-of the membership project for five minutes per token, as long as production holds the public half.
+production only sees the signature: the binding to the owner is the key on the owner's Mac. Anyone
+who reads the private stand file can open any recording of the membership project, with tokens that
+live at most five minutes and can be reused within them, as long as production holds the public half.
 To stop it, the owner removes the line from `api.env` and restarts `api`; deleting the private file
 alone does not revoke a copy of the key.

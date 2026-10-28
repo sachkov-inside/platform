@@ -181,12 +181,12 @@ test("the preview key is generated once, kept across imports and shows only its 
     ),
     [],
   );
-  assert.throws(
-    () =>
-      withStandPreviewKey(
-        `${imported}KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"x".repeat(43)}\n`,
-        generate,
-      ),
-    /incomplete preview key/u,
-  );
+  for (const broken of [
+    `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"x".repeat(43)}\n`,
+    `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"x".repeat(43)}\nKINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"y".repeat(43)}\n`,
+  ])
+    assert.throws(
+      () => withStandPreviewKey(`${imported}${broken}`, generate),
+      /incomplete preview key/u,
+    );
 });

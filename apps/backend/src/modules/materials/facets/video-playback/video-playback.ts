@@ -104,6 +104,7 @@ export function standPreviewKeys(halves: {
 const STAND_PREVIEW_ISSUER = "inside-stand";
 /** Production accepts no stand preview that lives longer, whatever the stand's TTL. */
 const STAND_PREVIEW_MAX_SECONDS = 300;
+const STAND_PREVIEW_CLOCK_SKEW_SECONDS = 5;
 
 export function assembleVideoPlayback(dependencies: {
   readonly contentAccess: Pick<ContentAccess, "authorize">;
@@ -355,12 +356,15 @@ export function assembleVideoPlayback(dependencies: {
   }): Promise<boolean> {
     const key = dependencies.standPreview?.verification;
     if (key === undefined) return false;
+    // `maxTokenAge` also refuses an `iat` in the future, so a key holder cannot stretch a token's
+    // life past five minutes from now; the small tolerance covers the stand's clock drift only.
     const verified = await jwtVerify(input.token, key, {
       algorithms: ["EdDSA"],
       audience,
       issuer: STAND_PREVIEW_ISSUER,
-      clockTolerance: 0,
+      clockTolerance: STAND_PREVIEW_CLOCK_SKEW_SECONDS,
       currentDate: clock(),
+      maxTokenAge: STAND_PREVIEW_MAX_SECONDS,
       requiredClaims: ["exp", "iat", "jti", "sub"],
     });
     const { exp, iat, jti, sub } = verified.payload;

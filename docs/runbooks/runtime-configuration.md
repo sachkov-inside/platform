@@ -177,8 +177,9 @@ recording; an earlier release sends a guest of a free lesson no token, and step 
 
 6. Optional, with the owner's consent (#1808): the stand's preview key. Add the line printed by
    `pnpm stand:kinescope preview-key` (`KINESCOPE_STAND_PREVIEW_PUBLIC_KEY`, the public half only) to
-   `api.env` and restart `api`, so the owner's stand can still preview protected recordings. Production
-   refuses to start with the private half. Remove the line and restart `api` to revoke it
+   `api.env` and restart `api`, and add `127.0.0.1` to the membership project's domain list, so the
+   owner's stand can still preview protected recordings. Production refuses to start with the
+   private half. Remove the line and restart `api` to revoke it, and take `127.0.0.1` off the list
    ([stand runbook](local-stand-kinescope.md#preview-after-protection-1808)).
 
 Rollback is the reverse step: `strict: false`, or remove the backend, or return the domain mode to

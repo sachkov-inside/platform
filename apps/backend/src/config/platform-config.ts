@@ -201,9 +201,13 @@ const telegramMembershipSchema = z
   })
   .readonly();
 const ed25519KeyHalfSchema = (name: string) =>
-  z.string().regex(/^[A-Za-z0-9_-]{43}$/u, {
-    message: `${name} must be a base64url Ed25519 key of 32 bytes`,
-  });
+  z
+    .base64url({
+      message: `${name} must be a base64url Ed25519 key of 32 bytes`,
+    })
+    .length(43, {
+      message: `${name} must be a base64url Ed25519 key of 32 bytes`,
+    });
 const kinescopeSchema = z
   .object({
     apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),

@@ -72,12 +72,17 @@ const previewPublicKey = "KINESCOPE_STAND_PREVIEW_PUBLIC_KEY";
  * @param {() => { privateKey: string; publicKey: string }} [generate]
  */
 export function withStandPreviewKey(current, generate = generatePreviewKey) {
-  const kept = standPreviewLines(current);
-  const publicKey = kept
-    .find((line) => line.startsWith(`${previewPublicKey}=`))
-    ?.slice(previewPublicKey.length + 1);
-  if (kept.length === 2 && publicKey) return { contents: current, publicKey };
-  if (kept.length > 0)
+  const existing = standPreviewLines(current);
+  const privateLines = existing.filter((line) =>
+    line.startsWith(`${previewPrivateKey}=`),
+  );
+  const publicLines = existing.filter((line) =>
+    line.startsWith(`${previewPublicKey}=`),
+  );
+  const publicKey = publicLines[0]?.slice(previewPublicKey.length + 1);
+  if (privateLines.length === 1 && publicLines.length === 1 && publicKey)
+    return { contents: current, publicKey };
+  if (existing.length > 0)
     throw new Error(
       `The stand file holds an incomplete preview key; remove ${previewPrivateKey} and ${previewPublicKey} and retry`,
     );
@@ -229,10 +234,10 @@ if (
           "Pipe the production runtime values: ssh inside-production \"grep -E '^KINESCOPE_(API_TOKEN|PUBLIC_PROJECT_ID|MEMBERSHIP_PROJECT_ID|API_BASE_URL|UPLOADER_BASE_URL)=' /etc/inside/runtime/api.env\" | pnpm stand:kinescope import",
         );
       // A fresh import keeps the stand's preview key, which production already trusts.
-      const kept = standPreviewLines(await readOptional(path));
+      const previewKey = standPreviewLines(await readOptional(path));
       await writeStandKinescope(
         path,
-        `${standKinescopeEnvironment(await text(process.stdin))}${kept.map((line) => `${line}\n`).join("")}`,
+        `${standKinescopeEnvironment(await text(process.stdin))}${previewKey.map((line) => `${line}\n`).join("")}`,
       );
     } else if (command === "preview-key") {
       if ((await readStandKinescope(path)) !== "real")

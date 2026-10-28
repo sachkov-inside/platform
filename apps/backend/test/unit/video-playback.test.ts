@@ -393,9 +393,10 @@ describe("Video playback authorization", () => {
       production().authorizeProvider({ providerVideoId: "other-video", token }),
     ).resolves.toBe(false);
     await expect(
+      // Past the token's 60 seconds and the stand's five seconds of clock drift.
       production(
         undefined,
-        () => new Date(now.getTime() + 61_000),
+        () => new Date(now.getTime() + 66_000),
       ).authorizeProvider({
         providerVideoId: "provider-video",
         token,
@@ -438,10 +439,26 @@ describe("Video playback authorization", () => {
         .setIssuedAt(Math.floor(now.getTime() / 1000))
         .setExpirationTime(Math.floor(now.getTime() / 1000) + lifetime)
         .sign(signing);
+    const issuedLater = await new SignJWT({
+      act: "preview",
+      pid: "provider-video",
+    })
+      .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
+      .setIssuer("inside-stand")
+      .setAudience("kinescope-drm-callback")
+      .setSubject(account)
+      .setJti("issued-later")
+      .setIssuedAt(Math.floor(now.getTime() / 1000) + 365 * 24 * 60 * 60)
+      .setExpirationTime(
+        Math.floor(now.getTime() / 1000) + 365 * 24 * 60 * 60 + 60,
+      )
+      .sign(signing);
     for (const forged of [
       await forge({ act: "play" }, 60),
       await forge({}, 60),
       await forge({ act: "preview" }, 301),
+      // A future issue time would otherwise keep a five-minute token valid for a year.
+      issuedLater,
     ])
       await expect(
         production().authorizeProvider({
