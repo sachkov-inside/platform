@@ -234,8 +234,8 @@ def worker(output):
     try:
         with lifecycle.storage_guard(current,own,output) as admit_vm:
             helper_row=next(r for r in lock['images'] if r['repository'].endswith('/python'))
-            current.call(['pull','--platform','linux/amd64',helper_row['pinned']],timeout=180)
-            helper=lifecycle.checked_image(current,helper_row,'amd64');own.images={s:helper for s in ('volume-init','disk','histogram-init')}
+            lifecycle.acquire_image(current,helper_row)
+            helper=lifecycle.checked_image(current,helper_row,'amd64');own.images={s:dict(helper) for s in ('volume-init','disk','histogram-init')}
             lifecycle.require_declared_volume_coverage(own.plan,own.images)
             own.compose(['create','--no-build','--pull','never','volume-init','disk']);own.discover();own.record()
             own.start('volume-init');own.wait('volume-init',20);own.start('disk');admit_vm()
@@ -264,6 +264,7 @@ def worker(output):
             lifecycle.private_json(output/'functional.json',result)
             final_states=own.snapshot_states();lifecycle.private_json(output/'final-states.json',final_states)
             lifecycle.need(lifecycle.healthy_states(final_states),'unhealthy_final_roles')
+            lifecycle.private_json(output/'images.json',own.images)
     except BaseException as error:
         lifecycle.private_json(output/'failure.json',{'phase':phase,'category':type(error).__name__,'reason':error.reason if isinstance(error,lifecycle.Refusal) else 'functional_failure','native_failure_capture_unavailable':getattr(current,'failure_capture_unavailable',False)})
         raise
