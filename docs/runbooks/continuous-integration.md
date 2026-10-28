@@ -553,7 +553,15 @@ for a particular device. It measures the `ScriptDuration` counter up to the seco
 including any recorded script work between readiness and that snapshot.
 `ScriptDuration` excludes nested layout and style recalculation; it can include compilation nested
 in script execution. Separate compilation, layout and paint budgets are outside this check.
-The existing representative-Material test still checks INP after readiness (#933). The startup
+The existing representative-Material test still checks INP after readiness (#933). This
+representative test retains the maximum duration of every observed Event Timing entry, including
+entries delivered after axe, and still enforces 200 ms after the accessibility scan. Its separate
+`reader-event-timing` JSON attachment contains at most 32 rows, a separately retained maximum,
+before/after-axe checkpoints, finite event/target categories and clamped numeric timing fields.
+The count is capped at 4096; `saturated` marks any row/count overflow or numeric clamping.
+`deliveredPhase` describes observer delivery, not necessarily when the input began; compare the
+numeric entry start and checkpoint times when diagnosing delayed delivery. No DOM text, IDs,
+selectors or URLs enter this diagnostic. The startup
 budget runs with the full-stack smoke, queue, release gaps and locally; it runs in required CI when the selected plan includes `fullstack`.
 
 `.github/workflows/nightly-fullstack.yml` runs `pnpm smoke:fullstack` only on demand through `workflow_dispatch`; #1430 removed its schedule. It is not a required check and never blocks a
