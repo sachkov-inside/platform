@@ -313,11 +313,12 @@ establish native acceptance. Fresh source-bound native evidence is still require
 
 ## Source test progress
 
-The source wrapper runs two separately owned contract groups: 84 pure/protocol methods and
-three process-lifecycle methods that acquire real launchers and listeners. Each invocation keeps
+The source wrapper runs three separately owned contract groups: 72 source methods, 12 HTTP/MCP
+transport and held-body methods, and three process-lifecycle methods that acquire real launchers
+and listeners. The transport fixtures retain their real failure and cleanup paths. Each invocation keeps
 the existing `15000ms` deadline and fixture/cleanup budgets. Complete discovery must match the
-87-method inventory, retaining all original methods, before selection in either process. The checked group union has
-no missing or repeated method; every method executes once across the two invocations.
+87-method inventory, retaining all original methods, before selection in every process. The checked group union has
+no missing or repeated method; every method executes once across the three invocations.
 Best-effort start/completed markers identify only fixed inventoried source test IDs in
 its private captured stderr. The parent validates the complete ordered marker prefix before
 showing the last started/completed source method and completed count within that group. A

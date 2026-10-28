@@ -11,13 +11,22 @@ import * as contracts from "./observability-caddy-storage/contract-runner.mjs";
 
 test("Caddy source groups partition all original methods once and keep independent ordered progress", () => {
   const groups = contracts.sourceGroups;
-  assert.deepEqual(Object.keys(groups), ["contracts", "process-owner"]);
-  assert.equal(groups.contracts.length, 84);
+  assert.deepEqual(Object.keys(groups), [
+    "contracts",
+    "transport",
+    "process-owner",
+  ]);
+  assert.equal(groups.contracts.length, 72);
+  assert.equal(groups.transport.length, 12);
   assert.equal(groups["process-owner"].length, 3);
-  const combined = [...groups.contracts, ...groups["process-owner"]];
+  const combined = Object.values(groups).flat();
   assert.equal(new Set(combined).size, 87);
   assert.deepEqual(combined.toSorted(), contracts.sourceIds);
-  for (const group of /** @type {const} */ (["contracts", "process-owner"])) {
+  for (const group of /** @type {const} */ ([
+    "contracts",
+    "transport",
+    "process-owner",
+  ])) {
     const ids = groups[group];
     const complete = ids
       .map(
@@ -57,12 +66,21 @@ test("Caddy source groups partition all original methods once and keep independe
 });
 
 // deterministic-test-allow unit-io: pure bounded Caddy contracts and owned protocol fixtures, no Docker or external provider; outer owner reaps children on every outcome.
-test("Caddy refuses invalid whole observations through 84 pure and protocol contracts", async () => {
+test("Caddy refuses invalid whole observations through 72 pure contracts", async () => {
   const result = await contracts.runCaddyContracts([
     "--source-group",
     "contracts",
   ]);
   contracts.assertCaddyContracts(result, "contracts");
+});
+
+// deterministic-test-allow unit-io: owned HTTP/MCP fixtures retain real transport, held-body and failure/cleanup checks within the original deadline.
+test("Caddy transport retains all 12 protocol and held-body contracts", async () => {
+  const result = await contracts.runCaddyContracts([
+    "--source-group",
+    "transport",
+  ]);
+  contracts.assertCaddyContracts(result, "transport");
 });
 
 // deterministic-test-allow unit-io: independent owned process-lifecycle acceptance retains the same 15-second runner and complete registered group cleanup budget.

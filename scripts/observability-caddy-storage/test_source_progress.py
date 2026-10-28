@@ -35,8 +35,8 @@ class SourceProgress(unittest.TestCase):
         self.assertEqual(len(baseline),73)
         self.assertEqual(hashlib.sha256(json.dumps(baseline).encode()).hexdigest(),'34a7fb8b62c29fdf4980fa775a515fe1917839dfd1bd17cfae82db0b4de1be00')
         groups=source_progress.SOURCE_GROUPS
-        self.assertEqual(tuple(groups),('contracts','process-owner'))
-        self.assertEqual(tuple(map(len,groups.values())),(84,3))
+        self.assertEqual(tuple(groups),('contracts','transport','process-owner'))
+        self.assertEqual(tuple(map(len,groups.values())),(72,12,3))
         combined=tuple(value for group in groups.values() for value in group)
         self.assertEqual(len(set(combined)),87)
         self.assertEqual(tuple(sorted(combined)),source_progress.SOURCE_IDS)

@@ -25,10 +25,22 @@ for (const value of inventory) {
   ids.push(value);
 }
 export const sourceIds = Object.freeze(ids);
+const transportPrefixes = [
+  "test_mcp.",
+  "test_mcp_snapshot.",
+  "test_request_hold.",
+  "test_warm_matching.",
+];
+/** @param {string} id */
+const isTransport = (id) =>
+  transportPrefixes.some((prefix) => id.startsWith(prefix));
 export const sourceGroups = Object.freeze({
   contracts: Object.freeze(
-    ids.filter((id) => !id.startsWith("test_process_owner.")),
+    ids.filter(
+      (id) => !id.startsWith("test_process_owner.") && !isTransport(id),
+    ),
   ),
+  transport: Object.freeze(ids.filter(isTransport)),
   "process-owner": Object.freeze(
     ids.filter((id) => id.startsWith("test_process_owner.")),
   ),
@@ -36,7 +48,7 @@ export const sourceGroups = Object.freeze({
 
 /**
  * @param {unknown} stderr
- * @param {"contracts" | "process-owner" | undefined} [group]
+ * @param {"contracts" | "transport" | "process-owner" | undefined} [group]
  */
 export function sourceProgress(stderr, group) {
   const expectedIds = group === undefined ? sourceIds : sourceGroups[group];
@@ -81,7 +93,7 @@ export function sourceProgress(stderr, group) {
 
 /**
  * @param {Awaited<ReturnType<typeof import("../observability-umami/process-owner.mjs").runOwnedProcess>>} result
- * @param {"contracts" | "process-owner" | undefined} [group]
+ * @param {"contracts" | "transport" | "process-owner" | undefined} [group]
  */
 export function assertCaddyContracts(result, group) {
   const progress =

@@ -1,17 +1,90 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { runTrackingContracts } from "./observability-tracking-storage/contract-runner.mjs";
+import {
+  runTrackingContracts,
+  sourceGroups,
+  sourceIds,
+  assertTrackingContracts,
+} from "./observability-tracking-storage/contract-runner.mjs";
 import { test } from "node:test";
 
+test("tracking source groups retain every ordered original method exactly once", () => {
+  assert.deepEqual(Object.keys(sourceGroups), ["contracts", "process-owner"]);
+  assert.equal(sourceGroups.contracts.length, 84);
+  assert.equal(sourceGroups["process-owner"].length, 5);
+  const combined = Object.values(sourceGroups).flat();
+  assert.equal(new Set(combined).size, 89);
+  assert.deepEqual(combined.toSorted(), sourceIds);
+});
+
 // deterministic-test-allow unit-io: Python owns bounded storage JSON/protocol/plan contracts and reaps native loopback children; no Docker or external providers.
-test("tracking storage validates full private rows before projection and owns child cleanup", async () => {
-  const result = await runTrackingContracts([]);
-  assert.equal(
-    result.reason,
-    "exit",
-    "tracking contracts interrupted or exceeded budget",
-  );
-  assert.equal(result.code, 0, result.stderr);
+test("tracking storage validates full private rows before projection", async () => {
+  const result = await runTrackingContracts(["--source-group", "contracts"]);
+  assertTrackingContracts(result, "contracts");
+});
+
+// deterministic-test-allow unit-io: independently bounded original five outer-owner methods exercise all real outcomes and nested cancellation without shortening TERM grace.
+test("tracking process owner reaps listeners through all five lifecycle contracts", async () => {
+  const result = await runTrackingContracts([
+    "--source-group",
+    "process-owner",
+  ]);
+  assertTrackingContracts(result, "process-owner");
+});
+
+test("tracking success requires a complete closed group marker without exposing private output", () => {
+  for (const group of /** @type {const} */ (["contracts", "process-owner"])) {
+    const marker = `TRACKING_CONTRACTS_V1 completed ${group} ${sourceGroups[group].length}`;
+    for (const stderr of [
+      "private-canary",
+      marker,
+      marker + "0\n",
+      marker + "\n" + marker + "\n",
+      "TRACKING_CONTRACTS_private-canary",
+    ]) {
+      assert.throws(
+        () =>
+          assertTrackingContracts(
+            {
+              reason: "exit",
+              code: 0,
+              signal: null,
+              pid: undefined,
+              stdout: "private-canary",
+              stderr,
+            },
+            group,
+          ),
+        (error) =>
+          error instanceof assert.AssertionError &&
+          !error.message.includes("private-canary"),
+      );
+    }
+    for (const reason of /** @type {const} */ ([
+      "timeout",
+      "interrupted",
+      "output_limit",
+      "exit",
+    ])) {
+      assert.throws(
+        () =>
+          assertTrackingContracts(
+            {
+              reason,
+              code: 1,
+              signal: null,
+              pid: undefined,
+              stdout: "private-canary",
+              stderr: marker + "\n",
+            },
+            group,
+          ),
+        (error) =>
+          error instanceof assert.AssertionError &&
+          !error.message.includes("private-canary"),
+      );
+    }
+  }
 });
 
 // deterministic-test-allow unit-io: the accepted outer owner reaps the SDK/tracking native listener fixtures and their pipes on every outcome.
