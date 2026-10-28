@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { writeFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -223,10 +223,16 @@ try {
   const address = server.address();
   assert.ok(address && typeof address !== "string");
   const loader = join(directory, "load-preload.mjs");
+  const timerReceipt = join(directory, "load-timers.json");
+  await rm(timerReceipt, { force: true });
+  // Test-only early completion proves the requested delay independently of elapsed cadence.
+  // In this fixed 400-operation spike, scheduling delays cover successive 25 ms slots;
+  // the phase remainder is after the final 9975 ms slot. Only observer rounds request 500 ms.
   await writeFile(
     loader,
-    `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import {syncBuiltinESMExports} from 'node:module';
+    `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import timers from 'node:timers/promises';import {syncBuiltinESMExports} from 'node:module';
 const read=fs.readFileSync;fs.readFileSync=(p,...a)=>p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array(256).fill('synthetic')}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);
+const timer=timers.setTimeout;let requested=0,selected=false,completed=0,overflow=0;timers.setTimeout=(ms,...a)=>{if(ms===500){if(requested<128)requested++;else overflow=1;if(${enabled && !queryFailures}&&!selected){selected=true;return timer(0,...a).then(value=>{completed=1;return value;});}}return timer(ms,...a);};process.on('exit',()=>fs.writeFileSync(${JSON.stringify(timerReceipt)},JSON.stringify([requested,completed,overflow])));
 const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.resource.test','mcp','telegram','logto','alloy','gateway','umami-query','umami-ingest'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:${address.port},headers:{...o.headers,'x-fixture-host':o.hostname}},cb);};http.request=mapped;https.request=mapped;syncBuiltinESMExports();`,
   );
   // deterministic-test-allow process-cleanup: inherited group, externally owned by the root tooling runOwnedProcess; no detached CLI group can escape worker termination.
@@ -296,6 +302,24 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
   const requests = field(timing, "requests");
   const rounds = field(timing, "observer_rounds");
   assert.ok(Array.isArray(requests) && Array.isArray(rounds));
+  assert.ok((await stat(timerReceipt)).size <= 256);
+  /** @type {unknown} */ const timerCounts = JSON.parse(
+    await readFile(timerReceipt, "utf8"),
+  );
+  assert.ok(
+    Array.isArray(timerCounts) &&
+      timerCounts.length === 3 &&
+      timerCounts.every(
+        (value) =>
+          typeof value === "number" &&
+          Number.isSafeInteger(value) &&
+          value >= 0,
+      ),
+  );
+  assert.ok(timerCounts[0] <= 128);
+  assert.equal(timerCounts[1], enabled && !queryFailures ? 1 : 0);
+  assert.equal(timerCounts[2], 0, "bounded timer receipt overflow");
+  if (!queryFailures) assert.equal(timerCounts[0], rounds.length);
   const latencies = field(result, "latency");
   assert.ok(Array.isArray(latencies));
   assert.equal(requests.length, latencies.length);
@@ -327,7 +351,7 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
     if (index > 0) {
       /** @type {unknown} */ const previous = rounds[index - 1];
       assert.ok(timingRow(previous));
-      assert.ok(row[1] - previous[2] >= 499);
+      assert.ok(row[1] >= previous[2]);
     }
     assert.ok(Number.isInteger(row[3]) && row[3] >= 0 && row[3] <= 9);
   }
