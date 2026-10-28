@@ -72,11 +72,11 @@ class Stability(unittest.TestCase):
             with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':source},{})):
                 for bad in bads:
                     load={'missed':1,'slot_refusal':bad}
-                    (output/'fullstack-phase-5.json').write_text(json.dumps({'load':load}))
+                    (output/'fullstack-phase-5.json').write_text(json.dumps({'pair':0,'mode':'on','name':'spike','load':load}))
                     with self.assertRaises(ValueError),patch.object(fullstack.resource_runtime.ci,'collect',side_effect=AssertionError('copy reached')):fullstack.collect(output,metadata,root/'public')
-                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'load':{'missed':1}})
+                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'pair':0,'mode':'on','name':'spike','load':{'missed':1}})
                 with self.assertRaises(ValueError):fullstack.collect(output,metadata,root/'public')
-                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'load':{'missed':1,'completed':True,'slot_refusal':good}})
+                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'pair':0,'mode':'on','name':'spike','load':{'missed':1,'completed':True,'slot_refusal':good}})
                 with self.assertRaises(ValueError):fullstack.collect(output,metadata,root/'public')
                 (output/'fullstack-phase-5.json').unlink()
                 warm_good={**good,'phase':0,'mode':'off','slots':[[r[0],1,*r[2:]] for r in good['slots']]}
@@ -105,6 +105,32 @@ class Stability(unittest.TestCase):
         oversized=copy.deepcopy(bounded);oversized['measurements'][0]['latency'][0]['raw']='x'*stability.MAX_BYTES
         with self.assertRaises(ValueError):stability.validate(oversized,source)
 
+
+    def test_ordinary_collector_uses_profile_order_and_canonical_second_pair_phase(self):
+        source='a'*40
+        cases=(('first_on',5,0,'on',5),('second_on',8,1,'on',11),('second_off',11,1,'off',8))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);metadata=root/'metadata';metadata.mkdir()
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':source},{})):
+                for label,ordinal,pair,mode,canonical in cases:
+                    with self.subTest(case=label):
+                        output=root/label;output.mkdir()
+                        leaf={'schema':1,'state':'captured','phase':canonical,'mode':mode,'decision_us':200000,
+                            'slots':[[kind,1,kind*25000,kind*25000,200000-kind*25000,200000-kind*25000] for kind in range(8)]}
+                        row={'pair':pair,'mode':mode,'name':'spike','load':{'missed':1,'completed':False,'slot_refusal':leaf}}
+                        path=output/('fullstack-phase-'+str(ordinal)+'.json')
+                        fullstack.pilot.write_json(path,row)
+                        fullstack.collect(output,metadata,root/(label+'-public'))
+                        self.assertEqual(json.loads((root/(label+'-public')/path.name).read_text()),row)
+                        invalid=[]
+                        for field,value in [('phase',(canonical+1)%12),('mode','off' if mode=='on' else 'on')]:
+                            bad=copy.deepcopy(row);bad['load']['slot_refusal'][field]=value;invalid.append(bad)
+                        for field,value in [('pair',1-pair),('pair',True),('mode','off' if mode=='on' else 'on'),('name','steady')]:
+                            bad=copy.deepcopy(row);bad[field]=value;invalid.append(bad)
+                        for index,bad in enumerate(invalid):
+                            fullstack.pilot.write_json(path,bad)
+                            with self.assertRaises(ValueError),patch.object(fullstack.resource_runtime.ci,'collect',side_effect=AssertionError('unvalidated copy')):
+                                fullstack.collect(output,metadata,root/(label+'-bad-'+str(index)))
 
     def test_closed_schedule_and_original_profile_are_independent(self):
         import stability

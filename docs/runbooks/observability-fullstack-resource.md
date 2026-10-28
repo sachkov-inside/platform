@@ -305,7 +305,7 @@ production server. Семантика счётчиков описана в до�
 `load.slot_refusal` (вложенная schema1). Слот охватывает последовательные ON probe,
 application operation и проверку результата до освобождения promise. HTTP latency
 по-прежнему исключает предшествующий probe. Запросы наблюдателя не входят в этот pool.
-Snapshot содержит phase0..11, mode и восемь строк: kind0..7, stage0(probe)/1(application)/2(finishing),
+Snapshot содержит canonical phase0..11, mode и восемь строк: kind0..7, stage0(probe)/1(application)/2(finishing),
 время захвата слота и начала стадии, возраст слота и стадии. Все времена являются целыми
 микросекундами относительно одного monotonic начала фазы. Request IDs, URL, payload,
 ошибки, PID и абсолютное время не сохраняются. Дубликаты kind допустимы.
@@ -326,3 +326,11 @@ warmup/measured rows. Размер leaf ограничен 2048B compact JSON и
 отвергаются. В старых artifacts отсутствие поля означает UNKNOWN, а не отсутствие misses.
 Snapshot показывает занятые участки client, но не доказывает причину native задержки,
 нагрузку server CPU или мощность хоста. Первоначальный workload и все gates неизменны.
+
+
+Номер обычного файла `fullstack-phase-N.json` задаёт порядок исполнения, а не
+canonical client phase. Первая пара исполняется OFF→ON, вторая ON→OFF. Поэтому
+во второй паре файлы6..8 содержат ON phases9..11, файлы9..11 содержат OFF phases6..8.
+Обычный collector выводит ожидаемые pair/mode/name и canonical phase из закреплённого
+source profile и проверяет контекст строки. Diagnostic warmup/measured ordinal0..11
+остаётся отдельной нумерацией и не преобразуется по этому правилу.
