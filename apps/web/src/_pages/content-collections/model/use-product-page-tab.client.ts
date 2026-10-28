@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   parseProductPageTab,
@@ -22,6 +22,18 @@ export function useProductPageTab(): readonly [
   const [ownPath] = useState(pathname);
   const urlTab = parseProductPageTab(useSearchParams().get("tab"));
   const [state, setState] = useState({ urlTab, selected: urlTab });
+  useEffect(() => {
+    // Next may coalesce pushState and a quick Back before urlTab changes.
+    const restore = () => {
+      if (window.location.pathname !== ownPath) return;
+      const tab = parseProductPageTab(
+        new URLSearchParams(window.location.search).get("tab"),
+      );
+      setState({ urlTab: tab, selected: tab });
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [ownPath]);
   let selected = state.selected;
   if (pathname === ownPath && state.urlTab !== urlTab) {
     selected = urlTab;
