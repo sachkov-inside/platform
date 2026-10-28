@@ -84,3 +84,23 @@ export const PlayerChapters: Story = {
     }
   },
 };
+
+export const PlayerManyChapters: Story = {
+  args: {
+    activeChapter: 0,
+    chapters: [
+      { start: 0, title: "Вступление" },
+      { start: 14, title: "Выбор зависит от цели" },
+      { start: 45, title: "Claude и ChatGPT: оплата и аккаунты" },
+      { start: 115, title: "Какая подписка для каких задач" },
+      { start: 141, title: "Мой совет: ChatGPT или Claude" },
+      { start: 224, title: "DeepSeek для учёбы" },
+      { start: 299, title: "DeepSeek в агентах и DeepSeek Harness" },
+      { start: 343, title: "GLM, Kimi и Qwen" },
+      { start: 406, title: "Итог: с чего начать" },
+      { start: 471, title: "Связка ChatGPT и DeepSeek" },
+      { start: 536, title: "Вопросы в группе и подписка от работодателя" },
+    ],
+  },
+  name: "Player · scrollable chapters",
+};

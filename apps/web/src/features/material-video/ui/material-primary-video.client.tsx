@@ -510,7 +510,10 @@ export function MaterialVideoPlayerView({
         </p>
       )}
       {chapters.length === 0 ? null : (
-        <nav className="mt-4" aria-label="Главы видео">
+        <nav
+          className="mt-4 max-h-64 overflow-y-auto overscroll-contain p-0.5"
+          aria-label="Главы видео"
+        >
           <ol className="space-y-1">
             {chapters.map((chapter) => (
               <li key={chapter.start}>
