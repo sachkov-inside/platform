@@ -363,7 +363,7 @@ class Engine:
         except BaseException as error:
             # Genuine exit is captured before owned group termination. Raw bytes stay private.
             try:
-                native_exit=proc.poll();alive_before_reap=proc.poll() is None
+                native_exit=proc.poll();alive_before_reap=native_exit is None
                 try:
                     # Bind to this exact exception, never the mutable latest engine failure.
                     # A non-raw exception cannot supply this in-memory authority marker.

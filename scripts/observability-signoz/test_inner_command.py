@@ -1,5 +1,6 @@
 """Owned benign processes expose the first monitor command, never private argv."""
 import json
+import os
 from pathlib import Path
 import signal
 import sys
@@ -77,7 +78,7 @@ print(json.dumps(dict(fsid=1,device=2,block=4096,blocks=25000000,available=23000
                     signal.signal(signal.SIGUSR1,previous);engine.cancel_children()
 
     def test_unknown_private_argv_and_nonraw_exception_have_distinct_availability(self):
-        for mode in ('raw','nonraw'):
+        for mode in ('raw','raw_exit_between_polls','nonraw'):
             with self.subTest(mode=mode),tempfile.TemporaryDirectory() as tmp:
                 root=Path(tmp);engine=benign_engine(root);notified=threading.Event();calls=0
                 initial={'filesystems':{'owned':{'total_bytes':100*1024**3,'free_bytes':90*1024**3}},'allocated_image_bytes':0}
@@ -87,6 +88,21 @@ print(json.dumps(dict(fsid=1,device=2,block=4096,blocks=25000000,available=23000
                     calls+=1
                     if calls==1:return initial
                     if mode=='raw':engine.raw(['-c','raise SystemExit(7) # '+private],timeout=.2)
+                    if mode=='raw_exit_between_polls':
+                        popen=lifecycle.subprocess.Popen
+                        def native_process(*args,**kwargs):
+                            proc=popen(*args,**kwargs);poll=proc.poll;observed=False
+                            def exits_after_snapshot():
+                                nonlocal observed
+                                code=poll()
+                                if not observed:
+                                    observed=True;self.assertIsNone(code)
+                                    # Actual owned child exits after the first observation.
+                                    os.killpg(proc.pid,signal.SIGTERM);proc.wait(timeout=1)
+                                return code
+                            proc.poll=exits_after_snapshot;return proc
+                        with patch.object(lifecycle.subprocess,'Popen',native_process):
+                            engine.raw(['-c','import time;time.sleep(30) # '+private],timeout=.2)
                     error=RuntimeError(private)
                     error._signoz_raw_failure=(object(),{'command_class':'daemon_info'})
                     raise error
@@ -100,9 +116,10 @@ print(json.dumps(dict(fsid=1,device=2,block=4096,blocks=25000000,available=23000
                     self.assertFalse(evidence.collect(root,root/'public',lambda _value:None))
                     public=json.loads((root/'public/witness.json').read_text())
                     inner=public['storage_monitor']['first_inner_command']
-                    if mode=='raw':
+                    if mode.startswith('raw'):
                         self.assertTrue(inner['available']);self.assertEqual(inner['command_class'],'unknown')
-                        self.assertEqual(inner['native_exit'],7);self.assertFalse(inner['alive_before_reap'])
+                        self.assertEqual(inner['native_exit'],7 if mode=='raw' else None)
+                        self.assertEqual(inner['alive_before_reap'],mode!='raw')
                         self.assertEqual(inner['timeout_seconds'],.2)
                     else:self.assertEqual(inner,{'available':False})
                     self.assertNotIn(private,json.dumps(public));self.assertFalse(public['passed']);self.assertFalse(engine.child)
