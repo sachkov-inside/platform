@@ -269,6 +269,18 @@ python3 scripts/observability-fullstack/fullstack.py diagnostic-run \
 Обычный acceptance collector отвергает диагностические файлы; отдельный collector
 проверяет закрытую схему и исходный source SHA до публикации чисел.
 
+В schema2 каждая отброшенная warmup-фаза сохраняет только `ordinal`, `completed`
+и закрытый `quality`. Если исходные наблюдения доступны, он содержит признак
+завершения client, числа scheduled/missed/success/unexpected_failures, конечные
+phase error flags, число counter samples и ошибки чтения counters по двум
+фиксированным категориям, прежнее состояние CPU pressure loadgen. Это различает
+отказ client, phase checks и capture counters. Latency, отдельные запросы и
+сравнения warmup не публикуются. Неполные или неизвестные наблюдения дают
+`quality.available=false`, а не нулевые ошибки. Поле не меняет `completed`
+или критерии приёмки. Collector отвергает лишние поля, недопустимые числа,
+категории и противоречащие друг другу признаки. Исторический schema1 проверяется
+его исходной версией source и не становится новым свидетельством.
+
 На прежних двухсекундных снимках диагностика добавляет CPU steal ticks, размер
 очереди runnable/blocked, context switches, CPU PSI `some.total`, CPU и maximum RSS
 собственного процесса наблюдения, время чтения и интервал часов. Имена процессов,

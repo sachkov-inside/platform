@@ -105,6 +105,158 @@ class Stability(unittest.TestCase):
                 with self.assertRaises(ValueError):fullstack.stability_collect(output,root,destination)
                 collect.assert_not_called()
 
+    def test_actual_warmup_failure_branches_survive_closed_collector_without_comparisons(self):
+        import stability
+        from test_hosted import metadata
+        images={role:'sha256:'+'a'*64 for role in ('backend','foundation','web','telegram','logto')}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);admitted=metadata(root)
+            source=json.loads((admitted/'source.json').read_text())['checkout_sha']
+            flags={'phase':['sampler_failed'],'process':['process_replaced_or_oom'],
+                   'cpu_throttled':['fixture_loadgen_cpu_throttled'],'cpu_unavailable':['fixture_loadgen_cpu_unavailable']}
+            for branch in ('client','phase','counter','process','cpu_throttled','cpu_unavailable','counter_missing','normal'):
+                with self.subTest(branch=branch):
+                    output=root/branch;output.mkdir()
+                    def measure(row):
+                        original=measurement(row['ordinal'])
+                        value={'load':{**original,'timing_diagnostics':{'requests':original['requests'],
+                            'phase_start':original['phase_start'],'phase_end':original['phase_end']},
+                            'private_error':'private-key-url-env-payload'},'errors':[],
+                            'loadgen_cpu_pressure':{'state':'unthrottled'},
+                            'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},
+                                'counter_clock_anchor':[0,0,0],'diagnostic_context':dict.fromkeys(stability.CONTEXT)} for _ in range(2)]}
+                        if branch=='client':value['load'].update(completed=False,missed=1,success=399)
+                        elif branch in flags:
+                            value['errors']=flags[branch]
+                            if branch.startswith('cpu_'):value['loadgen_cpu_pressure']['state']=branch.removeprefix('cpu_')
+                        elif branch in ('counter','counter_missing'):
+                            value['samples'][0]['counters']['errors']={'api':'engine_read_failed' if branch=='counter' else 'required_counter_unavailable'}
+                        return stability.project(value,row['ordinal'],fullstack.SERVICES)
+                    def run():
+                        return stability.experiment(source,lambda _enabled:None,measure,
+                            lambda value:fullstack.pilot.write_json(output/stability.NAME,value),fullstack.SERVICES,images)
+                    if branch=='normal':run()
+                    else:
+                        with self.assertRaisesRegex(ValueError,'^stability_load_incomplete$'):run()
+                    public=root/(branch+'-public')
+                    fullstack.stability_collect(output,admitted,public)
+                    record=stability.read(public,source,fullstack.SERVICES)
+                    quality=record['warmup'][0]['quality']
+                    self.assertEqual(quality,{'available':True,'client_completed':branch!='client',
+                        'scheduled':400,'missed':1 if branch=='client' else 0,'success':399 if branch=='client' else 400,
+                        'unexpected_failures':0,'phase_errors':flags.get(branch,[]),
+                        'counter_samples':2,'counter_errors':{'engine_read_failed':1 if branch=='counter' else 0,
+                            'required_counter_unavailable':1 if branch=='counter_missing' else 0},
+                        'loadgen_cpu_pressure':branch.removeprefix('cpu_') if branch.startswith('cpu_') else 'unthrottled'})
+                    self.assertEqual(record['warmup'][0]['completed'],branch=='normal')
+                    self.assertEqual(len(record['measurements']),6 if branch=='normal' else 0)
+                    self.assertEqual(record['state'],'complete' if branch=='normal' else 'incomplete')
+                    self.assertEqual(record['acceptance'],{'state':'not_applicable','capacity':False,'minimum_candidate_gib':None})
+                    self.assertEqual(set(record['warmup'][0]),{'ordinal','completed','quality'})
+                    self.assertNotIn('private-key-url-env-payload',json.dumps(record))
+                    self.assertTrue(all('quality' not in row for row in record['measurements']))
+
+    def test_warmup_unknowns_and_forged_quality_are_closed_before_publication(self):
+        import stability
+        from test_hosted import metadata
+        def phase():
+            m=measurement(0)
+            return {'load':{**m,'completed':False,'missed':1,'success':399,
+                'timing_diagnostics':{'requests':m['requests'],'phase_start':m['phase_start'],'phase_end':m['phase_end']}},
+                'errors':[],'loadgen_cpu_pressure':{'state':'unthrottled'},
+                'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],
+                    'diagnostic_context':dict.fromkeys(stability.CONTEXT)} for _ in range(2)]}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);admitted=metadata(root)
+            source=json.loads((admitted/'source.json').read_text())['checkout_sha']
+            for index,mutation in enumerate(('pressure_missing','private_phase','private_counter','private_role','bool_count','missing_sample')):
+                value=phase()
+                if mutation=='pressure_missing':value.pop('loadgen_cpu_pressure')
+                elif mutation=='private_phase':value['errors']=['private-key-url-env-payload']
+                elif mutation=='private_counter':value['samples'][0]['counters']['errors']={'api':'private-key-url-env-payload'}
+                elif mutation=='private_role':value['samples'][0]['counters']['errors']={'private-CID':'engine_read_failed'}
+                elif mutation=='bool_count':value['load']['scheduled']=True
+                else:value['samples']=value['samples'][:1]
+                projected=stability.project(value,0,fullstack.SERVICES)
+                self.assertFalse(projected['completed']);self.assertEqual(projected['quality'],{'available':False})
+                record=stability.record(source,fullstack.SERVICES)
+                record['warmup']=[{k:projected[k] for k in ('ordinal','completed','quality')}]
+                output=root/('unknown-'+str(index));output.mkdir();fullstack.pilot.write_json(output/stability.NAME,record)
+                public=root/('unknown-public-'+str(index));fullstack.stability_collect(output,admitted,public)
+                self.assertNotIn('private-key-url-env-payload',json.dumps(stability.read(public,source,fullstack.SERVICES)))
+            # A missing diagnostic observation cannot veto an otherwise successful body.
+            value=phase();value['load'].update(completed=True,missed=0,success=400);value.pop('loadgen_cpu_pressure')
+            projected=stability.project(value,0,fullstack.SERVICES)
+            self.assertTrue(projected['completed']);self.assertEqual(projected['quality'],{'available':False})
+            base=stability.record(source,fullstack.SERVICES)
+            projected=stability.project(phase(),0,fullstack.SERVICES)
+            base['warmup']=[{k:projected[k] for k in ('ordinal','completed','quality')}]
+            invalid=[]
+            for field,bad in [('available',1),('private','private-key-url-env-payload'),('scheduled',401),('missed',-1),
+                              ('success',True),('unexpected_failures',float('nan')),('counter_samples',1),
+                              ('counter_errors',{'engine_read_failed':67,'required_counter_unavailable':0}),
+                              ('counter_errors',{'private-key-url-env-payload':1}),('phase_errors',['private-key-url-env-payload']),
+                              ('phase_errors',['sampler_failed','sampler_failed']),('loadgen_cpu_pressure','private-key-url-env-payload'),
+                              ('loadgen_cpu_pressure','throttled')]:
+                broken=copy.deepcopy(base);broken['warmup'][0]['quality'][field]=bad;invalid.append(broken)
+            for bad in ({'available':False,'client_completed':False},{'available':False,'private':'private-key-url-env-payload'},None):
+                broken=copy.deepcopy(base);broken['warmup'][0]['quality']=bad;invalid.append(broken)
+            broken=copy.deepcopy(base);broken['warmup'][0].pop('quality');invalid.append(broken)
+            broken=copy.deepcopy(base);broken['warmup'][0]['completed']=True;invalid.append(broken)
+            broken=copy.deepcopy(base);broken['acceptance']['capacity']=True;invalid.append(broken)
+            broken=copy.deepcopy(base);broken['schema']=1;invalid.append(broken)
+            for index,record in enumerate(invalid):
+                output=root/('forged-'+str(index));output.mkdir();(output/stability.NAME).write_text(json.dumps(record))
+                public=root/('forged-public-'+str(index))
+                with self.subTest(forgery=index),self.assertRaises(ValueError):fullstack.stability_collect(output,admitted,public)
+                self.assertFalse(public.exists())
+            output=root/'duplicate';output.mkdir()
+            raw=json.dumps(base).replace('"available": true','"available": false,"available": true',1)
+            (output/stability.NAME).write_text(raw)
+            with self.assertRaises(ValueError):fullstack.stability_collect(output,admitted,root/'duplicate-public')
+            self.assertFalse((root/'duplicate-public').exists())
+
+    def test_warmup_quality_counts_cannot_exceed_scheduled_slots(self):
+        import stability
+        from test_hosted import metadata
+        def phase(scheduled,success,missed):
+            m=measurement(0)
+            return {'load':{**m,'completed':False,'scheduled':scheduled,'success':success,'missed':missed,
+                'unexpected_failures':3,'timing_diagnostics':{'requests':m['requests'],
+                    'phase_start':m['phase_start'],'phase_end':m['phase_end']}},
+                'errors':[],'loadgen_cpu_pressure':{'state':'unthrottled'},
+                'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],
+                    'diagnostic_context':dict.fromkeys(stability.CONTEXT)} for _ in range(2)]}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);admitted=metadata(root)
+            source=json.loads((admitted/'source.json').read_text())['checkout_sha']
+            valid=stability.project(phase(4,2,1),0,fullstack.SERVICES)
+            self.assertTrue(valid['quality']['available']);self.assertFalse(valid['completed'])
+            base=stability.record(source,fullstack.SERVICES)
+            base['warmup']=[{k:valid[k] for k in ('ordinal','completed','quality')}]
+            output=root/'valid-partial';output.mkdir();fullstack.pilot.write_json(output/stability.NAME,base)
+            fullstack.stability_collect(output,admitted,root/'valid-public')
+            collected=stability.read(root/'valid-public',source,fullstack.SERVICES)
+            self.assertEqual(collected['warmup'][0]['quality']['unexpected_failures'],3)
+            self.assertEqual(collected['state'],'incomplete');self.assertFalse(collected['acceptance']['capacity'])
+            # No equality requirement: two success plus one missed leaves one unfinished.
+            # Additional probe failures are deliberately outside this slot inequality.
+            for index,(scheduled,success,missed) in enumerate(((0,400,0),(1,0,2),(4,3,2))):
+                with self.subTest(public_counts=index):
+                    bad=copy.deepcopy(base);bad['warmup'][0]['quality'].update(scheduled=scheduled,success=success,missed=missed)
+                    output=root/('impossible-'+str(index));output.mkdir();fullstack.pilot.write_json(output/stability.NAME,bad)
+                    public=root/('impossible-public-'+str(index))
+                    try:fullstack.stability_collect(output,admitted,public)
+                    except ValueError:pass
+                    else:
+                        published=stability.read(public,source,fullstack.SERVICES)['warmup'][0]['quality']
+                        self.fail('collector published impossible counts: '+json.dumps(
+                            {k:published[k] for k in ('scheduled','success','missed')}))
+                    self.assertFalse(public.exists())
+                with self.subTest(raw_counts=index):
+                    projected=stability.project(phase(scheduled,success,missed),0,fullstack.SERVICES)
+                    self.assertFalse(projected['completed']);self.assertEqual(projected['quality'],{'available':False})
+
     def test_context_is_numeric_bounded_and_actual_reset_becomes_unknown(self):
         import stability
         with tempfile.TemporaryDirectory() as directory:
@@ -118,7 +270,7 @@ class Stability(unittest.TestCase):
                 'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],'diagnostic_context':context} for context in (before,after)]}
             projected=stability.project(value,1,());self.assertEqual(projected['host'][1]['context_resets'],len(stability.DELTA_CONTEXT))
             self.assertTrue(all(v is None for v in projected['host'][1]['context_delta'].values()))
-            record=stability.record('a'*40);record['warmup']=[{'ordinal':0,'completed':True}];record['measurements']=[projected]
+            record=stability.record('a'*40);record['warmup']=[{'ordinal':0,'completed':True,'quality':{'available':False}}];record['measurements']=[projected]
             stability.validate(record,'a'*40)
             for bad in ('private-sentinel',float('nan'),True):
                 broken=copy.deepcopy(record);broken['measurements'][0]['host'][0]['context']['steal_ticks']=bad
