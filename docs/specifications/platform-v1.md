@@ -487,7 +487,8 @@ access by itself. Programme placements independently reference catalogue members
 The same Material may appear multiple times within or across chapters; its body and studied mark remain shared.
 Chapter attachments are ordered references to catalogue members outside the mandatory programme. They can also
 reference programme Materials. The sidebar shows the current chapter's “Дополнительные материалы”, not the
-entire catalogue. An active reference remains reachable while retaining its originating lesson context.
+entire catalogue. Lists of more than three attachments initially show the first three and offer a control to
+show or hide the rest. An active reference remains reachable while retaining its originating lesson context.
 The programme shows attachments beside their chapter, and its Materials tab shows the complete catalogue.
 No navigation rule selects Materials by slug. Project and Brief are ordinary first-chapter attachments.
 Counts derive from programme placements; progress counts distinct programme Materials. Attachments do not

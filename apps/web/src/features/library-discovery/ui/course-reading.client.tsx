@@ -455,6 +455,7 @@ export function CourseRail({
             </ol>
           )}
           <CourseReferenceNavigation
+            key={chapter?.id}
             references={[
               ...(chapter?.references ?? []),
               ...(context.references ?? []).filter(
