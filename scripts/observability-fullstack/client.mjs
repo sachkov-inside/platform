@@ -288,6 +288,63 @@ async function webHttpWitness(source) {
     return { ok: false };
   return after;
 }
+/** Initial fixed-series visibility only. No request witness cut or minimum is reused.
+ * @param {string} source
+ */
+async function webHttpInitialReady(source) {
+  if (!/^[a-f0-9]{40}$/u.test(source)) throw new Error("fixed source required");
+  const common =
+    'job="platform-web-http",instance="web",source_sha="' + source + '"';
+  const info = "inside_web_http_source_info{" + common + "}";
+  const epoch = "inside_web_http_process_start_time_seconds{" + common + "}";
+  const observed = "inside_web_http_observed_at_seconds{" + common + "}";
+  const positive =
+    "inside_web_http_requests_total{" +
+    common +
+    ',route="/_health/live",method="GET",code="200",outcome="completed"}';
+  const absent =
+    "inside_web_http_requests_total{" +
+    common +
+    ',route="_unmatched",method="GET",code="404",outcome="completed"}';
+  /** @param {string} selector */
+  const bounded = (selector) =>
+    "(count(" +
+    selector +
+    ") == 1) and on() (sum(" +
+    selector +
+    ") >= 1) and on() (sum(" +
+    selector +
+    ") <= 9007199254740991)";
+  const expression =
+    "((count(" +
+    info +
+    ") == 1) and on() (sum(" +
+    info +
+    ") == 1) and on() " +
+    [epoch, observed, positive, absent].map(bounded).join(" and on() ") +
+    ' and on() (count(up{job="platform-web-http",instance="web"}) == 1) and on() (up{job="platform-web-http",instance="web"} == 1)' +
+    " and on() (sum(" +
+    epoch +
+    ") <= sum(" +
+    observed +
+    "))" +
+    " and on() ((time() - sum(" +
+    observed +
+    ")) >= 0) and on() ((time() - sum(" +
+    observed +
+    ")) <= 10))";
+  const result = await call(
+    "gateway",
+    8080,
+    "/metrics/api/v1/query?query=" +
+      encodeURIComponent(expression) +
+      "&nocache=1",
+    "GET",
+    undefined,
+    { authorization: "Bearer " + key() },
+  );
+  return { ok: result.status === 200 && vector(result.value) === 1 };
+}
 /** @param {string} source @param {string} encoded */
 async function webHttpStored(source, encoded) {
   if (!/^[a-f0-9]{40}$/u.test(source) || encoded.length > 512)
@@ -850,6 +907,22 @@ if (action === "source-warmup") {
   );
 } else if (action === "cache-ready") {
   console.log(JSON.stringify({ ok: (await sourceCacheReady()).ok }));
+} else if (action === "web-http-seed") {
+  const positive = await call(
+    "web",
+    3000,
+    "/_health/live?token=private-http-sentinel",
+  );
+  const absent = await call(
+    "web",
+    3000,
+    "/missing-private-http-sentinel?email=private-http-sentinel",
+  );
+  console.log(
+    JSON.stringify({ ok: positive.status === 200 && absent.status === 404 }),
+  );
+} else if (action === "web-http-initial-ready") {
+  console.log(JSON.stringify(await webHttpInitialReady(argument(0))));
 } else if (action === "web-http-witness") {
   console.log(JSON.stringify(await webHttpWitness(argument(0))));
 } else if (action === "web-http-ready") {

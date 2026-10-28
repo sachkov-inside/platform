@@ -16,6 +16,16 @@ SOURCE='a'*40
 
 
 class StageTimingTests(unittest.TestCase):
+    def test_initial_web_series_and_new_request_proof_have_separate_closed_stages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);timer=stage_timing.Timing(output,SOURCE)
+            timer.call('mode_web_initial_series',lambda:None,group=1)
+            timer.call('mode_web_witness',lambda:None,group=1)
+            timer.finish()
+            value=stage_timing.read(output,SOURCE)
+            self.assertEqual(value['state'],'completed')
+            self.assertEqual([row['stage'] for row in value['stages']],['mode_web_initial_series','mode_web_witness'])
+
     def test_real_fifo_at_artifact_name_refuses_without_waiting_for_a_writer(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory);os.mkfifo(output/stage_timing.NAME)
@@ -229,6 +239,7 @@ except KeyboardInterrupt:sys.exit(42)
                         (fullstack,'ready'),(fullstack,'await_sources'),(fullstack,'await_collector')):
                     patches.enter_context(patch.object(target,name))
                 patches.enter_context(patch.object(fullstack,'seed',return_value={}))
+                patches.enter_context(patch.object(fullstack,'initialize_web_http',return_value={}))
                 patches.enter_context(patch.object(fullstack,'prove_web_http',return_value={}))
                 patches.enter_context(patch.object(fullstack,'invoke',side_effect=invoke))
                 patches.enter_context(patch.object(fullstack,'phase',side_effect=phase))

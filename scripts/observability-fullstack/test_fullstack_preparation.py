@@ -140,6 +140,7 @@ class Preparation(unittest.TestCase):
                     return ''
                 patches.enter_context(patch.object(fullstack,'invoke',side_effect=runtime))
                 patches.enter_context(patch.object(fullstack,'seed',return_value={}))
+                patches.enter_context(patch.object(fullstack,'initialize_web_http',return_value={'state':'observed'}))
                 patches.enter_context(patch.object(fullstack,'prove_web_http',return_value={'state':'observed'}))
                 patches.enter_context(patch.object(fullstack,'phase',return_value=measured))
                 patches.enter_context(patch.object(fullstack.technical,'summarize',return_value={}))
@@ -297,10 +298,19 @@ class Preparation(unittest.TestCase):
             output=Path(directory)
             (output/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
             (output/'compose.json').write_text(json.dumps({'services':{'grafana':{'user':'1:1'}}}))
-            clock={'now':0,'stored':None}
+            clock={'now':0,'stored':None,'seeded':False,'visible':False,'queries':0}
             stop=RuntimeError('controlled_stop_after_first_phase')
             def stored(*args,**options):clock['stored']=clock['now']
-            def witness(*args):clock['now']+=11;return {'state':'observed'}
+            def witness(*args):
+                self.assertTrue(clock['seeded'],'a fresh request proof requires the finite cohorts to exist first')
+                self.assertTrue(clock['visible'],'initial ingestion must be visible before the NEW witness')
+                clock['now']+=11;return {'state':'observed'}
+            def runtime(compose,args,**options):
+                if 'web-http-seed' in args:clock['seeded']=True;return '{"ok":true}'
+                if 'web-http-initial-ready' in args:
+                    clock['queries']+=1;clock['visible']=clock['queries']>=2
+                    return json.dumps({'ok':clock['visible']})
+                return ''
             def phase(*args,**options):
                 self.assertIsNotNone(clock['stored'])
                 self.assertLessEqual(clock['now']-clock['stored'],10,'the bounded witness must precede the stored freshness barrier')
@@ -317,7 +327,8 @@ class Preparation(unittest.TestCase):
                 patches.enter_context(patch.object(fullstack.extra,'warmup'))
                 for name in ('mode','ready'):
                     patches.enter_context(patch.object(fullstack,name))
-                patches.enter_context(patch.object(fullstack,'invoke',return_value=''))
+                patches.enter_context(patch.object(fullstack,'invoke',side_effect=runtime))
+                patches.enter_context(patch.object(fullstack.pilot.time,'sleep'))
                 patches.enter_context(patch.object(fullstack,'seed',return_value={}))
                 patches.enter_context(patch.object(fullstack,'prove_web_http',side_effect=witness))
                 patches.enter_context(patch.object(fullstack,'await_sources',side_effect=stored))

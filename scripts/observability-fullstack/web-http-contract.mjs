@@ -74,6 +74,22 @@ let appRequests = 0,
 let previousBody = "";
 let gatewayRequests = 0;
 let storedMode = "complete";
+let initialMode = "";
+let seedUnavailable = false;
+const initialCases = [
+  "complete",
+  "missing",
+  "duplicate",
+  "nonfinite",
+  "infinity",
+  "zero",
+  "not-one",
+  "http-failed",
+  "error",
+  "wrong-type",
+  "malformed",
+  "over-limit",
+];
 const expected = {
   ok: true,
   positive_count: 42,
@@ -89,6 +105,79 @@ const gateway = createServer((request, response) => {
   assert.equal(url.searchParams.get("nocache"), "1");
   const query = url.searchParams.get("query") ?? "";
   assert.ok(query.includes('source_sha="' + "7".repeat(40) + '"'));
+  if (initialMode) {
+    for (const name of [
+      "inside_web_http_source_info",
+      "inside_web_http_process_start_time_seconds",
+      "inside_web_http_observed_at_seconds",
+      "inside_web_http_requests_total",
+    ]) {
+      assert.ok(query.includes("count(" + name + "{"));
+    }
+    assert.ok(
+      query.includes(
+        'route="/_health/live",method="GET",code="200",outcome="completed"}',
+      ),
+    );
+    assert.ok(
+      query.includes(
+        'route="_unmatched",method="GET",code="404",outcome="completed"}',
+      ),
+    );
+    assert.ok(
+      query.includes('up{job="platform-web-http",instance="web"} == 1'),
+    );
+    assert.ok(query.includes(" <= 9007199254740991"));
+    assert.ok(query.includes(" >= 0"));
+    assert.ok(query.includes(" <= 10"));
+    assert.ok(!query.includes("timestamp("));
+    assert.ok(!query.includes("200.125"));
+    if (initialMode === "malformed" || initialMode === "over-limit") {
+      response
+        .writeHead(200)
+        .end(
+          initialMode === "malformed"
+            ? "private-http-sentinel"
+            : "x".repeat(1048577),
+        );
+      return;
+    }
+    const row = {
+      metric: {},
+      value: [
+        200,
+        initialMode === "nonfinite"
+          ? "NaN"
+          : initialMode === "infinity"
+            ? "Infinity"
+            : initialMode === "zero"
+              ? "0"
+              : initialMode === "not-one"
+                ? "2"
+                : "1",
+      ],
+    };
+    const rows =
+      initialMode === "missing"
+        ? []
+        : initialMode === "duplicate"
+          ? [row, row]
+          : [row];
+    response
+      .writeHead(initialMode === "http-failed" ? 503 : 200, {
+        "content-type": "application/json",
+      })
+      .end(
+        JSON.stringify({
+          status: initialMode === "error" ? "error" : "success",
+          data: {
+            resultType: initialMode === "wrong-type" ? "scalar" : "vector",
+            result: rows,
+          },
+        }),
+      );
+    return;
+  }
   assert.ok(
     query.includes(
       'route="/_health/live",method="GET",code="200",outcome="completed"} and (timestamp(',
@@ -119,7 +208,13 @@ const gateway = createServer((request, response) => {
 const app = createServer((request, response) => {
   appRequests++;
   response
-    .writeHead(request.url?.startsWith("/_health/live?") ? 200 : 404)
+    .writeHead(
+      seedUnavailable
+        ? 503
+        : request.url?.startsWith("/_health/live?")
+          ? 200
+          : 404,
+    )
     .end("synthetic");
 });
 /** @type {Awaited<ReturnType<typeof startWebHttpMetrics>> | undefined} */
@@ -182,8 +277,20 @@ try {
 const read=fs.readFileSync;fs.readFileSync=(p,...a)=>p==='/query/key'?'synthetic_query_key':read(p==='/resource/full-profile.json'?${JSON.stringify(profile)}:p,...a);
 const request=http.request;http.request=(o,cb)=>{if(!['web','inside-web-http','gateway'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:o.hostname==='web'?${appPort}:o.hostname==='gateway'?${gatewayPort}:${sourcePort}},cb);};syncBuiltinESMExports();`,
   );
-  await fetch(`http://127.0.0.1:${appPort}/_health/live?warmup`);
-  await fetch(`http://127.0.0.1:${appPort}/missing?warmup`);
+  const seeded = await cli(loader, ["web-http-seed"]);
+  assert.equal(seeded.code, 0, seeded.stderr);
+  assert.deepEqual(JSON.parse(seeded.stdout), { ok: true });
+  assert.equal(appRequests, 2);
+  assert.equal(sourceRequests, 0);
+  assert.equal(gatewayRequests, 0);
+  seedUnavailable = true;
+  const failedSeed = await cli(loader, ["web-http-seed"]);
+  assert.equal(failedSeed.code, 0, failedSeed.stderr);
+  assert.deepEqual(JSON.parse(failedSeed.stdout), { ok: false });
+  assert.equal(appRequests, 4);
+  assert.equal(sourceRequests, 0);
+  assert.equal(gatewayRequests, 0);
+  seedUnavailable = false;
   for (const current of [
     "complete",
     "missing",
@@ -244,6 +351,32 @@ const request=http.request;http.request=(o,cb)=>{if(!['web','inside-web-http','g
     assert.equal(appRequests, 0);
     assert.equal(sourceRequests, 0);
   }
+  for (const current of initialCases) {
+    initialMode = current;
+    const initialized = await cli(loader, [
+      "web-http-initial-ready",
+      "7".repeat(40),
+    ]);
+    assert.equal(initialized.code, 0, initialized.stderr);
+    assert.deepEqual(JSON.parse(initialized.stdout), {
+      ok: current === "complete",
+    });
+  }
+  initialMode = "";
+  for (const invalidSource of [
+    "G".repeat(40),
+    "7".repeat(39),
+    "private-http-sentinel",
+  ]) {
+    gatewayRequests = 0;
+    const invalidInitial = await cli(loader, [
+      "web-http-initial-ready",
+      invalidSource,
+    ]);
+    assert.notEqual(invalidInitial.code, 0);
+    assert.doesNotMatch(invalidInitial.stderr, /private-http-sentinel/u);
+    assert.equal(gatewayRequests, 0);
+  }
   for (const current of ["complete", "missing"]) {
     storedMode = current;
     const result = await cli(loader, [
@@ -289,7 +422,7 @@ const request=http.request;http.request=(o,cb)=>{if(!['web','inside-web-http','g
   }
   console.log(
     JSON.stringify({
-      cases: 24,
+      cases: 24 + 2 + initialCases.length + 3,
       complete: true,
       private: false,
       missing: false,
