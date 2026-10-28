@@ -3,6 +3,7 @@
 // a private stand file that only api and mcp read (config/compose/local/stand-kinescope.compose.yaml).
 // Callback, webhook and playback-signing secrets stay the stand's own local values.
 import { execFileSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { chmod, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { text } from "node:stream/consumers";
@@ -57,6 +58,65 @@ export function standKinescopeEnvironment(source) {
       values.has(key) ? [`${key}=${values.get(key)}`] : [],
     ),
   ].join("\n")}\n`;
+}
+
+// The stand's own Ed25519 preview key (#1808): production holds only the public half and accepts
+// the stand's short author previews of protected recordings with it.
+const previewPrivateKey = "KINESCOPE_STAND_PREVIEW_PRIVATE_KEY";
+const previewPublicKey = "KINESCOPE_STAND_PREVIEW_PUBLIC_KEY";
+
+/**
+ * The stand file with its preview key, generated once and kept across imports. Returns the
+ * public half for production; the private half never leaves the file.
+ * @param {string} current the stand file's contents
+ * @param {() => { privateKey: string; publicKey: string }} [generate]
+ */
+export function withStandPreviewKey(current, generate = generatePreviewKey) {
+  const kept = standPreviewLines(current);
+  const publicKey = kept
+    .find((line) => line.startsWith(`${previewPublicKey}=`))
+    ?.slice(previewPublicKey.length + 1);
+  if (kept.length === 2 && publicKey) return { contents: current, publicKey };
+  if (kept.length > 0)
+    throw new Error(
+      `The stand file holds an incomplete preview key; remove ${previewPrivateKey} and ${previewPublicKey} and retry`,
+    );
+  const pair = generate();
+  return {
+    contents: `${current.trimEnd()}\n${previewPrivateKey}=${pair.privateKey}\n${previewPublicKey}=${pair.publicKey}\n`,
+    publicKey: pair.publicKey,
+  };
+}
+
+/** @param {string} current */
+export function standPreviewLines(current) {
+  return current
+    .split(/\r?\n/u)
+    .filter(
+      (line) =>
+        line.startsWith(`${previewPrivateKey}=`) ||
+        line.startsWith(`${previewPublicKey}=`),
+    );
+}
+
+function generatePreviewKey() {
+  const pair = generateKeyPairSync("ed25519");
+  const privateKey = pair.privateKey.export({ format: "jwk" }).d;
+  const publicKey = pair.publicKey.export({ format: "jwk" }).x;
+  if (!privateKey || !publicKey)
+    throw new Error("Ed25519 key generation returned no key");
+  return { privateKey, publicKey };
+}
+
+/** @param {string} path @returns {Promise<string>} the file, or empty when there is none */
+async function readOptional(path) {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return "";
+    throw error;
+  }
 }
 
 /** @param {string} path @param {string} contents */
@@ -168,10 +228,23 @@ if (
         throw new Error(
           "Pipe the production runtime values: ssh inside-production \"grep -E '^KINESCOPE_(API_TOKEN|PUBLIC_PROJECT_ID|MEMBERSHIP_PROJECT_ID|API_BASE_URL|UPLOADER_BASE_URL)=' /etc/inside/runtime/api.env\" | pnpm stand:kinescope import",
         );
+      // A fresh import keeps the stand's preview key, which production already trusts.
+      const kept = standPreviewLines(await readOptional(path));
       await writeStandKinescope(
         path,
-        standKinescopeEnvironment(await text(process.stdin)),
+        `${standKinescopeEnvironment(await text(process.stdin))}${kept.map((line) => `${line}\n`).join("")}`,
       );
+    } else if (command === "preview-key") {
+      if ((await readStandKinescope(path)) !== "real")
+        throw new Error(
+          "The preview key serves the real adapter only; import first",
+        );
+      const { contents, publicKey } = withStandPreviewKey(
+        await readFile(path, "utf8"),
+      );
+      await writeStandKinescope(path, contents);
+      // The public half is no secret: the owner adds this line to production's api.env.
+      process.stdout.write(`${previewPublicKey}=${publicKey}\n`);
     } else if (command === "remove") await removeStandKinescope(path);
     else if (command === "detach-test-videos") {
       if ((await readStandKinescope(path)) !== "real")
@@ -189,7 +262,7 @@ if (
       process.stdout.write(`Stand test-adapter Videos ${result}\n`);
     } else if (command !== "status")
       throw new Error(
-        "Usage: pnpm stand:kinescope [status|import|remove|detach-test-videos]",
+        "Usage: pnpm stand:kinescope [status|import|preview-key|remove|detach-test-videos]",
       );
     const mode = await readStandKinescope(path);
     // The file selects the adapter for roles created after it; running roles change on refresh.

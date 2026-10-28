@@ -150,7 +150,7 @@ free recordings that play without a token.
 | Setting | «Sachkov Inside» (public, older `free` recordings) | «Sachkov Inside Membership» (protected, every new recording) |
 | --- | --- | --- |
 | Кто может смотреть | Все | Все; the authorization backend decides |
-| Где можно показывать плеер | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus `127.0.0.1` while the owner reviews on the stand | На указанных доменах: `sachkov.dev`, `*.sachkov.dev` |
+| Где можно показывать плеер | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus `127.0.0.1` while the owner reviews on the stand | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus `127.0.0.1` while the owner previews on the stand (step 6) |
 | Authorization backend | none; set it per project, never for the whole workspace | `https://sachkov.dev/integrations/kinescope/v1/authorize`, Basic `KINESCOPE_CALLBACK_USERNAME`/`_PASSWORD` from the production `api.env`, `strict: true` |
 
 The webhook belongs to the workspace: `https://sachkov.dev/integrations/kinescope/v1/webhook` with
@@ -175,9 +175,16 @@ recording; an earlier release sends a guest of a free lesson no token, and step 
    project (`200`). Read the API log for `/integrations/kinescope/v1/authorize`.
 5. Switch it to `strict: true`, so a timeout or error also refuses playback, and repeat the check.
 
+6. Optional, with the owner's consent (#1808): the stand's preview key. Add the line printed by
+   `pnpm stand:kinescope preview-key` (`KINESCOPE_STAND_PREVIEW_PUBLIC_KEY`, the public half only) to
+   `api.env` and restart `api`, so the owner's stand can still preview protected recordings. Production
+   refuses to start with the private half. Remove the line and restart `api` to revoke it
+   ([stand runbook](local-stand-kinescope.md#preview-after-protection-1808)).
+
 Rollback is the reverse step: `strict: false`, or remove the backend, or return the domain mode to
 «Везде». The [local stand](local-stand-kinescope.md) plays only while its origin is on the
-project's domain list, and recordings of the membership project only until step 4.
+project's domain list, and recordings of the membership project after step 4 only in its author
+preview with step 6.
 
 The bank contour follows the same shape. `TBANK_PROVIDER_MODE` is `real` by default everywhere and
 selects the terminal from `TBANK_CONFIG_JSON`; `test` replaces it with the local stand double

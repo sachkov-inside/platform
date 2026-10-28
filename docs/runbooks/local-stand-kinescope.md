@@ -88,9 +88,29 @@ decision to use the production projects (#1790); a narrower token, if Kinescope 
 | Recording | Stand playback |
 | --- | --- |
 | Public project (older free recordings) | Plays when the project's allowed domains include the stand host `127.0.0.1` (the stand opens on `http://127.0.0.1:3000`), or have no restriction. |
-| Membership project (every new upload, free or closed lesson) | Plays only while the project has no authorization backend. After the backend is on, Kinescope asks production, which refuses a token signed by the stand (other key, unknown local Video), so the player stays locked. |
+| Membership project (every new upload, free or closed lesson) | Plays everywhere while the project has no authorization backend. After the backend is on, Kinescope asks production about every licence: it plays only in the author preview `/authoring/materials/:id/preview` with the stand's preview key below; the reader stays locked. |
 
-Closed playback on the stand therefore ends when production protection starts. Keeping it needs
-production to trust a separate stand signing key for preview tokens: a production code change, a
-production secret and a deployment, and whoever holds the stand key can unlock any membership
-video for a few minutes. That is an owner decision, not part of this setup.
+## Preview after protection (#1808)
+
+Production cannot check a stand token by itself: it knows neither the stand's playback secret nor
+its local Videos. With the owner's consent it trusts one more key, the stand's own Ed25519 preview
+key, for author previews only:
+
+```bash
+pnpm stand:kinescope preview-key
+pnpm stand refresh --worktree <reserved worktree>
+```
+
+`preview-key` adds the key pair to the private stand file once (later runs and later `import`s
+keep it) and prints one line, `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=…`. The public half is no secret;
+the owner adds that line to production's `/etc/inside/runtime/api.env` and restarts `api` in a
+release window. The stand then signs the preview of a protected recording with its private half:
+`act=preview`, the recording's provider ID, at most 300 seconds. Production accepts exactly such a
+token and records each acceptance as `stand_preview_authorized` with the token ID, the provider
+video and the stand Account; ordinary playback, other recordings and longer tokens are refused.
+
+Risk: the stand's ContentAccess decides who previews (an Account with `materials:manage`), but
+production only sees the signature. Anyone who reads the private stand file can open any recording
+of the membership project for five minutes per token, as long as production holds the public half.
+To stop it, the owner removes the line from `api.env` and restarts `api`; deleting the private file
+alone does not revoke a copy of the key.

@@ -1,6 +1,11 @@
-import { randomUUID } from "node:crypto";
+import {
+  createPrivateKey,
+  createPublicKey,
+  randomUUID,
+  type KeyObject,
+} from "node:crypto";
 
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, decodeProtectedHeader, jwtVerify } from "jose";
 
 import {
   anonymousSubject,
@@ -9,6 +14,7 @@ import {
 } from "../../../content-access/index.js";
 import type { Videos } from "../../../videos/index.js";
 import { accountId as checkedAccountId } from "../../../accounts/index.js";
+import { writeLog } from "../../../../infrastructure/observability/index.js";
 
 export const VIDEO_PLAYBACK = Symbol("VIDEO_PLAYBACK");
 
@@ -64,10 +70,46 @@ export interface VideoPlayback {
   }): Promise<SaveVideoProgressResult>;
 }
 
+/**
+ * The stand's author preview of a protected recording: production's callback has no stand Video
+ * to check, so it trusts the stand's Ed25519 signature for a short preview only (#1808).
+ */
+export interface StandPreviewKeys {
+  /** On the stand: signs a preview of a protected recording. */
+  readonly signing?: KeyObject;
+  /** On production: accepts such a preview in the provider callback. */
+  readonly verification?: KeyObject;
+}
+
+/** Ed25519 keys from their base64url JWK halves; the stand holds both, production only the public one. */
+export function standPreviewKeys(halves: {
+  readonly privateKey: string | undefined;
+  readonly publicKey: string | undefined;
+}): StandPreviewKeys {
+  if (halves.publicKey === undefined) return {};
+  const jwk = { crv: "Ed25519", kty: "OKP", x: halves.publicKey };
+  return {
+    verification: createPublicKey({ format: "jwk", key: jwk }),
+    ...(halves.privateKey === undefined
+      ? {}
+      : {
+          signing: createPrivateKey({
+            format: "jwk",
+            key: { ...jwk, d: halves.privateKey },
+          }),
+        }),
+  };
+}
+
+const STAND_PREVIEW_ISSUER = "inside-stand";
+/** Production accepts no stand preview that lives longer, whatever the stand's TTL. */
+const STAND_PREVIEW_MAX_SECONDS = 300;
+
 export function assembleVideoPlayback(dependencies: {
   readonly contentAccess: Pick<ContentAccess, "authorize">;
   readonly jwtSecret: string;
   readonly jwtTtlSeconds: number;
+  readonly standPreview?: StandPreviewKeys;
   readonly videos: Pick<
     Videos,
     "loadPlayback" | "loadProgress" | "saveProgress"
@@ -140,24 +182,46 @@ export function assembleVideoPlayback(dependencies: {
           : issuedAt + dependencies.jwtTtlSeconds;
       // A protected recording needs a token for every viewer, including an anonymous one of a
       // free Material: access is the Material's and may change without moving the recording.
-      const drmAuthToken = loaded.value.protected
-        ? await new SignJWT({
-            // The provider callback repeats the same action: a preview token stays a preview.
-            ...(action === "preview" ? { act: action } : {}),
-            pid: loaded.value.providerVideoId,
-            vid: loaded.value.videoId,
-          })
-            .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-            .setIssuer(issuer)
-            .setAudience(audience)
-            .setSubject(
-              input.subject.kind === "account" ? input.subject.accountId : "",
-            )
-            .setJti(randomUUID())
-            .setIssuedAt(issuedAt)
-            .setExpirationTime(expiresAt)
-            .sign(secret)
-        : null;
+      const standSigning = dependencies.standPreview?.signing;
+      const drmAuthToken = !loaded.value.protected
+        ? null
+        : action === "preview" && standSigning !== undefined
+          ? await new SignJWT({
+              act: action,
+              pid: loaded.value.providerVideoId,
+            })
+              .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
+              .setIssuer(STAND_PREVIEW_ISSUER)
+              .setAudience(audience)
+              .setSubject(
+                input.subject.kind === "account" ? input.subject.accountId : "",
+              )
+              .setJti(randomUUID())
+              .setIssuedAt(issuedAt)
+              .setExpirationTime(
+                issuedAt +
+                  Math.min(
+                    dependencies.jwtTtlSeconds,
+                    STAND_PREVIEW_MAX_SECONDS,
+                  ),
+              )
+              .sign(standSigning)
+          : await new SignJWT({
+              // The provider callback repeats the same action: a preview token stays a preview.
+              ...(action === "preview" ? { act: action } : {}),
+              pid: loaded.value.providerVideoId,
+              vid: loaded.value.videoId,
+            })
+              .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+              .setIssuer(issuer)
+              .setAudience(audience)
+              .setSubject(
+                input.subject.kind === "account" ? input.subject.accountId : "",
+              )
+              .setJti(randomUUID())
+              .setIssuedAt(issuedAt)
+              .setExpirationTime(expiresAt)
+              .sign(secret);
       return {
         ok: true,
         value: {
@@ -172,6 +236,8 @@ export function assembleVideoPlayback(dependencies: {
 
     async authorizeProvider(input) {
       try {
+        if (decodeProtectedHeader(input.token).alg === "EdDSA")
+          return await authorizeStandPreview(input);
         const verified = await jwtVerify(input.token, secret, {
           algorithms: ["HS256"],
           audience,
@@ -281,6 +347,40 @@ export function assembleVideoPlayback(dependencies: {
     },
   };
   return Object.freeze(playback);
+
+  /** Throws for a token that fails verification; the caller refuses it. */
+  async function authorizeStandPreview(input: {
+    readonly providerVideoId: string;
+    readonly token: string;
+  }): Promise<boolean> {
+    const key = dependencies.standPreview?.verification;
+    if (key === undefined) return false;
+    const verified = await jwtVerify(input.token, key, {
+      algorithms: ["EdDSA"],
+      audience,
+      issuer: STAND_PREVIEW_ISSUER,
+      clockTolerance: 0,
+      currentDate: clock(),
+      requiredClaims: ["exp", "iat", "jti", "sub"],
+    });
+    const { exp, iat, jti, sub } = verified.payload;
+    if (
+      verified.payload["act"] !== "preview" ||
+      verified.payload["pid"] !== input.providerVideoId ||
+      exp === undefined ||
+      iat === undefined ||
+      exp - iat > STAND_PREVIEW_MAX_SECONDS
+    )
+      return false;
+    // Production holds no stand Video or Account: the signature is the stand's whole answer, so
+    // every accepted preview leaves a record for the owner.
+    writeLog("info", "stand_preview_authorized", {
+      jti,
+      providerVideoId: input.providerVideoId,
+      standAccountId: sub,
+    });
+    return true;
+  }
 }
 
 type PlaybackErrorCode = Extract<
