@@ -175,3 +175,56 @@ test("first refusal clock errors and absent released slots are closed unavailabl
     reason: "bounds",
   });
 });
+
+test("named primed control routes actual warmup400 at20rps and measurement400 at40rps", async () => {
+  const { runStabilityPhase } = await import("./stability-protocol.mjs");
+  /** @type {[import("./stability-protocol.mjs").Definition,boolean,number,number][]} */
+  const calls = [];
+  /** @param {import("./stability-protocol.mjs").Definition} definition @param {boolean} enabled @param {number} pair @param {number} ordinal */
+  const load = async (definition, enabled, pair, ordinal) => {
+    calls.push([definition, enabled, pair, ordinal]);
+    return { completed: true };
+  };
+  for (const ordinal of [0, 1, 6, 7])
+    await runStabilityPhase(
+      [
+        ordinal >= 6 ? "on" : "off",
+        String(ordinal),
+        "fixed-actor-primed400-v1",
+      ],
+      load,
+    );
+  assert.deepEqual(calls, [
+    [{ name: "spike", seconds: 20, requests_per_second: 20 }, false, 0, 0],
+    [{ name: "spike", seconds: 10, requests_per_second: 40 }, false, 0, 1],
+    [{ name: "spike", seconds: 20, requests_per_second: 20 }, true, 1, 6],
+    [{ name: "spike", seconds: 10, requests_per_second: 40 }, true, 1, 7],
+  ]);
+});
+
+test("diagnostic dispatcher defaults to cold400 and refuses arbitrary or mixed phase controls", async () => {
+  const { runStabilityPhase } = await import("./stability-protocol.mjs");
+  const cold = await runStabilityPhase(["off", "0"], async (definition) => ({
+    definition,
+  }));
+  assert.deepEqual(cold.diagnostic_definition, {
+    name: "spike",
+    seconds: 10,
+    requests_per_second: 40,
+  });
+  assert.equal(cold.diagnostic_protocol, "fixed-actor-cold400-v1");
+  for (const args of [
+    ["off", "0", "private-knob"],
+    ["on", "0", "fixed-actor-primed400-v1"],
+    ["off", "6", "fixed-actor-primed400-v1"],
+    ["off", "00"],
+    ["off", "12"],
+    ["off", "0", "fixed-actor-primed400-v1", "20"],
+    ["off"],
+  ])
+    await assert.rejects(
+      runStabilityPhase(args, async () => {
+        assert.fail("invalid control reached load");
+      }),
+    );
+});

@@ -21,7 +21,20 @@ const diagnosticOrdinal = process.argv[4]?.startsWith("stability-")
   : null;
 /** @type {number[]} */ const actorIndices = [];
 /** @type {number[]} */ const updateIds = [];
-const slotControl = process.argv[5];
+const protocol = process.argv[5]?.startsWith("fixed-actor-")
+  ? process.argv[5]
+  : undefined;
+assert.ok(
+  protocol === undefined ||
+    ["fixed-actor-cold400-v1", "fixed-actor-primed400-v1"].includes(protocol),
+);
+const slotControl = protocol === undefined ? process.argv[5] : undefined;
+const phaseSeconds =
+  protocol === "fixed-actor-primed400-v1" &&
+  diagnosticOrdinal !== null &&
+  diagnosticOrdinal % 2 === 0
+    ? 20
+    : 10;
 assert.ok(
   slotControl === undefined || ["probe", "application"].includes(slotControl),
 );
@@ -307,6 +320,7 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
             "stability-load",
             enabled ? "on" : "off",
             String(diagnosticOrdinal),
+            ...(protocol === undefined ? [] : [protocol]),
           ]),
     ],
     { stdio: ["ignore", "pipe", "pipe"] },
@@ -326,7 +340,7 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
   const [code] = await closed;
   assert.equal(code, 0, stderr);
   assert.ok(
-    performance.now() - started >= 10000,
+    performance.now() - started >= phaseSeconds * 1000,
     "full phase duration required",
   );
   /** @type {unknown} */ const result = JSON.parse(stdout);
@@ -339,6 +353,18 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
       "unexpected_failures" in result &&
       "completed" in result,
   );
+  if (protocol !== undefined) {
+    assert.equal(field(result, "diagnostic_protocol"), protocol);
+    assert.deepEqual(field(result, "diagnostic_definition"), {
+      name: "spike",
+      seconds: phaseSeconds,
+      requests_per_second: phaseSeconds === 20 ? 20 : 40,
+    });
+    await writeFile(
+      join(directory, `actual-client-result-${String(diagnosticOrdinal)}.json`),
+      JSON.stringify(result),
+    );
+  }
   const timing = field(result, "timing_diagnostics");
   assert.equal(field(timing, "state"), "complete");
   assert.equal(
@@ -362,7 +388,7 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
     assert.ok(anchor[0] <= anchor[2]);
     assert.ok(Number.isSafeInteger(anchor[1]) && anchor[1] >= 0);
   }
-  assert.ok(phaseEnd[0] - phaseStart[0] >= 10000);
+  assert.ok(phaseEnd[0] - phaseStart[0] >= phaseSeconds * 1000);
   const requests = field(timing, "requests");
   const rounds = field(timing, "observer_rounds");
   assert.ok(Array.isArray(requests) && Array.isArray(rounds));

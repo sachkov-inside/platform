@@ -130,7 +130,7 @@ def inputs(output, images):
     storage.configure(output,plan)
     for item in plan['services'].values():item['pull_policy']='never';item.pop('restart',None)
     for name in ('loadgen','provider'):
-        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
+        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'stability-protocol.mjs')+':/resource/stability-protocol.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
@@ -479,7 +479,7 @@ class SourcePublicationTiming:
         self.active=None
 
 
-def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1,diagnostic_ordinal=None):
+def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1,diagnostic_ordinal=None,diagnostic_protocol=stability.COLD_PROTOCOL):
     call=partial(stage_timing.call,timing,group=group,phase=index)
     states=call('phase_ownership_before',technical.owned,compose,project,active)
     def captured():
@@ -527,9 +527,11 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
             lambda *args,**options:call('phase_storage_'+position+'_database',sql,*args,**options))
     try:
         storage_samples.append(observed('before'))
-        command=['load',json.dumps(definition),'on' if enabled else 'off',str(pair)] if diagnostic_ordinal is None else ['stability-load','on' if enabled else 'off',str(diagnostic_ordinal)]
-        value=json.loads(call('phase_load',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs',*command],timeout=definition['seconds']+65))
-        if diagnostic_ordinal is not None and (value.get('diagnostic_only') is not True or value.get('actor_cohort')!=0 or type(value.get('maximum_inflight')) is not int or not 1<=value['maximum_inflight']<=8):raise ValueError('diagnostic_client_required')
+        if diagnostic_ordinal is None:
+            command=['load',json.dumps(definition),'on' if enabled else 'off',str(pair)]
+            value=json.loads(call('phase_load',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs',*command],timeout=definition['seconds']+65))
+        else:
+            value=call('phase_load',stability.invoke_client,compose,invoke,definition,enabled,diagnostic_ordinal,diagnostic_protocol)
         phase_id=pair*6+(3 if enabled else 0)+('idle','steady','spike').index(definition['name'])
         if diagnostic_ordinal is not None:phase_id=diagnostic_ordinal
         acknowledged=value.get('telegram_acknowledged')
@@ -746,43 +748,47 @@ def collect(output, metadata, destination):
 
 
 
-def stability_inputs(output,images):
+def stability_inputs(output,images,protocol=stability.COLD_PROTOCOL):
     inputs(output,images)
-    pilot.write_json(output/stability.MARKER,{'schema':1,'source':pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),'scope':'diagnostic_only'})
+    pilot.write_json(output/stability.MARKER,stability.plan(pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),protocol))
 
 
 def stability_worker(output,owner,compose):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     marker=stability.read_json(output/stability.MARKER)
-    if type(marker) is not dict or type(marker.get('schema')) is not int or marker!={'schema':1,'source':source,'scope':'diagnostic_only'}:raise ValueError('diagnostic_plan_binding')
+    protocol=stability.plan_protocol(marker,source)
     prepared=stability.read_json(output/'fullstack-source.json')
     if prepared.get('source')!=source:raise ValueError('diagnostic_image_source')
     images={key:prepared['images'][key] for key in ('backend','foundation','web','telegram','logto')}
     def persist(value):
-        stability.validate(value,source,SERVICES);pilot.write_json(output/stability.NAME,value)
+        stability.validate(value,source,SERVICES,protocol=protocol);pilot.write_json(output/stability.NAME,value)
     active=None
     def configure(enabled):
         nonlocal active
         active=configure_mode(compose,output,enabled)
     def measure(row):
-        measured=phase(compose,owner['project'],row['definition'],active,row['enabled'],row['ordinal']//6,output,diagnostic_ordinal=row['ordinal'])
-        return stability.project(measured,row['ordinal'],SERVICES)
+        measured=phase(compose,owner['project'],row['definition'],active,row['enabled'],row['ordinal']//6,output,diagnostic_ordinal=row['ordinal'],diagnostic_protocol=protocol)
+        return stability.project(measured,row['ordinal'],SERVICES,protocol=protocol)
     # Persist before setup, so deadline/seed failures still have non-acceptance evidence.
-    persist(stability.record(source,SERVICES,images))
+    persist(stability.record(source,SERVICES,images,protocol=protocol))
     with pilot.worker_storage_guard(owner,compose,output):
         mode(output,False);invoke(compose,['up','-d','postgres','provider','loadgen'],timeout=30)
         invoke(compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
         seed(compose,output)
-        stability.experiment(source,configure,measure,persist,SERVICES,images)
+        stability.experiment(source,configure,measure,persist,SERVICES,images,protocol=protocol)
 
 
-def stability_collect(output,metadata,destination):
+def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROTOCOL):
+    stability.require_protocol(protocol)
     source,_=hosted.metadata_source(metadata)
+    marker=output/stability.MARKER
+    if marker.exists() or marker.is_symlink():
+        stability.plan_protocol(stability.read_json(marker),source['checkout_sha'],expected=protocol)
     refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     if (output/stability.NAME).exists() or (output/stability.NAME).is_symlink():
-        stability.read(output,source['checkout_sha'],SERVICES)
+        stability.validate(stability.read_json(output/stability.NAME),source['checkout_sha'],SERVICES,protocol=protocol)
     else:
-        pilot.write_json(output/stability.NAME,stability.record(source['checkout_sha'],SERVICES))
+        pilot.write_json(output/stability.NAME,stability.record(source['checkout_sha'],SERVICES,protocol=protocol))
     resource_runtime.ci.collect(output,metadata,destination,artifacts=(stability.NAME,'cleanup.json','worker-outcome.json','monitor-failure.json'))
     if refusal is not None:startup_refusal.write(destination,refusal,source['checkout_sha'],BACKENDS)
 
@@ -790,14 +796,17 @@ def stability_collect(output,metadata,destination):
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission'))
     parser.add_argument('--output',type=Path);parser.add_argument('--images',type=Path)
+    parser.add_argument('--protocol',choices=(stability.COLD_PROTOCOL,stability.PRIMED_PROTOCOL))
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
+    if args.protocol is not None and args.action not in ('diagnostic-run','diagnostic-collect'):parser.error('--protocol requires diagnostic action')
+    protocol=args.protocol or stability.COLD_PROTOCOL
     if args.action=='diagnostic-admission':
         hosted.context();stability.require_marker(stability.read_json(Path(os.environ['GITHUB_EVENT_PATH'])))
         return
     if args.output is None:parser.error('--output required')
     if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)
-    if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public)
+    if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public,protocol=protocol)
     if args.action=='collect':
         return collect(args.output,args.metadata,args.public)
     if args.action=='recover':
@@ -813,7 +822,7 @@ def main():
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
-        pilot.run(args.output,prepare_inputs=lambda output:(stability_inputs if args.action=='diagnostic-run' else inputs)(output,args.images),worker_script=Path(__file__).resolve(),
+        pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
             ports=(18427,13000,14318,1514,13301),services=SERVICES,project_prefix=PREFIX,
             scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
 

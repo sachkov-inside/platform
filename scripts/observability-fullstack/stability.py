@@ -23,13 +23,70 @@ PHASE_ERRORS=('fixture_loadgen_cpu_throttled','fixture_loadgen_cpu_unavailable',
 COUNTER_ERRORS=('engine_read_failed','required_counter_unavailable')
 
 
+COLD_PROTOCOL='fixed-actor-cold400-v1'
+PRIMED_PROTOCOL='fixed-actor-primed400-v1'
+
+
+def require_protocol(value):
+    if type(value) is not str or value not in (COLD_PROTOCOL,PRIMED_PROTOCOL):
+        raise ValueError('closed_stability_protocol')
+    return value
+
+
+def definitions(protocol=COLD_PROTOCOL):
+    primed=require_protocol(protocol)==PRIMED_PROTOCOL
+    return {'warmup':{'name':'spike','seconds':20 if primed else 10,'requests_per_second':20 if primed else 40},
+            'measurement':{'name':'spike','seconds':10,'requests_per_second':40}}
+
+
+def invoke_client(compose,invoke,definition,enabled,ordinal,protocol=COLD_PROTOCOL):
+    plan=schedule(protocol)
+    if (type(ordinal) is not int or not 0<=ordinal<12 or type(enabled) is not bool
+            or enabled!=plan[ordinal]['enabled'] or definition!=plan[ordinal]['definition']
+            or any(type(definition.get(k)) is not int for k in ('seconds','requests_per_second'))):
+        raise ValueError('closed_stability_phase')
+    result=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','stability-load',
+        'on' if enabled else 'off',str(ordinal),protocol],timeout=75))
+    return client_result(result,ordinal,protocol)
+
+
+def client_result(result,ordinal,protocol):
+    definition=schedule(protocol)[ordinal]['definition']
+    if (type(result) is not dict or result.get('diagnostic_only') is not True or result.get('actor_cohort')!=0
+            or type(result.get('actor_cohort')) is not int or type(result.get('maximum_inflight')) is not int
+            or not 1<=result['maximum_inflight']<=8 or result.get('diagnostic_protocol')!=protocol
+            or result.get('diagnostic_definition')!=definition
+            or type(result.get('diagnostic_definition')) is not dict
+            or any(type(result['diagnostic_definition'].get(k)) is not int for k in ('seconds','requests_per_second'))
+            or type(result.get('timing_diagnostics')) is not dict
+            or type(result['timing_diagnostics'].get('phase')) is not int or result['timing_diagnostics']['phase']!=ordinal
+            or type(result['timing_diagnostics'].get('pair')) is not int or result['timing_diagnostics']['pair']!=ordinal//6):
+        raise ValueError('diagnostic_client_protocol_required')
+    return result
+
+
+
+def plan(source,protocol=COLD_PROTOCOL):
+    if type(source) is not str or re.fullmatch('[a-f0-9]{40}',source) is None:raise ValueError('diagnostic_plan_binding')
+    return {'schema':2,'source':source,'scope':'diagnostic_only','protocol':require_protocol(protocol)}
+
+
+def plan_protocol(value,source,*,expected=None):
+    if (type(value) is not dict or set(value)!={'schema','source','scope','protocol'}
+            or type(value['schema']) is not int or value!=plan(source,value['protocol'])
+            or expected is not None and value['protocol']!=require_protocol(expected)):
+        raise ValueError('diagnostic_plan_binding')
+    return value['protocol']
+
+
 def number(value):return type(value) in (int,float) and math.isfinite(value) and 0<=value<=2**53-1
 
 def counter_delta(before,after):return after-before if number(before) and number(after) and after>=before else None
 
-def schedule():
+def schedule(protocol=COLD_PROTOCOL):
+    plan=definitions(protocol)
     return [{'ordinal':i,'enabled':MODES[i//2],'measured':bool(i%2),
-        'definition':{'name':'spike','seconds':10,'requests_per_second':40}} for i in range(12)]
+        'definition':dict(plan['measurement' if i%2 else 'warmup'])} for i in range(12)]
 
 
 def context(proc=Path('/proc')):
@@ -50,8 +107,8 @@ def context(proc=Path('/proc')):
     return {key:value if number(value) else None for key,value in result.items()}
 
 
-def record(source,roles=(),images=None):
-    return {'schema':3,'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
+def record(source,roles=(),images=None,*,protocol=COLD_PROTOCOL):
+    return {'schema':4,'protocol':require_protocol(protocol),'definitions':definitions(protocol),'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
         'service_roles':list(roles),'images':images or {},'warmup':[],'measurements':[]}
 
 
@@ -101,9 +158,11 @@ def quality(value,roles):
     except (KeyError,ValueError,TypeError,AttributeError):return {'available':False}
 
 
-def project(value,ordinal,roles):
+def project(value,ordinal,roles,*,protocol=None):
     """Discard private/native errors. Fixed roles become numeric indices in raw frames."""
-    load=value['load'];timing=load['timing_diagnostics']
+    load=value['load']
+    if protocol is not None:client_result(load,ordinal,protocol)
+    timing=load['timing_diagnostics']
     def numeric(value):return value if number(value) else None
     frames=[];previous=None
     for sample in value['samples']:
@@ -124,9 +183,9 @@ def project(value,ordinal,roles):
     return result
 
 
-def experiment(source,configure,measure,persist,roles=(),images=None):
-    result=record(source,roles,images);persist(result)
-    for row in schedule():
+def experiment(source,configure,measure,persist,roles=(),images=None,*,protocol=COLD_PROTOCOL):
+    result=record(source,roles,images,protocol=protocol);persist(result)
+    for row in schedule(protocol):
         if not row['measured']:configure(row['enabled'])
         value=measure(row)
         if row['measured']:result['measurements'].append(value)
@@ -138,11 +197,15 @@ def experiment(source,configure,measure,persist,roles=(),images=None):
     result['state']='complete';validate(result,source,roles);persist(result);return result
 
 
-def validate(value,source,roles=()):
+def validate(value,source,roles=(),*,protocol=None):
     def need(ok):
         if not ok:raise ValueError('closed_stability_diagnostic')
-    need(type(value) is dict and set(value)=={'schema','source','scope','state','acceptance','service_roles','images','warmup','measurements'})
-    need(type(value['schema']) is int and value['schema']==3 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
+    need(type(value) is dict and set(value)=={'schema','protocol','definitions','source','scope','state','acceptance','service_roles','images','warmup','measurements'})
+    selected=require_protocol(value['protocol'])
+    need(protocol is None or selected==require_protocol(protocol))
+    need(value['definitions']==definitions(selected) and type(value['definitions']) is dict)
+    need(all(type(row) is dict and all(type(row.get(k)) is int for k in ('seconds','requests_per_second')) for row in value['definitions'].values()))
+    need(type(value['schema']) is int and value['schema']==4 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
     need(value['scope']=='diagnostic_only' and value['state'] in ('incomplete','complete') and value['acceptance']==ACCEPTANCE
         and type(value['acceptance']['capacity']) is bool and value['service_roles']==list(roles))
     images=value['images'];need(type(images) is dict and (not images or set(images)=={'backend','foundation','web','telegram','logto'}))
