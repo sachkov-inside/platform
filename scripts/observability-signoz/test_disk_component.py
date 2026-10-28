@@ -71,7 +71,7 @@ class ComponentPhases(unittest.TestCase):
             def phase(path,name,started,deadline,cancelled):
                 seen.append((name,deadline-started))
                 return {'phase':name,'exit':1 if name=='setup' else 0,'elapsed_seconds':1,'limit_seconds':180 if name=='setup' else 90,'stopped':True}
-            with patch.object(runtime,'require_native_host'),patch.object(runtime,'source',return_value=source),patch.object(component,'launch_phase',side_effect=phase):
+            with patch.object(component,'require_opt_in'),patch.object(runtime,'require_native_host'),patch.object(runtime,'source',return_value=source),patch.object(component,'launch_phase',side_effect=phase):
                 self.assertEqual(component.run(output),1)
             self.assertEqual(seen,[('setup',180),('cleanup',90)])
             record=evidence.read(output/'component-outcome.json')
@@ -128,6 +128,10 @@ class ComponentCollection(unittest.TestCase):
                 self.assertTrue(report['diagnostic_complete'])
                 for key in ('functional_acceptance','full_workload_acceptance','resource_acceptance','capacity_acceptance','production_acceptance'):self.assertIs(report[key],False)
                 self.assertNotIn('passed',report);self.assertNotIn('private/',json.dumps(report));self.assertNotIn(inventory['nonce'],json.dumps(report))
+                with patch.object(runtime,'verify_source',side_effect=ValueError('unbound-source')):
+                    self.assertFalse(component.collect(output,root/'unbound-cleanup'))
+                unbound=json.loads((root/'unbound-cleanup/component.json').read_text())
+                self.assertFalse(unbound['cleanup']['available'])
                 wrong=copy.deepcopy(inventory);wrong['resources']['created']['disk']='replacement'
                 lifecycle.private_json(output/'component-inventory-after.json',wrong)
                 self.assertFalse(component.collect(output,root/'replacement'))
@@ -284,9 +288,50 @@ r=Path(__file__).parent;(r/'entered').touch();time.sleep(30)
             def launch(path,name,started,deadline,cancelled):
                 if name=='cleanup':return {'available':True,'phase':'cleanup','status':'executed','exit':0,'elapsed_seconds':0,'limit_seconds':90,'stopped':True}
                 return real_phase(path,name,started,deadline,cancelled)
-            with patch.object(runtime,'require_native_host'),patch.object(runtime,'source',side_effect=source),patch.object(component,'time',types.SimpleNamespace(monotonic=lambda:clock[0])),patch.object(component,'launch_phase',side_effect=launch),patch.object(component.subprocess,'Popen') as native,patch.object(component,'component_engine') as engine,patch.object(lifecycle,'acquire_image') as acquire:
+            with patch.object(component,'require_opt_in'),patch.object(runtime,'require_native_host'),patch.object(runtime,'source',side_effect=source),patch.object(component,'time',types.SimpleNamespace(monotonic=lambda:clock[0])),patch.object(component,'launch_phase',side_effect=launch),patch.object(component.subprocess,'Popen') as native,patch.object(component,'component_engine') as engine,patch.object(lifecycle,'acquire_image') as acquire:
                 self.assertEqual(component.run(output),1)
                 native.assert_not_called();engine.assert_not_called();acquire.assert_not_called()
             row=evidence.read(output/'component-outcome.json')['phases']['setup']
             self.assertEqual(row['status'],'not_run');self.assertEqual(row['elapsed_seconds'],181)
             self.assertEqual(row['exit'],124);self.assertEqual(row['limit_seconds'],180)
+
+    def test_exact_case_sensitive_opt_in_is_required_at_run_and_worker_before_native_authority(self):
+        payloads=[None,[],{}, {'action':'synchronize','pull_request':{}},
+                  {'action':'synchronize','pull_request':{'body':None}},
+                  {'action':'synchronize','pull_request':{'body':123}},
+                  {'action':'synchronize','pull_request':{'body':'<!-- SIGNOZ-DISK-COMPONENT: RUN -->'}},
+                  {'action':'synchronize','pull_request':{'body':'<!-- signoz-disk-component: Run -->'}},
+                  {'action':'edited','pull_request':{'body':'<!-- signoz-disk-component: run -->'}}]
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();event=root/'event.json';output=root/'output'
+            for index,payload in enumerate(payloads):
+                event.write_text(json.dumps(payload))
+                for entry in ('run','setup','measure'):
+                    with self.subTest(index=index,entry=entry),patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'require_native_host'),patch.object(runtime,'source') as source,patch.object(component,'registered_phase') as registered,patch.object(component.subprocess,'Popen') as process,patch.object(component,'component_engine') as engine,patch.object(lifecycle,'acquire_image') as acquire:
+                        with self.assertRaises(ValueError):
+                            component.run(output) if entry=='run' else component.worker(output,entry)
+                        source.assert_not_called();registered.assert_not_called();process.assert_not_called();engine.assert_not_called();acquire.assert_not_called()
+            event.write_text(json.dumps({'action':'synchronize','pull_request':{'body':'context\n<!-- signoz-disk-component: run -->\ncontext'}}))
+            with patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'require_native_host'),patch.object(runtime,'source',side_effect=ValueError('source reached')) as source:
+                with self.assertRaisesRegex(ValueError,'source reached'):component.run(output)
+                source.assert_called_once_with(component.PROFILE)
+            for raw in (b'{',b'{"action":"synchronize","action":"opened","pull_request":{"body":"<!-- signoz-disk-component: run -->"}}}',b'x'*1048577):
+                event.write_bytes(raw)
+                with patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'source') as source,patch.object(component.subprocess,'Popen') as native:
+                    with self.assertRaisesRegex(ValueError,'exact_component_opt_in_required'):component.run(output)
+                    source.assert_not_called();native.assert_not_called()
+            event.unlink()
+            with patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'source') as source:
+                with self.assertRaisesRegex(ValueError,'exact_component_opt_in_required'):component.run(output)
+                source.assert_not_called()
+            event.write_text(json.dumps({'action':'synchronize','pull_request':{'body':'<!-- signoz-disk-component: run -->'}}))
+            for phase in ('setup','measure'):
+                with patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'require_native_host'),patch.object(component,'registered_phase',side_effect=ValueError('registered reached')) as registered:
+                    with self.assertRaisesRegex(ValueError,'registered reached'):component.worker(output,phase)
+                    registered.assert_called_once_with(output,phase)
+            # Removing opt-in must not strand a source-bound owned project.
+            output.mkdir(mode=0o700);collection_fixture(output)
+            event.write_text(json.dumps({'action':'synchronize','pull_request':{'body':''}}))
+            with patch.dict(component.os.environ,{'GITHUB_EVENT_NAME':'pull_request','GITHUB_EVENT_PATH':str(event)}),patch.object(runtime,'verify_source'),patch.object(runtime,'recover',return_value={'passed':True}) as recovery:
+                self.assertTrue(component.recover(output)['passed'])
+                recovery.assert_called_once_with(output,None,profile_id=component.PROFILE)

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -30,6 +31,28 @@ ROLES=('volume-init','disk')
 
 def require(value):
     if not value:raise ValueError('closed_component_contract')
+
+
+def require_opt_in():
+    """Case-sensitive authoritative gate; workflow contains() is only a coarse filter."""
+    try:
+        require(os.environ.get('GITHUB_EVENT_NAME')=='pull_request')
+        name=os.environ.get('GITHUB_EVENT_PATH');require(type(name) is str and bool(name))
+        path=Path(name);require(path.is_absolute() and path.resolve()==path)
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            native=os.fstat(stream.fileno())
+            require(stat.S_ISREG(native.st_mode) and native.st_uid==os.getuid() and native.st_nlink==1
+                    and native.st_mode&0o022==0 and 0<native.st_size<=1048576)
+            raw=stream.read(1048577);require(len(raw)<=1048576)
+        def constant(_value):raise ValueError('nonfinite_event')
+        event=json.loads(raw,object_pairs_hook=evidence.observer.unique,parse_constant=constant)
+        require(type(event) is dict and event.get('action') in ('opened','synchronize','reopened'))
+        pr=event.get('pull_request');require(type(pr) is dict)
+        body=pr.get('body');require(type(body) is str and len(body)<=65536)
+        require('<!-- signoz-disk-component: run -->' in body)
+    except (OSError,ValueError,TypeError,RecursionError):
+        raise ValueError('exact_component_opt_in_required') from None
 
 
 class ComponentEngine(lifecycle.Engine):
@@ -147,6 +170,7 @@ def phase_complete(value):
 
 
 def run(output):
+    require_opt_in()
     runtime.require_native_host();started=time.monotonic();source=runtime.source(PROFILE)
     require(not output.exists() and output.is_absolute() and output.resolve()==output)
     output.mkdir(mode=0o700);lifecycle.private_json(output/'source.json',source)
@@ -256,6 +280,7 @@ def measure(output,source,value,current):
 
 
 def worker(output,phase):
+    if phase!='cleanup':require_opt_in()
     runtime.require_native_host();source,value,deadline=registered_phase(output,phase)
     def interrupted(*_args):raise lifecycle.Refusal('component_interrupted')
     for signum in (signal.SIGTERM,signal.SIGINT):signal.signal(signum,interrupted)
@@ -393,7 +418,10 @@ def collect(output,destination):
         report['native_identity']=identities
     except Exception:pass
     for key,name,decode in (('cases','component-cases.json',case_rows),('outcome','component-outcome.json',phase_rows),('cleanup','cleanup.json',component_cleanup)):
-        try:report[key]=decode(finite_read(output/name))
+        try:
+            # Cleanup is an owned fact only after source, owner and canonical plan bind.
+            if key=='cleanup':require(report['source']['available'])
+            report[key]=decode(finite_read(output/name))
         except Exception:pass
     try:
         clean=finite_read(output/'component-cleanup.json');require(clean=={'schema':1,'passed':True})
