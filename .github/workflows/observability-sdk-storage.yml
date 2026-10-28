@@ -62,7 +62,7 @@ jobs:
         timeout-minutes: 2
         run: |
           bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-sdk-storage -p 'test_*.py'
-          bash scripts/heavy-check.sh node --test scripts/observability-sdk-storage/emitter.test.mjs
+          bash scripts/heavy-check.sh node --test --test-concurrency=1 scripts/observability-sdk-storage/{emitter.test.mjs,export-failure.test.mjs,export-phase.test.mjs}
       - name: Bind source and measure disk admission
         timeout-minutes: 1
         run: |

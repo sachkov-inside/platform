@@ -869,6 +869,103 @@ export type TechnicalService =
   | "platform-billing-worker"
   | "platform-notifications-worker";
 
+const exportNetworkErrors = [
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EPIPE",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+] as const;
+
+/** A failed callback only. Null time is unavailable; 600000ms is a saturated lower bound. */
+export type ExportFailureObservation = Readonly<
+  { elapsedMs: number | null } & (
+    | { kind: "http"; code: number }
+    | { kind: "network"; code: (typeof exportNetworkErrors)[number] }
+    | { kind: "timeout" | "queue" | "unknown" }
+  )
+>;
+
+function ownData(value: object, key: string): unknown {
+  return Object.getOwnPropertyDescriptor(value, key)?.value;
+}
+
+/** Pinned OTLP0.223 error shapes only. Never retain or coerce arbitrary diagnostic text. */
+function exportFailure(
+  error: unknown,
+  elapsedMs: number | null,
+): ExportFailureObservation {
+  try {
+    // Node26 supplies Error.isError; the repository's ES2023 type target omits it.
+    // Read the native data method without widening compiler presets or invoking getters.
+    const nativeCheck: unknown = Object.getOwnPropertyDescriptor(
+      Error,
+      "isError",
+    )?.value;
+    if (
+      typeof error !== "object" ||
+      error === null ||
+      typeof nativeCheck !== "function" ||
+      Reflect.apply(nativeCheck, Error, [error]) !== true
+    )
+      return { kind: "unknown", elapsedMs };
+    const name = ownData(error, "name"),
+      code = ownData(error, "code");
+    if (
+      name === "OTLPExporterError" &&
+      typeof code === "number" &&
+      Number.isInteger(code) &&
+      code >= 100 &&
+      code <= 599
+    )
+      return { kind: "http", code, elapsedMs };
+    if (typeof code === "string") {
+      const known = exportNetworkErrors.find((item) => item === code);
+      if (known !== undefined)
+        return { kind: "network", code: known, elapsedMs };
+    }
+    if (
+      Object.getPrototypeOf(error) === Error.prototype &&
+      !Object.hasOwn(error, "name") &&
+      !Object.hasOwn(error, "code")
+    ) {
+      const message = ownData(error, "message");
+      if (message === "Request timed out")
+        return { kind: "timeout", elapsedMs };
+      if (message === "Concurrent export limit reached")
+        return { kind: "queue", elapsedMs };
+    }
+  } catch {
+    /* Hostile diagnostic values are unavailable, never application failures. */
+  }
+  return { kind: "unknown", elapsedMs };
+}
+
+function notifyExportFailure(
+  configuration: EnabledConfiguration,
+  signal: "traces" | "metrics",
+  result: object,
+  started: number,
+): void {
+  // Diagnostic hooks are best effort. The caller forwards the original SDK result outside this catch.
+  try {
+    const duration = performance.now() - started;
+    const elapsedMs =
+      Number.isFinite(duration) && duration >= 0
+        ? Math.min(600000, Math.floor(duration))
+        : null;
+    configuration.onExportFailure?.(
+      signal,
+      exportFailure(ownData(result, "error"), elapsedMs),
+    );
+  } catch {
+    /* An observer cannot prevent the real exporter callback. */
+  }
+}
+
 interface EnabledConfiguration {
   readonly enabled: true;
   readonly service: TechnicalService;
@@ -876,7 +973,10 @@ interface EnabledConfiguration {
   readonly release: string;
   readonly sampleRatio: number;
   readonly onContextUnavailable?: () => void;
-  readonly onExportFailure?: (signal: "traces" | "metrics") => void;
+  readonly onExportFailure?: (
+    signal: "traces" | "metrics",
+    failure: ExportFailureObservation,
+  ) => void;
   readonly exporters: {
     readonly spans: SpanExporter;
     readonly metrics: PushMetricExporter;
@@ -974,15 +1074,17 @@ export function createTechnicalTelemetry(
     const queues = new Set<string>();
     let pending = 0;
     const spanExporter: SpanExporter = {
-      export: (spans, callback) =>
+      export: (spans, callback) => {
+        const started = performance.now();
         configuration.exporters.spans.export(spans, (result) => {
           pending -= spans.length;
           if (result.code !== ExportResultCode.SUCCESS) {
             failedTraceExports++;
-            configuration.onExportFailure?.("traces");
+            notifyExportFailure(configuration, "traces", result, started);
           }
           callback(result);
-        }),
+        });
+      },
       shutdown: () => configuration.exporters.spans.shutdown(),
     };
     const batch = new BatchSpanProcessor(spanExporter, {
@@ -1025,14 +1127,16 @@ export function createTechnicalTelemetry(
       ],
     }));
     const metricExporter: PushMetricExporter = {
-      export: (metrics, callback) =>
+      export: (metrics, callback) => {
+        const started = performance.now();
         configuration.exporters.metrics.export(metrics, (result) => {
           if (result.code !== ExportResultCode.SUCCESS) {
             failedMetricExports++;
-            configuration.onExportFailure?.("metrics");
+            notifyExportFailure(configuration, "metrics", result, started);
           }
           callback(result);
-        }),
+        });
+      },
       forceFlush: () => configuration.exporters.metrics.forceFlush(),
       shutdown: () => configuration.exporters.metrics.shutdown(),
       ...(configuration.exporters.metrics.selectAggregationTemporality ===
