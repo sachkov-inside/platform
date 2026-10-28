@@ -18,6 +18,8 @@ LABELS=('web_home','web_material','api_catalog','api_account','telegram_webhook'
 DELTA_CONTEXT=('logical_cpus','cpu_total_ticks','steal_ticks','context_switches','cpu_some_total_us','process_cpu_seconds')
 CONTEXT=('logical_cpus','cpu_total_ticks','clock_ticks_per_second','steal_ticks','runqueue','blocked','context_switches','cpu_some_total_us','process_cpu_seconds','process_max_rss_bytes','capture_elapsed_ms')
 COUNTERS=('cpu_total_ns','cpu_periods','cpu_throttled_periods','cpu_throttled_ns','memory_charged_bytes','memory_working_set_bytes','io_read_operations','io_write_operations')
+PHASE_ERRORS=('fixture_loadgen_cpu_throttled','fixture_loadgen_cpu_unavailable','process_replaced_or_oom','sampler_failed')
+COUNTER_ERRORS=('engine_read_failed','required_counter_unavailable')
 
 
 def number(value):return type(value) in (int,float) and math.isfinite(value) and 0<=value<=2**53-1
@@ -48,8 +50,54 @@ def context(proc=Path('/proc')):
 
 
 def record(source,roles=(),images=None):
-    return {'schema':1,'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
+    return {'schema':2,'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
         'service_roles':list(roles),'images':images or {},'warmup':[],'measurements':[]}
+
+
+def checked_quality(value,roles):
+    """One closed warmup summary. Unknown facts never become zero-valued facts."""
+    def need(ok):
+        if not ok:raise ValueError('closed_stability_quality')
+    need(type(value) is dict and type(value.get('available')) is bool)
+    if not value['available']:
+        need(set(value)=={'available'});return value
+    need(set(value)=={'available','client_completed','scheduled','missed','success','unexpected_failures',
+                     'phase_errors','counter_samples','counter_errors','loadgen_cpu_pressure'})
+    need(type(value['client_completed']) is bool)
+    need(all(type(value[k]) is int and 0<=value[k]<=400 for k in ('scheduled','missed','success','unexpected_failures')))
+    # Success and missed consume distinct scheduled slots; probe failures do not.
+    need(value['success']+value['missed']<=value['scheduled'])
+    need(not value['client_completed'] or value['scheduled']==value['success']==400 and value['missed']==value['unexpected_failures']==0)
+    errors=value['phase_errors']
+    need(type(errors) is list and len(errors)<=len(PHASE_ERRORS) and all(type(v) is str and v in PHASE_ERRORS for v in errors))
+    need(errors==sorted(set(errors)))
+    need(type(value['counter_samples']) is int and 2<=value['counter_samples']<=64)
+    counters=value['counter_errors']
+    need(type(counters) is dict and set(counters)==set(COUNTER_ERRORS)
+        and all(type(v) is int and 0<=v<=value['counter_samples']*len(roles) for v in counters.values())
+        and sum(counters.values())<=value['counter_samples']*len(roles))
+    pressure=value['loadgen_cpu_pressure']
+    need(type(pressure) is str and pressure in ('unthrottled','throttled','unavailable'))
+    need(all(('fixture_loadgen_cpu_'+state in errors)==(pressure==state) for state in ('throttled','unavailable')))
+    return value
+
+
+def quality(value,roles):
+    # These are existing returned observations, not new probes or outcome predicates.
+    try:
+        load=value['load'];samples=value['samples'];counts=dict.fromkeys(COUNTER_ERRORS,0)
+        if type(samples) is not list or not 2<=len(samples)<=64 or type(value['errors']) is not list:raise ValueError()
+        for sample in samples:
+            errors=sample['counters']['errors']
+            if type(errors) is not dict or not set(errors)<=set(roles):raise ValueError()
+            for error in errors.values():
+                if type(error) is not str or error not in counts:raise ValueError()
+                counts[error]+=1
+        return checked_quality({'available':True,'client_completed':load['completed'],
+            **{k:load[k] for k in ('scheduled','missed','success','unexpected_failures')},
+            'phase_errors':sorted(value['errors']),'counter_samples':len(samples),'counter_errors':counts,
+            'loadgen_cpu_pressure':value['loadgen_cpu_pressure']['state']},roles)
+    except (KeyError,ValueError,TypeError,AttributeError):return {'available':False}
 
 
 def project(value,ordinal,roles):
@@ -67,10 +115,12 @@ def project(value,ordinal,roles):
             'services':[[index,*[numeric(raw['services'][role].get(key)) for key in COUNTERS]]
                 for index,role in enumerate(roles) if role in raw['services']]})
         previous=current
-    return {'ordinal':ordinal,'completed':load['completed'] and not value['errors'] and not any(sample['counters']['errors'] for sample in value['samples']),'scheduled':load['scheduled'],
+    result={'ordinal':ordinal,'completed':load['completed'] and not value['errors'] and not any(sample['counters']['errors'] for sample in value['samples']),'scheduled':load['scheduled'],
         'missed':load['missed'],'success':load['success'],'unexpected_failures':load['unexpected_failures'],
         'latency':load['latency'],'requests':timing['requests'],'phase_start':timing['phase_start'],'phase_end':timing['phase_end'],
         'host':frames}
+    if ordinal%2==0:result['quality']=quality(value,roles)
+    return result
 
 
 def experiment(source,configure,measure,persist,roles=(),images=None):
@@ -79,7 +129,8 @@ def experiment(source,configure,measure,persist,roles=(),images=None):
         if not row['measured']:configure(row['enabled'])
         value=measure(row)
         if row['measured']:result['measurements'].append(value)
-        else:result['warmup'].append({'ordinal':row['ordinal'],'completed':value['completed']})
+        else:result['warmup'].append({'ordinal':row['ordinal'],'completed':value['completed'],
+                                    'quality':value.get('quality',{'available':False})})
         persist(result)
         if not value['completed']:raise ValueError('stability_load_incomplete')
     result['state']='complete';validate(result,source,roles);persist(result);return result
@@ -89,14 +140,18 @@ def validate(value,source,roles=()):
     def need(ok):
         if not ok:raise ValueError('closed_stability_diagnostic')
     need(type(value) is dict and set(value)=={'schema','source','scope','state','acceptance','service_roles','images','warmup','measurements'})
-    need(type(value['schema']) is int and value['schema']==1 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
+    need(type(value['schema']) is int and value['schema']==2 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
     need(value['scope']=='diagnostic_only' and value['state'] in ('incomplete','complete') and value['acceptance']==ACCEPTANCE
         and type(value['acceptance']['capacity']) is bool and value['service_roles']==list(roles))
     images=value['images'];need(type(images) is dict and (not images or set(images)=={'backend','foundation','web','telegram','logto'}))
     need(all(type(v) is str and re.fullmatch('sha256:[a-f0-9]{64}',v) is not None for v in images.values()))
     warm=value['warmup'];rows=value['measurements']
     need(type(warm) is list and type(rows) is list and len(warm)<=6 and len(rows)<=len(warm) and len(warm)-len(rows)<=1)
-    for index,row in enumerate(warm):need(type(row) is dict and set(row)=={'ordinal','completed'} and type(row['ordinal']) is int and row['ordinal']==index*2 and type(row['completed']) is bool)
+    for index,row in enumerate(warm):
+        need(type(row) is dict and set(row)=={'ordinal','completed','quality'} and type(row['ordinal']) is int and row['ordinal']==index*2 and type(row['completed']) is bool)
+        summary=checked_quality(row['quality'],roles)
+        if summary['available']:
+            need(row['completed']==(summary['client_completed'] and not summary['phase_errors'] and not any(summary['counter_errors'].values())))
     def anchor(value):return value is None or type(value) is list and len(value)==3 and all(number(v) for v in value) and value[0]<=value[2]
     for index,row in enumerate(rows):
         need(type(row) is dict and set(row)=={'ordinal','completed','scheduled','missed','success','unexpected_failures','latency','requests','phase_start','phase_end','host'})
