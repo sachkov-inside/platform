@@ -98,11 +98,7 @@ for (const scenario of [
           .locator(".aie-learning-film")
           .getByRole("link", { name: "Продолжить обучение" }),
       ).toBeVisible();
-      await expect(
-        page
-          .locator(".aie-learning-status")
-          .getByRole("link", { name: "Продолжить обучение" }),
-      ).toBeVisible();
+      await expect(visibleLanding.locator(".aie-status")).toBeHidden();
     } else if (scenario === "waitlist") {
       await expect(
         page
@@ -310,11 +306,7 @@ for (const optional of ["all", "community"] as const) {
               .locator(".aie-learning-film")
               .getByRole("link", { name: "Продолжить обучение" }),
           ).toBeVisible();
-          await expect(
-            page
-              .locator(".aie-learning-status")
-              .getByRole("link", { name: "Продолжить обучение" }),
-          ).toBeVisible();
+          await expect(page.locator(".aie-status")).toBeHidden();
         } else if (surface === "Home") {
           await expect(
             page.getByRole("link", { name: "Продолжить обучение" }),

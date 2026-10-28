@@ -13,6 +13,11 @@ test("cabinet presents private Telegram state and documents on one page", async 
   page,
   request,
 }) => {
+  let emailRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/account/email")
+      emailRequests++;
+  });
   await signInFullStack(context, "OWNER");
   const response = await page.goto("/account");
   expect(response?.status()).toBe(200);
@@ -21,7 +26,7 @@ test("cabinet presents private Telegram state and documents on one page", async 
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Почта", exact: true }),
-  ).toContainText("fullstack-owner@inside.test");
+  ).toHaveCount(0);
   expect((await request.get("/api/account/email")).status()).toBe(401);
   expect(
     (
@@ -35,6 +40,7 @@ test("cabinet presents private Telegram state and documents on one page", async 
   await expect(
     telegram.getByRole("button", { name: "Подключить", exact: true }),
   ).toBeVisible();
+  expect(emailRequests).toBe(0);
   await expect(telegram).not.toContainText(
     /accountId|checkedAt|issuer|subject|telegramIdentity/u,
   );
@@ -126,7 +132,7 @@ test("cabinet saves display name without a bio editor", async ({
   );
   await expect(
     page.getByRole("region", { name: "Почта", exact: true }),
-  ).toContainText("fullstack-member@inside.test");
+  ).toHaveCount(0);
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(page, {
       path: info.outputPath("account-profile.png"),

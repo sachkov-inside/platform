@@ -11,7 +11,6 @@ import {
   type AcceptedDocumentsPanelProps,
 } from "@/features/accepted-documents";
 
-import { AccountEmailPanel } from "@/features/account-email";
 import { AccountProfileEditor } from "@/features/account-profile-editor";
 import {
   accountPresentationQueryKey,
@@ -78,7 +77,6 @@ export function AccountAccessPage({
           />
         )
       }
-      emailSlot={showPrivateSections ? <AccountEmailPanel /> : null}
       billingSlot={showPrivateSections ? <AccountBilling /> : null}
       continuationSlot={showPrivateSections ? <LearningContinuation /> : null}
       acceptedDocuments={{

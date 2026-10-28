@@ -16,6 +16,7 @@ import type { PublishedProductResult } from "@/features/library-discovery";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { LearnerCourseStatus } from "./ai-engineering-course-view";
 
 type ResolvedProduct = Extract<
   PublishedProductResult,
@@ -90,8 +91,7 @@ export async function PersonalCohortStatus({
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;
   const state = await readProductReaderState(productId, slug);
-  if (state.kind === "learning")
-    return <CourseLearningLink slug={slug} placement="status" />;
+  if (state.kind === "learning") return <LearnerCourseStatus />;
   if (state.kind === "waitlist") return <ProductWaitlistSlot lower />;
   const sale = state.sale;
   const status =
@@ -128,7 +128,7 @@ export async function PersonalCourseFilmOverlay({
     <>
       {state.kind === "learning" ? (
         <>
-          <CourseLearningLink slug={slug} placement="film" />
+          <CourseLearningLink slug={slug} />
           <Suspense fallback={null}>
             <OptionalLearningCountdown presentation={state.presentation} />
           </Suspense>
