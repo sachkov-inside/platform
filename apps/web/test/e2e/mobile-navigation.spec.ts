@@ -358,7 +358,7 @@ test("a newer tab selection wins over an unfinished route request", async ({
   ).toHaveCount(0);
 });
 
-test("changing account identity clears remembered tabs and the previous account email", async ({
+test("changing account identity clears remembered tabs and the previous Telegram contact", async ({
   page,
 }) => {
   let accountId = "11111111-1111-4111-8111-111111111111";
@@ -376,20 +376,17 @@ test("changing account identity clears remembered tabs and the previous account 
         telegramMembership: {
           link: { kind: "linked" },
           membership: { kind: "active" },
+          contact: {
+            state: "available",
+            displayName: accountId.startsWith("1111")
+              ? "Первый участник"
+              : "Второй участник",
+            username: null,
+          },
         },
       },
     });
   });
-  await page.route("**/api/account/email", (route) =>
-    route.fulfill({
-      json: {
-        ok: true,
-        email: accountId.startsWith("1111")
-          ? "first@example.com"
-          : "second@example.com",
-      },
-    }),
-  );
   await page.route(materialCatalogRequests, (route) =>
     route.fulfill({
       json: {
@@ -415,8 +412,8 @@ test("changing account identity clears remembered tabs and the previous account 
   await navigation(page).getByRole("button", { name: "Аккаунт" }).click();
   await page.getByRole("menuitem", { name: "Личный кабинет" }).click();
   await expect(
-    page.getByText("first@example.com", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Telegram", exact: true }),
+  ).toContainText("Первый участник");
   await expect(homeLink(page)).toHaveAttribute("href", /topic=platform/u);
   const before = accountRequests;
   accountId = "22222222-2222-4222-8222-222222222222";
@@ -425,11 +422,11 @@ test("changing account identity clears remembered tabs and the previous account 
   });
   await expect.poll(() => accountRequests).toBeGreaterThan(before);
   await expect(
-    page.getByText("second@example.com", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("first@example.com", { exact: true }),
-  ).toHaveCount(0);
+    page.getByRole("region", { name: "Telegram", exact: true }),
+  ).toContainText("Второй участник");
+  await expect(page.getByText("Первый участник", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(homeLink(page)).toHaveAttribute("href", "/");
   await homeLink(page).click();
   await expect(topicChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
