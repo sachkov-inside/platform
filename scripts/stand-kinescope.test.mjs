@@ -98,3 +98,30 @@ test("the private file is written atomically with owner-only access and can be r
   assert.equal(await readStandKinescope(path), "test");
   await removeStandKinescope(path);
 });
+
+test("only api and mcp read the private file; the deletion worker keeps the test adapter", async () => {
+  const overlay = await readFile(
+    new URL(
+      "../config/compose/local/stand-kinescope.compose.yaml",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const services = [...overlay.matchAll(/^ {2}([a-z-]+):$/gmu)].map(
+    (match) => match[1],
+  );
+  assert.deepEqual(services, ["api", "mcp"]);
+  assert.equal(
+    [...overlay.matchAll(/path: \.\/\.identity-proof\/stand-kinescope\.env/gu)]
+      .length,
+    2,
+  );
+  const worker = await readFile(
+    new URL(
+      "../config/compose/local/video-deletions-worker.env",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(worker, /^KINESCOPE_PROVIDER_MODE=test$/mu);
+});
