@@ -487,6 +487,8 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       let cleanupFailures = 0;
       let stage = "acquisition";
       let admitted = 0;
+      let terminalConsumerCount: number | null = null;
+      let redeliveryInspector: Channel | undefined;
       const broker = new NotificationBroker(
         url(users.provider),
         {
@@ -534,43 +536,69 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         const queue = await inspector.checkQueue(queueName);
         expect(queue.consumerCount).toBe(0);
         expect(queue.messageCount).toBe(outcome === "reject" ? 1 : 0);
+        // A manual GET creates its own quorum consumer. Prove the broker's terminal
+        // ownership before that independent inspection actor can affect the count.
+        stage = "terminal_reopen";
+        await broker.open();
+        stage = "terminal_connected";
+        expect(broker.connected).toBe(false);
+        for (const category of ["subscription", "material"] as const) {
+          stage = `terminal_consumers_${category}`;
+          const observed = await inspector.checkQueue(
+            `telegram.notifications.${category}.v1`,
+          );
+          terminalConsumerCount = observed.consumerCount;
+          expect(observed.consumerCount).toBe(0);
+        }
+        stage = "commit_ack_redelivery";
         if (outcome === "commit")
           expect(saved?.operation_id).toBe(initial.operationId);
         else {
           expect(saved).toBeUndefined();
-          const redelivered = await inspector.get(queueName, { noAck: false });
+          redeliveryInspector = await admin.createChannel();
+          const redelivered = await redeliveryInspector.get(queueName, {
+            noAck: false,
+          });
           if (redelivered === false)
             throw new Error("Expected owned redelivery");
           expect(redelivered.fields.redelivered).toBe(true);
           expect(redelivered.properties.messageId).toBe(initial.operationId);
-          inspector.ack(redelivered);
+          redeliveryInspector.ack(redelivered);
+          // Release the owned GET channel before inspecting the later message.
+          // Channel close is not an immediate quorum-counter settlement guarantee.
+          await redeliveryInspector.close();
+          redeliveryInspector = undefined;
         }
-        stage = "terminal_reopen";
-        await broker.open();
-        expect(broker.connected).toBe(false);
-        for (const category of ["subscription", "material"] as const)
-          expect(
-            (
-              await inspector.checkQueue(
-                `telegram.notifications.${category}.v1`,
-              )
-            ).consumerCount,
-          ).toBe(0);
+        stage = "terminal_later_publish";
         const later = command();
         await publish(publisher, later);
+        stage = "terminal_later_get";
         const untouched = await inspector.get(queueName, { noAck: false });
         if (untouched === false)
           throw new Error("Terminal broker consumed new command");
+        stage = "terminal_later_identity";
         expect(untouched.properties.messageId).toBe(later.operationId);
+        stage = "terminal_later_redelivered";
         expect(untouched.fields.redelivered).toBe(false);
         inspector.ack(untouched);
+        stage = "terminal_later_empty";
         expect((await inspector.checkQueue(queueName)).messageCount).toBe(0);
+        stage = "terminal_admitted";
         expect(admitted).toBe(1);
       } catch (error: unknown) {
         failures.push(error);
         firstFailureStage ??= stage;
       } finally {
         release.resolve();
+        if (redeliveryInspector !== undefined) {
+          try {
+            await redeliveryInspector.close();
+          } catch (error: unknown) {
+            failures.push(error);
+            firstFailureStage ??= "cleanup_redelivery_inspector";
+            cleanupFailures += 1;
+          }
+        }
         try {
           await broker.drain();
         } catch (error: unknown) {
@@ -587,6 +615,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
             stage: firstFailureStage,
             failures: failures.length,
             cleanup_failures: cleanupFailures,
+            terminal_consumer_count: terminalConsumerCount,
           }),
         );
     }, 25_000);
