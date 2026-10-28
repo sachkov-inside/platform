@@ -46,6 +46,10 @@ BUDGETS = {'volume-init': (.025, 32), 'disk': (.1, 96),
            'histogram-init': (.05, 64), 'keeper': (.1, 128), 'postgres': (.1, 256),
            'clickhouse': (.6, 1792), 'migrator': (.2, 448), 'collector': (.3, 448),
            'server': (.4, 640), 'mcp': (.075, 128), 'agent': (.05,64)}
+NATIVE_OPERATIONS = frozenset((('unknown','unknown'),('image_pull','amd64_digest_reference'),
+    ('image_inspect','amd64_digest_reference'),('image_inspect','digest_reference'),
+    ('compose_create','initial_helpers'),('compose_create','all_roles')))
+STDERR_CATEGORIES = frozenset(('unclassified','unknown_platform_flag'))
 ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
            'postgres': 'signoz-metastore-postgres-0',
            'clickhouse': 'signoz-telemetrystore-clickhouse-0-0',
@@ -64,6 +68,29 @@ def need(ok, reason):
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def native_operation(args):
+    """Classify actual logical argv without retaining any value from it."""
+    pinned=bool(args and type(args[-1]) is str and re.fullmatch(r'docker\.io/[a-z0-9_./-]+@sha256:[a-f0-9]{64}',args[-1]))
+    if pinned and args[:-1]==['pull','--platform','linux/amd64']:
+        return {'operation':'image_pull','argument_category':'amd64_digest_reference'}
+    if pinned and args[:-1] in (['image','inspect','--platform','linux/amd64'],['image','inspect']):
+        return {'operation':'image_inspect','argument_category':'amd64_digest_reference' if '--platform' in args else 'digest_reference'}
+    if len(args)>=6 and args[0:2]==['compose','-p'] and args[3]=='-f':
+        tail=args[5:]
+        if tail==['create','--no-build','--pull','never','volume-init','disk']:
+            return {'operation':'compose_create','argument_category':'initial_helpers'}
+        if tail==['--profile','functional','create','--no-build','--pull','never']:
+            return {'operation':'compose_create','argument_category':'all_roles'}
+    return {'operation':'unknown','argument_category':'unknown'}
+
+
+def stderr_category(raw):
+    # Exact finite signatures only. Never quote a prefix, suffix, path or native message.
+    full=(b"unknown flag: --platform\n\nUsage:  docker image inspect [OPTIONS] IMAGE [IMAGE...]\n\n"
+          b"Run 'docker image inspect --help' for more information\n")
+    return 'unknown_platform_flag' if raw in (b'unknown flag: --platform\n',full) else 'unclassified'
 
 
 def healthy_states(states):
@@ -199,7 +226,7 @@ class Engine:
         self.child=set()
         self.child_threads={}
         self.cancel_requested=set()
-    def raw(self,args,timeout=10,*,binary=None):
+    def raw(self,args,timeout=10,*,binary=None,operation=None):
         if threading.current_thread().name=='owned-signoz-storage':
             need(not getattr(self,'monitor_stop',threading.Event()).is_set(),'monitor_stopping')
         remaining=self.deadline-time.monotonic()
@@ -211,6 +238,7 @@ class Engine:
         native=self.invocation.lstat()
         need((native.st_dev,native.st_ino,native.st_mode,str(self.invocation.resolve(strict=True)))==self.invocation_identity,'docker_invocation_changed')
         command=[str(binary or self.invocation),*args]
+        if operation is not None:private_json(self.run/'native-operation.json',{**operation,'status':'started'})
         proc=subprocess.Popen(command,executable=str(binary or self.cli),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
             # Separate cancellable group, retaining the registered worker session.
             process_group=0,env={k:v for k,v in os.environ.items() if not k.startswith(('DOCKER_','COMPOSE_'))})
@@ -240,6 +268,7 @@ class Engine:
             if code==-signal.SIGKILL and proc in self.cancel_requested and threading.current_thread().name=='owned-signoz-storage' and getattr(self,'monitor_stop',threading.Event()).is_set():
                 raise Refusal('monitor_stopping')
             need(code==0,'command_failed')
+            if operation is not None:private_json(self.run/'native-operation.json',{**operation,'status':'succeeded'})
             return bytes(data[0]).decode('utf8')
         except BaseException as error:
             # Genuine exit is captured before owned group termination. Raw bytes stay private.
@@ -247,6 +276,9 @@ class Engine:
                 index=getattr(self,'failure_index',0)+1;self.failure_index=index
                 row={'native_exit':proc.poll(),'alive_before_reap':proc.poll() is None,
                     'category':type(error).__name__,'reason':error.reason if isinstance(error,Refusal) else 'native_failure'}
+                row.update(operation or {'operation':'unknown','argument_category':'unknown'})
+                row['stderr_category']=stderr_category(bytes(data[1]))
+                if operation is not None:private_json(self.run/'native-operation.json',{**operation,'status':'failed'})
                 for label,value in zip(('stdout','stderr'),data):
                     retained=bytes(value[-32768:]);path=self.run/('failure-'+str(index)+'-'+label+'.private')
                     descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
@@ -314,7 +346,7 @@ class Engine:
             'endpoint_sha256':'sha256:'+hashlib.sha256(self.endpoint.encode()).hexdigest()})
     def call(self,args,timeout=10):
         need(self.identify()==self.identity,'daemon_identity_changed')
-        return self.raw(['--config',str(self.anon),'--host',self.endpoint,*args],timeout)
+        return self.raw(['--config',str(self.anon),'--host',self.endpoint,*args],timeout,operation=native_operation(args))
     def inspect(self,kind,identity):
         return json.loads(self.call([kind,'inspect',identity] if kind in ('network','volume','image') else ['inspect',identity]))[0]
 
@@ -489,7 +521,9 @@ def require_child_descriptor(value, child, arch):
 
 def checked_image(engine, row, arch):
     child=row['linux_'+arch+'_manifest'];need(type(child) is str and re.fullmatch('sha256:[a-f0-9]{64}',child) is not None,'locked_child_required')
-    selected=json.loads(engine.call(['image','inspect','--platform','linux/'+arch,row['pinned']]))[0]
+    # Pull already selects the platform. Older CLIs reject inspect --platform;
+    # plain inspect remains admissible only with all exact native identity checks below.
+    selected=json.loads(engine.call(['image','inspect',row['pinned']]))[0]
     need(selected.get('Os')=='linux' and selected.get('Architecture')==arch,'image_platform')
     require_child_descriptor(selected.get('Descriptor'),child,arch)
     metadata=verify_packet()['image_config_metadata'][row['repository']][arch]
