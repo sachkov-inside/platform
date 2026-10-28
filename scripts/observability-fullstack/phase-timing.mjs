@@ -127,3 +127,131 @@ export function phaseTiming(phase, pair, before, epoch, after) {
     },
   };
 }
+
+/** @typedef {{kind:number,stage:number,acquired:number,changed:number}} SlotRecord */
+/** First refusal only; the caller's existing active Set remains the scheduling authority.
+ * @param {number} phase @param {boolean} enabled @param {number} origin
+ */
+export function slotOccupancy(phase, enabled, origin) {
+  /** @type {Map<Promise<void>,SlotRecord>} */ const live = new Map();
+  /** @type {{schema:number,state:string,reason?:string,phase?:number,mode?:string,decision_us?:number,slots?:number[][]}} */
+  let result = { schema: 1, state: "not_refused" };
+  let sealed = false;
+  let lastClock = -1;
+  /** @param {string} reason */
+  function unavailable(reason) {
+    result = { schema: 1, state: "unavailable", reason };
+    sealed = true;
+    live.clear();
+  }
+  function clock() {
+    try {
+      const value = Math.floor((performance.now() - origin) * 1000);
+      if (
+        !Number.isSafeInteger(value) ||
+        value < lastClock ||
+        value < 0 ||
+        value > 600_000_000
+      )
+        throw new Error("clock");
+      lastClock = value;
+      return value;
+    } catch {
+      unavailable("clock");
+      return undefined;
+    }
+  }
+  if (
+    !Number.isInteger(phase) ||
+    phase < 0 ||
+    phase > 11 ||
+    typeof enabled !== "boolean" ||
+    !Number.isFinite(origin) ||
+    origin < 0
+  )
+    unavailable("bounds");
+  return {
+    /** @param {number} kind @returns {SlotRecord | undefined} */
+    acquire(kind) {
+      if (sealed) return undefined;
+      if (!Number.isInteger(kind) || kind < 0 || kind > 7) {
+        unavailable("bounds");
+        return undefined;
+      }
+      const at = clock();
+      return at === undefined
+        ? undefined
+        : { kind, stage: enabled ? 0 : 1, acquired: at, changed: at };
+    },
+    /** @param {Promise<void>} work @param {SlotRecord | undefined} entry */
+    attach(work, entry) {
+      if (sealed || entry === undefined) return;
+      if (live.size >= 8) unavailable("bounds");
+      else live.set(work, entry);
+    },
+    /** @param {SlotRecord | undefined} entry @param {number} stage */
+    stage(entry, stage) {
+      if (sealed || entry === undefined) return;
+      const at = clock();
+      if (at === undefined) return;
+      if (
+        ![1, 2].includes(stage) ||
+        stage < entry.stage ||
+        at < entry.changed
+      ) {
+        unavailable("bounds");
+        return;
+      }
+      entry.stage = stage;
+      entry.changed = at;
+    },
+    /** @param {Promise<void>} work */
+    release(work) {
+      live.delete(work);
+    },
+    refuse() {
+      if (sealed) return;
+      // Latch before copying: later refusals never replace the first attempt.
+      sealed = true;
+      const at = clock();
+      if (at === undefined) return;
+      try {
+        if (live.size !== 8) {
+          unavailable("capture");
+          return;
+        }
+        const slots = [...live.values()]
+          .sort((a, b) => a.acquired - b.acquired)
+          .map((entry) => {
+            if (entry.changed > at) throw new Error("clock");
+            return [
+              entry.kind,
+              entry.stage,
+              entry.acquired,
+              entry.changed,
+              at - entry.acquired,
+              at - entry.changed,
+            ];
+          });
+        const captured = {
+          schema: 1,
+          state: "captured",
+          phase,
+          mode: enabled ? "on" : "off",
+          decision_us: at,
+          slots,
+        };
+        if (Buffer.byteLength(JSON.stringify(captured)) > 2048)
+          unavailable("bounds");
+        else result = captured;
+      } catch {
+        unavailable("capture");
+      } finally {
+        live.clear();
+      }
+    },
+    result() {
+      return result;
+    },
+  };
+}

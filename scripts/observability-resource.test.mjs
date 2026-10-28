@@ -803,3 +803,54 @@ for (const [mode, ordinal] of [
     }
   });
 }
+
+// deterministic-test-allow unit-io: external owner bounds each real CLI/HTTP fixture and its inherited children; test owns all temporary files.
+for (const { name, mode, ordinal, control } of [
+  { name: "probe occupancy", mode: "on", ordinal: "normal", control: "probe" },
+  {
+    name: "warmup application occupancy",
+    mode: "off",
+    ordinal: "stability-0",
+    control: "application",
+  },
+]) {
+  test(`first refusal records ${name} through its real collector`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "inside-first-refusal-"));
+    try {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          mode,
+          ordinal,
+          control,
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      // Exercise collection even when the new producer assertion is still RED.
+      const collected = await runOwnedProcess(
+        "python3",
+        [
+          "-B",
+          "-c",
+          "import sys;sys.path.insert(0,sys.argv[1]);from test_stability import verify_actual_client_refusal;verify_actual_client_refusal(sys.argv[2],sys.argv[3])",
+          fileURLToPath(new URL("./observability-fullstack", import.meta.url)),
+          join(directory, "slot-refusal-result.json"),
+          ordinal,
+        ],
+        { timeoutMs: 5000 },
+      );
+      assert.equal(collected.code, 0, collected.stderr);
+      assert.equal(result.code, 0, result.stderr);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}

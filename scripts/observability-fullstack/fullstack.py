@@ -34,6 +34,7 @@ import stage_timing
 import source_guard
 import contact_job
 import stability
+import slot_refusal
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -623,6 +624,7 @@ def worker(output):
                         # Detailed windows stay in the already collected raw phase,
                         # avoiding twelve duplicate ledgers in the bounded summary.
                         measured['load'].pop('timing_diagnostics',None)
+                        measured['load'].pop('slot_refusal',None)
                         measured['load'].pop('source_cache_sample_diagnostic',None)
                         measured.pop('source_publication_timing',None)
                         report['phases'].append(measured)
@@ -693,6 +695,14 @@ def collect(output, metadata, destination):
     for name in (stage_timing.NAME,stage_timing.CONTACTS_NAME):
         path=output/name
         if path.exists() or path.is_symlink():timings[name]=stage_timing.read(output,source['checkout_sha'],name=name)
+    for phase in range(12):
+        path=output/('fullstack-phase-'+str(phase)+'.json')
+        if path.exists() or path.is_symlink():
+            row=stability.read_json(path)
+            if type(row) is not dict or type(row.get('load')) is not dict:raise ValueError('closed_slot_refusal')
+            load=row['load']
+            leaf=slot_refusal.validate(load.get('slot_refusal'),phase,phase%6>=3,load.get('missed'))
+            if load.get('completed') is True and leaf['state']=='captured':raise ValueError('closed_slot_refusal')
     resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name not in (stage_timing.NAME,stage_timing.CONTACTS_NAME)))
     for name,value in timings.items():stage_timing.write(destination,value,source['checkout_sha'],binding_output=output,name=name)
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)

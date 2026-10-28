@@ -15,10 +15,97 @@ def measurement(ordinal):
     frame={'anchor':[0,0,0],'context':dict.fromkeys(stability.CONTEXT),'context_delta':dict.fromkeys(stability.DELTA_CONTEXT),'context_resets':0,'at_seconds':0,'counter_errors':0,'services':[]}
     return {'ordinal':ordinal,'completed':True,'scheduled':400,'missed':0,'success':400,'unexpected_failures':0,
         'latency':[{'label':labels[i%8],'elapsed_ms':1} for i in indices],
-        'requests':[[i,i%8,0,1] for i in indices],'phase_start':[0,0,0],'phase_end':[10000,10000,10000],'host':[frame,frame]}
+        'slot_refusal':{'schema':1,'state':'not_refused'},'requests':[[i,i%8,0,1] for i in indices],'phase_start':[0,0,0],'phase_end':[10000,10000,10000],'host':[frame,frame]}
+
+
+def verify_actual_client_refusal(path,ordinal):
+    """Actual source CLI output crosses the public collection seam, never a copied scheduler."""
+    import stability
+    captured=json.loads(Path(path).read_text());source='a'*40
+    with tempfile.TemporaryDirectory() as directory:
+        root=Path(directory);metadata=root/'metadata';metadata.mkdir();output=root/'private';output.mkdir()
+        (metadata/'source.json').write_text(json.dumps({'checkout_sha':source}))
+        with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':source},{})):
+            if ordinal=='normal':
+                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'load':captured,'mode':'on','pair':0,'name':'spike'})
+                fullstack.collect(output,metadata,root/'public')
+                leaf=json.loads((root/'public/fullstack-phase-5.json').read_text())['load'].get('slot_refusal')
+            else:
+                def measure(row):
+                    value={'load':captured,'errors':[],
+                        'loadgen_cpu_pressure':{'state':'unthrottled'},'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},
+                        'counter_clock_anchor':[0,0,0],'diagnostic_context':dict.fromkeys(stability.CONTEXT)} for _ in range(2)]}
+                    return stability.project(value,row['ordinal'],fullstack.SERVICES)
+                try:stability.experiment(source,lambda _:None,measure,lambda v:fullstack.pilot.write_json(output/stability.NAME,v),fullstack.SERVICES)
+                except ValueError as error:assert str(error)=='stability_load_incomplete'
+                fullstack.stability_collect(output,metadata,root/'public')
+                public=json.loads((root/'public'/stability.NAME).read_text())
+                assert public['acceptance']==stability.ACCEPTANCE and not public['measurements']
+                leaf=public['warmup'][0].get('slot_refusal')
+            assert type(leaf) is dict and leaf.get('state')=='captured','actual client first-refusal signal lost before public artifact'
+            assert len(leaf['slots'])==8 and all(row[1]==(0 if ordinal=='normal' else 1) for row in leaf['slots'])
 
 
 class Stability(unittest.TestCase):
+    def test_slot_refusal_both_collectors_refuse_corruption_and_current_downgrade(self):
+        import slot_refusal
+        import stability
+        good={'schema':1,'state':'captured','phase':5,'mode':'on','decision_us':200000,
+              'slots':[[kind,0,kind*25000,kind*25000,200000-kind*25000,200000-kind*25000] for kind in range(8)]}
+        self.assertEqual(slot_refusal.validate(good,5,True,1),good)
+        bads=[]
+        for key,value in [('schema',True),('phase',4),('mode','off'),('decision_us',float('nan')),('raw','private-sentinel')]:
+            bad=copy.deepcopy(good);bad[key]=value;bads.append(bad)
+        for index,value in [(0,True),(1,3),(2,-1),(3,300000),(4,0),(5,float('inf'))]:
+            bad=copy.deepcopy(good);bad['slots'][0][index]=value;bads.append(bad)
+        bads += [None,{'schema':1,'state':'not_refused'}, {**good,'slots':good['slots'][:7]},
+                 {**good,'slots':good['slots']+[good['slots'][0]]}, {**good,'raw':'x'*4097}]
+        for bad in bads:
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(ValueError,'closed_slot_refusal'):slot_refusal.validate(bad,5,True,1)
+                self.assertEqual(slot_refusal.project({'slot_refusal':bad,'missed':1},5,True),{'schema':1,'state':'unavailable','reason':'capture'})
+        with self.assertRaises(ValueError):slot_refusal.validate({**good,'phase':0,'mode':'off'},0,False,1)
+        self.assertEqual(slot_refusal.project({},0,False),{'schema':1,'state':'unavailable','reason':'capture'})
+        source='a'*40
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);output=root/'private';output.mkdir();metadata=root/'metadata';metadata.mkdir()
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':source},{})):
+                for bad in bads:
+                    load={'missed':1,'slot_refusal':bad}
+                    (output/'fullstack-phase-5.json').write_text(json.dumps({'load':load}))
+                    with self.assertRaises(ValueError),patch.object(fullstack.resource_runtime.ci,'collect',side_effect=AssertionError('copy reached')):fullstack.collect(output,metadata,root/'public')
+                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'load':{'missed':1}})
+                with self.assertRaises(ValueError):fullstack.collect(output,metadata,root/'public')
+                fullstack.pilot.write_json(output/'fullstack-phase-5.json',{'load':{'missed':1,'completed':True,'slot_refusal':good}})
+                with self.assertRaises(ValueError):fullstack.collect(output,metadata,root/'public')
+                (output/'fullstack-phase-5.json').unlink()
+                warm_good={**good,'phase':0,'mode':'off','slots':[[r[0],1,*r[2:]] for r in good['slots']]}
+                record=stability.record(source);record['warmup']=[{'ordinal':0,'completed':False,'quality':{'available':False},'slot_refusal':warm_good}]
+                stability.validate(record,source)
+                contradictory=copy.deepcopy(record);contradictory['warmup'][0]['completed']=True
+                with self.assertRaises(ValueError):stability.validate(contradictory,source)
+                for field,value in [('schema',2),('phase',1),('mode','on'),('slots',warm_good['slots'][:7]),('raw','private-sentinel')]:
+                    broken=copy.deepcopy(record);broken['warmup'][0]['slot_refusal'][field]=value
+                    (output/stability.NAME).write_text(json.dumps(broken))
+                    with self.assertRaises(ValueError),patch.object(fullstack.resource_runtime.ci,'collect',side_effect=AssertionError('copy reached')):fullstack.stability_collect(output,metadata,root/'public')
+                broken=copy.deepcopy(record);broken['warmup'][0].pop('slot_refusal')
+                (output/stability.NAME).write_text(json.dumps(broken))
+                with self.assertRaises(ValueError):fullstack.stability_collect(output,metadata,root/'public')
+                for version in (1,2,True):
+                    record=stability.record(source);record['schema']=version
+                    (output/stability.NAME).write_text(json.dumps(record))
+                    with self.assertRaises(ValueError),patch.object(fullstack.resource_runtime.ci,'collect',side_effect=AssertionError('copy reached')):fullstack.stability_collect(output,metadata,root/'public')
+        # Max-width legal leaf stays inside both compact and pretty budgets.
+        maximum={**good,'decision_us':600000000,'slots':[[7,2,0,0,600000000,600000000] for _ in range(8)]}
+        slot_refusal.validate(maximum,5,True,400)
+        self.assertLessEqual(len(json.dumps(maximum,indent=2).encode()),4096)
+        bounded=stability.experiment(source,lambda _:None,lambda row:measurement(row['ordinal']),lambda _:None,
+            images={role:'sha256:'+'a'*64 for role in ('backend','foundation','web','telegram','logto')})
+        self.assertLess(len(json.dumps(bounded,indent=2).encode())+12*4096,stability.MAX_BYTES)
+        oversized=copy.deepcopy(bounded);oversized['measurements'][0]['latency'][0]['raw']='x'*stability.MAX_BYTES
+        with self.assertRaises(ValueError):stability.validate(oversized,source)
+
+
     def test_closed_schedule_and_original_profile_are_independent(self):
         import stability
         rows=stability.schedule()
@@ -152,7 +239,7 @@ class Stability(unittest.TestCase):
                     self.assertEqual(len(record['measurements']),6 if branch=='normal' else 0)
                     self.assertEqual(record['state'],'complete' if branch=='normal' else 'incomplete')
                     self.assertEqual(record['acceptance'],{'state':'not_applicable','capacity':False,'minimum_candidate_gib':None})
-                    self.assertEqual(set(record['warmup'][0]),{'ordinal','completed','quality'})
+                    self.assertEqual(set(record['warmup'][0]),{'ordinal','completed','quality','slot_refusal'})
                     self.assertNotIn('private-key-url-env-payload',json.dumps(record))
                     self.assertTrue(all('quality' not in row for row in record['measurements']))
 
@@ -180,7 +267,7 @@ class Stability(unittest.TestCase):
                 projected=stability.project(value,0,fullstack.SERVICES)
                 self.assertFalse(projected['completed']);self.assertEqual(projected['quality'],{'available':False})
                 record=stability.record(source,fullstack.SERVICES)
-                record['warmup']=[{k:projected[k] for k in ('ordinal','completed','quality')}]
+                record['warmup']=[{k:projected[k] for k in ('ordinal','completed','quality','slot_refusal')}]
                 output=root/('unknown-'+str(index));output.mkdir();fullstack.pilot.write_json(output/stability.NAME,record)
                 public=root/('unknown-public-'+str(index));fullstack.stability_collect(output,admitted,public)
                 self.assertNotIn('private-key-url-env-payload',json.dumps(stability.read(public,source,fullstack.SERVICES)))
@@ -190,7 +277,7 @@ class Stability(unittest.TestCase):
             self.assertTrue(projected['completed']);self.assertEqual(projected['quality'],{'available':False})
             base=stability.record(source,fullstack.SERVICES)
             projected=stability.project(phase(),0,fullstack.SERVICES)
-            base['warmup']=[{k:projected[k] for k in ('ordinal','completed','quality')}]
+            base['warmup']=[{k:projected[k] for k in ('ordinal','completed','quality','slot_refusal')}]
             invalid=[]
             for field,bad in [('available',1),('private','private-key-url-env-payload'),('scheduled',401),('missed',-1),
                               ('success',True),('unexpected_failures',float('nan')),('counter_samples',1),
@@ -233,7 +320,7 @@ class Stability(unittest.TestCase):
             valid=stability.project(phase(4,2,1),0,fullstack.SERVICES)
             self.assertTrue(valid['quality']['available']);self.assertFalse(valid['completed'])
             base=stability.record(source,fullstack.SERVICES)
-            base['warmup']=[{k:valid[k] for k in ('ordinal','completed','quality')}]
+            base['warmup']=[{k:valid[k] for k in ('ordinal','completed','quality','slot_refusal')}]
             output=root/'valid-partial';output.mkdir();fullstack.pilot.write_json(output/stability.NAME,base)
             fullstack.stability_collect(output,admitted,root/'valid-public')
             collected=stability.read(root/'valid-public',source,fullstack.SERVICES)
@@ -270,7 +357,7 @@ class Stability(unittest.TestCase):
                 'samples':[{'counters':{'at_seconds':0,'services':{},'errors':{}},'counter_clock_anchor':[0,0,0],'diagnostic_context':context} for context in (before,after)]}
             projected=stability.project(value,1,());self.assertEqual(projected['host'][1]['context_resets'],len(stability.DELTA_CONTEXT))
             self.assertTrue(all(v is None for v in projected['host'][1]['context_delta'].values()))
-            record=stability.record('a'*40);record['warmup']=[{'ordinal':0,'completed':True,'quality':{'available':False}}];record['measurements']=[projected]
+            record=stability.record('a'*40);record['warmup']=[{'ordinal':0,'completed':True,'quality':{'available':False},'slot_refusal':{'schema':1,'state':'not_refused'}}];record['measurements']=[projected]
             stability.validate(record,'a'*40)
             for bad in ('private-sentinel',float('nan'),True):
                 broken=copy.deepcopy(record);broken['measurements'][0]['host'][0]['context']['steal_ticks']=bad

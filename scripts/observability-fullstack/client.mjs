@@ -4,7 +4,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
-import { phaseTiming } from "./phase-timing.mjs";
+import { phaseTiming, slotOccupancy } from "./phase-timing.mjs";
 import {
   sourceCacheObservation,
   sourceCacheQuery,
@@ -736,6 +736,7 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
   const cohort = diagnosticOrdinal === undefined ? phase : 0;
   let maximumInflight = 0;
   const timing = phaseTiming(phase, pair, start, epoch, anchorAfter);
+  const occupancy = slotOccupancy(phase, enabled, start);
   /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
   /** @type {number[]} */ const querySeconds = [];
   /** Closed finite corpus keys only; no response, URL or credential is retained.
@@ -819,9 +820,11 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
       if (performance.now() >= end) break;
       const index = scheduled++;
       if (active.size >= profile.concurrency) {
+        occupancy.refuse();
         missed++;
         continue;
       }
+      const slot = occupancy.acquire(index % 8);
       const work = (async () => {
         if (enabled) {
           const response = await probe(
@@ -832,9 +835,11 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
           if (response.status === 200) acknowledged++;
           else unexpected++;
         }
+        if (enabled) occupancy.stage(slot, 1);
         return await operation(index, enabled, phase, cohort);
       })()
         .then((value) => {
+          occupancy.stage(slot, 2);
           const expected =
             value.label === "api_account"
               ? (privateAccounts()[
@@ -867,8 +872,12 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
             timing.request(index, index % 8, value.started_ms, value.ended_ms);
           }
         })
-        .finally(() => active.delete(work));
+        .finally(() => {
+          occupancy.release(work);
+          active.delete(work);
+        });
       active.add(work);
+      occupancy.attach(work, slot);
       if (diagnosticOrdinal !== undefined)
         maximumInflight = Math.max(maximumInflight, active.size);
     }
@@ -920,6 +929,7 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
     unexpected_failures: unexpected,
     latency,
     timing_diagnostics: timing.result,
+    slot_refusal: occupancy.result(),
     query_seconds: querySeconds,
     query_failure_counts: queryFailureCounts,
     query_failure_status_counts: queryFailureStatuses,

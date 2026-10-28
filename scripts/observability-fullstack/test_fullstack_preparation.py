@@ -127,7 +127,8 @@ class Preparation(unittest.TestCase):
                 sources={source:dict(sample_value_seconds=997,sample_time_seconds=998.5,sample_age_seconds=1.5)
                          for source in ('postgresql','caddy')})
             measured={'samples':[{'host':{},'counters':{'errors':{}}}],
-                'load':{'timing_diagnostics':{},'completed':False,'source_cache_sample_diagnostic':sample_diagnostic},
+                'load':{'timing_diagnostics':{},'completed':False,'source_cache_sample_diagnostic':sample_diagnostic,
+                        'slot_refusal':{'schema':1,'state':'unavailable','reason':'capture'}},
                 'errors':[],'source_publication_timing':diagnostic}
             profile={'pairs':[['on']],'phases':[{'name':'idle','seconds':10,'requests_per_second':0}]}
             with ExitStack() as patches:
@@ -156,6 +157,8 @@ class Preparation(unittest.TestCase):
             self.assertEqual(raw['source_publication_timing'],diagnostic)
             self.assertNotIn('source_publication_timing',summary['phases'][0])
             self.assertNotIn('timing_diagnostics',summary['phases'][0]['load'])
+            self.assertEqual(raw['load']['slot_refusal'],{'schema':1,'state':'unavailable','reason':'capture'})
+            self.assertNotIn('slot_refusal',summary['phases'][0]['load'])
             self.assertEqual(raw['load']['source_cache_sample_diagnostic'],sample_diagnostic)
             self.assertFalse(raw['load']['completed'])
             self.assertNotIn('source_cache_sample_diagnostic',summary['phases'][0]['load'])
