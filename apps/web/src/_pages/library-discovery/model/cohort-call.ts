@@ -1,6 +1,5 @@
 import {
   formatCohortDate,
-  formatKopecks,
   type ProductSalesState,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -9,10 +8,7 @@ import {
   type CohortCall,
 } from "@/features/ai-engineering-course";
 import type { ProductAccess } from "@/features/library-discovery";
-import {
-  productProgrammeHref,
-  productPurchaseHref,
-} from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 export { formatCohortDate };
 
@@ -20,10 +16,10 @@ export { formatCohortDate };
 export const cohortEnrollAnchor = "enroll";
 
 /**
- * Плашка и кнопка первого экрана по этапу продаж потока. Этап задаёт обещание, но деньги
- * принимает только предложение, включённое в продажу и видимое этому человеку: без него кнопка
- * ведёт в программу. На анонсе оплаты нет никогда. Тексты — черновик запуска потока 1 из Inside
- * Content, их примет владелец (#814).
+ * Плашка и кнопка первого экрана по этапу продаж потока. Первый экран денег не берёт: пока
+ * предложение включено в продажу и видно этому человеку, живая метка набора ведёт к билету с ценой
+ * внизу страницы (#1647); без продажи кнопка ведёт в программу. Тексты — черновик запуска потока 1
+ * из Inside Content, их примет владелец (#814).
  */
 export function cohortCall({
   cohort,
@@ -31,6 +27,7 @@ export function cohortCall({
   productAccess,
   slug,
   continuationMaterialSlug = null,
+  freeStart = false,
 }: {
   readonly cohort: ProductSalesState | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
@@ -40,6 +37,11 @@ export function cohortCall({
   readonly signedIn: boolean;
   readonly slug: string;
   readonly continuationMaterialSlug?: string | null;
+  /**
+   * В курсе есть бесплатные уроки, и тот, кому он закрыт, видит на анимации «Попробовать
+   * бесплатно» в программу: вторая кнопка туда же первому экрану не нужна (#1647).
+   */
+  readonly freeStart?: boolean;
 }): CohortCall {
   const programme = productProgrammeHref(slug);
   const openProgramme = {
@@ -53,22 +55,15 @@ export function cohortCall({
       action: courseLearningAction(slug, continuationMaterialSlug),
     };
   if (cohort === null) return { banner: null, action: null };
+  const programmeAction = freeStart ? null : openProgramme;
 
-  const date =
-    cohort.startsOn === null ? "" : formatCohortDate(cohort.startsOn);
   const payable = offer !== null;
-  const pay = (label: string) =>
-    payable
-      ? ({ kind: "purchase", href: productPurchaseHref(slug), label } as const)
-      : openProgramme;
-  const price = offer === null ? "" : formatKopecks(offer.firstPriceKopecks);
-  const label = cohort.name;
 
   switch (cohort.stage) {
     case "announcement":
       return {
         banner: null,
-        action: openProgramme,
+        action: programmeAction,
       };
     case "preorder":
       // Первый экран только сообщает о наборе и ведёт к цене внизу страницы; предзаказ
@@ -84,26 +79,21 @@ export function cohortCall({
         },
         action: null,
       };
+    // После старта и между потоками цены и кнопки оплаты на первом экране нет: живая метка
+    // ведёт к билету с ценой внизу страницы (решение владельца 29.10.2026, #1647). Без продажи
+    // билета нет, и кнопка ведёт в программу.
     case "running":
-      return {
-        banner: {
-          kind: "card",
-          label,
-          text: `Стартовал ${date}. Присоединиться можно в любой момент`,
-          detail:
-            "Все вышедшие главы откроются сразу, следующие выходят по порядку программы",
-        },
-        action: pay(`Оплатить ${price}`),
-      };
     case "between":
-      return {
-        banner: {
-          kind: "card",
-          label,
-          text: `Курс открыт. Следующий поток: ${cohort.nextEvent}`,
-          detail: "Проходи в своём темпе",
-        },
-        action: pay("Оплатить"),
-      };
+      return payable
+        ? {
+            banner: {
+              kind: "live",
+              text: "Идёт набор на курс",
+              detail: "",
+              href: `#${cohortEnrollAnchor}`,
+            },
+            action: null,
+          }
+        : { banner: null, action: programmeAction };
   }
 }

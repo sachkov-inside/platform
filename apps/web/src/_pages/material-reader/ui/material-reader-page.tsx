@@ -76,6 +76,7 @@ import {
 } from "./material-reader-states";
 import { FreeLessonAccess } from "./free-lesson-access";
 import { MaterialReaderView } from "./material-reader-view";
+import { FreeLessonPurchaseCall } from "./free-lesson-purchase-call.server";
 
 type ResolvedMaterial = Extract<
   MaterialReaderResult,
@@ -411,6 +412,22 @@ async function ResolvedMaterialReader({
   const showsModes =
     productContext?.supplementary !== true &&
     productContext?.product.hasModeVariants === true;
+  // Бесплатный урок курса ведёт к покупке курса (#1647); у дополнительного материала своего места
+  // в программе нет, и звать оттуда нечего.
+  const purchaseProductSlug = productSlugOf(returnTarget);
+  const purchaseCall =
+    result.material.access === "free" &&
+    purchaseProductSlug !== undefined &&
+    productContext?.programme != null &&
+    productContext.supplementary !== true ? (
+      <Suspense fallback={null}>
+        <FreeLessonPurchaseCall
+          material={result.material}
+          productSlug={purchaseProductSlug}
+          next={productContext.programme.next}
+        />
+      </Suspense>
+    ) : undefined;
   // Подсказка объясняет устройство руководства у шага, который читатель видит. Шаг, написанный
   // для другого способа, в его режиме не рисуется, и подсказка стояла бы рядом с пустотой.
   const hintAt = result.body.findIndex(
@@ -512,6 +529,7 @@ async function ResolvedMaterialReader({
             </Suspense>
           }
           deferredPracticeActions={deferredPracticeActions}
+          purchaseCall={purchaseCall}
           body={result.body}
           material={result.material}
           {...(showsModes

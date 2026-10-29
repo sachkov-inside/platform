@@ -27,6 +27,7 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { PurchaseInvitation } from "@/shared/routing/subscription-route";
+import { courseLessonAction } from "../model/purchase-product";
 import {
   MaterialReaderHeader,
   MaterialReaderBreadcrumbs,
@@ -244,15 +245,21 @@ export interface MaterialReaderGate {
   readonly action: React.ReactNode;
 }
 
-/** Purchase actions stay available only where an offer exists. */
+/**
+ * Purchase actions stay available only where an offer exists. A course lesson names its own
+ * checkout or, before sales open, its course page (#1647).
+ */
 const accessAction = {
   product: "Купить продукт",
   subscription: "Получить доступ",
+  purchase: "Приобрести курс",
+  course: "Получить доступ",
 } as const;
 
 /**
- * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы —
- * страницу своего курса, либо оплату выбранного продукта или витрину подписки.
+ * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы.
+ * Урок курса ведёт на оплату курса, пока он продаётся, иначе на страницу курса; материал вне курса
+ * ведёт на оплату выбранного продукта или витрину подписки.
  */
 export function MaterialReaderAccess({
   readingAction,
@@ -277,20 +284,21 @@ export function MaterialReaderAccess({
     (material.productMemberships.length === 1
       ? material.productMemberships[0]
       : undefined);
-  const courseHref =
-    membership === undefined ? undefined : productPath(membership.product.slug);
+  const courseAction =
+    membership === undefined
+      ? undefined
+      : courseLessonAction({
+          invitation,
+          courseHref: productPath(membership.product.slug),
+        });
   const copy =
-    courseHref === undefined
+    courseAction === undefined
       ? accessCopy[invitation?.kind ?? "none"]
       : {
           title: "Продолжение для участников",
           explanation: "Этот материал доступен участникам курса.",
         };
-  const accessHref = courseHref ?? invitation?.href;
-  const actionLabel =
-    courseHref === undefined && invitation !== null
-      ? accessAction[invitation.kind]
-      : "Получить доступ";
+  const action = courseAction ?? invitation;
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}
@@ -391,15 +399,15 @@ export function MaterialReaderAccess({
                     {gate.action}
                   </div>
                 )}
-                {gate !== undefined || accessHref === undefined ? null : (
+                {gate !== undefined || action === null ? null : (
                   <div className="mt-5 flex flex-wrap justify-center gap-3">
                     <Button
                       asChild
                       className={readerAccessActionClass}
                       size="lg"
                     >
-                      <Link href={accessHref}>
-                        {actionLabel}
+                      <Link href={action.href}>
+                        {accessAction[action.kind]}
                         <ArrowRight
                           aria-hidden="true"
                           className="shrink-0 transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"

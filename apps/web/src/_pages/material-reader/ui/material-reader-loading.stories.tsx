@@ -256,7 +256,8 @@ function loadsInPlace(
 
         sequence.deliverPersonalPart();
         if (outcome === "opened") await canvas.findByText(/^Абзац 1\./u);
-        else await canvas.findByRole("link", { name: /Получить доступ/u });
+        // Курс продаётся, поэтому закрытый урок ведёт сразу на оплату (#1647).
+        else await canvas.findByRole("link", { name: /Приобрести курс/u });
         await expect(
           canvas.queryByRole("button", { name: /Поделиться материалом/ }),
         ).not.toBeInTheDocument();

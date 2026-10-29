@@ -10,12 +10,17 @@ import {
   CourseLearningLink,
   courseLearningAction,
   CohortStatusView,
+  programmeCallLabel,
   type CohortCall,
 } from "@/features/ai-engineering-course";
-import type { PublishedProductResult } from "@/features/library-discovery";
+import type {
+  ProductAccess,
+  PublishedProductResult,
+} from "@/features/library-discovery";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { countFreeLessons } from "../model/free-lessons";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 
 type ResolvedProduct = Extract<
@@ -23,7 +28,7 @@ type ResolvedProduct = Extract<
   { readonly kind: "ready" | "empty" }
 >;
 
-/** Запасной вид личной части: та же кнопка в программу, что и у страницы без потока. */
+/** Запасной вид личной части: первый экран без потока, без кнопки и плашки. */
 export function PendingCohortCall({ slug }: { readonly slug: string }) {
   return <CohortCallView call={withoutCohort(slug)} />;
 }
@@ -72,6 +77,7 @@ export async function PersonalCohortCall({
             productAccess: state.access,
             signedIn: state.signedIn,
             slug,
+            freeStart: offersFreeStart(state.access, result),
           })}
         />
       )}
@@ -92,7 +98,14 @@ export async function PersonalCohortStatus({
   if (productId === undefined) return null;
   const state = await readProductReaderState(productId, slug);
   if (state.kind === "learning") return <LearnerCourseStatus />;
-  if (state.kind === "waitlist") return <ProductWaitlistSlot lower />;
+  const freeStart = hasFreeLessons(result);
+  if (state.kind === "waitlist")
+    return (
+      <ProductWaitlistSlot
+        lower
+        programmeLabel={programmeCallLabel(freeStart)}
+      />
+    );
   const sale = state.sale;
   const status =
     state.kind === "checking" ||
@@ -105,6 +118,7 @@ export async function PersonalCohortStatus({
           offer: sale.offers[0] ?? null,
           productAccess: state.access,
           slug,
+          freeStart,
         });
   return (
     <>
@@ -134,7 +148,13 @@ export async function PersonalCourseFilmOverlay({
           </Suspense>
         </>
       ) : (
-        <SaleCountdown sale={state.sale} />
+        <>
+          {/* Тому, кто ещё не учится, анимация зовёт попробовать бесплатно (#1647). */}
+          {offersFreeStart(state.access, result) ? (
+            <CourseLearningLink intent="try-free" slug={slug} />
+          ) : null}
+          <SaleCountdown sale={state.sale} />
+        </>
       )}
     </>
   );
@@ -166,4 +186,21 @@ function withoutCohort(slug: string): CohortCall {
     signedIn: false,
     slug,
   });
+}
+
+/** Есть ли в курсе бесплатные уроки: от этого зависят приглашения начать бесплатно (#1647). */
+function hasFreeLessons(result: ResolvedProduct): boolean {
+  return result.kind === "ready" && countFreeLessons(result.items) > 0;
+}
+
+/**
+ * Зовёт ли курс этого человека попробовать бесплатно: тогда «Попробовать бесплатно» стоит на
+ * анимации, а первый экран не повторяет кнопку в программу (#1647). Неизвестный доступ может
+ * принадлежать ученику, поэтому приглашения нет.
+ */
+function offersFreeStart(
+  access: ProductAccess,
+  result: ResolvedProduct,
+): boolean {
+  return access === "closed" && hasFreeLessons(result);
 }

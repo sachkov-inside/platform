@@ -84,7 +84,12 @@ export function CourseHero({
             </IntentPrefetchLink>
           ))}
       </div>
-      <div className="aie-hero-film">
+      {/* Место под действием на нижнем крае анимации резервируется вместе со слотом: личная часть
+          приходит позже и не должна сдвигать первый экран. */}
+      <div
+        className="aie-hero-film"
+        data-film-action={filmBadge === undefined ? undefined : true}
+      >
         {filmBadge}
         {/* На Главной анимация ведёт на страницу курса (решение владельца
             09.10.2026). На самой странице курса ссылки нет. */}

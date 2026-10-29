@@ -7,24 +7,17 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import "./cohort-call.css";
 
 /**
- * Что стоит над кнопкой первого экрана. Карточка называет поток, обещание этапа и пояснение.
- * Живая метка только сообщает, что набор идёт, и ведёт к цене внизу страницы: первый экран не
- * продаёт, человек сначала изучает курс (решение владельца 09.10.2026).
+ * Что стоит над кнопкой первого экрана: живая метка только сообщает, что набор идёт, и ведёт к
+ * цене внизу страницы. Первый экран не продаёт, человек сначала изучает курс (решение владельца
+ * 09.10.2026). После старта плашки нет: поток и цену показывает билет внизу (#1647).
  */
-export type CohortBanner =
-  | {
-      readonly kind: "card";
-      readonly label: string;
-      readonly text: string;
-      readonly detail: string;
-    }
-  | {
-      readonly kind: "live";
-      readonly text: string;
-      readonly detail: string;
-      /** Якорь блока с ценой на этой же странице. */
-      readonly href: `#${string}`;
-    };
+export interface CohortBanner {
+  readonly kind: "live";
+  readonly text: string;
+  readonly detail: string;
+  /** Якорь блока с ценой на этой же странице. */
+  readonly href: `#${string}`;
+}
 
 /**
  * Куда ведёт кнопка первого экрана. Программа — страница каталога, её адрес предзагружается по
@@ -53,7 +46,7 @@ export function CohortCallView({ call }: { readonly call: CohortCall }) {
   const { action, banner } = call;
   return (
     <div className="aie-cohort" data-cohort-action={action?.kind ?? "none"}>
-      {banner === null ? null : banner.kind === "live" ? (
+      {banner === null ? null : (
         <a className="aie-cohort-live" href={banner.href}>
           <span className="aie-cohort-live-dot" aria-hidden="true" />
           <span className="aie-cohort-live-text">{banner.text}</span>
@@ -62,20 +55,6 @@ export function CohortCallView({ call }: { readonly call: CohortCall }) {
           )}
           <ArrowDown aria-hidden="true" />
         </a>
-      ) : (
-        <div className="aie-cohort-banner">
-          <p className="aie-cohort-text">
-            {banner.label === "" ? null : (
-              <>
-                <span className="aie-cohort-label">{banner.label}</span>{" "}
-              </>
-            )}
-            {banner.text}
-          </p>
-          {banner.detail === "" ? null : (
-            <p className="aie-cohort-detail">{banner.detail}</p>
-          )}
-        </div>
       )}
       {action === null ? null : action.kind === "sign-in" ? (
         <form action="/auth/sign-in" method="post">

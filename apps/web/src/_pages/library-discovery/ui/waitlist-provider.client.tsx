@@ -212,9 +212,11 @@ export function WaitlistProvider({
 export function ProductWaitlistSlot({
   lower = false,
   existingOnly = false,
+  programmeLabel,
 }: {
   readonly lower?: boolean;
   readonly existingOnly?: boolean;
+  readonly programmeLabel?: string;
 }) {
   const context = useContext(Context);
   if (context === null) return null;
@@ -232,6 +234,7 @@ export function ProductWaitlistSlot({
   return (
     <WaitlistAction
       lower={lower}
+      {...(programmeLabel === undefined ? {} : { programmeLabel })}
       productSlug={context.productSlug}
       state={context.state}
       onBegin={context.begin}
