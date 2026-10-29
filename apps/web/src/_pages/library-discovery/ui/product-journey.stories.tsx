@@ -216,15 +216,12 @@ export const InProgress: Story = {
     await expect(
       canvasElement.querySelector('[data-product-marker-read="true"] svg'),
     ).toBeInTheDocument();
-    // Место статуса постоянной ширины: длительности изученных и неизученных уроков стоят колонкой.
-    const rights = new Set(
-      [
-        ...canvasElement.querySelectorAll<HTMLElement>(
-          "[data-product-duration]",
-        ),
-      ].map((duration) => Math.round(duration.getBoundingClientRect().right)),
-    );
-    await expect(rights.size).toBe(1);
+    // Столбец доступа одной ширины во всей главе: длительности изученных и неизученных уроков стоят
+    // колонкой.
+    await expect(
+      rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
+        .size,
+    ).toBe(1);
   },
 };
 export const Mobile: Story = {
@@ -252,15 +249,19 @@ export const Guest: Story = {
     }
     // Слово стоит в том же столбце доступа, что и замок (решение владельца 29.10.2026, #1837):
     // правые края меток и длительностей совпадают у уроков с видео и без него.
-    const rightEdges = (elements: Iterable<Element>) =>
-      new Set(
-        [...elements].map((element) =>
-          Math.round(element.getBoundingClientRect().right),
-        ),
-      );
     for (const label of free)
       await expect(label.closest("[data-product-status]")).not.toBeNull();
     await expect(rightEdges(free).size).toBe(1);
+    // Замки стоят в том же столбце: у всех строк он одной ширины.
+    await expect(
+      new Set(
+        [
+          ...canvasElement.querySelectorAll<HTMLElement>(
+            "[data-product-status]",
+          ),
+        ].map((status) => Math.round(status.getBoundingClientRect().width)),
+      ).size,
+    ).toBe(1);
     await expect(
       rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
         .size,
@@ -278,6 +279,15 @@ export const Guest: Story = {
     ).toBeVisible();
   },
 };
+/** Правые края элементов, округлённые до пикселя: совпадающие края дают один элемент множества. */
+function rightEdges(elements: Iterable<Element>): ReadonlySet<number> {
+  return new Set(
+    [...elements].map((element) =>
+      Math.round(element.getBoundingClientRect().right),
+    ),
+  );
+}
+
 function fail(message: string): never {
   throw new Error(message);
 }
@@ -1366,16 +1376,14 @@ export const CompactMobileRoute: Story = {
     // месте отметка «изучен»: в строке одна отметка доступа (#1837).
     const free = rows.getAllByText("Бесплатно");
     await expect(free).toHaveLength(2);
-    const studied =
-      route.querySelector<HTMLElement>('[data-product-ordinal="1"]') ??
-      fail("Missing studied free lesson");
-    await expect(within(studied).getByText("Бесплатно")).not.toBeVisible();
-    await expect(
+    const row = (ordinal: number) =>
       within(
-        route.querySelector<HTMLElement>('[data-product-ordinal="2"]') ??
-          fail("Missing unstudied free lesson"),
-      ).getByText("Бесплатно"),
-    ).toBeVisible();
+        route.querySelector<HTMLElement>(
+          `[data-product-ordinal="${String(ordinal)}"]`,
+        ) ?? fail(`Missing lesson ${String(ordinal)}`),
+      );
+    await expect(row(1).getByText("Бесплатно")).not.toBeVisible();
+    await expect(row(2).getByText("Бесплатно")).toBeVisible();
     // Ни одна строка не подписана форматом материала отдельным словом.
     await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
     await expect(rows.queryByText("Видео")).not.toBeInTheDocument();

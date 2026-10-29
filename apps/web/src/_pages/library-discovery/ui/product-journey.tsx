@@ -308,6 +308,7 @@ function journeyRun(
         ...(placementId === undefined ? {} : { id: placementId }),
         ...(after === undefined ? {} : { after }),
         available: material.availability === "available",
+        free: material.access === "free",
         card: (
           <MaterialCard
             key={`card-${placementId ?? material.slug}`}

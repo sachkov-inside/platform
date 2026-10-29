@@ -489,8 +489,12 @@ function ProductMaterialRow({
               {duration}
             </span>
           )}
+          {/* Ширину столбца решает список главы (`group/product-order` с
+              `data-product-free-lessons` в product-journey-controls): 4.25rem вмещают слово
+              «Бесплатно» в text-xs, а меньше слова столбец не станет. Отметка «изучен» приходит из
+              ProductMaterialMarker (`data-product-marker-read`) и прячет слово. */}
           <span
-            className="flex min-w-5 shrink-0 items-center justify-end group-has-[[data-product-free]]/product-order:min-w-[4.25rem] [&:has([data-product-marker-read])_[data-product-free]]:hidden"
+            className="flex min-w-5 shrink-0 items-center justify-end group-data-[product-free-lessons]/product-order:min-w-[4.25rem] [&:has([data-product-marker-read])_[data-product-free]]:hidden"
             data-product-status
           >
             {pending ? (
