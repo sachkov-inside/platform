@@ -1166,6 +1166,8 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
       recordShifts(shifts.takeRecords());
     });
   }, takePerformanceRecords);
+  // The free lesson body opens after Telegram sign-in (#1825); a guest sees a short gate.
+  await signInFullStack(page.context());
   await page.goto("/materials/kak-ustroen-inside-platform");
   const header = page.getByRole("banner");
   const main = page.getByRole("main");
