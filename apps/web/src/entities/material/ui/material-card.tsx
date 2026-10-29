@@ -418,11 +418,11 @@ function ProductMaterialRow({
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      {/* Строка в одну линию: номер, название, длительность видео, статус и у урока продолжения
-          компактная кнопка справа (решение владельца 29.10.2026). Формат словом не
-          пишется: урок с видео узнаётся по значку и длительности (решение владельца 29.10.2026).
-          Открытость показывает замок у закрытых уроков, метки «Бесплатно» нет (решение владельца
-          09.10.2026). */}
+      {/* Строка в одну линию: номер, название, у урока продолжения компактная кнопка, затем
+          длительность видео и место статуса постоянной ширины, чтобы длительности стояли колонкой
+          (решение владельца 29.10.2026). Формат словом не пишется: урок с видео узнаётся по значку
+          и длительности (решение владельца 29.10.2026). Открытость показывает замок у закрытых
+          уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -450,6 +450,7 @@ function ProductMaterialRow({
             уходит на следующую строку и там переносится сам. Пиксели, а не rem, чтобы при крупном
             шрифте браузера номер урока оставался рядом с названием. */}
         <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+          <ProductContinuationAction href={readerHref} slug={material.slug} />
           {duration === undefined ? null : (
             <span
               className="inline-flex items-center gap-1 tabular-nums"
@@ -460,23 +461,27 @@ function ProductMaterialRow({
               {duration}
             </span>
           )}
-          {pending ? (
-            <span
-              aria-hidden="true"
-              className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
-              data-product-access-pending
-            />
-          ) : locked ? (
-            <>
-              <LockKeyhole aria-hidden="true" className="size-4" />
-              <span className="sr-only">Нужен доступ</span>
-            </>
-          ) : unavailable ? (
-            <span className="sr-only">Доступ временно не определён</span>
-          ) : (
-            readingStatus
-          )}
-          <ProductContinuationAction href={readerHref} slug={material.slug} />
+          <span
+            className="grid w-5 shrink-0 place-items-center"
+            data-product-status
+          >
+            {pending ? (
+              <span
+                aria-hidden="true"
+                className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
+                data-product-access-pending
+              />
+            ) : locked ? (
+              <>
+                <LockKeyhole aria-hidden="true" className="size-4" />
+                <span className="sr-only">Нужен доступ</span>
+              </>
+            ) : unavailable ? (
+              <span className="sr-only">Доступ временно не определён</span>
+            ) : (
+              readingStatus
+            )}
+          </span>
         </span>
       </div>
     </ProductRowArticle>

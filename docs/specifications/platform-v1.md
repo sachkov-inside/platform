@@ -705,8 +705,9 @@ rows are progressively revealed. Ordinal lesson numbers are smaller than chapter
 Lesson rows name no Material format. A lesson with a primary video shows a play icon and the video
 duration at every width; a lesson without video shows neither. Task rows keep their «Задание» label.
 A studied lesson shows a thin accent check without a filled circle. The continuation lesson row is
-highlighted and carries a compact «Продолжить» or «Начать обучение» button at its right end, not a
-full-width button below the title. The title starts at 112 px; when the right-hand group does not fit
+highlighted and carries a compact «Продолжить» or «Начать обучение» button before the video duration,
+not a full-width button below the title. The reading status keeps a fixed-width slot at the right end,
+so video durations line up in one column. The title starts at 112 px; when the right-hand group does not fit
 beside that width, the group wraps to its own line.
 
 
