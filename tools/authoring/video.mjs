@@ -340,6 +340,17 @@ async function assertUnchanged(file, hashed, path) {
 }
 
 /**
+ * The stop of `--replace-public-upload` on a target that predates ADR 0041.
+ *
+ * @param {import("./target.mjs").AuthoringTarget} target
+ * @param {string} videoId
+ */
+const unreportedProtection = (target, videoId) =>
+  new Error(
+    `${target.id} does not report whether video ${videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
+  );
+
+/**
  * Uploads one finished recording for a synchronized Material and waits until the video is ready.
  * The upload receipt is keyed by Material and file checksum; the next release saves it with the
  * original's chapters. The idempotency key is persisted before the first call, so a retry never
@@ -470,9 +481,7 @@ export async function uploadVideo({
             { method: "POST" },
           );
           if (video.protected === undefined)
-            throw new Error(
-              `${target.id} does not report whether video ${stored.videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
-            );
+            throw unreportedProtection(target, stored.videoId);
           if (!video.protected) {
             discard(stored.videoId);
             receipt = undefined;
@@ -520,12 +529,11 @@ export async function uploadVideo({
         receipt ??= await startAttempt();
         if (receipt.phase === "initializing") {
           let initialized = await initialize(receipt);
+          // A target before ADR 0041 might have placed this attempt in the public project.
+          if (replacePublicUpload && initialized.video.protected === undefined)
+            throw unreportedProtection(target, initialized.video.videoId);
           // An attempt whose answer was lost replays as recorded, which before ADR 0041 may be
           // a public recording; only its answer names that Video.
-          if (replacePublicUpload && initialized.video.protected === undefined)
-            throw new Error(
-              `${target.id} does not report whether video ${initialized.video.videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
-            );
           if (replacePublicUpload && !initialized.video.protected) {
             discard(initialized.video.videoId);
             receipt = await startAttempt();
