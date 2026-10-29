@@ -17,7 +17,7 @@ BOOTSTRAP_READ_STAGES = frozenset(('bootstrap_read_response','bootstrap_read_dea
     'bootstrap_read_results','bootstrap_read_query','bootstrap_read_columns','bootstrap_read_rows',
     'bootstrap_read_number','bootstrap_read_number_range','bootstrap_read_count_nonzero'))
 MCP_READ_STAGES = frozenset(('mcp_wire_admission','mcp_wire_request','mcp_wire_headers','mcp_wire_read',
-    'mcp_wire_status','mcp_wire_size','mcp_wire_deadline','mcp_wire_decode','mcp_wire_close',
+    'mcp_wire_status','mcp_wire_size','mcp_inventory_size','mcp_wire_deadline','mcp_wire_decode','mcp_wire_close',
     'mcp_rpc_object','mcp_rpc_version','mcp_rpc_id','mcp_rpc_error','mcp_rpc_result','mcp_rpc_is_error',
     'mcp_initialize_version','mcp_inventory_cursor','mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool'))
 FAILURE_STAGES = frozenset(('entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',

@@ -3,6 +3,7 @@ import copy
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import http.client
+import hashlib
 import json
 from pathlib import Path
 import threading
@@ -40,15 +41,19 @@ class ClosedProtocol(unittest.TestCase):
         connection=http.client.HTTPConnection
         class Connection(connection):
             def __init__(self,host,port,**kwargs):
-                self.fixture_host=(host,port);self.fixture_timeout=kwargs['timeout'];self.close_calls=0
+                self.fixture_host=(host,port);self.fixture_timeout=kwargs['timeout'];self.close_calls=0;self.fixture_reads=[]
                 super().__init__(host,port,**kwargs) if host=='127.0.0.1' else super().__init__('127.0.0.1',server.server_port,**kwargs)
                 connections.append(self)
             def getresponse(self):
                 response=super().getresponse()
+                read=response.read
+                def measured_read(*args):
+                    payload=read(*args);self.fixture_reads.append((args,len(payload)));return payload
+                response.read=measured_read
                 if read_error is not None:
-                    read=response.read
+                    measured=response.read
                     def interrupted_read(*args):
-                        read(*args)
+                        measured(*args)
                         try:raise read_error
                         except BaseException:
                             self.fixture_read_traceback=read_error.__traceback__
@@ -75,6 +80,88 @@ class ClosedProtocol(unittest.TestCase):
             except BaseException as error:
                 if observed is not None:observed.append((error,control.FUNCTIONAL_STAGE))
                 raise
+
+    def test_complete_pinned_public_catalogue_reaches_only_the_intentional_OTLP_sentinel(self):
+        # Public source model, not a captured native response. Golden copied byte-for-byte:
+        # SigNoz/signoz-mcp-server d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d (v0.15.0),
+        # https://github.com/SigNoz/signoz-mcp-server/blob/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/mcp-server/testdata/wire-catalog/tools-list.json
+        # Git blob93fb8cd862242bb9f776b3690a08d95c69b90a7d.
+        raw=(Path(__file__).parent.parent/'fixtures/observability-signoz-mcp-v0.15.0-tools-list.json').read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),'03474d78203eb9f2c94f06ff74522b7ffe859659595d350bcf2f64486c1cb2b9')
+        golden=json.loads(raw);inventory=golden['response'];inventory['id']=2
+        self.assertEqual(len(inventory['result']['tools']),43)
+        self.assertNotIn('nextCursor',inventory['result'])
+        body=json.dumps(inventory,separators=(',',':'),ensure_ascii=False).encode()
+        self.assertEqual(len(body),214194)
+        initialized=json.dumps({'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2025-11-25'}}).encode()
+        go_body=body.decode().replace('&',r'\u0026').replace('<',r'\u003c').replace('>',r'\u003e').encode()+b'\n'
+        self.assertEqual(len(go_body),214765)
+        for payload in (body,go_body):
+            replies=[(200,b'ok'),(200,initialized),(202,b''),(200,payload),(503,b'')]
+            with self.subTest(bytes=len(payload)),self.http_fixture(replies) as (calls,connections):
+                errors=[]
+                with self.assertRaises(control.ControlFailure):self.functional_run(errors)
+                self.assertEqual(errors[0][1],'ingest',control.failure_context(errors[0][0]))
+                self.assertEqual([(m,p) for m,p,_,_ in calls],[('GET','/readyz'),('POST','/mcp'),('POST','/mcp'),('POST','/mcp'),('POST','/v1/traces')])
+                self.assertEqual([json.loads(c[2])['method'] for c in calls[1:4]],['initialize','notifications/initialized','tools/list'])
+                self.assertEqual([c.fixture_host for c in connections],[('mcp',8000)]*4+[('signoz-ingester',4318)])
+
+    def test_inventory_receive_budget_is_exact_and_reads_only_one_byte_beyond_the_cap(self):
+        initialize=json.dumps({'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2025-11-25'}}).encode()
+        inventory=json.dumps({'jsonrpc':'2.0','id':2,'result':{'tools':[{'name':'signoz_execute_builder_query'}]}}).encode()
+        prefix=[(200,b'ok'),(200,initialize),(202,b'')]
+        for size in (65536,65537,262144,262145,524288):
+            replies=prefix+[(200,inventory+b' '*(size-len(inventory)))]+([(503,b'')] if size<=262144 else [])
+            with self.subTest(size=size),self.http_fixture(replies) as (calls,connections):
+                errors=[]
+                with self.assertRaises(control.ControlFailure) as caught:self.functional_run(errors)
+                self.assertIs(errors[0][0],caught.exception)
+                self.assertEqual(connections[3].fixture_reads,[((262145,),min(size,262145))])
+                if size<=262144:
+                    self.assertEqual(errors[0][1],'ingest');self.assertEqual(len(calls),5)
+                else:
+                    self.assertEqual(control.failure_context(caught.exception),{'inside_failed':1,'stage':'mcp_inventory_size','category':'ControlFailure','http_status':200,'transport':'mcp_http'})
+                    self.assertEqual(len(calls),4)
+
+    def test_every_ordinary_wire_operation_keeps_the_original_exact_64KiB_budget(self):
+        rpc=json.dumps({'jsonrpc':'2.0','id':2,'result':{}}).encode()
+        operations=[('readyz',lambda:witness.wire('mcp',8000,'/readyz',decode_json=False)),
+            ('initialize',lambda:witness.mcp_call('initialize',{},'fixture-key',2)),
+            ('notification',lambda:witness.wire('mcp',8000,'/mcp','POST',{'method':'notifications/initialized'})),
+            ('tools_call',lambda:witness.mcp_call('tools/call',{},'fixture-key',2)),
+            ('ordinary_tools_list',lambda:witness.mcp_call('tools/list',{},'fixture-key',2)),
+            ('OTLP',lambda:witness.wire('signoz-ingester',4318,'/v1/traces','POST',{})),
+            ('query',lambda:control.request('POST','/api/v5/query_range',{}))]
+        query=json.dumps({'status':'success','data':{}}).encode()
+        for name,operation in operations:
+            for size in (65536,65537,262145):
+                payload=query if name=='query' else rpc
+                with self.subTest(operation=name,size=size),self.http_fixture([(200,payload+b' '*(size-len(payload)))]) as (calls,connections),                    patch.object(control,'FUNCTIONAL_STAGE','mcp_inventory',create=True):
+                    if size==65536:operation()
+                    else:
+                        with self.assertRaises(control.ControlFailure) as caught:operation()
+                        if name not in ('query','OTLP'):self.assertEqual(control.failure_context(caught.exception)['stage'],'mcp_wire_size')
+                    self.assertEqual(connections[0].fixture_reads,[((65537,),min(size,65537))]);self.assertEqual(len(calls),1)
+
+    def test_inventory_capability_cannot_be_selected_by_payload_stage_or_forged_or_reused_authority(self):
+        body=json.dumps({'jsonrpc':'2.0','id':2,'result':{}}).encode();body+=b' '*(65537-len(body))
+        class Forged:
+            def __eq__(self,_other):return True
+        for operation in (None,'tools/list','mcp_inventory',262144,True,{},[],object(),Forged()):
+            with self.subTest(selector=type(operation).__name__),self.http_fixture([(200,body)]) as (calls,connections),                patch.object(control,'FUNCTIONAL_STAGE','mcp_inventory',create=True):
+                with self.assertRaises(control.ControlFailure) as caught:
+                    witness.wire('mcp',8000,'/mcp','POST',dict(witness._MCP_INVENTORY_REQUEST),_receive_operation=operation)
+                self.assertEqual(control.failure_context(caught.exception)['stage'],'mcp_wire_size')
+                self.assertEqual(connections[0].fixture_reads,[((65537,),65537)]);self.assertEqual(len(calls),1)
+        for host,port,path,method,request in (
+            ('mcp',8000,'/mcp','POST',dict(witness._MCP_INVENTORY_REQUEST)),
+            ('mcp',8000,'/readyz','POST',witness._MCP_INVENTORY_REQUEST),
+            ('mcp',8000,'/mcp','GET',witness._MCP_INVENTORY_REQUEST),
+            ('signoz-ingester',4318,'/mcp','POST',witness._MCP_INVENTORY_REQUEST)):
+            with self.subTest(endpoint=(host,path,method)),self.http_fixture([(200,body)]) as (calls,connections):
+                with self.assertRaises(control.ControlFailure):
+                    witness.wire(host,port,path,method,request,_receive_operation=witness._MCP_INVENTORY_RECEIVE)
+                self.assertEqual(connections[0].fixture_reads,[((65537,),65537)]);self.assertEqual(len(calls),1)
 
     def test_actual_run_waits_for_plaintext_readyz_then_JSON_RPC_and_empty_notification(self):
         # Pinned MCP v0.15.0 d6a95cbb server.go readyHandler writes text for
@@ -182,7 +269,7 @@ class ClosedProtocol(unittest.TestCase):
         inventory={'jsonrpc':'2.0','id':2,'result':{'tools':[{'name':'signoz_execute_builder_query'}]}}
         prefix=[(200,b'ok'),(200,json.dumps(initialized).encode()),(202,b'')]
         cases=[('status',403,b'private-MCP-canary','mcp_wire_status',control.ControlFailure),
-            ('oversize',200,b'x'*65537,'mcp_wire_size',control.ControlFailure),
+            ('oversize',200,b'x'*262145,'mcp_inventory_size',control.ControlFailure),
             ('decode',200,b'private-MCP-canary','mcp_wire_decode',json.JSONDecodeError)]
         mutations=[('object',[],'mcp_rpc_object'),('version',dict(inventory,jsonrpc='private-MCP-canary'),'mcp_rpc_version'),
             ('id',dict(inventory,id=99),'mcp_rpc_id'),('error',dict(inventory,error={'message':'private-MCP-canary'}),'mcp_rpc_error'),
