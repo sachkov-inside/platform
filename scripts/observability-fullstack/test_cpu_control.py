@@ -239,10 +239,10 @@ class CpuControl(unittest.TestCase):
         self.assertEqual(result['measured_linux_acceptance']['state'],'passed')
         return result
 
-    def completed(self,root):
+    def completed(self,root,profiles=PROFILES,*,outcome=True,control=True):
         import cpu_control as cpu
-        for profile in PROFILES:
-            output,_,owner=self.bound(root,profile);rows=self.projection(owner,profile);ids=[r['id'] for r in rows]
+        for profile in profiles:
+            output,_,owner=self.bound(root,profile,control=control);rows=self.projection(owner,profile);ids=[r['id'] for r in rows]
             def native(compose,args,**options):return '\n'.join(ids) if args[0]=='ps' else '\n'.join(map(json.dumps,rows))
             with patch.object(fullstack,'invoke',side_effect=native):
                 for ordinal,enabled in enumerate((False,True,True,False,False)):
@@ -260,7 +260,106 @@ class CpuControl(unittest.TestCase):
                 private(output/('fullstack-phase-'+str(ordinal)+'.json'),{**phase,'samples':frames})
             self.worker_receipt(output,owner,0,True)
         value=cpu.pair(fullstack,root,SOURCE)
-        private(root/cpu.OUTCOME,{'schema':2,'source':SOURCE,'pair':cpu.digest(value),'exits':[0,0],'cleanup':[True,True],'publication_failed':False})
+        if outcome:private(root/cpu.OUTCOME,{'schema':2,'source':SOURCE,'pair':cpu.digest(value),'exits':[0,0],'cleanup':[True,True],'publication_failed':False})
+
+    def test_failed_first_measurement_survives_second_actual_pilot_reserved_port_failure(self):
+        import cpu_control as cpu
+        import socket
+        from types import SimpleNamespace
+        real_pilot=fullstack.pilot.run
+        with tempfile.TemporaryDirectory() as directory,socket.socket() as reserved:
+            base=Path(directory).resolve();root=base/'pair';images=base/'images.json';private(images,pins())
+            reserved.bind(('127.0.0.1',0));port=reserved.getsockname()[1]
+            stage=fullstack.preparation.begin(images,SOURCE,pins()['owner'],{'fixture':True},str(root/PROFILES[0]),docker=lambda _: '',identify=lambda:{'fixture':True},web=True,applications=True)
+            primary=subprocess.CalledProcessError(1,'observability pilot worker',output='first-oracle-private-sentinel');prepared=[];trace=[]
+            def command(argv,**options):
+                if argv[:2]==['git','-C']:return ''
+                if argv==['docker','context','show']:return 'default'
+                if argv==['docker','compose','ls','--format','json']:return '[]'
+                raise AssertionError('unexpected native command')
+            def run(output,**options):
+                if output.name==PROFILES[0]:
+                    self.completed(root,(PROFILES[0],),outcome=False,control=False)
+                    proof=cpu.read(output/'fullstack-proof.json')
+                    for row in proof['phases']:
+                        if row['mode']=='on':
+                            for sample in row['load']['latency']:sample['elapsed_ms']=2
+                    proof['state']='failed';proof['measured_linux_acceptance']=fullstack.evaluate(proof)
+                    self.assertEqual(proof['measured_linux_acceptance']['state'],'failed')
+                    private(output/'fullstack-proof.json',proof)
+                    for ordinal,row in enumerate(proof['phases']):
+                        path=output/('fullstack-phase-'+str(ordinal)+'.json');raw=cpu.read(path);raw['load']=row['load'];private(path,raw)
+                    self.worker_receipt(output,cpu.read(output/'owner.json'),1,True)
+                    raise primary
+                self.assertEqual(options['ports'],(18427,13000,14318,1514,13301))
+                callback=options['prepare_inputs']
+                def prepare(path):prepared.append(path);return callback(path)
+                options.update(ports=(port,),prepare_inputs=prepare)
+                with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot.platform,'system',return_value='Linux'),patch.object(fullstack.pilot.daemon,'identify',return_value={'storage':str(base),'endpoint':'fixture'}),patch.object(fullstack.pilot.shutil,'disk_usage',return_value=SimpleNamespace(total=128*1024**3,free=64*1024**3)):
+                    return real_pilot(output,**options)
+            with patch.object(cpu,'admission',return_value=__import__('time').monotonic()),patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})),patch.object(fullstack.preparation,'recover_stage',return_value=stage),patch.object(fullstack.pilot,'run',side_effect=run),patch.object(fullstack.resource_runtime.ci,'recover',side_effect=AssertionError('native cleanup repeated')):
+                try:cpu.run_pair(fullstack,root,images,base/'metadata')
+                except subprocess.CalledProcessError as error:
+                    self.assertIs(error,primary);current=error.__traceback__
+                    while current is not None:trace.append(current.tb_frame.f_code);current=current.tb_next
+                else:self.fail('original oracle failure was lost')
+                self.assertIn(run.__code__,trace);self.assertEqual(prepared,[])
+                self.assertFalse((root/PROFILES[1]).exists());self.assertEqual(stage._pending(),[])
+                result=cpu.collect(fullstack,root,base/'metadata',base/'public')
+            self.assertEqual(result['schema'],3)
+            self.assertFalse(result['measurement_complete']);self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib'])
+            first,second=result['profiles'];self.assertEqual(first['state'],'measurement_complete')
+            self.assertEqual(first['measurement']['quality']['success'],3200);self.assertEqual(first['original_oracle']['state'],'failed')
+            self.assertEqual(second['state'],'admission_failed');self.assertEqual(second['measurement'],{'available':False})
+            self.assertFalse(second['cleanup']);self.assertEqual(second['failure'],{'stage':'pilot_admission','category':'os_error','errno':'address_in_use','exit_code':1})
+            published=(base/'public'/cpu.NAME).read_text()
+            for secret in ('first-oracle-private-sentinel',str(base),'127.0.0.1:'+str(port)):
+                self.assertNotIn(secret,published)
+
+    def partial_context(self,root):
+        import cpu_control as cpu
+        self.completed(root,(PROFILES[0],),outcome=False)
+        value=cpu.pair(fullstack,root,SOURCE)
+        first=cpu.profile_context(value,PROFILES[0]);first.update(stage='worker',state='returned',prepared=True,exit_code=0)
+        second=cpu.profile_context(value,PROFILES[1]);second.update(stage='pilot_admission',state='failed',category='os_error',errno='address_in_use',exit_code=1)
+        result={'schema':3,'source':SOURCE,'pair':cpu.digest(value),'exits':[0,1],'cleanup':[True,False],'publication_failed':False,'profiles':[first,second]}
+        private(root/cpu.OUTCOME,result)
+        return result
+
+    def test_partial_collector_refuses_context_forgery_downgrade_or_present_corruption(self):
+        import cpu_control as cpu
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700);good=self.partial_context(root);cases=[]
+            for field,value in [('schema',True),('schema',2),('schema',4),('source','b'*40),('pair','f'*64),('private','private-sentinel')]:
+                bad=copy.deepcopy(good);bad[field]=value;cases.append(bad)
+            bad=copy.deepcopy(good);bad['schema']=2;del bad['profiles'];cases.append(bad)
+            bad=copy.deepcopy(good);del bad['profiles'];cases.append(bad)
+            bad=copy.deepcopy(good);bad['profiles'].reverse();cases.append(bad)
+            for field,value in [('context','f'*64),('profile',PROFILES[0]),('stage','private-stage'),('stage','worker'),('prepared',True),
+                                ('prepared',1),('state','not_run'),('category','private-error'),('category','value_error'),
+                                ('errno',98),('errno','private-errno'),('errno',True),('exit_code',0),('exit_code',True),('private','private-sentinel')]:
+                bad=copy.deepcopy(good);bad['profiles'][1][field]=value;cases.append(bad)
+            bad=copy.deepcopy(good);bad['exits'][1]=None;cases.append(bad)
+            bad=copy.deepcopy(good);bad['cleanup'][1]=True;cases.append(bad)
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
+                for index,bad in enumerate(cases):
+                    with self.subTest(index=index):
+                        private(root/cpu.OUTCOME,bad);destination=base/('bad-'+str(index))
+                        with self.assertRaises(ValueError):cpu.collect(fullstack,root,base/'metadata',destination)
+                        self.assertFalse(destination.exists())
+                private(root/cpu.OUTCOME,good)
+                # A present invalid output never gets reclassified as harmless absence.
+                output=root/PROFILES[1];output.mkdir(mode=0o700)
+                with self.assertRaises((ValueError,OSError)):cpu.collect(fullstack,root,base/'metadata',base/'present-corrupt')
+                self.assertFalse((base/'present-corrupt').exists());output.rmdir()
+                output.symlink_to(root/PROFILES[0])
+                with self.assertRaises((ValueError,OSError)):cpu.collect(fullstack,root,base/'metadata',base/'replaced')
+                self.assertFalse((base/'replaced').exists());output.unlink()
+                for stage,category in [('pilot_admission','os_error'),('prepare_inputs','value_error')]:
+                    allowed=copy.deepcopy(good);allowed['profiles'][1].update(stage=stage,category=category,errno=None)
+                    private(root/cpu.OUTCOME,allowed);result=cpu.collect(fullstack,root,base/'metadata',base/('unknown-'+stage))
+                    self.assertIsNone(result['profiles'][1]['failure']['errno']);self.assertFalse(result['measurement_complete'])
+                    self.assertFalse(result['profiles'][1]['cleanup']);self.assertIsNone(result['minimum_candidate_gib'])
 
     def test_collector_cannot_complete_without_active_loadgen_counters(self):
         import cpu_control as cpu

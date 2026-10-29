@@ -1,5 +1,6 @@
 """Closed same-runner CPU-policy control. Never a production capacity acceptance."""
 import copy
+import errno
 import hashlib
 import json
 import math
@@ -29,6 +30,9 @@ FILES=(MARKER,BASELINE,OWNER,QUOTAS,NAME)
 MAX_BYTES=1_048_576
 ACCEPTANCE={'diagnostic_only':True,'capacity':False,'minimum_candidate_gib':None}
 CPU_KEYS={'cpu_quota','cpu_period','cpuset','cpu_count','cpu_percent','cpu_shares','deploy'}
+STAGES=('not_run','pilot_admission','prepare_inputs','worker')
+CATEGORIES=('os_error','command_failed','timeout','interrupted','system_exit','value_error','runtime_error','other')
+ERRNOS=('address_in_use','address_unavailable','permission_denied','connection_refused','timed_out','no_space','not_found','other')
 
 
 def need(ok):
@@ -317,6 +321,47 @@ def recover_profile(full,stage,output):
     good=cleanup_passed(result);stage.release(str(output),cleanup_ok=good);return good
 
 
+def profile_context(value,profile):
+    selector(profile)
+    return {'profile':profile,'context':digest([value['source'],digest(value),value['root'],profile]),
+            'stage':'not_run','state':'not_run','prepared':False,'category':None,'errno':None,'exit_code':None}
+
+
+def failure(error):
+    category=('interrupted' if isinstance(error,KeyboardInterrupt) else 'system_exit' if isinstance(error,SystemExit)
+              else 'timeout' if isinstance(error,(TimeoutError,subprocess.TimeoutExpired))
+              else 'command_failed' if isinstance(error,subprocess.CalledProcessError)
+              else 'os_error' if isinstance(error,OSError) else 'value_error' if isinstance(error,ValueError)
+              else 'runtime_error' if isinstance(error,RuntimeError) else 'other')
+    code=None
+    if category=='os_error':
+        number=OSError.errno.__get__(error,OSError)
+        if type(number) is int:
+            code=({errno.EADDRINUSE:'address_in_use',errno.EADDRNOTAVAIL:'address_unavailable',
+                   errno.EACCES:'permission_denied',errno.EPERM:'permission_denied',
+                   errno.ECONNREFUSED:'connection_refused',errno.ETIMEDOUT:'timed_out',
+                   errno.ENOSPC:'no_space',errno.ENOENT:'not_found'}).get(number,'other')
+    return {'category':category,'errno':code}
+
+
+def checked_context(entry,value,profile,exit_code):
+    expected=profile_context(value,profile)
+    need(type(entry) is dict and set(entry)==set(expected) and entry['profile']==profile
+         and entry['context']==expected['context'] and type(entry['stage']) is str and entry['stage'] in STAGES
+         and type(entry['prepared']) is bool and entry['exit_code']==exit_code
+         and (entry['exit_code'] is None or type(entry['exit_code']) is int))
+    if entry['state']=='not_run':need(entry==expected)
+    else:
+        need(entry['stage']!='not_run' and type(exit_code) is int and -255<=exit_code<=255
+             and (entry['stage']!='pilot_admission' or not entry['prepared']))
+        if entry['state']=='returned':need(exit_code==0 and entry['stage']=='worker' and entry['category'] is None and entry['errno'] is None)
+        else:
+            need(entry['state']=='failed' and exit_code!=0 and type(entry['category']) is str and entry['category'] in CATEGORIES
+                 and (entry['errno'] is None or type(entry['errno']) is str and entry['errno'] in ERRNOS)
+                 and (entry['category']=='os_error' or entry['errno'] is None))
+    return entry
+
+
 def run_pair(full,root,images,metadata):
     started=admission(full);source,disk=full.hosted.metadata_source(metadata);need(disk['ready'])
     root=Path(root).absolute();need(root==root.resolve() and not present(root))
@@ -332,7 +377,8 @@ def run_pair(full,root,images,metadata):
         value={'schema':1,'kind':KIND,'source':source['checkout_sha'],'root':str(root),'nonce':secrets.token_hex(16),
                'profiles':list(PROFILES),'images':selected,'workload_sha256':hashlib.sha256(full.PROFILE.read_bytes()).hexdigest()}
         write(root/PAIR,value,once=True)
-        result={'schema':2,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False],'publication_failed':False}
+        result={'schema':3,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False],
+                'publication_failed':False,'profiles':[profile_context(value,profile) for profile in PROFILES]}
         first_error=None
         def remember(error):
             nonlocal first_error
@@ -352,15 +398,23 @@ def run_pair(full,root,images,metadata):
             except BaseException as error:
                 remember(error)
                 break
+            observed=result['profiles'][index];observed['stage']='pilot_admission'
+            def prepare(path):
+                observed['stage']='prepare_inputs'
+                full.inputs(path,images)
+                observed['prepared']=True
             try:
-                full.pilot.run(output,prepare_inputs=lambda path:full.inputs(path,images),worker_script=Path(__file__).resolve(),
+                full.pilot.run(output,prepare_inputs=prepare,worker_script=Path(__file__).resolve(),
                     ports=(18427,13000,14318,1514,13301),services=full.SERVICES,project_prefix=full.PREFIX,
                     scope='CPU-policy diagnostic only; not capacity acceptance',missing=['production capacity and seven days'],worker_pass_fds=stage.pass_fds())
                 result['exits'][index]=0
+                observed.update(stage='worker',state='returned',exit_code=0)
             except BaseException as error:
                 code=error.returncode if isinstance(error,subprocess.CalledProcessError) else 130 if isinstance(error,KeyboardInterrupt) else 1
                 result['exits'][index]=code if type(code) is int and -255<=code<=255 else 1
                 remember(error)
+                observed.update(state='failed',exit_code=result['exits'][index],**failure(error))
+                if isinstance(error,subprocess.CalledProcessError) and error.cmd=='observability pilot worker':observed['stage']='worker'
             finally:
                 # Publication is never allowed to skip or mask mandatory settlement.
                 publish()
@@ -556,16 +610,24 @@ def measurement(full,output,proof):
 def collect(full,root,metadata,destination):
     source,disk=full.hosted.metadata_source(metadata);sha=source['checkout_sha']
     root=directory(root);value=pair(full,root,sha);outcome=read(root/OUTCOME)
-    need(type(outcome) is dict and set(outcome)=={'schema','source','pair','exits','cleanup','publication_failed'}
-         and type(outcome['schema']) is int and outcome['schema']==2 and outcome['source']==sha
+    need(type(outcome) is dict and type(outcome.get('schema')) is int and outcome['schema'] in (2,3)
+         and set(outcome)=={'schema','source','pair','exits','cleanup','publication_failed'}|({'profiles'} if outcome['schema']==3 else set())
+         and outcome['source']==sha
          and type(outcome['publication_failed']) is bool and outcome['pair']==digest(value)
          and type(outcome['exits']) is list and len(outcome['exits'])==2 and all(v is None or type(v) is int and -255<=v<=255 for v in outcome['exits'])
          and type(outcome['cleanup']) is list and len(outcome['cleanup'])==2 and all(type(v) is bool for v in outcome['cleanup']))
+    contexts=None
+    if outcome['schema']==3:
+        need(type(outcome['profiles']) is list and len(outcome['profiles'])==2)
+        contexts=[checked_context(entry,value,profile,exit_code) for entry,profile,exit_code in zip(outcome['profiles'],PROFILES,outcome['exits'])]
     rows=[];verdicts={}
     for index,profile in enumerate(PROFILES):
         output=root/profile
         row={'profile':profile,'run_exit':outcome['exits'][index],'cleanup':outcome['cleanup'][index],'state':'not_run',
              'plan_sha256':None,'baseline_sha256':None,'snapshots':[],'measurement':{'available':False},'original_oracle':{'state':'incomplete','minimum_candidate_gib':None}}
+        context=contexts[index] if contexts is not None else None
+        if context is not None and context['state']=='failed':
+            row['failure']={key:context[key] for key in ('stage','category','errno','exit_code')}
         if present(output):
             marker,_=request(full,output,sha);row.update(plan_sha256=marker['plan_sha256'],baseline_sha256=marker['baseline_sha256'],state='incomplete')
             if row['run_exit'] is not None:
@@ -586,10 +648,14 @@ def collect(full,root,metadata,destination):
                                   or row['run_exit']==1 and original['state']=='failed' and proof.get('state')=='failed')
                 if runtime_complete and row['cleanup'] and measured['available'] and measured['quality']['complete'] and [s['ordinal'] for s in quotas['snapshots']]==list(range(5)):
                     row['state']='measurement_complete'
-        else:need(row['run_exit'] is None and not row['cleanup'])
+        else:
+            if context is not None and context['state']=='failed':
+                need(context['stage'] in ('pilot_admission','prepare_inputs') and not context['prepared'] and not row['cleanup'])
+                row['state']='admission_failed'
+            else:need(row['run_exit'] is None and not row['cleanup'])
         rows.append(row)
     # Baselines use fresh output paths; their hashes need not equal one another.
-    result={'schema':2,'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
+    result={'schema':outcome['schema'],'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
             **ACCEPTANCE,'state':'measurement_complete' if not outcome['publication_failed'] and all(row['state']=='measurement_complete' for row in rows) else 'incomplete','profiles':rows,
             'measurement_complete':not outcome['publication_failed'] and all(row['state']=='measurement_complete' for row in rows),
             'publication_failed':outcome['publication_failed'],
