@@ -314,7 +314,6 @@ function journeyRun(
                   ? {}
                   : { materialId: material.materialId })}
                 ordinal={ordinal}
-                statusOnly
               />
             }
             headingLevel={run.chapter === null ? "h3" : "h4"}

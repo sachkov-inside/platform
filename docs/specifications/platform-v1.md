@@ -706,7 +706,8 @@ Lesson rows name no Material format. A lesson with a primary video shows a play 
 duration at every width; a lesson without video shows neither. Task rows keep their «Задание» label.
 A studied lesson shows a thin accent check without a filled circle. The continuation lesson row is
 highlighted and carries a compact «Продолжить» or «Начать обучение» button at its right end, not a
-full-width button below the title; with enlarged text the right-hand group wraps to its own line.
+full-width button below the title. The title keeps at least 112 px; when the right-hand group does not
+fit beside it, the group wraps to its own line.
 
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит

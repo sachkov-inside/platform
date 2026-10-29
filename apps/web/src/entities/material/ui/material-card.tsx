@@ -433,7 +433,7 @@ function ProductMaterialRow({
             {ordinal}
           </span>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_112px]">
           <span className="sr-only">
             {ordinal === undefined ? "" : `Урок ${String(ordinal)}. `}
           </span>
@@ -446,7 +446,9 @@ function ProductMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
-        {/* При крупном шрифте блок справа уходит на следующую строку и переносится сам. */}
+        {/* Названию оставлено не меньше 112 px: если рядом с ним блок справа не помещается, блок
+            уходит на следующую строку и там переносится сам. Пиксели, а не rem, чтобы при крупном
+            шрифте номер урока оставался рядом с названием. */}
         <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
             <span

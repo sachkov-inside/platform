@@ -101,8 +101,10 @@ export function ProductContinuationAction({
 }) {
   const continuation = use(ProductContinuationContext);
   if (continuation?.materialSlug !== slug) return null;
+  // Кнопка видна высотой 32 px, чтобы не раздувать строку; невидимый слой добирает область
+  // касания до 44 px.
   const className =
-    "relative z-10 inline-flex min-h-8 max-w-full shrink-0 items-center gap-1 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[0.8125rem]";
+    "relative z-10 inline-flex min-h-8 max-w-full shrink-0 items-center gap-2 rounded-2xl py-1 bg-primary px-3 text-xs font-semibold text-primary-foreground no-underline before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[0.8125rem]";
   const contents = (
     <>
       {continuation.label}
