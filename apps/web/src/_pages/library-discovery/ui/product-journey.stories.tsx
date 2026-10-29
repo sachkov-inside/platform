@@ -808,7 +808,7 @@ export const MaterialLibrary: Story = {
       "Глава 2. Данные и доступ",
       "Вне программы",
     ]);
-    // Первые два урока изучены: отметка стоит в углу обложки, название — для скринридера.
+    // Первые два урока изучены: отметка стоит в углу обложки, её название читает скринридер.
     const ordered = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(ordered).getByText("Просмотрено")).toBeInTheDocument();
     await expect(within(ordered).getByText("Изучено")).toBeInTheDocument();
