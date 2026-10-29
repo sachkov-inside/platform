@@ -311,20 +311,35 @@ def worker(output,phase):
     if phase!='cleanup':require_opt_in()
     runtime.require_native_host();source,value,deadline=registered_phase(output,phase)
     def interrupted(*_args):raise lifecycle.Refusal('component_interrupted')
-    for signum in (signal.SIGTERM,signal.SIGINT):signal.signal(signum,interrupted)
-    if phase=='cleanup':
-        # The cleaner has its own registration. Original recovery must stop only
-        # the already-stopped setup/measurement worker, never its own session.
-        if (output/'owner.json').exists() or (output/'owner.json').is_symlink():recovery_preflight(output,source,value)
-        result=runtime.recover(output,deadline,profile_id=PROFILE)
-        lifecycle.private_json(output/'component-cleanup.json',{'schema':1,'passed':result['passed']})
-        return 0 if result['passed'] else 1
-    current=component_engine(output,deadline)
+    previous={};failed=False
     try:
-        if phase=='setup':prepare(output,source,value,current)
-        else:measure(output,source,value,current)
-    finally:current.cancel_children()
-    return 0
+        for signum in (signal.SIGTERM,signal.SIGINT):
+            previous[signum]=signal.getsignal(signum)
+            signal.signal(signum,interrupted)
+        if phase=='cleanup':
+            # The cleaner has its own registration. Original recovery must stop only
+            # the already-stopped setup/measurement worker, never its own session.
+            if (output/'owner.json').exists() or (output/'owner.json').is_symlink():recovery_preflight(output,source,value)
+            result=runtime.recover(output,deadline,profile_id=PROFILE)
+            lifecycle.private_json(output/'component-cleanup.json',{'schema':1,'passed':result['passed']})
+            return 0 if result['passed'] else 1
+        current=component_engine(output,deadline)
+        try:
+            if phase=='setup':prepare(output,source,value,current)
+            else:measure(output,source,value,current)
+        finally:current.cancel_children()
+        return 0
+    except BaseException:
+        failed=True;raise
+    finally:
+        # In-process contracts share their verifier's handlers. Restore every saved
+        # handler even after partial registration, without replacing a first failure.
+        restore_error=None
+        for signum,handler in previous.items():
+            try:signal.signal(signum,handler)
+            except BaseException as error:
+                if restore_error is None:restore_error=error
+        if restore_error is not None and not failed:raise restore_error
 
 def finite_read(path):
     value=evidence.read(path)
