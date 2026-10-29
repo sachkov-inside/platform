@@ -66,7 +66,7 @@ const it = test.extend<{
   },
 });
 
-async function createFixture() {
+async function createFixture(canonicalChatId = "-1001234567890") {
   const bot = `activation-${randomUUID()}`;
   const clock = {
     value: new Date(fixedTestInstant()),
@@ -77,7 +77,7 @@ async function createFixture() {
   const parsedConfig = loadApplicationConfig({
     DATABASE_URL: process.env["DATABASE_URL"],
     TELEGRAM_BOT_IDENTITY: bot,
-    TELEGRAM_CANONICAL_CHAT_ID: "-1001234567890",
+    TELEGRAM_CANONICAL_CHAT_ID: canonicalChatId,
     TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
     PLATFORM_INTEGRATION_SECRET: "synthetic-link-secret-for-tests-only",
     TELEGRAM_LINK_RECEIPT_TEXT: "Link receipt",
@@ -888,6 +888,36 @@ describe("durable activation ingress, identity and continuation", () => {
       text: "Открыть курс",
       url: "https://sachkov.dev/products/ai-engineering/programme",
     });
+    expect(card?.buttons?.[0]).toEqual({
+      text: "С чего начать",
+      url: "https://sachkov.dev/materials/inside-content-aie-ch1-course",
+    });
+  });
+
+  test("opens AI Engineering navigation only after observed course group membership", async () => {
+    const a = await createFixture("-1004421726276");
+    try {
+      await a.ingress(70106, "/start");
+      await a.link(70106);
+      const outbound = a.app.get(StartResponseDeliveryProcessor);
+      await outbound.processAvailable(10, a.clock.now());
+      const data = "access:product:11111111-1111-4111-8111-111111111111";
+      await a.callback(70106, data);
+      await outbound.processAvailable(10, a.clock.now());
+      expect(a.edited.at(-1)?.buttons).not.toContainEqual({
+        text: "Навигация по группе",
+        url: "https://t.me/c/4421726276/14",
+      });
+      a.chat.membership = "member";
+      await a.callback(70106, data);
+      await outbound.processAvailable(10, a.clock.now());
+      expect(a.edited.at(-1)?.buttons).toContainEqual({
+        text: "Навигация по группе",
+        url: "https://t.me/c/4421726276/14",
+      });
+    } finally {
+      await a.app.close();
+    }
   });
 
   it("verifies the source before browser linking and retains the exact activation attempt", async ({

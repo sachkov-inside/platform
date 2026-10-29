@@ -23,6 +23,7 @@ import { ChapterReadingProgress } from "./chapter-reading-progress.client";
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
 import {
   ProductJourneyControls,
+  type CatalogPlace,
   type JourneyPart,
   type JourneyRun,
   type ProductOnboardingPanel,
@@ -53,6 +54,7 @@ export function ProductJourney({
 }) {
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
+  const places = programmePlaces(result, items);
   const programmeItems =
     result.programmePlacements === undefined
       ? items
@@ -121,6 +123,10 @@ export function ProductJourney({
       accessPending,
       entries: items.map((material) => ({
         material,
+        place:
+          material.materialId === undefined
+            ? null
+            : (places.get(material.materialId) ?? null),
         inProgramme:
           result.programmePlacements === undefined
             ? result.chapters.length === 0 || chapterOf(material) !== null
@@ -328,6 +334,33 @@ function journeyRun(
       };
     }),
   };
+}
+
+/** The chapter and lesson number of each Material's first programme placement, for catalogue cards. */
+function programmePlaces(
+  result: ProductResult,
+  items: readonly MaterialPreview[],
+): ReadonlyMap<string, CatalogPlace> {
+  const published = new Set(items.map((item) => item.materialId));
+  const places = new Map<string, CatalogPlace>();
+  result.chapters.forEach((chapter, index) => {
+    const materialIds = (
+      result.programmePlacements === undefined
+        ? chapter.materialIds
+        : result.programmePlacements
+            .filter((placement) => placement.chapterId === chapter.id)
+            .map((placement) => placement.materialId)
+    ).filter((materialId) => published.has(materialId));
+    materialIds.forEach((materialId, lesson) => {
+      if (!places.has(materialId))
+        places.set(materialId, {
+          chapter: index + 1,
+          chapterName: chapter.name,
+          lesson: lesson + 1,
+        });
+    });
+  });
+  return places;
 }
 
 function chapterLookup(

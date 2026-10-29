@@ -384,6 +384,8 @@ export class AppModule {
                 welcome: {
                   replies,
                   text: applicationConfig.communityTexts.welcome,
+                  productsMenuEnabled:
+                    applicationConfig.activation?.enabled === true,
                 },
                 ...(applicationConfig.communityWelcomeCohort
                   ? {

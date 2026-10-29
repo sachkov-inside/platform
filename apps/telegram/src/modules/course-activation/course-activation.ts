@@ -5,7 +5,8 @@ import {
   productList,
   productCard,
   helpScreen,
-  courseButton,
+  courseButtons,
+  courseGroupButtons,
   SUPPORT_URL,
   type LearnerScreen,
 } from "./learner-view.js";
@@ -388,20 +389,10 @@ export class CourseActivation {
       const admission = await this.community.currentAdmission(
         contact.telegramUserId,
       );
-      const card = productCard(product, admission);
-      const groupUrl = this.community.groupUrl();
-      await this.screen(contact, {
-        ...card,
-        buttons: [
-          ...courseButton(product),
-          ...(admission.kind === "member" &&
-          hasText(groupUrl) &&
-          product.community.state === "available"
-            ? [{ text: "Открыть группу", url: groupUrl }]
-            : []),
-          ...card.buttons.slice(courseButton(product).length),
-        ],
-      });
+      await this.screen(
+        contact,
+        productCard(product, admission, this.community.groupUrl()),
+      );
       return;
     }
     if (product.community.state !== "available") {
@@ -417,11 +408,10 @@ export class CourseActivation {
       callbackData: `access:product:${product.id}`,
     };
     const groupUrl = this.community.groupUrl();
-    const buttons: TelegramButton[] = [...courseButton(product), back];
+    const buttons: TelegramButton[] = [...courseButtons(product), back];
     if (admission.kind === "link")
       buttons.unshift({ text: "Вступить в группу", url: admission.inviteLink });
-    if (admission.kind === "member" && hasText(groupUrl))
-      buttons.unshift({ text: "Открыть группу", url: groupUrl });
+    buttons.unshift(...courseGroupButtons(product, admission, groupUrl));
     if (admission.kind === "moderation_blocked")
       buttons.unshift({ text: "Написать в поддержку", url: SUPPORT_URL });
     if (admission.kind === "preparing" || admission.kind === "none")
@@ -860,21 +850,11 @@ export class CourseActivation {
         const admission = await this.community.currentAdmission(
           attempt.telegram_user_id,
         );
-        currentScreen = productCard(product, admission);
-        const groupUrl = this.community.groupUrl();
-        if (
-          admission.kind === "member" &&
-          hasText(groupUrl) &&
-          product.community.state === "available"
-        )
-          currentScreen = {
-            ...currentScreen,
-            buttons: [
-              ...courseButton(product),
-              { text: "Открыть группу", url: groupUrl },
-              ...currentScreen.buttons.slice(courseButton(product).length),
-            ],
-          };
+        currentScreen = productCard(
+          product,
+          admission,
+          this.community.groupUrl(),
+        );
         if (
           product.materials.state === "available" &&
           product.community.state === "available" &&

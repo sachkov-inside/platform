@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { courseReadingContext } from "@/features/library-discovery";
+import {
+  courseReadingContext,
+  isProgrammeStepOpenedForReference,
+} from "@/features/library-discovery";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 const task = (code: string, afterMaterialId: string | null = null) => ({
@@ -360,6 +363,22 @@ describe("supplementary Material navigation", () => {
       currentChapterId: "two:1",
       currentPosition: 0,
     });
+  });
+
+  it("labels only a programme lesson opened for reference with its chapter", () => {
+    const read = (slug: string, referenceView: boolean) => {
+      const context = courseReadingContext({
+        product: referenceProduct,
+        current: { kind: "material", slug },
+        referenceView,
+      });
+      return context === null
+        ? null
+        : isProgrammeStepOpenedForReference(context);
+    };
+    expect(read("second", true)).toBe(true);
+    expect(read("extra", true)).toBe(false);
+    expect(read("second", false)).toBe(false);
   });
 
   it("does not invent a reference missing from published Product membership", () => {
