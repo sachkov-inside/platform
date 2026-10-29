@@ -1,4 +1,3 @@
-import { FreeMaterialBadge } from "./free-material-badge";
 import {
   ChevronRight,
   Clock3,
@@ -446,11 +445,12 @@ function ProductMaterialRow({
       slug={material.slug}
     >
       {/* Строка в одну линию: номер, название, у урока продолжения компактная кнопка, затем
-          длительность видео и место статуса чтения или доступа постоянной ширины, чтобы
-          длительности стояли колонкой (решение владельца 29.10.2026). Формат словом не пишется:
-          урок с видео узнаётся по значку и длительности (решение владельца 29.10.2026). Бесплатный
-          урок отмечен словом «Бесплатно» перед длительностью, закрытый замком (решение владельца
-          29.10.2026, #1647, заменило решение 09.10.2026 без метки). */}
+          длительность видео и справа столбец доступа (решение владельца 29.10.2026, #1837). Формат
+          словом не пишется: урок с видео узнаётся по значку и длительности (решение владельца
+          29.10.2026). В столбце доступа одна отметка: замок у закрытого урока, слово «Бесплатно»
+          акцентным цветом у бесплатного, отметка «изучен» у пройденного, и она занимает место
+          слова. В списке уроков с бесплатным уроком столбец у всех строк шириной со слово, поэтому
+          слова, замки и длительности стоят колонками; без бесплатных он шириной со значок. */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -479,7 +479,6 @@ function ProductMaterialRow({
             шрифте браузера номер урока оставался рядом с названием. */}
         <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
           <ProductContinuationAction href={readerHref} slug={material.slug} />
-          {material.access === "free" ? <FreeMaterialBadge /> : null}
           {duration === undefined ? null : (
             <span
               className="inline-flex items-center gap-1 tabular-nums"
@@ -490,8 +489,12 @@ function ProductMaterialRow({
               {duration}
             </span>
           )}
+          {/* Ширину столбца решает список уроков (`group/product-order` с
+              `data-product-free-lessons` в product-journey-controls): 4.25rem вмещают слово
+              «Бесплатно» в text-xs, а меньше слова столбец не станет. Отметка «изучен» приходит из
+              ProductMaterialMarker (`data-product-marker-read`) и прячет слово. */}
           <span
-            className="grid w-5 shrink-0 place-items-center"
+            className="flex min-w-5 shrink-0 items-center justify-end group-data-[product-free-lessons]/product-order:min-w-[4.25rem] [&:has([data-product-marker-read])_[data-product-free]]:hidden"
             data-product-status
           >
             {pending ? (
@@ -505,10 +508,22 @@ function ProductMaterialRow({
                 <LockKeyhole aria-hidden="true" className="size-4" />
                 <span className="sr-only">Нужен доступ</span>
               </>
-            ) : unavailable ? (
-              <span className="sr-only">Доступ временно не определён</span>
             ) : (
-              readingStatus
+              <>
+                {material.access === "free" ? (
+                  <span
+                    className="whitespace-nowrap font-medium text-action"
+                    data-product-free
+                  >
+                    Бесплатно
+                  </span>
+                ) : null}
+                {unavailable ? (
+                  <span className="sr-only">Доступ временно не определён</span>
+                ) : (
+                  readingStatus
+                )}
+              </>
             )}
           </span>
         </span>
