@@ -49,10 +49,11 @@ export function cohortStatus({
       kind: "access",
       countdown: null,
       title: "Присоединяйся к курсу",
+      // Цену и действия показывает билет; текст остаётся только для факта о следующем потоке.
       text:
-        cohort.stage === "running"
-          ? `Поток стартовал${startsOn === null ? "" : ` ${formatCohortDate(startsOn)}`}. Присоединиться можно в любой момент: вышедшие главы откроются сразу.`
-          : `Проходи в своём темпе.${cohort.nextEvent === "" ? "" : ` Следующий поток: ${cohort.nextEvent}.`}`,
+        cohort.stage === "between" && cohort.nextEvent !== ""
+          ? `Следующий поток: ${cohort.nextEvent}.`
+          : "",
       // Цена потока выше цены предложения — значит, действует скидка: старая цена зачёркнута.
       price: {
         price: formatKopecks(offer.firstPriceKopecks),

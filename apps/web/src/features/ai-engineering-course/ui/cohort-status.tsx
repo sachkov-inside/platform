@@ -49,7 +49,7 @@ export function CohortStatusView({
           </span>
         )}
         <h2>{status.title}</h2>
-        <p>{status.text}</p>
+        {status.text === "" ? null : <p>{status.text}</p>}
       </div>
       <div className="aie-cohort-ticket-wrap">
         <div className="aie-cohort-ticket">
