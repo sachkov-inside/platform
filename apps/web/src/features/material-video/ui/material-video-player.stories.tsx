@@ -88,8 +88,8 @@ export const PlayerChapters: Story = {
 export const MaterialCoverPoster: Story = {
   args: {
     cover: {
-      coverId: "02000000-0000-4000-8000-000000000011",
-      renditions: [{ width: 1280, height: 720 }],
+      coverId: "27100000-0000-4000-8000-000000000001",
+      renditions: [{ width: 960, height: 540 }],
     },
     showPoster: true,
     onStart: fn(),

@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { expect, test } from "@playwright/test";
 
 for (const activation of [
@@ -66,11 +68,26 @@ for (const activation of [
         },
       });
     }, activation === "play-error");
+    await page.route("**/api/content-covers/**", (route) =>
+      route.fulfill({
+        contentType: "image/webp",
+        path: resolve(
+          "../../docs/evidence/issue-271/covers/27100000-0000-4000-8000-000000000001/960",
+        ),
+      }),
+    );
     await page.goto("/materials/navigation-video-cover");
     const start = page.getByRole("button", {
       name: "Смотреть видео: Fragment video",
     });
     await expect(start).toBeVisible();
+    await expect
+      .poll(() =>
+        start
+          .locator("img")
+          .evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
     const iframe = page.locator("[data-video-player-mount] iframe");
     if (activation !== "early")
       await expect(iframe).toHaveAttribute("data-position", "37");
