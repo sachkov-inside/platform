@@ -32,6 +32,7 @@ async function stand(
     readonly removalsEnabled?: boolean;
     readonly readmission?: boolean;
     readonly welcome?: boolean;
+    readonly productsMenuEnabled?: boolean;
     readonly welcomeDetails?: CommunityWelcomeDetailsSource;
   } = {},
 ) {
@@ -107,6 +108,7 @@ async function stand(
                 signInReplyEligibility,
               ),
               text: "Synthetic welcome",
+              productsMenuEnabled: options.productsMenuEnabled ?? true,
             },
           }
         : {}),
@@ -948,6 +950,19 @@ describe("community v2 welcome after the first right", () => {
     expect(s.chat.count("create_invite")).toBe(1);
     expect(await messages(s)).toEqual([{ chat: s.user, ...welcome }]);
     expect((await s.row()).welcome_state).toBe("offered");
+    const queued = await new StartResponseDeliveryQueue(
+      db,
+      settleBlockedDelivery,
+    ).claimNext(
+      s.clock.now(),
+      false,
+      `community-welcome:${s.bot}:${first.binding.accountRef}`,
+    );
+    expect(queued?.buttons).toEqual([
+      { text: "Мои продукты", callbackData: "access:own" },
+      { text: "Вступить в группу", url: "https://t.me/+synthetic" },
+      { text: "Нужна помощь", url: "https://t.me/sachkova_mng" },
+    ]);
 
     // A replayed purchase event is the same operation and changes nothing.
     expect((await s.provider().handle(first)).status).toBe(200);
@@ -959,6 +974,24 @@ describe("community v2 welcome after the first right", () => {
 
     expect(s.chat.count("create_invite")).toBeGreaterThan(1);
     expect(await messages(s)).toEqual([{ chat: s.user, ...welcome }]);
+  });
+
+  it("opens the Platform product list when the bot product menu is disabled", async () => {
+    const s = await stand({ welcome: true, productsMenuEnabled: false });
+    const first = await s.set();
+    await sweep(s);
+    const queued = await new StartResponseDeliveryQueue(
+      db,
+      settleBlockedDelivery,
+    ).claimNext(
+      s.clock.now(),
+      false,
+      `community-welcome:${s.bot}:${first.binding.accountRef}`,
+    );
+    expect(queued?.buttons?.[0]).toEqual({
+      text: "Мои продукты",
+      url: "https://sachkov.dev/account/access",
+    });
   });
 
   it("names the Platform stream start before the link and reads it only for the welcome", async () => {

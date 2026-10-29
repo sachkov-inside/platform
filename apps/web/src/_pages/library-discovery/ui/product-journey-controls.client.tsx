@@ -30,6 +30,7 @@ import {
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { resetShellScroll } from "@/shared/lib/shell-scroll";
+import { MOSCOW_TIME_ZONE } from "@/shared/lib/moscow-format";
 import { cn } from "@/shared/lib/utils";
 import {
   catalogReaderReturnHref,
@@ -75,6 +76,15 @@ export interface JourneyRun {
 export interface CatalogEntry {
   readonly material: MaterialPreview;
   readonly inProgramme: boolean;
+  /** First programme placement; null outside chapters, including a Product without chapters. */
+  readonly place: CatalogPlace | null;
+}
+
+/** Where a catalogue Material sits in the programme: chapter order and lesson within the chapter. */
+export interface CatalogPlace {
+  readonly chapter: number;
+  readonly chapterName: string;
+  readonly lesson: number;
 }
 
 export type JourneyPart =
@@ -317,6 +327,7 @@ export function ProductJourneyControls({
       (search.has("page") && requestedPage > 1
         ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
         : undefined));
+  // После гидрации каталог добавляет группу «Новое», поэтому карточку возврата находим ещё раз.
   useEffect(() => {
     if (returnSlug === undefined) return;
     routeRef.current
@@ -324,7 +335,7 @@ export function ProductJourneyControls({
         `[data-route-material="${CSS.escape(returnSlug)}"]`,
       )
       ?.scrollIntoView({ block: "center" });
-  }, [returnSlug]);
+  }, [returnSlug, hydrated]);
 
   function selectPart(id: JourneyPart["id"]) {
     if (id === part?.id) return;
@@ -560,14 +571,117 @@ const catalogFormats = [
 const catalogScopes = [
   { id: "all", label: "Все" },
   { id: "programme", label: "Из программы" },
-  { id: "extra", label: "Дополнительные" },
+  { id: "extra", label: "Вне программы" },
 ] as const;
 type CatalogScope = (typeof catalogScopes)[number]["id"];
+type CatalogOrder = "new" | "programme";
+
+/** Свежими считаются материалы последней недели: они собраны в группу «Новое» над месяцами. */
+const NEW_MATERIAL_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+/**
+ * Граница «Нового» — внешнее значение часов. Сервер и гидрация его не читают и показывают только
+ * месяцы; браузер после гидрации берёт границу, округлённую до часа, чтобы снимок был стабилен.
+ */
+function readNewMaterialCutoff(): number {
+  return Math.floor(Date.now() / HOUR_MS) * HOUR_MS - NEW_MATERIAL_PERIOD_MS;
+}
+const readServerNewMaterialCutoff = () => null;
+const catalogMonth = new Intl.DateTimeFormat("ru-RU", {
+  month: "long",
+  year: "numeric",
+  timeZone: MOSCOW_TIME_ZONE,
+});
+
+interface CatalogGroup {
+  readonly id: string;
+  readonly title: string;
+  readonly entries: readonly CatalogEntry[];
+}
+
+function orderCatalog(
+  entries: readonly CatalogEntry[],
+  order: CatalogOrder,
+): CatalogEntry[] {
+  if (order === "new")
+    return [...entries].sort((left, right) =>
+      (right.material.publishedAt ?? "").localeCompare(
+        left.material.publishedAt ?? "",
+      ),
+    );
+  // Программа продукта без глав идёт своим порядком, затем главы, а материалы вне программы в
+  // конце, сначала новые.
+  const position = new Map(entries.map((entry, index) => [entry, index]));
+  const sections = ["programme", "chapters", "extra"] as const;
+  const sectionOf = (entry: CatalogEntry) =>
+    entry.place !== null
+      ? "chapters"
+      : entry.inProgramme
+        ? "programme"
+        : "extra";
+  const section = (entry: CatalogEntry) => sections.indexOf(sectionOf(entry));
+  return [...entries].sort((left, right) => {
+    const differences = [
+      section(left) - section(right),
+      (left.place?.chapter ?? 0) - (right.place?.chapter ?? 0),
+      (left.place?.lesson ?? 0) - (right.place?.lesson ?? 0),
+      sectionOf(left) === "extra"
+        ? (right.material.publishedAt ?? "").localeCompare(
+            left.material.publishedAt ?? "",
+          )
+        : (position.get(left) ?? 0) - (position.get(right) ?? 0),
+    ];
+    return differences.find((difference) => difference !== 0) ?? 0;
+  });
+}
+
+function groupCatalog(
+  entries: readonly CatalogEntry[],
+  order: CatalogOrder,
+  newSince: number | null,
+): CatalogGroup[] {
+  const groups = new Map<string, { title: string; entries: CatalogEntry[] }>();
+  for (const entry of entries) {
+    const publishedAt = entry.material.publishedAt;
+    const [id, title] =
+      order === "programme"
+        ? entry.place !== null
+          ? [
+              `chapter-${String(entry.place.chapter)}`,
+              `${chapterLabel(entry.place)}. ${entry.place.chapterName}`,
+            ]
+          : entry.inProgramme
+            ? ["programme", "Программа"]
+            : ["extra", "Вне программы"]
+        : publishedAt === undefined
+          ? ["undated", "Без даты"]
+          : newSince !== null && Date.parse(publishedAt) >= newSince
+            ? ["new", "Новое"]
+            : monthGroup(publishedAt);
+    const group = groups.get(id) ?? { title, entries: [] };
+    group.entries.push(entry);
+    groups.set(id, group);
+  }
+  return [...groups].map(([id, group]) => ({ id, ...group }));
+}
+
+function chapterLabel(place: CatalogPlace): string {
+  return `Глава ${String(place.chapter)}`;
+}
+
+function monthGroup(publishedAt: string): [string, string] {
+  const month = catalogMonth.format(new Date(publishedAt));
+  return [
+    `month-${month}`,
+    month.charAt(0).toLocaleUpperCase("ru") + month.slice(1),
+  ];
+}
 
 /**
- * Каталог материалов продукта: поиск по названию и описанию, фильтр формата и источника, новые
- * материалы сверху. Карточки — те же, что в ленте Главной, с превью (решение владельца
- * 09.10.2026). Программа остаётся строгим порядком глав в своём разделе.
+ * Каталог материалов продукта: поиск по названию и описанию, фильтр формата и источника. Раскладка
+ * повторяет ровную сетку библиотеки (прототип A2, принят владельцем 29.10.2026, #1832): свежие
+ * материалы в группе «Новое», дальше месяцы, а по выбору читателя главы программы. Программа
+ * остаётся строгим порядком глав в своём разделе.
  */
 function MaterialCatalog({
   accessPending,
@@ -583,14 +697,20 @@ function MaterialCatalog({
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("");
   const [scope, setScope] = useState<CatalogScope>("all");
+  const [order, setOrder] = useState<CatalogOrder>("new");
+  const newSince = useSyncExternalStore(
+    subscribeToHydration,
+    readNewMaterialCutoff,
+    readServerNewMaterialCutoff,
+  );
   const needle = query.trim().toLocaleLowerCase("ru");
   const formats = catalogFormats.filter(
     (option) =>
       option.slug === "" ||
       entries.some((entry) => entry.material.formatSlug === option.slug),
   );
-  const shown = [...entries]
-    .filter(
+  const shown = orderCatalog(
+    entries.filter(
       (entry) =>
         (needle === "" ||
           `${entry.material.title} ${entry.material.summary}`
@@ -598,12 +718,9 @@ function MaterialCatalog({
             .includes(needle)) &&
         (format === "" || entry.material.formatSlug === format) &&
         (scope === "all" || (scope === "programme") === entry.inProgramme),
-    )
-    .sort((left, right) =>
-      (right.material.publishedAt ?? "").localeCompare(
-        left.material.publishedAt ?? "",
-      ),
-    );
+    ),
+    order,
+  );
   const restoredIndex = shown.findIndex(
     (entry) => entry.material.slug === restoredSlug,
   );
@@ -611,7 +728,7 @@ function MaterialCatalog({
     PRODUCT_BATCH_SIZE,
     Math.ceil((restoredIndex + 1) / PRODUCT_BATCH_SIZE) * PRODUCT_BATCH_SIZE,
   );
-  const source = JSON.stringify([needle, format, scope, restoredSlug]);
+  const source = JSON.stringify([needle, format, scope, order, restoredSlug]);
   const [reveal, setReveal] = useState({ source, count: initialCount });
   if (reveal.source !== source) setReveal({ source, count: initialCount });
   const count = Math.min(
@@ -621,6 +738,7 @@ function MaterialCatalog({
       reveal.source === source ? reveal.count : initialCount,
     ),
   );
+  const groups = groupCatalog(shown.slice(0, count), order, newSince);
   const chip = (active: boolean) =>
     cn(
       "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
@@ -691,14 +809,31 @@ function MaterialCatalog({
           ))}
         </div>
       </div>
-      <p
-        aria-live="polite"
-        className="mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm"
-      >
-        {shown.length === entries.length
-          ? formatMaterialCount(entries.length)
-          : `Найдено: ${formatMaterialCount(shown.length)}`}
-      </p>
+      <div className="mt-3 flex items-center justify-between gap-3 sm:mt-4">
+        <p
+          aria-live="polite"
+          className="text-xs text-muted-foreground sm:text-sm"
+        >
+          {shown.length === entries.length
+            ? formatMaterialCount(entries.length)
+            : `Найдено: ${formatMaterialCount(shown.length)}`}
+        </p>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
+          <span>Порядок</span>
+          <select
+            className="min-h-8 rounded-lg bg-muted px-2 font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            onChange={(event) => {
+              setOrder(
+                event.currentTarget.value === "programme" ? "programme" : "new",
+              );
+            }}
+            value={order}
+          >
+            <option value="new">Сначала новые</option>
+            <option value="programme">По программе</option>
+          </select>
+        </label>
+      </div>
       {shown.length === 0 ? (
         <p className="py-10 text-sm leading-6 text-muted-foreground">
           {entries.length === 0
@@ -706,30 +841,39 @@ function MaterialCatalog({
             : "Ничего не нашлось. Попробуй другой запрос или сними фильтры."}
         </p>
       ) : (
-        <ul
-          className="mt-2 grid gap-x-6 lg:grid-cols-2"
-          aria-label="Материалы курса"
-        >
-          {shown.slice(0, count).map((entry) => (
-            <li
-              className="min-w-0"
-              data-route-material={entry.material.slug}
-              key={entry.material.slug}
-            >
-              <MaterialCard
-                accessPending={accessPending}
-                headingLevel="h3"
-                material={entry.material}
-                readerContext={{ referenceView: true }}
-                returnHref={catalogReaderReturnHref(
-                  currentHref,
-                  entry.material.slug,
-                )}
-                variant="feed"
-              />
-            </li>
+        <div aria-label="Материалы курса" role="region">
+          {groups.map((group) => (
+            <section className="mt-7 first:mt-4" key={group.id}>
+              <h3 className="mb-3 text-sm font-semibold">{group.title}</h3>
+              <ul className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2">
+                {group.entries.map((entry) => (
+                  <li
+                    className="min-w-0"
+                    data-route-material={entry.material.slug}
+                    key={entry.material.slug}
+                  >
+                    <MaterialCard
+                      accessPending={accessPending}
+                      headingLevel="h4"
+                      material={entry.material}
+                      readerContext={{ referenceView: true }}
+                      returnHref={catalogReaderReturnHref(
+                        currentHref,
+                        entry.material.slug,
+                      )}
+                      {...(entry.place === null
+                        ? {}
+                        : {
+                            rowAnnotation: `${chapterLabel(entry.place)} · урок ${String(entry.place.lesson)}`,
+                          })}
+                      variant="library"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
       {count < shown.length ? (
         <Button
