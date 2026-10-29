@@ -1187,16 +1187,17 @@ describe("ReadingActivity on PostgreSQL", () => {
       home.recordOpen(open),
       home.recordOpen(open),
     ]);
-    expect(opened).toEqual([
-      {
-        ok: true,
-        value: { openedAt: expect.any(String), replayed: expect.any(Boolean) },
-      },
-      {
-        ok: true,
-        value: { openedAt: expect.any(String), replayed: expect.any(Boolean) },
-      },
-    ]);
+    for (const result of opened) {
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("Expected successful Material open");
+      expect(Object.keys(result).sort()).toEqual(["ok", "value"]);
+      expect(Object.keys(result.value).sort()).toEqual([
+        "openedAt",
+        "replayed",
+      ]);
+      expect(typeof result.value.openedAt).toBe("string");
+      expect(typeof result.value.replayed).toBe("boolean");
+    }
     expect(
       opened.filter((result) => result.ok && !result.value.replayed),
     ).toHaveLength(1);
