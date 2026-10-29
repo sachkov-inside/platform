@@ -28,6 +28,21 @@ class Publication(unittest.TestCase):
                     self.assertEqual(report['inside_failures'],{'available':True,'samples':[{k:v for k,v in row.items() if k!='inside_failed'}]})
                     self.assertFalse(report['passed'])
 
+    def test_MCP_first_refusal_stages_have_only_the_same_closed_five_field_projection(self):
+        import control
+        expected={'mcp_wire_admission','mcp_wire_request','mcp_wire_headers','mcp_wire_read','mcp_wire_status','mcp_wire_size',
+            'mcp_wire_deadline','mcp_wire_decode','mcp_wire_close','mcp_rpc_object','mcp_rpc_version','mcp_rpc_id',
+            'mcp_rpc_error','mcp_rpc_result','mcp_rpc_is_error','mcp_initialize_version','mcp_inventory_cursor',
+            'mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool'}
+        self.assertEqual(control.MCP_READ_STAGES,expected)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);engine=root/'engine-1-12345678';engine.mkdir(mode=0o700)
+            for stage in sorted(expected):
+                with self.subTest(stage=stage):
+                    row={'inside_failed':1,'stage':stage,'category':'ControlFailure','http_status':200,'transport':'mcp_http'}
+                    lifecycle.private_json(engine/'inside-failure.json',row)
+                    self.assertEqual(evidence.inside_failures(root),{'available':True,'samples':[{k:v for k,v in row.items() if k!='inside_failed'}]})
+
     def test_malformed_inside_failure_schema_is_not_a_valid_public_sample(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)
