@@ -11,6 +11,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   type Ref,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   useSyncExternalStore,
@@ -20,6 +21,7 @@ import { z } from "zod";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
+import { loadKinescopeIframePlayer } from "../api/kinescope-iframe-api.browser";
 import {
   createMaterialVideoPlaybackSession,
   saveMaterialVideoProgress,
@@ -97,6 +99,13 @@ export function MaterialPrimaryVideo({
     mutate: persistAccountProgress,
     mutateAsync: persistAccountProgressAsync,
   } = useMutation({ mutationFn: saveMaterialVideoProgress });
+  // Reads the latest chapters: a Reader refresh delivers an equal list as a new array.
+  const showChapterAt = useEffectEvent((seconds: number) => {
+    setActiveChapter(
+      video.chapters?.findLast((chapter) => chapter.start <= seconds)?.start ??
+        null,
+    );
+  });
 
   useEffect(() => {
     if (video.state !== "ready") return;
@@ -161,9 +170,9 @@ export function MaterialPrimaryVideo({
             );
           }
         }
-        const iframeApi = await import("@kinescope/player-iframe-api-loader");
-        if (!isActive()) return;
-        const factory = await iframeApi.load();
+        // No provider script before the session allows playback
+        // (platform-v1, «Assets, downloads и video», item 11).
+        const factory = await loadKinescopeIframePlayer();
         if (!isActive()) return;
         // The SDK replaces its target; retain the React-owned mount for retries.
         const playerTarget = document.createElement("div");
@@ -192,6 +201,8 @@ export function MaterialPrimaryVideo({
         );
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
+        // The provider shows its own poster and loading state; metadata arrives behind it.
+        setPhase("playing");
         let metadataDuration = 0;
         await new Promise<void>((resolve, reject) => {
           let settled = false;
@@ -241,13 +252,7 @@ export function MaterialPrimaryVideo({
           new URL(requestedHref).hash,
         );
         let currentTime = resumeSeconds ?? 0;
-        const updateChapter = (seconds: number) => {
-          setActiveChapter(
-            video.chapters?.findLast((chapter) => chapter.start <= seconds)
-              ?.start ?? null,
-          );
-        };
-        updateChapter(currentTime);
+        showChapterAt(currentTime);
         let pendingSeek: number | null = null;
         let seeking = false;
         const seekToMoment = async (seconds: number) => {
@@ -261,7 +266,7 @@ export function MaterialPrimaryVideo({
               await player.seekTo(target);
               if (isActive()) {
                 currentTime = target;
-                updateChapter(target);
+                showChapterAt(target);
               }
             }
           } finally {
@@ -306,7 +311,7 @@ export function MaterialPrimaryVideo({
           player.Events.TimeUpdate,
           ({ data: { currentTime: nextTime } }) => {
             currentTime = nextTime;
-            updateChapter(nextTime);
+            showChapterAt(nextTime);
             if (Math.abs(currentTime - lastPersisted) >= 15)
               persist(currentTime);
           },
@@ -319,7 +324,6 @@ export function MaterialPrimaryVideo({
           persist(duration);
           setWatchedOverride(true);
         });
-        setPhase("playing");
       } catch {
         if (isActive()) {
           removeTimeListener();
@@ -342,7 +346,6 @@ export function MaterialPrimaryVideo({
     persistAccountProgress,
     preview,
     retryAttempt,
-    video.chapters,
     video.durationSeconds,
     video.state,
     video.title,

@@ -6,14 +6,13 @@ declare global {
     __fragmentProbe: {
       arm(): void;
       waitForWrite(): Promise<undefined>;
-      waitForPlayer(): Promise<undefined>;
-      releasePlayer(): void;
+      players(): number;
       snapshot(): readonly Record<string, unknown>[];
     };
   }
 }
 
-test("a pending Reader refresh cannot erase a native video fragment before its listener", async ({
+test("a Reader refresh keeps the player and cannot erase a native video fragment", async ({
   page,
 }, testInfo) => {
   await page.route("**/auth/status", (route) =>
@@ -41,8 +40,10 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
       },
     });
   });
-  await page.route("**/api/material-video-playback-sessions", (route) =>
-    route.fulfill({
+  let playbackSessions = 0;
+  await page.route("**/api/material-video-playback-sessions", (route) => {
+    playbackSessions += 1;
+    return route.fulfill({
       json: {
         drmAuthToken: null,
         embedLocator: "https://kinescope.io/embed/fragment-video",
@@ -50,8 +51,8 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
         resumeSeconds: 37,
         videoId: "44444444-4444-4444-8444-444444444444",
       },
-    }),
-  );
+    });
+  });
   await page.route("https://kinescope.io/**", (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -61,22 +62,16 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
   await page.addInitScript(() => {
     const ledger: Record<string, unknown>[] = [];
     const captured = Promise.withResolvers<undefined>();
-    const playerHeld = Promise.withResolvers<undefined>();
-    const releasePlayer = Promise.withResolvers<undefined>();
     let armed = false;
-    let holdNextPlayer = false;
+    let players = 0;
     let refreshReceived = false;
     let write: (() => void) | undefined;
     window.__fragmentProbe = {
       arm: () => {
         armed = true;
-        holdNextPlayer = true;
       },
       waitForWrite: () => captured.promise,
-      waitForPlayer: () => playerHeld.promise,
-      releasePlayer: () => {
-        releasePlayer.resolve(undefined);
-      },
+      players: () => players,
       snapshot: () => ledger,
     };
     const nativeFetch = window.fetch;
@@ -156,6 +151,7 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
         IframePlayer: {
           version: "1.0.0",
           create: (mount: HTMLElement, options: { url: string }) => {
+            players += 1;
             const iframe = document.createElement("iframe");
             iframe.src = options.url;
             mount.append(iframe);
@@ -174,11 +170,6 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
                 return Promise.resolve();
               },
             };
-            if (holdNextPlayer) {
-              holdNextPlayer = false;
-              playerHeld.resolve(undefined);
-              return releasePlayer.promise.then(() => player);
-            }
             return Promise.resolve(player);
           },
         },
@@ -195,13 +186,12 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
     });
     releaseOpen.resolve(undefined);
     await page.evaluate(() => window.__fragmentProbe.waitForWrite());
-    await page.evaluate(() => window.__fragmentProbe.waitForPlayer());
     await page.goto("/materials/navigation-video-fragment#t=3");
-    await page.evaluate(() => {
-      window.__fragmentProbe.releasePlayer();
-    });
     await expect(frame).toHaveAttribute("data-seek-seconds", "3");
     await expect(page).toHaveURL(/#t=3$/u);
+    // The refreshed Reader payload carries equal props: the live player keeps its session.
+    expect(await page.evaluate(() => window.__fragmentProbe.players())).toBe(1);
+    expect(playbackSessions).toBe(1);
     // Selecting the current chapter emits the production synthetic event (no newURL).
     await page.getByRole("link", { name: "0:03 Early chapter" }).click();
     await expect
@@ -235,9 +225,6 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
       .toEqual([3, 3, 0, 261]);
   } finally {
     releaseOpen.resolve(undefined);
-    await page.evaluate(() => {
-      window.__fragmentProbe.releasePlayer();
-    });
     await testInfo.attach("fragment-ledger", {
       body: JSON.stringify(
         await page.evaluate(() => window.__fragmentProbe.snapshot()),
@@ -347,6 +334,10 @@ for (const failed of [false, true]) {
       await page.goto("/materials/navigation-video-fragment#t=3");
       const frame = page.locator("[data-video-id] iframe");
       await expect(frame).toHaveAttribute("data-duration-requested", "true");
+      // The provider owns the area once it exists; metadata arrives behind its own UI.
+      await expect(
+        page.getByText("Загружаем видео…", { exact: true }),
+      ).not.toBeVisible();
       await page.getByRole("link", { name: "4:21 Later chapter" }).click();
       if (!failed) {
         await page.evaluate(() => {
@@ -377,3 +368,83 @@ for (const failed of [false, true]) {
     },
   );
 }
+
+test("a provider script failure offers a retry that requests the script anew", async ({
+  page,
+}) => {
+  await page.route("**/api/reading-progress/open", (route) =>
+    route.fulfill({
+      json: {
+        kind: "saved",
+        openedAt: "2030-01-01T00:00:00.000Z",
+        replayed: false,
+      },
+    }),
+  );
+  await page.route("**/api/material-video-playback-sessions", (route) =>
+    route.fulfill({
+      json: {
+        drmAuthToken: null,
+        embedLocator: "https://kinescope.io/embed/fragment-video",
+        progressScope: "anonymous",
+        resumeSeconds: null,
+        videoId: "44444444-4444-4444-8444-444444444444",
+      },
+    }),
+  );
+  await page.route("https://kinescope.io/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<title>Test video</title>",
+    }),
+  );
+  const scriptRequests: string[] = [];
+  let available = false;
+  // The real loader runs; only the provider's script response is replaced.
+  await page.route("https://player.kinescope.io/**", (route) => {
+    scriptRequests.push(route.request().url());
+    if (!available) return route.abort("connectionfailed");
+    return route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        window.Kinescope = { IframePlayer: { version: "1.0.0", create: (mount, options) => {
+          const iframe = document.createElement("iframe");
+          iframe.src = options.url;
+          mount.append(iframe);
+          return Promise.resolve({
+            Events: { Loaded: "loaded", DurationChange: "duration", Error: "error",
+              TimeUpdate: "time", Pause: "pause", Ended: "ended" },
+            destroy: () => { iframe.remove(); return Promise.resolve(); },
+            getDuration: () => Promise.resolve(600),
+            on: () => undefined,
+            off: () => undefined,
+            seekTo: () => Promise.resolve(),
+          });
+        } } };
+        window.KinescopeIframeApiReadyHandlers = {
+          push: (handler) => handler(window.Kinescope.IframePlayer),
+        };
+      `,
+    });
+  });
+  await page.goto("/materials/navigation-video-fragment");
+  const retry = page.getByRole("button", { name: "Повторить", exact: true });
+  await expect(retry).toBeVisible();
+  expect(scriptRequests).toEqual([
+    "https://player.kinescope.io/latest/iframe.player.js",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=2",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=3",
+  ]);
+  available = true;
+  await retry.click();
+  await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+  await expect(
+    page.getByText("Загружаем видео…", { exact: true }),
+  ).not.toBeVisible();
+  expect(scriptRequests).toEqual([
+    "https://player.kinescope.io/latest/iframe.player.js",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=2",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=3",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=4",
+  ]);
+});
