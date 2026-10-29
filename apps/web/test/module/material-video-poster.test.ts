@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import { MaterialVideoPlayerView } from "@/features/material-video/ui/material-primary-video.client";
 
@@ -13,8 +13,8 @@ test("the player presents the Material cover and an accessible start action befo
   const html = renderToStaticMarkup(
     createElement(MaterialVideoPlayerView, {
       cover,
-      onStart: () => {},
-      onLoad: () => {},
+      onStart: vi.fn(),
+      onLoad: vi.fn(),
       phase: "playing",
       title: "Урок",
       videoId: "video-test",
@@ -30,7 +30,7 @@ for (const state of ["started", "error", "no-cover"] as const) {
     const html = renderToStaticMarkup(
       createElement(MaterialVideoPlayerView, {
         cover: state === "no-cover" ? null : cover,
-        onLoad: () => {},
+        onLoad: vi.fn(),
         phase: state === "error" ? "error" : "playing",
         title: "Урок",
         videoId: "video-test",

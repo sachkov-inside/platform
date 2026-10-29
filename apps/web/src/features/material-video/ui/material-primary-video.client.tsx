@@ -123,8 +123,6 @@ export function MaterialPrimaryVideo({
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
     let cancelMetadataWait: (() => void) | undefined;
     let requestedHref = window.location.href;
-    if (readVideoTimeFragment(window.location.hash, Infinity) !== null)
-      setStarted(true);
     let seekToReadyFragment: ((href: string) => void) | undefined;
     const captureFragment = (event: HashChangeEvent) => {
       // Capture navigation even while the session or SDK is still loading.
@@ -148,6 +146,10 @@ export function MaterialPrimaryVideo({
           videoId: video.videoId,
         });
         if (!isActive()) return;
+        if (
+          readVideoTimeFragment(new URL(requestedHref).hash, Infinity) !== null
+        )
+          setStarted(true);
         if (session === null || session.videoId !== video.videoId) {
           throw new Error("Playback session is unavailable");
         }

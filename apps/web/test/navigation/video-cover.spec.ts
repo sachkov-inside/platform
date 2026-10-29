@@ -12,7 +12,7 @@ for (const activation of [
   test(`Material cover starts the resumed player with ${activation}`, async ({
     page,
   }, testInfo) => {
-    const releaseSession = Promise.withResolvers<void>();
+    const releaseSession = Promise.withResolvers<undefined>();
     await page.route(
       "**/api/material-video-playback-sessions",
       async (route) => {
@@ -43,8 +43,8 @@ for (const activation of [
               mount.append(iframe);
               return Promise.resolve({
                 Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
-                on: () => {},
-                off: () => {},
+                on: () => undefined,
+                off: () => undefined,
                 getDuration: () => Promise.resolve(600),
                 seekTo: (seconds: number) => {
                   iframe.dataset["position"] = String(seconds);
@@ -109,7 +109,7 @@ for (const activation of [
       await start.focus();
       await page.keyboard.press(activation);
     } else await start.click();
-    releaseSession.resolve();
+    releaseSession.resolve(undefined);
     await expect(start).toHaveCount(0);
     if (activation === "play-error") {
       await page.getByRole("button", { name: "Повторить" }).click();
