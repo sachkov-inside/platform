@@ -71,7 +71,7 @@ class ComponentPhases(unittest.TestCase):
             def phase(path,name,started,deadline,cancelled):
                 seen.append((name,deadline-started))
                 return {'phase':name,'exit':1 if name=='setup' else 0,'elapsed_seconds':1,'limit_seconds':180 if name=='setup' else 90,'stopped':True}
-            with patch.object(component,'require_opt_in'),patch.object(runtime,'require_native_host'),patch.object(runtime,'source',return_value=source),patch.object(component,'launch_phase',side_effect=phase):
+            with patch.object(component.time,'monotonic',return_value=1024.0),patch.object(component,'require_opt_in'),patch.object(runtime,'require_native_host'),patch.object(runtime,'source',return_value=source),patch.object(component,'launch_phase',side_effect=phase):
                 self.assertEqual(component.run(output),1)
             self.assertEqual(seen,[('setup',180),('cleanup',90)])
             record=evidence.read(output/'component-outcome.json')
