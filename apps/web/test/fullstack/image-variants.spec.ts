@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signInFullStack } from "../support/full-stack-session";
 import { z } from "zod";
 
 const variantIds = z.object({
@@ -143,6 +144,8 @@ test("imported Material and Task c diagrams follow column width and theme with z
     ) as unknown,
   );
   const narrow = (testInfo.project.use.viewport?.width ?? 1440) < 560;
+  // The free lesson opens after Telegram sign-in (#1825); the reader is not the subject here.
+  await signInFullStack(page.context());
   await navigateWithHydrationProof(
     page,
     `/products/${product}/tasks/${code}`,

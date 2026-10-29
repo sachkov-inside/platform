@@ -23,8 +23,9 @@ Telegram у тестовых Accounts не используется. Тесто�
 | `materials-only` | право `materials:manage` | trusted owner bootstrap |
 | `billing-only` | право `billing:manage` | trusted owner bootstrap |
 
-Product A — «AI Engineering» (`ai-engineering`). Его id и закрытые уроки прохода названы в
+Product A («AI Engineering», `ai-engineering`): его id и уроки прохода названы в
 `apps/web/test/production/pass-config.ts`: закрытый урок `aie-ch2-modules` для тела и картинки,
+закрытый урок `aie-ch2-plan-domain` и бесплатный урок `aie-ch1-agent-choice` для основного видео,
 Product Task `aie-ch2-accounts-design` для задания. Эти fixtures принадлежат принятой программе
 #1356; её source Content — `2f04e11848b9cc281d67a7b34e51dd83b7370418`, production manifest —
 `4fe936c220af33ca7d818b9ce7db38944bf83228aab26437694eab15fb4b7ac1`.
@@ -38,9 +39,24 @@ Account `no-entitlement` проверяет отказ `task_not_available` бе
 `billing:manage` через read-only `billing_productPrices_list` для Product A: первый получает
 `forbidden`, второй читает цену.
 
-Второго опубликованного Product и опубликованного видео Product A в production нет. По решениям
-владельца в #905 и #906 клетки Product B помечены «отложено до второго Product», а клетки video —
-«отложено до первого видео Product A». Отчёт показывает их отдельным статусом, и они не делают job
+Клетки `video` проверяют основное видео в браузере (#1821). Страница урока сама просит playback
+session (`POST /api/material-video-playback-sessions`): сессия проверяет право `play` и подписывает
+короткий JWT без записи в базу. Запись защищена у любого урока
+([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)), поэтому разрешённая клетка требует
+токен в сессии. Затем проход запускает плеер и ждёт ответа Kinescope на запрос лицензии: Kinescope
+выдаёт её, только когда authorization backend Platform повторил решение по этому токену. Ученик A
+получает сессию и лицензию закрытого урока. Бесплатный урок курса открывается только Account со
+связанным Telegram ([ADR 0042](../adr/0042-free-product-lesson-needs-telegram.md)), а у тестовых
+identities Telegram нет: гость и Account без entitlement видят заглушку входа и сессии не получают.
+Account без entitlement, ученик B, expired и anonymous просят со страницы
+закрытого урока сессию того же видео, что получил ученик A, и получают `403 playback_unavailable`.
+Гость вдобавок запускает эту запись без токена, и Kinescope отказывает в лицензии: так проверяется,
+что authorization backend закрывает запись. Позицию видео проход не сохраняет: запрос записи не
+проходит allowlist. Метрики и журналы плеера Kinescope тоже не уходят, но загрузка записи и запросы
+лицензии остаются настоящими, поэтому статистика просмотров Kinescope может учитывать прогоны прохода.
+
+Второго опубликованного Product в production нет. По решению владельца в #905 клетки Product B
+помечены «отложено до второго Product». Отчёт показывает их отдельным статусом, и они не делают job
 красным. Любая другая клетка «не проверено» делает job красным.
 
 Все identities однажды приняли условия использования на первом экране входа. Проход данные Platform
@@ -123,13 +139,11 @@ Account `no-entitlement` проверяет отказ `task_not_available` бе
 2. Записать Product B и его закрытый материал в `pass-config.ts`, снять пометку «отложено до второго
    Product» с клеток Product B и добавить их наблюдение в `access.spec.ts`.
 
-## Когда выйдет первое видео Product A
+## Когда меняются уроки с видео
 
-1. Записать в `pass-config.ts` закрытый урок с основным видео.
-2. Снять пометку «отложено до первого видео Product A» с клеток video и добавить их наблюдение в
-   `access.spec.ts`. Видео проверяется выдачей playback session
-   (`POST /api/material-video-playback-sessions`): она проверяет право `play` и подписывает короткий
-   JWT без записи в базу, и allowlist уже называет её операцией чтения.
+Если урок `videoMaterialSlug` или `freeVideoMaterialSlug` в `pass-config.ts` снят с публикации,
+лишился основного видео или поменял доступ, запишите туда другой закрытый или бесплатный урок
+Product A с защищённой записью. Не меняйте доступ урока ради прохода.
 
 ## Запуск
 

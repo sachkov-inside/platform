@@ -14,6 +14,7 @@ export type {
   MaterialResourceFacts,
   MaterialResourceFactsAdapter,
   MembershipAccessState,
+  TelegramLinks,
   VideoResourceFacts,
   VideoResourceFactsAdapter,
 } from "./facets/content-access/content-access.dependencies.js";

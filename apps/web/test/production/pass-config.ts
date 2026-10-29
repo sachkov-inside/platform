@@ -16,11 +16,13 @@ export const productionTarget = {
   ownerMcp: "https://inside.sachkov.dev/mcp",
   apiResource: "https://api.inside.sachkov.dev",
   managementResource: "https://default.logto.app/api",
+  kinescopeLicence: "https://license.kinescope.io",
 } as const;
 
 /**
  * Product A — единственный опубликованный Product production с закрытыми материалами. Тело проверяется
- * на `bodyMaterialSlug`; картинку даёт `assetMaterialSlug`, задание — Product Task `taskCode`.
+ * на `bodyMaterialSlug`; картинку даёт `assetMaterialSlug`, основное видео даёт закрытый урок
+ * `videoMaterialSlug` с защищённой записью Kinescope, задание — Product Task `taskCode`.
  * Материалы production проход не меняет.
  */
 export const productA = {
@@ -28,8 +30,16 @@ export const productA = {
   slug: "ai-engineering",
   bodyMaterialSlug: "inside-content-aie-ch2-modules",
   assetMaterialSlug: "inside-content-aie-ch2-modules",
+  videoMaterialSlug: "inside-content-aie-ch2-plan-domain",
   taskCode: "aie-ch2-accounts-design",
 } as const;
+
+/**
+ * Бесплатный урок Product A с основным видео (по решению владельца бесплатны первые пять уроков
+ * главы 1). Его запись защищена (ADR 0041), а сам урок открывается только Account со связанным
+ * Telegram (#1825, ADR 0042): гость и Account без права и без Telegram получают отказ.
+ */
+export const freeVideoMaterialSlug = "inside-content-aie-ch1-agent-choice";
 
 /**
  * Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture.
@@ -50,8 +60,6 @@ export const expiredGrantEndsAt = "2026-10-05T07:08:00Z";
 
 /** Второго Product в production нет: решение владельца в #905. */
 export const productBDeferred = "отложено до второго Product";
-/** Опубликованного видео в Product A нет: решение владельца в #906. */
-export const videoDeferred = "отложено до первого видео Product A";
 
 /** Read-only tools учебного MCP, которые проход вызывает; другой tool allowlist не пропустит. */
 export const learnerMcpReadTools = [
@@ -100,18 +108,14 @@ export const passCells = [
   cell("anonymous/read-product-a/body@browser", "denied"),
   cell("anonymous/read-product-a/body@learner-mcp", "denied"),
   cell("anonymous/read-product-a/assets@browser", "denied"),
-  cell("anonymous/read-product-a/video@browser", "denied", videoDeferred),
+  cell("anonymous/read-product-a/video@browser", "denied"),
   cell("anonymous/read-product-a/practice@browser", "denied"),
   cell("anonymous/read-product-a/practice@learner-mcp", "denied"),
 
   cell("account-without-entitlement/read-product-a/body@browser", "denied"),
   cell("account-without-entitlement/read-product-a/body@learner-mcp", "denied"),
   cell("account-without-entitlement/read-product-a/assets@browser", "denied"),
-  cell(
-    "account-without-entitlement/read-product-a/video@browser",
-    "denied",
-    videoDeferred,
-  ),
+  cell("account-without-entitlement/read-product-a/video@browser", "denied"),
   cell("account-without-entitlement/read-product-a/practice@browser", "denied"),
   cell(
     "account-without-entitlement/read-product-a/practice@learner-mcp",
@@ -128,14 +132,14 @@ export const passCells = [
     "denied",
   ),
 
+  // Бесплатный урок открывает вход через Telegram (#1825); у тестовых identities Telegram нет.
+  cell("anonymous/read-free-lesson/video@browser", "denied"),
+  cell("account-without-entitlement/read-free-lesson/video@browser", "denied"),
+
   cell("learner-product-a/read-product-a/body@browser", "allowed"),
   cell("learner-product-a/read-product-a/body@learner-mcp", "allowed"),
   cell("learner-product-a/read-product-a/assets@browser", "allowed"),
-  cell(
-    "learner-product-a/read-product-a/video@browser",
-    "allowed",
-    videoDeferred,
-  ),
+  cell("learner-product-a/read-product-a/video@browser", "allowed"),
   cell("learner-product-a/read-product-a/practice@browser", "allowed"),
   cell("learner-product-a/read-product-a/practice@learner-mcp", "allowed"),
 
@@ -205,18 +209,14 @@ export const passCells = [
   cell("learner-product-b/read-product-a/body@browser", "denied"),
   cell("learner-product-b/read-product-a/body@learner-mcp", "denied"),
   cell("learner-product-b/read-product-a/assets@browser", "denied"),
-  cell(
-    "learner-product-b/read-product-a/video@browser",
-    "denied",
-    videoDeferred,
-  ),
+  cell("learner-product-b/read-product-a/video@browser", "denied"),
   cell("learner-product-b/read-product-a/practice@browser", "denied"),
   cell("learner-product-b/read-product-a/practice@learner-mcp", "denied"),
 
   cell("expired/read-product-a/body@browser", "denied"),
   cell("expired/read-product-a/body@learner-mcp", "denied"),
   cell("expired/read-product-a/assets@browser", "denied"),
-  cell("expired/read-product-a/video@browser", "denied", videoDeferred),
+  cell("expired/read-product-a/video@browser", "denied"),
   cell("expired/read-product-a/practice@browser", "denied"),
   cell("expired/read-product-a/practice@learner-mcp", "denied"),
 

@@ -1,3 +1,4 @@
+import { everyAccountLinked } from "../support/telegram-links.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -77,6 +78,7 @@ describe("Personal Home on PostgreSQL", () => {
       videos,
     });
     contentAccess = assembleContentAccess({
+      telegramLinks: everyAccountLinked,
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
       ),

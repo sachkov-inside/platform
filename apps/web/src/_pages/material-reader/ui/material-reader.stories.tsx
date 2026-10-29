@@ -16,6 +16,7 @@ import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
 import { resolveProductReaderContext } from "../model/product-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
+import { FreeLessonAccess } from "./free-lesson-access";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
   variantDiagram,
@@ -1200,6 +1201,78 @@ export const AccessNotOffered: Story = {
     ).toHaveAttribute("href", "/products/platform-inside");
     await expect(
       canvas.queryByRole("link", { name: "Купить продукт" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** Бесплатный урок курса для гостя (#1825): вход через Telegram вместо покупки, затем тот же урок. */
+export const FreeLessonGuest: Story = {
+  render: () => (
+    <FreeLessonAccess
+      signedIn={false}
+      returnTo={materialReaderHref(
+        material.slug,
+        productProgrammeHref("platform-inside"),
+      )}
+      material={{ ...material, access: "free" }}
+      readingAction={accessReadingAction()}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бесплатный урок" }),
+    ).toBeVisible();
+    const signIn = canvas.getByRole("button", {
+      name: "Войти через Telegram и читать бесплатно",
+    });
+    const form = signIn.closest("form");
+    await expect(form).toHaveAttribute("action", "/auth/sign-in");
+    await expect(form).toHaveAttribute("method", "post");
+    await expect(form?.querySelector('input[name="returnTo"]')).toHaveAttribute(
+      "value",
+      materialReaderHref(
+        material.slug,
+        productProgrammeHref("platform-inside"),
+      ),
+    );
+    await expect(
+      canvas.queryByRole("link", { name: "Получить доступ" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Хороший skill начинается"),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** Та же заглушка на телефоне: кнопка входа переносится и остаётся целиком видимой. */
+export const FreeLessonGuestMobile: Story = {
+  ...FreeLessonGuest,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** Вошёл по почте, Telegram не подключён: подключение здесь же, после него урок перечитывается. */
+export const FreeLessonWithoutTelegram: Story = {
+  render: () => (
+    <FreeLessonAccess
+      signedIn
+      returnTo={materialReaderHref(material.slug)}
+      material={{ ...material, access: "free" }}
+      readingAction={accessReadingAction()}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/Подключите Telegram к аккаунту/),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Подключить Telegram" }),
+    ).toBeEnabled();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Войти через Telegram и читать бесплатно",
+      }),
     ).not.toBeInTheDocument();
   },
 };

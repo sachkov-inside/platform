@@ -51,7 +51,10 @@ export interface CourseReadingContext {
   readonly chapters: readonly CourseReadingChapter[];
   readonly current: CourseReadingStep;
   readonly currentChapterId: string;
-  /** Position in the mixed sequence; zero for a reference opened without an originating step. */
+  /**
+   * Position in the mixed sequence; zero for a reference opened without an originating step and for
+   * a programme step opened for reference.
+   */
   readonly currentPosition: number;
   readonly totalSteps: number;
   readonly totalMaterials: number;
@@ -234,25 +237,34 @@ export function courseReadingContext({
     current.kind === "material"
       ? `material:${current.slug}`
       : `task:${current.code}`;
-  const position = referenceView
-    ? -1
-    : steps.findIndex((step) =>
-        current.kind === "material"
-          ? step.kind === "material" &&
-            (step.id === id || step.id.startsWith(`${id}:`)) &&
-            (current.placementId === undefined ||
-              step.placementId === current.placementId)
-          : step.id === id,
-      );
+  const stepIndex = steps.findIndex((step) =>
+    current.kind === "material"
+      ? step.kind === "material" &&
+        (step.id === id || step.id.startsWith(`${id}:`)) &&
+        (current.placementId === undefined ||
+          step.placementId === current.placementId)
+      : step.id === id,
+  );
+  const position = referenceView ? -1 : stepIndex;
+  // A programme step opened for reference stays selected in its chapter without claiming a position;
+  // a chapter attachment keeps its attachment row.
+  const attached =
+    referenceView &&
+    current.kind === "material" &&
+    chapters.some(
+      (chapter) =>
+        chapter.references?.some((item) => item.slug === current.slug) === true,
+    );
+  const programmeStep = attached ? undefined : steps[stepIndex];
   const reference =
-    position >= 0 || current.kind !== "material"
+    programmeStep !== undefined || current.kind !== "material"
       ? undefined
       : references.find((item) => item.id === `reference:${current.slug}`);
   const referenceItem = publishedItems.find(
     (item) => item.slug === reference?.slug,
   );
   const step =
-    steps[position] ??
+    programmeStep ??
     (reference === undefined
       ? undefined
       : {
@@ -262,7 +274,7 @@ export function courseReadingContext({
         });
   const chapter =
     chapters.find((entry) =>
-      entry.steps.some((entryStep) => entryStep.id === steps[position]?.id),
+      entry.steps.some((entryStep) => entryStep.id === programmeStep?.id),
     ) ??
     (reference === undefined
       ? undefined

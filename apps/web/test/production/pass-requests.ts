@@ -17,7 +17,8 @@ import {
  * Allowlist запросов production-прохода (#906). Раннер проверяет каждый запрос до отправки: Node
  * `fetch` через `createPassFetch`, запрос browser context через `passContextGet`, страницу через
  * `guardPassContext`. Разрешены чтения (GET и HEAD), MCP POST к названным read-only tools, выдача
- * playback session и закрытый перечень операций входа. Protected storage принимает только GET без
+ * playback session и закрытый перечень операций входа. Плеер Kinescope читает запись и запрашивает
+ * лицензию; его метрики не уходят. Protected storage принимает только GET без
  * тела после asset-маршрута Web. Любой другой запрос раннер отклоняет и сам
  * не отправляет. Node и запросы context не идут по redirect. Шаг redirect в браузере Playwright не
  * даёт перехватить: `guardPassContext` проверяет его после отправки, и такой шаг вне allowlist
@@ -38,6 +39,11 @@ export type PassOperation =
    * (решение владельца в #906).
    */
   | "video-playback-read"
+  /**
+   * Лицензия записи у Kinescope: провайдер спрашивает authorization backend Platform, который повторяет
+   * решение `play` по токену playback session и ничего не пишет (#1821).
+   */
+  | "video-licence"
   /** Вход Logto по one-time token: четыре шага experience API Logto 1.41. */
   | "logto-sign-in"
   /** Management API Logto: поиск identity, one-time token и PAT прохода. */
@@ -62,7 +68,13 @@ export type PassRequestDecision =
 const platformRecordingPaths = ["/communications/visit"];
 /** PAT прохода; другие PAT пользователя проход не удаляет. */
 export const passPatPrefix = "inside-production-access-";
-const videoPlaybackSessions = "/api/material-video-playback-sessions";
+export const videoPlaybackSessions = "/api/material-video-playback-sessions";
+/** Хосты плеера Kinescope: страница плеера, скрипты, манифесты и сегменты записи. */
+const kinescopePlayerHosts =
+  /^(?:kinescope\.io|player\.kinescope\.io|[a-z0-9-]+\.kinescopecdn\.net)$/u;
+/** Запрос лицензии записи: ClearKey (`POST`) и ключ SAMPLE-AES (`GET`). */
+export const kinescopeLicencePath =
+  /^\/v[0-9]+\/vod\/[^/]+\/acquire\/[a-z-]+(?:\/[^/]+)?$/u;
 
 const platformSignIn = [
   ["POST", "/auth/sign-in"],
@@ -184,6 +196,15 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
     if (method === "GET" || method === "HEAD") return allow("read");
     return reject(`${method} ${path} is not a pass operation`);
   }
+  if (origin === productionTarget.kinescopeLicence)
+    return (method === "GET" || method === "POST") &&
+      kinescopeLicencePath.test(path)
+      ? allow("video-licence")
+      : reject(`${method} ${path} is not a Kinescope licence request`);
+  if (kinescopePlayerHosts.test(url.hostname) && url.port === "")
+    return method === "GET" || method === "HEAD"
+      ? allow("read")
+      : reject(`${method} ${path} is not a Kinescope player read`);
   return reject(`origin ${origin} is not in the pass allowlist`);
 }
 
@@ -337,6 +358,34 @@ export async function passContextGet(
   const operation = permit("GET", url);
   return withTransportRetries(operation, () =>
     context.request.get(url, { maxRedirects: 0 }),
+  );
+}
+
+/**
+ * JSON POST из документа production: BFF принимает мутацию только с той же Origin. Allowlist
+ * проверяет запрос здесь до отправки, а route context прохода ещё раз при отправке. Ответ
+ * возвращается как есть, без повторов.
+ */
+export async function passPagePost(
+  page: Page,
+  path: string,
+  body: unknown,
+): Promise<{ readonly status: number; readonly text: string }> {
+  const url = new URL(path, productionTarget.web).href;
+  const payload = JSON.stringify(body);
+  permit("POST", url, payload);
+  return page.evaluate(
+    async (request) => {
+      const answer = await fetch(request.url, {
+        method: "POST",
+        // Как Node `fetch` прохода: тело не уходит по redirect, который allowlist не видел.
+        redirect: "manual",
+        headers: { "content-type": "application/json" },
+        body: request.payload,
+      });
+      return { status: answer.status, text: await answer.text() };
+    },
+    { url, payload },
   );
 }
 

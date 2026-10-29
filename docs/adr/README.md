@@ -45,6 +45,7 @@ ADR фиксируют причины выбора и компромиссы; т
 | [0039](0039-opaque-transaction-handoff.md) | Opaque transaction handoff between state owners |
 | [0040](0040-unified-product-access.md) | Единый Product Access без тарифов и подписок |
 | [0041](0041-protected-recording-serves-any-access.md) | Защищённая запись служит уроку с любым доступом |
+| [0042](0042-free-product-lesson-needs-telegram.md) | Бесплатный урок продукта открывает связанный Telegram |
 
 ## Telegram
 

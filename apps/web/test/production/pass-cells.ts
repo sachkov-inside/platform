@@ -78,7 +78,7 @@ const surfaceChecks: Readonly<Record<string, string>> = {
   "body@browser": "закрытое тело урока в HTML и данных RSC страницы",
   "body@learner-mcp": "закрытое тело урока через learning_material_read",
   "assets@browser": "картинка закрытого урока: байты с sachkov.dev",
-  "video@browser": "основное видео: playback session",
+  "video@browser": "основное видео: playback session и лицензия Kinescope",
   "practice@browser": "страница Product Task и код задания",
   "practice@learner-mcp": "часть 0 задания через learning_task_read",
   "materials-authoring@browser":
@@ -89,6 +89,7 @@ const actionLabels: Readonly<Record<string, string>> = {
   "read-product-a": "Product A",
   "read-product-b": "Product B",
   "read-free-practice": "Бесплатная практика",
+  "read-free-lesson": "Бесплатный урок",
   "read-retired-practice": "Снятая с публикации практика",
   "manage-materials": "Materials",
   "manage-billing": "Billing",

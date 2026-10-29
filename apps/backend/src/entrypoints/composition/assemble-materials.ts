@@ -16,6 +16,7 @@ import {
   assembleContentAccess,
   assembleDeterministicAccountRights,
   type ContentAccess,
+  type TelegramLinks,
 } from "../../modules/content-access/index.js";
 import { assembleMaterialResourceFacts } from "../../modules/materials/index.js";
 import { assembleMaterialAuthoring } from "../../modules/materials/index.js";
@@ -43,6 +44,8 @@ export function assembleMaterials(dependencies: {
   readonly prisma: PlatformPrisma;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess?: ContentAccess;
+  /** Confirmed Telegram links for the fallback Content Access; absent, no Account has one. */
+  readonly telegramLinks?: TelegramLinks;
   readonly materialAssets?: Pick<
     MaterialAssets,
     "inspectReferences" | "loadPresentations"
@@ -74,6 +77,9 @@ export function assembleMaterials(dependencies: {
           dependencies.authorPolicy.canManage(accountId),
       },
       accountRights: assembleDeterministicAccountRights(),
+      ...(dependencies.telegramLinks === undefined
+        ? {}
+        : { telegramLinks: dependencies.telegramLinks }),
     });
   const shared = {
     discovery: new ProductDiscovery(dependencies.prisma),

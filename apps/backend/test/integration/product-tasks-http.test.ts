@@ -272,7 +272,8 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         {
           materialId: anchorId,
           title: "Что строим",
-          availability: "available",
+          // The guest signs in through Telegram before a free lesson opens (#1825).
+          availability: "locked",
         },
       ],
       submission: { accepting: true },

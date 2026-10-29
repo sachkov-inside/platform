@@ -302,6 +302,66 @@ export const GuestFreeLessonsAfterSignIn: Story = {
     );
   },
 };
+/**
+ * Гость в программе с бесплатными уроками (#1825): они закрыты до входа через Telegram, об этом
+ * говорит строка в шапке; к оплате зовут только платные уроки.
+ */
+const freeLessonsForGuest = {
+  ...result,
+  items: materials.map((material, index) => ({
+    ...material,
+    access: index < 3 ? ("free" as const) : ("closed" as const),
+    availability: "locked" as const,
+  })),
+};
+export const GuestFreeLessonsNeedSignIn: Story = {
+  args: {
+    result: freeLessonsForGuest,
+    learning: { kind: "guest" },
+    productOffer: productOnlyOffer,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(
+        "Бесплатные уроки открываются после входа через Telegram.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "Приобрести доступ" }),
+    ).toBeVisible();
+  },
+};
+export const GuestFreeLessonsNeedSignInMobile: Story = {
+  ...GuestFreeLessonsNeedSignIn,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+/** Все уроки бесплатные: замков к оплате нет, и программа не зовёт покупать. */
+export const GuestOnlyFreeLessons: Story = {
+  args: {
+    result: {
+      ...result,
+      items: materials.map((material) => ({
+        ...material,
+        access: "free" as const,
+        availability: "locked" as const,
+      })),
+    },
+    learning: { kind: "guest" },
+    productOffer: productOnlyOffer,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(
+        "Бесплатные уроки открываются после входа через Telegram.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("link", { name: "Приобрести доступ" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const LockedProductHasNoSubscriptionFallback: Story = {
   args: {
     result: lockedResult,

@@ -1,3 +1,4 @@
+import { internalRoute } from "@/shared/routing/internal-route";
 import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
 import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.server";
 import { materialSourceAnchors } from "@/entities/material";
@@ -73,6 +74,7 @@ import {
   MaterialReaderPending,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
+import { FreeLessonAccess } from "./free-lesson-access";
 import { MaterialReaderView } from "./material-reader-view";
 import { FreeLessonPurchaseCall } from "./free-lesson-purchase-call.server";
 
@@ -257,7 +259,9 @@ async function PersonalMaterialReader({
   // Гостю закрытый урок откроет только покупка, поэтому предложение ищется сразу, а не после
   // личного чтения. Вошедшему урок может быть открыт, и лишний запрос каталога ему не нужен.
   const guestPurchaseProduct =
-    accessToken === undefined && sharedMaterial?.kind === "teaser"
+    accessToken === undefined &&
+    sharedMaterial?.kind === "teaser" &&
+    sharedMaterial.material.access !== "free"
       ? resolvePurchaseProduct(
           sharedMaterial.material,
           productSlugOf(returnTarget),
@@ -349,6 +353,28 @@ async function ResolvedMaterialReader({
   readonly productContext: ProductReaderContext | null;
   readonly slug: string;
 }) {
+  if (result.kind === "access" && result.material.access === "free") {
+    // Бесплатный урок курса открывает вход через Telegram, а не покупка (#1825).
+    return (
+      <FreeLessonAccess
+        readingAction={
+          <SavedReadingAction
+            compact
+            key={result.material.materialId}
+            materialId={result.material.materialId}
+            format={result.material.format.slug}
+            canMark={false}
+          />
+        }
+        signedIn={accessToken !== undefined}
+        // После входа читатель возвращается в то же место программы: якорь, вид и размещение.
+        returnTo={internalRoute(workspaceReturnTo(slug, workspaceQuery))}
+        material={result.material}
+        returnTarget={returnTarget}
+        productContext={productContext}
+      />
+    );
+  }
   if (result.kind === "access") {
     const purchaseProduct = await (startedPurchaseProduct ??
       resolvePurchaseProduct(
