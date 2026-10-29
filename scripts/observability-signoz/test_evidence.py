@@ -30,7 +30,7 @@ class Publication(unittest.TestCase):
 
     def test_MCP_first_refusal_stages_have_only_the_same_closed_five_field_projection(self):
         import control
-        expected={'mcp_wire_admission','mcp_wire_request','mcp_wire_headers','mcp_wire_read','mcp_wire_status','mcp_wire_size',
+        expected={'mcp_wire_admission','mcp_wire_request','mcp_wire_headers','mcp_wire_read','mcp_wire_status','mcp_wire_size','mcp_inventory_size',
             'mcp_wire_deadline','mcp_wire_decode','mcp_wire_close','mcp_rpc_object','mcp_rpc_version','mcp_rpc_id',
             'mcp_rpc_error','mcp_rpc_result','mcp_rpc_is_error','mcp_initialize_version','mcp_inventory_cursor',
             'mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool'}
