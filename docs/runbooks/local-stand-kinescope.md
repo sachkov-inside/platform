@@ -93,13 +93,14 @@ decision to use the production projects (#1790); a narrower token, if Kinescope 
 | Recording | Stand playback |
 | --- | --- |
 | Public project (older free recordings) | Plays when the project's allowed domains include the stand host `127.0.0.1` (the stand opens on `http://127.0.0.1:3000`), or have no restriction. |
-| Membership project (every new upload, free or closed lesson) | Plays everywhere while the project has no authorization backend. After the backend is on, Kinescope asks production about every licence: it plays only in the author preview `/authoring/materials/:id/preview` with the stand's preview key below; the reader stays locked. |
+| Membership project (every new upload, free or closed lesson) | Plays everywhere while the project has no authorization backend. After the backend is on, Kinescope asks production about every licence: with the stand's preview key below it plays in the author preview `/authoring/materials/:id/preview` and in the reader `/materials/…` for an Account with `materials:manage`; a learner or a guest stays locked, because production refuses the stand's `play` tokens. |
 
 ## Preview after protection (#1808)
 
 Production cannot check a stand token by itself: it knows neither the stand's playback secret nor
 its local Videos. With the owner's consent it trusts one more key, the stand's own Ed25519 preview
-key, for author previews only:
+key, for short preview tokens only (the author preview, and the reader of an Account with
+`materials:manage`):
 
 ```bash
 pnpm stand:kinescope preview-key
@@ -113,11 +114,16 @@ window and adds `127.0.0.1` to the membership project's domain list
 ([step 6](runtime-configuration.md#kinescope-provider-settings)). `pnpm stand:kinescope remove`
 deletes the whole file with the private half; a later `preview-key` makes a new pair, whose public
 line replaces the old one on production. The stand then signs the preview of a protected recording with its private half:
-`act=preview`, the recording's provider ID, at most 300 seconds. Production accepts exactly such a
+`act=preview`, the recording's provider ID, at most 300 seconds. A reader session takes the same
+token once ContentAccess allows `play` (a published Material) and the Account also passes `preview`
+(`materials:manage`), so the owner reviews a lesson in the reader and keeps its progress (#1819);
+every other reader session keeps the HS256 `play` token. If the `preview` decision cannot reach
+its dependencies, the reader gets `dependency_unavailable` and the player offers a retry. Production accepts exactly such a
 token and records each acceptance as `stand_preview_authorized` with the token ID, the provider
-video and the stand Account; ordinary playback, other recordings and longer tokens are refused.
+video and the stand Account (an author preview and a manager's reading look the same there); the
+stand's HS256 `play` tokens, other recordings and longer tokens are refused.
 
-Risk: the stand's ContentAccess decides who previews (an Account with `materials:manage`), but
+Risk: the stand's ContentAccess decides who previews or reads with this key (an Account with `materials:manage`), but
 production only sees the signature: the binding to the owner is the key on the owner's Mac. Anyone
 who reads the private stand file can open any recording of the membership project, with tokens that
 live at most five minutes and can be reused within them, as long as production holds the public half.
