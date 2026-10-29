@@ -224,10 +224,11 @@ Rebuilds leave the stand's previous images behind, and BuildKit keeps build cach
 without touching volumes (#1779):
 
 - **Build cache.** The OrbStack engine's builder GC (`~/.orbstack/config/docker.json`, set
-  2026-10-18) keeps at most 4 GiB of unused cache with 1 GiB reserved, and frees space when less
+  2026-10-18) targets 4 GiB of unused cache with 1 GiB reserved, and frees space when less
   than 10 GiB of disk remains. The rule covers the whole engine, so it also trims other projects'
   cache on this engine; 4 GiB sits below the 5–8 GB budget of the storage policy and is kept as is. `docker buildx inspect orbstack` shows the active rule; the engine
-  applies it after builds, so no manual prune is needed. A change to that file needs an engine
+  applies it after builds; total cache, including shared/in-use records, can exceed that target.
+  No manual prune is needed. A change to that file needs an engine
   restart, which stops the stand: plan it as a stand outage with the owner.
 - **Stale images.** `pnpm stand:images` lists the images labelled with the stand's Compose project
   (`com.docker.compose.project=inside-platform`), with a verdict and reason for each. A plain
@@ -236,7 +237,46 @@ without touching volumes (#1779):
   every image a container uses (running or stopped, by the daemon's own count), the newest unused image of each service as the
   previous build for a rollback, and anything younger than seven days. `pnpm stand:images --apply`
   removes only the remaining ones, without force, while holding the local setup lock that stand
-  operations use, and checks each image's use again right before removing it. It never prunes, never touches volumes, the build cache or other projects' images.
+  operations use, and recalculates eligibility right before each removal. Removal uses the immutable
+  image ID with `--no-prune`, without force; Docker refuses conflicting repository references.
+  It never touches volumes, the build cache or other projects' images.
+
+### Maintenance ownership and installation
+
+`scripts/stand-images.mjs` is the project-owned maintenance entrypoint. Interactive runs use the
+selected Docker context unless `--context <name>` pins every Docker call. Scheduled runs must also
+pass `--daemon-id <ID>` recorded from `docker --context <name> info --format '{{.ID}}'` at installation.
+An unavailable or unexpected daemon refuses cleanup; identity is checked again before deletion.
+
+By default, the command reads the existing legacy recovery manifest at
+`~/.local/state/platform-orbstack/1527/optimization/protected-images.json`. Its absence is allowed
+on machines without that legacy setup; malformed or unreadable existing files refuse the run.
+Pass `--protected-images <absolute-json-path>` to require a specific JSON array of immutable image
+IDs. A missing or malformed explicitly requested file refuses the whole run. Scheduled installation
+always passes that explicit path. Preserve the legacy manifest and its backups; age and
+lack of containers do not release those references. Images with the
+`dev.inside.resource-preparation` label are always retained, even when they inherit stand labels.
+Their named next consumers, recovery and retirement belong to the existing #1566 preparation
+lifecycle, not this maintenance command. Do not widen the project filter to clean them.
+
+The local LaunchAgent `com.inside.platform.orbstack-maintenance` runs daily. Install only a reviewed,
+checked source version as a self-contained Node.js ESM bundle under
+`~/.local/share/inside-platform/stand-maintenance/<source-sha>/`, with bundled npm dependencies.
+Record its source SHA, bundle SHA256, dependency versions, stable Node executable, Docker context,
+daemon ID and protection-manifest path in an installation receipt beside it. Keep that Node version
+available. Neither a disposable worktree, the controller checkout nor mutable primary-checkout code
+is a scheduled runtime dependency. A new version requires another verified installation; merge alone
+does not update the installed bundle.
+
+Keep the launcher and last-run log in `~/.local/state/platform-orbstack/stand-maintenance/`. The
+launcher replaces the single `last-run.log` on each run, preserving the command's exit status;
+LaunchAgent output goes to `/dev/null` instead of growing append-only logs. Before replacing the
+job, verify it is idle and preserve its plist. Validate the bundle's dry-run against the source,
+then repoint only this LaunchAgent. Run one controlled apply with before/after container, volume,
+readiness and disk evidence. No engine restart, stand reservation or service interruption is needed.
+Docker commands run asynchronously so the existing stand lock continues renewing during slow calls.
+If the stand lock is busy, preserve the runtime and retry later. GC remains engine-owned; the
+maintenance job never prunes cache or volumes and does not build images to trigger GC.
 
 ## Diagnose prerequisites
 
