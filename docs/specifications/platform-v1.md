@@ -523,9 +523,9 @@ heading, step labels, Topic and redundant reading/access/continuation captions a
 The current Material keeps its visual highlight; inaccessible covers remain blurred with a lock.
 
 On wide screens the centered Product page is capped at 1040 px. Equal-height rows use 16:9 covers,
-a two-line title, an optional one-line published summary and a format badge to the right. On narrow
-screens the cover is square, format sits above the title and summaries are hidden. Video duration
-uses a contrasting badge below the square or over the wide cover. Enlarged text permits taller rows.
+a two-line title and an optional one-line published summary. On narrow screens the cover is square
+and summaries are hidden. Format labels and video duration follow the lesson-row rule in
+[Страница руководства](#страница-руководства). Enlarged text permits taller rows.
 The presentation neither invents descriptions nor reads body content for previews.
 
 Material covers use the existing upload/replace/remove lifecycle. Landscape 16:9 source images
@@ -702,6 +702,13 @@ or HTML support. Published chapters show the outcome inside their topics disclos
 single-paragraph summary does not create an empty disclosure. No lesson list, release action or
 delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
 rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
+Lesson rows name no Material format. A lesson with a primary video shows a play icon and the video
+duration at every width; a lesson without video shows neither. Task rows keep their «Задание» label.
+A studied lesson shows a thin accent check without a filled circle. The continuation lesson row is
+highlighted and carries a compact «Продолжить» or «Начать обучение» button before the video
+duration, if any, not a full-width button below the title. The reading or access status keeps a
+fixed-width slot at the right end, so video durations line up in one column. The title starts at
+112 px; when the right-hand group does not fit beside that width, the group wraps to its own line.
 
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
