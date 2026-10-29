@@ -265,10 +265,29 @@ rss=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darw
 print(json.dumps({'peak_traced_bytes':peak,'max_rss_bytes':rss,'input_bytes':sizes}))
 assert peak<32*1024**2 and rss<64*1024**2
 """
-        result=subprocess.run([sys.executable,'-B','-c',code],cwd=Path(__file__).resolve().parent,capture_output=True,text=True,timeout=10)
+        def measure(worker):
+            # Linux retains the pre-exec fork address space in ru_maxrss. Fork the
+            # measured worker from a clean interpreter, retaining the real RSS
+            # oracle and the helper's complete parser workload without subtraction.
+            relay="import subprocess,sys\nresult=subprocess.run([sys.executable,'-B','-c',sys.argv[1]],timeout=8)\nsys.exit(result.returncode)\n"
+            child=subprocess.Popen([sys.executable,'-B','-c',relay,worker],cwd=Path(__file__).resolve().parent,
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
+            try:
+                stdout,stderr=child.communicate(timeout=10)
+                return subprocess.CompletedProcess(child.args,child.returncode,stdout,stderr)
+            finally:reap_process(child)
+        result=measure(code)
         self.assertEqual(result.returncode,0,result.stderr+result.stdout)
         measured=json.loads(result.stdout);self.assertEqual(len(measured['input_bytes']),3)
         self.assertGreater(max(measured['input_bytes']),1000000)
+        # A real resident allocation before tracing must still fail the unchanged
+        # RSS bound even when the traced parser allocation fits its separate bound.
+        oversized=measure("resident=bytearray(96*1024**2)\nfor page in range(0,len(resident),4096):resident[page]=1\n"+code)
+        self.assertNotEqual(oversized.returncode,0)
+        rejected=json.loads(oversized.stdout)
+        self.assertEqual(rejected['input_bytes'],measured['input_bytes'])
+        self.assertLess(rejected['peak_traced_bytes'],32*1024**2)
+        self.assertGreaterEqual(rejected['max_rss_bytes'],64*1024**2)
 
     def test_no_read_admin_arbitrary_path_or_cli_destination_can_reach_collector(self):
         with wire_edge() as (server,receipt,requests):

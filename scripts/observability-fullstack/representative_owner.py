@@ -62,6 +62,17 @@ def _json(path):
     return json.loads(raw,object_pairs_hook=unique,parse_constant=lambda _:need(False)),[identity,sha(raw)]
 
 
+def _source_hashes(paths):
+    # Equivalent lexical relative paths without rebuilding every ancestor for each
+    # inventory entry. Keep all current reads and hashes inside this admission.
+    prefix=ROOT.parts;depth=len(prefix);result={}
+    for path in paths:
+        parts=path.parts
+        name=(os.sep.join(parts[depth:]) or '.') if parts[:depth]==prefix else str(path.relative_to(ROOT))
+        result[name]=sha(path.read_bytes())
+    return result
+
+
 def _canonical(prepared,binding,images,*,admit=False):
     # Read the actual producer's private records, not caller-crafted plan dictionaries.
     import fullstack
@@ -81,7 +92,7 @@ def _canonical(prepared,binding,images,*,admit=False):
          and {key:resource[key] for key in ('commit','tree')}==binding['source'],'representative_prepared_source')
     need(selected=={key:images[key] for key in ('source','backend','foundation')},'representative_prepared_images')
     if admit:
-        expected={str(path.relative_to(ROOT)):sha(path.read_bytes()) for path in fullstack.fixture.binding.inputs()}
+        expected=_source_hashes(fullstack.fixture.binding.inputs())
         need(resource['inputs']==expected,'representative_prepared_inputs')
     layout=fullstack.assemble_core(primary,core_layout.SIGNOZ,run=prepared,images=images,**binding)
     manifest=layout.manifest
