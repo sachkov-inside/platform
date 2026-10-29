@@ -643,6 +643,170 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
         path=metadata/'source.json';path.write_text(json.dumps(value));path.chmod(0o600)
         return metadata,path,value
 
+    def test_failed_admission_collects_only_metadata_without_acquiring_runtime_output(self):
+        import sdk_storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata,source_path,source=self.metadata(root)
+            source['scope']=sdk_storage.SCOPE;source_path.write_text(json.dumps(source))
+            admission={'ready':False,'error_type':'TimeoutExpired'}
+            (metadata/'admission.json').write_text(json.dumps(admission))
+            output=root/'unacquired';destination=root/'public'
+            sdk_storage.collect(output,metadata,destination)
+            self.assertFalse(output.exists())
+            self.assertEqual(sorted(path.name for path in destination.iterdir()),['admission.json','source.json'])
+            self.assertEqual(json.loads((destination/'source.json').read_text()),source)
+            self.assertEqual(json.loads((destination/'admission.json').read_text()),admission)
+
+    def test_unacquired_collection_rejects_a_foreign_scope_before_publication(self):
+        import sdk_storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata,_,_=self.metadata(root)
+            (metadata/'admission.json').write_text('{"ready":false,"error_type":"TimeoutExpired"}')
+            with self.assertRaises(ValueError):sdk_storage.collect(root/'unacquired',metadata,root/'public')
+            self.assertFalse((root/'public').exists())
+
+    def test_actual_failed_admission_permissions_and_closed_collection(self):
+        import sdk_storage
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata=root/'metadata'
+            def native(args,**options):
+                if args==['docker','info','--format','{{.DockerRootDir}}']:
+                    self.assertEqual(options['timeout'],10)
+                    raise subprocess.TimeoutExpired(args,10)
+                if args==['git','-C',str(sdk_storage.pilot.ROOT),'rev-parse','HEAD']:value=SOURCE
+                elif args==['git','-C',str(sdk_storage.pilot.ROOT),'rev-parse','HEAD^{tree}']:value='b'*40
+                elif args==['git','-C',str(sdk_storage.pilot.ROOT),'status','--porcelain']:value=''
+                else:self.fail('unexpected native command')
+                return subprocess.CompletedProcess(args,0,stdout=value,stderr='')
+            previous=os.umask(0o022)
+            try:
+                with patch.dict(os.environ,{'GITHUB_SHA':SOURCE}),patch.object(sdk_storage.ci.subprocess,'run',side_effect=native):
+                    code=sdk_storage.ci.admission(metadata,inputs=(Path(sdk_storage.__file__),),scope=sdk_storage.SCOPE)
+            finally:os.umask(previous)
+            self.assertEqual(code,1)
+            self.assertEqual(metadata.stat().st_mode & 0o777,0o700)
+            self.assertEqual({path.stat().st_mode & 0o777 for path in metadata.iterdir()},{0o644})
+            destination=root/'public';sdk_storage.collect(root/'unacquired',metadata,destination)
+            self.assertEqual(sorted(path.name for path in destination.iterdir()),['admission.json','source.json'])
+            self.assertEqual(json.loads((destination/'admission.json').read_text()),{'ready':False,'error_type':'TimeoutExpired'})
+            self.assertEqual(json.loads((destination/'source.json').read_text())['scope'],sdk_storage.SCOPE)
+            self.assertEqual({path.stat().st_mode & 0o777 for path in destination.iterdir()},{0o600})
+
+    def test_unacquired_collection_requires_closed_negative_admission_and_source(self):
+        import sdk_storage
+        invalid=[None,[],False,{'ready':True,'error_type':'TimeoutExpired'},
+                 {'ready':0,'error_type':'TimeoutExpired'},{'ready':'false','error_type':'TimeoutExpired'},
+                 {'ready':False},{'ready':False,'error_type':None},{'ready':False,'error_type':True},
+                 {'ready':False,'error_type':'private-error-text'},
+                 {'ready':False,'error_type':'TimeoutExpired','private':'private-neighbor'}]
+        for value in invalid:
+            with self.subTest(value=value),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+                source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+                (metadata/'admission.json').write_text(json.dumps(value))
+                with self.assertRaises((OSError,ValueError)):sdk_storage.collect(root/'absent',metadata,root/'public')
+                self.assertFalse((root/'public').exists())
+        for raw in ('{"ready":false,"ready":false,"error_type":"TimeoutExpired"}',
+                    '{"ready":false,"error_type":NaN}',' '*257):
+            with self.subTest(raw=raw),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+                source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+                (metadata/'admission.json').write_text(raw)
+                with self.assertRaises((OSError,ValueError)):sdk_storage.collect(root/'absent',metadata,root/'public')
+                self.assertFalse((root/'public').exists())
+        for missing in ('source.json','admission.json'):
+            with self.subTest(missing=missing),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+                source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+                (metadata/'admission.json').write_text('{"ready":false,"error_type":"TimeoutExpired"}')
+                (metadata/missing).unlink()
+                with self.assertRaises((OSError,ValueError)):sdk_storage.collect(root/'absent',metadata,root/'public')
+                self.assertFalse((root/'public').exists())
+
+    def test_unacquired_collection_refuses_unsafe_filesystem_without_publication(self):
+        import sdk_storage
+        cases=('output-file','output-writable','output-dangling','output-parent-link','output-parent-absent',
+               'metadata-link','metadata-writable','source-link','admission-link','source-writable',
+               'admission-writable','source-hardlink','admission-hardlink','source-unbound')
+        for case in cases:
+            with self.subTest(case=case),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+                source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+                admission=metadata/'admission.json';admission.write_text('{"ready":false,"error_type":"TimeoutExpired"}')
+                output=root/'absent'
+                if case=='output-file':output.write_text('existing-runtime-file')
+                elif case=='output-writable':output.mkdir(mode=0o700);output.chmod(0o777)
+                elif case=='output-dangling':output.symlink_to(root/'missing-target')
+                elif case=='output-parent-link':
+                    (root/'link').symlink_to(root,target_is_directory=True);output=root/'link'/'absent'
+                elif case=='output-parent-absent':output=root/'missing-parent'/'absent'
+                elif case=='metadata-link':
+                    (root/'linked-metadata').symlink_to(metadata,target_is_directory=True);metadata=root/'linked-metadata'
+                elif case=='metadata-writable':metadata.chmod(0o777)
+                elif case in ('source-link','admission-link'):
+                    target=path if case=='source-link' else admission
+                    target.rename(root/'foreign');target.symlink_to(root/'foreign')
+                elif case in ('source-writable','admission-writable'):
+                    (path if case=='source-writable' else admission).chmod(0o666)
+                elif case in ('source-hardlink','admission-hardlink'):
+                    os.link(path if case=='source-hardlink' else admission,root/'foreign-hardlink')
+                elif case=='source-unbound':
+                    source['provider_execution_sha']='b'*40;path.write_text(json.dumps(source))
+                with self.assertRaises((OSError,ValueError)):sdk_storage.collect(output,metadata,root/'public')
+                self.assertFalse((root/'public').exists())
+
+    def test_unacquired_collection_rejects_metadata_replacement_before_publication(self):
+        import sdk_storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+            source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+            admission=metadata/'admission.json';admission.write_text('{"ready":false,"error_type":"TimeoutExpired"}')
+            original=os.read;changed=False
+            def read(fd,count):
+                nonlocal changed
+                value=original(fd,count)
+                if not changed and b'checkout_sha' in value:
+                    changed=True;admission.write_text('{"ready":false,"error_type":"PermissionError"}')
+                return value
+            with patch.object(phase.os,'read',side_effect=read),self.assertRaises(ValueError):
+                sdk_storage.collect(root/'absent',metadata,root/'public')
+            self.assertTrue(changed);self.assertFalse((root/'public').exists())
+
+    def test_unacquired_collection_publishes_validated_snapshots_without_rereading_metadata(self):
+        import sdk_storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+            source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+            admission=metadata/'admission.json';admission.write_text('{"ready":false,"error_type":"TimeoutExpired"}')
+            destination=root/'public';original=Path.mkdir
+            def mkdir(target,*args,**kwargs):
+                result=original(target,*args,**kwargs)
+                if target==destination:
+                    path.write_text('{"private":"must-not-be-published"}')
+                    admission.write_text('{"private":"must-not-be-published"}')
+                return result
+            with patch.object(Path,'mkdir',mkdir):sdk_storage.collect(root/'absent',metadata,destination)
+            self.assertEqual(json.loads((destination/'source.json').read_text()),source)
+            self.assertEqual(json.loads((destination/'admission.json').read_text()),{'ready':False,'error_type':'TimeoutExpired'})
+
+    def test_unacquired_collection_cannot_follow_a_replaced_public_directory(self):
+        import sdk_storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata,path,source=self.metadata(root)
+            source['scope']=sdk_storage.SCOPE;path.write_text(json.dumps(source))
+            (metadata/'admission.json').write_text('{"ready":false,"error_type":"TimeoutExpired"}')
+            destination=root/'public';foreign=root/'foreign';foreign.mkdir(mode=0o700)
+            original=os.open;changed=False
+            def open_file(target,flags,*args,**kwargs):
+                nonlocal changed
+                if not changed and flags & os.O_CREAT and Path(target).name=='source.json':
+                    changed=True;destination.rename(root/'held-public');destination.symlink_to(foreign,target_is_directory=True)
+                return original(target,flags,*args,**kwargs)
+            with patch.object(sdk_storage.os,'open',side_effect=open_file),self.assertRaises(ValueError):
+                sdk_storage.collect(root/'absent',metadata,destination)
+            self.assertTrue(changed);self.assertEqual(list(foreign.iterdir()),[])
+
     def test_complete_bounded_source_receipt_and_duplicate_keys_never_fall_back(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve();metadata,path,value=self.metadata(root)

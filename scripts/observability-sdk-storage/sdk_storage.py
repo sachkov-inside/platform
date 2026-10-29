@@ -300,7 +300,47 @@ def worker(output):
             diagnostic.persist(output/diagnostics.NAME)
 
 
+def collect_unacquired(output,metadata,destination):
+    try:output.lstat()
+    except FileNotFoundError:pass
+    else:return False
+    # Only a genuinely absent child of a visible canonical parent is pre-owner.
+    if not output.is_absolute() or output.resolve()!=output or not output.parent.is_dir():
+        raise ValueError('closed SDK admission collection refused')
+    paths=(metadata,metadata/'source.json',metadata/'admission.json')
+    before={path:emitter_phase._identity(path.lstat()) for path in paths}
+    if any(path.lstat().st_mode & 0o022 for path in paths):
+        raise ValueError('closed SDK admission collection refused')
+    emitter_phase.source_from_metadata(metadata)
+    source=emitter_phase._decode(emitter_phase._read_bytes(paths[1],1_048_576,mode=None))
+    admission=emitter_phase._decode(emitter_phase._read_bytes(paths[2],256,mode=None))
+    if source['scope']!=SCOPE:raise ValueError('closed SDK admission collection refused')
+    if any(emitter_phase._identity(path.lstat())!=before[path] for path in paths):
+        raise ValueError('closed SDK admission collection refused')
+    if (type(admission) is not dict or set(admission)!={'ready','error_type'} or admission['ready'] is not False
+            or type(admission['error_type']) is not str or admission['error_type'] not in
+            ('OSError','FileNotFoundError','PermissionError','NotADirectoryError','IsADirectoryError',
+             'ValueError','TimeoutExpired','CalledProcessError','SubprocessError')):
+        raise ValueError('closed SDK admission collection refused')
+    # Publish the already-validated snapshots, never re-read mutable metadata via ci.collect.
+    if (output.exists() or output.is_symlink() or destination==output or not destination.is_absolute()
+            or destination.resolve()!=destination or not destination.parent.is_dir()):
+        raise ValueError('closed SDK admission collection refused')
+    destination.mkdir(mode=0o700)
+    directory=emitter_phase._directory(destination/'source.json');initial=os.fstat(directory)
+    try:
+        for name,value in (('source.json',source),('admission.json',admission)):
+            emitter_phase._same_directory(directory,destination/name,initial)
+            fd=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
+            with os.fdopen(fd,'w') as stream:
+                stream.write(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)+'\n')
+            emitter_phase._same_directory(directory,destination/name,initial)
+    finally:os.close(directory)
+    return True
+
+
 def collect(output, metadata, destination):
+    if collect_unacquired(output,metadata,destination):return
     source=emitter_phase.source_from_metadata(metadata)
     projected = diagnostics.read(output/diagnostics.NAME, scope='sdk')
     phase=emitter_phase.load_for_collection(output,source=source)
