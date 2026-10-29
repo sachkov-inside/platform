@@ -13,6 +13,9 @@ from unittest.mock import patch
 import zipfile
 import json
 import urllib.error
+from contextlib import redirect_stdout
+import errno
+from types import SimpleNamespace
 
 from pilot import check_disk
 import pilot
@@ -244,6 +247,115 @@ class PilotPreparationTest(unittest.TestCase):
         self.assertTrue(all(service["security_opt"] == ["no-new-privileges:true"]
                             for service in plan["services"].values()))
         self.assertEqual(plan["services"]["vmauth"]["user"], "1001:1002")
+        self.assert_run_port_admission()
+
+    def assert_run_port_admission(self):
+        class Prepared(Exception):pass
+        native_socket=socket.socket
+        def admit(root,port,*,fault=None):
+            probes=[];operations=[];entered=[];reached=Prepared();caught=None
+            primary=OSError(errno.EACCES,'private-port-sentinel')
+            class Probe(native_socket):
+                def setsockopt(self,*args):
+                    operations.append(('setsockopt',args))
+                    if fault=='setsockopt':raise primary
+                    return super().setsockopt(*args)
+                def bind(self,address):
+                    operations.append(('bind',address))
+                    if fault=='bind':raise primary
+                    return super().bind(address)
+                def listen(self,*_args):raise AssertionError('admission probe must never listen')
+            def factory(*args,**kwargs):
+                value=Probe(*args,**kwargs);probes.append(value);return value
+            def command(args,**_kwargs):
+                if args==['git','-C',str(pilot.ROOT),'status','--porcelain']:return ''
+                if args==['docker','context','show']:return 'controlled-owned-fixture'
+                if args==['docker','compose','ls','--format','json']:return '[]'
+                raise AssertionError('unexpected command before preparation')
+            output=root/'not-created'
+            def prepare(path):
+                self.assertEqual(path,output);self.assertFalse(path.exists());entered.append(path);raise reached
+            with patch.object(pilot,'command',side_effect=command),\
+                 patch.object(pilot.daemon,'identify',return_value={'endpoint':'fixture','storage':str(root)}),\
+                 patch.object(pilot.orbstack,'identify',return_value={'endpoint':'fixture','backing':{'path':str(root)}}),\
+                 patch.object(pilot.shutil,'disk_usage',return_value=SimpleNamespace(total=128*1024**3,free=64*1024**3)),\
+                 patch.object(pilot,'FROZEN_DOCKER_ENDPOINT'),patch.object(pilot,'FROZEN_DOCKER_IDENTITY'),\
+                 patch.object(pilot,'socket',SimpleNamespace(socket=factory,SOL_SOCKET=socket.SOL_SOCKET,SO_REUSEADDR=socket.SO_REUSEADDR)),\
+                 redirect_stdout(io.StringIO()):
+                try:pilot.run(output,ports=(port,),prepare_inputs=prepare)
+                except BaseException as error:caught=error
+            self.assertFalse(output.exists());self.assertEqual(len(probes),1)
+            self.assertTrue(all(value.fileno()==-1 for value in probes))
+            return caught,reached,primary,entered,operations,Probe
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            # Active server close, observed client EOF, then close every descriptor.
+            # This is a reusable-address model, not a claim about native CI TIME_WAIT.
+            with native_socket() as listener:
+                listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                listener.bind(('127.0.0.1',0));listener.listen(1);port=listener.getsockname()[1]
+                with socket.create_connection(('127.0.0.1',port),timeout=1) as client:
+                    accepted,_=listener.accept()
+                    with accepted:accepted.shutdown(socket.SHUT_WR)
+                    self.assertEqual(client.recv(1),b'')
+            self.assertTrue(all(value.fileno()==-1 for value in (listener,client,accepted)))
+            caught,reached,_,entered,operations,_=admit(root,port)
+            def expected_operations(port):
+                return ([('setsockopt',(socket.SOL_SOCKET,socket.SO_REUSEADDR,1))] if sys.platform=='linux' else [])+[('bind',('127.0.0.1',port))]
+            if sys.platform=='darwin':
+                self.assertIsInstance(caught,OSError);self.assertEqual(caught.errno,errno.EADDRINUSE)
+                self.assertEqual(entered,[]);self.assertEqual(operations,expected_operations(port))
+            with self.subTest(actual_native_linux='closed reusable address reaches preparation'):
+                if sys.platform!='linux':self.skipTest('closed-address reuse requires actual native Linux; not emulated')
+                self.assertIs(caught,reached);self.assertEqual(len(entered),1)
+                self.assertEqual(operations,expected_operations(port))
+            def snapshot(value):
+                try:accepting=value.getsockopt(socket.SOL_SOCKET,socket.SO_ACCEPTCONN)
+                except OSError as error:
+                    if error.errno!=errno.ENOPROTOOPT:raise
+                    accepting=None  # Darwin may expose the constant without this getsockopt.
+                return (value.fileno(),value.getsockname(),value.getsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR),
+                    accepting,
+                    value.getsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT) if hasattr(socket,'SO_REUSEPORT') else None)
+            variants=[(False,False),(True,False)]+([(True,True)] if hasattr(socket,'SO_REUSEPORT') else [])
+            for host in ('127.0.0.1','0.0.0.0'):
+                for reuse,reuseport in variants:
+                    with self.subTest(host=host,reuseaddr=reuse,reuseport=reuseport),native_socket() as foreign:
+                        if reuse:foreign.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                        if reuseport:foreign.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT,1)
+                        foreign.bind((host,0));foreign.listen(1);before=snapshot(foreign);port=foreign.getsockname()[1]
+                        caught,_,_,entered,operations,_=admit(root,port)
+                        self.assertEqual(snapshot(foreign),before);self.assertEqual(operations,expected_operations(port))
+                        self.assertIsInstance(caught,OSError);self.assertEqual(caught.errno,errno.EADDRINUSE)
+                        self.assertEqual(entered,[])
+            with native_socket() as foreign:
+                foreign.bind(('127.0.0.1',0));before=snapshot(foreign)
+                caught,_,_,entered,_,_=admit(root,foreign.getsockname()[1])
+                self.assertIsInstance(caught,OSError);self.assertEqual(caught.errno,errno.EADDRINUSE)
+                self.assertEqual(entered,[]);self.assertEqual(snapshot(foreign),before)
+            with native_socket() as unused:
+                unused.bind(('127.0.0.1',0));port=unused.getsockname()[1]
+            caught,reached,_,entered,operations,_=admit(root,port)
+            self.assertIs(caught,reached);self.assertEqual(len(entered),1)
+            self.assertEqual(operations,expected_operations(port))
+            for fault in ('setsockopt','bind'):
+                with self.subTest(fault=fault):
+                    if fault=='setsockopt' and sys.platform!='linux':
+                        self.skipTest('Darwin must not call setsockopt; original bind error tested below')
+                    caught,_,primary,entered,operations,probe=admit(root,0,fault=fault)
+                    self.assertIs(caught,primary);self.assertEqual(entered,[])
+                    frames=[];frame=caught.__traceback__
+                    while frame is not None:frames.append(frame.tb_frame.f_code);frame=frame.tb_next
+                    self.assertIn(getattr(probe,fault).__code__,frames)
+                    self.assertEqual(len(operations),1 if fault=='setsockopt' else 2 if sys.platform=='linux' else 1)
+            with self.subTest(actual_native_linux='inactive SO_REUSEADDR binder can coexist'):
+                if sys.platform!='linux':self.skipTest('inactive reuse-bound semantics require actual native Linux; not emulated')
+                with native_socket() as foreign:
+                    foreign.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                    foreign.bind(('127.0.0.1',0));before=snapshot(foreign)
+                    caught,reached,_,entered,_,_=admit(root,foreign.getsockname()[1])
+                    self.assertIs(caught,reached);self.assertEqual(len(entered),1)
+                    self.assertEqual(snapshot(foreign),before)
 
     def test_diagnostics_failure_cannot_skip_owned_cleanup(self):
         with tempfile.TemporaryDirectory() as directory:
