@@ -417,16 +417,7 @@ describe("Video playback authorization", () => {
       ).authorizeProvider({ providerVideoId: "provider-video", token }),
     ).resolves.toBe(false);
 
-    // The stand key never signs ordinary playback, and a forged play or long token is refused.
-    const play = await standPlayback.createSession({
-      correlationId: "stand-play",
-      materialId,
-      subject: { accountId: account, kind: "account" },
-      videoId,
-    });
-    if (!play.ok || play.value.drmAuthToken === null)
-      throw new Error("stand play token missing");
-    expect(decodeProtectedHeader(play.value.drmAuthToken).alg).toBe("HS256");
+    // A forged play or long token is refused.
     const signing = standPreviewKeys(stand).signing;
     if (signing === undefined) throw new Error("stand signing key missing");
     const forge = (claims: Record<string, unknown>, lifetime: number) =>
@@ -466,6 +457,184 @@ describe("Video playback authorization", () => {
           token: forged,
         }),
       ).resolves.toBe(false);
+  });
+
+  test("lets the stand reader of a materials manager play a protected recording with the stand preview token", async () => {
+    const stand = standKeyHalves();
+    const learner = accountId("81000000-0000-4000-8000-000000000004");
+    const decided = {
+      checkedContentVersion: 1,
+      decidedAt: now.toISOString(),
+      decisionId: "stand-reader-decision",
+      policyVersion: "content-access-v1",
+    } as const;
+    const decide = (
+      input: Parameters<ContentAccess["authorize"]>[0],
+    ): Awaited<ReturnType<ContentAccess["authorize"]>> => {
+      const manager =
+        input.subject.kind === "account" && input.subject.accountId === account;
+      if (input.action === "play")
+        return manager
+          ? { ...decided, effect: "allow", reason: "materials_manager" }
+          : {
+              ...decided,
+              effect: "allow",
+              reason: "active_membership",
+              validUntil: null,
+            };
+      return manager
+        ? { ...decided, effect: "allow", reason: "materials_manager" }
+        : { ...decided, effect: "deny", reason: "permission_required" };
+    };
+    const authorize = vi.fn<ContentAccess["authorize"]>((input) =>
+      Promise.resolve(decide(input)),
+    );
+    const standReader = (
+      keys = standPreviewKeys(stand),
+      recording = { protected: true },
+    ) =>
+      assembleVideoPlayback({
+        clock: () => now,
+        contentAccess: { authorize },
+        jwtSecret: "stand-playback-secret-with-at-least-32-characters",
+        jwtTtlSeconds: 3_600,
+        standPreview: keys,
+        videos: videoDependencies(recording),
+      });
+    const production = assembleVideoPlayback({
+      clock: () => now,
+      contentAccess: { authorize: vi.fn() },
+      jwtSecret: "production-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      standPreview: standPreviewKeys({
+        privateKey: undefined,
+        publicKey: stand.publicKey,
+      }),
+      videos: {
+        ...videoDependencies({ protected: true }),
+        loadPlayback: vi.fn().mockResolvedValue({ ok: true, value: null }),
+      },
+    });
+    const play = (
+      playback: ReturnType<typeof assembleVideoPlayback>,
+      subject: Parameters<typeof playback.createSession>[0]["subject"],
+    ) =>
+      playback.createSession({
+        correlationId: "stand-reader",
+        materialId,
+        subject,
+        videoId,
+      });
+
+    const reader = await play(standReader(), {
+      accountId: account,
+      kind: "account",
+    });
+    // The reader keeps its progress; only the token follows the author preview.
+    expect(reader).toMatchObject({
+      ok: true,
+      value: { progressScope: "account", resumeSeconds: 77, videoId },
+    });
+    if (!reader.ok || reader.value.drmAuthToken === null)
+      throw new Error("stand reader token missing");
+    const token = reader.value.drmAuthToken;
+    expect(decodeProtectedHeader(token).alg).toBe("EdDSA");
+    const claims = decodeJwt(token);
+    expect(claims).toMatchObject({
+      act: "preview",
+      iss: "inside-stand",
+      pid: "provider-video",
+      sub: account,
+    });
+    expect((claims.exp ?? 0) - (claims.iat ?? 0)).toBe(300);
+    expect(authorize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "preview",
+        enforcementPoint: "playback_token_issue",
+        resource: { kind: "video", videoId },
+      }),
+    );
+    await expect(
+      production.authorizeProvider({
+        providerVideoId: "provider-video",
+        token,
+      }),
+    ).resolves.toBe(true);
+
+    // A learner, an anonymous viewer, a public recording and a contour without the private half keep the old path.
+    const learnerSession = await play(standReader(), {
+      accountId: learner,
+      kind: "account",
+    });
+    if (!learnerSession.ok || learnerSession.value.drmAuthToken === null)
+      throw new Error("learner token missing");
+    expect(decodeProtectedHeader(learnerSession.value.drmAuthToken).alg).toBe(
+      "HS256",
+    );
+    expect(decodeJwt(learnerSession.value.drmAuthToken)).not.toHaveProperty(
+      "act",
+    );
+    // Production still refuses the stand's play token.
+    await expect(
+      production.authorizeProvider({
+        providerVideoId: "provider-video",
+        token: learnerSession.value.drmAuthToken,
+      }),
+    ).resolves.toBe(false);
+
+    authorize.mockClear();
+    const anonymous = await play(standReader(), { kind: "anonymous" });
+    if (!anonymous.ok || anonymous.value.drmAuthToken === null)
+      throw new Error("anonymous token missing");
+    expect(decodeProtectedHeader(anonymous.value.drmAuthToken).alg).toBe(
+      "HS256",
+    );
+    await expect(
+      play(standReader(undefined, { protected: false }), {
+        accountId: account,
+        kind: "account",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { drmAuthToken: null } });
+    const verifyOnly = await play(
+      standReader(
+        standPreviewKeys({ privateKey: undefined, publicKey: stand.publicKey }),
+      ),
+      { accountId: account, kind: "account" },
+    );
+    if (!verifyOnly.ok || verifyOnly.value.drmAuthToken === null)
+      throw new Error("verify-only token missing");
+    expect(decodeProtectedHeader(verifyOnly.value.drmAuthToken).alg).toBe(
+      "HS256",
+    );
+    expect(authorize).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: "preview" }),
+    );
+
+    // A preview decision that cannot reach its dependencies answers the session, not a play token.
+    authorize.mockImplementation((input) =>
+      Promise.resolve(
+        input.action === "preview"
+          ? { ...decided, effect: "deny", reason: "dependency_unavailable" }
+          : decide(input),
+      ),
+    );
+    await expect(
+      play(standReader(), { accountId: account, kind: "account" }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    });
+    authorize.mockImplementation((input) => Promise.resolve(decide(input)));
+
+    // A denied play issues no session, whatever the subject could preview.
+    authorize.mockResolvedValueOnce({
+      ...decided,
+      effect: "deny",
+      reason: "resource_unpublished",
+    });
+    await expect(
+      play(standReader(), { accountId: account, kind: "account" }),
+    ).resolves.toEqual({ ok: false, error: { code: "access_denied" } });
   });
 
   test("maps progress to the strict Videos port without leaking Material context", async () => {

@@ -71,11 +71,12 @@ export interface VideoPlayback {
 }
 
 /**
- * The stand's author preview of a protected recording: production's callback has no stand Video
- * to check, so it trusts the stand's Ed25519 signature for a short preview only (#1808).
+ * The stand's author preview of a protected recording, and a materials manager's reading of one
+ * on the stand (#1819): production's callback has no stand Video to check, so it trusts the
+ * stand's Ed25519 signature for a short `act=preview` token only (#1808).
  */
 export interface StandPreviewKeys {
-  /** On the stand: signs a preview of a protected recording. */
+  /** On the stand: signs a preview of a protected recording, or a materials manager's reading of one. */
   readonly signing?: KeyObject;
   /** On production: accepts such a preview in the provider callback. */
   readonly verification?: KeyObject;
@@ -184,11 +185,20 @@ export function assembleVideoPlayback(dependencies: {
       // A protected recording needs a token for every viewer, including an anonymous one of a
       // free Material: access is the Material's and may change without moving the recording.
       const standSigning = dependencies.standPreview?.signing;
+      const standPreview =
+        standSigning === undefined || !loaded.value.protected
+          ? "deny"
+          : action === "preview"
+            ? "allow"
+            : await managerReading(input);
+      if (standPreview === "dependency_unavailable")
+        return failure("dependency_unavailable");
       const drmAuthToken = !loaded.value.protected
         ? null
-        : action === "preview" && standSigning !== undefined
+        : standSigning !== undefined && standPreview === "allow"
           ? await new SignJWT({
-              act: action,
+              // Production accepts the stand key for previews only; a manager's reading is one too.
+              act: "preview",
               pid: loaded.value.providerVideoId,
             })
               .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
@@ -348,6 +358,32 @@ export function assembleVideoPlayback(dependencies: {
     },
   };
   return Object.freeze(playback);
+
+  /**
+   * Whether a reader on the stand may also preview the Video (`materials:manage`): production
+   * refuses the stand's play tokens, so a manager's reading takes the preview token once play
+   * itself is allowed (#1819). A dependency failure answers the session as one: the play token
+   * would only fail later in the player.
+   */
+  async function managerReading(input: {
+    readonly correlationId: string;
+    readonly subject: Subject;
+    readonly videoId: string;
+  }): Promise<"allow" | "deny" | "dependency_unavailable"> {
+    if (input.subject.kind !== "account") return "deny";
+    const decision = await dependencies.contentAccess.authorize({
+      action: "preview",
+      correlationId: input.correlationId,
+      enforcementPoint: "playback_token_issue",
+      resource: { kind: "video", videoId: input.videoId },
+      subject: input.subject,
+    });
+    return decision.effect === "allow"
+      ? "allow"
+      : decision.reason === "dependency_unavailable"
+        ? "dependency_unavailable"
+        : "deny";
+  }
 
   /** Throws for a token that fails verification; the caller refuses it. */
   async function authorizeStandPreview(input: {
