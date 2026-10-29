@@ -18,6 +18,8 @@ export interface CourseReadingStep {
   readonly kind: "material" | "task";
   readonly placementId?: string;
   readonly availability: "available" | "locked" | "unavailable";
+  /** Уровень доступа шага, не зависящий от читателя; без него шаг считается открытым. */
+  readonly access?: "free" | "closed";
   readonly materialOrdinal?: number;
   readonly taskOrdinal?: number;
   readonly taskSubmitted?: boolean;
@@ -85,6 +87,7 @@ interface CourseSource {
         readonly slug: string;
         readonly title: string;
         readonly materialId?: string | undefined;
+        readonly access?: "free" | "closed" | undefined;
         readonly availability?:
           "available" | "locked" | "unavailable" | undefined;
       }[]
@@ -161,6 +164,7 @@ export function courseReadingContext({
               .findIndex((entry) => entry.code === task.code) + 1,
           href: productTaskHref(product.reference.slug, task.code),
           availability: task.availability,
+          access: task.access,
         }));
       const visited = new Set<string>();
       const chapterPlacements = placements.filter(
@@ -208,6 +212,7 @@ export function courseReadingContext({
                   : { placementId: placement.id }),
                 href: internalRoute(`${url.pathname}${url.search}`),
                 availability: item.availability ?? "available",
+                ...(item.access === undefined ? {} : { access: item.access }),
                 materialOrdinal:
                   placements.findIndex((entry) => entry.id === placement.id) +
                   1,

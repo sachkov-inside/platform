@@ -268,7 +268,7 @@ function ProgrammePurchase({
       className={`product-purchase-cta ${billingActionClass}`}
       data-product-offer={offer?.paymentOption.id}
     >
-      <Link href={invitation.href}>Оплатить сейчас</Link>
+      <Link href={invitation.href}>Приобрести доступ</Link>
     </Button>
   );
   // Пока поток набирается, рядом с ценой — компактная оранжевая кнопка предзаказа справа: она не

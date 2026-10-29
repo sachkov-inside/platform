@@ -444,8 +444,14 @@ Materials show matching return, bookmark and study panels before the title and a
 The article has no automatic contents disclosure. Both panels share saved state, pending commands and failure handling.
 Standalone panels align bookmark and study actions to the right on desktop and phones. When the
 source is Home, the header omits the redundant Home breadcrumb. A locked Material with a known
-Product membership links «Получить доступ» to that Product landing, including before an offer
-is available; purchase availability remains owned by the landing and checkout.
+Product membership links «Приобрести курс» to that Product's checkout while the Product is sold to
+this reader, and «Получить доступ» to the Product landing otherwise, including before an offer is
+available (owner decision 29.10.2026, #1647). A free Material read inside its checked Product
+programme ends, after practice and before the bottom actions and course navigation, with a purchase
+call for a signed-in reader whose Product access is closed: one row shows the locked next step with a
+lock and its title, or the «Бесплатно» badge when the next step is not closed, and links «Приобрести курс» to checkout while the Product is sold or «Подробнее о
+курсе» to the landing otherwise. The call is read per request outside the shared cache and prefetch;
+it is absent for guests, for readers with open Product access, and when access or sale cannot be read.
 Within a checked Product,
 Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
 The Material's bottom actions follow any practice workspace and precede course navigation.
@@ -675,12 +681,19 @@ Account без права получают «не найдено». `ContentAcce
 первый экран рядом с названием показывает анимацию курса на холсте (harness проекта, роли агентов,
 спецификация, фичи, CI и мониторинг) без кнопки паузы; при reduced motion — неподвижный итоговый кадр.
 Известные блоки (`mentoring`, `topics`, `value`, `format`, `practice`, `agents`, `audience`, `faq`,
-`status`) получают свои значки и иллюстрации, остальные рисуются по виду. Разделы проявляются при
+`status`) получают свои значки и иллюстрации, остальные рисуются по виду. Блок `trial` появляется,
+пока в курсе есть бесплатный урок, и его ссылка ведёт в программу. Когда в курсе есть бесплатные
+уроки, тот, кому курс закрыт, видит на анимации первого экрана «Попробовать бесплатно», и то же
+второе действие стоит в билете нижнего блока; оба ведут в программу. Тогда первый экран без продажи
+и списка ожидания не повторяет «Открыть программу». Билет нижнего блока стоит на
+анонсе и предзаказе, а после старта и между потоками, пока продукт продаётся этому человеку,
+продаёт доступ: «Доступ к курсу», цена предложения, зачёркнутая цена потока со скидкой, если она
+выше, и «Приобрести доступ» на страницу оплаты. Пока набор идёт через список ожидания, билет
+принимает запись (решение владельца 29.10.2026, #1647). Разделы проявляются при
 прокрутке средствами CSS. Весь текст — ключ `page` в манифесте `guide.yaml` продукта `inside-ai-engineering` в Engineering Content;
 обложка продукта оттуда же показывается в программе и каталоге. Прохождение остаётся на
-странице программы: туда ведут кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
-над ней стоит плашка потока, а сама она ведёт по этапу продаж
-([поток продукта](subscription-billing-v1.md#поток-продукта-814), #814). Глава без опубликованных уроков показывает там своё описание и
+странице программы: туда ведут кнопки, кроме первого экрана при заведённом потоке и кнопки оплаты
+в билете нижнего блока ([поток продукта](subscription-billing-v1.md#поток-продукта-814), #814, #1647). Глава без опубликованных уроков показывает там своё описание и
 пометку «Материалы готовятся»; с первым уроком она становится обычной главой. Компактная карточка курса на Главной показывает название,
 анимацию и переход к курсу, чтобы фильтры и начало библиотеки были видны на первом экране.
 На компьютере короткое описание находится слева, а уменьшенная анимация справа.
@@ -833,7 +846,8 @@ landing-page promises retain their current owners. Prices and access contracts r
 действие. Дополнительного текста о Telegram и кнопки отказа на странице нет.
 Нижний блок сохраняет композицию набора на первый поток: преимущества слева, билет справа.
 До открытия предзаказа цена и скидка скрыты, показано «Предзаказ скоро начнётся», в билете
-доступны запись в список ожидания и «Открыть программу».
+доступны запись в список ожидания и «Попробовать бесплатно» (или «Открыть программу», если
+бесплатных уроков нет).
 Существующий доступ сохраняет только личное действие обучения. Такой Account не может вступить
 в список и исключается из текущего членства, аудитории уведомлений и активного количества в отчёте.
 Исторические события записи сохраняются. Существующее членство без учебного доступа остаётся

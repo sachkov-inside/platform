@@ -25,6 +25,7 @@ const call = (
     productAccess: ProductAccess;
     signedIn: boolean;
     continuationMaterialSlug: string | null;
+    freeStart: boolean;
   }> = {},
 ) =>
   cohortCall({
@@ -82,67 +83,66 @@ describe("first screen call of a product cohort", () => {
     ).toEqual(guest.action);
   });
 
-  it("only announces the pre-order on the first screen and asks to pay with the price while running", () => {
-    const price = new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "RUB",
-      maximumFractionDigits: 0,
-    }).format(productWithSupportOffer.firstPriceKopecks / 100);
-    // Предзаказ оформляют внизу страницы: первый экран сообщает о наборе и ведёт к цене.
-    expect(call().banner).toEqual({
-      kind: "live",
-      text: "Идёт набор на первый поток",
-      detail: "",
-      href: "#enroll",
-    });
-    expect(call().action).toBeNull();
-    expect(call({ cohort: { ...cohort, stage: "running" } }).action).toEqual({
-      kind: "purchase",
-      href: "/products/ai-engineering/buy",
-      label: `Оплатить ${price}`,
-    });
-    expect(call({ cohort: { ...cohort, stage: "running" } }).banner?.text).toBe(
-      "Стартовал 20 октября. Присоединиться можно в любой момент",
-    );
-  });
-
-  it("names the next event between cohorts", () => {
-    const between = call({
-      cohort: {
-        ...cohort,
-        stage: "between",
-        startsOn: null,
-        nextEvent: "эфир 15 декабря",
+  it("only announces enrolment on the first screen and leads to the ticket below (#1647)", () => {
+    // Предзаказ и покупку оформляют в билете внизу страницы: первый экран сообщает о наборе.
+    expect(call()).toEqual({
+      banner: {
+        kind: "live",
+        text: "Идёт набор на первый поток",
+        detail: "",
+        href: "#enroll",
       },
+      action: null,
     });
-    expect(between.banner?.text).toBe(
-      "Курс открыт. Следующий поток: эфир 15 декабря",
-    );
-    expect(between.action).toMatchObject({
-      kind: "purchase",
-      label: "Оплатить",
-    });
-    // The banner does not promote the legal support duration.
-    expect(between.banner?.detail).toBe("Проходи в своём темпе");
-    expect(
-      call({ cohort: { ...cohort, stage: "between" }, offer: null }).banner
-        ?.detail,
-    ).toBe("Проходи в своём темпе");
+    // После старта и между потоками цены и кнопки оплаты на первом экране нет (решение владельца
+    // 29.10.2026): метка набора ведёт к билету с ценой.
+    for (const stage of ["running", "between"] as const)
+      expect(call({ cohort: { ...cohort, stage } })).toEqual({
+        banner: {
+          kind: "live",
+          text: "Идёт набор на курс",
+          detail: "",
+          href: "#enroll",
+        },
+        action: null,
+      });
   });
 
-  it("hides payment without a sale and from a person the product is open to", () => {
-    const running = { ...cohort, stage: "running" } as const;
-    expect(call({ cohort: running, offer: null }).action?.kind).toBe(
-      "programme",
-    );
-    expect(
-      call({ cohort: running, productAccess: "unknown" }).action?.kind,
-    ).toBe("purchase");
-    for (const stage of ["running", "between"] as const)
+  it("leads to the programme without a sale and opens it to a person the product is open to", () => {
+    for (const stage of ["running", "between"] as const) {
+      expect(call({ cohort: { ...cohort, stage }, offer: null })).toEqual({
+        banner: null,
+        action: {
+          kind: "programme",
+          href: "/products/ai-engineering/programme",
+          label: "Открыть программу",
+        },
+      });
       expect(
         call({ cohort: { ...cohort, stage }, productAccess: "open" }).action
           ?.kind,
       ).toBe("programme");
+    }
+  });
+});
+
+describe("first screen of a course with free lessons (#1647)", () => {
+  it("leaves the programme to the try-free call on the animation", () => {
+    // Анимация уже зовёт «Попробовать бесплатно» в программу: вторая кнопка туда же лишняя.
+    for (const current of [
+      { ...cohort, stage: "announcement" as const },
+      { ...cohort, stage: "running" as const },
+      { ...cohort, stage: "between" as const },
+    ])
+      expect(
+        call({ cohort: current, offer: null, freeStart: true }).action,
+      ).toBeNull();
+  });
+
+  it("keeps the learner's own action", () => {
+    expect(call({ productAccess: "open", freeStart: true }).action?.label).toBe(
+      "Открыть программу",
+    );
   });
 });
 

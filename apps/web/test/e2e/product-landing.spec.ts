@@ -11,7 +11,7 @@ test("страница продукта отвечает и не продаёт"
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   // Продажа целиком уехала в программу: со страницы продукта купить нельзя.
   await expect(
-    page.getByRole("link", { name: /Оплатить сейчас/u }),
+    page.getByRole("link", { name: /Приобрести доступ/u }),
   ).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Купить за/u })).toHaveCount(0);
 });

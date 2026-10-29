@@ -119,6 +119,10 @@
   position: relative;
   min-width: 0;
 }
+/* Действие на нижнем крае анимации выступает на половину высоты: место под ним есть заранее. */
+.aie-hero-film[data-film-action] {
+  margin-bottom: 1.25rem;
+}
 
 @media (max-width: 47.999rem) {
   /*

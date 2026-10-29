@@ -52,7 +52,7 @@ describe("cohort recruitment plaque in the course status block", () => {
     expect(status?.discount).toBeNull();
   });
 
-  it("announces without a purchase and steps aside once the cohort runs or the product is open", () => {
+  it("announces without a purchase and steps aside when the product is open or nothing is set", () => {
     const announcement = cohortStatus({
       cohort: { ...cohort, stage: "announcement" },
       offer,
@@ -65,19 +65,89 @@ describe("cohort recruitment plaque in the course status block", () => {
       "Предзаказ откроется скоро. До старта курс будет стоить дешевле.",
     );
     expect(
-      cohortStatus({
-        cohort: { ...cohort, stage: "running" },
-        offer,
-        productAccess: "closed",
-        slug,
-      }),
-    ).toBeNull();
-    expect(
       cohortStatus({ cohort, offer, productAccess: "open", slug }),
     ).toBeNull();
     expect(
       cohortStatus({ cohort: null, offer, productAccess: "closed", slug }),
     ).toBeNull();
+  });
+
+  it("sells access with the price once the cohort runs or between cohorts (#1647)", () => {
+    const running = cohortStatus({
+      cohort: { ...cohort, stage: "running" },
+      offer,
+      productAccess: "closed",
+      slug,
+      today,
+    });
+    expect(running).toMatchObject({
+      kind: "access",
+      countdown: null,
+      title: "Присоединяйся к курсу",
+      // Цена предложения ниже цены потока: она зачёркнута, рядом скидка (решение владельца 29.10.2026).
+      discount: "−25\u00a0%",
+      purchaseHref: "/products/ai-engineering/buy",
+    });
+    expect(running?.price?.price).toMatch(/^29\s900\s₽$/u);
+    expect(running?.price?.priceAfterStart).not.toBeNull();
+    const fullPrice = cohortStatus({
+      cohort: {
+        ...cohort,
+        stage: "running",
+        priceAfterStartKopecks: 2_990_000,
+      },
+      offer,
+      productAccess: "closed",
+      slug,
+    });
+    expect(fullPrice?.price?.priceAfterStart).toBeNull();
+    expect(fullPrice?.discount).toBeNull();
+    const between = cohortStatus({
+      cohort: {
+        ...cohort,
+        stage: "between",
+        startsOn: null,
+        nextEvent: "весной",
+      },
+      offer,
+      productAccess: "closed",
+      slug,
+    });
+    expect(between).toMatchObject({
+      kind: "access",
+      purchaseHref: "/products/ai-engineering/buy",
+    });
+    expect(between?.text).toContain("Следующий поток: весной");
+  });
+
+  it("leaves a running cohort without a sale to the block text", () => {
+    expect(
+      cohortStatus({
+        cohort: { ...cohort, stage: "running" },
+        offer: null,
+        productAccess: "closed",
+        slug,
+      }),
+    ).toBeNull();
+  });
+
+  it("invites to try for free when the course has free lessons (#1647)", () => {
+    expect(
+      cohortStatus({
+        cohort,
+        offer,
+        productAccess: "closed",
+        slug,
+        freeStart: true,
+      })?.freeStart,
+    ).toBe(true);
+    expect(
+      cohortStatus({ cohort, offer, productAccess: "closed", slug })?.freeStart,
+    ).toBe(false);
+    expect(
+      cohortStatus({ cohort, offer, productAccess: "closed", slug, today })
+        ?.kind,
+    ).toBe("preorder");
   });
 
   it("keeps the programme button when nothing is for sale", () => {

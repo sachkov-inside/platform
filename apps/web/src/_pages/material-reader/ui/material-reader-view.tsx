@@ -61,6 +61,8 @@ export interface MaterialReaderViewProps {
   readonly submissionWorkspace?: ReactNode;
   /** Streaming practice precedes completion actions and course navigation. */
   readonly deferredPracticeActions?: ReactNode;
+  /** Призыв к покупке в конце бесплатного урока курса: стоит перед действиями и шагами (#1647). */
+  readonly purchaseCall?: ReactNode;
   /**
    * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
    * страница, потому что подсказка должна стоять у шага, который читатель действительно видит.
@@ -85,6 +87,7 @@ export function MaterialReaderView({
   practiceActions,
   submissionWorkspace,
   deferredPracticeActions,
+  purchaseCall,
   modeHint,
   modeSwitch,
 }: MaterialReaderViewProps) {
@@ -226,6 +229,7 @@ export function MaterialReaderView({
               {deferredPracticeActions}
             </div>
           )}
+          {purchaseCall}
           <div className="mt-5" data-material-actions data-reader-footer>
             <ReaderTopActions
               position="bottom"
