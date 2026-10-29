@@ -37,7 +37,9 @@ class ClosedProtocol(unittest.TestCase):
             do_GET=request
             do_POST=request
         server=HTTPServer(('127.0.0.1',0),Handler)
-        thread=threading.Thread(target=lambda:server.serve_forever(poll_interval=.01))
+        # Every subcase owns a server. Bound idle shutdown polling so repeated
+        # fixtures leave room for the full suite's unchanged 30-second budget.
+        thread=threading.Thread(target=lambda:server.serve_forever(poll_interval=.001))
         connection=http.client.HTTPConnection
         class Connection(connection):
             def __init__(self,host,port,**kwargs):
