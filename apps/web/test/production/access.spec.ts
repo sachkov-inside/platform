@@ -123,7 +123,10 @@ function watchLicences(page: Page) {
     else refused.push(response.status());
   };
   page.context().on("response", listener);
+  const stop = () => page.context().off("response", listener);
   return {
+    /** Снимает слежение, если до `outcome` дело не дошло; повторный вызов безвреден. */
+    stop,
     async outcome(budgetMs: number): Promise<number | null> {
       try {
         if (!granted)
@@ -137,7 +140,7 @@ function watchLicences(page: Page) {
         if (!(error instanceof errors.TimeoutError)) throw error;
         return refused.at(-1) ?? null;
       } finally {
-        page.context().off("response", listener);
+        stop();
       }
     },
   };
@@ -705,11 +708,11 @@ test("production access observes every live cell in one isolated scenario", asyn
     slug: string,
   ): Promise<Observation> {
     const page = await context.newPage();
+    const licences = watchLicences(page);
     try {
       const sessionRequest = page.waitForRequest(isPlaybackSessionRequest);
       // A closed lesson sends no request: the page closes with the wait still pending.
       sessionRequest.catch(() => undefined);
-      const licences = watchLicences(page);
       await page.goto(`/materials/${slug}`);
       if (!(await readerAvailable(page)))
         return await browserDenial(
@@ -734,7 +737,7 @@ test("production access observes every live cell in one isolated scenario", asyn
         throw new Error(
           "The recording plays without a token: it proves no protected delivery",
         );
-      if (actor === "learner-product-a")
+      if (actor === "learner-product-a" && slug === productA.videoMaterialSlug)
         learnerA.video = {
           session: playbackSessionInputSchema.parse(request.postDataJSON()),
           embedLocator: session.embedLocator,
@@ -757,6 +760,7 @@ test("production access observes every live cell in one isolated scenario", asyn
             `playback session с токеном; лицензия Kinescope HTTP ${String(licence)}`,
           );
     } finally {
+      licences.stop();
       await page.close();
     }
   }
@@ -821,21 +825,24 @@ test("production access observes every live cell in one isolated scenario", asyn
     const source = new URL(embedLocator);
     source.searchParams.set("dnt", "1");
     const licences = watchLicences(page);
-    await page.evaluate((src) => {
-      const frame = document.createElement("iframe");
-      frame.src = src;
-      frame.allow = "autoplay; encrypted-media";
-      frame.dataset["passTokenlessPlayer"] = "";
-      frame.style.cssText =
-        "position:fixed;inset:0;width:640px;height:360px;z-index:2147483647";
-      document.body.append(frame);
-    }, source.href);
-    const player = page.locator("[data-pass-tokenless-player]");
-    await expect(
-      page.frameLocator("[data-pass-tokenless-player]").locator("video"),
-    ).toBeAttached();
-    await player.click();
-    return licences.outcome(tokenlessLicenceBudgetMs);
+    try {
+      await page.evaluate((src) => {
+        const frame = document.createElement("iframe");
+        frame.src = src;
+        frame.allow = "autoplay; encrypted-media";
+        frame.dataset["passTokenlessPlayer"] = "";
+        frame.style.cssText =
+          "position:fixed;inset:0;width:640px;height:360px;z-index:2147483647";
+        document.body.append(frame);
+      }, source.href);
+      await expect(
+        page.frameLocator("[data-pass-tokenless-player]").locator("video"),
+      ).toBeAttached({ timeout: tokenlessLicenceBudgetMs });
+      await page.locator("[data-pass-tokenless-player]").click();
+      return await licences.outcome(tokenlessLicenceBudgetMs);
+    } finally {
+      licences.stop();
+    }
   }
 
   async function observeMaterialsAuthoring(

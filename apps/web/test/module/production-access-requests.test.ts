@@ -236,6 +236,7 @@ describe("production access pass request allowlist", () => {
 
     for (const [method, url] of [
       ["POST", "https://player-metrics.kinescope.io/v1/batch/gzip"],
+      ["POST", "https://sentry.kinescope.io/api/3/envelope/"],
       ["POST", `https://kinescope.io/${recording}/master.m3u8`],
       ["POST", "https://license.kinescope.io/v1/vod/x/release"],
       ["GET", "https://license.kinescope.io/v1/vod/x/release"],
