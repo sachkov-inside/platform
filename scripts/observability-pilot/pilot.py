@@ -257,8 +257,10 @@ except BaseException:
         primary=sys.exc_info()[1];cleanup_error=None
         try:
             if process.poll() is None:process.kill()
-            process.wait(timeout=1)
         except BaseException as error:cleanup_error=error
+        try:process.wait(timeout=1)
+        except BaseException as error:
+            if cleanup_error is None:cleanup_error=error
         for stream in (process.stdin,process.stdout):
             if stream is None:continue
             try:stream.close()

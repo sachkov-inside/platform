@@ -178,6 +178,33 @@ class ArchiveDownload(unittest.TestCase):
                     self.assertIn(captured[0][1],frames);self.reaped(records);raise
             self.assertIs(caught.exception,captured[0][0]);self.assertTrue(entered.is_set())
 
+    def test_timeout_still_waits_after_actual_kill_raises_secondary_error(self):
+        captured=[];waited=[];killed=[];secondary=OSError('private-secondary-kill')
+        def observe(child):
+            communicate=child.communicate;kill=child.kill;wait=child.wait
+            def timed(*args,**kwargs):
+                try:return communicate(*args,**kwargs)
+                except subprocess.TimeoutExpired as error:captured.append((error,error.__traceback__));raise
+            def kill_then_fail():
+                kill();child.kill=kill;killed.append(child.pid);raise secondary
+            def actual_wait(*args,**kwargs):
+                result=wait(*args,**kwargs);waited.append((child.pid,args,kwargs,result));return result
+            child.communicate=timed;child.kill=kill_then_fail;child.wait=actual_wait
+        with self.stalled_handshake() as (url,entered),self.children(communicate=observe) as records,patch.object(pilot,'ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS',.5):
+            with self.assertRaises(subprocess.TimeoutExpired) as caught:
+                try:pilot.downloaded_asset(self.asset(url,b'x'))
+                except subprocess.TimeoutExpired as error:
+                    frames=[];frame=error.__traceback__
+                    while frame is not None:frames.append(frame);frame=frame.tb_next
+                    self.assertIs(error,captured[0][0]);self.assertIn(captured[0][1],frames)
+                    self.assertTrue(entered.is_set(),'real child reached owned TLS endpoint')
+                    self.assertEqual(killed,[records[0][0].pid])
+                    self.assertEqual(len(waited),1,'actual bounded wait must run even after kill raises')
+                    self.assertEqual(waited[0][1:3],((),{'timeout':1}))
+                    self.assertEqual(waited[0][3],-signal.SIGKILL)
+                    self.reaped(records);raise
+            self.assertIs(caught.exception,captured[0][0])
+
     def test_invalid_pinned_size_refuses_before_any_child(self):
         for size in (False,0,-1,128*1024**2+1):
             with self.subTest(size=size),patch.object(pilot.subprocess,'Popen',side_effect=AssertionError('must refuse before acquisition')):
