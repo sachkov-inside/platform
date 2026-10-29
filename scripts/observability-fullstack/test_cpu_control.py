@@ -1,4 +1,5 @@
 """CPU-policy control at real plan, native dispatch and publication boundaries."""
+from test_protocol_runner import inverse_protocol_workflow
 import copy
 import hashlib
 import json
@@ -673,7 +674,7 @@ class CpuControl(unittest.TestCase):
                 with patch.object(fullstack.hosted,'context'),patch.dict(os.environ,{'GITHUB_EVENT_PATH':str(path),'CPU_CONTROL_JOB_STARTED':str(__import__('time').monotonic()),'PILOT_PR_HEAD_SHA':'b'*40,'PILOT_PR_BASE_SHA':'c'*40}),self.assertRaises(ValueError):cpu.admission(fullstack)
 
     def test_cpu_job_is_additive_exact_marker_only_and_keeps_original_outer_bound(self):
-        workflow=(fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text()
+        workflow=inverse_protocol_workflow((fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text())
         original,cpu=workflow.split('\n  cpu-control:\n')
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(),'ca4ec8506cb187f7256421d910011d016d089bbe407f228c6ab8d436d26187d7')
         self.assertIn("contains(github.event.pull_request.body || '', '<!-- monitoring-cpu-control: app-unlimited-v1 -->')",cpu)

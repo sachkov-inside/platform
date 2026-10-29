@@ -83,7 +83,7 @@ class OwnershipDiagnostics(unittest.TestCase):
             runtime.change=change
             error,run=runtime.fail_worker(self)
             self.assertIs(error,original)
-            self.assertEqual(run['phase'],'ownership_metrics_lookup_read')
+            self.assertEqual(run['phase'],'ownership_metrics_lookup_read_command')
             self.assertEqual(run['reason'],'unknown')
             self.assertNotIn('private-controlled',json.dumps(run))
 
@@ -116,8 +116,10 @@ class OwnershipDiagnostics(unittest.TestCase):
                     self.assertEqual(run['reason'],'contract')
         self.assertEqual(observed,expected)
         self.assertEqual(len(observed),158)
-        self.assertEqual(set(evidence.OWNERSHIP_PHASES),expected)
-        for phase in expected:
+        precise={'ownership_'+role+'_'+gate+'_'+boundary for role in expected_roles
+            for gate in ('lookup_read','inspect_read','runtime_read') for boundary in ('identity','command')}
+        self.assertEqual(set(evidence.OWNERSHIP_PHASES),expected|precise)
+        for phase in expected|precise:
             run=evidence.Run();run.start(phase);run.fail('contract');record=evidence.validate(run.snapshot())
             self.assertEqual(set(record),{'schema','scope','state','phase','reason','cases'})
             self.assertLess(len(json.dumps(record).encode()),8192)
@@ -219,6 +221,34 @@ class OwnershipDiagnostics(unittest.TestCase):
             with self.subTest(case=case):self.assertEqual(outcomes[0],outcomes[1])
 
     def test_owned_read_failures_preserve_identity_and_exact_type_categories(self):
+        # Extend this already selected source-test ID across every fixed role/read.
+        actual_write=caddy_storage.artifact.write_run
+        for role in ('metrics','logs','traces','alloy','vmauth','gateway','grafana','horizon'):
+            for gate in ('lookup_read','inspect_read','runtime_read'):
+                for boundary in ('identity','command'):
+                    with self.subTest(role=role,gate=gate,boundary=boundary),tempfile.TemporaryDirectory() as directory:
+                        runtime=Runtime(directory);original=TimeoutError('private-controlled-error');events=[];phase=['acquisition']
+                        target='ownership_'+role+'_'+gate+'_'+boundary
+                        def write(output,run):
+                            phase[0]=run['phase'];return actual_write(output,run)
+                        def identity():
+                            events.append(('identity',phase[0]))
+                            if phase[0]==target:raise original
+                        def command(argv,**kwargs):
+                            events.append(('command',phase[0],kwargs))
+                            if phase[0]==target:raise original
+                            return runtime.read(argv,**kwargs)
+                        error,run=runtime.fail_worker(self,(patch.object(pilot,'assert_docker_identity',side_effect=identity),
+                            patch.object(pilot,'command',side_effect=command),patch.object(caddy_storage.artifact,'write_run',side_effect=write)))
+                        self.assertIs(error,original);self.assertEqual(run['reason'],'timeout')
+                        self.assertEqual(run['phase'],target)
+                        matching=[event for event in events if len(event)>1 and event[1]==target]
+                        self.assertEqual(len(matching),1)
+                        if boundary=='command':
+                            self.assertEqual(matching[0][2],{'timeout':10})
+                            position=events.index(matching[0])
+                            self.assertEqual(events[position-1],('identity','ownership_'+role+'_'+gate+'_identity'))
+                        self.assertNotIn('private-controlled',json.dumps(run))
         originals=(subprocess.CalledProcessError(1,['private-controlled-command'],stderr='private-controlled-detail'),
             FileNotFoundError('private-controlled-path'),PermissionError('private-controlled-path'),OSError('private-controlled-error'),
             TimeoutError('private-controlled-error'),subprocess.TimeoutExpired(['private-controlled-command'],10),
@@ -231,7 +261,7 @@ class OwnershipDiagnostics(unittest.TestCase):
                 self.assertIs(error,original)
                 expected='timeout' if type(original) in (TimeoutError,subprocess.TimeoutExpired) else 'interrupted' if type(original) is KeyboardInterrupt else 'unknown' if type(original) is RuntimeError else 'transport'
                 self.assertEqual(run['reason'],expected)
-                self.assertEqual(run['phase'],'ownership_metrics_lookup_read')
+                self.assertEqual(run['phase'],'ownership_metrics_lookup_read_command')
                 self.assertNotIn('private-controlled',json.dumps(run))
 
     def test_plan_and_witness_io_are_distinct_and_keep_the_actual_exception(self):
@@ -263,7 +293,7 @@ class OwnershipDiagnostics(unittest.TestCase):
                             value=json.loads(result);value['logging']='none' if value['logging']!='none' else 'json-file';return json.dumps(value)
                         return result
                     runtime.change=change;error,run=runtime.fail_worker(self)
-                    self.assertEqual(run['phase'],'ownership_'+role+'_'+gate)
+                    self.assertEqual(run['phase'],'ownership_'+role+'_'+gate+('_command' if gate=='runtime_read' else ''))
                     self.assertEqual(run['reason'],'transport' if gate=='runtime_read' else 'contract')
                     if gate=='runtime_read':self.assertIs(error,original)
                     self.assertEqual(set(run['cases'].values()),{'unrun'})
@@ -311,16 +341,17 @@ class OwnershipDiagnostics(unittest.TestCase):
 
     def test_marker_persistence_refusal_prevents_the_blocking_lookup(self):
         actual_write=caddy_storage.artifact.write_run
-        with tempfile.TemporaryDirectory() as directory:
-            runtime=Runtime(directory);original=PermissionError('private-controlled-marker')
-            def write(output,run):
-                if run['phase']=='ownership_metrics_lookup_read':raise original
-                return actual_write(output,run)
-            error,run=runtime.fail_worker(self,(patch.object(caddy_storage.artifact,'write_run',side_effect=write),))
-            self.assertIs(error,original)
-            self.assertNotIn(runtime.fake.compose+['ps','-q','metrics'],runtime.commands)
-            self.assertEqual(set(run['cases'].values()),{'unrun'})
-            self.assertFalse((runtime.output/'source-freshness-owned.json').exists())
+        for marker in ('ownership_metrics_lookup_read','ownership_metrics_lookup_read_identity','ownership_metrics_lookup_read_command'):
+            with self.subTest(marker=marker),tempfile.TemporaryDirectory() as directory:
+                runtime=Runtime(directory);original=PermissionError('private-controlled-marker')
+                def write(output,run):
+                    if run['phase']==marker:raise original
+                    return actual_write(output,run)
+                error,run=runtime.fail_worker(self,(patch.object(caddy_storage.artifact,'write_run',side_effect=write),))
+                self.assertIs(error,original)
+                self.assertNotIn(runtime.fake.compose+['ps','-q','metrics'],runtime.commands)
+                self.assertEqual(set(run['cases'].values()),{'unrun'})
+                self.assertFalse((runtime.output/'source-freshness-owned.json').exists())
 
     def test_predicate_markers_are_memory_only_and_stop_after_initial_registration(self):
         actual_write=caddy_storage.artifact.write_run
@@ -339,8 +370,9 @@ class OwnershipDiagnostics(unittest.TestCase):
             ownership=[phase for phase,state,logging in written if phase in evidence.OWNERSHIP_PHASES and logging=='unrun']
             self.assertEqual([phase for phase,state,logging in written if phase in evidence.OWNERSHIP_PHASES and logging=='passed'],['ownership_horizon_runtime_contract'])
             allowed={'ownership_plan','ownership_witness'}|{'ownership_'+role+'_'+gate for role in core.CORE_ROLES for gate in ('lookup_read','inspect_read','runtime_read')}
+            allowed.update(evidence.OWNERSHIP_IO_PHASES)
             self.assertEqual(set(ownership),allowed)
-            self.assertEqual(len(ownership),27)  # Two real plan reads, three reads per role, one witness write.
+            self.assertEqual(len(ownership),107)  # 27 original markers plus 80 identity/command boundaries.
 
     def test_public_phase_decoder_refuses_invalid_present_or_hostile_values(self):
         import artifact
@@ -349,6 +381,11 @@ class OwnershipDiagnostics(unittest.TestCase):
             def __eq__(self,other):raise AssertionError('foreign equality')
         for role,gate in ((Hostile('metrics'),'lookup_read'),('metrics',Hostile('lookup_read'))):
             with self.assertRaises(ValueError):evidence.ownership_phase(role,gate)
+        for phase in ('ownership_private_lookup_read_identity','ownership_metrics_witness_command',
+                'ownership_metrics_lookup_read_private','ownership_metrics_lookup_read_identity_private',
+                'private-controlled-token','x'*10000,[],{},None,True,Hostile('ownership_metrics_lookup_read_identity')):
+            record=evidence.Run().snapshot();record['phase']=phase
+            with self.subTest(phase_type=type(phase).__name__),self.assertRaises(ValueError):evidence.validate(record)
         run=evidence.Run();run.start('ownership_gateway_inspect_mount_set');run.fail('contract');first=run.snapshot()
         for phase in evidence.OWNERSHIP_PHASES:run.start(phase);run.fail('unknown')
         self.assertEqual(run.snapshot(),first)

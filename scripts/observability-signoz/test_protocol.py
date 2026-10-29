@@ -1,6 +1,6 @@
 """Owned loopback HTTP scalar and MCP contracts; no external providers."""
 import copy
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import http.client
 import hashlib
@@ -78,8 +78,159 @@ class ClosedProtocol(unittest.TestCase):
             patch.object(control,'FUNCTIONAL_HOOK',None,create=True),patch.object(control,'FUNCTIONAL_STAGE','bootstrap',create=True):
             try:witness.run()
             except BaseException as error:
+                control.preserve_failure(error)
                 if observed is not None:observed.append((error,control.FUNCTIONAL_STAGE))
                 raise
+
+    @staticmethod
+    def trace_log_prefix():
+        prefix=[(200,b'ok'),(200,json.dumps({'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2025-11-25'}}).encode()),
+            (202,b''),(200,json.dumps({'jsonrpc':'2.0','id':2,'result':{'tools':[{'name':'signoz_execute_builder_query'}]}}).encode())]
+        prefix += [(200,b'{}')]*3
+        retained={'type':'scalar','data':{'results':[{'queryName':'A','columns':[{'name':name} for name in
+            ('raw_count','distinct_indices','min_index','max_index','noninteger_indices','flagged_samples')],
+            'data':[[400,400,1,400,0,0]]}]}}
+        prefix += [(200,json.dumps({'status':'success','data':retained}).encode())]
+        return prefix
+
+    def test_actual_trace_log_chain_distinguishes_signal_polarity_and_scalar_refusal(self):
+        # Source counterexample to ambiguity, not a reproduction of the native fault.
+        prefix=self.trace_log_prefix()
+        for index,stage in enumerate(('traces_positive_scalar_warning','traces_negative_scalar_warning',
+                'logs_positive_scalar_warning','logs_negative_scalar_warning')):
+            reads=[scalar(1),scalar(0),scalar(1),scalar(0)][:index]
+            reads.append({**scalar(1),'warning':'private-trace-log-sentinel'})
+            replies=prefix+[(200,json.dumps({'status':'success','data':value}).encode()) for value in reads]
+            with self.subTest(stage=stage),self.http_fixture(replies) as (calls,_):
+                with self.assertRaises(control.ControlFailure) as caught:self.functional_run()
+                self.assertEqual(control.failure_context(caught.exception),{'inside_failed':1,'stage':stage,
+                    'category':'ControlFailure','http_status':200,'transport':'query_v5'})
+                self.assertEqual(len(calls),9+index)
+                self.assertNotIn('private-trace-log-sentinel',json.dumps(control.failure_context(caught.exception)))
+
+    def test_actual_trace_log_chain_separates_query_scalar_and_count_deadlines(self):
+        bad_table=scalar(1)['data']['results'][0]
+        scalar_cases=[('scalar_type',None),('scalar_type',{}),('scalar_warning',{**scalar(1),'warning':'private-sentinel'}),
+            ('scalar_results',{'type':'scalar','data':{'results':[]}}),
+            ('scalar_query',{'type':'scalar','data':{'results':[{**bad_table,'queryName':'private-sentinel'}]}}),
+            ('scalar_columns',{'type':'scalar','data':{'results':[{**bad_table,'columns':[]}]}}),
+            ('scalar_rows',{'type':'scalar','data':{'results':[{**bad_table,'data':[]}]}}),
+            ('scalar_number',scalar(True)),('scalar_number',scalar(None)),('scalar_number',scalar(float('nan'))),
+            ('scalar_number',scalar(float('inf'))),('scalar_number_range',scalar(-1)),('scalar_number_range',scalar(.5))]
+        cases=[(step,(200,json.dumps({'status':'success','data':value}).encode()),control.ControlFailure) for step,value in scalar_cases]
+        cases += [('query_response',(503,b'private-sentinel'),control.ControlFailure),
+            ('query_response',(200,b'x'*65537),control.ControlFailure),
+            ('query_decode',(200,b'private-sentinel'),json.JSONDecodeError),
+            ('query_object',(200,b'[]'),control.ControlFailure),
+            ('query_envelope',(200,b'{"status":"error","data":"private-sentinel"}'),control.ControlFailure)]
+        for index in range(4):
+            signal,polarity=(('traces','positive'),('traces','negative'),('logs','positive'),('logs','negative'))[index]
+            before=[(200,json.dumps({'status':'success','data':scalar(count)}).encode()) for count in (1,0,1,0)[:index]]
+            for step,reply,category in cases:
+                replies=self.trace_log_prefix()+before+[reply]
+                with self.subTest(signal=signal,polarity=polarity,step=step),self.http_fixture(replies) as (calls,connections):
+                    with self.assertRaises(category) as caught:self.functional_run()
+                    context=control.failure_context(caught.exception)
+                    self.assertEqual(context,{'inside_failed':1,'stage':signal+'_'+polarity+'_'+step,
+                        'category':category.__name__,'http_status':reply[0],'transport':'query_v5'})
+                    self.assertEqual(len(calls),len(replies));self.assertEqual(connections[-1].fixture_timeout,10)
+                    self.assertEqual(connections[-1].fixture_reads[0][0],(65537,))
+                    self.assertNotIn('private-sentinel',json.dumps(context))
+            for count in (0,1,2,987654321):
+                if (polarity=='positive' and count==1) or (polarity=='negative' and count==0):continue
+                clock=[time.monotonic()]
+                fake=SimpleNamespace(monotonic=lambda:clock[0],sleep=lambda _seconds:clock.__setitem__(0,clock[0]+61),time=time.time,time_ns=time.time_ns)
+                reply=(200,json.dumps({'status':'success','data':scalar(count)}).encode())
+                with self.subTest(signal=signal,polarity=polarity,count=count),self.http_fixture(self.trace_log_prefix()+before+[reply]) as (calls,_),patch.object(witness,'time',fake):
+                    with self.assertRaises(control.ControlFailure) as caught:self.functional_run()
+                    suffix=('wait_' if polarity=='positive' else 'count_')+('zero' if count==0 else 'one' if count==1 else 'many')
+                    self.assertEqual(control.failure_context(caught.exception)['stage'],signal+'_'+polarity+'_'+suffix)
+                    self.assertEqual(len(calls),9+index)
+                    self.assertNotIn('987654321',json.dumps(control.failure_context(caught.exception)))
+
+    def test_trace_log_malformed_nested_scalar_keeps_original_exception_category(self):
+        for value,category,stage in (({'type':'scalar','data':None},AttributeError,'scalar_results'),
+                ({'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[1]}]}},TypeError,'scalar_rows')):
+            reply=(200,json.dumps({'status':'success','data':value}).encode())
+            with self.subTest(stage=stage),self.http_fixture(self.trace_log_prefix()+[reply]) as (calls,_):
+                with self.assertRaises(category) as caught:self.functional_run()
+                self.assertEqual(control.failure_context(caught.exception),{'inside_failed':1,'stage':'traces_positive_'+stage,
+                    'category':'unavailable','http_status':200,'transport':'query_v5'})
+                self.assertEqual(len(calls),9)
+
+    def test_trace_log_success_keeps_four_exact_reads_before_native_MCP(self):
+        reads=[(200,json.dumps({'status':'success','data':scalar(count)}).encode()) for count in (1,0,1,0)]
+        with self.http_fixture(self.trace_log_prefix()+reads+[(503,b'private-next-stage')]) as (calls,connections):
+            errors=[]
+            with self.assertRaises(control.ControlFailure):self.functional_run(errors)
+            self.assertEqual(errors[0][1],'mcp_read')
+            self.assertEqual(control.failure_context(errors[0][0])['stage'],'mcp_wire_status')
+            for call,(signal,trace_id) in zip(calls[8:12],(('traces',witness.TRACE_ID),('traces','0'*32),('logs',witness.TRACE_ID),('logs','0'*32))):
+                method,path,raw,headers=call;payload=json.loads(raw)
+                self.assertEqual((method,path),('POST','/api/v5/query_range'))
+                self.assertEqual(payload,{'schemaVersion':'v1','start':payload['end']-60000,'end':payload['end'],
+                    'requestType':'scalar','compositeQuery':{'queries':[{'type':'builder_query','spec':{'name':'A','signal':signal,
+                    'aggregations':[{'expression':'count()','alias':'count'}],
+                    'filter':{'expression':"service.name = 'platform-fallback-control' AND trace_id = '"+trace_id+"'"},'limit':1}}]}})
+                self.assertEqual(headers['SIGNOZ-API-KEY'],'fixture-viewer-key')
+            self.assertEqual(len(calls),13)
+            self.assertTrue(all(connection.fixture_timeout==10 for connection in connections))
+
+    def test_trace_log_transport_retains_original_error_and_closes_before_context_exits(self):
+        original=OSError('private-query-sentinel')
+        # System boundary fault after the actual query response has been read.
+        for secondary in (OSError('private-secondary-query'),original):
+            with self.subTest(secondary_type=type(secondary).__name__),self.http_fixture([(200,b'{}')],read_error=original) as (calls,connections):
+                close=witness.http.client.HTTPConnection.close
+                def fail_close(connection):close(connection);raise secondary
+                frames=[]
+                with patch.object(witness.http.client.HTTPConnection,'close',fail_close),self.assertRaises(OSError) as caught:
+                    try:
+                        with control.trace_log_read(control.TRACE_LOG_READS[('logs','negative')]):
+                            witness.query(witness.scalar_query('logs','0'*32),'fixture-key')
+                    except OSError as error:
+                        frame=BaseException.__traceback__.__get__(error)
+                        while frame is not None:frames.append(frame);frame=frame.tb_next
+                        raise
+                self.assertIs(caught.exception,original)
+                self.assertEqual(control.failure_context(original),{'inside_failed':1,'stage':'logs_negative_query_read',
+                    'category':'OSError','http_status':200,'transport':'query_v5'})
+                self.assertIn(connections[0].fixture_read_traceback,frames)
+                self.assertNotIn('fail_close',[frame.tb_frame.f_code.co_name for frame in frames])
+                self.assertEqual(len(calls),1)
+        # Ordinary callers after the operation cannot inherit a stale context.
+        with patch.object(control,'FUNCTIONAL_STAGE','finite_gateway',create=True):
+            with self.assertRaises(control.ControlFailure) as later:control.scalar(None)
+            self.assertEqual(control.failure_context(later.exception)['stage'],'finite_gateway')
+
+        cleanup=OSError('private-close-query')
+        reply=json.dumps({'status':'success','data':scalar(1)}).encode()
+        with self.http_fixture([(200,reply)]) as (calls,_):
+            close=witness.http.client.HTTPConnection.close
+            def fail_successful_close(connection):close(connection);raise cleanup
+            with patch.object(witness.http.client.HTTPConnection,'close',fail_successful_close),self.assertRaises(OSError) as caught:
+                with control.trace_log_read(control.TRACE_LOG_READS[('traces','positive')]):
+                    witness.query(witness.scalar_query('traces',witness.TRACE_ID),'fixture-key')
+            self.assertIs(caught.exception,cleanup)
+            self.assertEqual(control.failure_context(cleanup)['stage'],'traces_positive_query_close')
+            self.assertEqual(len(calls),1)
+
+    def test_trace_log_query_native_boundaries_do_not_retry_or_inspect_errors(self):
+        for step,method in (('query_admission','__init__'),('query_request','request'),('query_headers','getresponse')):
+            original=TimeoutError('private-query-sentinel')
+            with self.subTest(step=step),self.http_fixture([(200,b'')]) as (calls,connections):
+                # Header refusal occurs after an accepted send. Stub that system
+                # send so a peer cannot race the deliberately refused receive.
+                sent=patch.object(witness.http.client.HTTPConnection,'request',return_value=None) if method=='getresponse' else nullcontext()
+                with sent,patch.object(witness.http.client.HTTPConnection,method,side_effect=original) as boundary:
+                    with self.assertRaises(TimeoutError) as caught:
+                        with control.trace_log_read(control.TRACE_LOG_READS[('traces','positive')]):
+                            witness.query(witness.scalar_query('traces',witness.TRACE_ID),'fixture-key')
+                    self.assertIs(caught.exception,original)
+                    self.assertEqual(control.failure_context(original),{'inside_failed':1,'stage':'traces_positive_'+step,
+                        'category':'TimeoutError','http_status':0,'transport':'query_v5'})
+                    self.assertEqual(boundary.call_count,1)
+                    self.assertLessEqual(len(calls),1 if method=='getresponse' else 0)
 
     def test_complete_pinned_public_catalogue_reaches_only_the_intentional_OTLP_sentinel(self):
         # Public source model, not a captured native response. Golden copied byte-for-byte:

@@ -43,6 +43,34 @@ class Publication(unittest.TestCase):
                     lifecycle.private_json(engine/'inside-failure.json',row)
                     self.assertEqual(evidence.inside_failures(root),{'available':True,'samples':[{k:v for k,v in row.items() if k!='inside_failed'}]})
 
+    def test_trace_log_stages_have_exact_bounded_private_and_public_projection(self):
+        import control
+        # Literal semantic contract, independent of the producer's enum construction.
+        steps=('read','query_admission','query_request','query_headers','query_read','query_response','query_deadline',
+            'query_decode','query_object','query_envelope','query_close','scalar_type','scalar_warning','scalar_results',
+            'scalar_query','scalar_columns','scalar_rows','scalar_number','scalar_number_range','count_zero','count_one',
+            'count_many','wait_unknown','wait_zero','wait_one','wait_many')
+        expected={signal+'_'+polarity+'_'+step for signal in ('traces','logs') for polarity in ('positive','negative') for step in steps}
+        self.assertEqual(control.TRACE_LOG_STAGES,expected)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);engine=root/'engine-1-12345678';engine.mkdir(mode=0o700)
+            good={'inside_failed':1,'stage':'trace_log','category':'ControlFailure','http_status':200,'transport':'query_v5'}
+            for stage in sorted(expected|{'trace_log'}):
+                with self.subTest(stage=stage):
+                    self.assertLessEqual(len(stage),48)
+                    row={**good,'stage':stage};lifecycle.private_json(engine/'inside-failure.json',row)
+                    self.assertEqual(evidence.inside_failures(root),{'available':True,'samples':[{k:v for k,v in row.items() if k!='inside_failed'}]})
+            for stage in ('traces_private_scalar_warning','traces_positive_private-trace-canary',
+                    'logs_negative_count_987654321','logs_negative_window_1793300000','x'*49,[],{},None,True):
+                lifecycle.private_json(engine/'inside-failure.json',{**good,'stage':stage})
+                result=evidence.inside_failures(root)
+                self.assertEqual(result['samples'][0]['stage'],'unavailable')
+                self.assertEqual(set(result['samples'][0]),{'stage','category','http_status','transport'})
+                self.assertNotIn('private-trace-canary',json.dumps(result))
+            for name in ('count','timestamp','window','body','argv','error','token','container_id'):
+                lifecycle.private_json(engine/'inside-failure.json',{**good,name:'private-trace-canary'})
+                with self.assertRaises(ValueError):evidence.inside_failures(root)
+
     def test_malformed_inside_failure_schema_is_not_a_valid_public_sample(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)

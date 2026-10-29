@@ -1,6 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -50,17 +51,25 @@ function assertResourceHostNode(source) {
   assert.ok(reference);
   const jobs = [
     ...source.matchAll(
-      /^ {2}(resource|fullstack|stability):\n([\s\S]*?)(?=^ {2}\w+:\n|(?![\s\S]))/gmu,
+      /^ {2}(resource|fullstack|stability|cpu-control|fullstack-protocol-shard):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gmu,
     ),
   ];
   assert.deepEqual(
     jobs.map(([, name]) => name),
-    ["resource", "fullstack", "stability"],
+    [
+      "resource",
+      "fullstack",
+      "stability",
+      "cpu-control",
+      "fullstack-protocol-shard",
+    ],
   );
   for (const [, name, body = ""] of jobs) {
     const setup = body.indexOf(`uses: ${reference}`);
     const facts = body.indexOf("- name: Verify pinned host Node facts");
-    const contracts = body.indexOf("run: bash scripts/heavy-check.sh python3");
+    const contracts = body.search(
+      /run: (?:bash scripts\/heavy-check\.sh )?python3/u,
+    );
     assert.ok(
       setup >= 0 && setup < facts && facts < contracts,
       `${name}: pinned host Node must precede process contracts`,
@@ -82,6 +91,142 @@ function assertResourceHostNode(source) {
   assert.doesNotMatch(
     source,
     /uses: \.\/\.github\/actions\/setup-platform|(?:pnpm|npm) install/u,
+  );
+}
+
+/** @param {string} source */
+function resourceJobs(source) {
+  assert.equal(source.split("jobs:\n").length, 2);
+  const body = source.split("jobs:\n")[1];
+  assert.ok(body);
+  const matches = [
+    ...body.matchAll(
+      /^ {2}([a-z][a-z0-9-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gmu,
+    ),
+  ];
+  assert.deepEqual(
+    matches.map(([, name]) => name),
+    [
+      "resource",
+      "fullstack",
+      "stability",
+      "cpu-control",
+      "fullstack-protocol-shard",
+      "fullstack-protocol",
+    ],
+  );
+  return new Map(matches.map(([, name = "", body = ""]) => [name, body]));
+}
+
+/** @param {string} source */
+function assertResourceProtocol(source) {
+  const jobs = resourceJobs(source);
+  assertResourceHostNode(source);
+  const digest = (/** @type {string} */ text) =>
+    createHash("sha256").update(text.trimEnd()).digest("hex");
+  // Immutable pre-partition native bodies. Reverse only the assigned scheduling
+  // edits; these fingerprints retain every original command, budget and opt-in.
+  const nativeHashes = {
+    resource:
+      "aadf92ad3fced36f2a41b9f2b958a494b86b98b8c80000997ebc5c4ec21b9740",
+    fullstack:
+      "0031dc8fa00b5886e7539fed9647edd22cc46219290a270b4a50e42710b2593f",
+    stability:
+      "22c06bdaa977f62153d2c1298386b9d68987139e7e6df77dcc7de4cc75418a4f",
+    "cpu-control":
+      "05b46345052647862d979b2c52bf5cb2601c2a71a94a7cf86ba27295a6917f69",
+  };
+  const originalStep =
+    "      - name: Verify whole-stack admission, ownership and acceptance contracts\n        timeout-minutes: 2\n        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-fullstack -p 'test_*.py'\n";
+  for (const [name, expected] of Object.entries(nativeHashes)) {
+    const body = jobs.get(name);
+    assert.ok(body);
+    assert.ok(body.startsWith("    needs: fullstack-protocol\n"));
+    assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
+    let original = body.replace("    needs: fullstack-protocol\n", "");
+    if (name !== "resource") {
+      const anchor =
+        name === "stability"
+          ? "      - name: Require exact diagnostic marker in the strict PR context\n"
+          : "      - name: Bind complete source and existing disk admission\n";
+      assert.equal(original.split(anchor).length, 2);
+      original = original.replace(anchor, originalStep + anchor);
+    }
+    assert.equal(digest(original), expected, `${name}: native policy drift`);
+  }
+  const shard = jobs.get("fullstack-protocol-shard");
+  const aggregate = jobs.get("fullstack-protocol");
+  assert.ok(shard && aggregate);
+  assert.match(shard, /timeout-minutes: 5\n/u);
+  assert.match(
+    shard,
+    /fail-fast: false\n {6}matrix:\n {8}group: \[1, 2, 3, 4\]/u,
+  );
+  assert.match(
+    shard,
+    /persist-credentials: false\n {10}ref: \$\{\{ github.sha \}\}/u,
+  );
+  const identity = shard.indexOf(
+    'run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+  );
+  const protocol = shard.indexOf(
+    'run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/protocol_runner.py --group "${{ matrix.group }}"',
+  );
+  assert.ok(
+    identity > shard.indexOf("Verify pinned host Node facts") &&
+      protocol > identity,
+  );
+  assert.match(
+    shard.slice(shard.lastIndexOf("      - name:")),
+    /timeout-minutes: 2\n/u,
+  );
+  assert.match(
+    aggregate,
+    /needs: \[fullstack-protocol-shard\]\n {4}if: \$\{\{ always\(\) \}\}/u,
+  );
+  assert.match(
+    aggregate,
+    /RESULT: \$\{\{ needs.fullstack-protocol-shard.result \}\}/u,
+  );
+  assert.match(aggregate, /run: test "\$RESULT" = success\n/u);
+  // Exact new blocks reject duplicate/shadowing fields, conditional cells and
+  // hidden alternatives as well as the explicit graph checks above.
+  const protocolHashes = {
+    "fullstack-protocol-shard":
+      "648489f2d16e5fee834d4dda302ac948f81f6a616db671329ad2fb001f642638",
+    "fullstack-protocol":
+      "f9522fb2702e8101d67017af3f071e78904a4e3ab24ad28512a914305bd72254",
+  };
+  for (const [name, expected] of Object.entries(protocolHashes)) {
+    assert.equal(
+      digest(jobs.get(name) ?? ""),
+      expected,
+      `${name}: protocol policy drift`,
+    );
+  }
+  assert.equal(
+    digest(source.split("jobs:\n")[0] ?? ""),
+    "96bee60d3ec3f842c7ec2bcc83502e9fa82dfa5a5d987d6996a449b4b7178914",
+  );
+  assert.doesNotMatch(
+    source,
+    /workflow_dispatch:|secrets:|continue-on-error:|(?:pnpm|npm) install/u,
+  );
+  assert.equal(
+    [
+      ...source.matchAll(
+        /unittest discover -s scripts\/observability-fullstack/gmu,
+      ),
+    ].length,
+    0,
+  );
+  assert.equal(
+    [
+      ...source.matchAll(
+        /run: bash scripts\/heavy-check\.sh python3 -m unittest discover -s scripts\/observability-resource -p 'test_\*\.py'/gmu,
+      ),
+    ].length,
+    1,
   );
 }
 
@@ -1225,3 +1370,172 @@ function assertFocusedSupersets(scripts) {
   invokes("check:unit", "check:contracts");
   invokes("check:contracts", "test:contracts");
 }
+
+it("requires complete fixed protocol coverage before all native Resource jobs", () => {
+  assertResourceProtocol(resourceWorkflow);
+});
+
+it("rejects missing coverage, graph bypasses, source drift and native policy changes", () => {
+  const mutations = [
+    ["group: [1, 2, 3, 4]", "group: [1, 2, 3]"],
+    ["group: [1, 2, 3, 4]", "group: [1, 2, 3, 3]"],
+    [
+      "group: [1, 2, 3, 4]",
+      "group: [1, 2, 3, 4]\n        exclude: [{group: 4}]",
+    ],
+    ["    needs: fullstack-protocol\n", ""],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: fullstack-protocol\n    if: ${{ always() }}\n",
+    ],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: fullstack-protocol\n    if: ${{ false }}\n",
+    ],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: fullstack-protocol\n    needs: []\n",
+    ],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: [fullstack-protocol, foreign]\n",
+    ],
+    ["  resource:\n", "  resource:\n  resource:\n"],
+    ["jobs:\n", "jobs:\n  foreign:\n    runs-on: ubuntu-24.04\n"],
+    [
+      "  fullstack-protocol-shard:\n",
+      "  fullstack-protocol-shard:\n    if: ${{ false }}\n",
+    ],
+    [
+      "  fullstack-protocol-shard:\n",
+      "  fullstack-protocol-shard:\n    continue-on-error: true\n",
+    ],
+    [
+      "Verify complete whole-stack protocol group\n        timeout-minutes: 2",
+      "Verify complete whole-stack protocol group\n        timeout-minutes: 3",
+    ],
+    [
+      'protocol_runner.py --group "${{ matrix.group }}"',
+      'protocol_runner.py --group "1"',
+    ],
+    [
+      "ref: ${{ github.sha }}",
+      "ref: ${{ github.event.pull_request.head.sha }}",
+    ],
+    ['test "$(git rev-parse HEAD)" = "$GITHUB_SHA"', "true"],
+    [
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/checkout@main",
+    ],
+    ["node-version-file: .node-version", "node-version: latest"],
+    ['process.platform !== "linux"', "false"],
+    ["RESULT: ${{ needs.fullstack-protocol-shard.result }}", "RESULT: success"],
+    ['test "$RESULT" = success', "true"],
+    ["    needs: [fullstack-protocol-shard]", "    needs: []"],
+    [
+      "    needs: [fullstack-protocol-shard]\n    if: ${{ always() }}",
+      "    needs: [fullstack-protocol-shard]",
+    ],
+    ["<!-- monitoring-stability: run -->", ""],
+    ["<!-- monitoring-cpu-control: app-unlimited-v1 -->", ""],
+    ["name: Matched CPU-policy diagnostic", "name: Capacity acceptance"],
+    ["timeout-minutes: 60", "timeout-minutes: 61"],
+    ["unchanged 600-second supervisor", "unlimited supervisor"],
+    ["fullstack.py run\n", "fullstack.py run --p95 1.10\n"],
+    ["fullstack.py cpu-control-recover", "fullstack.py cpu-control-collect"],
+    ["contents: read", "contents: write"],
+    ["persist-credentials: false", "persist-credentials: true"],
+  ];
+  for (const [before = "", after = ""] of mutations) {
+    assert.ok(resourceWorkflow.includes(before), `fixture anchor: ${before}`);
+    assert.throws(
+      () => assertResourceProtocol(resourceWorkflow.replace(before, after)),
+      before,
+    );
+  }
+});
+
+it("accepts only the provider aggregate's exact success value", () => {
+  const body = resourceJobs(resourceWorkflow).get("fullstack-protocol");
+  assert.ok(body);
+  const command = body.match(/^ {8}run: (.+)$/mu)?.[1];
+  assert.equal(command, 'test "$RESULT" = success');
+  assert.ok(command);
+  for (const result of [
+    "success",
+    "failure",
+    "cancelled",
+    "skipped",
+    "",
+    "missing",
+    "SUCCESS",
+    "success ",
+  ]) {
+    /** @type {import("node:child_process").SpawnSyncReturns<string>} */
+    const execution = spawnSync("bash", ["-euc", command], {
+      cwd: repositoryRoot,
+      env: { ...process.env, RESULT: result },
+      encoding: "utf8",
+      timeout: 1_000,
+    });
+    assert.equal(execution.error, undefined);
+    assert.equal(execution.signal, null);
+    assert.equal(execution.status, result === "success" ? 0 : 1);
+  }
+});
+
+it("keeps fixed stdlib discovery and binds every tracked protocol source", () => {
+  const runner = readFileSync(
+    resolve(
+      repositoryRoot,
+      "scripts/observability-fullstack/protocol_runner.py",
+    ),
+    "utf8",
+  );
+  assert.match(runner, /START = Path\(__file__\)\.resolve\(\)\.parent/u);
+  assert.match(runner, /loader = unittest\.TestLoader\(\)/u);
+  assert.match(
+    runner,
+    /loader\.discover\(str\(START\), pattern='test_\*\.py'\)/u,
+  );
+  assert.match(runner, /partition\(suite, loader\.errors\)/u);
+  assert.match(runner, /GROUPS = \('1', '2', '3', '4'\)/u);
+  assert.doesNotMatch(
+    runner,
+    /os\.environ|argparse|loadTestsFromNames|\.skipTest\(|\.skip\(/u,
+  );
+  const binding = readFileSync(
+    resolve(repositoryRoot, "scripts/observability-resource/binding.py"),
+    "utf8",
+  );
+  assert.match(binding, /'ls-files', '-z', '--'/u);
+  assert.match(binding, /'docs\/contracts', 'scripts', 'infra'/u);
+  assert.match(binding, /'\.github\/workflows\/observability-resource\.yml'/u);
+});
+
+it("runs the cheap partition and inverse contracts inside required tooling within five seconds", () => {
+  const execution = spawnSync(
+    "python3",
+    [
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/observability-fullstack",
+      "-p",
+      "test_protocol_runner.py",
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      timeout: 5_000,
+      maxBuffer: 1_048_576,
+    },
+  );
+  assert.equal(execution.error, undefined);
+  assert.equal(execution.signal, null);
+  assert.equal(execution.status, 0, execution.stderr);
+  const count = execution.stderr.match(/Ran (\d+) tests? in /u)?.[1];
+  assert.ok(count && Number(count) > 0, execution.stderr);
+});
