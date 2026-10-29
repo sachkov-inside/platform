@@ -31,16 +31,17 @@ test("keeps reader startup JavaScript within its CPU budget", async ({
       page.waitForResponse(
         (response) => new URL(response.url()).pathname === "/auth/status",
       ),
-      page.goto("/materials/kak-ustroen-inside-platform", {
+      // A guest reads a free Material outside Products; a free Product lesson shows the Telegram
+      // sign-in gate to a guest (#1825).
+      page.goto("/materials/arkhitekturnaya-zametka-01", {
         waitUntil: "commit",
       }),
     ]);
     expect(response?.status()).toBe(200);
     // Observe the same browser-rendered readiness fact as the INP test, without triggering input.
-    // A guest lands on the free lesson's Telegram sign-in gate (#1825).
     await page.waitForFunction(() =>
       document.querySelector(
-        '[data-material-reader-state="access-required"] [data-reading-action-state="anonymous"]',
+        '[data-material-reader-state="available"] [data-reading-action-state="anonymous"]',
       ),
     );
     const scriptCpuMs =

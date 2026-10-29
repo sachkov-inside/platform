@@ -74,7 +74,7 @@ import {
   MaterialReaderPending,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
-import { FreeLessonAccess } from "./free-lesson-gate";
+import { FreeLessonAccess } from "./free-lesson-access";
 import { MaterialReaderView } from "./material-reader-view";
 
 type ResolvedMaterial = Extract<

@@ -16,7 +16,7 @@ import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
 import { resolveProductReaderContext } from "../model/product-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
-import { FreeLessonAccess } from "./free-lesson-gate";
+import { FreeLessonAccess } from "./free-lesson-access";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
   variantDiagram,
@@ -1207,6 +1207,7 @@ export const FreeLessonGuest: Story = {
         productProgrammeHref("platform-inside"),
       )}
       material={{ ...material, access: "free" }}
+      readingAction={accessReadingAction()}
     />
   ),
   play: async ({ canvasElement }) => {
@@ -1249,6 +1250,7 @@ export const FreeLessonWithoutTelegram: Story = {
       signedIn
       returnTo={materialReaderHref(material.slug)}
       material={{ ...material, access: "free" }}
+      readingAction={accessReadingAction()}
     />
   ),
   play: async ({ canvasElement }) => {

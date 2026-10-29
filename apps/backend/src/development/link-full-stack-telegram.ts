@@ -12,9 +12,12 @@ import { createPrismaClient } from "../infrastructure/prisma/index.js";
  */
 async function main(): Promise<void> {
   const config = loadPlatformConfig();
-  if (config.mode !== "development") {
-    throw new Error("Full-stack Telegram links run only in development mode");
-  }
+  if (
+    config.mode !== "development" ||
+    process.env["FULLSTACK_WEB_BASE_URL"] === undefined ||
+    config.identity.issuer !== "https://identity.fullstack.test/oidc"
+  )
+    throw new Error("Expected an isolated local full-stack Telegram fixture");
   const subjects = z
     .array(z.string().min(1))
     .min(1)

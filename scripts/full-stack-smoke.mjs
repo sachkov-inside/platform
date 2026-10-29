@@ -306,6 +306,7 @@ try {
     ["--filter", "@inside/backend", "smoke:link-full-stack-telegram"],
     {
       ...childEnvironment,
+      FULLSTACK_WEB_BASE_URL: webBaseUrl,
       // Участник с доступом к продукту читает и без Telegram; его шапка напоминает подключить.
       FULLSTACK_TELEGRAM_LOGTO_SUBJECTS: JSON.stringify([
         "fullstack-non-member",
