@@ -1,8 +1,20 @@
 """Owned in-container helper; literal endpoints only, no Docker socket or raw agent query."""
+import sys
+
+
+def disk_stage(stage):
+    # Fixed disk-only diagnostics must never replace the helper's own result.
+    try:
+        sys.stderr.write('signoz-disk-stage-v1:'+stage+'\n');sys.stderr.flush()
+    except Exception:pass
+
+
+DISK_MODE=__name__=='__main__' and sys.argv[1:]==['disk']
+if DISK_MODE:disk_stage('entered')
 import json
 import os
-import sys
 import time
+if DISK_MODE:disk_stage('imports_complete')
 
 STEP='entry'
 
@@ -13,6 +25,7 @@ def require(ok):
 
 def disk():
     fs=os.statvfs('/disk');st=os.stat('/disk')
+    if DISK_MODE:disk_stage('syscalls_complete')
     print(json.dumps({'fsid':fs.f_fsid,'device':st.st_dev,'block':fs.f_frsize,
         'blocks':fs.f_blocks,'available':fs.f_bavail,'files':fs.f_files,'free_files':fs.f_favail}))
 
