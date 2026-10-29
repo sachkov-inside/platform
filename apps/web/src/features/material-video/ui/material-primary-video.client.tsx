@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Circle,
   LoaderCircle,
+  Play,
   RotateCcw,
   VideoOff,
 } from "lucide-react";
@@ -17,6 +18,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { z } from "zod";
+
+import { ContentCoverImage, type ContentCover } from "@/entities/material";
 
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
@@ -34,6 +37,7 @@ import {
 } from "../model/video";
 
 interface MaterialPrimaryVideoProps {
+  readonly cover?: ContentCover | null | undefined;
   readonly showWatchedAction?: boolean;
   readonly className?: string;
   readonly materialId: string;
@@ -61,12 +65,16 @@ interface MaterialPrimaryVideoProps {
 export type PlayerPhase = "loading" | "playing" | "error";
 
 export function MaterialPrimaryVideo({
+  cover,
   className,
   materialId,
   preview = false,
   video,
   showWatchedAction = true,
 }: MaterialPrimaryVideoProps) {
+  const [started, setStarted] = useState(false);
+  const startRequestedRef = useRef(false);
+  const startPlayerRef = useRef<(() => Promise<void>) | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const progressInteractionRef = useRef(false);
   const progressContextRef = useRef<{
@@ -115,12 +123,15 @@ export function MaterialPrimaryVideo({
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
     let cancelMetadataWait: (() => void) | undefined;
     let requestedHref = window.location.href;
+    if (readVideoTimeFragment(window.location.hash, Infinity) !== null)
+      setStarted(true);
     let seekToReadyFragment: ((href: string) => void) | undefined;
     const captureFragment = (event: HashChangeEvent) => {
       // Capture navigation even while the session or SDK is still loading.
       const href = event.newURL === "" ? window.location.href : event.newURL;
       requestedHref = href;
       if (readVideoTimeFragment(new URL(href).hash, Infinity) === null) return;
+      setStarted(true);
       // Keep Next's canonical URL in sync before a pending refresh can erase it.
       window.history.replaceState(null, "", href);
       seekToReadyFragment?.(href);
@@ -291,6 +302,8 @@ export function MaterialPrimaryVideo({
         };
         if (!progressInteractionRef.current)
           setWatchedOverride(playbackProgress.watched);
+        startPlayerRef.current = () => player.play();
+        if (startRequestedRef.current) await player.play();
         let lastPersisted = currentTime;
         const persist = (position: number) => {
           if (!isActive() || preview) return;
@@ -336,6 +349,7 @@ export function MaterialPrimaryVideo({
     void loadPlayer();
     return () => {
       active = false;
+      startPlayerRef.current = null;
       cancelMetadataWait?.();
       removeTimeListener();
       void mountedPlayer?.destroy();
@@ -409,6 +423,13 @@ export function MaterialPrimaryVideo({
 
   return (
     <MaterialVideoPlayerView
+      cover={cover}
+      showPoster={!started}
+      onStart={() => {
+        startRequestedRef.current = true;
+        setStarted(true);
+        void startPlayerRef.current?.().catch(() => setPhase("error"));
+      }}
       description={video.description}
       chapters={video.chapters ?? []}
       activeChapter={activeChapter}
@@ -435,6 +456,9 @@ export function MaterialPrimaryVideo({
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly cover?: ContentCover | null | undefined;
+  readonly showPoster?: boolean;
+  readonly onStart?: () => void;
   readonly description?: string | undefined;
   readonly chapters?: readonly {
     readonly start: number;
@@ -455,6 +479,9 @@ export interface MaterialVideoPlayerViewProps {
 
 /** Production player shell shared with Storybook state fixtures. */
 export function MaterialVideoPlayerView({
+  cover,
+  showPoster = false,
+  onStart,
   description,
   chapters = [],
   activeChapter = null,
@@ -469,6 +496,11 @@ export function MaterialVideoPlayerView({
   watchedDisabled = false,
   showWatchedAction = true,
 }: MaterialVideoPlayerViewProps) {
+  const hasPoster =
+    showPoster &&
+    cover != null &&
+    cover.renditions.length > 0 &&
+    phase !== "error";
   return (
     <section
       aria-labelledby="primary-video-heading"
@@ -480,7 +512,31 @@ export function MaterialVideoPlayerView({
         Видео: {title}
       </h2>
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-sidebar text-sidebar-foreground shadow-card ring-1 ring-sidebar-border">
-        <div className="absolute inset-0" data-video-player-mount />
+        <div
+          className="absolute inset-0"
+          data-video-player-mount
+          inert={hasPoster}
+          aria-hidden={hasPoster || undefined}
+        />
+        {hasPoster ? (
+          <button
+            type="button"
+            aria-label={`Смотреть видео: ${title}`}
+            onClick={onStart}
+            className="absolute inset-0 z-10 grid size-full cursor-pointer place-items-center focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-ring"
+          >
+            <ContentCoverImage
+              alt=""
+              cover={cover}
+              priority
+              className="absolute inset-0 size-full"
+              sizes="(min-width: 768px) 43rem, 100vw"
+            />
+            <span className="relative grid size-16 place-items-center rounded-full bg-background/90 text-foreground shadow-card">
+              <Play aria-hidden="true" className="size-7" />
+            </span>
+          </button>
+        ) : null}
         {phase === "playing" ? null : (
           <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_70%_20%,color-mix(in_oklch,var(--accent)_18%,transparent),transparent_42%),linear-gradient(145deg,var(--sidebar),color-mix(in_oklch,var(--sidebar)_84%,black))] p-3 text-center sm:p-6">
             <div className="max-w-md">

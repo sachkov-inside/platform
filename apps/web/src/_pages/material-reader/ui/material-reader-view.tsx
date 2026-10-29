@@ -173,6 +173,7 @@ export function MaterialReaderView({
           {primaryVideo === null ||
           body.some((block) => block.kind === "video") ? null : (
             <MaterialPrimaryVideo
+              cover={material.cover}
               className="max-w-none"
               key={primaryVideo.videoId}
               materialId={material.materialId}
@@ -190,6 +191,7 @@ export function MaterialReaderView({
                   <p role="status">Видео к материалу не прикреплено.</p>
                 ) : (
                   <MaterialPrimaryVideo
+                    cover={material.cover}
                     className="mt-0 max-w-none sm:mt-0"
                     materialId={material.materialId}
                     video={{ ...primaryVideo, ...block }}

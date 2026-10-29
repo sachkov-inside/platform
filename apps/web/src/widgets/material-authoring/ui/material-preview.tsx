@@ -87,6 +87,7 @@ function PreviewVideo({
     <MaterialPrimaryVideo
       key={video.videoId}
       materialId={materialId}
+      cover={video.cover}
       preview
       video={{
         durationSeconds: video.durationSeconds,

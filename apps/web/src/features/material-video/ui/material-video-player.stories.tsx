@@ -84,3 +84,51 @@ export const PlayerChapters: Story = {
     }
   },
 };
+
+export const MaterialCoverPoster: Story = {
+  args: {
+    cover: {
+      coverId: "02000000-0000-4000-8000-000000000011",
+      renditions: [{ width: 1280, height: 720 }],
+    },
+    showPoster: true,
+    onStart: fn(),
+    phase: "playing",
+  },
+  name: "Player · Material cover before start",
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const start = canvas.getByRole("button", {
+      name: `Смотреть видео: ${args.title}`,
+    });
+    await expect(start).toBeVisible();
+    start.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onStart).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard(" ");
+    await expect(args.onStart).toHaveBeenCalledTimes(2);
+    await userEvent.click(start);
+    await expect(args.onStart).toHaveBeenCalledTimes(3);
+  },
+};
+
+export const MaterialCoverAfterStart: Story = {
+  args: { ...MaterialCoverPoster.args, showPoster: false, phase: "playing" },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).queryByRole("button", { name: /Смотреть видео/ }),
+    ).toBeNull();
+  },
+};
+
+export const MaterialCoverError: Story = {
+  args: { ...MaterialCoverPoster.args, phase: "error" },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("button", { name: /Смотреть видео/ }),
+    ).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Повторить" }));
+    await expect(args.onLoad).toHaveBeenCalled();
+  },
+};
