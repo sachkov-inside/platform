@@ -55,11 +55,16 @@ import {
   type ProductArtifacts,
 } from "../../modules/products/index.js";
 import {
+  TelegramAccountLinks,
+  TelegramAccountLinksModule,
+} from "../../modules/telegram-membership/index.js";
+import {
   VIDEOS,
   VideosModule,
   type Videos,
 } from "../../modules/videos/index.js";
 import { composeMaterialAccessFacts } from "./material-access-facts.js";
+import { assembleTelegramLinks } from "./telegram-links.js";
 
 /** Process composition owns access policy wiring above the independent content owners. */
 @Global()
@@ -76,6 +81,7 @@ import { composeMaterialAccessFacts } from "./material-access-facts.js";
     MaterialsModule,
     MaterialContentModule,
     ProductTaskResourceFactsModule,
+    TelegramAccountLinksModule,
   ],
   providers: [
     {
@@ -111,6 +117,7 @@ import { composeMaterialAccessFacts } from "./material-access-facts.js";
         ACCOUNTS,
         ACCOUNT_RIGHTS,
         PRODUCT_TASK_RESOURCE_FACTS,
+        TelegramAccountLinks,
       ],
       useFactory: (
         materialContent: MaterialContent,
@@ -120,6 +127,7 @@ import { composeMaterialAccessFacts } from "./material-access-facts.js";
         accounts: Accounts,
         accountRights: AccountRights,
         productTaskResourceFacts: ProductTaskResourceFactsAdapter,
+        telegramAccountLinks: TelegramAccountLinks,
       ): ContentAccess =>
         assembleContentAccess({
           assetResourceFacts: assembleAssetResourceFacts(materialAssets),
@@ -130,6 +138,7 @@ import { composeMaterialAccessFacts } from "./material-access-facts.js";
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
           accountRights,
+          telegramLinks: assembleTelegramLinks(telegramAccountLinks),
         }),
     },
   ],

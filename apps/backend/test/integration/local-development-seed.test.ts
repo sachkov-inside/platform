@@ -142,7 +142,8 @@ describe("local development seed", () => {
     ).resolves.toMatchObject({
       ok: true,
       value: {
-        kind: "available",
+        // The seed's free Product lesson opens only after Telegram sign-in (#1825).
+        kind: "teaser",
         projection: {
           materialId: first.materialId,
           contentVersion: first.contentVersion,

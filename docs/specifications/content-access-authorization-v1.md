@@ -226,7 +226,8 @@ Deterministic reason precedence:
 
 1. Resolve resource/action mapping: `resource_not_found`, `resource_mismatch`,
    `resource_action_invalid` или `resource_unpublished`.
-2. Published free normal delivery: `public_resource`; Account/Membership lookup не нужен.
+2. Published free normal delivery вне Products: `public_resource`; Account/Membership lookup не
+   нужен. Free Material в программе Product, его Assets и Video решаются шагами 3-5 и 8.
 3. Protected anonymous operation: `authentication_required`.
 4. Read current `materials:manage`; dependency failure: `dependency_unavailable`.
 5. Current `materials:manage`: `materials_manager`, включая current saved preview и обычное чтение
@@ -236,10 +237,16 @@ Deterministic reason precedence:
    `membership_required`, confirmed expiry/removal — `membership_expired`, stale positive после
    `validUntil` без принятого нового evidence — `entitlement_stale`, unreadable local projection —
    `dependency_unavailable`.
+8. Free Material в программе Product ([ADR 0042](../adr/0042-free-product-lesson-needs-telegram.md)):
+   подтверждённая связь Account с Telegram даёт `telegram_account` без lookup Membership; без связи
+   active Membership даёт `active_membership`, иначе `telegram_link_required`. Связь читается у
+   Telegram Integration через port `TelegramLinks`; сбой чтения без active Membership даёт
+   `dependency_unavailable`. `telegram_account` не публичный allow: body не shared-cacheable.
 
 | Resource / action | Anonymous | Account без Membership | Active member | Expired member | Account с `materials:manage` |
 |---|---|---|---|---|---|
-| Published free `read/download/play` | public | public | public | public | public |
+| Published free `read/download/play` вне Products | public | public | public | public | public |
+| Published free `read/download/play` в Product | authentication required | telegram account или telegram link required | active membership | telegram account или telegram link required | materials manager |
 | Published membership `read/download/play` | authentication required | membership required | active membership | membership expired | materials manager |
 | Current free/membership `preview` | authentication required | permission required | permission required | permission required | materials manager |
 | Draft `preview` | authentication required | permission required | permission required | permission required | materials manager |
@@ -251,7 +258,8 @@ Active Membership не даёт preview, authoring или publish. Permission н
 `checkAvailabilityMany` coarse-проецирует те же current facts:
 
 - allow → `available`;
-- любой известный published membership-resource без доказанного allow, включая dependency outage,
+- любой известный published membership-resource или free Material в программе Product без
+  доказанного allow, включая dependency outage,
   → `locked`;
 - invalid/unpublished/unknown resource → `unavailable`.
 
@@ -283,7 +291,7 @@ video locators и иные связанные с body ресурсы в projecti
 Каноническая модель доступа — Workspace `product/access-model.md`; её исполняемая форма —
 таблица «что открывается × основание», переходы и сценарии публикации в
 `apps/backend/test/access-scenarios/access-scenarios.ts`. Имена сценариев совпадают с моделью.
-Строки: `public-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
+Строки: `public-material`, `product-free-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
 `support`, `cabinet`, `author`, `mcp`. Столбцы: `guest`, `account-without-rights`,
 `one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
 `hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,

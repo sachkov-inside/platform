@@ -54,3 +54,29 @@ export const WithoutSharingMobile: Story = {
   ...WithoutSharing,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+/** Бесплатный урок курса у гостя (#1825): закрыт до входа через Telegram, но помечен бесплатным. */
+export const FreeLessonForGuest: Story = {
+  render: (args) => (
+    <div className="mx-auto grid w-full max-w-3xl gap-6 p-4">
+      {(["feed", "row"] as const).map((variant) => (
+        <MaterialCard
+          {...args}
+          key={variant}
+          material={{
+            ...args.material,
+            access: "free",
+            availability: "locked",
+          }}
+          variant={variant}
+        />
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText("Для участников")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("По подписке")).not.toBeInTheDocument();
+    await expect(canvas.getAllByText("Бесплатно").length).toBeGreaterThan(0);
+  },
+};

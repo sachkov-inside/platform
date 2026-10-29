@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { signInFullStack } from "../support/full-stack-session";
 
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
@@ -29,6 +30,8 @@ test("an imported v2 Task and Material keep source fragments through native navi
   const code = process.env["FULLSTACK_TASK_C_CODE"];
   if (productSlug === undefined || code === undefined)
     throw new Error("Missing isolated format c fixture");
+  // The free lesson opens after Telegram sign-in (#1825); anchors are the subject here.
+  await signInFullStack(page.context());
   await page.goto(`/products/${productSlug}/tasks/${code}`);
   await page
     .getByRole("link", { name: "К повторному разделу урока", exact: true })
