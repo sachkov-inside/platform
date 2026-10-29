@@ -293,3 +293,123 @@ class DecodedPrivacy(unittest.TestCase):
             bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']=payload
             with self.subTest(payload_size=len(payload)),self.assertRaises(ValueError):
                 stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+
+
+class StoredTextContracts(unittest.TestCase):
+    def test_ordinary_prefixed_text_survives_raw_rows_and_full_validation(self):
+        for text in ('[INFO] request complete','{request} completed','"request" completed'):
+            bundle=NativeSdkProjection().bundle()
+            row={key:None for key in stored.LOG_COLUMNS}
+            row.update(body=text,body_v2=json.dumps({'message':text}),body_promoted={},
+                attributes_string={'message':text},scope_string={'message':text},
+                scope_name=text,severity_text=text)
+            bundle['logs']=[row]
+            bundle['traces'][-1]['status_message']=text
+            bundle['traces'][-1]['attributes_string']['message']=text
+            bundle['metrics'][0]['description']=text
+            bundle['metadata']=[dict.fromkeys(stored.META_COLUMNS,text)]
+            with self.subTest(text=text):
+                for signal,columns in (('logs',stored.LOG_COLUMNS),('traces',stored.TRACE_COLUMNS),('metadata',stored.META_COLUMNS)):
+                    actual=stored.raw_rows(scalar_wire(columns,bundle[signal]),signal)
+                    self.assertEqual(actual,bundle[signal]);bundle[signal]=actual
+                result=stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                    release='c'*40,start=1800000000000,cut=1800000020000)
+                self.assertEqual(result['sdk_span_semantics'],'passed')
+                self.assertEqual(result['sdk_metric_semantics'],'passed')
+
+    def test_explicit_json_columns_refuse_malformed_values_before_discard(self):
+        fields={'traces':('resources_string','resource','scope','attributes_string','attributes_number',
+            'attributes_bool','attributes','attributes_promoted','events','links'),
+            'logs':('body_v2','body_promoted','attributes_string','attributes_number','attributes_bool',
+                'resources_string','resource','scope_string'),
+            'metrics':('labels','attrs','scope_attrs','resource_attrs')}
+        for signal,names in fields.items():
+            for name in names:
+                bundle=NativeSdkProjection().bundle()
+                if signal=='logs':bundle[signal]=[dict.fromkeys(stored.LOG_COLUMNS)]
+                row=bundle[signal][-1]
+                row[name]=['[INFO] malformed event'] if name=='events' else '[INFO] malformed JSON'
+                with self.subTest(signal=signal,name=name):
+                    with self.assertRaises(ValueError):
+                        stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                            release='c'*40,start=1800000000000,cut=1800000020000)
+                    with self.assertRaises(ValueError):
+                        if signal=='metrics':
+                            for part,groups in compact_metric_rows(bundle[signal]).items():
+                                stored.raw_rows(scalar_wire(stored.METRIC_GROUP_COLUMNS,groups),part)
+                        else:
+                            columns=stored.TRACE_COLUMNS if signal=='traces' else stored.LOG_COLUMNS
+                            stored.raw_rows(scalar_wire(columns,bundle[signal]),signal)
+
+    def test_nested_valid_json_in_free_text_and_structured_copies_still_refuses_markers(self):
+        escaped=''.join('\\u%04x'%ord(char) for char in stored._PRIVACY.SENTINEL)
+        hidden='{"hidden":"'+escaped+'"}'
+        fields={'traces':('name','status_message','trace_state','resources_string','resource','scope','attributes_string',
+            'attributes_number','attributes_bool','attributes','attributes_promoted','events','links'),
+            'logs':('body','body_v2','body_promoted','severity_text','scope_name','scope_version','attributes_string',
+                'attributes_number','attributes_bool','resources_string','resource','scope_string'),
+            'metrics':('description','unit','labels','attrs','scope_attrs','resource_attrs'),
+            'metadata':('metric_name','description','attr_name','attr_string_value')}
+        for signal,names in fields.items():
+            for name in names:
+                bundle=NativeSdkProjection().bundle()
+                if signal=='logs':bundle[signal]=[dict.fromkeys(stored.LOG_COLUMNS)]
+                elif signal=='metadata':bundle[signal]=[dict.fromkeys(stored.META_COLUMNS)]
+                row=bundle[signal][-1]
+                nested=json.dumps({'nested':json.dumps([hidden])})
+                row[name]=[nested] if name=='events' else nested
+                with self.subTest(signal=signal,name=name):
+                    with self.assertRaisesRegex(RuntimeError,'privacy'):
+                        stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                            release='c'*40,start=1800000000000,cut=1800000020000)
+                    with self.assertRaisesRegex(RuntimeError,'privacy'):
+                        if signal=='metrics':
+                            for part,groups in compact_metric_rows(bundle[signal]).items():
+                                stored.raw_rows(scalar_wire(stored.METRIC_GROUP_COLUMNS,groups),part)
+                        else:
+                            columns={'traces':stored.TRACE_COLUMNS,'logs':stored.LOG_COLUMNS,'metadata':stored.META_COLUMNS}[signal]
+                            stored.raw_rows(scalar_wire(columns,bundle[signal]),signal)
+
+
+    def test_decoded_key_nested_duplicate_depth_and_bytes_at_owning_boundaries(self):
+        escaped=''.join('\\u%04x'%ord(char) for char in stored._PRIVACY.SENTINEL)
+        cases=(('{"'+escaped+'":"clean"}',RuntimeError),
+            (json.dumps('{"x":"'+escaped+'"}'),RuntimeError),
+            ('{"x":0,"\\u0078":1}',ValueError),('['*17+'0'+']'*17,ValueError),
+            (json.dumps('a'*65536),ValueError))
+        for payload,error in cases:
+            bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']=payload
+            with self.subTest(size=len(payload),signal='traces'):
+                with self.assertRaises(error):stored.raw_rows(scalar_wire(stored.TRACE_COLUMNS,bundle['traces']),'traces')
+                with self.assertRaises(error):stored.span_facts(bundle['traces'],trace_id='a'*32,release='c'*40)
+                with self.assertRaises(error):
+                    stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                        release='c'*40,start=1800000000000,cut=1800000020000)
+            bundle=NativeSdkProjection().bundle();bundle['metrics'][-1]['resource_attrs']=payload
+            with self.subTest(size=len(payload),signal='metrics'):
+                with self.assertRaises(error):
+                    for part,groups in compact_metric_rows(bundle['metrics']).items():
+                        stored.raw_rows(scalar_wire(stored.METRIC_GROUP_COLUMNS,groups),part)
+                with self.assertRaises(error):stored.metric_facts(bundle['metrics'],release='c'*40,start=1800000000000,cut=1800000020000)
+                with self.assertRaises(error):stored.native_probe_cases(bundle['metrics'],release='c'*40,cut=1800000020000)
+                with self.assertRaises(error):
+                    stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                        release='c'*40,start=1800000000000,cut=1800000020000)
+
+    def test_foreign_objects_refuse_without_executing_hooks(self):
+        hooks=[]
+        class Hostile(dict):
+            def items(self):hooks.append('items');raise AssertionError('hook')
+            def __iter__(self):hooks.append('iter');raise AssertionError('hook')
+            def __str__(self):hooks.append('str');raise AssertionError('hook')
+        for value in (Hostile(secret='hidden'),object()):
+            with self.assertRaises(ValueError):stored.scan(value)
+            bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']=value
+            with self.assertRaises(ValueError):stored.span_facts(bundle['traces'],trace_id='a'*32,release='c'*40)
+            with self.assertRaises(ValueError):
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                    release='c'*40,start=1800000000000,cut=1800000020000)
+            bundle=NativeSdkProjection().bundle();bundle['metrics'][-1]['resource_attrs']=value
+            with self.assertRaises(ValueError):stored.metric_facts(bundle['metrics'],release='c'*40,start=1800000000000,cut=1800000020000)
+            with self.assertRaises(ValueError):stored.native_probe_cases(bundle['metrics'],release='c'*40,cut=1800000020000)
+        self.assertEqual(hooks,[])

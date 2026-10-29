@@ -1,4 +1,5 @@
 """SOURCE-MODEL birth barrier using tiny actual owned children, no native trial."""
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,32 @@ import unittest
 from unittest.mock import patch
 
 import representative_witness as witness
+
+
+@contextmanager
+def owned_child(argv,**options):
+    """Test-owned session, bounded existing supervisor stop, always close pipes."""
+    stop=witness._native_runtime().supervisor.stop
+    first=None;cleanup=None
+    process=subprocess.Popen(argv,start_new_session=True,**options)
+    try:yield process
+    except BaseException:
+        first=sys.exc_info();raise
+    finally:
+        try:stop(process)
+        except BaseException:cleanup=sys.exc_info()
+        for pipe in (process.stdin,process.stdout,process.stderr):
+            if pipe is not None:
+                try:pipe.close()
+                except BaseException:
+                    if cleanup is None:cleanup=sys.exc_info()
+        if first is None and cleanup is not None:raise cleanup[1].with_traceback(cleanup[2])
+
+
+def run_owned(argv,*,timeout,**options):
+    with owned_child(argv,stdout=subprocess.PIPE,stderr=subprocess.PIPE,**options) as process:
+        out,err=process.communicate(timeout=timeout)
+        return subprocess.CompletedProcess(argv,process.returncode,out,err)
 
 
 class Worker(unittest.TestCase):
@@ -172,8 +199,8 @@ try:raise ValueError('SECRET_ARGV_KEY_TELEMETRY_LOCALS')
 except BaseException as error:w._record_failure(root,raw,record,'corpus',error,runtime)
 sys.exit(1)
 '''.replace('WITNESS',repr(str(Path(witness.__file__).resolve())))
-            child=subprocess.Popen([sys.executable,'-I','-B','-c',code,str(root)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
-            out,err=child.communicate(timeout=5)
+            with owned_child([sys.executable,'-I','-B','-c',code,str(root)],stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+                out,err=child.communicate(timeout=5)
             self.assertEqual(child.returncode,1);self.assertEqual(out,b'');self.assertEqual(err,b'')
             record=witness.owners._worker(root)
             runtime=SimpleNamespace(process_start=lambda pid:'123')
@@ -231,7 +258,9 @@ class IsolatedSourceClosure(unittest.TestCase):
             root=Path(temporary).resolve();scripts=root/'scripts/observability-fullstack';scripts.mkdir(parents=True)
             for name in (*closure,'representative_witness'):
                 shutil.copyfile(Path(witness.__file__).with_name(name+'.py'),scripts/(name+'.py'))
-            def git(*args):return subprocess.run(['git',*args],cwd=root,check=True,capture_output=True,text=True).stdout.strip()
+            def git(*args):
+                result=run_owned(['git',*args],cwd=root,timeout=5,text=True)
+                result.check_returncode();return result.stdout.strip()
             git('init','-q');git('add','scripts')
             git('-c','user.name=Source Model','-c','user.email=model@invalid','-c','commit.gpgsign=false','commit','-qm','Fixture source')
             source={'commit':git('rev-parse','HEAD'),'tree':git('rev-parse','HEAD^{tree}')}
@@ -252,10 +281,99 @@ else:raise AssertionError('ambient module imported')
 print('fixed_source_loaded')
 '''
             argv=[sys.executable,'-I','-B','-c',code,str(scripts/'representative_witness.py'),str(prepared)]
-            result=subprocess.run(argv,capture_output=True,text=True,timeout=8)
+            result=run_owned(argv,text=True,timeout=8)
             self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(result.stdout.strip(),'fixed_source_loaded')
             # Tampering any fixed sibling is refused before owner/agent imports.
             (scripts/'representative_agent.py').write_text("raise RuntimeError('tampered_agent_ran')")
-            result=subprocess.run(argv,capture_output=True,text=True,timeout=8)
+            result=run_owned(argv,text=True,timeout=8)
             self.assertNotEqual(result.returncode,0);self.assertNotIn('tampered_agent_ran',result.stderr)
             self.assertIn('representative_bootstrap_source',result.stderr)
+
+
+class CauseChildCleanup(unittest.TestCase):
+    def test_real_child_timeout_and_interruption_preserve_failure_and_reap_owned_session(self):
+        import select
+        import signal
+        import traceback
+        real_start=subprocess.Popen;real_communicate=subprocess.Popen.communicate
+        for mode in ('timeout','interrupt'):
+            with self.subTest(mode=mode):
+                children=[];failures=[]
+                code="import signal,sys; signal.signal(signal.SIGTERM,signal.SIG_IGN); print('ready',flush=True); signal.pause()"
+                def start(argv,**options):
+                    child=real_start([sys.executable,'-I','-B','-c',code],**options)
+                    children.append(child);return child
+                def communicate(child,**options):
+                    self.assertTrue(select.select([child.stdout],[],[],3)[0],'child ready budget')
+                    self.assertEqual(child.stdout.readline(),b'ready\n')
+                    try:real_communicate(child,timeout=.05)
+                    except subprocess.TimeoutExpired as timeout:
+                        first=timeout if mode=='timeout' else KeyboardInterrupt('fixed interruption')
+                        failures.append(first);raise first
+                    self.fail('real child did not hit timeout')
+                try:
+                    with patch.object(witness.subprocess,'Popen',side_effect=start),patch.object(real_start,'communicate',communicate):
+                        try:CauseBinding().test_real_worker_process_transports_only_closed_first_command_context()
+                        except BaseException as error:
+                            self.assertIs(error,failures[0])
+                            self.assertIn('communicate',[frame.name for frame in traceback.extract_tb(error.__traceback__)])
+                        else:self.fail('first process failure was lost')
+                    self.assertEqual(len(children),1)
+                    child=children[0]
+                    self.assertIsNotNone(child.poll(),'owning test leaked its real child')
+                    self.assertTrue(child.stdout.closed and child.stderr.closed,'owning test left pipes open')
+                    with self.assertRaises(ProcessLookupError):os.killpg(child.pid,0)
+                finally:
+                    # The regression must clean even the deliberately broken RED.
+                    for child in children:
+                        if child.poll() is None:
+                            try:os.killpg(child.pid,signal.SIGKILL)
+                            except ProcessLookupError:pass
+                        child.wait(timeout=2)
+                        for pipe in (child.stdin,child.stdout,child.stderr):
+                            if pipe is not None:pipe.close()
+
+
+    def test_real_descendant_cleanup_preserves_unrelated_session_for_all_outcomes(self):
+        import select
+        import signal
+        descendant="import signal; signal.signal(signal.SIGTERM,signal.SIG_IGN); print('ready',flush=True); signal.pause()"
+        code=r"""import signal,subprocess,sys
+signal.signal(signal.SIGTERM,signal.SIG_IGN)
+child=subprocess.Popen([sys.executable,'-I','-B','-c',sys.argv[1]],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+assert child.stdout.readline()==b'ready\n'
+print(child.pid,flush=True)
+if sys.argv[2] in ('success','failure'):sys.exit(0 if sys.argv[2]=='success' else 7)
+signal.pause()
+"""
+        for outcome in ('success','failure','timeout','interrupt'):
+            with self.subTest(outcome=outcome),owned_child([sys.executable,'-I','-B','-c',descendant],
+                    stdout=subprocess.PIPE,stderr=subprocess.PIPE) as unrelated:
+                self.assertTrue(select.select([unrelated.stdout],[],[],3)[0],'unrelated ready budget')
+                self.assertEqual(unrelated.stdout.readline(),b'ready\n')
+                first=KeyboardInterrupt('fixed interruption');child=None;pid=None
+                try:
+                    try:
+                        with owned_child([sys.executable,'-I','-B','-c',code,descendant,outcome],
+                                stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+                            self.assertTrue(select.select([child.stdout],[],[],3)[0],'descendant ready budget')
+                            pid=int(child.stdout.readline())
+                            if outcome=='interrupt':raise first
+                            try:child.communicate(timeout=.05 if outcome=='timeout' else 3)
+                            except subprocess.TimeoutExpired as error:first=error;raise
+                    except BaseException as error:
+                        if outcome not in ('timeout','interrupt'):raise
+                        self.assertIs(error,first)
+                    self.assertIsNotNone(child.returncode)
+                    self.assertTrue(child.stdout.closed and child.stderr.closed)
+                    if outcome in ('success','failure'):
+                        self.assertEqual(child.returncode,0 if outcome=='success' else 7)
+                    # An orphan zombie may await the OS reaper; it cannot execute.
+                    state=subprocess.run(['ps','-o','stat=','-p',str(pid)],capture_output=True,text=True,timeout=1)
+                    self.assertTrue(state.returncode!=0 or not state.stdout.strip() or state.stdout.strip().startswith('Z'))
+                    pid=None
+                    self.assertIsNone(unrelated.poll(),'cleanup touched a different owned session')
+                finally:
+                    if pid is not None:
+                        try:os.kill(pid,signal.SIGKILL)
+                        except ProcessLookupError:pass

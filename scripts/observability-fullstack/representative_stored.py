@@ -36,30 +36,57 @@ def need(ok,reason='representative_stored_contract'):
     if not ok:raise ValueError(reason)
 
 
-def scan(value):
-    # Inspect complete supported raw surfaces BEFORE selecting or coercing. The
-    # wire decoder already enforces64KiB per response; dictionary expansion is
-    # bounded separately and does not grant a larger query receive capability.
+# D1 pinned migrations/writers: maps and JSON columns, trace links String
+# (marshaled references), and event Array(String) elements contain JSON. Log
+# body and metadata attr_string_value remain String, even with a JSON prefix.
+_JSON_FIELDS={
+    'traces':frozenset(('resources_string','resource','scope','attributes_string','attributes_number',
+        'attributes_bool','attributes','attributes_promoted','links')),
+    'logs':frozenset(('body_v2','body_promoted','attributes_string','attributes_number','attributes_bool',
+        'resources_string','resource','scope_string')),
+    'metrics':frozenset(('labels','attrs','scope_attrs','resource_attrs','samples_json')),
+    'metadata':frozenset(),
+}
+
+
+def scan(value,*,signal=None,table=None,columns=None,bundle=False):
+    # Bind row contexts without removing the raw wrapper. One original budget
+    # includes the envelope, every cell/copy, and all nested decoded expansions.
+    need(signal is None or signal in _JSON_FIELDS)
     count=0;characters=0
-    def visit(item,depth=0):
+    def cell(item,key,owner,depth):
+        visit(item,depth,required=key in _JSON_FIELDS[owner],
+            events=owner=='traces' and key=='events',text=True)
+    def visit(item,depth=0,*,rows=None,row=None,required=False,events=False,text=False):
         nonlocal count,characters
         count+=1;need(depth<=16 and count<=65536,'representative_stored_size')
         if type(item) is dict:
-            for key,child in item.items():visit(key,depth+1);visit(child,depth+1)
+            for key,child in item.items():
+                visit(key,depth+1,text=text or row is not None)
+                if row is not None:cell(child,key,row,depth+1)
+                else:visit(child,depth+1,rows=key if bundle and depth==0 else None,text=text)
         elif type(item) is list:
-            for child in item:visit(child,depth+1)
+            if item is table:rows=signal
+            for index,child in enumerate(item):
+                if row is not None:cell(child,columns[index],row,depth+1)
+                else:visit(child,depth+1,row=rows,required=events,text=text)
         elif type(item) is str:
             characters+=len(item);need(characters<=1048576,'representative_stored_size')
             _PRIVACY.assert_clean(item)
-            # SigNoz exposes maps/arrays as JSON-valued strings, including event
-            # elements and log bodies. Scan every decoded copy, even on rows
-            # later discarded. The shared budget includes nested encodings.
-            if item.lstrip().startswith(('{','[','"')):
-                from representative_reader import decode
-                visit(decode(item.encode('utf-8')),depth+1)
+            from representative_reader import decode
+            if required:
+                visit(decode(item.encode('utf-8')),depth+1,text=True)
+            elif text and item.lstrip().startswith(('{','[','"')):
+                # Only a schema-owned String cell/leaf may fall back to text.
+                # Recognize syntax, then strictly re-decode complete JSON so
+                # duplicates, depth/bytes and hidden copies cannot be discarded.
+                try:json.loads(item)
+                except json.JSONDecodeError:return
+                except RecursionError:need(False,'representative_stored_size')
+                visit(decode(item.encode('utf-8')),depth+1,text=True)
         elif type(item) in (int,float):need(math.isfinite(item),'representative_stored_number')
         else:need(item is None or type(item) is bool)
-    visit(value)
+    visit(value,rows=signal if table is None else None)
 
 
 def _integer(value,maximum=2**63-1):
@@ -84,7 +111,7 @@ def _maps(row,names):
 
 
 def span_facts(rows,*,trace_id,release):
-    scan(rows);need(type(rows) is list and len(rows)<=1000)
+    scan(rows,signal='traces');need(type(rows) is list and len(rows)<=1000)
     facts=[]
     for row in rows:
         need(type(row) is dict and set(row)==set(TRACE_COLUMNS))
@@ -150,7 +177,7 @@ FROM samples INNER JOIN series USING (env,temporality,metric_name,fingerprint)''
 def raw_rows(raw,signal):
     from representative_reader import decode
     need(signal in ('traces','logs','metadata',*METRIC_PARTITIONS))
-    value=decode(raw);scan(value)
+    value=decode(raw)
     need(type(value) is dict and set(value)=={'status','data'} and value['status']=='success')
     data=value['data'];need(type(data) is dict and set(data)<={'type','data','meta'} and data.get('type')=='scalar')
     need(type(data['data']) is dict and set(data['data'])=={'results'})
@@ -165,6 +192,7 @@ def raw_rows(raw,signal):
     need(len(names)==len(set(names)) and set(names)==set(expected))
     rows=table['data'];need(type(rows) is list and len(rows)<=1000)
     need(all(type(row) is list and len(row)==len(names) for row in rows))
+    scan(value,signal='metrics' if signal in METRIC_PARTITIONS else signal,table=rows,columns=names)
     result=[dict(zip(names,row)) for row in rows]
     if signal not in METRIC_PARTITIONS:return result
     expanded=[]
@@ -210,7 +238,7 @@ def _semantic_leaf():
 
 
 def metric_facts(rows,*,release,start,cut):
-    scan(rows);need(type(rows) is list and len(rows)<=1000)
+    scan(rows,signal='metrics');need(type(rows) is list and len(rows)<=1000)
     latest={};identities=set();minmax={};frames={};semantic=_semantic_leaf()
     for row in rows:
         need(type(row) is dict and set(row)==set(METRIC_COLUMNS))
@@ -271,7 +299,8 @@ def metric_facts(rows,*,release,start,cut):
 def validate_bundle(bundle,*,observed,release,start,cut):
     """Distinct Sig semantic verdict. No VM/raw-privacy PASS is manufactured."""
     need(type(bundle) is dict and set(bundle)=={'traces','logs','metrics','metadata'})
-    scan(bundle);_PRIVACY.assert_link_preserved(bundle['traces'])
+    scan(bundle,bundle=True)
+    _PRIVACY.assert_link_preserved(bundle['traces'])
     for signal,columns in (('logs',LOG_COLUMNS),('metadata',META_COLUMNS)):
         need(type(bundle[signal]) is list and len(bundle[signal])<=1000
             and all(type(row) is dict and set(row)==set(columns) for row in bundle[signal]))
@@ -291,7 +320,7 @@ def validate_bundle(bundle,*,observed,release,start,cut):
 
 def native_probe_cases(rows,*,release,cut):
     """Separate test-owned zero/latest/future samples, never current app health."""
-    scan(rows);groups={}
+    scan(rows,signal='metrics');groups={}
     for row in rows:
         resource=_object(row['resource_attrs'])
         if resource.get('service.name')!='platform-task4b-native-probe':continue
