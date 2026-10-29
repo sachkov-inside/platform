@@ -1,5 +1,6 @@
 import { ReadingActivityRetention } from "../../src/modules/reading-activity/index.js";
 import { activityTestClock } from "./setup/activity-test-clock.js";
+import { everyAccountLinked } from "../support/telegram-links.js";
 import {
   grantProductFixture,
   revokeProductFixture,
@@ -89,6 +90,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       prisma,
       materialContent: materials.materialContent,
       contentAccess: assembleContentAccess({
+        telegramLinks: everyAccountLinked,
         materialResourceFacts: assembleMaterialResourceFacts(
           materials.materialContent,
         ),
@@ -388,6 +390,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       id,
     );
     const access = assembleContentAccess({
+      telegramLinks: everyAccountLinked,
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
       ),
@@ -837,6 +840,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         prisma: observer.prisma,
         materialContent: materials.materialContent,
         contentAccess: assembleContentAccess({
+          telegramLinks: everyAccountLinked,
           materialResourceFacts: assembleMaterialResourceFacts(
             materials.materialContent,
           ),
@@ -1081,6 +1085,7 @@ describe("ReadingActivity on PostgreSQL", () => {
           authorPolicy: { canManage: () => false },
         });
         const contentAccess = assembleContentAccess({
+          telegramLinks: everyAccountLinked,
           materialResourceFacts: assembleMaterialResourceFacts(
             pooled.materialContent,
           ),

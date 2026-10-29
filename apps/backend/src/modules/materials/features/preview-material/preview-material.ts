@@ -60,6 +60,7 @@ export function assemblePreviewMaterial(
         case "resource_action_invalid":
         case "resource_mismatch":
         case "resource_unpublished":
+        case "telegram_link_required":
           return failure({ code: "internal_error", correlationId });
       }
     }

@@ -1,4 +1,6 @@
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
+import { Send } from "lucide-react";
+import type { MaterialPreview } from "@/entities/material";
 import Link from "next/link";
 import type { ProductOnboardingPanel } from "./product-journey-controls.client";
 
@@ -159,6 +161,15 @@ export function ProductProgrammeView({
             </div>
           )}
         </div>
+        {accessPending || !items.some(needsTelegramSignIn) ? null : (
+          <p
+            className="mt-3 flex items-center gap-2 text-sm leading-6 text-muted-foreground"
+            data-programme-part="free-lessons-sign-in"
+          >
+            <Send aria-hidden="true" className="size-4 shrink-0 text-accent" />
+            Бесплатные уроки открываются после входа через Telegram.
+          </p>
+        )}
         <ProgrammeProgress />
       </header>
 
@@ -188,11 +199,21 @@ export function PendingProduct({
   );
 }
 
-/** Есть ли в программе урок под замком для того, чьими глазами прочитан состав. */
+/** Бесплатный урок, который откроется после входа через Telegram, а не после покупки (#1825). */
+function needsTelegramSignIn(item: MaterialPreview): boolean {
+  return item.access === "free" && item.availability === "locked";
+}
+
+/**
+ * Есть ли в программе урок под замком для того, чьими глазами прочитан состав. Бесплатный урок
+ * открывает вход через Telegram, а не покупка, поэтому к оплате он не зовёт (#1825).
+ */
 function hasLockedItems(result: ResolvedProductResult): boolean {
   return (
     result.kind === "ready" &&
-    result.items.some((item) => item.availability === "locked")
+    result.items.some(
+      (item) => item.availability === "locked" && !needsTelegramSignIn(item),
+    )
   );
 }
 

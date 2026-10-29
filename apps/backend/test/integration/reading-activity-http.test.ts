@@ -1,3 +1,4 @@
+import { linkTelegram } from "../support/telegram-links.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -93,6 +94,9 @@ describe("ReadingActivity HTTP", () => {
         ).statusCode,
       ).toBe(201);
     }
+    // Both readers signed in through Telegram: the free Product lesson opens to them (#1825).
+    for (const logtoSubject of ["human-api-001", "another"])
+      await linkTelegram(database.prisma, { logtoSubject });
     const topicId = randomUUID();
     const formatId = "note";
     const actor = randomUUID();

@@ -1,6 +1,7 @@
 import { ReadingActivityRetention } from "../../src/modules/reading-activity/index.js";
 import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
 import { activityTestClock } from "./setup/activity-test-clock.js";
+import { everyAccountLinked } from "../support/telegram-links.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   grantProductFixture,
@@ -144,6 +145,11 @@ function report(definitionValue: Definition, omit?: string, extra?: string) {
 describe("Product Tasks: import, versions, access and submissions (#946)", () => {
   let db: TestDatabase;
   const owner = randomUUID();
+  /** A free embedded lesson opens to a reader who signed in through Telegram (#1825). */
+  const telegramReader = {
+    kind: "account" as const,
+    accountId: accountId(randomUUID()),
+  };
   const topicId = randomUUID();
 
   let contentAccess: ContentAccess;
@@ -191,7 +197,11 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     const membership = assembleAccountRights({
       prisma: db.prisma,
     });
-    materials = assembleMaterials({ prisma: db.prisma, authorPolicy });
+    materials = assembleMaterials({
+      prisma: db.prisma,
+      authorPolicy,
+      telegramLinks: everyAccountLinked,
+    });
     directory = new ProductDirectory(
       db.prisma,
       assembleProductMaterialReading(db.prisma),
@@ -208,6 +218,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },
       accountRights: membership,
+      telegramLinks: everyAccountLinked,
     });
     await db.prisma.topic.create({
       data: { id: topicId, slug: `tasks-${topicId}`, name: "Tasks" },
@@ -577,7 +588,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       ),
     ).toMatchObject({ ok: false, error: { code: "chapter_not_found" } });
     const page = await learning().materialTask({
-      subject: { kind: "anonymous" },
+      subject: telegramReader,
       materialId: material.materialId,
     });
     expect(page).toMatchObject({
@@ -586,11 +597,11 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
     const first = partSchema.parse(
       await learning().read({
-        subject: { kind: "anonymous" },
+        subject: telegramReader,
         code: task.code,
       }),
     );
-    const context = await readAll(learning(), { kind: "anonymous" }, task.code);
+    const context = await readAll(learning(), telegramReader, task.code);
     const practice = z
       .object({
         payload: z.object({
@@ -638,7 +649,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     if (!updated.ok) throw new Error(JSON.stringify(updated.error));
     expect(
       await learning().read({
-        subject: { kind: "anonymous" },
+        subject: telegramReader,
         code: task.code,
         expectedContextVersion: first.value.contextVersion,
       }),
@@ -656,7 +667,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
     expect(
       await learning().read({
-        subject: { kind: "anonymous" },
+        subject: telegramReader,
         code: task.code,
         expectedContextVersion: first.value.contextVersion,
       }),
@@ -666,13 +677,13 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
     expect(
       await learning().materialTask({
-        subject: { kind: "anonymous" },
+        subject: telegramReader,
         materialId: material.materialId,
       }),
     ).toMatchObject({ ok: false, error: { code: "task_not_found" } });
     expect(
       await learning().page({
-        subject: { kind: "anonymous" },
+        subject: telegramReader,
         code: task.code,
         productSlug,
       }),
@@ -773,7 +784,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       });
       expect(
         await tasks.read({
-          subject: { kind: "anonymous" },
+          subject: telegramReader,
           code: command.code,
         }),
       ).toMatchObject({
