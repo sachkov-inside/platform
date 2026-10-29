@@ -75,8 +75,22 @@ def worker(output):
             pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
             progress('phase','ownership')
             def read(argv):
+                # Only an active source checkpoint can select a boundary. Later
+                # nonownership reads retain their original phase and behavior.
+                phase=run.snapshot()['phase']
+                stages=evidence.OWNERSHIP_READ_PHASES.get(phase)
+                def checkpoint(index):
+                    if stages is not None:
+                        # Commit metadata before advancing memory: a failed write
+                        # must not claim the next native operation was entered.
+                        artifact.write_run(output,{**run.snapshot(),'phase':stages[index]})
+                        run.start(stages[index])
+                checkpoint(0)
                 pilot.assert_docker_identity()
-                return pilot.command(argv,timeout=10)
+                checkpoint(1)
+                result=pilot.command(argv,timeout=10)
+                if stages is not None:run.start(phase)
+                return result
             ownership_checkpoint(None,'plan')
             targets=owned.Targets(output,compose,overlay.plan(output),read,ownership_checkpoint=ownership_checkpoint)
             progress('case','logging')

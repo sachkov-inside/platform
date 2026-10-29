@@ -314,6 +314,60 @@ class AuthWire(unittest.TestCase):
                 self.assertIs(type(row['http_status']),int);self.assertNotEqual(row['http_status'],204)
                 self.assertNotIn('private-',json.dumps(row,allow_nan=False))
 
+    def test_trace_log_first_exception_is_identity_bound_and_survives_revoke(self):
+        for revoke_status in (204,500):
+            before=[];errors=[]
+            def hook(_proxy,_key):
+                control.FUNCTIONAL_STAGE='trace_log'
+                try:
+                    with control.trace_log_read(control.TRACE_LOG_READS[('logs','negative')]):
+                        control.scalar({**{'type':'scalar'},'warning':'private-trace-canary'})
+                except BaseException as error:
+                    before.append((error,error.__traceback__));raise
+            failure=self.exercise(False,project_failure=True,revoke_status=revoke_status,failure_hook=hook,observed_errors=errors)
+            self.assertIs(errors[0],before[0][0]);self.assertIn(before[0][1],list(self.traceback_frames(errors[0].__traceback__)))
+            self.assertEqual(failure,{'inside_failed':1,'stage':'logs_negative_scalar_warning','category':'ControlFailure',
+                'http_status':200,'transport':'query_v5'})
+            self.assertNotIn('private-trace-canary',json.dumps(failure))
+            for attribute in ('_signoz_trace_log_validation','_signoz_first_failure'):
+                foreign=RuntimeError('private-trace-canary');setattr(foreign,attribute,vars(errors[0])[attribute])
+                with patch.object(control,'FUNCTIONAL_STAGE','finite_gateway',create=True):
+                    control.preserve_failure(foreign)
+                    self.assertEqual(control.failure_context(foreign)['stage'],'finite_gateway')
+
+        # A secondary revoke may rethrow the very same object. Its traceback must
+        # still describe the first read, rather than the cleanup notification.
+        before=[];errors=[];actual_request=control.request
+        def revoke_same(method,*args,**kwargs):
+            if method=='DELETE':raise before[0][0]
+            return actual_request(method,*args,**kwargs)
+        with patch.object(control,'request',side_effect=revoke_same):
+            failure=self.exercise(False,project_failure=True,revoke_status=500,failure_hook=hook,
+                observed_errors=errors,expected_revoke_calls=0)
+        self.assertIs(errors[0],before[0][0])
+        self.assertIn(before[0][1],list(self.traceback_frames(errors[0].__traceback__)))
+        self.assertNotIn('revoke_same',[frame.tb_frame.f_code.co_name for frame in self.traceback_frames(errors[0].__traceback__)])
+        self.assertEqual(failure['stage'],'logs_negative_scalar_warning')
+
+    def test_trace_log_stage_cannot_be_selected_by_foreign_strings_or_error_attributes(self):
+        invalid=(None,[],{},True,1,'private-trace-canary','x'*10000,'traces_positive_scalar_warning')
+        for operation in invalid:
+            with self.subTest(operation_type=type(operation).__name__),patch.object(control,'FUNCTIONAL_STAGE','trace_log',create=True):
+                with self.assertRaises(control.ControlFailure) as caught:
+                    with control.trace_log_read(operation):control.scalar(None)
+                self.assertEqual(control.failure_context(caught.exception)['stage'],'trace_log')
+        for tag in invalid+((object(),0,'logs_negative_scalar_warning','query_v5',200),):
+            error=RuntimeError('private-trace-canary');error._signoz_trace_log_validation=tag
+            with patch.object(control,'FUNCTIONAL_STAGE','trace_log',create=True):
+                self.assertEqual(control.failure_context(error)['stage'],'trace_log')
+        for stage in ('private-trace-canary','x'*10000,[],{},None,True):
+            error=RuntimeError('private-trace-canary')
+            error._signoz_trace_log_validation=(control._TRACE_LOG_AUTHORITY,id(error),stage,'query_v5',200)
+            with patch.object(control,'FUNCTIONAL_STAGE','trace_log',create=True):
+                self.assertEqual(control.failure_context(error)['stage'],'trace_log')
+        with patch.object(control,'FUNCTIONAL_STAGE','logs_negative_scalar_warning',create=True):
+            self.assertEqual(control.failure_context(RuntimeError('private-trace-canary'))['stage'],'unavailable')
+
     @staticmethod
     def traceback_frames(frame):
         while frame is not None:
@@ -355,6 +409,12 @@ class RequestBounds(unittest.TestCase):
                     self.assertEqual(control.failure_context(original.exception)['stage'],'bootstrap_fixed_read')
             with self.assertRaises(control.ControlFailure) as scalar:control.scalar({'type':'scalar','warning':['private-sentinel']})
             self.assertEqual(control.failure_context(scalar.exception)['stage'],'bootstrap_fixed_read')
+
+            for elapsed,deadline,step in ((10.0001,100,'query_deadline'),(0,0,'query_admission')):
+                with self.subTest(step=step),self.assertRaises(control.ControlFailure) as caught:
+                    with control.trace_log_read(control.TRACE_LOG_READS[('logs','positive')]):
+                        self.call(200,good,elapsed,deadline)
+                self.assertEqual(control.failure_context(caught.exception)['stage'],'logs_positive_'+step)
 
 
 if __name__=='__main__':unittest.main()

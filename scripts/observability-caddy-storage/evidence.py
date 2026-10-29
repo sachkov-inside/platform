@@ -13,8 +13,12 @@ OWNERSHIP_GATES = ('lookup_read', 'lookup_empty', 'lookup_id', 'lookup_duplicate
     'runtime_read', 'runtime_contract')
 OWNERSHIP_GLOBAL = ('plan', 'registry_shape', 'registry_networks', 'registry_volumes',
                     'registry_network_count', 'witness')
+OWNERSHIP_READ_PHASES = {
+    'ownership_'+role+'_'+gate:tuple('ownership_'+role+'_'+gate+'_'+boundary for boundary in ('identity','command'))
+    for role in OWNERSHIP_ROLES for gate in ('lookup_read','inspect_read','runtime_read')}
+OWNERSHIP_IO_PHASES = tuple(phase for phases in OWNERSHIP_READ_PHASES.values() for phase in phases)
 OWNERSHIP_PHASES = tuple('ownership_' + gate for gate in OWNERSHIP_GLOBAL) + tuple(
-    'ownership_' + role + '_' + gate for role in OWNERSHIP_ROLES for gate in OWNERSHIP_GATES)
+    'ownership_' + role + '_' + gate for role in OWNERSHIP_ROLES for gate in OWNERSHIP_GATES) + OWNERSHIP_IO_PHASES
 OWNERSHIP_IO = {'plan', 'witness', 'lookup_read', 'inspect_read', 'runtime_read'}
 
 

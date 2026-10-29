@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Fixed fixture bootstrap, managed viewer identity, read and revoke protocol."""
+from contextlib import contextmanager
+from contextvars import ContextVar
 import http.client
 import json
 import math
 import secrets
+import sys
 import time
 import uuid
 
@@ -20,9 +23,18 @@ MCP_READ_STAGES = frozenset(('mcp_wire_admission','mcp_wire_request','mcp_wire_h
     'mcp_wire_status','mcp_wire_size','mcp_inventory_size','mcp_wire_deadline','mcp_wire_decode','mcp_wire_close',
     'mcp_rpc_object','mcp_rpc_version','mcp_rpc_id','mcp_rpc_error','mcp_rpc_result','mcp_rpc_is_error',
     'mcp_initialize_version','mcp_inventory_cursor','mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool'))
+TRACE_LOG_STEPS = frozenset(('read','query_admission','query_request','query_headers','query_read',
+    'query_response','query_deadline','query_decode','query_object','query_envelope','query_close',
+    'scalar_type','scalar_warning','scalar_results','scalar_query','scalar_columns','scalar_rows',
+    'scalar_number','scalar_number_range','count_zero','count_one','count_many',
+    'wait_unknown','wait_zero','wait_one','wait_many'))
+TRACE_LOG_READS = {(signal,polarity):object() for signal in ('traces','logs') for polarity in ('positive','negative')}
+TRACE_LOG_STAGES = frozenset(signal+'_'+polarity+'_'+step for signal,polarity in TRACE_LOG_READS for step in TRACE_LOG_STEPS)
+_TRACE_LOG_CONTEXT = ContextVar('trace_log_read',default=None)
+_TRACE_LOG_AUTHORITY = object()
 FAILURE_STAGES = frozenset(('entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
     'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics','trace_log','mcp_read','finite_gateway',
-    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial')) | BOOTSTRAP_READ_STAGES | MCP_READ_STAGES
+    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial')) | BOOTSTRAP_READ_STAGES | MCP_READ_STAGES | TRACE_LOG_STAGES
 FAILURE_TRANSPORTS = frozenset(('none','mcp_http','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'))
 FAILURE_CATEGORIES = frozenset(('ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
     'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'))
@@ -39,6 +51,12 @@ def _closed_name(value, allowed):
 def _current_failure(error):
     status=globals().get('LAST_HTTP_STATUS',0)
     stage=globals().get('FUNCTIONAL_STAGE','entry')
+    trace=vars(error).get('_signoz_trace_log_validation')
+    if (type(trace) is tuple and len(trace)==5 and trace[0] is _TRACE_LOG_AUTHORITY
+            and type(trace[1]) is int and trace[1]==id(error)
+            and _closed_name(trace[2],TRACE_LOG_STAGES)!='unavailable'
+            and type(trace[4]) is int and 0<=trace[4]<=599):
+        return (trace[2],_closed_name(trace[3],FAILURE_TRANSPORTS),trace[4],_closed_name(type(error).__name__,FAILURE_CATEGORIES))
     mcp=vars(error).get('_signoz_mcp_validation')
     if (type(mcp) is tuple and len(mcp)==5 and mcp[0] is _MCP_READ_AUTHORITY
             and type(mcp[1]) is int and mcp[1]==id(error)
@@ -49,7 +67,7 @@ def _current_failure(error):
     if (type(tagged) is tuple and len(tagged)==3 and tagged[0] is _BOOTSTRAP_READ_AUTHORITY
             and type(tagged[1]) is int and tagged[1]==id(error)
             and _closed_name(tagged[2],BOOTSTRAP_READ_STAGES)!='unavailable'):stage=tagged[2]
-    return (_closed_name(stage,FAILURE_STAGES),
+    return (_closed_name(stage,FAILURE_STAGES - TRACE_LOG_STAGES),
             _closed_name(globals().get('STEP','none'),FAILURE_TRANSPORTS),
             status if type(status) is int and 0<=status<=599 else 0,
             _closed_name(type(error).__name__,FAILURE_CATEGORIES))
@@ -57,13 +75,13 @@ def _current_failure(error):
 def preserve_failure(error):
     # Per-exception authority, never a global first-error latch. Local negatives stay local.
     fields=vars(error);saved=fields.get('_signoz_first_failure')
-    if type(saved) is tuple and len(saved)==2 and saved[0] is _FAILURE_AUTHORITY:return
-    fields['_signoz_first_failure']=(_FAILURE_AUTHORITY,_current_failure(error))
+    if type(saved) is tuple and len(saved)==3 and saved[0] is _FAILURE_AUTHORITY and type(saved[1]) is int and saved[1]==id(error):return
+    fields['_signoz_first_failure']=(_FAILURE_AUTHORITY,id(error),_current_failure(error))
 
 def failure_context(error):
     saved=vars(error).get('_signoz_first_failure')
-    if type(saved) is tuple and len(saved)==2 and saved[0] is _FAILURE_AUTHORITY:
-        row=saved[1]
+    if type(saved) is tuple and len(saved)==3 and saved[0] is _FAILURE_AUTHORITY and type(saved[1]) is int and saved[1]==id(error):
+        row=saved[2]
         if not (type(row) is tuple and len(row)==4 and type(row[2]) is int and 0<=row[2]<=599):
             row=('unavailable','unavailable',0,'unavailable')
     else:row=_current_failure(error)
@@ -87,11 +105,57 @@ def _tag_mcp_failure(error,stage):
         status if type(status) is int and 0<=status<=599 else 0)
 
 
-def require(ok,*,bootstrap_stage=None,mcp_stage=None):
+def _trace_log_checkpoint(step):
+    context=_TRACE_LOG_CONTEXT.get()
+    if context is not None and type(step) is str and step in TRACE_LOG_STEPS:context[1]=step
+
+
+def _tag_trace_log_failure(error):
+    context=_TRACE_LOG_CONTEXT.get()
+    if context is None:return
+    saved=vars(error).get('_signoz_trace_log_validation')
+    if (type(saved) is tuple and len(saved)==5 and saved[0] is _TRACE_LOG_AUTHORITY
+            and type(saved[1]) is int and saved[1]==id(error)
+            and _closed_name(saved[2],TRACE_LOG_STAGES)!='unavailable'):return
+    status=globals().get('LAST_HTTP_STATUS',0)
+    vars(error)['_signoz_trace_log_validation']=(_TRACE_LOG_AUTHORITY,id(error),context[0]+'_'+context[1],
+        _closed_name(globals().get('STEP','none'),FAILURE_TRANSPORTS),
+        status if type(status) is int and 0<=status<=599 else 0)
+
+
+@contextmanager
+def trace_log_read(operation):
+    # Identity capability comes only from the four fixed source call sites. Payload
+    # fields and arbitrary caller strings cannot choose a diagnostic stage.
+    name=next((signal+'_'+polarity for (signal,polarity),token in TRACE_LOG_READS.items() if operation is token),None)
+    token=_TRACE_LOG_CONTEXT.set(None if name is None else [name,'read','unknown'])
+    try:yield
+    except BaseException as error:
+        _tag_trace_log_failure(error)
+        raise
+    finally:_TRACE_LOG_CONTEXT.reset(token)
+
+
+def trace_log_count(count):
+    context=_TRACE_LOG_CONTEXT.get()
+    if context is not None:
+        context[2]='zero' if count==0 else 'one' if count==1 else 'many'
+        _trace_log_checkpoint('count_'+context[2])
+    return count
+
+
+def trace_log_wait():
+    context=_TRACE_LOG_CONTEXT.get()
+    if context is not None:_trace_log_checkpoint('wait_'+context[2])
+
+
+def require(ok,*,bootstrap_stage=None,mcp_stage=None,read_stage=None):
     if not ok:
         error=ControlFailure()
         _tag_bootstrap_failure(error,bootstrap_stage)
         _tag_mcp_failure(error,mcp_stage)
+        _trace_log_checkpoint(read_stage)
+        _tag_trace_log_failure(error)
         raise error
 
 def uid(value):
@@ -108,50 +172,75 @@ def request(method, path, body=None, auth=None, accepted=(200,),*,bootstrap_read
     global STEP, LAST_HTTP_STATUS
     LAST_HTTP_STATUS=0
     STEP = 'query_v5' if path=='/api/v5/query_range' else 'register' if path=='/api/v1/register' else 'session' if path=='/api/v2/sessions/email_password' else 'roles' if path=='/api/v1/roles' else 'reader_identity' if path=='/api/v1/service_accounts/me' else 'revoke' if method=='DELETE' else 'service_account_setup'
-    conn = http.client.HTTPConnection(HOST, PORT, timeout=remaining(bootstrap_read=bootstrap_read))
-    headers = {'Accept': 'application/json', 'Connection': 'close'}
-    if auth:
-        headers.update(auth)
-    raw = None
-    if body is not None:
-        raw = json.dumps(body, separators=(',', ':')).encode()
-        headers['Content-Type'] = 'application/json'
-    started = time.monotonic()
+    conn=None;primary=None
+    _trace_log_checkpoint('query_admission')
     try:
+        conn = http.client.HTTPConnection(HOST, PORT, timeout=remaining(bootstrap_read=bootstrap_read))
+        headers = {'Accept': 'application/json', 'Connection': 'close'}
+        if auth:
+            headers.update(auth)
+        raw = None
+        if body is not None:
+            raw = json.dumps(body, separators=(',', ':')).encode()
+            headers['Content-Type'] = 'application/json'
+        started = time.monotonic()
+        _trace_log_checkpoint('query_request')
         conn.request(method, path, raw, headers)
+        _trace_log_checkpoint('query_headers')
         response = conn.getresponse()
         LAST_HTTP_STATUS=response.status
+        _trace_log_checkpoint('query_read')
         payload = response.read(MAX_BODY + 1)
-        require(len(payload) <= MAX_BODY and response.status in accepted,bootstrap_stage='bootstrap_read_response' if bootstrap_read else None)
+        require(len(payload) <= MAX_BODY and response.status in accepted,bootstrap_stage='bootstrap_read_response' if bootstrap_read else None,read_stage='query_response')
         elapsed = time.monotonic() - started
-        require(elapsed <= 10,bootstrap_stage='bootstrap_read_deadline' if bootstrap_read else None)
+        require(elapsed <= 10,bootstrap_stage='bootstrap_read_deadline' if bootstrap_read else None,read_stage='query_deadline')
         if response.status == 204:
             require(not payload)
             return response.status, None, elapsed
+        _trace_log_checkpoint('query_decode')
         try:value = json.loads(payload)
         except Exception as error:
             if bootstrap_read:_tag_bootstrap_failure(error,'bootstrap_read_decode')
             raise
-        require(isinstance(value, dict),bootstrap_stage='bootstrap_read_object' if bootstrap_read else None)
+        require(isinstance(value, dict),bootstrap_stage='bootstrap_read_object' if bootstrap_read else None,read_stage='query_object')
         if response.status == 200 or response.status == 201:
-            require(value.get('status') == 'success' and 'data' in value,bootstrap_stage='bootstrap_read_envelope' if bootstrap_read else None)
+            require(value.get('status') == 'success' and 'data' in value,bootstrap_stage='bootstrap_read_envelope' if bootstrap_read else None,read_stage='query_envelope')
         return response.status, value.get('data'), elapsed
+    except BaseException as error:
+        primary=error;original_traceback=sys.exc_info()[2]
+        _tag_trace_log_failure(error)
+        raise
     finally:
-        conn.close()
+        if conn is not None:
+            try:conn.close()
+            except Exception as error:
+                if primary is None:
+                    _trace_log_checkpoint('query_close');_tag_trace_log_failure(error)
+                    raise
+            finally:
+                if primary is not None:BaseException.__traceback__.__set__(primary,original_traceback)
 
 def scalar(value,*,bootstrap_read=False):
-    require(isinstance(value, dict) and value.get('type') == 'scalar',bootstrap_stage='bootstrap_read_type' if bootstrap_read else None)
-    require(not value.get('warning'),bootstrap_stage='bootstrap_read_warning' if bootstrap_read else None)
+    _trace_log_checkpoint('scalar_type')
+    require(isinstance(value, dict) and value.get('type') == 'scalar',bootstrap_stage='bootstrap_read_type' if bootstrap_read else None,read_stage='scalar_type')
+    _trace_log_checkpoint('scalar_warning')
+    require(not value.get('warning'),bootstrap_stage='bootstrap_read_warning' if bootstrap_read else None,read_stage='scalar_warning')
+    _trace_log_checkpoint('scalar_results')
     results = value.get('data', {}).get('results')
-    require(isinstance(results, list) and len(results) == 1,bootstrap_stage='bootstrap_read_results' if bootstrap_read else None)
+    require(isinstance(results, list) and len(results) == 1,bootstrap_stage='bootstrap_read_results' if bootstrap_read else None,read_stage='scalar_results')
     result = results[0]
-    require(isinstance(result, dict) and result.get('queryName') == 'A',bootstrap_stage='bootstrap_read_query' if bootstrap_read else None)
+    _trace_log_checkpoint('scalar_query')
+    require(isinstance(result, dict) and result.get('queryName') == 'A',bootstrap_stage='bootstrap_read_query' if bootstrap_read else None,read_stage='scalar_query')
     columns, rows = result.get('columns'), result.get('data')
-    require(isinstance(columns, list) and len(columns) == 1,bootstrap_stage='bootstrap_read_columns' if bootstrap_read else None)
-    require(isinstance(rows, list) and len(rows) == 1 and len(rows[0]) == 1,bootstrap_stage='bootstrap_read_rows' if bootstrap_read else None)
+    _trace_log_checkpoint('scalar_columns')
+    require(isinstance(columns, list) and len(columns) == 1,bootstrap_stage='bootstrap_read_columns' if bootstrap_read else None,read_stage='scalar_columns')
+    _trace_log_checkpoint('scalar_rows')
+    require(isinstance(rows, list) and len(rows) == 1 and len(rows[0]) == 1,bootstrap_stage='bootstrap_read_rows' if bootstrap_read else None,read_stage='scalar_rows')
     count = rows[0][0]
-    require(type(count) in (int, float) and math.isfinite(count),bootstrap_stage='bootstrap_read_number' if bootstrap_read else None)
-    require(count >= 0 and count.is_integer() if type(count) is float else count >= 0,bootstrap_stage='bootstrap_read_number_range' if bootstrap_read else None)
+    _trace_log_checkpoint('scalar_number')
+    require(type(count) in (int, float) and math.isfinite(count),bootstrap_stage='bootstrap_read_number' if bootstrap_read else None,read_stage='scalar_number')
+    _trace_log_checkpoint('scalar_number_range')
+    require(count >= 0 and count.is_integer() if type(count) is float else count >= 0,bootstrap_stage='bootstrap_read_number_range' if bootstrap_read else None,read_stage='scalar_number_range')
     return int(count)
 
 class FixedRead:
@@ -246,7 +335,7 @@ def bootstrap():
                 'local_raw_input_negatives': 3, 'admin_read_denied': 1,
                 'revoke_denied': 1}
     except BaseException as error:
-        primary=error;preserve_failure(error)
+        primary=error;primary_traceback=sys.exc_info()[2];preserve_failure(error)
         raise
     finally:
         # An unsuccessful path still attempts revoke under the SAME deadline.
@@ -257,3 +346,5 @@ def bootstrap():
                         auth=admin, accepted=(204,))
             except Exception:
                 if primary is None:raise
+            finally:
+                if primary is not None:BaseException.__traceback__.__set__(primary,primary_traceback)
