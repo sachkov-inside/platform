@@ -209,6 +209,8 @@ class Dispatch:
         first=None
         try:self.__owner._scope_consume(self.__generation)
         except BaseException:first=sys.exc_info()
+        # Failed consumption leaves the exact recorded inode for bounded recovery.
+        if first is not None:raise first[1].with_traceback(first[2])
         try:
             if self.__file is not None:
                 need(_directory(self.__directory)==self.__directory_identity)

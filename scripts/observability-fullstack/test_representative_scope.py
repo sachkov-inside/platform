@@ -280,4 +280,20 @@ class SubprocessScope(unittest.TestCase):
             self.assertTrue(owner.cleanup_exact())
 
 
+    def test_expired_consume_keeps_exact_scope_for_recovery_in_original_cleanup_tail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            original_deadline=native.deadline
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                dispatch=scopes.mint(owner,4,START,CUT)
+                path=output/'signoz/private/representative-scope/current.json';identity=(path.stat().st_dev,path.stat().st_ino)
+                with patch.object(owner_tests.owners.time,'monotonic',return_value=original_deadline+1):
+                    with self.assertRaisesRegex(ValueError,'deadline'):dispatch.close()
+                    self.assertTrue(path.exists(),'failed durable consumption must preserve recoverable inode')
+                    self.assertEqual((path.stat().st_dev,path.stat().st_ino),identity)
+                    recovered=owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+                    self.assertFalse(path.exists());self.assertTrue(recovered.cleanup_exact())
+                    self.assertLessEqual(native.deadline,original_deadline+90)
+
+
 if __name__=='__main__':unittest.main()
