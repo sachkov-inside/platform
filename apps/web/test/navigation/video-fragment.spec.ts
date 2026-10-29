@@ -6,14 +6,27 @@ declare global {
     __fragmentProbe: {
       arm(): void;
       waitForWrite(): Promise<undefined>;
-      waitForPlayer(): Promise<undefined>;
-      releasePlayer(): void;
+      players(): number;
       snapshot(): readonly Record<string, unknown>[];
     };
   }
 }
 
-test("a pending Reader refresh cannot erase a native video fragment before its listener", async ({
+test("the Reader HTML starts the provider script before hydration", async ({
+  request,
+}) => {
+  const html = await (
+    await request.get("/materials/navigation-video-fragment")
+  ).text();
+  expect(html).toMatch(
+    /<link rel="preload" href="https:\/\/player\.kinescope\.io\/latest\/iframe\.player\.js" as="script"/u,
+  );
+  expect(html).toMatch(
+    /<link rel="preconnect" href="https:\/\/kinescope\.io"/u,
+  );
+});
+
+test("a Reader refresh keeps the player and cannot erase a native video fragment", async ({
   page,
 }, testInfo) => {
   await page.route("**/auth/status", (route) =>
@@ -41,8 +54,10 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
       },
     });
   });
-  await page.route("**/api/material-video-playback-sessions", (route) =>
-    route.fulfill({
+  let playbackSessions = 0;
+  await page.route("**/api/material-video-playback-sessions", (route) => {
+    playbackSessions += 1;
+    return route.fulfill({
       json: {
         drmAuthToken: null,
         embedLocator: "https://kinescope.io/embed/fragment-video",
@@ -50,8 +65,8 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
         resumeSeconds: 37,
         videoId: "44444444-4444-4444-8444-444444444444",
       },
-    }),
-  );
+    });
+  });
   await page.route("https://kinescope.io/**", (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -61,22 +76,16 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
   await page.addInitScript(() => {
     const ledger: Record<string, unknown>[] = [];
     const captured = Promise.withResolvers<undefined>();
-    const playerHeld = Promise.withResolvers<undefined>();
-    const releasePlayer = Promise.withResolvers<undefined>();
     let armed = false;
-    let holdNextPlayer = false;
+    let players = 0;
     let refreshReceived = false;
     let write: (() => void) | undefined;
     window.__fragmentProbe = {
       arm: () => {
         armed = true;
-        holdNextPlayer = true;
       },
       waitForWrite: () => captured.promise,
-      waitForPlayer: () => playerHeld.promise,
-      releasePlayer: () => {
-        releasePlayer.resolve(undefined);
-      },
+      players: () => players,
       snapshot: () => ledger,
     };
     const nativeFetch = window.fetch;
@@ -156,6 +165,7 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
         IframePlayer: {
           version: "1.0.0",
           create: (mount: HTMLElement, options: { url: string }) => {
+            players += 1;
             const iframe = document.createElement("iframe");
             iframe.src = options.url;
             mount.append(iframe);
@@ -174,11 +184,6 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
                 return Promise.resolve();
               },
             };
-            if (holdNextPlayer) {
-              holdNextPlayer = false;
-              playerHeld.resolve(undefined);
-              return releasePlayer.promise.then(() => player);
-            }
             return Promise.resolve(player);
           },
         },
@@ -195,13 +200,12 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
     });
     releaseOpen.resolve(undefined);
     await page.evaluate(() => window.__fragmentProbe.waitForWrite());
-    await page.evaluate(() => window.__fragmentProbe.waitForPlayer());
     await page.goto("/materials/navigation-video-fragment#t=3");
-    await page.evaluate(() => {
-      window.__fragmentProbe.releasePlayer();
-    });
     await expect(frame).toHaveAttribute("data-seek-seconds", "3");
     await expect(page).toHaveURL(/#t=3$/u);
+    // The refreshed Reader payload carries equal props: the live player keeps its session.
+    expect(await page.evaluate(() => window.__fragmentProbe.players())).toBe(1);
+    expect(playbackSessions).toBe(1);
     // Selecting the current chapter emits the production synthetic event (no newURL).
     await page.getByRole("link", { name: "0:03 Early chapter" }).click();
     await expect
@@ -235,9 +239,6 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
       .toEqual([3, 3, 0, 261]);
   } finally {
     releaseOpen.resolve(undefined);
-    await page.evaluate(() => {
-      window.__fragmentProbe.releasePlayer();
-    });
     await testInfo.attach("fragment-ledger", {
       body: JSON.stringify(
         await page.evaluate(() => window.__fragmentProbe.snapshot()),
@@ -347,6 +348,10 @@ for (const failed of [false, true]) {
       await page.goto("/materials/navigation-video-fragment#t=3");
       const frame = page.locator("[data-video-id] iframe");
       await expect(frame).toHaveAttribute("data-duration-requested", "true");
+      // The provider owns the area once it exists; metadata arrives behind its own UI.
+      await expect(
+        page.getByText("Загружаем видео…", { exact: true }),
+      ).not.toBeVisible();
       await page.getByRole("link", { name: "4:21 Later chapter" }).click();
       if (!failed) {
         await page.evaluate(() => {
