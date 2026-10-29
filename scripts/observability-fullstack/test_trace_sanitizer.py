@@ -51,7 +51,7 @@ def parser_worker(code):
     # worker from its clean Python interpreter (Linux ru_maxrss survives exec).
     owner=(Path(__file__).resolve().parents[1]/'owned-process.mjs').as_uri()
     launcher="""import {spawnOwned,stopOwned} from OWNER;
-const child=spawnOwned(process.argv[1],['-B','-c',process.argv[2]],{stdio:'inherit'});
+const child=spawnOwned(process.argv[1],['-B','-c',process.argv[2]],{stdio:'inherit',ownerExitGraceMilliseconds:0});
 const timer=setTimeout(()=>{void stopOwned(child,0)},8000);
 child.once('error',error=>{clearTimeout(timer);console.error(error);process.exitCode=127});
 child.once('exit',(code,signal)=>{clearTimeout(timer);process.exitCode=code??1});
@@ -357,6 +357,59 @@ print(json.dumps({'pid':os.getpid(),'owner':os.getppid(),'group':os.getpgrp()}),
                         current=process_row(pid)
                         if current is not None and current[2]!='Z' and current[3]==birth:
                             os.kill(pid,signal.SIGKILL)
+
+    def test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline(self):
+        with patch.object(sys,'path',[str(Path(__file__).resolve().parents[1]/'heavy-check'),*sys.path]):
+            from processes import process_row
+        controlled="""import json,os,signal
+signal.signal(signal.SIGTERM,signal.SIG_IGN)
+print(json.dumps({'pid':os.getpid(),'owner':os.getppid()}),flush=True)
+signal.pause()
+"""
+        for at_seconds in (4.9,5.1,6,7.8):
+            for outcome in ('interruption','launcher-kill','launcher-term'):
+                with self.subTest(at_seconds=at_seconds,outcome=outcome),ExitStack() as cleanup:
+                    unrelated=subprocess.Popen([sys.executable,'-c','import signal;signal.pause()'],start_new_session=True)
+                    cleanup.callback(reap_process,unrelated)
+                    identities={};marker=RuntimeError('controlled_late_parser_interruption')
+                    try:
+                        try:
+                            with parser_worker(controlled) as (child,deadline):
+                                for pid in (child.pid,):
+                                    identity=process_row(pid);self.assertIsNotNone(identity)
+                                    identities[pid]=identity[3]
+                                with selectors.DefaultSelector() as ready:
+                                    ready.register(child.stdout,selectors.EVENT_READ)
+                                    self.assertTrue(ready.select(min(3,deadline-time.monotonic())))
+                                    row=json.loads(child.stdout.readline())
+                                for pid in row.values():
+                                    identity=process_row(pid);self.assertIsNotNone(identity)
+                                    identities[pid]=identity[3]
+                                # A real delay selects the late failure boundary, never proves cleanup.
+                                time.sleep(max(0,deadline-10+at_seconds-time.monotonic()))
+                                if outcome=='interruption':raise marker
+                                if outcome=='launcher-kill':child.kill()
+                                else:child.terminate()
+                                child.communicate(timeout=deadline-time.monotonic())
+                        except RuntimeError as error:
+                            if outcome!='interruption':raise
+                            self.assertIs(error,marker)
+                        self.assertLess(time.monotonic(),deadline)
+                        self.assertIsNotNone(child.returncode)
+                        self.assertTrue(child.stdout.closed);self.assertTrue(child.stderr.closed)
+                        # Pipe EOF alone is not a supervisor-exit receipt. Observe every birth.
+                        while True:
+                            live={pid:current for pid,birth in identities.items()
+                                if (current:=process_row(pid)) is not None and current[3]==birth}
+                            if not live:break
+                            self.assertLess(time.monotonic(),deadline,f'owned identities survived: {live}')
+                            time.sleep(.01)
+                        self.assertIsNone(unrelated.poll())
+                    finally:
+                        for pid,birth in identities.items():
+                            current=process_row(pid)
+                            if current is not None and current[2]!='Z' and current[3]==birth:
+                                os.kill(pid,signal.SIGKILL)
 
     def test_no_read_admin_arbitrary_path_or_cli_destination_can_reach_collector(self):
         with wire_edge() as (server,receipt,requests):

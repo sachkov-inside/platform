@@ -92,6 +92,76 @@ def stopped(pid, deadline=None):
 
 
 class Ownership(unittest.TestCase):
+    def test_owner_exit_grace_python_rejects_invalid_input_before_command_acquisition(self):
+        with tempfile.TemporaryDirectory(prefix='owned-invalid-grace-') as directory:
+            acquired = Path(directory) / 'acquired'
+            command = [sys.executable, '-c', f'from pathlib import Path;Path({str(acquired)!r}).touch()']
+            for value in ('-1', '5001', 'NaN', 'Infinity', '-Infinity', '"0"', 'null', 'true', '{}', '[]'):
+                with self.subTest(value=value):
+                    result = subprocess.run([sys.executable, str(ROOT / 'scripts/owned-process.py'),
+                                             json.dumps(command), '1', value],
+                                            capture_output=True, timeout=3)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(b'Owner exit grace must be finite and within 0..5000 ms', result.stderr)
+                    self.assertFalse(acquired.exists())
+
+    def test_owner_exit_grace_selects_only_owner_loss_and_preserves_explicit_stop(self):
+        cases = (('owner-exit', None, 4.8), ('owner-exit', 0, 0),
+                 ('owner-exit', 123.5, .1), ('explicit-exit', 0, .2),
+                 ('explicit-stop', 5000, .2), ('command-exit', 0, 4.8),
+                 ('supervisor-signal', 0, 4.8))
+        for action, grace, minimum in cases:
+            with self.subTest(action=action, grace=grace):
+                option = '' if grace is None else f',ownerExitGraceMilliseconds:{grace}'
+                source = f"""
+                import {{spawnOwned,stopOwned}} from {json.dumps(API)};
+                const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
+                  {{stdio:['ignore','pipe','inherit']{option}}});
+                child.stdout.once('data',data=>console.log(data.toString().trim(),child.pid));
+                child.once('exit',code=>{{process.exitCode=code}});
+                process.stdin.once('data',async data=>{{
+                  const action={json.dumps(action)};
+                  if(action==='owner-exit') process.exit(0);
+                  if(action==='explicit-exit') {{void stopOwned(child,250);process.exit(0)}}
+                  if(action==='explicit-stop') {{await stopOwned(child,250);process.exit(0)}}
+                  if(action==='supervisor-signal') child.kill('SIGTERM');
+                  if(action==='command-exit') process.kill(Number(data.toString()),'SIGUSR1');
+                }});
+                """
+                process = subprocess.Popen(['node', '--input-type=module', '-e', source], cwd=ROOT,
+                                           stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE, start_new_session=True)
+                identities = {}
+                try:
+                    pids = [*read_ready(process), process.pid]
+                    for pid in pids:
+                        row = process_row(pid)
+                        self.assertIsNotNone(row)
+                        identities[pid] = row[3]
+                    started = time.monotonic()
+                    _stdout, stderr = process.communicate(str(pids[0]).encode(), timeout=9)
+                    elapsed = time.monotonic() - started
+                    expected = 19 if action == 'command-exit' else 143 if action == 'supervisor-signal' else 0
+                    self.assertEqual(process.returncode, expected, stderr.decode())
+                    self.assertGreaterEqual(elapsed, minimum)
+                    self.assertLess(elapsed, 7 if minimum else 2)
+                    deadline = started + (7 if minimum >= 4.8 else 2)
+                    while True:
+                        live = {pid: row for pid, birth in identities.items()
+                                if (row := process_row(pid)) is not None and row[3] == birth}
+                        if not live:
+                            break
+                        self.assertLess(time.monotonic(), deadline, f'owned births survived: {live}')
+                        time.sleep(.01)
+                finally:
+                    for pid, birth in identities.items():
+                        row = process_row(pid)
+                        if row is not None and row[2] != 'Z' and row[3] == birth:
+                            os.kill(pid, signal.SIGKILL)
+                    if process.poll() is None:
+                        process.kill()
+                    process.communicate(timeout=5)
+
     def exercise(self, action, load=LOAD):
         command = ['node', '-e', load]
         if action == 'exec-exit':
