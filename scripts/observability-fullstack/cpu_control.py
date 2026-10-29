@@ -526,7 +526,7 @@ def cfs_phase(full,output,ordinal,summary):
             'duration_seconds':duration,'roles':roles},complete
 
 
-def measurement(full,output,proof):
+def measurement(full,output,proof,*,pending=False):
     need(type(proof) is dict and type(proof.get('schema')) is int and proof['schema']==1
          and digest(proof.get('profile'))==digest(json.loads(full.PROFILE.read_text())) and proof.get('state') in ('running','measured','failed'))
     phases=proof.get('phases');need(type(phases) is list and len(phases)<=12)
@@ -584,9 +584,10 @@ def measurement(full,output,proof):
         quality=quality and hosts[-1]['cpu_total']>hosts[0]['cpu_total']
         projected,known=cfs_phase(full,output,ordinal,row);cfs.append(projected)
         counter_complete=counter_complete and known and projected['duration_seconds']>=definition['seconds']
-    need(type(proof.get('source_cache_workload')) is bool and proof['source_cache_workload']==source)
+    # The owning worker commits the whole-workload flag only after outage recovery.
+    need(type(proof.get('source_cache_workload')) is bool and (proof['source_cache_workload'] is False if pending else proof['source_cache_workload']==source))
     inputs=assessment(full.assessment_inputs(proof))
-    quality=bool(quality and http and source and counter_complete and totals['scheduled']==totals['success']==3200
+    quality=bool(not pending and quality and http and source and counter_complete and totals['scheduled']==totals['success']==3200
                  and not inputs['oom'] and not inputs['enospc'] and inputs['unexplained_loss']==0
                  and all(value is not None for value in inputs.values())
                  and proof.get('controlled_outage')=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0})
@@ -596,7 +597,7 @@ def measurement(full,output,proof):
             before=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='off' for sample in row['load']['latency'] if sample['label']==label]
             after=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='on' for sample in row['load']['latency'] if sample['label']==label]
             pairs.append({'pair':pair,'label':label,**full.p95_pair(before,after)})
-    gates={key:{'observed':inputs[key],'passed':None if inputs[key] is None else inputs[key]>=limit if lower else inputs[key]<=limit}
+    gates={key:{'observed':inputs[key],'passed':None if pending or inputs[key] is None else inputs[key]>=limit if lower else inputs[key]<=limit}
            for key,(limit,lower) in full.acceptance.LIMITS.items()}
     # Original complete includes inode reserve. With all other quality facts known,
     # its exact value exposes that original condition without a second gate formula.
@@ -637,9 +638,15 @@ def collect(full,root,metadata,destination):
                 actual_cleanup=read(output/'cleanup.json',private=False) if present(output/'cleanup.json') else {}
                 need(not row['cleanup'] or cleanup_passed(actual_cleanup))
                 proof=read(output/'fullstack-proof.json',private=False)
-                original=verdict(proof.get('measured_linux_acceptance',{'state':'incomplete','minimum_candidate_gib':None}))
-                measured=measurement(full,output,proof);row['measurement']=measured
-                if measured['available']:need(full.acceptance.assess(measured['assessment_inputs'])==original)
+                original=proof.get('measured_linux_acceptance',{'state':'incomplete','minimum_candidate_gib':None})
+                pending=type(original) is dict and original=={'state':'incomplete'}
+                if pending:
+                    need(proof.get('state')=='failed' and row['run_exit'] is not None and row['run_exit']!=0
+                         and proof.get('source_cache_workload') is False and 'controlled_outage' in proof and proof['controlled_outage'] is None)
+                    original={'state':'incomplete','minimum_candidate_gib':None}
+                else:original=verdict(original)
+                measured=measurement(full,output,proof,pending=pending);row['measurement']=measured
+                if measured['available'] and not pending:need(full.acceptance.assess(measured['assessment_inputs'])==original)
                 else:need(original['state']=='incomplete')
                 row['original_oracle']=original;verdicts[profile+'-verdict.json']=original
                 worker=read(output/'worker-outcome.json',private=False) if present(output/'worker-outcome.json') else {}
