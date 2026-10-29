@@ -657,3 +657,47 @@ reader recipes и viewer/MCP/revoke proof, общие workload/storage/recovery 
 Текст конфигурации и локальный HTTP helper не являются native PASS. Фазы,
 3200 операций, 12 фаз, четыре режима, исходные oracles и600+90 не меняются.
 Размещение на production,600s fit и подходящая мощность сервера не подтверждены.
+
+### Подготовленные чтения SigNoz
+
+`signoz_queries.RepresentativeReads` принимает только закрытый `Layout`, фазу0..13
+и окно доверенного controller. Controller создаёт новый reader для каждого чтения:
+один раз снимает текущий clock cut и передаёт его как `cut_ms`, вместе с началом
+текущей фазы. Плановое окончание 40-секундной фазы не является текущим cut.
+`prepare(operation, {})` возвращает приватный `Request`; путь, SQL, окно, source,
+pair, mode и cohort нельзя передать через аргументы агента. `observe` принимает
+только собственный request и ограниченный native v5 JSON, возвращает числовое
+наблюдение или отказ. Подготовлены чтения трёх сигналов, retained probes,
+API lag, двух source-cache источников, начальных/текущих Web HTTP серий и
+коррелированных trace/log counts отдельного SDK emitter. Четыре операции
+минимального функционального gateway и обычный client не меняются.
+
+Запросы используют исходные limits `FixedMetricReads`, catalog-hour alignment,
+флаги и проверку индексов. Полный count считается агрегатом, без страницы1000;
+400 является верхней границей retained probes,1000/1001 отвергаются. Ноль в
+корректном агрегате отличается от отсутствующего ответа. Latest source state
+выбирается по timestamp sample, поэтому новый0 сильнее прежнего1. Future latest
+не отфильтровывается до выбора, чтобы старый свежий sample не скрыл отказ.
+Оба источника используют один cut, возраст наблюдения и возраст сохранённого
+sample остаются разными числами. Web current дополнительно проверяет исходный
+source SHA, process epoch, минимальные counters и время каждого counter sample.
+Missing, дубликаты, flags, partial/warning, неверный cohort/cut, нечисловые,
+нецелые или избыточные ответы не становятся успешным нулём.
+
+В исходниках Alloy1.21 `job`/`instance` переходят в resource `service.name`/
+`service.instance.id`, остальные разрешённые labels становятся point attrs.
+Имена OTLP метрик не подменяются Prometheus aliases. У приложения resource
+`service.version=v1` после неизменного privacy-фильтра становится `_OTHER`;
+отдельный SDK emitter использует source SHA, который фильтр сохраняет. У
+приложения нет native source-SHA resource field после этого фильтра. Привязка
+к сборке здесь основана на закрытых image/Layout/root и временном окне своего
+изолированного store. SQL aliases `query_phase`, `query_cut_ms`, `query_source_sha`
+связывают ответ с отправленным запросом, но не являются атрибутами telemetry или
+независимым доказательством её происхождения.
+
+Проверки этих recipes являются SOURCE-MODEL. Читаемый пустой store не доказывает
+поступление новых данных; count trace/log не доказывает actor/PID или MCP parity.
+Нативные stored mapping, актуальность каждой фазы, authority/revoke, privacy,
+SDK witness и одинаковый read-only MCP запрос обязательны на следующем шаге.
+Sig runtime остаётся закрыт, полная нагрузка,600s fit и мощность production не
+подтверждены. Эти чтения не добавляют прогрев, запросы или операции нагрузки.
