@@ -34,7 +34,7 @@ export function ProductTaskRow({
       data-programme-task={task.code}
       data-task-availability={pending ? "pending" : task.availability}
     >
-      {/* Оформление гайда: тип словом, название, статус, без номера урока. */}
+      {/* Подпись «Задание» словом, название, статус, без номера урока. */}
       <span
         aria-hidden="true"
         className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"

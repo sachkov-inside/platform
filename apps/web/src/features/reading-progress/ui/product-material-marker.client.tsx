@@ -3,44 +3,29 @@
 import { Check } from "lucide-react";
 
 import { useMaterialReading } from "@/entities/material";
-import { cn } from "@/shared/lib/utils";
 
-/** Fixed-size route marker: a saved Material mark replaces its visible ordinal. */
+/**
+ * Reading status of a programme lesson row: a thin accent check once the Material is saved as
+ * studied, nothing before that. The check stays light so it does not compete with the title.
+ */
 export function ProductMaterialMarker({
   materialId,
   ordinal,
-  statusOnly = false,
 }: {
   readonly materialId?: string;
   readonly ordinal: number;
-  readonly statusOnly?: boolean;
 }) {
   const { state } = useMaterialReading(materialId);
-  const isRead = state?.isRead === true;
-  if (statusOnly && !isRead) return null;
+  if (state?.isRead !== true) return null;
   return (
     <span
-      aria-label={`Материал ${String(ordinal)}${isRead ? ", изучен" : ""}`}
-      className={cn(
-        "grid place-items-center rounded-full text-xs font-bold",
-        statusOnly
-          ? "size-5 sm:size-6"
-          : "size-6 ring-4 ring-background sm:size-8",
-        isRead ? "bg-accent text-accent-foreground" : "bg-primary text-white",
-      )}
+      aria-label={`Материал ${String(ordinal)}, изучен`}
+      className="grid size-5 place-items-center text-accent"
       data-product-marker
-      data-product-marker-read={isRead}
+      data-product-marker-read
       role="img"
     >
-      {isRead ? (
-        <Check
-          aria-hidden="true"
-          className="size-4 sm:size-5"
-          strokeWidth={3}
-        />
-      ) : (
-        <span aria-hidden="true">{ordinal}</span>
-      )}
+      <Check aria-hidden="true" className="size-4" strokeWidth={2.5} />
     </span>
   );
 }
