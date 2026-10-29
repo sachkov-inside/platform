@@ -35,7 +35,7 @@ import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
 import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import {
-  readsProgrammeStepForReference,
+  isProgrammeStepOpenedForReference,
   type CourseReadingContext,
   type CourseReadingStep,
 } from "../model/course-reading";
@@ -179,7 +179,7 @@ export function CourseReadingHeader({
               { label: context.name, href: context.href },
               ...(supplementary &&
               context.currentPosition === 0 &&
-              !readsProgrammeStepForReference(context)
+              !isProgrammeStepOpenedForReference(context)
                 ? [{ label: "Дополнительный материал" }]
                 : [
                     {
@@ -582,7 +582,7 @@ export function ProgrammeDialog({
           opensProgramme
           current
           caption={
-            supplementary && !readsProgrammeStepForReference(context) ? (
+            supplementary && !isProgrammeStepOpenedForReference(context) ? (
               context.currentPosition === 0 ? (
                 "Дополнительный материал"
               ) : (

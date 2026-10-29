@@ -515,6 +515,12 @@ function ProductMaterialRow({
  * формата, на обложке формат, длительность видео и отметка «изучено»; под ней название, описание
  * и, если его передали, место в программе. Карточки одного ряда одной высоты.
  */
+const libraryFormatIcons = {
+  material: FileText,
+  note: NotebookPen,
+  video: Play,
+} as const;
+
 function LibraryMaterialCard({
   annotation,
   headingLevel,
@@ -528,8 +534,12 @@ function LibraryMaterialCard({
 }) {
   const Heading = headingLevel;
   const video = materialPreviewHasVideo(material);
-  const note = material.formatSlug === "note";
-  const FormatIcon = video ? Play : note ? NotebookPen : FileText;
+  const kind = video
+    ? "video"
+    : material.formatSlug === "note"
+      ? "note"
+      : "material";
+  const FormatIcon = libraryFormatIcons[kind];
   const duration = video ? materialDuration(material) : undefined;
   return (
     <article
@@ -543,7 +553,7 @@ function LibraryMaterialCard({
           alt=""
           className="aspect-video w-full rounded-2xl"
           cover={material.cover ?? null}
-          fallbackKind={video ? "video" : note ? "note" : "material"}
+          fallbackKind={kind}
           fallbackSeed={material.slug}
           sizes="(min-width: 640px) 24rem, 100vw"
         />

@@ -29,7 +29,7 @@ function renderCatalogue() {
 describe("Product catalogue presentation", () => {
   it("opens a batch of 12 cards while retaining the total of 120 Materials", () => {
     const html = renderCatalogue();
-    expect(html.match(/data-material-variant="feed"/gu)).toHaveLength(12);
+    expect(html.match(/data-material-variant="library"/gu)).toHaveLength(12);
     expect(html).toContain("120 материалов");
     expect(html).toContain("Показать ещё материалы");
   });
@@ -37,7 +37,7 @@ describe("Product catalogue presentation", () => {
   it("restores a Reader return outside the first batch with its catalogue address", () => {
     navigation.search = "part=materials&at=material-89";
     const html = renderCatalogue();
-    expect(html.match(/data-material-variant="feed"/gu)).toHaveLength(96);
+    expect(html.match(/data-material-variant="library"/gu)).toHaveLength(96);
     expect(html).toContain('data-route-material="material-89"');
     expect(html).toContain("part%3Dmaterials%26at%3Dmaterial-89");
     expect(html).not.toContain('data-route-material="material-97"');

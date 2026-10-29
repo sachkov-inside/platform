@@ -575,7 +575,16 @@ type CatalogScope = (typeof catalogScopes)[number]["id"];
 type CatalogOrder = "new" | "programme";
 
 /** Свежими считаются материалы последней недели: они собраны в группу «Новое» над месяцами. */
-const NEW_MATERIAL_DAYS = 7;
+const NEW_MATERIAL_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+/**
+ * Граница «Нового» — внешнее значение часов. Сервер и гидрация его не читают и показывают только
+ * месяцы; браузер после гидрации берёт границу, округлённую до часа, чтобы снимок был стабилен.
+ */
+function readNewMaterialCutoff(): number {
+  return Math.floor(Date.now() / HOUR_MS) * HOUR_MS - NEW_MATERIAL_PERIOD_MS;
+}
+const readServerNewMaterialCutoff = () => null;
 const catalogMonth = new Intl.DateTimeFormat("ru-RU", {
   month: "long",
   year: "numeric",
@@ -598,27 +607,30 @@ function orderCatalog(
         left.material.publishedAt ?? "",
       ),
     );
-  // Главы по порядку, программа без глав в своём порядке, материалы вне программы в конце.
-  const rank = (entry: CatalogEntry) =>
-    entry.place !== null
-      ? [1, entry.place.chapter, entry.place.lesson]
-      : [entry.inProgramme ? 0 : 2, 0, 0];
+  // Программа продукта без глав идёт своим порядком, затем главы, а материалы вне программы в
+  // конце, сначала новые.
   const position = new Map(entries.map((entry, index) => [entry, index]));
+  const section = (entry: CatalogEntry) =>
+    entry.place !== null ? 1 : entry.inProgramme ? 0 : 2;
   return [...entries].sort((left, right) => {
-    const [leftRank, rightRank] = [rank(left), rank(right)];
-    const difference = leftRank.findIndex(
-      (value, index) => value !== rightRank[index],
-    );
-    return difference === -1
-      ? (position.get(left) ?? 0) - (position.get(right) ?? 0)
-      : (leftRank[difference] ?? 0) - (rightRank[difference] ?? 0);
+    const differences = [
+      section(left) - section(right),
+      (left.place?.chapter ?? 0) - (right.place?.chapter ?? 0),
+      (left.place?.lesson ?? 0) - (right.place?.lesson ?? 0),
+      section(left) === 2
+        ? (right.material.publishedAt ?? "").localeCompare(
+            left.material.publishedAt ?? "",
+          )
+        : (position.get(left) ?? 0) - (position.get(right) ?? 0),
+    ];
+    return differences.find((difference) => difference !== 0) ?? 0;
   });
 }
 
 function groupCatalog(
   entries: readonly CatalogEntry[],
   order: CatalogOrder,
-  newSince: string,
+  newSince: number | null,
 ): CatalogGroup[] {
   const groups = new Map<string, { title: string; entries: CatalogEntry[] }>();
   for (const entry of entries) {
@@ -628,14 +640,14 @@ function groupCatalog(
         ? entry.place !== null
           ? [
               `chapter-${String(entry.place.chapter)}`,
-              `Глава ${String(entry.place.chapter)}. ${entry.place.chapterName}`,
+              `${chapterLabel(entry.place)}. ${entry.place.chapterName}`,
             ]
           : entry.inProgramme
             ? ["programme", "Программа"]
             : ["extra", "Вне программы"]
         : publishedAt === undefined
           ? ["undated", "Без даты"]
-          : publishedAt >= newSince
+          : newSince !== null && Date.parse(publishedAt) >= newSince
             ? ["new", "Новое"]
             : monthGroup(publishedAt);
     const group = groups.get(id) ?? { title, entries: [] };
@@ -643,6 +655,10 @@ function groupCatalog(
     groups.set(id, group);
   }
   return [...groups].map(([id, group]) => ({ id, ...group }));
+}
+
+function chapterLabel(place: CatalogPlace): string {
+  return `Глава ${String(place.chapter)}`;
 }
 
 function monthGroup(publishedAt: string): [string, string] {
@@ -674,11 +690,10 @@ function MaterialCatalog({
   const [format, setFormat] = useState("");
   const [scope, setScope] = useState<CatalogScope>("all");
   const [order, setOrder] = useState<CatalogOrder>("new");
-  // День, а не миг: сервер и браузер относят материал к «Новому» одинаково.
-  const [newSince] = useState(() =>
-    new Date(Date.now() - NEW_MATERIAL_DAYS * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10),
+  const newSince = useSyncExternalStore(
+    subscribeToHydration,
+    readNewMaterialCutoff,
+    readServerNewMaterialCutoff,
   );
   const needle = query.trim().toLocaleLowerCase("ru");
   const formats = catalogFormats.filter(
@@ -820,17 +835,8 @@ function MaterialCatalog({
       ) : (
         <div aria-label="Материалы курса" role="region">
           {groups.map((group) => (
-            <section
-              aria-labelledby={`catalog-group-${group.id}`}
-              className="mt-7 first:mt-4"
-              key={group.id}
-            >
-              <h3
-                className="mb-3 flex items-baseline gap-2 text-sm font-semibold text-muted-foreground"
-                id={`catalog-group-${group.id}`}
-              >
-                <span className="text-foreground">{group.title}</span>
-              </h3>
+            <section className="mt-7 first:mt-4" key={group.id}>
+              <h3 className="mb-3 text-sm font-semibold">{group.title}</h3>
               <ul className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2">
                 {group.entries.map((entry) => (
                   <li
@@ -850,7 +856,7 @@ function MaterialCatalog({
                       {...(entry.place === null
                         ? {}
                         : {
-                            rowAnnotation: `Глава ${String(entry.place.chapter)} · урок ${String(entry.place.lesson)}`,
+                            rowAnnotation: `${chapterLabel(entry.place)} · урок ${String(entry.place.lesson)}`,
                           })}
                       variant="library"
                     />

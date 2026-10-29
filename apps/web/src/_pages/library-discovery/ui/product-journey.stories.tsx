@@ -707,8 +707,10 @@ const libraryCover = (index: number, wide: boolean) => ({
   coverId: `27100000-0000-4000-8000-${String(index).padStart(12, "0")}`,
   renditions: [{ width: 960, height: wide ? 540 : 960 }],
 });
+/** Один момент показа и для дат примера, и для группы «Новое» в каталоге. */
+const libraryNow = Date.parse("2026-10-29T09:00:00Z");
 const daysAgo = (days: number) =>
-  new Date(Date.now() - days * day).toISOString();
+  new Date(libraryNow - days * day).toISOString();
 function libraryMaterial(index: number): MaterialPreview {
   const material = materials[index];
   if (material === undefined) throw new Error("Missing library material");
@@ -775,6 +777,14 @@ const libraryResult = {
 } satisfies PublishedProductResult;
 
 export const MaterialLibrary: Story = {
+  // Каталог читает Date.now после гидрации; история подставляет тот же момент, что и в датах.
+  beforeEach: () => {
+    const realNow = Date.now.bind(Date);
+    Date.now = () => libraryNow;
+    return () => {
+      Date.now = realNow;
+    };
+  },
   args: {
     result: libraryResult,
     learning: { kind: "ready", read: 2, total: 12, continuation: resume },
@@ -784,8 +794,12 @@ export const MaterialLibrary: Story = {
     await openPart(canvasElement, /^Материалы/u);
     const library = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(
-      within(library).getByRole("heading", { level: 3, name: "Новое" }),
-    ).toBeVisible();
+      within(library)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Новое", "Октябрь 2026 г.", "Сентябрь 2026 г."]);
+    // Закрытый материал остаётся в сетке со своим замком.
+    await expect(within(library).getByText("Для участников")).toBeVisible();
     // Место в программе подписано только у урока; у материала вне программы подписи нет.
     await expect(
       within(library).getByText("Глава 2 · урок 6", { exact: true }),

@@ -300,7 +300,7 @@ export function courseReadingContext({
 }
 
 /** A programme step opened for reference keeps its chapter label, though it claims no position. */
-export function readsProgrammeStepForReference(
+export function isProgrammeStepOpenedForReference(
   context: CourseReadingContext,
 ): boolean {
   return (

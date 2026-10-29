@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   courseReadingContext,
-  readsProgrammeStepForReference,
+  isProgrammeStepOpenedForReference,
 } from "@/features/library-discovery";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -372,7 +372,9 @@ describe("supplementary Material navigation", () => {
         current: { kind: "material", slug },
         referenceView,
       });
-      return context === null ? null : readsProgrammeStepForReference(context);
+      return context === null
+        ? null
+        : isProgrammeStepOpenedForReference(context);
     };
     expect(read("second", true)).toBe(true);
     expect(read("extra", true)).toBe(false);
