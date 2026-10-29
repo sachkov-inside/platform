@@ -1907,7 +1907,7 @@ export const FreeLessonPurchase: Story = {
             kind: "purchase",
             href: productPurchaseHref("ai-engineering"),
           },
-          lockedNext: "Первая версия продукта: сценарии и границы",
+          lockedNext: courseGuide.next?.title ?? fail("Missing next step"),
         }}
       />
     ),
@@ -1920,7 +1920,7 @@ export const FreeLessonPurchase: Story = {
     const region = within(call);
     await expect(region.getByText("Бесплатно")).toBeVisible();
     await expect(
-      region.getByText(/Первая версия продукта: сценарии и границы/u),
+      region.getByText(/Онбординг нового разработчика за час/u),
     ).toBeVisible();
     await expect(region.getByText(/закрыт/iu)).toBeInTheDocument();
     await expect(

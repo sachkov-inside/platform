@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class MaterialAssetsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -17,21 +17,21 @@ export class MaterialAssetsService {
     materialId,
     preview,
   }: {
-    contentVersion: number,
-    assetId: string,
-    materialId: string,
-    preview?: boolean,
+    contentVersion: number;
+    assetId: string;
+    materialId: string;
+    preview?: boolean;
   }): CancelablePromise<Blob> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/materials/{materialId}/assets/{assetId}',
+      method: "GET",
+      url: "/materials/{materialId}/assets/{assetId}",
       path: {
-        'assetId': assetId,
-        'materialId': materialId,
+        assetId: assetId,
+        materialId: materialId,
       },
       query: {
-        'preview': preview,
-        'contentVersion': contentVersion,
+        preview: preview,
+        contentVersion: contentVersion,
       },
       errors: {
         302: `Short-lived protected redirect`,
@@ -54,23 +54,23 @@ export class MaterialAssetsService {
     materialId,
     preview,
   }: {
-    contentVersion: number,
-    width: number,
-    assetId: string,
-    materialId: string,
-    preview?: boolean,
+    contentVersion: number;
+    width: number;
+    assetId: string;
+    materialId: string;
+    preview?: boolean;
   }): CancelablePromise<Blob> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/materials/{materialId}/assets/{assetId}/images/{width}',
+      method: "GET",
+      url: "/materials/{materialId}/assets/{assetId}/images/{width}",
       path: {
-        'width': width,
-        'assetId': assetId,
-        'materialId': materialId,
+        width: width,
+        assetId: assetId,
+        materialId: materialId,
       },
       query: {
-        'preview': preview,
-        'contentVersion': contentVersion,
+        preview: preview,
+        contentVersion: contentVersion,
       },
       errors: {
         302: `Short-lived protected redirect`,

@@ -6,7 +6,7 @@ import { freeLessons } from "@/_pages/library-discovery/model/free-lessons";
 function lesson(
   slug: string,
   access: "free" | "closed",
-  availability: "available" | "locked" = access === "free"
+  availability: "available" | "locked" | "unavailable" = access === "free"
     ? "available"
     : "locked",
 ): MaterialPreview {
@@ -44,17 +44,47 @@ describe("бесплатные уроки на странице курса", () 
     ]);
   });
 
-  it("не включают закрытые уроки и бесплатные, которые сейчас не открыть", () => {
+  it("не включают закрытые уроки и бесплатные, доступ к которым не удалось проверить", () => {
     expect(
       freeLessons({
         slug: "ai-engineering",
         items: [
           lesson("intro", "free"),
           lesson("first-version", "closed"),
-          lesson("unavailable", "free", "locked"),
+          lesson("unchecked", "free", "unavailable"),
         ],
         chapters: [],
       }).map(({ title }) => title),
     ).toEqual(["Урок intro"]);
+  });
+
+  it("включают бесплатный урок, который гостю откроется после входа (#1825)", () => {
+    expect(
+      freeLessons({
+        slug: "ai-engineering",
+        items: [lesson("intro", "free", "locked")],
+        chapters: [],
+      }).map(({ title }) => title),
+    ).toEqual(["Урок intro"]);
+  });
+
+  it("следуют размещениям программы и не считают уроками дополнительные материалы", () => {
+    expect(
+      freeLessons({
+        slug: "ai-engineering",
+        items: [
+          lesson("brief", "free"),
+          lesson("intro", "free"),
+          lesson("choose-agent", "free"),
+        ],
+        chapters: [
+          { materialIds: ["material-intro", "material-choose-agent"] },
+        ],
+        programmePlacements: [
+          { materialId: "material-choose-agent" },
+          { materialId: "material-intro" },
+        ],
+      }).map(({ title }) => title),
+    ).toEqual(["Урок choose-agent", "Урок intro"]);
   });
 });

@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class BookmarksService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,17 +14,17 @@ export class BookmarksService {
   public removeMaterialBookmark({
     materialId,
   }: {
-    materialId: string,
+    materialId: string;
   }): CancelablePromise<{
     bookmarked: boolean;
     bookmarkedAt: string | null;
     materialId: string;
   }> {
     return this.httpRequest.request({
-      method: 'DELETE',
-      url: '/bookmarks/materials/{materialId}',
+      method: "DELETE",
+      url: "/bookmarks/materials/{materialId}",
       path: {
-        'materialId': materialId,
+        materialId: materialId,
       },
     });
   }
@@ -36,17 +36,17 @@ export class BookmarksService {
   public addMaterialBookmark({
     materialId,
   }: {
-    materialId: string,
+    materialId: string;
   }): CancelablePromise<{
     bookmarked: boolean;
     bookmarkedAt: string | null;
     materialId: string;
   }> {
     return this.httpRequest.request({
-      method: 'PUT',
-      url: '/bookmarks/materials/{materialId}',
+      method: "PUT",
+      url: "/bookmarks/materials/{materialId}",
       path: {
-        'materialId': materialId,
+        materialId: materialId,
       },
     });
   }
@@ -60,17 +60,19 @@ export class BookmarksService {
   }: {
     requestBody: {
       materialIds: Array<string>;
-    },
-  }): CancelablePromise<Array<{
-    bookmarked: boolean;
-    bookmarkedAt: string | null;
-    materialId: string;
-  }>> {
+    };
+  }): CancelablePromise<
+    Array<{
+      bookmarked: boolean;
+      bookmarkedAt: string | null;
+      materialId: string;
+    }>
+  > {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/bookmarks/materials/query',
+      method: "POST",
+      url: "/bookmarks/materials/query",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -84,11 +86,11 @@ export class BookmarksService {
     requestBody: {
       after?: string;
       first: number;
-    },
+    };
   }): CancelablePromise<{
     items: Array<{
-      access: 'free' | 'closed';
-      availability: 'available' | 'locked' | 'unavailable';
+      access: "free" | "closed";
+      availability: "available" | "locked" | "unavailable";
       contentVersion: number;
       cover: {
         coverId: string;
@@ -97,11 +99,11 @@ export class BookmarksService {
           width: number;
         }>;
       } | null;
-      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+      difficulty: "basic" | "intermediate" | "advanced" | null;
       format: {
-        id: 'video' | 'guide' | 'note';
+        id: "video" | "guide" | "note";
         name: string;
-        slug: 'video' | 'guide' | 'note';
+        slug: "video" | "guide" | "note";
       };
       materialId: string;
       noteExcerpt?: {
@@ -138,10 +140,10 @@ export class BookmarksService {
     nextCursor: string | null;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/bookmarks/query',
+      method: "POST",
+      url: "/bookmarks/query",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
 }

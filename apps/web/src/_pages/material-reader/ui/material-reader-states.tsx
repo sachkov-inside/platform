@@ -232,10 +232,15 @@ const accessCopy = {
   },
 } as const;
 
-/** Purchase actions stay available only where an offer exists. */
+/**
+ * Purchase actions stay available only where an offer exists. A course lesson names its own
+ * checkout or, before sales open, its course page (#1647).
+ */
 const accessAction = {
   product: "Купить продукт",
   subscription: "Получить доступ",
+  purchase: "Приобрести курс",
+  course: "Получить доступ",
 } as const;
 
 /**
@@ -277,15 +282,7 @@ export function MaterialReaderAccess({
           title: "Продолжение для участников",
           explanation: "Этот материал доступен участникам курса.",
         };
-  const accessHref = courseAction?.href ?? invitation?.href;
-  const actionLabel =
-    courseAction === undefined
-      ? invitation === null
-        ? "Получить доступ"
-        : accessAction[invitation.kind]
-      : courseAction.kind === "purchase"
-        ? "Приобрести курс"
-        : "Получить доступ";
+  const action = courseAction ?? invitation;
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}
@@ -375,15 +372,15 @@ export function MaterialReaderAccess({
                 <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
                   {copy.explanation}
                 </p>
-                {accessHref === undefined ? null : (
+                {action === null ? null : (
                   <div className="mt-5 flex flex-wrap justify-center gap-3">
                     <Button
                       asChild
                       className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
                       size="lg"
                     >
-                      <Link href={accessHref}>
-                        {actionLabel}
+                      <Link href={action.href}>
+                        {accessAction[action.kind]}
                         <ArrowRight
                           aria-hidden="true"
                           className="shrink-0 transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"

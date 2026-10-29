@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class NotificationsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,23 +14,32 @@ export class NotificationsService {
   public readOwnNotificationDeliveries({
     after,
   }: {
-    after?: string,
-  }): CancelablePromise<Array<{
-    channel: 'email' | 'telegram';
-    commandRevision: number;
-    id: string;
-    notificationId: string;
-    reason: string | null;
-    recoverySkipped: boolean;
-    resultRevision: number;
-    state: 'no_channel' | 'accepted' | 'retrying' | 'suppressed' | 'unknown' | 'sent' | 'failed';
-    updatedAt: string;
-  }>> {
+    after?: string;
+  }): CancelablePromise<
+    Array<{
+      channel: "email" | "telegram";
+      commandRevision: number;
+      id: string;
+      notificationId: string;
+      reason: string | null;
+      recoverySkipped: boolean;
+      resultRevision: number;
+      state:
+        | "no_channel"
+        | "accepted"
+        | "retrying"
+        | "suppressed"
+        | "unknown"
+        | "sent"
+        | "failed";
+      updatedAt: string;
+    }>
+  > {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/accounts/current/notifications/deliveries',
+      method: "GET",
+      url: "/accounts/current/notifications/deliveries",
       query: {
-        'after': after,
+        after: after,
       },
       errors: {
         403: `The terms of use in force are not accepted yet`,
@@ -49,8 +58,8 @@ export class NotificationsService {
     telegram: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/accounts/current/notifications/preferences',
+      method: "GET",
+      url: "/accounts/current/notifications/preferences",
       errors: {
         403: `The terms of use in force are not accepted yet`,
         500: `Terms acceptance could not be checked`,
@@ -70,23 +79,26 @@ export class NotificationsService {
       expectedRevision: number;
       operationId: any;
       telegram: boolean;
-    },
-  }): CancelablePromise<({
-    ok: boolean;
-    preferences: {
-      email: boolean;
-      revision: number;
-      telegram: boolean;
     };
-  } | {
-    code: 'invalid_input' | 'revision_conflict' | 'operation_conflict';
-    ok: boolean;
-  })> {
+  }): CancelablePromise<
+    | {
+        ok: boolean;
+        preferences: {
+          email: boolean;
+          revision: number;
+          telegram: boolean;
+        };
+      }
+    | {
+        code: "invalid_input" | "revision_conflict" | "operation_conflict";
+        ok: boolean;
+      }
+  > {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/accounts/current/notifications/preferences',
+      method: "POST",
+      url: "/accounts/current/notifications/preferences",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
       errors: {
         403: `The terms of use in force are not accepted yet`,
         500: `Terms acceptance could not be checked`,
@@ -104,49 +116,65 @@ export class NotificationsService {
     requestBody: {
       attemptRef: any;
       commandRevision: number;
-      contractVersion: 'inside.notification-dispatch.v1';
+      contractVersion: "inside.notification-dispatch.v1";
       deliveryOperationId: any;
       deliveryRef: any;
       operationId: any;
       payloadDigest: string;
-    },
-  }): CancelablePromise<({
-    attemptRef: any;
-    commandRevision: number;
-    contractVersion: 'inside.notification-dispatch.v1';
-    deliveryOperationId: any;
-    deliveryRef: any;
-    operationId: any;
-    payloadDigest: string;
-    permitRef: any;
-    status: 'allowed';
-    validUntil: string;
-  } | {
-    attemptRef: any;
-    commandRevision: number;
-    contractVersion: 'inside.notification-dispatch.v1';
-    deliveryOperationId: any;
-    deliveryRef: any;
-    operationId: any;
-    payloadDigest: string;
-    reason: 'expired' | 'superseded' | 'preference_disabled' | 'access_denied' | 'binding_conflict' | 'not_found' | 'payload_conflict';
-    status: 'denied';
-  } | {
-    attemptRef: any;
-    code: 'malformed' | 'unauthorized' | 'unsupported_contract' | 'operation_conflict' | 'unavailable';
-    commandRevision: number;
-    contractVersion: 'inside.notification-dispatch.v1';
-    deliveryOperationId: any;
-    deliveryRef: any;
-    operationId: any;
-    payloadDigest: string;
-    status: 'error';
-  })> {
+    };
+  }): CancelablePromise<
+    | {
+        attemptRef: any;
+        commandRevision: number;
+        contractVersion: "inside.notification-dispatch.v1";
+        deliveryOperationId: any;
+        deliveryRef: any;
+        operationId: any;
+        payloadDigest: string;
+        permitRef: any;
+        status: "allowed";
+        validUntil: string;
+      }
+    | {
+        attemptRef: any;
+        commandRevision: number;
+        contractVersion: "inside.notification-dispatch.v1";
+        deliveryOperationId: any;
+        deliveryRef: any;
+        operationId: any;
+        payloadDigest: string;
+        reason:
+          | "expired"
+          | "superseded"
+          | "preference_disabled"
+          | "access_denied"
+          | "binding_conflict"
+          | "not_found"
+          | "payload_conflict";
+        status: "denied";
+      }
+    | {
+        attemptRef: any;
+        code:
+          | "malformed"
+          | "unauthorized"
+          | "unsupported_contract"
+          | "operation_conflict"
+          | "unavailable";
+        commandRevision: number;
+        contractVersion: "inside.notification-dispatch.v1";
+        deliveryOperationId: any;
+        deliveryRef: any;
+        operationId: any;
+        payloadDigest: string;
+        status: "error";
+      }
+  > {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/internal/notifications/dispatch/authorize',
+      method: "POST",
+      url: "/internal/notifications/dispatch/authorize",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -158,27 +186,36 @@ export class NotificationsService {
     accountId,
     after,
   }: {
-    accountId: string,
-    after?: string,
-  }): CancelablePromise<Array<{
-    channel: 'email' | 'telegram';
-    commandRevision: number;
-    id: string;
-    notificationId: string;
-    reason: string | null;
-    recoverySkipped: boolean;
-    resultRevision: number;
-    state: 'no_channel' | 'accepted' | 'retrying' | 'suppressed' | 'unknown' | 'sent' | 'failed';
-    updatedAt: string;
-  }>> {
+    accountId: string;
+    after?: string;
+  }): CancelablePromise<
+    Array<{
+      channel: "email" | "telegram";
+      commandRevision: number;
+      id: string;
+      notificationId: string;
+      reason: string | null;
+      recoverySkipped: boolean;
+      resultRevision: number;
+      state:
+        | "no_channel"
+        | "accepted"
+        | "retrying"
+        | "suppressed"
+        | "unknown"
+        | "sent"
+        | "failed";
+      updatedAt: string;
+    }>
+  > {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/operations/notifications/accounts/{accountId}/deliveries',
+      method: "GET",
+      url: "/operations/notifications/accounts/{accountId}/deliveries",
       path: {
-        'accountId': accountId,
+        accountId: accountId,
       },
       query: {
-        'after': after,
+        after: after,
       },
     });
   }
@@ -191,18 +228,18 @@ export class NotificationsService {
     requestBody,
   }: {
     requestBody: {
-      action: 'skip';
+      action: "skip";
       deliveryRef: string;
       operationId: string;
-    },
+    };
   }): CancelablePromise<{
     ok: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/operations/notifications/unknown/resolve',
+      method: "POST",
+      url: "/operations/notifications/unknown/resolve",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
 }

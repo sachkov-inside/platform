@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class KinescopeIntegrationService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,15 +14,15 @@ export class KinescopeIntegrationService {
   public authorizeKinescopeVideoPlayback({
     requestBody,
   }: {
-    requestBody: Record<string, any>,
+    requestBody: Record<string, any>;
   }): CancelablePromise<{
     authorized: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/integrations/kinescope/v1/authorize',
+      method: "POST",
+      url: "/integrations/kinescope/v1/authorize",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -33,15 +33,15 @@ export class KinescopeIntegrationService {
   public acceptKinescopeVideoWebhook({
     requestBody,
   }: {
-    requestBody: Record<string, any>,
+    requestBody: Record<string, any>;
   }): CancelablePromise<{
     accepted: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/integrations/kinescope/v1/webhook',
+      method: "POST",
+      url: "/integrations/kinescope/v1/webhook",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
 }

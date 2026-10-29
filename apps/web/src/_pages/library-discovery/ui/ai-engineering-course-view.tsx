@@ -50,6 +50,7 @@ import {
 } from "./agent-logos";
 
 import { cohortEnrollAnchor } from "../model/cohort-call";
+import { FreeMaterialBadge } from "@/entities/material";
 import { freeLessons, type FreeLesson } from "../model/free-lessons";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
@@ -91,6 +92,7 @@ export function AiEngineeringCourseView({
     slug: reference.slug,
     items: result.kind === "ready" ? result.items : [],
     chapters: result.chapters,
+    programmePlacements: result.programmePlacements,
   });
   const hero = page.blocks.find(
     (block): block is ProductPageBlockOf<"hero"> => block.kind === "hero",
@@ -124,7 +126,7 @@ export function AiEngineeringCourseView({
             key={block.id}
             statusCall={statusCall}
             block={block}
-            freeLessons={lessons}
+            lessons={lessons}
             programme={programme}
           />
         ))}
@@ -134,12 +136,12 @@ export function AiEngineeringCourseView({
 
 function CourseBlock({
   block,
-  freeLessons,
+  lessons,
   programme,
   statusCall,
 }: {
   readonly block: ProductPageBlock;
-  readonly freeLessons: readonly FreeLesson[];
+  readonly lessons: readonly FreeLesson[];
   readonly programme: Route;
   readonly statusCall?: ReactNode;
 }): ReactNode {
@@ -166,7 +168,7 @@ function CourseBlock({
       return <Status block={block} programme={programme} />;
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
     case "trial":
-      return <FreeLessonsTrial block={block} lessons={freeLessons} />;
+      return <FreeLessonsTrial block={block} lessons={lessons} />;
   }
 }
 
@@ -192,7 +194,7 @@ function FreeLessonsTrial({
           <li key={lesson.slug}>
             <IntentPrefetchLink href={lesson.href}>
               <span>{lesson.title}</span>
-              <span className="aie-trial-free">Бесплатно</span>
+              <FreeMaterialBadge />
             </IntentPrefetchLink>
           </li>
         ))}

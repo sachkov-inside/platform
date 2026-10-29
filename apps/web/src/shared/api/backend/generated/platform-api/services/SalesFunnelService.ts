@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class SalesFunnelService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -17,10 +17,10 @@ export class SalesFunnelService {
     chapterId,
     productId,
   }: {
-    to: string,
-    from: string,
-    chapterId?: string,
-    productId?: string,
+    to: string;
+    from: string;
+    chapterId?: string;
+    productId?: string;
   }): CancelablePromise<{
     generatedAt: string;
     lastBotEventReceivedAt: string | null;
@@ -44,14 +44,17 @@ export class SalesFunnelService {
         openedChapter: number | null;
         paid: number | null;
       };
-      source: ({
-        code: string;
-        kind: 'label';
-      } | {
-        kind: 'unlabelled';
-      } | {
-        kind: 'outside_bot';
-      });
+      source:
+        | {
+            code: string;
+            kind: "label";
+          }
+        | {
+            kind: "unlabelled";
+          }
+        | {
+            kind: "outside_bot";
+          };
     }>;
     selection: {
       chapterId: string | null;
@@ -89,13 +92,13 @@ export class SalesFunnelService {
     } | null;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/sales-funnel/report',
+      method: "GET",
+      url: "/sales-funnel/report",
       query: {
-        'chapterId': chapterId,
-        'productId': productId,
-        'to': to,
-        'from': from,
+        chapterId: chapterId,
+        productId: productId,
+        to: to,
+        from: from,
       },
     });
   }

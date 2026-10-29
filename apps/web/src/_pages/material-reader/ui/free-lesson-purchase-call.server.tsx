@@ -24,32 +24,29 @@ export async function FreeLessonPurchaseCall({
 }: {
   readonly material: Pick<MaterialReaderMetadata, "productMemberships">;
   readonly productSlug: string;
-  readonly next: Pick<CourseReadingStep, "title" | "availability"> | null;
+  readonly next: Pick<CourseReadingStep, "title" | "access"> | null;
 }) {
   await connection();
-  const token = await getOptionalPlatformAccessToken();
-  const productId = material.productMemberships.find(
-    ({ product }) => product.slug === productSlug,
-  )?.product.id;
-  if (token === undefined || productId === undefined) return null;
-  const call = await readFreeLessonCall(
-    material,
-    productId,
-    productSlug,
-    token,
-    next,
-  );
+  const call = await readFreeLessonCall({ material, productSlug, next });
   return call === null ? null : <FreeLessonPurchaseCallView call={call} />;
 }
 
-async function readFreeLessonCall(
-  material: Pick<MaterialReaderMetadata, "productMemberships">,
-  productId: string,
-  productSlug: string,
-  token: string,
-  next: Pick<CourseReadingStep, "title" | "availability"> | null,
-): Promise<FreeLessonCall | null> {
+async function readFreeLessonCall({
+  material,
+  productSlug,
+  next,
+}: {
+  readonly material: Pick<MaterialReaderMetadata, "productMemberships">;
+  readonly productSlug: string;
+  readonly next: Pick<CourseReadingStep, "title" | "access"> | null;
+}): Promise<FreeLessonCall | null> {
+  const productId = material.productMemberships.find(
+    ({ product }) => product.slug === productSlug,
+  )?.product.id;
+  if (productId === undefined) return null;
   try {
+    const token = await getOptionalPlatformAccessToken();
+    if (token === undefined) return null;
     const access = await readProductAccess(productId, token);
     // Тому, кому курс открыт или о ком ответа нет, продажа не нужна: её и не спрашиваем.
     if (access !== "closed") return null;

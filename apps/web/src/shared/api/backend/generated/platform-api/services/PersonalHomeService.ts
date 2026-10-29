@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class PersonalHomeService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -11,69 +11,74 @@ export class PersonalHomeService {
    * @returns any
    * @throws ApiError
    */
-  public getContinueMaterials(): CancelablePromise<Array<{
-    lastOpenedAt: string;
-    material: {
-      access: 'free' | 'closed';
-      availability: 'available' | 'locked' | 'unavailable';
-      contentVersion: number;
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
+  public getContinueMaterials(): CancelablePromise<
+    Array<{
+      lastOpenedAt: string;
+      material: {
+        access: "free" | "closed";
+        availability: "available" | "locked" | "unavailable";
+        contentVersion: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
+        difficulty: "basic" | "intermediate" | "advanced" | null;
+        format: {
+          id: "video" | "guide" | "note";
+          name: string;
+          slug: "video" | "guide" | "note";
+        };
+        materialId: string;
+        noteExcerpt?: {
+          linkUrl?: string;
+          text: string;
+          truncated: boolean;
+        };
+        outcomes: Array<string>;
+        primaryVideoDurationSeconds?: number;
+        primaryVideoId: string | null;
+        productMemberships: Array<{
+          ordinal: number;
+          product: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+          stepGroup?: string | null;
         }>;
-      } | null;
-      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
-      format: {
-        id: 'video' | 'guide' | 'note';
-        name: string;
-        slug: 'video' | 'guide' | 'note';
-      };
-      materialId: string;
-      noteExcerpt?: {
-        linkUrl?: string;
-        text: string;
-        truncated: boolean;
-      };
-      outcomes: Array<string>;
-      primaryVideoDurationSeconds?: number;
-      primaryVideoId: string | null;
-      productMemberships: Array<{
-        ordinal: number;
-        product: {
+        publishedAt: string;
+        slug: string;
+        summary: string;
+        tags: Array<{
+          id: string;
+          name: string;
+        }>;
+        title: string;
+        topic: {
           id: string;
           name: string;
           slug: string;
         };
-        stepGroup?: string | null;
-      }>;
-      publishedAt: string;
-      slug: string;
-      summary: string;
-      tags: Array<{
-        id: string;
-        name: string;
-      }>;
-      title: string;
-      topic: {
-        id: string;
-        name: string;
-        slug: string;
       };
-    };
-    resume: ({
-      kind: 'start';
-    } | {
-      kind: 'position';
-      positionSeconds: number;
-    } | {
-      kind: 'reached-end';
-    });
-  }>> {
+      resume:
+        | {
+            kind: "start";
+          }
+        | {
+            kind: "position";
+            positionSeconds: number;
+          }
+        | {
+            kind: "reached-end";
+          };
+    }>
+  > {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/continue',
+      method: "GET",
+      url: "/reading-activity/continue",
     });
   }
   /**
@@ -95,8 +100,8 @@ export class PersonalHomeService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: 'free' | 'closed';
-          availability: 'available' | 'locked' | 'unavailable';
+          access: "free" | "closed";
+          availability: "available" | "locked" | "unavailable";
           contentVersion: number;
           cover: {
             coverId: string;
@@ -105,11 +110,11 @@ export class PersonalHomeService {
               width: number;
             }>;
           } | null;
-          difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+          difficulty: "basic" | "intermediate" | "advanced" | null;
           format: {
-            id: 'video' | 'guide' | 'note';
+            id: "video" | "guide" | "note";
             name: string;
-            slug: 'video' | 'guide' | 'note';
+            slug: "video" | "guide" | "note";
           };
           materialId: string;
           noteExcerpt?: {
@@ -148,14 +153,17 @@ export class PersonalHomeService {
       };
       continuation: {
         materialSlug: string;
-        resume: ({
-          kind: 'start';
-        } | {
-          kind: 'position';
-          positionSeconds: number;
-        } | {
-          kind: 'reached-end';
-        });
+        resume:
+          | {
+              kind: "start";
+            }
+          | {
+              kind: "position";
+              positionSeconds: number;
+            }
+          | {
+              kind: "reached-end";
+            };
       } | null;
       read: number;
       started: boolean;
@@ -164,8 +172,8 @@ export class PersonalHomeService {
     video: {
       lastOpenedAt: string;
       material: {
-        access: 'free' | 'closed';
-        availability: 'available' | 'locked' | 'unavailable';
+        access: "free" | "closed";
+        availability: "available" | "locked" | "unavailable";
         contentVersion: number;
         cover: {
           coverId: string;
@@ -174,11 +182,11 @@ export class PersonalHomeService {
             width: number;
           }>;
         } | null;
-        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        difficulty: "basic" | "intermediate" | "advanced" | null;
         format: {
-          id: 'video' | 'guide' | 'note';
+          id: "video" | "guide" | "note";
           name: string;
-          slug: 'video' | 'guide' | 'note';
+          slug: "video" | "guide" | "note";
         };
         materialId: string;
         noteExcerpt?: {
@@ -212,19 +220,22 @@ export class PersonalHomeService {
           slug: string;
         };
       };
-      resume: ({
-        kind: 'start';
-      } | {
-        kind: 'position';
-        positionSeconds: number;
-      } | {
-        kind: 'reached-end';
-      });
+      resume:
+        | {
+            kind: "start";
+          }
+        | {
+            kind: "position";
+            positionSeconds: number;
+          }
+        | {
+            kind: "reached-end";
+          };
     } | null;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/learning-home',
+      method: "GET",
+      url: "/reading-activity/learning-home",
     });
   }
   /**
@@ -239,16 +250,16 @@ export class PersonalHomeService {
       commandId: string;
       contentVersion: number;
       materialId: string;
-    },
+    };
   }): CancelablePromise<{
     openedAt: string;
     replayed: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/reading-activity/opens',
+      method: "POST",
+      url: "/reading-activity/opens",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -256,11 +267,7 @@ export class PersonalHomeService {
    * @returns any
    * @throws ApiError
    */
-  public getProductContinuation({
-    slug,
-  }: {
-    slug: string,
-  }): CancelablePromise<{
+  public getProductContinuation({ slug }: { slug: string }): CancelablePromise<{
     collection: {
       count: number;
       cover: {
@@ -273,8 +280,8 @@ export class PersonalHomeService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'closed';
-        availability: 'available' | 'locked' | 'unavailable';
+        access: "free" | "closed";
+        availability: "available" | "locked" | "unavailable";
         contentVersion: number;
         cover: {
           coverId: string;
@@ -283,11 +290,11 @@ export class PersonalHomeService {
             width: number;
           }>;
         } | null;
-        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        difficulty: "basic" | "intermediate" | "advanced" | null;
         format: {
-          id: 'video' | 'guide' | 'note';
+          id: "video" | "guide" | "note";
           name: string;
-          slug: 'video' | 'guide' | 'note';
+          slug: "video" | "guide" | "note";
         };
         materialId: string;
         noteExcerpt?: {
@@ -326,24 +333,27 @@ export class PersonalHomeService {
     };
     continuation: {
       materialSlug: string;
-      resume: ({
-        kind: 'start';
-      } | {
-        kind: 'position';
-        positionSeconds: number;
-      } | {
-        kind: 'reached-end';
-      });
+      resume:
+        | {
+            kind: "start";
+          }
+        | {
+            kind: "position";
+            positionSeconds: number;
+          }
+        | {
+            kind: "reached-end";
+          };
     } | null;
     read: number;
     started: boolean;
     total: number;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/product-continuation/{slug}',
+      method: "GET",
+      url: "/reading-activity/product-continuation/{slug}",
       path: {
-        'slug': slug,
+        slug: slug,
       },
     });
   }

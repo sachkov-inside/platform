@@ -62,12 +62,12 @@ export function freeLessonCall({
   readonly courseHref: Route;
   readonly next: {
     readonly title: string;
-    readonly availability: "available" | "locked" | "unavailable";
+    readonly access?: "free" | "closed" | undefined;
   } | null;
 }): FreeLessonCall | null {
   if (!signedIn || access !== "closed") return null;
   return {
     action: courseLessonAction({ invitation, courseHref }),
-    lockedNext: next?.availability === "locked" ? next.title : null,
+    lockedNext: next?.access === "closed" ? next.title : null,
   };
 }

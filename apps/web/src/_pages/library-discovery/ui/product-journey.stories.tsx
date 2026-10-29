@@ -267,6 +267,41 @@ export const Guest: Story = {
     ).toBeVisible();
   },
 };
+function fail(message: string): never {
+  throw new Error(message);
+}
+
+/**
+ * Гостю бесплатный урок курса откроется после входа через Telegram (#1825): строка отмечена словом
+ * «Бесплатно» без замка, замок остаётся только у закрытых уроков (#1647).
+ */
+export const GuestFreeLessonsAfterSignIn: Story = {
+  args: {
+    result: {
+      ...result,
+      items: materials.map((material) => ({
+        ...material,
+        availability: "locked" as const,
+      })),
+    },
+    learning: { kind: "guest" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const free = canvas.getAllByText("Бесплатно");
+    await expect(free).toHaveLength(3);
+    for (const label of free) {
+      const row =
+        label.closest<HTMLElement>("[data-material-availability]") ??
+        fail("Missing programme row");
+      await expect(within(row).queryByText("Нужен доступ")).toBeNull();
+    }
+    const cards = canvasElement.querySelectorAll("[data-product-ordinal]");
+    await expect(canvas.getAllByText("Нужен доступ")).toHaveLength(
+      cards.length - 3,
+    );
+  },
+};
 export const LockedProductHasNoSubscriptionFallback: Story = {
   args: {
     result: lockedResult,

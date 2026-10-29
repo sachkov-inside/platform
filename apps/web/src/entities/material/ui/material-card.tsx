@@ -1,3 +1,4 @@
+import { FreeMaterialBadge } from "./free-material-badge";
 import { ChevronRight, Clock3, Link2, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
 
@@ -411,7 +412,11 @@ function ProductMaterialRow({
   const duration = materialDuration(material);
   // Бесплатный урок открыт каждому, поэтому уточнять у него нечего.
   const pending = accessPending && material.access !== "free";
-  const locked = !pending && material.availability === "locked";
+  // Бесплатный урок, который откроется после входа (#1825), отмечен словом, а не замком.
+  const locked =
+    !pending &&
+    material.availability === "locked" &&
+    material.access !== "free";
   const unavailable = !pending && material.availability === "unavailable";
   return (
     <ProductRowArticle
@@ -456,14 +461,7 @@ function ProductMaterialRow({
           </Heading>
         </div>
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-          {material.access === "free" ? (
-            <span
-              className="rounded-full bg-secondary px-2 py-0.5 font-semibold leading-4 text-secondary-foreground"
-              data-product-free
-            >
-              Бесплатно
-            </span>
-          ) : null}
+          {material.access === "free" ? <FreeMaterialBadge /> : null}
           {duration === undefined ? null : (
             <span className="tabular-nums max-sm:hidden" data-product-duration>
               {duration}

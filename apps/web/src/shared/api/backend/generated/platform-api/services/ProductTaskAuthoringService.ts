@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class ProductTaskAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -15,39 +15,41 @@ export class ProductTaskAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    idempotencyKey: string,
+    idempotencyKey: string;
     requestBody: {
-      access: 'free' | 'closed';
+      access: "free" | "closed";
       afterMaterialSourceId: string | null;
       chapterId: string;
       code: string;
-      definition: ({
-        criteria: Array<{
-          acceptableEvidence: Array<string>;
-          id: string;
-          level: 'required' | 'additional';
-          requirement: string;
-        }>;
-        freedom: string;
-        result: Array<string>;
-        reviewGuidance?: string;
-        schemaVersion: 1;
-        situation: string;
-      } | {
-        criteria: Array<{
-          acceptableEvidence: Array<string>;
-          advice?: string;
-          explanation: string;
-          id: string;
-          level: 'required' | 'additional';
-          task: string;
-        }>;
-        format: 'c';
-        freedom: string;
-        intro: string;
-        reviewGuidance?: string;
-        schemaVersion: 2;
-      });
+      definition:
+        | {
+            criteria: Array<{
+              acceptableEvidence: Array<string>;
+              id: string;
+              level: "required" | "additional";
+              requirement: string;
+            }>;
+            freedom: string;
+            result: Array<string>;
+            reviewGuidance?: string;
+            schemaVersion: 1;
+            situation: string;
+          }
+        | {
+            criteria: Array<{
+              acceptableEvidence: Array<string>;
+              advice?: string;
+              explanation: string;
+              id: string;
+              level: "required" | "additional";
+              task: string;
+            }>;
+            format: "c";
+            freedom: string;
+            intro: string;
+            reviewGuidance?: string;
+            schemaVersion: 2;
+          };
       embeddedMaterialSourceId?: string;
       expectedRevision: number | null;
       page?: Record<string, any>;
@@ -57,38 +59,41 @@ export class ProductTaskAuthoringService {
       };
       position: number;
       productId: string;
-      programmeVisibility?: 'standalone' | 'embedded' | 'legacy';
+      programmeVisibility?: "standalone" | "embedded" | "legacy";
       provenance: {
         commit: string;
         path: string;
         repository: string;
       };
-      publicationState: 'published' | 'unpublished';
+      publicationState: "published" | "unpublished";
       relatedMaterialSourceIds: Array<string>;
-      resolvedImages: Record<string, {
-        assetId: string;
-        materialId: string;
-      }>;
+      resolvedImages: Record<
+        string,
+        {
+          assetId: string;
+          materialId: string;
+        }
+      >;
       resolvedLinks: Record<string, string>;
       sourceId: string;
       title: string;
-    },
+    };
   }): CancelablePromise<{
     code: string;
     currentVersion: number;
     definitionDigest: string;
-    publicationState: 'published' | 'unpublished';
+    publicationState: "published" | "unpublished";
     revision: number;
     taskId: string;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/tasks/apply',
+      method: "POST",
+      url: "/authoring/import/tasks/apply",
       headers: {
-        'idempotency-key': idempotencyKey,
+        "idempotency-key": idempotencyKey,
       },
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -99,19 +104,19 @@ export class ProductTaskAuthoringService {
   public readSourceTaskState({
     namespace,
   }: {
-    namespace: string,
+    namespace: string;
   }): CancelablePromise<{
     namespace: string;
     tasks: Array<{
-      access: 'free' | 'closed';
+      access: "free" | "closed";
       afterMaterialSourceId: string | null;
       chapterId: string;
       code: string;
       embeddedMaterialId: string | null;
       position: number;
       productId: string;
-      programmeVisibility: 'standalone' | 'embedded' | 'legacy';
-      publicationState: 'published' | 'unpublished';
+      programmeVisibility: "standalone" | "embedded" | "legacy";
+      publicationState: "published" | "unpublished";
       revision: number;
       sourceCommit: string;
       sourceId: string;
@@ -119,10 +124,10 @@ export class ProductTaskAuthoringService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/import/tasks/state',
+      method: "GET",
+      url: "/authoring/import/tasks/state",
       query: {
-        'namespace': namespace,
+        namespace: namespace,
       },
     });
   }
@@ -135,37 +140,39 @@ export class ProductTaskAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      access: 'free' | 'closed';
+      access: "free" | "closed";
       afterMaterialSourceId: string | null;
       chapterId?: string;
       code: string;
-      definition: ({
-        criteria: Array<{
-          acceptableEvidence: Array<string>;
-          id: string;
-          level: 'required' | 'additional';
-          requirement: string;
-        }>;
-        freedom: string;
-        result: Array<string>;
-        reviewGuidance?: string;
-        schemaVersion: 1;
-        situation: string;
-      } | {
-        criteria: Array<{
-          acceptableEvidence: Array<string>;
-          advice?: string;
-          explanation: string;
-          id: string;
-          level: 'required' | 'additional';
-          task: string;
-        }>;
-        format: 'c';
-        freedom: string;
-        intro: string;
-        reviewGuidance?: string;
-        schemaVersion: 2;
-      });
+      definition:
+        | {
+            criteria: Array<{
+              acceptableEvidence: Array<string>;
+              id: string;
+              level: "required" | "additional";
+              requirement: string;
+            }>;
+            freedom: string;
+            result: Array<string>;
+            reviewGuidance?: string;
+            schemaVersion: 1;
+            situation: string;
+          }
+        | {
+            criteria: Array<{
+              acceptableEvidence: Array<string>;
+              advice?: string;
+              explanation: string;
+              id: string;
+              level: "required" | "additional";
+              task: string;
+            }>;
+            format: "c";
+            freedom: string;
+            intro: string;
+            reviewGuidance?: string;
+            schemaVersion: 2;
+          };
       embeddedMaterialSourceId?: string;
       page?: Record<string, any>;
       pageBody?: {
@@ -174,28 +181,31 @@ export class ProductTaskAuthoringService {
       };
       position?: number;
       productId?: string;
-      programmeVisibility?: 'standalone' | 'embedded' | 'legacy';
+      programmeVisibility?: "standalone" | "embedded" | "legacy";
       provenance: {
         commit: string;
         path: string;
         repository: string;
       };
-      publicationState: 'published' | 'unpublished';
+      publicationState: "published" | "unpublished";
       relatedMaterialSourceIds: Array<string>;
-      resolvedImages: Record<string, {
-        assetId: string;
-        materialId: string;
-      }>;
+      resolvedImages: Record<
+        string,
+        {
+          assetId: string;
+          materialId: string;
+        }
+      >;
       resolvedLinks: Record<string, string>;
       sourceId: string;
       title: string;
-    },
+    };
   }): CancelablePromise<{
     current: {
       code: string;
       currentVersion: number;
       definitionDigest: string;
-      publicationState: 'published' | 'unpublished';
+      publicationState: "published" | "unpublished";
       revision: number;
       taskId: string;
     } | null;
@@ -205,10 +215,10 @@ export class ProductTaskAuthoringService {
     valid: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/tasks/validate',
+      method: "POST",
+      url: "/authoring/import/tasks/validate",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -226,23 +236,23 @@ export class ProductTaskAuthoringService {
     productId,
     submissionId,
   }: {
-    limit?: number,
-    cursor?: string,
-    productCursor?: string,
+    limit?: number;
+    cursor?: string;
+    productCursor?: string;
     /**
      * awaiting: submissions without stored Author Feedback (no comment and no «посмотрел автор» mark); given: submissions with it; absent: all. Resend it with the cursor to continue the filtered order. Ignored when submissionId is given, so a submission stays readable after its comment is saved.
      */
-    feedback?: 'awaiting' | 'given',
-    taskCode?: string,
-    chapterId?: string,
-    productId?: string,
-    submissionId?: string,
+    feedback?: "awaiting" | "given";
+    taskCode?: string;
+    chapterId?: string;
+    productId?: string;
+    submissionId?: string;
   }): CancelablePromise<{
     history: Array<{
       selfCheck: {
         attempt: number;
         firstPassedAttempt: number | null;
-        outcome: 'passed' | 'changes' | 'missing';
+        outcome: "passed" | "changes" | "missing";
       };
       submissionId: string;
       submittedAt: string;
@@ -273,7 +283,7 @@ export class ProductTaskAuthoringService {
       person: {
         accountId: string;
         displayName: string | null;
-        telegramContactState: 'available' | 'not_linked' | 'unavailable';
+        telegramContactState: "available" | "not_linked" | "unavailable";
         telegramIdentityRef: string | null;
         telegramUrl: string | null;
         telegramUsername: string | null;
@@ -285,14 +295,14 @@ export class ProductTaskAuthoringService {
           evidence: string;
           gap: string;
           obtainedByRun: boolean;
-          status: 'confirmed' | 'violation' | 'not_verified';
+          status: "confirmed" | "violation" | "not_verified";
         }>;
         summary?: string;
       } | null;
       selfCheck: {
         attempt: number;
         firstPassedAttempt: number | null;
-        outcome: 'passed' | 'changes' | 'missing';
+        outcome: "passed" | "changes" | "missing";
       } | null;
       serviceMark: {
         branch: string | null;
@@ -300,7 +310,7 @@ export class ProductTaskAuthoringService {
         repositoryUrl: string | null;
         uncommittedChanges: boolean | null;
       };
-      source: 'mcp' | 'form';
+      source: "mcp" | "form";
       submissionId: string;
       submittedAt: string;
       task: {
@@ -316,33 +326,36 @@ export class ProductTaskAuthoringService {
     }>;
     versions: Array<{
       code: string;
-      criteria: Array<({
-        acceptableEvidence: Array<string>;
-        id: string;
-        level: 'required' | 'additional';
-        requirement: string;
-      } | {
-        advice?: string;
-        explanation: string;
-        id: string;
-        level: 'required' | 'additional';
-        task: string;
-      })>;
+      criteria: Array<
+        | {
+            acceptableEvidence: Array<string>;
+            id: string;
+            level: "required" | "additional";
+            requirement: string;
+          }
+        | {
+            advice?: string;
+            explanation: string;
+            id: string;
+            level: "required" | "additional";
+            task: string;
+          }
+      >;
       version: number;
     }>;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/product-tasks/submissions',
+      method: "GET",
+      url: "/authoring/product-tasks/submissions",
       query: {
-        'limit': limit,
-        'cursor': cursor,
-        'productCursor': productCursor,
-        'feedback': feedback,
-        'taskCode': taskCode,
-        'chapterId': chapterId,
-        'productId': productId,
-        'submissionId': submissionId,
+        limit: limit,
+        cursor: cursor,
+        productCursor: productCursor,
+        feedback: feedback,
+        taskCode: taskCode,
+        chapterId: chapterId,
+        productId: productId,
+        submissionId: submissionId,
       },
     });
   }
@@ -355,11 +368,11 @@ export class ProductTaskAuthoringService {
     submissionId,
     requestBody,
   }: {
-    submissionId: string,
+    submissionId: string;
     requestBody: {
       comment: string | null;
       reviewed: boolean;
-    },
+    };
   }): CancelablePromise<{
     authorFeedback: {
       comment: string | null;
@@ -368,13 +381,13 @@ export class ProductTaskAuthoringService {
     } | null;
   }> {
     return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/product-tasks/submissions/{submissionId}/feedback',
+      method: "PUT",
+      url: "/authoring/product-tasks/submissions/{submissionId}/feedback",
       path: {
-        'submissionId': submissionId,
+        submissionId: submissionId,
       },
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -386,8 +399,8 @@ export class ProductTaskAuthoringService {
     count: number;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/product-tasks/submissions/awaiting-feedback-count',
+      method: "GET",
+      url: "/authoring/product-tasks/submissions/awaiting-feedback-count",
     });
   }
 }

@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class MaterialVideoAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -15,30 +15,38 @@ export class MaterialVideoAuthoringService {
     materialId,
     requestBody,
   }: {
-    materialId: string,
+    materialId: string;
     requestBody: {
-      access: 'free' | 'closed';
+      access: "free" | "closed";
       providerVideoId: string;
-    },
+    };
   }): CancelablePromise<{
-    access: 'free' | 'closed';
+    access: "free" | "closed";
     durationSeconds?: number;
     failureCode?: string;
     materialId: string;
-    origin: 'external_attachment' | 'platform_upload';
+    origin: "external_attachment" | "platform_upload";
     protected: boolean;
-    state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+    state:
+      | "uploading"
+      | "processing"
+      | "ready"
+      | "failed"
+      | "deletion_requested"
+      | "deleting"
+      | "deleted"
+      | "delete_failed";
     title: string;
     videoId: string;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/materials/{materialId}/videos/attach',
+      method: "POST",
+      url: "/authoring/materials/{materialId}/videos/attach",
       path: {
-        'materialId': materialId,
+        materialId: materialId,
       },
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -51,40 +59,48 @@ export class MaterialVideoAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    materialId: string,
-    idempotencyKey: string,
+    materialId: string;
+    idempotencyKey: string;
     requestBody: {
-      access: 'free' | 'closed';
+      access: "free" | "closed";
       byteSize: number;
       filename: string;
       title: string;
-    },
+    };
   }): CancelablePromise<{
     providerVideoId: string;
     uploadEndpoint: string;
     video: {
-      access: 'free' | 'closed';
+      access: "free" | "closed";
       durationSeconds?: number;
       failureCode?: string;
       materialId: string;
-      origin: 'external_attachment' | 'platform_upload';
+      origin: "external_attachment" | "platform_upload";
       protected: boolean;
-      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+      state:
+        | "uploading"
+        | "processing"
+        | "ready"
+        | "failed"
+        | "deletion_requested"
+        | "deleting"
+        | "deleted"
+        | "delete_failed";
       title: string;
       videoId: string;
     };
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/materials/{materialId}/videos/uploads',
+      method: "POST",
+      url: "/authoring/materials/{materialId}/videos/uploads",
       path: {
-        'materialId': materialId,
+        materialId: materialId,
       },
       headers: {
-        'idempotency-key': idempotencyKey,
+        "idempotency-key": idempotencyKey,
       },
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
   /**
@@ -95,23 +111,31 @@ export class MaterialVideoAuthoringService {
   public retryMaterialVideoDeletion({
     videoId,
   }: {
-    videoId: string,
+    videoId: string;
   }): CancelablePromise<{
-    access: 'free' | 'closed';
+    access: "free" | "closed";
     durationSeconds?: number;
     failureCode?: string;
     materialId: string;
-    origin: 'external_attachment' | 'platform_upload';
+    origin: "external_attachment" | "platform_upload";
     protected: boolean;
-    state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+    state:
+      | "uploading"
+      | "processing"
+      | "ready"
+      | "failed"
+      | "deletion_requested"
+      | "deleting"
+      | "deleted"
+      | "delete_failed";
     title: string;
     videoId: string;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/videos/{videoId}/deletion-retries',
+      method: "POST",
+      url: "/authoring/videos/{videoId}/deletion-retries",
       path: {
-        'videoId': videoId,
+        videoId: videoId,
       },
     });
   }
@@ -123,23 +147,31 @@ export class MaterialVideoAuthoringService {
   public reconcileMaterialVideo({
     videoId,
   }: {
-    videoId: string,
+    videoId: string;
   }): CancelablePromise<{
-    access: 'free' | 'closed';
+    access: "free" | "closed";
     durationSeconds?: number;
     failureCode?: string;
     materialId: string;
-    origin: 'external_attachment' | 'platform_upload';
+    origin: "external_attachment" | "platform_upload";
     protected: boolean;
-    state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+    state:
+      | "uploading"
+      | "processing"
+      | "ready"
+      | "failed"
+      | "deletion_requested"
+      | "deleting"
+      | "deleted"
+      | "delete_failed";
     title: string;
     videoId: string;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/videos/{videoId}/reconcile',
+      method: "POST",
+      url: "/authoring/videos/{videoId}/reconcile",
       path: {
-        'videoId': videoId,
+        videoId: videoId,
       },
     });
   }

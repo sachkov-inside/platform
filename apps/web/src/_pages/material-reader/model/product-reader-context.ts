@@ -16,6 +16,7 @@ interface ProductContextMaterial {
   readonly slug: string;
   readonly title: string;
   readonly materialId?: string | undefined;
+  readonly access?: "free" | "closed" | undefined;
   readonly availability?: "available" | "locked" | "unavailable" | undefined;
 }
 

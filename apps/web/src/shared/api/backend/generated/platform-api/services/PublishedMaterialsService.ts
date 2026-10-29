@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { RecursiveSchema0schema0 } from '../models/RecursiveSchema0schema0';
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { RecursiveSchema0schema0 } from "../models/RecursiveSchema0schema0";
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class PublishedMaterialsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -12,134 +12,133 @@ export class PublishedMaterialsService {
    * @returns any Published Material body or an access-safe teaser
    * @throws ApiError
    */
-  public readPublishedMaterial({
-    slug,
-  }: {
-    slug: string,
-  }): CancelablePromise<({
-    body: {
-      blocks: Array<RecursiveSchema0schema0>;
-      schemaVersion: 1;
-    };
-    cacheScope: 'public' | 'private-no-store';
-    kind: 'available';
-    primaryVideo: {
-      failureCode?: string;
-      state: 'uploading' | 'processing' | 'ready' | 'failed';
-      title: string;
-      videoId: string;
-    } | null;
-    projection: {
-      access: 'free' | 'closed';
-      contentVersion: number;
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
-      format: {
-        id: 'video' | 'guide' | 'note';
-        name: string;
-        slug: 'video' | 'guide' | 'note';
-      };
-      materialId: string;
-      noteExcerpt?: {
-        linkUrl?: string;
-        text: string;
-        truncated: boolean;
-      };
-      outcomes: Array<string>;
-      primaryVideoId: string | null;
-      productMemberships: Array<{
-        ordinal: number;
-        product: {
-          id: string;
-          name: string;
-          slug: string;
+  public readPublishedMaterial({ slug }: { slug: string }): CancelablePromise<
+    | {
+        body: {
+          blocks: Array<RecursiveSchema0schema0>;
+          schemaVersion: 1;
         };
-        stepGroup?: string | null;
-      }>;
-      publishedAt: string;
-      slug: string;
-      summary: string;
-      tags: Array<{
-        id: string;
-        name: string;
-      }>;
-      title: string;
-      topic: {
-        id: string;
-        name: string;
-        slug: string;
-      };
-    };
-    videoChapters?: Array<{
-      start: number;
-      title: string;
-    }>;
-  } | {
-    access: {
-      availability: 'locked';
-      subscriptionOffered: boolean;
-    };
-    cacheScope: 'public' | 'private-no-store';
-    kind: 'teaser';
-    projection: {
-      access: 'free' | 'closed';
-      contentVersion: number;
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
-      format: {
-        id: 'video' | 'guide' | 'note';
-        name: string;
-        slug: 'video' | 'guide' | 'note';
-      };
-      materialId: string;
-      noteExcerpt?: {
-        linkUrl?: string;
-        text: string;
-        truncated: boolean;
-      };
-      outcomes: Array<string>;
-      primaryVideoId: string | null;
-      productMemberships: Array<{
-        ordinal: number;
-        product: {
-          id: string;
-          name: string;
+        cacheScope: "public" | "private-no-store";
+        kind: "available";
+        primaryVideo: {
+          failureCode?: string;
+          state: "uploading" | "processing" | "ready" | "failed";
+          title: string;
+          videoId: string;
+        } | null;
+        projection: {
+          access: "free" | "closed";
+          contentVersion: number;
+          cover: {
+            coverId: string;
+            renditions: Array<{
+              height: number;
+              width: number;
+            }>;
+          } | null;
+          difficulty: "basic" | "intermediate" | "advanced" | null;
+          format: {
+            id: "video" | "guide" | "note";
+            name: string;
+            slug: "video" | "guide" | "note";
+          };
+          materialId: string;
+          noteExcerpt?: {
+            linkUrl?: string;
+            text: string;
+            truncated: boolean;
+          };
+          outcomes: Array<string>;
+          primaryVideoId: string | null;
+          productMemberships: Array<{
+            ordinal: number;
+            product: {
+              id: string;
+              name: string;
+              slug: string;
+            };
+            stepGroup?: string | null;
+          }>;
+          publishedAt: string;
           slug: string;
+          summary: string;
+          tags: Array<{
+            id: string;
+            name: string;
+          }>;
+          title: string;
+          topic: {
+            id: string;
+            name: string;
+            slug: string;
+          };
         };
-        stepGroup?: string | null;
-      }>;
-      publishedAt: string;
-      slug: string;
-      summary: string;
-      tags: Array<{
-        id: string;
-        name: string;
-      }>;
-      title: string;
-      topic: {
-        id: string;
-        name: string;
-        slug: string;
-      };
-    };
-  })> {
+        videoChapters?: Array<{
+          start: number;
+          title: string;
+        }>;
+      }
+    | {
+        access: {
+          availability: "locked";
+          subscriptionOffered: boolean;
+        };
+        cacheScope: "public" | "private-no-store";
+        kind: "teaser";
+        projection: {
+          access: "free" | "closed";
+          contentVersion: number;
+          cover: {
+            coverId: string;
+            renditions: Array<{
+              height: number;
+              width: number;
+            }>;
+          } | null;
+          difficulty: "basic" | "intermediate" | "advanced" | null;
+          format: {
+            id: "video" | "guide" | "note";
+            name: string;
+            slug: "video" | "guide" | "note";
+          };
+          materialId: string;
+          noteExcerpt?: {
+            linkUrl?: string;
+            text: string;
+            truncated: boolean;
+          };
+          outcomes: Array<string>;
+          primaryVideoId: string | null;
+          productMemberships: Array<{
+            ordinal: number;
+            product: {
+              id: string;
+              name: string;
+              slug: string;
+            };
+            stepGroup?: string | null;
+          }>;
+          publishedAt: string;
+          slug: string;
+          summary: string;
+          tags: Array<{
+            id: string;
+            name: string;
+          }>;
+          title: string;
+          topic: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+        };
+      }
+  > {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/materials/{slug}',
+      method: "GET",
+      url: "/materials/{slug}",
       path: {
-        'slug': slug,
+        slug: slug,
       },
       errors: {
         400: `Published Material request is malformed`,

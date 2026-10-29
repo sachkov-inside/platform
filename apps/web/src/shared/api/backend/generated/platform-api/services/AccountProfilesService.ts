@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class AccountProfilesService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -11,25 +11,28 @@ export class AccountProfilesService {
    * @returns any
    * @throws ApiError
    */
-  public readPrivateAccountProfile(): CancelablePromise<({
-    kind: 'missing';
-  } | {
-    kind: 'profile';
-    profile: {
-      avatar: {
-        avatarId: string;
-      } | null;
-      bio: string | null;
-      createdAt: string;
-      displayName: string;
-      status: 'active' | 'disabled';
-      updatedAt: string;
-      version: number;
-    };
-  })> {
+  public readPrivateAccountProfile(): CancelablePromise<
+    | {
+        kind: "missing";
+      }
+    | {
+        kind: "profile";
+        profile: {
+          avatar: {
+            avatarId: string;
+          } | null;
+          bio: string | null;
+          createdAt: string;
+          displayName: string;
+          status: "active" | "disabled";
+          updatedAt: string;
+          version: number;
+        };
+      }
+  > {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/account/profile',
+      method: "GET",
+      url: "/account/profile",
       errors: {
         403: `The terms of use in force are not accepted yet`,
       },
@@ -46,7 +49,7 @@ export class AccountProfilesService {
     requestBody: {
       bio?: string | null;
       displayName: string;
-    },
+    };
   }): CancelablePromise<{
     profile: {
       avatar: {
@@ -55,16 +58,16 @@ export class AccountProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      status: 'active' | 'disabled';
+      status: "active" | "disabled";
       updatedAt: string;
       version: number;
     };
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/account/profile',
+      method: "POST",
+      url: "/account/profile",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
       errors: {
         403: `The terms of use in force are not accepted yet`,
       },
@@ -82,7 +85,7 @@ export class AccountProfilesService {
       bio?: string | null;
       displayName: string;
       expectedVersion: number;
-    },
+    };
   }): CancelablePromise<{
     profile: {
       avatar: {
@@ -91,16 +94,16 @@ export class AccountProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      status: 'active' | 'disabled';
+      status: "active" | "disabled";
       updatedAt: string;
       version: number;
     };
   }> {
     return this.httpRequest.request({
-      method: 'PUT',
-      url: '/account/profile',
+      method: "PUT",
+      url: "/account/profile",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
       errors: {
         403: `The terms of use in force are not accepted yet`,
       },
@@ -116,7 +119,7 @@ export class AccountProfilesService {
   }: {
     requestBody: {
       expectedVersion: number;
-    },
+    };
   }): CancelablePromise<{
     profile: {
       avatar: {
@@ -125,16 +128,16 @@ export class AccountProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      status: 'active' | 'disabled';
+      status: "active" | "disabled";
       updatedAt: string;
       version: number;
     };
   }> {
     return this.httpRequest.request({
-      method: 'DELETE',
-      url: '/account/profile/avatar',
+      method: "DELETE",
+      url: "/account/profile/avatar",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
       errors: {
         403: `The terms of use in force are not accepted yet`,
       },
@@ -157,7 +160,7 @@ export class AccountProfilesService {
       declaredSize: number;
       expectedVersion: number;
       file: Blob;
-    },
+    };
   }): CancelablePromise<{
     profile: {
       avatar: {
@@ -166,16 +169,16 @@ export class AccountProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      status: 'active' | 'disabled';
+      status: "active" | "disabled";
       updatedAt: string;
       version: number;
     };
   }> {
     return this.httpRequest.request({
-      method: 'PUT',
-      url: '/account/profile/avatar',
+      method: "PUT",
+      url: "/account/profile/avatar",
       formData: formData,
-      mediaType: 'multipart/form-data',
+      mediaType: "multipart/form-data",
       errors: {
         403: `The terms of use in force are not accepted yet`,
       },
@@ -190,15 +193,15 @@ export class AccountProfilesService {
     size,
     avatarId,
   }: {
-    size: 160 | 320 | 640,
-    avatarId: string,
+    size: 160 | 320 | 640;
+    avatarId: string;
   }): CancelablePromise<void> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/account/profile/avatar/{avatarId}/{size}',
+      method: "GET",
+      url: "/account/profile/avatar/{avatarId}/{size}",
       path: {
-        'size': size,
-        'avatarId': avatarId,
+        size: size,
+        avatarId: avatarId,
       },
       errors: {
         302: `Short-lived protected avatar redirect`,

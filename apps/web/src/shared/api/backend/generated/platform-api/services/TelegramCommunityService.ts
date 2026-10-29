@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import type { BaseHttpRequest } from '../core/BaseHttpRequest';
+import type { CancelablePromise } from "../core/CancelablePromise";
+import type { BaseHttpRequest } from "../core/BaseHttpRequest";
 export class TelegramCommunityService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -12,12 +12,12 @@ export class TelegramCommunityService {
    * @throws ApiError
    */
   public currentCommunityAdmission(): CancelablePromise<{
-    admissionRestriction: 'none' | 'moderation' | 'external_unknown' | null;
-    state: 'checking' | 'no_access' | 'moderation_blocked' | 'ready';
+    admissionRestriction: "none" | "moderation" | "external_unknown" | null;
+    state: "checking" | "no_access" | "moderation_blocked" | "ready";
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/accounts/current/community-admission',
+      method: "GET",
+      url: "/accounts/current/community-admission",
       errors: {
         403: `The terms of use in force are not accepted yet`,
         500: `Terms acceptance could not be checked`,
@@ -32,27 +32,34 @@ export class TelegramCommunityService {
   public currentCommunityEntry({
     productId,
   }: {
-    productId?: string,
-  }): CancelablePromise<({
-    kind: 'none';
-  } | {
-    kind: 'link_telegram';
-  } | {
-    kind: 'preparing';
-  } | {
-    botUrl: string;
-    kind: 'join';
-  } | {
-    groupUrl?: string;
-    kind: 'member';
-  } | {
-    kind: 'restricted';
-  })> {
+    productId?: string;
+  }): CancelablePromise<
+    | {
+        kind: "none";
+      }
+    | {
+        kind: "link_telegram";
+      }
+    | {
+        kind: "preparing";
+      }
+    | {
+        botUrl: string;
+        kind: "join";
+      }
+    | {
+        groupUrl?: string;
+        kind: "member";
+      }
+    | {
+        kind: "restricted";
+      }
+  > {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/accounts/current/community-entry',
+      method: "GET",
+      url: "/accounts/current/community-entry",
       query: {
-        'productId': productId,
+        productId: productId,
       },
       errors: {
         403: `The terms of use in force are not accepted yet`,
@@ -67,42 +74,56 @@ export class TelegramCommunityService {
    */
   public readCommunityEntitlementDelivery(): CancelablePromise<{
     desired: {
-      access: ({
-        kind: 'denied';
-      } | {
-        kind: 'finite';
-        validUntil: string;
-      } | {
-        kind: 'lifetime';
-      });
+      access:
+        | {
+            kind: "denied";
+          }
+        | {
+            kind: "finite";
+            validUntil: string;
+          }
+        | {
+            kind: "lifetime";
+          };
       entitlementRevision: number;
       nextBoundary: string | null;
       projectedAt: string;
       telegramIdentityRef: string | null;
     } | null;
     operations: Array<{
-      access: ({
-        kind: 'denied';
-      } | {
-        kind: 'finite';
-        validUntil: string;
-      } | {
-        kind: 'lifetime';
-      });
-      appliedState: 'accepted' | 'waiting_for_join' | 'applied' | 'superseded' | 'failed' | 'unknown' | 'expired' | null;
-      delivery: 'pending' | 'accepted' | 'rejected' | 'superseded';
+      access:
+        | {
+            kind: "denied";
+          }
+        | {
+            kind: "finite";
+            validUntil: string;
+          }
+        | {
+            kind: "lifetime";
+          };
+      appliedState:
+        | "accepted"
+        | "waiting_for_join"
+        | "applied"
+        | "superseded"
+        | "failed"
+        | "unknown"
+        | "expired"
+        | null;
+      delivery: "pending" | "accepted" | "rejected" | "superseded";
       entitlementRevision: number;
       errorCode: string | null;
       issuedAt: string;
-      observedMembership: 'member' | 'not_member' | 'unknown' | null;
+      observedMembership: "member" | "not_member" | "unknown" | null;
       operationId: string;
-      purpose: 'apply' | 'cleanup';
+      purpose: "apply" | "cleanup";
       updatedAt: string;
     }>;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/community-entitlements/{accountId}',
+      method: "GET",
+      url: "/community-entitlements/{accountId}",
     });
   }
   /**
@@ -120,8 +141,8 @@ export class TelegramCommunityService {
     truncated: boolean;
   }> {
     return this.httpRequest.request({
-      method: 'GET',
-      url: '/community-entitlements/members-without-right',
+      method: "GET",
+      url: "/community-entitlements/members-without-right",
     });
   }
   /**
@@ -134,37 +155,53 @@ export class TelegramCommunityService {
   }: {
     requestBody: {
       attemptId: string;
-      contractVersion: 'inside.billing-dispatch.v1';
-      dispatchContractVersion: 'inside.community-entitlement.v1' | 'inside.community-entitlement.v2' | 'inside.billing-notification.v1';
+      contractVersion: "inside.billing-dispatch.v1";
+      dispatchContractVersion:
+        | "inside.community-entitlement.v1"
+        | "inside.community-entitlement.v2"
+        | "inside.billing-notification.v1";
       dispatchId: string;
-      effect: 'community.ensure_admission' | 'community.approve_join' | 'community.ensure_absence' | 'notice.send';
+      effect:
+        | "community.ensure_admission"
+        | "community.approve_join"
+        | "community.ensure_absence"
+        | "notice.send";
       effectRef: string;
-      operation: 'dispatch.authorize';
+      operation: "dispatch.authorize";
       operationId: string;
       payloadDigest: string;
-    },
+    };
   }): CancelablePromise<{
     attemptId: string;
-    contractVersion: 'inside.billing-dispatch.v1';
-    decision: ({
-      permitRef: string;
-      status: 'allowed';
-      validUntil: string;
-    } | {
-      reason: 'superseded' | 'binding_conflict' | 'expired' | 'not_found' | 'payload_conflict' | 'effect_conflict';
-      status: 'denied';
-    } | {
-      status: 'unavailable';
-    });
+    contractVersion: "inside.billing-dispatch.v1";
+    decision:
+      | {
+          permitRef: string;
+          status: "allowed";
+          validUntil: string;
+        }
+      | {
+          reason:
+            | "superseded"
+            | "binding_conflict"
+            | "expired"
+            | "not_found"
+            | "payload_conflict"
+            | "effect_conflict";
+          status: "denied";
+        }
+      | {
+          status: "unavailable";
+        };
     dispatchId: string;
-    operation: 'dispatch.result';
+    operation: "dispatch.result";
     operationId: string;
   }> {
     return this.httpRequest.request({
-      method: 'POST',
-      url: '/internal/billing-dispatch/authorize',
+      method: "POST",
+      url: "/internal/billing-dispatch/authorize",
       body: requestBody,
-      mediaType: 'application/json',
+      mediaType: "application/json",
     });
   }
 }

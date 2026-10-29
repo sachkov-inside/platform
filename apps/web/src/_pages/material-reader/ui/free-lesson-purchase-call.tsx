@@ -1,6 +1,7 @@
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 
+import { FreeMaterialBadge } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 
 import type { FreeLessonCall } from "../model/purchase-product";
@@ -33,9 +34,7 @@ export function FreeLessonPurchaseCallView({
       className="mt-8 rounded-2xl border border-black/6 bg-muted p-5 sm:p-6"
       data-free-lesson-call={call.action.kind}
     >
-      <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold leading-4 text-secondary-foreground">
-        Бесплатно
-      </span>
+      <FreeMaterialBadge />
       <h2
         className="mt-3 text-balance text-lg font-semibold tracking-[-0.02em] sm:text-xl"
         id="free-lesson-call-heading"

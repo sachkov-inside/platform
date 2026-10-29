@@ -11,11 +11,12 @@ const buyHref = internalRoute("/products/ai-engineering/buy");
 const sold = { kind: "product", href: buyHref } as const;
 const lockedNext = {
   title: "Первая версия продукта",
-  availability: "locked",
+  access: "closed",
 } as const;
+// Бесплатный шаг остаётся открытым, даже если читателю без Telegram он пока недоступен (#1825).
 const freeNext = {
   title: "Начинаем работу с агентом в проекте",
-  availability: "available",
+  access: "free",
 } as const;
 
 describe("урок курса ведёт того, кому курс не открыт", () => {

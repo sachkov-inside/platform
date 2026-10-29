@@ -10,5 +10,9 @@ export default function AuthoringError({
   readonly retry: () => void;
 }) {
   useRenderErrorReport("authoring", error);
-  return <main className="grid h-full min-h-svh place-items-center px-5 py-12 md:min-h-0"><button onClick={retry}>Повторить</button></main>;
+  return (
+    <main className="grid h-full min-h-svh place-items-center px-5 py-12 md:min-h-0">
+      <button onClick={retry}>Повторить</button>
+    </main>
+  );
 }
