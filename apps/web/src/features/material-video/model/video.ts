@@ -5,6 +5,8 @@ export const authoringVideoSchema = z
     durationSeconds: z.number().int().positive().optional(),
     failureCode: z.string().optional(),
     origin: z.enum(["external_attachment", "platform_upload"]),
+    // Plays only with a Platform token and serves a free or a closed Material (ADR 0041).
+    protected: z.boolean(),
     state: z.enum([
       "uploading",
       "processing",

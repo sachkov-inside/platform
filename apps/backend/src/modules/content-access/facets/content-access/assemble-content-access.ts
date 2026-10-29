@@ -26,6 +26,7 @@ import type {
   ProductTaskResourceFacts,
   MaterialResourceFacts,
   MembershipAccessState,
+  VideoResourceFacts,
 } from "./content-access.dependencies.js";
 
 import { CONTENT_ACCESS_BATCH_SIZE } from "./content-access.interface.js";
@@ -666,6 +667,17 @@ function resourceReason(
   return undefined;
 }
 
+/** The Material's primary Video; a closed Material needs a protected recording (ADR 0041). */
+function videoServesMaterial(
+  video: VideoResourceFacts,
+  material: MaterialResourceFacts,
+): boolean {
+  return (
+    material.primaryVideoId === video.videoId &&
+    (video.protected || material.access === "free")
+  );
+}
+
 async function resolveOneResourceFacts(
   dependencies: ContentAccessDependencies,
   resource: Resource,
@@ -694,8 +706,7 @@ async function resolveOneResourceFacts(
     return resolveMaterialFacts(
       material,
       "video",
-      video.access === material.access &&
-        material.primaryVideoId === video.videoId
+      videoServesMaterial(video, material)
         ? `video:${video.videoId}`
         : `video-mismatch:${video.videoId}`,
     );
@@ -827,8 +838,7 @@ async function resolveManyResourceFacts(
               : materialsById.get(video.materialId);
           return video === undefined ||
             material === undefined ||
-            video.access !== material.access ||
-            material.primaryVideoId !== video.videoId
+            !videoServesMaterial(video, material)
             ? []
             : [
                 [

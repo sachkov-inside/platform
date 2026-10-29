@@ -26,6 +26,7 @@ export class MaterialVideoAuthoringService {
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
+    protected: boolean;
     state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
     title: string;
     videoId: string;
@@ -67,6 +68,7 @@ export class MaterialVideoAuthoringService {
       failureCode?: string;
       materialId: string;
       origin: 'external_attachment' | 'platform_upload';
+      protected: boolean;
       state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
@@ -100,6 +102,7 @@ export class MaterialVideoAuthoringService {
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
+    protected: boolean;
     state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
     title: string;
     videoId: string;
@@ -127,6 +130,7 @@ export class MaterialVideoAuthoringService {
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
+    protected: boolean;
     state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
     title: string;
     videoId: string;

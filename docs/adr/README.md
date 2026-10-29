@@ -1,6 +1,6 @@
 # Архитектурные решения
 
-В рабочем дереве 33 действующих ADR: 31 Platform и 2 Telegram.
+В рабочем дереве 34 действующих ADR: 32 Platform и 2 Telegram.
 Заменённые решения и дубли удалены; исходные тексты сохраняются в Git.
 Номера оставшихся решений не меняются, удалённые номера не используются повторно.
 
@@ -44,6 +44,7 @@ ADR фиксируют причины выбора и компромиссы; т
 | [0038](0038-one-definition-per-browser-mutation.md) | One definition per same-origin browser mutation |
 | [0039](0039-opaque-transaction-handoff.md) | Opaque transaction handoff between state owners |
 | [0040](0040-unified-product-access.md) | Единый Product Access без тарифов и подписок |
+| [0041](0041-protected-recording-serves-any-access.md) | Защищённая запись служит уроку с любым доступом |
 
 ## Telegram
 

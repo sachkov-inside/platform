@@ -13,11 +13,12 @@ import {
   unselectedUploadInput,
 } from "./video-inputs.js";
 import {
+  accessOfProject,
   dependencyUnavailable,
   invalidRequest,
   parseVideoState,
-  projectForAccess,
   providerMismatch,
+  recordingServesAccess,
   toAuthoringPresentation,
   videoNotFound,
   videoNotReady,
@@ -40,11 +41,14 @@ export async function inspectPrimaryVideoReference(
       where: { id: parsed.data.videoId },
     });
     if (video === null) return videoNotFound();
+    // The Material's access may differ from the recording's: a protected recording serves both.
+    const recordingAccess = accessOfProject(context.projects, video.projectId);
     if (
       videoMaterialIdSchema.parse(video.materialId) !==
         parsed.data.materialId ||
-      video.access !== parsed.data.access ||
-      video.projectId !== projectForAccess(context.projects, parsed.data.access)
+      recordingAccess === null ||
+      recordingAccess !== video.access ||
+      !recordingServesAccess(recordingAccess, parsed.data.access)
     ) {
       return providerMismatch();
     }
@@ -233,8 +237,8 @@ export async function loadVideoAccessFacts(
     return {
       ok: true,
       value: videos.map((video) => ({
-        access: videoAccessSchema.parse(video.access),
         materialId: videoMaterialIdSchema.parse(video.materialId),
+        protected: isProtectedRecording(video),
         videoId: videoIdSchema.parse(video.id),
       })),
     };
@@ -263,9 +267,9 @@ export async function loadVideoPlayback(
     return {
       ok: true,
       value: {
-        access: videoAccessSchema.parse(video.access),
         embedLocator: video.providerEmbedLocator,
         materialId: videoMaterialIdSchema.parse(video.materialId),
+        protected: isProtectedRecording(video),
         providerVideoId: providerVideoIdSchema.parse(video.providerVideoId),
         videoId: videoIdSchema.parse(video.id),
       },
@@ -277,4 +281,12 @@ export async function loadVideoPlayback(
       dependencyUnavailable(),
     );
   }
+}
+
+/**
+ * A Video records the protection of its project when it is uploaded or attached: `closed` means
+ * the protected project, where the player needs a Platform token whatever the Material's access.
+ */
+function isProtectedRecording(video: { readonly access: string }): boolean {
+  return videoAccessSchema.parse(video.access) === "closed";
 }

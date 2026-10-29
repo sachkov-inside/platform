@@ -277,7 +277,7 @@ function catalogVideos(prisma: PrismaClient) {
   return assembleVideos({
     prisma,
     canManage: () => Promise.resolve(false),
-    projects: { free: "free", closed: "closed" },
+    projects: { public: "free", protected: "closed" },
     provider: {
       initUpload: () => Promise.reject(new Error("unused")),
       delete: () => Promise.reject(new Error("unused")),

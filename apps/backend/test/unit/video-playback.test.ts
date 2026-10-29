@@ -21,7 +21,7 @@ describe("Video playback authorization", () => {
         reason: "active_membership",
         validUntil,
       });
-      const videos = videoDependencies("closed");
+      const videos = videoDependencies({ protected: true });
       const playback = assembleVideoPlayback({
         clock: () => now,
         contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
@@ -95,7 +95,7 @@ describe("Video playback authorization", () => {
     },
   );
 
-  test("keeps public anonymous playback tokenless and denies before loading protected facts", async () => {
+  test("keeps a public recording tokenless and denies before loading protected facts", async () => {
     const authorize = vi
       .fn()
       .mockResolvedValueOnce({
@@ -108,7 +108,7 @@ describe("Video playback authorization", () => {
         effect: "deny",
         reason: "membership_required",
       });
-    const videos = videoDependencies("free");
+    const videos = videoDependencies({ protected: false });
     const playback = assembleVideoPlayback({
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
@@ -145,13 +145,101 @@ describe("Video playback authorization", () => {
     expect(videos.loadPlayback).toHaveBeenCalledTimes(1);
   });
 
+  test("gives an anonymous viewer of a free lesson a token for its protected recording", async () => {
+    const authorize = vi.fn().mockResolvedValue({
+      decidedAt: now.toISOString(),
+      effect: "allow",
+      reason: "public_resource",
+    });
+    const videos = videoDependencies({ protected: true });
+    const playback = assembleVideoPlayback({
+      clock: () => now,
+      contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
+      jwtSecret: "test-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      videos,
+    });
+
+    const session = await playback.createSession({
+      correlationId: "free-protected-request",
+      materialId,
+      subject: { kind: "anonymous" },
+      videoId,
+    });
+    expect(session).toMatchObject({
+      ok: true,
+      value: { progressScope: "anonymous", resumeSeconds: null },
+    });
+    if (!session.ok || session.value.drmAuthToken === null)
+      throw new Error("anonymous token missing");
+    expect(decodeJwt(session.value.drmAuthToken).sub).toBe("");
+    await expect(
+      playback.authorizeProvider({
+        providerVideoId: "provider-video",
+        token: session.value.drmAuthToken,
+      }),
+    ).resolves.toBe(true);
+    expect(authorize).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: "play",
+        enforcementPoint: "video_authorization_callback",
+        subject: { kind: "anonymous" },
+      }),
+    );
+
+    // The lesson was closed after the token was issued: the callback repeats the decision.
+    authorize.mockResolvedValueOnce({
+      decidedAt: now.toISOString(),
+      effect: "deny",
+      reason: "authentication_required",
+    });
+    await expect(
+      playback.authorizeProvider({
+        providerVideoId: "provider-video",
+        token: session.value.drmAuthToken,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  test("refuses a callback for a public recording even with a valid token", async () => {
+    const authorize = vi.fn().mockResolvedValue({
+      decidedAt: now.toISOString(),
+      effect: "allow",
+      reason: "public_resource",
+    });
+    const playback = assembleVideoPlayback({
+      clock: () => now,
+      contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
+      jwtSecret: "test-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      videos: videoDependencies({ protected: false }),
+    });
+    const token = await new SignJWT({ pid: "provider-video", vid: videoId })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setIssuer("inside-platform")
+      .setAudience("kinescope-drm-callback")
+      .setSubject("")
+      .setIssuedAt(Math.floor(now.getTime() / 1000))
+      .setExpirationTime(Math.floor(now.getTime() / 1000) + 60)
+      .sign(
+        new TextEncoder().encode(
+          "test-playback-secret-with-at-least-32-characters",
+        ),
+      );
+
+    await expect(
+      playback.authorizeProvider({ providerVideoId: "provider-video", token }),
+    ).resolves.toBe(false);
+    expect(authorize).not.toHaveBeenCalled();
+  });
+
   test("authorizes an author preview session without progress and repeats preview in the callback", async () => {
     const authorize = vi.fn().mockResolvedValue({
       decidedAt: now.toISOString(),
       effect: "allow",
       reason: "materials_manager",
     });
-    const videos = videoDependencies("closed");
+    const videos = videoDependencies({ protected: true });
     const playback = assembleVideoPlayback({
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
@@ -238,7 +326,7 @@ describe("Video playback authorization", () => {
       effect: "allow",
       reason: "public_resource",
     });
-    const videos = videoDependencies("free");
+    const videos = videoDependencies({ protected: false });
     const playback = assembleVideoPlayback({
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
@@ -265,14 +353,14 @@ describe("Video playback authorization", () => {
   });
 });
 
-function videoDependencies(access: "free" | "closed") {
+function videoDependencies(recording: { readonly protected: boolean }) {
   return {
     loadPlayback: vi.fn().mockResolvedValue({
       ok: true,
       value: {
-        access,
         embedLocator: "https://kinescope.io/embed/provider-video",
         materialId,
+        protected: recording.protected,
         providerVideoId: "provider-video",
         videoId,
       },

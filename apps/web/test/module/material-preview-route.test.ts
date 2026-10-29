@@ -325,6 +325,7 @@ function current(state: "processing" | "ready") {
       primaryVideo: {
         durationSeconds: 754,
         origin: "platform_upload",
+        protected: true,
         state,
         title: "Запись урока",
         videoId: "95000000-0000-4000-8000-000000000030",

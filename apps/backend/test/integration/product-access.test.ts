@@ -453,7 +453,7 @@ describe("independent product, library, support and shared chat rights", () => {
     const videos = assembleVideos({
       prisma: db.prisma,
       provider: createTestVideoProvider(),
-      projects: { free: "free", closed: "members" },
+      projects: { public: "free", protected: "members" },
       canManage: () => Promise.resolve(false),
       clock: () => now,
     });
@@ -682,7 +682,7 @@ describe("independent product, library, support and shared chat rights", () => {
     const videos = assembleVideos({
       prisma: db.prisma,
       provider: createTestVideoProvider(),
-      projects: { free: "free", closed: "members" },
+      projects: { public: "free", protected: "members" },
       canManage: () => Promise.resolve(false),
       clock: () => now,
     });

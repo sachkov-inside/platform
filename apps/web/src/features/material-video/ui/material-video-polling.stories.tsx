@@ -7,6 +7,7 @@ import { MaterialVideoAuthoring } from "./material-video-authoring.client";
 
 const deletingVideo = {
   origin: "platform_upload",
+  protected: true,
   state: "deleting",
   title: "Удаляемый урок",
   videoId: "03000000-0000-4000-8000-000000000001",

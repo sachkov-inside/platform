@@ -56,7 +56,7 @@ describe("Personal Home on PostgreSQL", () => {
     videos = assembleVideos({
       prisma: database.prisma,
       canManage: () => Promise.resolve(true),
-      projects: { free: "public", closed: "members" },
+      projects: { public: "public", protected: "members" },
       provider: {
         initUpload: () => Promise.reject(new Error("unused")),
         delete: () => Promise.reject(new Error("unused")),

@@ -1192,8 +1192,10 @@ owns editor and source-authoring instructions.
    returned embed locator, authoritative status и sync/error facts. Upload attempt фиксируется до
    provider I/O; один unresolved attempt на Material+actor блокирует новый key после ambiguous
    timeout, поэтому browser retry не создаёт второй provider object. Browser выполняет resumable
-   Tus transfer без API token. Attach-existing всегда делает server lookup в фиксированном public
-   или membership project. Material ссылается на Video только после `ready`, поэтому закрытая или
+   Tus transfer без API token. Каждая загрузка идёт в защищённый (membership) project, поэтому урок
+   меняет access без новой загрузки ([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)).
+   Attach-existing делает server lookup по ID и принимает только запись защищённого project или,
+   для free Material, public project; Video хранит защиту своего project. Material ссылается на Video только после `ready`, поэтому закрытая или
    перезагруженная вкладка оставляет Platform Upload без ссылки. Редактор получает последнюю такую
    загрузку Material, пока её исход не установлен, и сверяет её обычной reconciliation. Итог этой
    сверки: `ready` привязывается обычным Save, продолжающаяся обработка ждёт, а `uploading` без
@@ -1214,8 +1216,9 @@ owns editor and source-authoring instructions.
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для
    retry/reconciliation.
-10. Save/publish с `primaryVideoId` fails closed для missing, processing/failed, wrong-Material,
-    wrong-access или wrong-project Video. Current и published pointers меняются одной Material Save;
+10. Save/publish с `primaryVideoId` fails closed для missing, processing/failed, wrong-Material
+    или wrong-project Video, а closed Material ещё и для записи public project. Смена access
+    Material с защищённой записью остаётся обычным Save. Current и published pointers меняются одной Material Save;
     неуспешная replacement не меняет уже опубликованный playback. «Убрать из материала» и обычная
     replacement никогда не удаляют provider object. Только отдельное подтверждённое действие для
     immutable `platform_upload` атомарно сохраняет detach/replacement и durable VideoDeletion;
@@ -1226,8 +1229,9 @@ owns editor and source-authoring instructions.
 11. Reader сначала получает только safe Video presentation. При открытии страницы автоматически
     запрашивается playback session; до её allow нет iframe, provider script/request, locator или token.
     Playback session повторно вызывает exact `ContentAccess`
-    `play`; membership Video получает short-lived JWT, а strict provider authorization callback ещё
-    раз проверяет token, Video mapping и current access. Mismatch, tampering, expiry и outage deny.
+    `play`; каждая защищённая запись получает short-lived JWT, в том числе для анонимного зрителя
+    free Material (пустой `sub`), а strict provider authorization callback ещё раз проверяет token,
+    Video mapping и current access Material. Mismatch, tampering, expiry и outage deny.
     Platform-owned responsive frame загружает плеер без дополнительной кнопки и без autoplay;
     controls остаются в Kinescope, технические пояснения не выводятся. Subtitles/transcripts вне V1.
 12. Account resume хранится coarse server-side по `(accountId, videoId)` и работает между

@@ -67,7 +67,8 @@ export interface ProductTaskResourceFactsAdapter {
 export interface VideoResourceFacts {
   readonly videoId: string;
   readonly materialId: MaterialId;
-  readonly access: "free" | "closed";
+  /** Only a protected recording may serve a closed Material. */
+  readonly protected: boolean;
 }
 
 export interface VideoResourceFactsAdapter {
