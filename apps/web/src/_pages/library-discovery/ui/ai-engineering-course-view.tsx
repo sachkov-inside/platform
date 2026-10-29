@@ -50,7 +50,7 @@ import {
 } from "./agent-logos";
 
 import { cohortEnrollAnchor } from "../model/cohort-call";
-import { countFreeLessons } from "../model/free-lessons";
+import { freeLessons, type FreeLesson } from "../model/free-lessons";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
 
@@ -87,8 +87,11 @@ export function AiEngineeringCourseView({
 }) {
   const { reference } = result;
   const programme = productProgrammeHref(reference.slug);
-  const hasFreeLessons =
-    countFreeLessons(result.kind === "ready" ? result.items : []) > 0;
+  const lessons = freeLessons({
+    slug: reference.slug,
+    items: result.kind === "ready" ? result.items : [],
+    chapters: result.chapters,
+  });
   const hero = page.blocks.find(
     (block): block is ProductPageBlockOf<"hero"> => block.kind === "hero",
   );
@@ -121,7 +124,7 @@ export function AiEngineeringCourseView({
             key={block.id}
             statusCall={statusCall}
             block={block}
-            hasFreeLessons={hasFreeLessons}
+            freeLessons={lessons}
             programme={programme}
           />
         ))}
@@ -131,12 +134,12 @@ export function AiEngineeringCourseView({
 
 function CourseBlock({
   block,
-  hasFreeLessons,
+  freeLessons,
   programme,
   statusCall,
 }: {
   readonly block: ProductPageBlock;
-  readonly hasFreeLessons: boolean;
+  readonly freeLessons: readonly FreeLesson[];
   readonly programme: Route;
   readonly statusCall?: ReactNode;
 }): ReactNode {
@@ -163,22 +166,45 @@ function CourseBlock({
       return <Status block={block} programme={programme} />;
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
     case "trial":
-      return hasFreeLessons ? (
-        <section className="ai-product-trial">
-          <h2>{block.title}</h2>
-          <p>{block.text}</p>
-          {block.link === "" ? null : (
-            <IntentPrefetchLink
-              className="ai-product-text-link"
-              href={programme}
-            >
-              {block.link}
-              <ArrowRight />
-            </IntentPrefetchLink>
-          )}
-        </section>
-      ) : null;
+      return <FreeLessonsTrial block={block} lessons={freeLessons} />;
   }
+}
+
+/**
+ * Бесплатная ступень курса (#1647): бесплатные уроки по порядку программы, каждый с меткой
+ * «Бесплатно», и кнопка в первый из них. Заголовок, текст и подпись кнопки пишет автор.
+ */
+function FreeLessonsTrial({
+  block,
+  lessons,
+}: {
+  readonly block: ProductPageBlockOf<"trial">;
+  readonly lessons: readonly FreeLesson[];
+}) {
+  const first = lessons[0];
+  if (first === undefined) return null;
+  return (
+    <section className="ai-product-trial aie-trial">
+      <h2>{block.title}</h2>
+      {block.text === "" ? null : <p>{block.text}</p>}
+      <ol aria-label="Бесплатные уроки" className="aie-trial-lessons">
+        {lessons.map((lesson) => (
+          <li key={lesson.slug}>
+            <IntentPrefetchLink href={lesson.href}>
+              <span>{lesson.title}</span>
+              <span className="aie-trial-free">Бесплатно</span>
+            </IntentPrefetchLink>
+          </li>
+        ))}
+      </ol>
+      {block.link === "" ? null : (
+        <IntentPrefetchLink className="ai-product-button" href={first.href}>
+          {block.link}
+          <ArrowRight />
+        </IntentPrefetchLink>
+      )}
+    </section>
+  );
 }
 
 type CardItem = ProductPageBlockOf<"cards">["items"][number];

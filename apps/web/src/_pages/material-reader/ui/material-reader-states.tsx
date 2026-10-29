@@ -26,6 +26,7 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { PurchaseInvitation } from "@/shared/routing/subscription-route";
+import { courseLessonAction } from "../model/purchase-product";
 import {
   MaterialReaderHeader,
   MaterialReaderBreadcrumbs,
@@ -238,8 +239,9 @@ const accessAction = {
 } as const;
 
 /**
- * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы —
- * страницу своего курса, либо оплату выбранного продукта или витрину подписки.
+ * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы.
+ * Урок курса ведёт на оплату курса, пока он продаётся, иначе на страницу курса; материал вне курса
+ * ведёт на оплату выбранного продукта или витрину подписки.
  */
 export function MaterialReaderAccess({
   readingAction,
@@ -261,20 +263,29 @@ export function MaterialReaderAccess({
     (material.productMemberships.length === 1
       ? material.productMemberships[0]
       : undefined);
-  const courseHref =
-    membership === undefined ? undefined : productPath(membership.product.slug);
+  const courseAction =
+    membership === undefined
+      ? undefined
+      : courseLessonAction({
+          invitation,
+          courseHref: productPath(membership.product.slug),
+        });
   const copy =
-    courseHref === undefined
+    courseAction === undefined
       ? accessCopy[invitation?.kind ?? "none"]
       : {
           title: "Продолжение для участников",
           explanation: "Этот материал доступен участникам курса.",
         };
-  const accessHref = courseHref ?? invitation?.href;
+  const accessHref = courseAction?.href ?? invitation?.href;
   const actionLabel =
-    courseHref === undefined && invitation !== null
-      ? accessAction[invitation.kind]
-      : "Получить доступ";
+    courseAction === undefined
+      ? invitation === null
+        ? "Получить доступ"
+        : accessAction[invitation.kind]
+      : courseAction.kind === "purchase"
+        ? "Приобрести курс"
+        : "Получить доступ";
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}

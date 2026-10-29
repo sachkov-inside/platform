@@ -1679,3 +1679,50 @@
     inset: -4px 0;
   }
 }
+/* Бесплатная ступень (#1647): строки бесплатных уроков с меткой справа и кнопка в первый урок. */
+.aie-trial-lessons {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 40rem;
+  margin: 1.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-trial-lessons a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: color-mix(in srgb, var(--muted) 65%, transparent);
+  color: var(--foreground);
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: background-color var(--motion-duration-fast)
+    var(--motion-ease-out);
+}
+.aie-trial-lessons a:hover {
+  background: var(--muted);
+}
+.aie-trial-lessons a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.aie-trial-free {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aie-trial-lessons a {
+    transition: none;
+  }
+}

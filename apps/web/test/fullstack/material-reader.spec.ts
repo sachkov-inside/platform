@@ -588,7 +588,7 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   // Один следующий шаг — и он внутри платформы. Каталог предложений локального стенда решает,
   // есть ли что покупать: без включённой продажи материал честно остаётся без призыва.
   const purchase = teaser.getByRole("link", {
-    name: /^(Получить доступ|Купить продукт)$/u,
+    name: /^(Получить доступ|Купить продукт|Приобрести курс)$/u,
   });
   if ((await purchase.count()) === 0) {
     await expect(

@@ -444,8 +444,14 @@ Materials show matching return, bookmark and study panels before the title and a
 The article has no automatic contents disclosure. Both panels share saved state, pending commands and failure handling.
 Standalone panels align bookmark and study actions to the right on desktop and phones. When the
 source is Home, the header omits the redundant Home breadcrumb. A locked Material with a known
-Product membership links «Получить доступ» to that Product landing, including before an offer
-is available; purchase availability remains owned by the landing and checkout.
+Product membership links «Приобрести курс» to that Product's checkout while the Product is sold to
+this reader, and «Получить доступ» to the Product landing otherwise, including before an offer is
+available (owner decision 29.10.2026, #1647). A free Material read inside its checked Product
+programme ends, after practice and before the bottom actions and course navigation, with a purchase
+call for a signed-in reader whose Product access is closed: it marks the lesson «Бесплатно», names a
+locked next step, and links «Приобрести курс» to checkout while the Product is sold or «Подробнее о
+курсе» to the landing otherwise. The call is read per request outside the shared cache and prefetch;
+it is absent for guests, for readers with open Product access, and when access or sale cannot be read.
 Within a checked Product,
 Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
 The Material's bottom actions follow any practice workspace and precede course navigation.
@@ -675,7 +681,10 @@ Account без права получают «не найдено». `ContentAcce
 первый экран рядом с названием показывает анимацию курса на холсте (harness проекта, роли агентов,
 спецификация, фичи, CI и мониторинг) без кнопки паузы; при reduced motion — неподвижный итоговый кадр.
 Известные блоки (`mentoring`, `topics`, `value`, `format`, `practice`, `agents`, `audience`, `faq`,
-`status`) получают свои значки и иллюстрации, остальные рисуются по виду. Разделы проявляются при
+`status`) получают свои значки и иллюстрации, остальные рисуются по виду. Блок `trial` перечисляет
+открытые бесплатные уроки в порядке программы, каждый с меткой «Бесплатно» и ссылкой в урок внутри
+программы, а его кнопка `link` открывает первый из них (решение владельца 29.10.2026, #1647); без
+открытого бесплатного урока блок не показывается. Разделы проявляются при
 прокрутке средствами CSS. Весь текст — ключ `page` в манифесте `guide.yaml` продукта `inside-ai-engineering` в Engineering Content;
 обложка продукта оттуда же показывается в программе и каталоге. Прохождение остаётся на
 странице программы: туда ведут кнопки, кроме кнопки первого экрана при заведённом потоке — тогда

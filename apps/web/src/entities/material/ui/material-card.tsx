@@ -419,8 +419,9 @@ function ProductMaterialRow({
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      {/* Строка в одну линию: номер, тип словом, название, статус. Открытость показывает замок у
-          закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
+      {/* Строка в одну линию: номер, тип словом, название, статус. Бесплатный урок отмечен
+          словом «Бесплатно», закрытый замком (решение владельца 29.10.2026, #1647, заменило
+          решение 09.10.2026 без метки). */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -455,6 +456,14 @@ function ProductMaterialRow({
           </Heading>
         </div>
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+          {material.access === "free" ? (
+            <span
+              className="rounded-full bg-secondary px-2 py-0.5 font-semibold leading-4 text-secondary-foreground"
+              data-product-free
+            >
+              Бесплатно
+            </span>
+          ) : null}
           {duration === undefined ? null : (
             <span className="tabular-nums max-sm:hidden" data-product-duration>
               {duration}

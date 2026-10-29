@@ -189,6 +189,106 @@ export const OptionalFields: Story = {
   },
 };
 
+const freeLessonTitles = [
+  "Как устроен курс",
+  "Выбор агента и модели",
+  "Контекст, инструменты и harness агента",
+  "Инструкции, скиллы и рабочее окружение",
+  "Начинаем работу с агентом в проекте",
+];
+
+/**
+ * Бесплатная ступень курса (#1647): блок `trial` перечисляет бесплатные уроки по порядку
+ * программы с меткой «Бесплатно», а его ссылка открывает первый из них. Закрытый урок в список не
+ * попадает. Текст блока приходит из `guide.yaml`, здесь он условный.
+ */
+export const FreeLessonsTrial: Story = {
+  args: {
+    result: {
+      ...meta.args.result,
+      kind: "ready",
+      hasNext: false,
+      items: [...freeLessonTitles, "Первая версия продукта"].map(
+        (title, index) => ({
+          access: index < 5 ? ("free" as const) : ("closed" as const),
+          availability:
+            index < 5 ? ("available" as const) : ("locked" as const),
+          format: "Гайд",
+          materialId: `0a000000-0000-4000-8000-00000000000${String(index + 1)}`,
+          productMemberships: [
+            {
+              name: "AI Engineering",
+              ordinal: index + 1,
+              slug: "ai-engineering",
+            },
+          ],
+          slug: `free-lesson-${String(index + 1)}`,
+          summary: "",
+          tags: [],
+          title,
+          topic: "Разработка",
+          topicSlug: "development",
+        }),
+      ),
+      reference: {
+        ...meta.args.result.reference,
+        productPage: {
+          presentation: "ai-engineering-course",
+          page: {
+            ...aiEngineeringCoursePage,
+            blocks: [
+              ...aiEngineeringCoursePage.blocks,
+              {
+                id: "trial",
+                kind: "trial" as const,
+                title: "Начни бесплатно",
+                text: "Первые пять уроков главы 1 открыты бесплатно.",
+                link: "Начать первый урок",
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trial =
+      canvas
+        .getByRole("heading", { name: "Начни бесплатно" })
+        .closest("section") ?? fail("Missing trial section");
+    const block = within(trial);
+    const lessons = within(
+      block.getByRole("list", { name: "Бесплатные уроки" }),
+    ).getAllByRole("listitem");
+    await expect(lessons).toHaveLength(freeLessonTitles.length);
+    for (const [index, title] of freeLessonTitles.entries())
+      await expect(lessons[index]).toHaveTextContent(title);
+    await expect(
+      within(lessons[0] ?? fail("Missing first lesson")).getByText("Бесплатно"),
+    ).toBeVisible();
+    await expect(block.queryByText("Первая версия продукта")).toBeNull();
+    await expect(
+      block.getByRole("link", { name: /Начать первый урок/u }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/free-lesson-1?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+    );
+    await expect(
+      block.getByRole("link", { name: /Выбор агента и модели/u }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/free-lesson-2?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+    );
+    await expect(canvasElement.scrollWidth).toBe(canvasElement.clientWidth);
+  },
+};
+
+export const FreeLessonsTrialMobile: Story = {
+  ...FreeLessonsTrial,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
