@@ -116,7 +116,9 @@ export interface CommunityProviderOptions {
   readonly botTelegramUserId?: string | undefined;
   readonly readmission?: CommunityPrivateNotice;
   /** Sent privately with the first link after an Account's first community right. */
-  readonly welcome?: CommunityPrivateNotice;
+  readonly welcome?: CommunityPrivateNotice & {
+    readonly productsMenuEnabled?: boolean;
+  };
   /** Platform's current stream of the course; absent means a welcome without a start date. */
   readonly welcomeDetails?: CommunityWelcomeDetailsSource;
 }
@@ -1538,6 +1540,16 @@ export class CommunityProvider {
             inviteLink,
             details,
           ),
+          buttons: [
+            {
+              text: "Мои продукты",
+              ...(welcome.productsMenuEnabled === true
+                ? { callbackData: "access:own" }
+                : { url: "https://sachkov.dev/account/access" }),
+            },
+            { text: "Вступить в группу", url: inviteLink },
+            { text: "Нужна помощь", url: "https://t.me/sachkova_mng" },
+          ],
           sourceKey: `community-welcome:${this.bot}:${desired.account_ref}`,
           now,
         },
