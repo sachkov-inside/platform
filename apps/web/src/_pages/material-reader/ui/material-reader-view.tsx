@@ -192,6 +192,7 @@ export function MaterialReaderView({
                 ) : (
                   <MaterialPrimaryVideo
                     cover={material.cover}
+                    key={primaryVideo.videoId}
                     className="mt-0 max-w-none sm:mt-0"
                     materialId={material.materialId}
                     video={{ ...primaryVideo, ...block }}

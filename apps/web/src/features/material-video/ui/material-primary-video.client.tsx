@@ -302,8 +302,6 @@ export function MaterialPrimaryVideo({
         };
         if (!progressInteractionRef.current)
           setWatchedOverride(playbackProgress.watched);
-        startPlayerRef.current = () => player.play();
-        if (startRequestedRef.current) await player.play();
         let lastPersisted = currentTime;
         const persist = (position: number) => {
           if (!isActive() || preview) return;
@@ -337,6 +335,15 @@ export function MaterialPrimaryVideo({
           persist(duration);
           setWatchedOverride(true);
         });
+        // Install listeners before a queued start; no continuation may outlive this resource.
+        startPlayerRef.current = async () => {
+          try {
+            await player.play();
+          } catch {
+            if (isActive()) setPhase("error");
+          }
+        };
+        if (startRequestedRef.current) await startPlayerRef.current();
       } catch {
         if (isActive()) {
           removeTimeListener();
@@ -428,7 +435,7 @@ export function MaterialPrimaryVideo({
       onStart={() => {
         startRequestedRef.current = true;
         setStarted(true);
-        void startPlayerRef.current?.().catch(() => setPhase("error"));
+        void startPlayerRef.current?.();
       }}
       description={video.description}
       chapters={video.chapters ?? []}
