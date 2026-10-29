@@ -1143,6 +1143,260 @@ describe("archived-only Material resources", () => {
   );
 });
 
+describe("free Material in a Product programme (#1825)", () => {
+  const productId = "85000000-0000-4000-8000-000000000002";
+  const facts: MaterialResourceFacts = {
+    ...membershipMaterial(95),
+    access: "free",
+    productIds: [productId],
+    primaryVideoId: "84000000-0000-4000-8000-000000000095",
+  };
+  const actors = [
+    {
+      name: "anonymous",
+      subject: { kind: "anonymous" } as Subject,
+      managesMaterials: false,
+      telegram: false,
+      membership: { kind: "required" } as MembershipAccessState,
+      decision: { effect: "deny", reason: "authentication_required" },
+      availability: "locked",
+    },
+    {
+      name: "Account without Telegram",
+      subject: { kind: "account", accountId } as Subject,
+      managesMaterials: false,
+      telegram: false,
+      membership: { kind: "required" } as MembershipAccessState,
+      decision: { effect: "deny", reason: "telegram_link_required" },
+      availability: "locked",
+    },
+    {
+      name: "Account signed in through Telegram",
+      subject: { kind: "account", accountId } as Subject,
+      managesMaterials: false,
+      telegram: true,
+      membership: { kind: "required" } as MembershipAccessState,
+      decision: { effect: "allow", reason: "telegram_account" },
+      availability: "available",
+    },
+    {
+      name: "Product learner without Telegram",
+      subject: { kind: "account", accountId } as Subject,
+      managesMaterials: false,
+      telegram: false,
+      membership: {
+        kind: "active",
+        validUntil: activeUntil,
+      } as MembershipAccessState,
+      decision: {
+        effect: "allow",
+        reason: "active_membership",
+        validUntil: activeUntil,
+      },
+      availability: "available",
+    },
+    {
+      name: "materials manager without Telegram",
+      subject: { kind: "account", accountId } as Subject,
+      managesMaterials: true,
+      telegram: false,
+      membership: { kind: "required" } as MembershipAccessState,
+      decision: { effect: "allow", reason: "materials_manager" },
+      availability: "available",
+    },
+  ] as const;
+
+  function assembleFor(
+    actor: (typeof actors)[number],
+    telegramLinks: "port" | "unavailable" | "absent" = "port",
+  ) {
+    return assembleContentAccess({
+      materialResourceFacts: {
+        findOne: () => Promise.resolve(facts),
+        findMany: () => Promise.resolve([facts]),
+      },
+      assetResourceFacts: {
+        findOne: (assetId) =>
+          Promise.resolve({
+            assetId,
+            materialId: facts.materialId,
+            kind: "file" as const,
+          }),
+        findMany: (assetIds) =>
+          Promise.resolve(
+            assetIds.map((assetId) => ({
+              assetId,
+              materialId: facts.materialId,
+              kind: "file" as const,
+            })),
+          ),
+      },
+      videoResourceFacts: {
+        findOne: (videoId) =>
+          Promise.resolve({
+            videoId,
+            materialId: facts.materialId,
+            protected: true,
+          }),
+        findMany: (videoIds) =>
+          Promise.resolve(
+            videoIds.map((videoId) => ({
+              videoId,
+              materialId: facts.materialId,
+              protected: true,
+            })),
+          ),
+      },
+      ...(telegramLinks === "absent"
+        ? {}
+        : {
+            telegramLinks: {
+              confirmedLinks: (accountIds: readonly AccountId[]) =>
+                telegramLinks === "unavailable"
+                  ? Promise.reject(new Error("telegram links unavailable"))
+                  : Promise.resolve(
+                      new Map(accountIds.map((id) => [id, actor.telegram])),
+                    ),
+            },
+          }),
+      accountPermissions: {
+        hasMaterialsManage: () => Promise.resolve(actor.managesMaterials),
+      },
+      accountRights: {
+        resolveForAccess: (_accountId, ids) => {
+          expect(ids).toEqual([productId]);
+          return Promise.resolve(actor.membership);
+        },
+      },
+      clock: () => new Date(decidedAt),
+    });
+  }
+
+  const bodyRead = {
+    action: "read" as const,
+    resource: { kind: "material" as const, materialId: facts.materialId },
+  };
+  const deliveries = [
+    bodyRead,
+    {
+      action: "download" as const,
+      resource: {
+        kind: "asset" as const,
+        assetId: "83000000-0000-4000-8000-000000000095",
+      },
+    },
+    {
+      action: "play" as const,
+      resource: {
+        kind: "video" as const,
+        videoId: "84000000-0000-4000-8000-000000000095",
+      },
+    },
+  ];
+
+  test.each(actors)(
+    "decides the body, file and video for $name",
+    async (actor) => {
+      const access = assembleFor(actor);
+      for (const delivery of deliveries)
+        expect(
+          await access.authorize({
+            ...delivery,
+            subject: actor.subject,
+            enforcementPoint: "published_material_read",
+            correlationId: "free-lesson",
+          }),
+        ).toMatchObject(actor.decision);
+      expect(
+        await access.checkAvailabilityMany({
+          subject: actor.subject,
+          enforcementPoint: "published_material_read",
+          correlationId: "free-lesson-batch",
+          operations: deliveries.map((delivery, index) => ({
+            ...delivery,
+            itemId: `item-${String(index)}`,
+          })),
+        }),
+      ).toEqual({
+        ok: true,
+        items: deliveries.map((_delivery, index) => ({
+          itemId: `item-${String(index)}`,
+          availability: actor.availability,
+        })),
+      });
+      if (actor.subject.kind === "account")
+        expect(
+          (
+            await access.authorizeAccounts?.({
+              accountIds: [actor.subject.accountId],
+              resource: bodyRead.resource,
+              action: "read",
+              enforcementPoint: "published_material_read",
+              correlationId: "free-lesson-accounts",
+            })
+          )?.get(actor.subject.accountId),
+        ).toMatchObject(actor.decision);
+    },
+  );
+
+  test("never caches a Telegram reader's body as public", async () => {
+    const reader = actors[2];
+    expect(
+      await assembleFor(reader).authorize({
+        ...bodyRead,
+        subject: reader.subject,
+        enforcementPoint: "published_material_read",
+        correlationId: "free-lesson-cache",
+      }),
+    ).not.toMatchObject({ reason: "public_resource" });
+  });
+
+  test("fails closed without a readable Telegram link", async () => {
+    const withoutLink = actors[1];
+    const request = {
+      ...bodyRead,
+      subject: withoutLink.subject,
+      enforcementPoint: "published_material_read" as const,
+      correlationId: "free-lesson-outage",
+    };
+    await expect(
+      assembleFor(withoutLink, "unavailable").authorize(request),
+    ).resolves.toMatchObject({
+      effect: "deny",
+      reason: "dependency_unavailable",
+    });
+    await expect(
+      assembleFor(withoutLink, "absent").authorize(request),
+    ).resolves.toMatchObject({
+      effect: "deny",
+      reason: "telegram_link_required",
+    });
+  });
+
+  test("keeps a free Material outside Products public", async () => {
+    const standalone = { ...facts, productIds: [] };
+    const access = assembleContentAccess({
+      materialResourceFacts: {
+        findOne: () => Promise.resolve(standalone),
+        findMany: () => Promise.resolve([standalone]),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      accountRights: {
+        resolveForAccess: () => Promise.resolve({ kind: "required" }),
+      },
+    });
+    await expect(
+      access.authorize({
+        subject: { kind: "anonymous" },
+        resource: { kind: "material", materialId: standalone.materialId },
+        action: "read",
+        enforcementPoint: "published_material_read",
+        correlationId: "standalone-free",
+      }),
+    ).resolves.toMatchObject({ effect: "allow", reason: "public_resource" });
+  });
+});
+
 function membershipMaterial(index: number): MaterialResourceFacts {
   return {
     materialId: materialId(

@@ -73,6 +73,7 @@ import {
   MaterialReaderPending,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
+import { FreeLessonGate } from "./free-lesson-gate";
 import { MaterialReaderView } from "./material-reader-view";
 
 type ResolvedMaterial = Extract<
@@ -256,7 +257,9 @@ async function PersonalMaterialReader({
   // Гостю закрытый урок откроет только покупка, поэтому предложение ищется сразу, а не после
   // личного чтения. Вошедшему урок может быть открыт, и лишний запрос каталога ему не нужен.
   const guestPurchaseProduct =
-    accessToken === undefined && sharedMaterial?.kind === "teaser"
+    accessToken === undefined &&
+    sharedMaterial?.kind === "teaser" &&
+    sharedMaterial.material.access !== "free"
       ? resolvePurchaseProduct(
           sharedMaterial.material,
           productSlugOf(returnTarget),
@@ -348,6 +351,23 @@ async function ResolvedMaterialReader({
   readonly productContext: ProductReaderContext | null;
   readonly slug: string;
 }) {
+  if (result.kind === "access" && result.material.access === "free") {
+    // Бесплатный урок курса открывает вход через Telegram, а не покупка (#1825).
+    return (
+      <MaterialReaderAccess
+        gate={
+          <FreeLessonGate
+            signedIn={accessToken !== undefined}
+            returnTo={materialReaderHref(slug, returnTarget.href)}
+          />
+        }
+        invitation={null}
+        material={result.material}
+        returnTarget={returnTarget}
+        productContext={productContext}
+      />
+    );
+  }
   if (result.kind === "access") {
     const purchaseProduct = await (startedPurchaseProduct ??
       resolvePurchaseProduct(

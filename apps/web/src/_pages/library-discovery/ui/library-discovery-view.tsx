@@ -1,4 +1,5 @@
 import { DiscoveryBreadcrumbs } from "./discovery-breadcrumbs";
+import { isFreeLesson } from "../model/free-lessons";
 import {
   ArrowLeft,
   LibraryBig,
@@ -438,7 +439,9 @@ function DiscoveryStatus({
  */
 function freeEntryHref(result: ResolvedDiscoveryResult): Route | undefined {
   if (result.kind !== "ready") return undefined;
-  return result.items.some((item) => item.availability === "available")
+  return result.items.some(
+    (item) => item.availability === "available" || isFreeLesson(item),
+  )
     ? productProgrammeHref(result.reference.slug)
     : undefined;
 }

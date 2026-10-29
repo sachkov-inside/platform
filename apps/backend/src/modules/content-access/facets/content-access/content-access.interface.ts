@@ -103,6 +103,7 @@ export type DenyReason =
   | "membership_expired"
   | "entitlement_stale"
   | "permission_required"
+  | "telegram_link_required"
   | "resource_unpublished"
   | "resource_not_found"
   | "resource_mismatch"
@@ -119,7 +120,8 @@ export type AccessDecision = DecisionMetadata &
   (
     | Readonly<{
         effect: "allow";
-        reason: "public_resource" | "materials_manager";
+        /** `telegram_account`: a free Material of a Product opened to an Account with Telegram (#1825). */
+        reason: "public_resource" | "materials_manager" | "telegram_account";
         checkedContentVersion: number;
       }>
     | Readonly<{

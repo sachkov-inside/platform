@@ -244,12 +244,15 @@ const accessAction = {
 export function MaterialReaderAccess({
   readingAction,
   invitation,
+  gate,
   material,
   returnTarget = homeMaterialReaderReturnTarget,
   productContext = null,
 }: {
   readonly readingAction?: React.ReactNode;
   readonly invitation: PurchaseInvitation | null;
+  /** Другой шаг вместо покупки, например вход для бесплатного урока курса (#1825). */
+  readonly gate?: React.ReactNode;
   readonly material: MaterialReaderMetadata;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly productContext?: ProductReaderContext | null;
@@ -352,35 +355,39 @@ export function MaterialReaderAccess({
                 <div className="h-36 rounded-[1.5rem] bg-white" />
               </div>
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
-                <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
-                  <LockKeyhole aria-hidden="true" className="size-5" />
-                </span>
-                <h2
-                  className="mt-4 text-balance text-2xl font-semibold tracking-[-0.04em]"
-                  id="access-heading"
-                >
-                  {copy.title}
-                </h2>
-                <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
-                  {copy.explanation}
-                </p>
-                {accessHref === undefined ? null : (
-                  <div className="mt-5 flex flex-wrap justify-center gap-3">
-                    <Button
-                      asChild
-                      className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
-                      size="lg"
+                {gate ?? (
+                  <>
+                    <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
+                      <LockKeyhole aria-hidden="true" className="size-5" />
+                    </span>
+                    <h2
+                      className="mt-4 text-balance text-2xl font-semibold tracking-[-0.04em]"
+                      id="access-heading"
                     >
-                      <Link href={accessHref}>
-                        {actionLabel}
-                        <ArrowRight
-                          aria-hidden="true"
-                          className="shrink-0 transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
-                          data-icon="inline-end"
-                        />
-                      </Link>
-                    </Button>
-                  </div>
+                      {copy.title}
+                    </h2>
+                    <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
+                      {copy.explanation}
+                    </p>
+                    {accessHref === undefined ? null : (
+                      <div className="mt-5 flex flex-wrap justify-center gap-3">
+                        <Button
+                          asChild
+                          className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
+                          size="lg"
+                        >
+                          <Link href={accessHref}>
+                            {actionLabel}
+                            <ArrowRight
+                              aria-hidden="true"
+                              className="shrink-0 transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                              data-icon="inline-end"
+                            />
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </section>

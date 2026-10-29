@@ -5,6 +5,7 @@ import {
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
 
+import type { AccountId } from "../../../accounts/index.js";
 import type {
   AccessAction,
   AccessAccountsRequest,
@@ -31,9 +32,12 @@ import type {
 
 import { CONTENT_ACCESS_BATCH_SIZE } from "./content-access.interface.js";
 
+type TelegramLinkState = "linked" | "not_linked" | "unavailable";
+
 interface SubjectFacts {
   readonly permission: "granted" | "denied" | "unavailable";
   readonly membership?: MembershipAccessState;
+  readonly telegram?: TelegramLinkState;
 }
 
 interface ResolvedResourceFacts {
@@ -111,8 +115,26 @@ export function assembleContentAccess(
           input.subject,
           false,
         );
+        const telegram =
+          input.subject.kind === "account" &&
+          permission?.permission === "denied" &&
+          requiredResources.some(([key, facts]) =>
+            input.operations.some(
+              (operation) =>
+                resourceKey(operation.resource) === key &&
+                needsTelegram(facts, operation.action),
+            ),
+          )
+            ? (
+                await readTelegramLinks(dependencies, [input.subject.accountId])
+              ).get(input.subject.accountId)
+            : undefined;
+        const subjectFacts =
+          permission === undefined || telegram === undefined
+            ? permission
+            : { ...permission, telegram };
         for (const [key] of requiredResources)
-          subjectFactsByResource.set(key, permission);
+          subjectFactsByResource.set(key, subjectFacts);
         const membershipResources = requiredResources.filter(
           ([key, facts]) =>
             (facts.archivedOnly === true ||
@@ -120,7 +142,11 @@ export function assembleContentAccess(
             input.operations.some(
               (operation) =>
                 resourceKey(operation.resource) === key &&
-                needsMembership(facts, operation.action),
+                needsMembership(facts, operation.action) &&
+                !(
+                  telegram === "linked" &&
+                  needsTelegram(facts, operation.action)
+                ),
             ),
         );
         if (
@@ -161,6 +187,7 @@ export function assembleContentAccess(
             subjectFactsByResource.set(key, {
               permission: permission?.permission ?? "unavailable",
               membership: memberships[index] ?? { kind: "unavailable" },
+              ...(telegram === undefined ? {} : { telegram }),
             }),
           );
         }
@@ -242,8 +269,17 @@ export function assembleContentAccess(
           permissions = new Map(ids.map((id) => [id, "unavailable"]));
         }
       }
+      const telegram = needsTelegram(facts, input.action)
+        ? await readTelegramLinks(
+            dependencies,
+            ids.filter((id) => permissions.get(id) === "denied"),
+          )
+        : new Map<string, TelegramLinkState>();
       const readers = needsMembership(facts, input.action)
-        ? ids.filter((id) => permissions.get(id) === "denied")
+        ? ids.filter(
+            (id) =>
+              permissions.get(id) === "denied" && telegram.get(id) !== "linked",
+          )
         : [];
       let memberships: ReadonlyMap<string, MembershipAccessState> = new Map();
       if (readers.length > 0) {
@@ -289,9 +325,11 @@ export function assembleContentAccess(
       return new Map(
         ids.map((id) => {
           const membership = memberships.get(id);
+          const link = telegram.get(id);
           const subjectFacts: SubjectFacts = {
             permission: permissions.get(id) ?? "unavailable",
             ...(membership === undefined ? {} : { membership }),
+            ...(link === undefined ? {} : { telegram: link }),
           };
           const reason = evaluate(
             selected,
@@ -300,7 +338,9 @@ export function assembleContentAccess(
             subjectFacts,
           );
           const result: AccessDecision =
-            reason === "public_resource" || reason === "materials_manager"
+            reason === "public_resource" ||
+            reason === "materials_manager" ||
+            reason === "telegram_account"
               ? allow(reason, selected.contentVersion)
               : reason === "active_membership" &&
                   subjectFacts.membership?.kind === "active"
@@ -352,9 +392,14 @@ export function assembleContentAccess(
         facts.productIds,
         facts.archivedOnly === true ? undefined : facts.materialId,
         input.action !== "preview" && facts.archivedOnly === true,
+        needsTelegram(facts, input.action),
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
-      if (reason === "public_resource" || reason === "materials_manager") {
+      if (
+        reason === "public_resource" ||
+        reason === "materials_manager" ||
+        reason === "telegram_account"
+      ) {
         return allow(reason, facts.contentVersion);
       }
       if (reason === "active_membership") {
@@ -470,7 +515,7 @@ export function assembleContentAccess(
   }
 
   function allow(
-    reason: "public_resource" | "materials_manager",
+    reason: "public_resource" | "materials_manager" | "telegram_account",
     checkedContentVersion: number,
   ): AccessDecision {
     return { ...metadata(), effect: "allow", reason, checkedContentVersion };
@@ -484,6 +529,7 @@ async function resolveSubjectFacts(
   productIds: readonly string[] = [],
   materialId?: string,
   readerOnly = false,
+  includeTelegram = false,
 ): Promise<SubjectFacts | undefined> {
   if (subject.kind === "anonymous") {
     return undefined;
@@ -505,8 +551,15 @@ async function resolveSubjectFacts(
   if (managesMaterials) {
     return { permission: "granted" };
   }
-  if (!includeMembership) {
-    return { permission: "denied" };
+  const telegram = includeTelegram
+    ? (await readTelegramLinks(dependencies, [subject.accountId])).get(
+        subject.accountId,
+      )
+    : undefined;
+  const linked = telegram === undefined ? {} : { telegram };
+  // A Telegram link alone opens a free Material of a Product; Membership is read only without it.
+  if (!includeMembership || telegram === "linked") {
+    return { permission: "denied", ...linked };
   }
   try {
     return {
@@ -516,6 +569,7 @@ async function resolveSubjectFacts(
         productIds,
         materialId,
       ),
+      ...linked,
     };
   } catch (error) {
     return dependencyFailure(
@@ -524,8 +578,34 @@ async function resolveSubjectFacts(
       {
         permission: "denied",
         membership: { kind: "unavailable" },
+        ...linked,
       },
     );
+  }
+}
+
+/** Current confirmed links; an absent port means no Account has one. */
+async function readTelegramLinks(
+  dependencies: ContentAccessDependencies,
+  accountIds: readonly AccountId[],
+): Promise<ReadonlyMap<string, TelegramLinkState>> {
+  if (accountIds.length === 0) return new Map();
+  if (dependencies.telegramLinks === undefined)
+    return new Map(accountIds.map((id) => [id, "not_linked" as const]));
+  try {
+    const links = await dependencies.telegramLinks.confirmedLinks(accountIds);
+    return new Map(
+      accountIds.map((id) => [
+        id,
+        links.get(id) === true ? ("linked" as const) : ("not_linked" as const),
+      ]),
+    );
+  } catch (error) {
+    reportDependencyFailure(
+      { module: "content-access", operation: "readTelegramLinks" },
+      error,
+    );
+    return new Map(accountIds.map((id) => [id, "unavailable" as const]));
   }
 }
 
@@ -543,7 +623,28 @@ function needsMembership(
   return (
     (action === "read" || action === "download" || action === "play") &&
     facts.publicationState === "published" &&
-    (facts.access === "closed" || facts.archivedOnly === true)
+    (facts.access === "closed" ||
+      facts.archivedOnly === true ||
+      needsTelegram(facts, action))
+  );
+}
+
+/**
+ * A free Material in a Product programme, its files and its video open to an Account with a
+ * confirmed Telegram link, besides the Product's holders and materials managers (#1825, ADR 0042).
+ * Free Materials outside Products, Product Artifacts and Product Tasks stay public.
+ */
+function needsTelegram(
+  facts: ResolvedResourceFacts,
+  action: AccessAction,
+): boolean {
+  return (
+    (action === "read" || action === "download" || action === "play") &&
+    facts.publicationState === "published" &&
+    facts.access === "free" &&
+    facts.archivedOnly !== true &&
+    facts.materialId !== undefined &&
+    (facts.productIds?.length ?? 0) > 0
   );
 }
 
@@ -565,14 +666,17 @@ function projectAvailability(
   if (
     reason === "public_resource" ||
     reason === "materials_manager" ||
-    reason === "active_membership"
+    reason === "active_membership" ||
+    reason === "telegram_account"
   ) {
     return "available";
   }
   if (reason === "resource_action_invalid" || reason === "resource_not_found") {
     return "unavailable";
   }
-  return facts.access === "closed" ? "locked" : "unavailable";
+  return facts.access === "closed" || needsTelegram(facts, action)
+    ? "locked"
+    : "unavailable";
 }
 
 function evaluate(
@@ -580,7 +684,12 @@ function evaluate(
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
-): DenyReason | "public_resource" | "materials_manager" | "active_membership" {
+):
+  | DenyReason
+  | "public_resource"
+  | "materials_manager"
+  | "active_membership"
+  | "telegram_account" {
   const resource = resourceReason(facts, action);
   if (resource !== undefined) {
     return resource;
@@ -617,6 +726,15 @@ function evaluate(
   // A read of an unpublished resource reaches here only for a Product Task, past its author.
   if (facts.publicationState !== "published") {
     return "resource_unpublished";
+  }
+  if (needsTelegram(facts, action)) {
+    if (subjectFacts.telegram === "linked") return "telegram_account";
+    if (subjectFacts.membership?.kind === "active") return "active_membership";
+    return subjectFacts.telegram === "not_linked" &&
+      subjectFacts.membership !== undefined &&
+      subjectFacts.membership.kind !== "unavailable"
+      ? "telegram_link_required"
+      : "dependency_unavailable";
   }
   switch (subjectFacts.membership?.kind) {
     case "active":
@@ -660,7 +778,8 @@ function resourceReason(
   if (
     (action === "read" || action === "download" || action === "play") &&
     facts.access === "free" &&
-    facts.archivedOnly !== true
+    facts.archivedOnly !== true &&
+    !needsTelegram(facts, action)
   ) {
     return "public_resource";
   }
