@@ -596,7 +596,8 @@ Actions → `Production access pass` → `Run workflow` на `main`, вход `d
 сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Product A и смотрит
 основное видео закрытого урока: получает playback session с токеном и лицензию Kinescope. Account без
 entitlement, ученик B, expired и anonymous не получают их закрытых bytes и playback session этого
-видео. Гость и Account без entitlement получают playback session и лицензию видео бесплатного урока.
+видео. Гость и Account без entitlement (без связанного Telegram) не получают тело и playback session
+бесплатного урока курса ([ADR 0042](../adr/0042-free-product-lesson-needs-telegram.md)).
 Materials-only и Billing-only открывают свои административные чтения и получают отказ на чужих.
 Клетки Product B отложены решением владельца в #905.
 

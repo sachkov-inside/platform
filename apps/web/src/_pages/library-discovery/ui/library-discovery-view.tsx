@@ -438,7 +438,12 @@ function DiscoveryStatus({
  */
 function freeEntryHref(result: ResolvedDiscoveryResult): Route | undefined {
   if (result.kind !== "ready") return undefined;
-  return result.items.some((item) => item.availability === "available")
+  // Бесплатный урок у гостя `locked` до входа через Telegram, но вход в программу ему открыт (#1825).
+  return result.items.some(
+    (item) =>
+      item.availability === "available" ||
+      (item.access === "free" && item.availability === "locked"),
+  )
     ? productProgrammeHref(result.reference.slug)
     : undefined;
 }

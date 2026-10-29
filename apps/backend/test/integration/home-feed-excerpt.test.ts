@@ -187,8 +187,10 @@ describe("Home feed public note excerpts", () => {
       where: { id: closedProductId },
       data: { archivedAt: null },
     });
-    expect(await read()).toMatchObject({
-      noteExcerpt: { text: "Archived note secret" },
-    });
+    // A free note in a Product programme opens only after Telegram sign-in (#1825): no excerpt.
+    const programmeNote = await read();
+    expect(programmeNote?.availability).toBe("locked");
+    expect(programmeNote?.noteExcerpt).toBeUndefined();
+    expect(JSON.stringify(programmeNote)).not.toContain("Archived note secret");
   });
 });

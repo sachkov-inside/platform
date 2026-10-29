@@ -1,3 +1,4 @@
+import { linkTelegram } from "../support/telegram-links.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -264,10 +265,28 @@ describe("Product modes and lesson facts", () => {
       items: [{ difficulty: null, outcomes: [] }],
     });
 
-    // Тот же урок читается с теми же фактами и вне программы.
+    // Тот же урок читается с теми же фактами и вне программы. Бесплатный урок продукта открывает
+    // связанный Telegram (#1825), поэтому читает вошедший через Telegram.
+    const telegramReader = await signToken({
+      subject: "modes-telegram-reader",
+      email: "modes-telegram-reader@example.test",
+    });
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/accounts",
+          headers: { authorization: `Bearer ${telegramReader}` },
+        })
+      ).statusCode,
+    ).toBe(201);
+    await linkTelegram(database.prisma, {
+      logtoSubject: "modes-telegram-reader",
+    });
     const reader = await server.inject({
       method: "GET",
       url: `/materials/${lesson.slug}`,
+      headers: { authorization: `Bearer ${telegramReader}` },
     });
     expect(reader.statusCode).toBe(200);
     expect(reader.json()).toMatchObject({

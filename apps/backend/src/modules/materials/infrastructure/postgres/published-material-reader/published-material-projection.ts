@@ -474,6 +474,11 @@ function projectionQueries(
        join materials.materials as material on material.id = document.material_id
          and material.content_version = document.content_version
        where publication.access = 'free' and publication.format_id = 'note'
+         -- A free Material of a Product opens only after Telegram sign-in (#1825): no excerpt.
+         and not exists (
+           select 1 from (${relations.memberships}) as programme
+           where programme.material_id = publication.material_id
+         )
          and document.material_id = publication.material_id
          and document.content_version = publication.content_version) as note_excerpt,
       publication.difficulty,

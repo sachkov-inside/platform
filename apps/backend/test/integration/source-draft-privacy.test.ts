@@ -74,6 +74,12 @@ describe("source-imported draft privacy", () => {
     kind: "account",
     accountId: accountId(owner),
   };
+  /** The published free lesson opens to a reader who signed in through Telegram (#1825). */
+  const telegramReaderId = accountId(randomUUID());
+  const telegramReader: Subject = {
+    kind: "account",
+    accountId: telegramReaderId,
+  };
 
   function metadata(title: string) {
     return {
@@ -94,6 +100,13 @@ describe("source-imported draft privacy", () => {
     materials = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === owner },
+      telegramLinks: {
+        confirmedLinks: (ids) =>
+          Promise.resolve({
+            ok: true,
+            links: new Map(ids.map((id) => [id, id === telegramReaderId])),
+          }),
+      },
     });
     const { authoring } = materials;
     const objects = new Map<string, StoredObject>();
@@ -425,7 +438,10 @@ describe("source-imported draft privacy", () => {
       ],
     };
     expect(
-      await publishedMaterialReader.read({ subject: guest, slug: draftSlug }),
+      await publishedMaterialReader.read({
+        subject: telegramReader,
+        slug: draftSlug,
+      }),
     ).toMatchObject({
       ok: true,
       value: {
@@ -449,7 +465,10 @@ describe("source-imported draft privacy", () => {
       error: { code: "invalid_publication_transition" },
     });
     expect(
-      await publishedMaterialReader.read({ subject: guest, slug: draftSlug }),
+      await publishedMaterialReader.read({
+        subject: telegramReader,
+        slug: draftSlug,
+      }),
     ).toMatchObject({
       ok: true,
       value: {

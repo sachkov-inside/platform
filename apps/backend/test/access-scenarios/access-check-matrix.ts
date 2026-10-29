@@ -204,7 +204,7 @@ const httpTests = {
   revoked:
     "revoking Product A closes the next request and the earlier playback token while Product B stays open",
   freeLessonVideo:
-    "free lesson gives a guest and an Account without entitlement a playback token that the Kinescope authorization backend accepts",
+    "free lesson refuses a guest and an Account without Telegram a playback token and gives a Telegram-linked Account one the Kinescope authorization backend accepts",
   ownerSurfaces:
     "Materials-only and Billing-only Accounts get a typed denial on each other's write next to their own",
 } as const;
@@ -467,7 +467,8 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       state,
       action: "read-free-lesson",
       surface: "video",
-      expected: "allowed",
+      // Бесплатный урок Product открывает связанный Telegram (#1825, ADR 0042); у состояния его нет.
+      expected: "denied",
       levels: {
         "facade-postgresql": viaHttp(
           "Отдельного facade-теста видео бесплатного урока нет; Nest HTTP проходит настоящий ContentAccess и выдачу playback session на PostgreSQL",
@@ -475,7 +476,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "nest-http": test(http, httpTests.freeLessonVideo),
         "learner-mcp": notApplicable(mcpMediaReference),
         "web-bff": viaHttp(
-          "BFF передаёт playback session без своего решения доступа; бесплатный урок без входа и Account без права проверяет Nest HTTP",
+          "BFF передаёт playback session без своего решения доступа; отказ гостю и Account без Telegram проверяет Nest HTTP",
         ),
         production: productionPass,
       },

@@ -314,6 +314,54 @@ describe("supplementary Material navigation", () => {
     ).toBe(false);
   });
 
+  it("selects a programme lesson opened for reference in its own chapter without claiming a position", () => {
+    const context = courseReadingContext({
+      product: referenceProduct,
+      current: { kind: "material", slug: "second" },
+      referenceView: true,
+      returnTarget: parseMaterialReaderReturnTarget(
+        "/products/course/programme?part=materials&at=second",
+      ),
+    });
+    expect(context).toMatchObject({
+      current: { id: "material:second" },
+      currentChapterId: "two:1",
+      currentPosition: 0,
+      previous: null,
+      next: null,
+    });
+    expect(context?.activeReferenceId).toBeUndefined();
+  });
+
+  it("keeps catalogue-opened Materials outside the programme and chapter attachments as references", () => {
+    const extra = courseReadingContext({
+      product: referenceProduct,
+      current: { kind: "material", slug: "extra" },
+      referenceView: true,
+    });
+    expect(extra).toMatchObject({
+      activeReferenceId: "reference:extra",
+      currentPosition: 0,
+    });
+    const attachment = courseReadingContext({
+      product: {
+        ...referenceProduct,
+        chapters: referenceProduct.chapters.map((chapter) =>
+          chapter.id === "two"
+            ? { ...chapter, supplementaryMaterialIds: ["first-id"] }
+            : chapter,
+        ),
+      },
+      current: { kind: "material", slug: "first" },
+      referenceView: true,
+    });
+    expect(attachment).toMatchObject({
+      activeReferenceId: "reference:first",
+      currentChapterId: "two:1",
+      currentPosition: 0,
+    });
+  });
+
   it("does not invent a reference missing from published Product membership", () => {
     const context = courseReadingContext({
       product,

@@ -2,6 +2,7 @@ import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity
 import { ParticipantDiagnostics } from "../../src/entrypoints/mcp/participant-diagnostics.js";
 import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
+import { linkTelegram } from "../support/telegram-links.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -205,7 +206,12 @@ describe("scoped learner access over the learner MCP transport", () => {
   });
 
   test("Account without entitlement reads every pinned part of a free Task while paid Products stay closed", async () => {
-    const { learner } = await connectedLearner();
+    const { learner, accountId } = await connectedLearner();
+    // The free lesson pinned by the Task opens after Telegram sign-in, not a purchase (#1825).
+    const beforeLink = await readMaterial(learner, world.freeProduct.slug);
+    expect(beforeLink.isError).toBe(true);
+    expect(text(beforeLink)).not.toContain(world.freeProduct.bodySecret);
+    await linkTelegram(database.prisma, { accountId });
     await expectOpen(learner, world.freeProduct);
     for (const product of [world.productA, world.productB])
       await expectClosed(learner, product);

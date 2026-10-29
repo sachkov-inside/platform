@@ -19,7 +19,8 @@ test("practical Task Reader preserves the ready public body while its personal w
   const slug = process.env["FULLSTACK_FREE_PRACTICE_SLUG"];
   if (slug === undefined)
     throw new Error("Missing free practical Task fixture");
-  await signInFullStack(context, "MEMBER");
+  // A free Product lesson opens to a reader signed in through Telegram without a purchase (#1825).
+  await signInFullStack(context, "NON_MEMBER");
   await page.goto(`/materials/${slug}`, { waitUntil: "commit" });
   const body = page.locator("[data-reader-body]");
   await expect(body).toBeVisible();

@@ -88,6 +88,36 @@ test("reference navigation preserves nine steps and restores the originating les
   await expect.poll(() => scrollPosition(page)).toBe(500);
 });
 
+test("a programme lesson opened from the catalogue stays selected without step navigation", async ({
+  page,
+}) => {
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(`${programme}?part=materials&at=reference-lesson-5`)}&view=reference`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Урок 5", exact: true }),
+  ).toBeVisible();
+  await expectCourseReadingHost(page);
+  if (page.viewportSize()?.width === 390)
+    await page.getByRole("button", { name: "Вся программа" }).click();
+  const navigation =
+    page.viewportSize()?.width === 390
+      ? page.getByRole("dialog")
+      : page.getByRole("complementary", { name: "Текущая глава" });
+  await expect(
+    navigation.locator('[data-course-step="material:reference-lesson-5"]'),
+  ).toHaveAttribute("aria-current", "step");
+  await expect(navigation.locator('[aria-current="page"]')).toHaveCount(0);
+  if (page.viewportSize()?.width === 390)
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Закрыть" })
+      .click();
+  await expect(page.getByRole("link", { name: "К уроку" })).toHaveCount(0);
+  for (const name of ["Предыдущий шаг", "Следующий шаг"])
+    await expect(page.getByRole("link", { name })).toHaveCount(0);
+});
+
 test("programme references keep course navigation without adding a numbered step; standalone links remain standalone", async ({
   page,
 }) => {

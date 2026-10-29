@@ -109,6 +109,19 @@ export interface AccountRights {
   ): Promise<MembershipAccessState>;
 }
 
+/**
+ * Whether each Account has a current confirmed Telegram link, from Telegram sign-in or linking.
+ * Telegram Integration implements this port and has already recorded a failed read.
+ */
+export interface TelegramLinks {
+  confirmedLinks(
+    accountIds: readonly AccountId[],
+  ): Promise<
+    | { readonly ok: true; readonly links: ReadonlyMap<AccountId, boolean> }
+    | { readonly ok: false }
+  >;
+}
+
 export interface ContentAccessDependencies {
   readonly assetResourceFacts?: AssetResourceFactsAdapter;
   readonly productArtifactResourceFacts?: ProductArtifactResourceFactsAdapter;
@@ -117,6 +130,8 @@ export interface ContentAccessDependencies {
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
   readonly accountRights: AccountRights;
+  /** Absent: no Account has a link, so free Materials of Products open only by other grounds. */
+  readonly telegramLinks?: TelegramLinks;
   readonly clock?: () => Date;
   readonly decisionId?: () => string;
 }

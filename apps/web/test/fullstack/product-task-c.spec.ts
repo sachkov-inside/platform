@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { signInFullStack } from "../support/full-stack-session";
 
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -123,6 +124,8 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
     animations: "disabled",
   });
   if (href === null) throw new Error("Imported lesson link is absent");
+  // The free lesson itself opens after Telegram sign-in, not to a guest (#1825).
+  await signInFullStack(page.context());
   await page.goto(href);
   await verifyImportedAdvice(page);
   await screenshotWholePage(page, {
