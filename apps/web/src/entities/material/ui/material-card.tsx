@@ -446,9 +446,9 @@ function ProductMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
-        {/* Названию оставлено не меньше 112 px: если рядом с ним блок справа не помещается, блок
+        {/* Название начинается с 112 px: если рядом с такой шириной блок справа не помещается, блок
             уходит на следующую строку и там переносится сам. Пиксели, а не rem, чтобы при крупном
-            шрифте номер урока оставался рядом с названием. */}
+            шрифте браузера номер урока оставался рядом с названием. */}
         <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
             <span
