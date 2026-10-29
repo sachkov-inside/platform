@@ -75,7 +75,7 @@ export interface VideoPlayback {
  * to check, so it trusts the stand's Ed25519 signature for a short preview only (#1808).
  */
 export interface StandPreviewKeys {
-  /** On the stand: signs a preview of a protected recording. */
+  /** On the stand: signs a preview of a protected recording, or a materials manager's reading of one. */
   readonly signing?: KeyObject;
   /** On production: accepts such a preview in the provider callback. */
   readonly verification?: KeyObject;
@@ -186,9 +186,11 @@ export function assembleVideoPlayback(dependencies: {
       const standSigning = dependencies.standPreview?.signing;
       const drmAuthToken = !loaded.value.protected
         ? null
-        : action === "preview" && standSigning !== undefined
+        : standSigning !== undefined &&
+            (action === "preview" || (await readsAsAuthor(input)))
           ? await new SignJWT({
-              act: action,
+              // Production accepts the stand key for previews only; the author's reading is one too.
+              act: "preview",
               pid: loaded.value.providerVideoId,
             })
               .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
@@ -348,6 +350,26 @@ export function assembleVideoPlayback(dependencies: {
     },
   };
   return Object.freeze(playback);
+
+  /**
+   * The stand's reader of a materials manager: production refuses the stand's play tokens, so the
+   * owner's reading takes the author preview's token once play itself is allowed (#1819).
+   */
+  async function readsAsAuthor(input: {
+    readonly correlationId: string;
+    readonly subject: Subject;
+    readonly videoId: string;
+  }): Promise<boolean> {
+    if (input.subject.kind !== "account") return false;
+    const decision = await dependencies.contentAccess.authorize({
+      action: "preview",
+      correlationId: input.correlationId,
+      enforcementPoint: "playback_token_issue",
+      resource: { kind: "video", videoId: input.videoId },
+      subject: input.subject,
+    });
+    return decision.effect === "allow";
+  }
 
   /** Throws for a token that fails verification; the caller refuses it. */
   async function authorizeStandPreview(input: {
