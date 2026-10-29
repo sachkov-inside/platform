@@ -100,12 +100,17 @@ lesson has a receipt whose recording is in the public project, so a rerun return
 recording. `--replace-public-upload` asks the target about the stored attempt's Video
 (`POST /authoring/videos/VIDEO_ID/reconcile`) and discards the receipt only when the answer says
 `protected: false`, together with the `source-video:SOURCE_ID` receipt when it names the same
-`videoId`; the file then uploads as new into the protected project. This applies to a ready or an
-unfinished attempt; a failed one starts anew anyway. A protected recording, a test-adapter receipt
-(`--replace-test-upload` owns it) or no receipt leaves the command as without the flag, so the
-same command can be repeated. A target that does not report `protected` (a source before ADR 0041)
-stops the command and leaves the journal unchanged. The flag is refused on trusted targets before
-any request. The public recording stays in Kinescope: the stand never deletes provider videos.
+`videoId`; the file then uploads as new into the protected project. This covers a ready, `transfer`
+or `processing` attempt; a failed one starts anew anyway. An `initializing` attempt holds no Video
+yet: its replayed init answer names the recording, and a public one is discarded the same way
+before any byte is sent. A protected recording, a test-adapter receipt (`--replace-test-upload`
+owns it) or no receipt leaves the command as without the flag, so the same command can be
+repeated. A target that does not report `protected` for the stored Video (a source before ADR 0041)
+stops the command and leaves the journal unchanged. A reconcile error, such as `provider_mismatch`
+(the recording is gone from Kinescope) or `video_not_found` (the stand database was reset), also
+stops it with the journal unchanged; report the source and `videoId` to the owner. The flag is
+refused on trusted targets before any request. The command deletes nothing at the provider; the
+public recording stays in Kinescope until the owner removes it.
 
 `authoring:release preview` lists every such upload in `videoUploads` (`sourceId`, `state`
 `pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches

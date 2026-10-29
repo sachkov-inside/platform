@@ -444,80 +444,88 @@ export async function uploadVideo({
             delete resources[attached];
           delete resources[receiptKey];
         };
-        const testAdapter =
-          receipt !== undefined &&
-          "uploadEndpoint" in receipt &&
-          new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid");
         // Only the test adapter's attempt, or one the target reports public, is discarded. Any
         // other receipt is continued as usual, so repeating the same command is safe.
-        if (
-          replaceTestUpload &&
-          testAdapter &&
-          receipt !== undefined &&
-          "videoId" in receipt
-        ) {
-          discard(receipt.videoId);
+        const stored =
+          receipt !== undefined && "videoId" in receipt ? receipt : undefined;
+        const testAdapter =
+          stored !== undefined &&
+          new URL(stored.uploadEndpoint).hostname.endsWith(".invalid");
+        if (replaceTestUpload && stored !== undefined && testAdapter) {
+          discard(stored.videoId);
           receipt = undefined;
         }
         if (
           replacePublicUpload &&
+          stored !== undefined &&
           !testAdapter &&
-          receipt !== undefined &&
-          "videoId" in receipt &&
-          receipt.phase !== "failed"
+          stored.phase !== "failed"
         ) {
           // The target's own record decides; the receipt's access predates ADR 0041 and says
           // nothing about the project a recording landed in.
           const video = await request(
-            `/authoring/videos/${receipt.videoId}/reconcile`,
+            `/authoring/videos/${stored.videoId}/reconcile`,
             {},
             undefined,
             { method: "POST" },
           );
           if (video.protected === undefined)
             throw new Error(
-              `${target.id} does not report whether video ${receipt.videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
+              `${target.id} does not report whether video ${stored.videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
             );
           if (!video.protected) {
-            discard(receipt.videoId);
+            discard(stored.videoId);
             receipt = undefined;
           }
         }
         // A failed provider outcome is known, so the same file may start a fresh attempt.
         if (receipt?.phase === "failed") receipt = undefined;
-        if (receipt === undefined) {
-          receipt = {
+        /** A new attempt, persisted before its first call. */
+        const startAttempt = async () => {
+          const started = {
             sourceId,
             idempotencyKey: `video-upload:${randomUUID()}`,
             byteSize: info.size,
             filename: basename(path),
             title: title ?? basename(path),
             access: material.access ?? "closed",
-            phase: "initializing",
+            phase: /** @type {const} */ ("initializing"),
           };
-          resources[receiptKey] = receipt;
+          resources[receiptKey] = started;
           await persist();
-        }
-        if (receipt.phase === "initializing") {
-          let initialized;
+          return started;
+        };
+        /** @param {Awaited<ReturnType<typeof startAttempt>>} attempt */
+        const initialize = async (attempt) => {
           try {
-            initialized = await request(
+            return await request(
               `/authoring/materials/${material.materialId}/videos/uploads`,
               {
-                access: receipt.access,
-                byteSize: receipt.byteSize,
-                filename: receipt.filename,
-                title: receipt.title,
+                access: attempt.access,
+                byteSize: attempt.byteSize,
+                filename: attempt.filename,
+                title: attempt.title,
               },
-              receipt.idempotencyKey,
+              attempt.idempotencyKey,
             );
           } catch (error) {
             if (failureBodyField(error, "code") === "upload_outcome_unknown")
               throw new Error(
-                `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${receipt.idempotencyKey})`,
+                `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${attempt.idempotencyKey})`,
                 { cause: error },
               );
             throw error;
+          }
+        };
+        receipt ??= await startAttempt();
+        if (receipt.phase === "initializing") {
+          let initialized = await initialize(receipt);
+          // An attempt whose answer was lost replays as recorded, which before ADR 0041 may be
+          // a public recording; only its answer names that Video.
+          if (replacePublicUpload && initialized.video.protected === false) {
+            discard(initialized.video.videoId);
+            receipt = await startAttempt();
+            initialized = await initialize(receipt);
           }
           receipt = {
             ...receipt,
