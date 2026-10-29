@@ -250,6 +250,21 @@ export const Guest: Story = {
         label.closest('[data-material-availability="locked"]'),
       ).toBeNull();
     }
+    // Слово стоит в том же столбце доступа, что и замок (решение владельца 29.10.2026, #1837):
+    // правые края меток и длительностей совпадают у уроков с видео и без него.
+    const rightEdges = (elements: Iterable<Element>) =>
+      new Set(
+        [...elements].map((element) =>
+          Math.round(element.getBoundingClientRect().right),
+        ),
+      );
+    for (const label of free)
+      await expect(label.closest("[data-product-status]")).not.toBeNull();
+    await expect(rightEdges(free).size).toBe(1);
+    await expect(
+      rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
+        .size,
+    ).toBe(1);
     const cards = canvasElement.querySelectorAll("[data-product-ordinal]");
     const locked = canvasElement.querySelectorAll(
       '[data-material-availability="locked"]',
@@ -1347,10 +1362,20 @@ export const CompactMobileRoute: Story = {
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
-    // Метка бесплатного урока остаётся и на телефоне (#1647).
+    // Метка бесплатного урока остаётся и на телефоне (#1647). У изученного бесплатного урока на её
+    // месте отметка «изучен»: в строке одна отметка доступа (#1837).
     const free = rows.getAllByText("Бесплатно");
     await expect(free).toHaveLength(2);
-    for (const label of free) await expect(label).toBeVisible();
+    const studied =
+      route.querySelector<HTMLElement>('[data-product-ordinal="1"]') ??
+      fail("Missing studied free lesson");
+    await expect(within(studied).getByText("Бесплатно")).not.toBeVisible();
+    await expect(
+      within(
+        route.querySelector<HTMLElement>('[data-product-ordinal="2"]') ??
+          fail("Missing unstudied free lesson"),
+      ).getByText("Бесплатно"),
+    ).toBeVisible();
     // Ни одна строка не подписана форматом материала отдельным словом.
     await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
     await expect(rows.queryByText("Видео")).not.toBeInTheDocument();
