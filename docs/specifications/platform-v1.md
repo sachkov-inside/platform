@@ -448,8 +448,8 @@ Product membership links «Приобрести курс» to that Product's che
 this reader, and «Получить доступ» to the Product landing otherwise, including before an offer is
 available (owner decision 29.10.2026, #1647). A free Material read inside its checked Product
 programme ends, after practice and before the bottom actions and course navigation, with a purchase
-call for a signed-in reader whose Product access is closed: it marks the lesson «Бесплатно», names a
-locked next step, and links «Приобрести курс» to checkout while the Product is sold or «Подробнее о
+call for a signed-in reader whose Product access is closed: one row shows the locked next step with a
+lock and its title, or the «Бесплатно» badge when the next step is not closed, and links «Приобрести курс» to checkout while the Product is sold or «Подробнее о
 курсе» to the landing otherwise. The call is read per request outside the shared cache and prefetch;
 it is absent for guests, for readers with open Product access, and when access or sale cannot be read.
 Within a checked Product,

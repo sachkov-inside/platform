@@ -1,26 +1,38 @@
+/*
+ * Действие на анимации сидит на её нижнем крае, как наклейка «до старта» на верхнем: сцена
+ * занимает кадр целиком, и кнопка внутри неё закрывала бы панели (#1647).
+ */
 .aie-learning-film {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   right: 1rem;
-  bottom: 1rem;
+  bottom: 0;
   max-width: calc(100% - 2rem);
+  translate: 0 50%;
+}
+.aie-hero-film:has(.aie-learning-film) {
+  margin-bottom: 1.25rem;
 }
 .aie-learning-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.875rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 1rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--primary-foreground) 16%, var(--primary));
+  background: var(--primary);
   color: var(--primary-foreground);
+  box-shadow:
+    0 0 0 3px var(--background),
+    var(--elevation-cover);
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
 }
 .aie-learning-link:hover {
-  background: color-mix(in srgb, var(--primary-foreground) 24%, var(--primary));
+  background: color-mix(in srgb, var(--primary-foreground) 14%, var(--primary));
 }
 .aie-learning-link:focus-visible {
   outline: 2px solid var(--ring);
@@ -31,17 +43,9 @@
   height: 1rem;
   flex-shrink: 0;
 }
-@media (width < 40rem) {
-  .aie-learning-link {
-    min-height: 2.25rem;
-  }
-  .aie-learning-link {
-    position: relative;
-    padding-block: 0.375rem;
-  }
-  .aie-learning-link::after {
-    content: "";
-    position: absolute;
-    inset: -4px 0;
-  }
+/* Зона нажатия остаётся 44 px при видимой высоте 40 px. */
+.aie-learning-link::after {
+  content: "";
+  position: absolute;
+  inset: -2px 0;
 }
