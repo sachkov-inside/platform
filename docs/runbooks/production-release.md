@@ -593,10 +593,12 @@ Actions → `Production access pass` → `Run workflow` на `main`, вход `d
 
 **Что проверяет.** Клетки прохода перечислены в `apps/web/test/production/pass-config.ts`; каждая
 называется строкой матрицы проверок доступа и транспортом: `browser` (Web/BFF под настоящей
-сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Product A. Account без
-entitlement, ученик B, expired и anonymous не получают их закрытых bytes. Materials-only и
-Billing-only открывают свои административные чтения и получают отказ на чужих. Клетки Product B и
-video отложены решениями владельца в #905 и #906.
+сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Product A и смотрит
+основное видео закрытого урока: получает playback session с токеном и лицензию Kinescope. Account без
+entitlement, ученик B, expired и anonymous не получают их закрытых bytes и playback session этого
+видео. Гость и Account без entitlement получают playback session и лицензию видео бесплатного урока.
+Materials-only и Billing-only открывают свои административные чтения и получают отказ на чужих.
+Клетки Product B отложены решением владельца в #905.
 
 Для тестовых email identities браузерный вход передаёт `entry=account-choice` в `/auth/sign-in`.
 Этот режим открывает обычный OIDC flow, куда проход добавляет one-time token. Параметр нужен после
@@ -605,7 +607,10 @@ allowlist прохода.
 
 **Только чтение.** Раннер проверяет каждый запрос до отправки (`pass-requests.ts`): GET и HEAD, MCP
 POST к названным read-only tools, выдача playback session видео и закрытый перечень операций входа
-Logto и BFF. Другой запрос раннер отклоняет и не отправляет. Страница сама шлёт записи, например
+Logto и BFF. Плееру Kinescope разрешены чтения записи и запрос лицензии: Kinescope спрашивает
+authorization backend Platform, который только повторяет решение доступа. Метрики плеера
+(`player-metrics.kinescope.io`) и сохранение позиции видео не уходят. Другой запрос раннер отклоняет
+и не отправляет. Страница сама шлёт записи, например
 прогресс чтения; отчёт перечисляет их в разделе запросов вне allowlist, и итог от них не краснеет.
 Шаг redirect в браузере Playwright перехватить не даёт: раннер проверяет его после отправки, и шаг
 вне allowlist помечен в отчёте «отправлен» и делает итог красным. Запросы Node и context по redirect

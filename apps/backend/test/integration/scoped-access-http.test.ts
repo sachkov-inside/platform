@@ -161,6 +161,21 @@ describe("scoped Account access over Nest HTTP", () => {
     }
   });
 
+  test("free lesson gives a guest and an Account without entitlement a playback token that Kinescope accepts", async () => {
+    const { bearer } = await signedInAccount();
+    for (const token of [null, bearer]) {
+      const session = await playback(world.freeProduct, token);
+      expect(session.statusCode).toBe(200);
+      // The free lesson's recording is protected too (ADR 0041): every viewer needs a token.
+      const { drmAuthToken } = session.json<{ drmAuthToken: string | null }>();
+      if (drmAuthToken === null) throw new Error("free lesson token missing");
+      expect(await providerAuthorization(world.freeProduct, drmAuthToken)).toBe(
+        200,
+      );
+      expect((await playback(world.productA, token)).statusCode).toBe(403);
+    }
+  });
+
   test("retired Practice routes remain absent even for a Product holder", async () => {
     const { bearer, accountId } = await signedInAccount();
     await world.grantProduct(accountId, world.productA.productId);
