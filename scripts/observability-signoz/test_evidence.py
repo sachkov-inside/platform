@@ -11,6 +11,52 @@ from test_profiles import attach_profile
 
 
 class Publication(unittest.TestCase):
+    def test_closed_bootstrap_substages_survive_the_actual_collector(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)
+            engine=source/'engine-1-12345678';engine.mkdir(mode=0o700)
+            for stage in ('bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read'):
+                with self.subTest(stage=stage):
+                    row={'inside_failed':1,'stage':stage,'category':'ControlFailure','http_status':200,'transport':'reader_identity'}
+                    lifecycle.private_json(engine/'inside-failure.json',row)
+                    target=root/stage;self.assertFalse(evidence.collect(source,target,lambda _value:None))
+                    report=json.loads((target/'witness.json').read_text())
+                    self.assertEqual(report['inside_failures'],{'available':True,'samples':[{k:v for k,v in row.items() if k!='inside_failed'}]})
+                    self.assertFalse(report['passed'])
+
+    def test_malformed_inside_failure_schema_is_not_a_valid_public_sample(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)
+            engine=source/'engine-1-12345678';engine.mkdir(mode=0o700)
+            good={'inside_failed':1,'stage':'bootstrap_identity','category':'ControlFailure','http_status':200,'transport':'reader_identity'}
+            for index,row in enumerate(({**good,'raw':'private-key-must-not-escape'},{**good,'inside_failed':True},{k:v for k,v in good.items() if k!='transport'})):
+                with self.subTest(index=index):
+                    lifecycle.private_json(engine/'inside-failure.json',row)
+                    target=root/str(index);self.assertFalse(evidence.collect(source,target,lambda _value:None))
+                    report=json.loads((target/'witness.json').read_text())
+                    self.assertFalse(report['inside_failures']['available'])
+                    self.assertNotIn('private-key',json.dumps(report))
+
+    def test_unknown_or_unhashable_inside_values_never_leak_or_create_acceptance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)
+            engine=source/'engine-1-12345678';engine.mkdir(mode=0o700)
+            good={'inside_failed':1,'stage':'bootstrap_identity','category':'ControlFailure','http_status':200,'transport':'reader_identity'}
+            values=(None,[],{'private':'private-key'},True,5,'private-key','private-key'*1000,float('nan'),float('inf'))
+            for index,value in enumerate(values):
+                with self.subTest(index=index):
+                    row={**good,'stage':value,'category':value,'transport':value}
+                    path=engine/'inside-failure.json';path.write_text(json.dumps(row));path.chmod(0o600)
+                    target=root/str(index);self.assertFalse(evidence.collect(source,target,lambda _value:None))
+                    report=json.loads((target/'witness.json').read_text())
+                    self.assertEqual(report['inside_failures']['samples'],[{'stage':'unavailable','category':'unavailable','http_status':200,'transport':'unavailable'}])
+                    self.assertNotIn('private-key',json.dumps(report));self.assertFalse(report['passed'])
+            for index,status in enumerate((True,-1,600,1.5,float('nan'),float('inf'),'private-key',None)):
+                path=engine/'inside-failure.json';path.write_text(json.dumps({**good,'http_status':status}));path.chmod(0o600)
+                target=root/('status-'+str(index));self.assertFalse(evidence.collect(source,target,lambda _value:None))
+                report=json.loads((target/'witness.json').read_text())
+                self.assertFalse(report['inside_failures']['available']);self.assertNotIn('private-key',json.dumps(report))
+
     def test_first_inner_command_is_closed_and_malformed_context_stays_unavailable(self):
         good={'command_class':'disk_exec','timeout_seconds':3,'elapsed_seconds':3.01,'native_exit':None,'alive_before_reap':True}
         variants=[None,{},[],{**good,'secret':'private-key-URL'},

@@ -97,6 +97,10 @@ if __name__=='__main__':
     except BaseException as error:
         # Runtime diagnostics never echo native HTTP/query bodies, keys or exception strings.
         native=sys.modules.get('control')
-        print(json.dumps({'inside_failed':1,'stage':getattr(native,'FUNCTIONAL_STAGE',STEP),'category':type(error).__name__,
-            'http_status':getattr(native,'LAST_HTTP_STATUS',0),'transport':getattr(native,'STEP','none')}))
+        if native is not None:failure=native.failure_context(error)
+        else:
+            known=(RuntimeError,TimeoutError,ConnectionRefusedError,ConnectionResetError,OSError,BrokenPipeError,ValueError,json.JSONDecodeError)
+            failure={'inside_failed':1,'stage':STEP,'category':type(error).__name__ if type(error) in known else 'unavailable',
+                'http_status':0,'transport':'none'}
+        print(json.dumps(failure))
         sys.exit(1)
