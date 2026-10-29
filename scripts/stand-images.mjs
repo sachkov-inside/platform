@@ -3,7 +3,7 @@
 // considered; volumes, the build cache, other projects and images any container uses are never
 // touched. The default run only reports; `--apply` removes the listed images without force.
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -238,8 +238,19 @@ export async function runStandImages({
           error instanceof Error &&
           "code" in error &&
           error.code === "ENOENT"
-        )
-          return new Set();
+        ) {
+          try {
+            await lstat(protectedFile);
+          } catch (entryError) {
+            if (
+              entryError instanceof Error &&
+              "code" in entryError &&
+              entryError.code === "ENOENT"
+            )
+              return new Set();
+            throw entryError;
+          }
+        }
         throw error;
       }
     };

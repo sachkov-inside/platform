@@ -1,6 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -112,7 +112,7 @@ test("command refuses unknown options and missing or invalid protection before D
   for (const args of [
     ["--unknown"],
     ["--context"],
-    ["--protected-images", join(f.manifest, "missing")],
+    ["--protected-images", join(f.manifest, "..", "missing")],
   ])
     await assert.rejects(f.run([...args, "--apply"]));
   for (const raw of ["not-json", "{}", '["not-an-image-id"]']) {
@@ -191,5 +191,21 @@ test("command refuses loss of an initially readable default recovery manifest", 
   await writeFile(f.manifest, JSON.stringify([id(3)]));
   f.state.lostProtection = true;
   await assert.rejects(f.run(["--apply"]), /ENOENT/u);
+  assert.ok(f.calls.every((args) => !args.includes("rm")));
+});
+
+test("command refuses a dangling default manifest link instead of dropping recovery protection", async (t) => {
+  const f = await fixture(t);
+  await rm(f.manifest);
+  await symlink(join(f.manifest, "..", "missing"), f.manifest);
+  await assert.rejects(f.run(["--apply"]));
+  assert.deepEqual(f.calls, []);
+});
+
+test("command supports machines without a legacy default manifest", async (t) => {
+  const f = await fixture(t);
+  await rm(f.manifest);
+  await f.run([]);
+  assert.match(f.output(), /1 stale stand image/u);
   assert.ok(f.calls.every((args) => !args.includes("rm")));
 });
