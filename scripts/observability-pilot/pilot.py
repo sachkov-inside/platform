@@ -1388,6 +1388,8 @@ def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318,
     existing = json.loads(command(["docker", "compose", "ls", "--format", "json"]))
     for port in ports:
         with socket.socket() as probe:
+            if linux is not None:
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", port))
     (prepare_inputs or prepare)(output)
     if mac:
