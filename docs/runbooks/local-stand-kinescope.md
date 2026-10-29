@@ -95,7 +95,8 @@ decision to use the production projects (#1790); a narrower token, if Kinescope 
 
 Production cannot check a stand token by itself: it knows neither the stand's playback secret nor
 its local Videos. With the owner's consent it trusts one more key, the stand's own Ed25519 preview
-key, for author previews only:
+key, for short preview tokens only (the author preview, and the reader of an Account with
+`materials:manage`):
 
 ```bash
 pnpm stand:kinescope preview-key
@@ -112,9 +113,11 @@ line replaces the old one on production. The stand then signs the preview of a p
 `act=preview`, the recording's provider ID, at most 300 seconds. A reader session takes the same
 token once ContentAccess allows `play` (a published Material) and the Account also passes `preview`
 (`materials:manage`), so the owner reviews a lesson in the reader and keeps its progress (#1819);
-every other reader session keeps the HS256 `play` token. Production accepts exactly such a
+every other reader session keeps the HS256 `play` token. If the `preview` decision cannot reach
+its dependencies, the reader gets `dependency_unavailable` and the player offers a retry. Production accepts exactly such a
 token and records each acceptance as `stand_preview_authorized` with the token ID, the provider
-video and the stand Account; ordinary playback, other recordings and longer tokens are refused.
+video and the stand Account (an author preview and a manager's reading look the same there); the
+stand's HS256 `play` tokens, other recordings and longer tokens are refused.
 
 Risk: the stand's ContentAccess decides who previews or reads with this key (an Account with `materials:manage`), but
 production only sees the signature: the binding to the owner is the key on the owner's Mac. Anyone

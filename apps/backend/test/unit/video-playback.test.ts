@@ -468,7 +468,9 @@ describe("Video playback authorization", () => {
       decisionId: "stand-reader-decision",
       policyVersion: "content-access-v1",
     } as const;
-    const authorize = vi.fn<ContentAccess["authorize"]>(async (input) => {
+    const decide = (
+      input: Parameters<ContentAccess["authorize"]>[0],
+    ): Awaited<ReturnType<ContentAccess["authorize"]>> => {
       const manager =
         input.subject.kind === "account" && input.subject.accountId === account;
       if (input.action === "play")
@@ -483,7 +485,10 @@ describe("Video playback authorization", () => {
       return manager
         ? { ...decided, effect: "allow", reason: "materials_manager" }
         : { ...decided, effect: "deny", reason: "permission_required" };
-    });
+    };
+    const authorize = vi.fn<ContentAccess["authorize"]>((input) =>
+      Promise.resolve(decide(input)),
+    );
     const standReader = (
       keys = standPreviewKeys(stand),
       recording = { protected: true },
@@ -604,6 +609,22 @@ describe("Video playback authorization", () => {
     expect(authorize).not.toHaveBeenCalledWith(
       expect.objectContaining({ action: "preview" }),
     );
+
+    // A preview decision that cannot reach its dependencies answers the session, not a play token.
+    authorize.mockImplementation((input) =>
+      Promise.resolve(
+        input.action === "preview"
+          ? { ...decided, effect: "deny", reason: "dependency_unavailable" }
+          : decide(input),
+      ),
+    );
+    await expect(
+      play(standReader(), { accountId: account, kind: "account" }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    });
+    authorize.mockImplementation((input) => Promise.resolve(decide(input)));
 
     // A denied play issues no session, whatever the subject could preview.
     authorize.mockResolvedValueOnce({

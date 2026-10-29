@@ -61,7 +61,8 @@ export function standKinescopeEnvironment(source) {
 }
 
 // The stand's own Ed25519 preview key (#1808): production holds only the public half and accepts
-// the stand's short author previews of protected recordings with it.
+// the stand's short preview tokens of protected recordings with it (author preview, and a
+// materials manager's reader, #1819).
 const previewPrivateKey = "KINESCOPE_STAND_PREVIEW_PRIVATE_KEY";
 const previewPublicKey = "KINESCOPE_STAND_PREVIEW_PUBLIC_KEY";
 
