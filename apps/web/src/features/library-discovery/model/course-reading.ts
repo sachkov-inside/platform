@@ -49,7 +49,10 @@ export interface CourseReadingContext {
   readonly chapters: readonly CourseReadingChapter[];
   readonly current: CourseReadingStep;
   readonly currentChapterId: string;
-  /** Position in the mixed sequence; zero for a reference opened without an originating step. */
+  /**
+   * Position in the mixed sequence; zero for a reference opened without an originating step and for
+   * a programme step opened for reference.
+   */
   readonly currentPosition: number;
   readonly totalSteps: number;
   readonly totalMaterials: number;
@@ -237,18 +240,18 @@ export function courseReadingContext({
           step.placementId === current.placementId)
       : step.id === id,
   );
+  // A programme step opened for reference stays selected in its chapter without claiming a position.
   const position = referenceView ? -1 : stepIndex;
-  /** A programme lesson opened for reference keeps its chapter row selected, without a position. */
-  const placedStep = steps[stepIndex];
+  const programmeStep = steps[stepIndex];
   const reference =
-    position >= 0 || placedStep !== undefined || current.kind !== "material"
+    programmeStep !== undefined || current.kind !== "material"
       ? undefined
       : references.find((item) => item.id === `reference:${current.slug}`);
   const referenceItem = publishedItems.find(
     (item) => item.slug === reference?.slug,
   );
   const step =
-    placedStep ??
+    programmeStep ??
     (reference === undefined
       ? undefined
       : {
@@ -258,7 +261,7 @@ export function courseReadingContext({
         });
   const chapter =
     chapters.find((entry) =>
-      entry.steps.some((entryStep) => entryStep.id === placedStep?.id),
+      entry.steps.some((entryStep) => entryStep.id === programmeStep?.id),
     ) ??
     (reference === undefined
       ? undefined

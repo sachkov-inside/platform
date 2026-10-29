@@ -42,8 +42,22 @@ export function reconcileCourseNavigation(
     context === null ||
     context.courseHref !== intent.courseHref ||
     (context.activeReferenceId === undefined &&
-      context.current.id === intent.id) ||
+      (context.current.id === intent.id ||
+        opensProgrammeStepForReference(intent.id, context))) ||
     context.activeReferenceId === intent.id
     ? null
     : intent;
+}
+
+/** A programme lesson opened for reference replaces its reference row with its own step. */
+function opensProgrammeStepForReference(
+  id: string,
+  context: CourseReadingContext,
+): boolean {
+  if (!id.startsWith("reference:") || context.currentPosition !== 0)
+    return false;
+  const step = `material:${id.slice("reference:".length)}`;
+  return (
+    context.current.id === step || context.current.id.startsWith(`${step}:`)
+  );
 }
