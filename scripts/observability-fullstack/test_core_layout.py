@@ -26,16 +26,22 @@ class CoreLayout(unittest.TestCase):
             self.assertEqual(combined['services']['postgres']['image'],pins()['foundation'])
             self.assertEqual(combined['services']['mcp']['image'],pins()['backend'])
             self.assertIn('sig-postgres',combined['services']);self.assertIn('sig-mcp',combined['services'])
-            self.assertEqual(len([role for role in combined['services'] if role.startswith('sig-')]),11)
+            self.assertEqual(len([role for role in combined['services'] if role.startswith('sig-')]),12)
+            self.assertEqual(len(layout.manifest['sig_roles']),11)
             self.assertEqual(len([role for role in combined['volumes'] if role.startswith('sig-')]),7)
             self.assertEqual(layout.validate(combined),None)
             self.assertEqual(layout.manifest['supervisor'],{'count':1,'deadline_seconds':600,'cleanup_seconds':90})
             self.assertEqual(layout.manifest['sig_memory_bytes'],4480*1024**2)
-            self.assertEqual(layout.manifest['memory_bytes'],16224*1024**2)
-            self.assertEqual(layout.manifest['nano_cpus'],23_100_000_000)
+            self.assertEqual(layout.manifest['memory_bytes'],16288*1024**2)
+            self.assertEqual(layout.manifest['nano_cpus'],23_150_000_000)
             for role in set(primary['services'])-{'metrics','logs','traces','grafana','vmauth','gateway','horizon','volume-reader'}:
                 observed=copy.deepcopy(combined['services'][role]);observed.pop('labels')
-                self.assertEqual(observed,primary['services'][role],role)
+                expected=copy.deepcopy(primary['services'][role])
+                if role=='alloy':expected['networks'].update({'sig-trace-edge':{},'sig-signal-ingest':{}})
+                if role in ('alloy','host-agent'):
+                    name='edge.alloy' if role=='alloy' else 'host.alloy';target='/etc/alloy/config.alloy' if role=='alloy' else '/etc/alloy/host.alloy'
+                    expected['volumes'][0]=str(output/'representative-ingestion'/name)+':'+target+':ro'
+                self.assertEqual(observed,expected,role)
             self.assertEqual(combined['services']['sig-mcp']['networks'],{'sig-backend':{'aliases':['mcp']}})
             self.assertNotIn('sig-backend',combined['services']['mcp']['networks'])
             self.assertEqual(combined['services']['sig-agent']['network_mode'],'none')
@@ -157,19 +163,25 @@ class CoreLayout(unittest.TestCase):
             self.assertEqual(primary['services']['host-agent']['networks'],['hostsource'])
             layout=self.build(primary,output);plan=layout.plan
             self.assertEqual(plan['services']['sig-collector']['networks'],
-                {'sig-backend':{'aliases':['signoz-ingester']},'storage':{'aliases':['inside-signoz-collector']},
-                 'hostsource':{'aliases':['inside-signoz-collector']}})
+                {'sig-backend':{'aliases':['signoz-ingester']},
+                 'hostsource':{'aliases':['inside-signoz-host-ingest']},
+                 'sig-trace-forward':{'aliases':['inside-signoz-trace-ingest']},
+                 'sig-signal-ingest':{'aliases':['inside-signoz-collector']}})
             for role in ('sig-postgres','sig-server','sig-mcp','sig-clickhouse','sig-keeper'):
                 self.assertEqual(set(plan['services'][role]['networks']),{'sig-backend'})
                 self.assertNotIn('ports',plan['services'][role])
             for role in ('alloy','host-agent'):
                 observed=copy.deepcopy(plan['services'][role]);observed.pop('labels')
-                self.assertEqual(observed,primary['services'][role])
+                expected=copy.deepcopy(primary['services'][role])
+                if role=='alloy':expected['networks'].update({'sig-trace-edge':{},'sig-signal-ingest':{}})
+                name='edge.alloy' if role=='alloy' else 'host.alloy';target='/etc/alloy/config.alloy' if role=='alloy' else '/etc/alloy/host.alloy'
+                expected['volumes'][0]=str(output/'representative-ingestion'/name)+':'+target+':ro'
+                self.assertEqual(observed,expected)
             for change in ('extra_collector_network','missing_alias','extra_alias','server_ingress','mcp_ingress','database_ingress','port'):
                 candidate=layout.plan
                 if change=='extra_collector_network':candidate['services']['sig-collector']['networks']['pilot']={}
-                elif change=='missing_alias':candidate['services']['sig-collector']['networks']['storage']={}
-                elif change=='extra_alias':candidate['services']['sig-collector']['networks']['storage']['aliases'].append('mcp')
+                elif change=='missing_alias':candidate['services']['sig-collector']['networks']['sig-signal-ingest']={}
+                elif change=='extra_alias':candidate['services']['sig-collector']['networks']['sig-signal-ingest']['aliases'].append('mcp')
                 elif change=='server_ingress':candidate['services']['sig-server']['networks']['storage']={}
                 elif change=='mcp_ingress':candidate['services']['sig-mcp']['networks']['storage']={}
                 elif change=='database_ingress':candidate['services']['sig-postgres']['networks']['hostsource']={}

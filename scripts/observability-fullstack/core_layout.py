@@ -5,6 +5,8 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
+import stat
 from pathlib import Path
 import re
 import sys
@@ -103,12 +105,45 @@ class Layout:
     """Private immutable snapshot; reads return copies, validation grants no runtime authority."""
     _plan:str
     _manifest:str
+    _files:str='{}'
 
     @property
     def plan(self):return json.loads(self._plan)
 
     @property
     def manifest(self):return json.loads(self._manifest)
+
+    @property
+    def files(self):return json.loads(self._files)
+
+    def prepare_inputs(self):
+        """Materialize only fresh private files; no lease, Docker or runtime acquisition."""
+        import signoz_ingestion
+        manifest=self.manifest;files=self.files
+        need(manifest['core']==SIGNOZ and set(files)=={'edge.alloy','host.alloy'},'representative_generated_files')
+        need(manifest['generator_inputs']==signoz_ingestion.input_hashes(),'representative_generated_source')
+        need(manifest['generated_files']=={name:hashlib.sha256(text.encode()).hexdigest() for name,text in files.items()},'representative_generated_files')
+        run=Path(manifest['root']);need(run.is_dir() and run==run.resolve(),'representative_root')
+        info=run.stat();need({'device':info.st_dev,'inode':info.st_ino,'uid':info.st_uid}==manifest['root_identity'],'representative_root')
+        directory=run/'representative-ingestion';directory.mkdir(mode=0o700)
+        own=directory.stat();created={}
+        try:
+            for name,text in files.items():
+                target=directory/name
+                fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                info=os.fstat(fd);created[name]=(info.st_dev,info.st_ino)
+                with os.fdopen(fd,'wb') as stream:stream.write(text.encode());stream.flush();os.fsync(stream.fileno())
+            return directory
+        except BaseException:
+            for name,identity in created.items():
+                target=directory/name
+                if target.exists() and not target.is_symlink():
+                    info=target.stat()
+                    if stat.S_ISREG(info.st_mode) and (info.st_dev,info.st_ino)==identity:target.unlink()
+            if not directory.is_symlink() and directory.is_dir() and not any(directory.iterdir()):
+                info=directory.stat()
+                if (info.st_dev,info.st_ino)==(own.st_dev,own.st_ino):directory.rmdir()
+            raise
 
     def validate(self,candidate,manifest=None):
         if manifest is not None:need(encoded(manifest)==self._manifest,'representative_manifest_mismatch')
@@ -119,13 +154,15 @@ def construct(primary,core,*,run,source,images,project,nonce,uid,gid):
     selected(core)
     need(type(source) is dict and set(source)=={'commit','tree'}
         and all(type(v) is str and re.fullmatch(r'[a-f0-9]{40}',v) is not None for v in source.values()),'representative_source')
-    need(isinstance(run,Path) and run.is_absolute() and run==run.resolve(),'representative_root')
+    need(isinstance(run,Path) and run.is_absolute() and run==run.resolve() and run.is_dir(),'representative_root')
+    root_info=run.stat()
+    need(root_info.st_uid==os.getuid() and not root_info.st_mode&0o022,'representative_root')
     need(type(project) is str and re.fullmatch(r'inside-observability-representative-[a-f0-9]{12}',project) is not None,'representative_project')
     need(type(nonce) is str and re.fullmatch(r'[a-f0-9]{32}',nonce) is not None,'representative_nonce')
     need(all(type(v) is int and 0<=v<2**31 for v in (uid,gid)),'representative_uid')
     baseline(primary,images,source)
     plan=copy.deepcopy(primary)
-    sig_roles=();sig_volumes=();sig_memory=0
+    sig_roles=();sig_volumes=();sig_memory=0;files={};generator_inputs={}
     if core==SIGNOZ:
         need(plan['services']['alloy'].get('networks')=={'storage':{},'telemetry':{'aliases':['inside-telemetry']},'loopback':{}}
             and plan['services']['host-agent'].get('networks')==['hostsource'],'representative_retained_edge_networks')
@@ -154,6 +191,9 @@ def construct(primary,core,*,run,source,images,project,nonce,uid,gid):
         reader=plan['services']['volume-reader']
         reader['volumes']=[reader['volumes'][0],*(name+':/volumes/'+name+':ro' for name in (*APP_VOLUMES,*sig_volumes))]
         sig_memory=lifecycle.resource_profile(lifecycle.MCP512_PROFILE)['aggregate_memory_bytes']
+        import signoz_ingestion
+        files=signoz_ingestion.attach(plan,run,project,nonce,source)
+        generator_inputs=signoz_ingestion.input_hashes()
         labels={'inside.monitoring.owner':OWNER,'inside.monitoring.nonce':nonce,
             'inside.monitoring.source':source['commit'],'inside.monitoring.tree':source['tree'],
             'inside.monitoring.profile':PROFILE,'com.docker.compose.project':project}
@@ -167,7 +207,7 @@ def construct(primary,core,*,run,source,images,project,nonce,uid,gid):
         plan['x-inside-resource-profile']=PROFILE
     costs={role:{'memory_bytes':memory(service['mem_limit']),'nano_cpus':round(float(service['cpus'])*10**9)} for role,service in plan['services'].items()}
     manifest={'schema':1,'owner':OWNER,'plan_sha256':hashlib.sha256(encoded(plan).encode()).hexdigest(),'core':core,'profile':PROFILE if core==SIGNOZ else PRIMARY,'source':dict(source),
-        'root':str(run),'project':project,'nonce':nonce,'uid':uid,'gid':gid,
+        'root':str(run),'root_identity':{'device':root_info.st_dev,'inode':root_info.st_ino,'uid':root_info.st_uid},'project':project,'nonce':nonce,'uid':uid,'gid':gid,
         'supervisor':{'count':1,'deadline_seconds':600,'cleanup_seconds':90},
         'primary_sha256':hashlib.sha256(encoded(primary).encode()).hexdigest(),
         'roles':costs,'volumes':sorted(plan['volumes']),'networks':sorted(plan['networks']),
@@ -175,5 +215,7 @@ def construct(primary,core,*,run,source,images,project,nonce,uid,gid):
         'one_shot_roles':['migrations','broker-config','telegram-migrations','logto-migrations','volume-reader',
             *(['sig-volume-init','sig-histogram-init','sig-migrator'] if core==SIGNOZ else [])],
         'memory_bytes':sum(row['memory_bytes'] for row in costs.values()),'nano_cpus':sum(row['nano_cpus'] for row in costs.values()),
-        'runtime_available':core==PRIMARY}
-    return Layout(encoded(plan),encoded(manifest))
+        'runtime_available':core==PRIMARY,
+        'generated_files':{name:hashlib.sha256(text.encode()).hexdigest() for name,text in files.items()},
+        'generator_inputs':generator_inputs}
+    return Layout(encoded(plan),encoded(manifest),encoded(files))
