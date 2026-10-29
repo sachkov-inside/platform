@@ -1,0 +1,85 @@
+name: SigNoz import contention diagnostic
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/observability-signoz-import-control.yml
+      - .github/workflows/observability-signoz.yml
+      - .node-version
+      - scripts/observability-signoz.test.mjs
+      - scripts/observability-signoz/**
+      - scripts/observability-signoz-import-control/**
+      - scripts/observability-pilot/**
+      - scripts/observability-resource/**
+      - scripts/owned-process.mjs
+      - scripts/owned-process.py
+      - scripts/owned-process/**
+      - scripts/heavy-check.sh
+      - scripts/heavy-check/**
+      - infra/observability/signoz/**
+      - docs/runbooks/observability-signoz.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signoz-import-control-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  import_control:
+    name: Independent same-cgroup import diagnostic, no acceptance
+    if: >-
+      ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Verify original unchanged-budget protocols
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh node scripts/observability-signoz/verify.mjs
+      - name: Verify separately owned import-control protocols
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh node scripts/observability-signoz-import-control/verify.mjs
+      - name: Run one quiet and one contended sample under original phase bounds
+        timeout-minutes: 8
+        run: >-
+          bash scripts/heavy-check.sh python3 -B scripts/observability-signoz-import-control/control.py run
+          --output "$RUNNER_TEMP/signoz-import-control-private"
+      - name: Recover only the exact registered diagnostic project
+        if: ${{ always() }}
+        timeout-minutes: 2
+        run: >-
+          python3 -B scripts/observability-signoz-import-control/control.py recover
+          --output "$RUNNER_TEMP/signoz-import-control-private"
+      - name: Collect only separate closed diagnostic evidence
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 -B scripts/observability-signoz-import-control/control.py collect
+          --output "$RUNNER_TEMP/signoz-import-control-private"
+          --public "$RUNNER_TEMP/signoz-import-control-public"
+      - name: Upload only import-control projection
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signoz-import-control-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/signoz-import-control-public
+          if-no-files-found: error
+          retention-days: 7
