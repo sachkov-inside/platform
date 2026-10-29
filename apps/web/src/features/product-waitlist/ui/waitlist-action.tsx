@@ -7,6 +7,8 @@ export type WaitlistState =
   "idle" | "loading" | "saving" | "success" | "error" | "linking" | "expired";
 export interface WaitlistActionProps {
   readonly state: WaitlistState;
+  /** Подпись ссылки в программу в нижнем билете; при бесплатных уроках зовёт попробовать. */
+  readonly programmeLabel?: string;
   readonly lower?: boolean;
   readonly productSlug?: string;
   readonly onBegin: () => void;
@@ -67,6 +69,7 @@ export function WaitlistMembership({
 export function WaitlistAction({
   state,
   lower = false,
+  programmeLabel = "Открыть программу",
   productSlug,
   onBegin,
   linking,
@@ -150,7 +153,7 @@ export function WaitlistAction({
                 className="aie-cohort-ticket-programme"
                 href={productProgrammeHref(productSlug)}
               >
-                Открыть программу
+                {programmeLabel}
               </IntentPrefetchLink>
             )}
           </div>

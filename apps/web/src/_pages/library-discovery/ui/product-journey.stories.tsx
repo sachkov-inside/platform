@@ -324,7 +324,7 @@ export const LockedProductInvitesPayment: Story = {
     const canvas = within(canvasElement);
     // Приглашение, а не цена: сумму и состав показывает страница оплаты.
     await expect(
-      canvas.getByRole("link", { name: "Оплатить сейчас" }),
+      canvas.getByRole("link", { name: "Приобрести доступ" }),
     ).toHaveAttribute("href", "/products/platform-inside/buy");
     await expect(canvas.queryByText(/2\s?500/u)).not.toBeInTheDocument();
     await expect(
@@ -341,7 +341,7 @@ export const PaymentInviteMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole("link", { name: "Оплатить сейчас" }),
+      within(canvasElement).getByRole("link", { name: "Приобрести доступ" }),
     ).toBeVisible();
   },
 };
@@ -358,7 +358,7 @@ export const SubscriptionNotForSaleHidesInvite: Story = {
       canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
     ).not.toBeInTheDocument();
     await expect(
-      canvas.queryByRole("link", { name: "Оплатить сейчас" }),
+      canvas.queryByRole("link", { name: "Приобрести доступ" }),
     ).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Модель предметной области" }),
@@ -370,7 +370,7 @@ export const OpenProductHidesPayment: Story = {
   play: async ({ canvasElement }) => {
     // Право уже открыто: предлагать покупку нечего, даже когда цена заведена.
     await expect(
-      within(canvasElement).queryByRole("link", { name: "Оплатить сейчас" }),
+      within(canvasElement).queryByRole("link", { name: "Приобрести доступ" }),
     ).not.toBeInTheDocument();
   },
 };

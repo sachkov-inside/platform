@@ -247,7 +247,7 @@ function loadsInPlace(
       sequence.deliverPersonalPart();
       if (signedIn)
         await canvas.findByRole("progressbar", { name: "Прогресс продукта" });
-      else await canvas.findByRole("link", { name: "Оплатить сейчас" });
+      else await canvas.findByRole("link", { name: "Приобрести доступ" });
       await expect(
         canvasElement.querySelector("[data-product-access-pending]"),
       ).toBeNull();
@@ -269,7 +269,7 @@ export const MemberLoadsInPlaceMobile: Story = {
   ...loadsInPlace(mobile, true),
 };
 
-/** Набор на поток: вместо «Оплатить сейчас» — цена предзаказа, зачёркнутая цена после старта и предзаказ. */
+/** Набор на поток: вместо «Приобрести доступ» — цена предзаказа, зачёркнутая цена после старта и предзаказ. */
 export const GuestPreorder: Story = {
   decorators: [
     (Story) => (

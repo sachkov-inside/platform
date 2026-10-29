@@ -189,106 +189,6 @@ export const OptionalFields: Story = {
   },
 };
 
-const freeLessonTitles = [
-  "Как устроен курс",
-  "Выбор агента и модели",
-  "Контекст, инструменты и harness агента",
-  "Инструкции, скиллы и рабочее окружение",
-  "Начинаем работу с агентом в проекте",
-];
-
-/**
- * Бесплатная ступень курса (#1647): блок `trial` перечисляет бесплатные уроки по порядку
- * программы с меткой «Бесплатно», а его ссылка открывает первый из них. Закрытый урок в список не
- * попадает. Текст блока приходит из `guide.yaml`, здесь он условный.
- */
-export const FreeLessonsTrial: Story = {
-  args: {
-    result: {
-      ...meta.args.result,
-      kind: "ready",
-      hasNext: false,
-      items: [...freeLessonTitles, "Первая версия продукта"].map(
-        (title, index) => ({
-          access: index < 5 ? ("free" as const) : ("closed" as const),
-          availability:
-            index < 5 ? ("available" as const) : ("locked" as const),
-          format: "Гайд",
-          materialId: `0a000000-0000-4000-8000-00000000000${String(index + 1)}`,
-          productMemberships: [
-            {
-              name: "AI Engineering",
-              ordinal: index + 1,
-              slug: "ai-engineering",
-            },
-          ],
-          slug: `free-lesson-${String(index + 1)}`,
-          summary: "",
-          tags: [],
-          title,
-          topic: "Разработка",
-          topicSlug: "development",
-        }),
-      ),
-      reference: {
-        ...meta.args.result.reference,
-        productPage: {
-          presentation: "ai-engineering-course",
-          page: {
-            ...aiEngineeringCoursePage,
-            blocks: [
-              ...aiEngineeringCoursePage.blocks,
-              {
-                id: "trial",
-                kind: "trial" as const,
-                title: "Начни бесплатно",
-                text: "Первые пять уроков главы 1 открыты бесплатно.",
-                link: "Начать первый урок",
-              },
-            ],
-          },
-        },
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const trial =
-      canvas
-        .getByRole("heading", { name: "Начни бесплатно" })
-        .closest("section") ?? fail("Missing trial section");
-    const block = within(trial);
-    const lessons = within(
-      block.getByRole("list", { name: "Бесплатные уроки" }),
-    ).getAllByRole("listitem");
-    await expect(lessons).toHaveLength(freeLessonTitles.length);
-    for (const [index, title] of freeLessonTitles.entries())
-      await expect(lessons[index]).toHaveTextContent(title);
-    await expect(
-      within(lessons[0] ?? fail("Missing first lesson")).getByText("Бесплатно"),
-    ).toBeVisible();
-    await expect(block.queryByText("Первая версия продукта")).toBeNull();
-    await expect(
-      block.getByRole("link", { name: /Начать первый урок/u }),
-    ).toHaveAttribute(
-      "href",
-      "/materials/free-lesson-1?from=%2Fproducts%2Fai-engineering%2Fprogramme",
-    );
-    await expect(
-      block.getByRole("link", { name: /Выбор агента и модели/u }),
-    ).toHaveAttribute(
-      "href",
-      "/materials/free-lesson-2?from=%2Fproducts%2Fai-engineering%2Fprogramme",
-    );
-    await expect(canvasElement.scrollWidth).toBe(canvasElement.clientWidth);
-  },
-};
-
-export const FreeLessonsTrialMobile: Story = {
-  ...FreeLessonsTrial,
-  globals: { viewport: { value: "mobile390", isRotated: false } },
-};
-
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
@@ -610,6 +510,153 @@ export const CohortBetween: Story = {
     ).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Оплатить" })).toBeVisible();
   },
+};
+
+/** Анимация первого экрана зовёт того, кто ещё не учится, начать бесплатно (#1647). */
+const freeStartBadge = (countdown: string | null) => (
+  <>
+    <CourseLearningLink label="Начать бесплатно" slug="ai-engineering" />
+    {countdown === null ? null : <StartCountdownBadge text={countdown} />}
+  </>
+);
+async function expectFreeStart(
+  canvasElement: HTMLElement,
+  ticketLabel: string,
+) {
+  const film =
+    canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+    fail("Анимация курса");
+  await expect(
+    within(film).getByRole("link", { name: "Начать бесплатно" }),
+  ).toHaveAttribute("href", "/products/ai-engineering/programme");
+  const ticket =
+    canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
+    fail("Билет нижнего блока");
+  await expect(
+    within(ticket).getByRole("link", { name: "Попробовать бесплатно" }),
+  ).toHaveAttribute("href", "/products/ai-engineering/programme");
+  await expect(within(ticket).getByText(ticketLabel)).toBeVisible();
+  await expect(canvasElement.scrollWidth).toBe(canvasElement.clientWidth);
+}
+
+/**
+ * Как сейчас на production до открытия продаж: список ожидания на первом экране и в билете, на
+ * анимации «Начать бесплатно», в билете «Попробовать бесплатно» (#1647).
+ */
+export const FreeStartWaitlist: Story = {
+  args: {
+    heroCall: (
+      <WaitlistAction
+        state="idle"
+        onBegin={() => undefined}
+        onWithdraw={() => undefined}
+        linking={null}
+      />
+    ),
+    heroBadge: freeStartBadge("до старта 7 дней"),
+    statusCall: (
+      <WaitlistAction
+        lower
+        productSlug="ai-engineering"
+        programmeLabel="Попробовать бесплатно"
+        state="idle"
+        onBegin={() => undefined}
+        onWithdraw={() => undefined}
+        linking={null}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expectFreeStart(canvasElement, "Скоро начнётся");
+  },
+};
+export const FreeStartWaitlistMobile: Story = {
+  ...FreeStartWaitlist,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Предзаказ открыт: в билете цена со скидкой, «Оформить предзаказ» и «Попробовать бесплатно». */
+export const FreeStartPreorder: Story = {
+  parameters: { account: "authenticated" },
+  args: {
+    ...CohortPreorder.args,
+    heroBadge: freeStartBadge("до старта 31 день"),
+    statusCall: (
+      <CohortStatusView
+        status={
+          cohortStatus({
+            cohort: preorderCohort,
+            offer: preorderOffer,
+            productAccess: "closed",
+            slug: "ai-engineering",
+            freeStart: true,
+            today: "2026-10-09",
+          }) ?? fail("Предзаказ рисует билет")
+        }
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expectFreeStart(canvasElement, "Предзаказ");
+    await expect(
+      within(canvasElement).getByRole("link", { name: /Оформить предзаказ/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/buy");
+  },
+};
+
+/**
+ * Продажи открыты, поток идёт: билет продаёт доступ по цене предложения, рядом приглашение
+ * попробовать бесплатно (решение владельца 29.10.2026, #1647).
+ */
+const runningCohort: ProductSalesState = {
+  ...preorderCohort,
+  stage: "running",
+  startsOn: "2026-10-20",
+};
+export const FreeStartSale: Story = {
+  parameters: { account: "authenticated" },
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: runningCohort,
+          offer: preorderOffer,
+          productAccess: "closed",
+          signedIn: true,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+    heroBadge: freeStartBadge(null),
+    statusCall: (
+      <CohortStatusView
+        status={
+          cohortStatus({
+            cohort: runningCohort,
+            offer: preorderOffer,
+            productAccess: "closed",
+            slug: "ai-engineering",
+            freeStart: true,
+            today: "2026-10-29",
+          }) ?? fail("Идущий поток с продажей рисует билет")
+        }
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expectFreeStart(canvasElement, "Доступ к курсу");
+    const ticket =
+      canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
+      fail("Билет нижнего блока");
+    await expect(
+      within(ticket).getByRole("link", { name: /Приобрести доступ/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/buy");
+    await expect(within(ticket).getByText(/29\s900\s₽/u)).toBeVisible();
+  },
+};
+export const FreeStartSaleMobile: Story = {
+  ...FreeStartSale,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 function WaitlistCourseFixture({
