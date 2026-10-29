@@ -854,3 +854,33 @@ for (const { name, mode, ordinal, control } of [
     }
   });
 }
+
+// deterministic-test-allow unit-io: existing process owner bounds real loopback TLS, original2s timeout and all fixture children/sockets; caller removes private synthetic certificates.
+test("passive Web timing preserves real TLS response, failures and request ownership", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-web-transport-"));
+  try {
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL(
+            "./observability-fullstack/load-contract.mjs",
+            import.meta.url,
+          ),
+        ),
+        directory,
+        "off",
+        "web-transport",
+      ],
+      { timeoutMs: 15000 },
+    );
+    assert.equal(result.reason, "exit", result.stderr);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      ok: true,
+      web_transport: true,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

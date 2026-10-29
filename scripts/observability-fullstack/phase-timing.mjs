@@ -1,5 +1,7 @@
 // @ts-check
 /** Numeric diagnostics only. None of these fields participates in acceptance. */
+/** @typedef {[number,number,number|null,number|null,number|null,number|null,number|null,number|null,number|null,number|null,number]} WebRow */
+/** @typedef {{schema:number,state:string,rows:WebRow[],overflow:number,invalid:number}} WebTransport */
 const REQUEST_LIMIT = 400;
 const OBSERVER_LIMIT = 128;
 const PHASE_WINDOW_MS = 600_000;
@@ -40,6 +42,7 @@ export function phaseTiming(phase, pair, before, epoch, after) {
     pair < 2 &&
     Math.floor(phase / 6) === pair;
   const valid = validPhase && anchor !== null;
+  /** @type {{phase:number|null,pair:number|null,phase_start:number[]|null,phase_end:number[]|null,state:string,requests:number[][],observer_rounds:number[][],request_overflow:number,observer_overflow:number,invalid_rows:number,web_transport?:WebTransport}} */
   const result = {
     phase: validPhase ? phase : null,
     pair: validPhase ? pair : null,
@@ -72,6 +75,188 @@ export function phaseTiming(phase, pair, before, epoch, after) {
   }
   return {
     result,
+    /** Passive listeners belong only to this request; failures never enter transport control.
+     * @param {number} ordinal @param {number} kind
+     */
+    webRequest(ordinal, kind) {
+      const leaf = (result.web_transport ??= {
+        schema: 1,
+        state: "complete",
+        rows: [],
+        overflow: 0,
+        invalid: 0,
+      });
+      const refused =
+        !valid ||
+        !Number.isSafeInteger(ordinal) ||
+        ordinal < 0 ||
+        ordinal >= 400 ||
+        ![0, 1].includes(kind) ||
+        ordinal % 8 !== kind;
+      if (refused) {
+        leaf.invalid++;
+        leaf.state = "unavailable";
+        return undefined;
+      }
+      if (leaf.rows.length >= 100) {
+        leaf.overflow++;
+        leaf.state = "overflow";
+        return undefined;
+      }
+      if (leaf.rows.some((row) => row[0] === ordinal)) {
+        leaf.invalid++;
+        leaf.state = "unavailable";
+        return undefined;
+      }
+      /** @type {WebRow} */ const row = [
+        ordinal,
+        kind,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+      ];
+      leaf.rows.push(row);
+      if (leaf.state === "complete") leaf.state = "partial";
+      /** @type {[import('node:events').EventEmitter,string,()=>void][]} */ const listeners =
+        [];
+      let settled = false,
+        broken = false,
+        attached = false;
+      const bad = () => {
+        if (!broken) {
+          leaf.invalid++;
+          broken = true;
+        }
+        if (leaf.state !== "overflow" && leaf.state !== "unavailable")
+          leaf.state = "partial";
+      };
+      const detach = () => {
+        for (const [emitter, event, fn] of listeners.splice(0)) {
+          try {
+            emitter.off(event, fn);
+          } catch {
+            bad();
+          }
+        }
+      };
+      /** @param {number} column @param {number} at */
+      const mark = (column, at) => {
+        if (settled) return;
+        if (
+          row[column] !== null ||
+          !Number.isFinite(at) ||
+          at < before ||
+          at - before > PHASE_WINDOW_MS
+        ) {
+          bad();
+          return;
+        }
+        row[column] = at - before;
+      };
+      /** @param {()=>void} action */
+      const safe = (action) => {
+        try {
+          action();
+        } catch {
+          bad();
+          detach();
+        }
+      };
+      /** @param {import('node:events').EventEmitter} emitter @param {string} event @param {()=>void} action */
+      const listen = (emitter, event, action) => {
+        const fn = () => safe(action);
+        listeners.push([emitter, event, fn]);
+        emitter.once(event, fn);
+      };
+      return {
+        /** @param {number} at */ begin(at) {
+          safe(() => mark(2, at));
+        },
+        /** @param {import('node:events').EventEmitter & {socket?:import('node:events').EventEmitter|null}} req */
+        attach(req) {
+          safe(() => {
+            if (attached) {
+              bad();
+              detach();
+              return;
+            }
+            attached = true;
+            listen(req, "socket", () => {
+              mark(4, performance.now());
+              const socket = req.socket;
+              if (socket == null) {
+                bad();
+                return;
+              }
+              // A socket already connected when observed has no inferred connect/TLS time.
+              listen(socket, "connect", () => mark(5, performance.now()));
+              listen(socket, "secureConnect", () => mark(6, performance.now()));
+            });
+            listen(req, "finish", () => mark(7, performance.now()));
+          });
+        },
+        submitted() {
+          safe(() => mark(3, performance.now()));
+        },
+        headers() {
+          safe(() => mark(8, performance.now()));
+        },
+        /** @param {number} at @param {number} failure */
+        finish(at, failure) {
+          safe(() => {
+            if (settled) return;
+            mark(9, at);
+            if (!Number.isInteger(failure) || failure < 0 || failure > 5) {
+              bad();
+              row[10] = 5;
+            } else row[10] = failure;
+            /** @type {[number,number][]} */ const branches = [
+              [2, 3],
+              [2, 4],
+              [4, 5],
+              [5, 6],
+              [3, 7],
+              [6, 8],
+              [2, 9],
+            ];
+            for (const [left, right] of branches) {
+              const a = row[left],
+                b = row[right];
+              if (typeof a === "number" && typeof b === "number" && a > b)
+                bad();
+            }
+            if (
+              row.slice(2, 10).some((value) => value === null) ||
+              row
+                .slice(2, 9)
+                .some(
+                  (value) =>
+                    value !== null && row[9] !== null && value > row[9],
+                )
+            )
+              bad();
+            if (failure === 5) bad();
+            if (broken) row[10] = failure === 0 ? 5 : failure;
+            settled = true;
+            if (
+              leaf.invalid === 0 &&
+              leaf.overflow === 0 &&
+              leaf.rows.every((item) =>
+                item.slice(2, 10).every((value) => value !== null),
+              )
+            )
+              leaf.state = "complete";
+          });
+          detach();
+        },
+      };
+    },
     /** @param {number} ordinal @param {number} kind @param {number} start @param {number} end */
     request(ordinal, kind, start, end) {
       if (
