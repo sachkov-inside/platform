@@ -14,6 +14,11 @@ const client = fileURLToPath(new URL("./client.mjs", import.meta.url));
 const profile = fileURLToPath(
   new URL("../../infra/observability/fullstack/profile.json", import.meta.url),
 );
+/** @param {unknown} value @param {string} key @returns {unknown} */
+function field(value, key) {
+  assert.ok(value !== null && typeof value === "object" && key in value);
+  return Reflect.get(value, key);
+}
 const enabled = process.argv[3] === "on";
 const queryFailures = process.argv[4] === "query-failures";
 const diagnosticOrdinal = process.argv[4]?.startsWith("stability-")
@@ -46,11 +51,6 @@ const held = new Promise((resolve) => {
 });
 const account = "00000000-0000-4000-8000-000000001566";
 /** @type {Record<string, number>} */ const counts = {};
-/** @param {unknown} value @param {string} key @returns {unknown} */
-function field(value, key) {
-  assert.ok(value !== null && typeof value === "object" && key in value);
-  return Reflect.get(value, key);
-}
 /** @param {unknown} value @returns {unknown} */
 function first(value) {
   assert.ok(Array.isArray(value) && value.length > 0);
@@ -182,7 +182,13 @@ const server = createServer(async (request, response) => {
     }
   } else if (host === "umami-query") {
     // The pinned native HTTP endpoint returns stats directly. MCP adds `current`.
-    value = { pageviews: 1, visitors: 1, visits: 1, bounces: 1, totaltime: 0 };
+    value = {
+      pageviews: 1,
+      visitors: 1,
+      visits: 1,
+      bounces: 1,
+      totaltime: 0,
+    };
   } else if (host === "umami-ingest") {
     value = { cache: "synthetic", sessionId: account, visitId: account };
   } else if (host === "mcp") {
@@ -280,347 +286,682 @@ const server = createServer(async (request, response) => {
 });
 /** @type {import('node:child_process').ChildProcess | undefined} */ let child;
 /** @type {Promise<unknown[]> | undefined} */ let closed;
-try {
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
-  const loader = join(directory, "load-preload.mjs");
-  const timerReceipt = join(directory, "load-timers.json");
-  await rm(timerReceipt, { force: true });
-  // Test-only early completion proves the requested delay independently of elapsed cadence.
-  // In this fixed 400-operation spike, scheduling delays cover successive 25 ms slots;
-  // the phase remainder is after the final 9975 ms slot. Only observer rounds request 500 ms.
-  await writeFile(
-    loader,
-    `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import timers from 'node:timers/promises';import {syncBuiltinESMExports} from 'node:module';
+if (process.argv[4] === "web-transport") await webTransportContract();
+else
+  try {
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const loader = join(directory, "load-preload.mjs");
+    const timerReceipt = join(directory, "load-timers.json");
+    await rm(timerReceipt, { force: true });
+    // Test-only early completion proves the requested delay independently of elapsed cadence.
+    // In this fixed 400-operation spike, scheduling delays cover successive 25 ms slots;
+    // the phase remainder is after the final 9975 ms slot. Only observer rounds request 500 ms.
+    await writeFile(
+      loader,
+      `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import timers from 'node:timers/promises';import {syncBuiltinESMExports} from 'node:module';
 const read=fs.readFileSync;fs.readFileSync=(p,...a)=>p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array.from({length:256},(_,index)=>'synthetic-'+index)}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);
 const timer=timers.setTimeout;let requested=0,selected=false,completed=0,overflow=0;timers.setTimeout=(ms,...a)=>{if(ms===500){if(requested<128)requested++;else overflow=1;if(${enabled && !queryFailures}&&!selected){selected=true;return timer(0,...a).then(value=>{completed=1;return value;});}}return timer(ms,...a);};process.on('exit',()=>fs.writeFileSync(${JSON.stringify(timerReceipt)},JSON.stringify([requested,completed,overflow])));
 const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.resource.test','mcp','telegram','logto','alloy','gateway','umami-query','umami-ingest'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:${address.port},headers:{...o.headers,'x-fixture-host':o.hostname}},cb);};http.request=mapped;https.request=mapped;syncBuiltinESMExports();`,
-  );
-  // deterministic-test-allow process-cleanup: inherited group, externally owned by the root tooling runOwnedProcess; no detached CLI group can escape worker termination.
-  child = spawn(
-    process.execPath,
-    [
-      "--import",
-      loader,
-      client,
-      ...(diagnosticOrdinal === null
-        ? [
-            "load",
-            JSON.stringify(
-              queryFailures
-                ? { name: "idle", seconds: 10, requests_per_second: 0 }
-                : { name: "spike", seconds: 10, requests_per_second: 40 },
-            ),
-            enabled ? "on" : "off",
-            "0",
-          ]
-        : [
-            "stability-load",
-            enabled ? "on" : "off",
-            String(diagnosticOrdinal),
-            ...(protocol === undefined ? [] : [protocol]),
-          ]),
-    ],
-    { stdio: ["ignore", "pipe", "pipe"] },
-  );
-  closed = once(child, "close");
-  let stdout = "",
-    stderr = "";
-  child.stdout?.on("data", (chunk) => {
-    stdout += String(chunk);
-    if (Buffer.byteLength(stdout) > 65536) child?.kill("SIGKILL");
-  });
-  child.stderr?.on("data", (chunk) => {
-    stderr += String(chunk);
-    if (Buffer.byteLength(stderr) > 65536) child?.kill("SIGKILL");
-  });
-  const started = performance.now();
-  const [code] = await closed;
-  assert.equal(code, 0, stderr);
-  assert.ok(
-    performance.now() - started >= phaseSeconds * 1000,
-    "full phase duration required",
-  );
-  /** @type {unknown} */ const result = JSON.parse(stdout);
-  assert.ok(
-    result &&
-      typeof result === "object" &&
-      "scheduled" in result &&
-      "missed" in result &&
-      "success" in result &&
-      "unexpected_failures" in result &&
-      "completed" in result,
-  );
-  if (protocol !== undefined) {
-    assert.equal(field(result, "diagnostic_protocol"), protocol);
-    assert.deepEqual(field(result, "diagnostic_definition"), {
-      name: "spike",
-      seconds: phaseSeconds,
-      requests_per_second: phaseSeconds === 20 ? 20 : 40,
+    );
+    // deterministic-test-allow process-cleanup: inherited group, externally owned by the root tooling runOwnedProcess; no detached CLI group can escape worker termination.
+    child = spawn(
+      process.execPath,
+      [
+        "--import",
+        loader,
+        client,
+        ...(diagnosticOrdinal === null
+          ? [
+              "load",
+              JSON.stringify(
+                queryFailures
+                  ? { name: "idle", seconds: 10, requests_per_second: 0 }
+                  : { name: "spike", seconds: 10, requests_per_second: 40 },
+              ),
+              enabled ? "on" : "off",
+              "0",
+            ]
+          : [
+              "stability-load",
+              enabled ? "on" : "off",
+              String(diagnosticOrdinal),
+              ...(protocol === undefined ? [] : [protocol]),
+            ]),
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    closed = once(child, "close");
+    let stdout = "",
+      stderr = "";
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
+      if (Buffer.byteLength(stdout) > 65536) child?.kill("SIGKILL");
     });
-    await writeFile(
-      join(directory, `actual-client-result-${String(diagnosticOrdinal)}.json`),
-      JSON.stringify(result),
-    );
-  }
-  const timing = field(result, "timing_diagnostics");
-  assert.equal(field(timing, "state"), "complete");
-  assert.equal(
-    field(timing, "phase"),
-    diagnosticOrdinal ?? (queryFailures ? 3 : enabled ? 5 : 2),
-  );
-  assert.equal(
-    field(timing, "pair"),
-    diagnosticOrdinal === null ? 0 : Math.floor(diagnosticOrdinal / 6),
-  );
-  const phaseStart = field(timing, "phase_start");
-  const phaseEnd = field(timing, "phase_end");
-  assert.ok(Array.isArray(phaseStart) && Array.isArray(phaseEnd));
-  for (const anchor of [phaseStart, phaseEnd]) {
-    assert.equal(anchor.length, 3);
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk);
+      if (Buffer.byteLength(stderr) > 65536) child?.kill("SIGKILL");
+    });
+    const started = performance.now();
+    const [code] = await closed;
+    assert.equal(code, 0, stderr);
     assert.ok(
-      anchor.every(
-        (value) => typeof value === "number" && Number.isFinite(value),
-      ),
+      performance.now() - started >= phaseSeconds * 1000,
+      "full phase duration required",
     );
-    assert.ok(anchor[0] <= anchor[2]);
-    assert.ok(Number.isSafeInteger(anchor[1]) && anchor[1] >= 0);
-  }
-  assert.ok(phaseEnd[0] - phaseStart[0] >= phaseSeconds * 1000);
-  const requests = field(timing, "requests");
-  const rounds = field(timing, "observer_rounds");
-  assert.ok(Array.isArray(requests) && Array.isArray(rounds));
-  assert.ok((await stat(timerReceipt)).size <= 256);
-  /** @type {unknown} */ const timerCounts = JSON.parse(
-    await readFile(timerReceipt, "utf8"),
-  );
-  assert.ok(
-    Array.isArray(timerCounts) &&
-      timerCounts.length === 3 &&
-      timerCounts.every(
-        (value) =>
-          typeof value === "number" &&
-          Number.isSafeInteger(value) &&
-          value >= 0,
-      ),
-  );
-  assert.ok(timerCounts[0] <= 128);
-  assert.equal(timerCounts[1], enabled && !queryFailures ? 1 : 0);
-  assert.equal(timerCounts[2], 0, "bounded timer receipt overflow");
-  if (!queryFailures) assert.equal(timerCounts[0], rounds.length);
-  const latencies = field(result, "latency");
-  assert.ok(Array.isArray(latencies));
-  assert.equal(requests.length, latencies.length);
-  const labels = [
-    "web_home",
-    "web_material",
-    "api_catalog",
-    "api_account",
-    "",
-    "",
-    "telegram_webhook",
-    "logto_discovery",
-  ];
-  for (const [index, row] of requests.entries()) {
-    assert.ok(timingRow(row));
-    assert.equal(row[0] % 8, row[1]);
-    assert.equal(field(latencies[index], "label"), labels[row[1]]);
+    /** @type {unknown} */ const result = JSON.parse(stdout);
     assert.ok(
-      Math.abs(
-        row[3] - row[2] - Number(field(latencies[index], "elapsed_ms")),
-      ) < 1e-8,
+      result &&
+        typeof result === "object" &&
+        "scheduled" in result &&
+        "missed" in result &&
+        "success" in result &&
+        "unexpected_failures" in result &&
+        "completed" in result,
     );
-    assert.ok(row[2] >= 0 && row[3] >= row[2]);
-  }
-  for (const [index, row] of rounds.entries()) {
-    assert.ok(timingRow(row));
-    assert.equal(row[0], index);
-    assert.ok(row[1] >= 0 && row[2] >= row[1]);
-    if (index > 0) {
-      /** @type {unknown} */ const previous = rounds[index - 1];
-      assert.ok(timingRow(previous));
-      assert.ok(row[1] >= previous[2]);
+    if (protocol !== undefined) {
+      assert.equal(field(result, "diagnostic_protocol"), protocol);
+      assert.deepEqual(field(result, "diagnostic_definition"), {
+        name: "spike",
+        seconds: phaseSeconds,
+        requests_per_second: phaseSeconds === 20 ? 20 : 40,
+      });
+      await writeFile(
+        join(
+          directory,
+          `actual-client-result-${String(diagnosticOrdinal)}.json`,
+        ),
+        JSON.stringify(result),
+      );
     }
-    assert.ok(Number.isInteger(row[3]) && row[3] >= 0 && row[3] <= 9);
-  }
-  assert.equal(field(timing, "request_overflow"), 0);
-  assert.equal(field(timing, "observer_overflow"), 0);
-  assert.equal(field(timing, "invalid_rows"), 0);
-  assert.equal(JSON.stringify(timing).includes("synthetic"), false);
-  if (enabled) assert.ok(rounds.length > 0);
-  else assert.deepEqual(rounds, []);
-  if (slotControl !== undefined) {
-    await writeFile(
-      join(directory, "slot-refusal-result.json"),
-      JSON.stringify(result),
+    const timing = field(result, "timing_diagnostics");
+    assert.ok(timing !== null && typeof timing === "object");
+    assert.equal(field(timing, "state"), "complete");
+    assert.equal(
+      field(timing, "phase"),
+      diagnosticOrdinal ?? (queryFailures ? 3 : enabled ? 5 : 2),
     );
-    // This deliberately incomplete control may reach the fixed phase deadline before all ticks.
-    assert.ok(
-      typeof result.scheduled === "number" &&
-        Number.isSafeInteger(result.scheduled) &&
-        result.scheduled > 0 &&
-        result.scheduled <= 400,
+    assert.equal(
+      field(timing, "pair"),
+      diagnosticOrdinal === null ? 0 : Math.floor(diagnosticOrdinal / 6),
     );
-    assert.ok(
-      typeof result.missed === "number" &&
-        Number.isSafeInteger(result.missed) &&
-        result.missed > 0 &&
-        result.missed <= result.scheduled,
-    );
-    assert.ok(
-      typeof result.success === "number" &&
-        Number.isSafeInteger(result.success) &&
-        result.success >= 0 &&
-        result.success <= result.scheduled,
-    );
-    assert.equal(result.success + result.missed, result.scheduled);
-    assert.equal(result.completed, false);
-    assert.equal(result.unexpected_failures, 0);
-    const refusal = field(result, "slot_refusal");
-    assert.equal(field(refusal, "state"), "captured");
-    const slots = field(refusal, "slots");
-    assert.ok(Array.isArray(slots) && slots.length === 8);
-    for (const slot of slots)
+    const phaseStart = field(timing, "phase_start");
+    const phaseEnd = field(timing, "phase_end");
+    assert.ok(Array.isArray(phaseStart) && Array.isArray(phaseEnd));
+    for (const anchor of [phaseStart, phaseEnd]) {
+      assert.equal(anchor.length, 3);
       assert.ok(
-        Array.isArray(slot) &&
-          slot.length === 6 &&
-          slot[1] === (slotControl === "probe" ? 0 : 1),
-      );
-    console.log(JSON.stringify({ ok: true, incomplete: true }));
-  } else if (queryFailures) {
-    assert.equal(result.completed, false);
-    assert.deepEqual(
-      rounds.slice(0, 17).map((row) => {
-        assert.ok(timingRow(row));
-        return row[3];
-      }),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 1, 8, 9, 9, 9, 9, 9],
-    );
-    assert.deepEqual(field(result, "query_failure_counts"), {
-      metrics_http: 3,
-      metrics_response: 1,
-      logs_http: 1,
-      traces_http: 1,
-      traces_response: 1,
-      umami_http: 1,
-      umami_response: 1,
-      source_cache_http: 2,
-      source_cache_response: 6,
-    });
-    assert.deepEqual(field(result, "query_failure_status_counts"), {
-      metrics_http: { 0: 1, 503: 1, unknown: 1 },
-      metrics_response: { 200: 1 },
-      logs_http: { 503: 1 },
-      traces_http: { 503: 1 },
-      traces_response: { 200: 1 },
-      umami_http: { 503: 1 },
-      umami_response: { 200: 1 },
-      source_cache_http: { 0: 1, 503: 1 },
-      source_cache_response: { 200: 6 },
-    });
-    assert.deepEqual(field(result, "source_cache_failure_counts"), {
-      http: 2,
-      schema: 1,
-      ready_count: 5,
-    });
-    const evidence = field(result, "source_cache_failures");
-    assert.ok(Array.isArray(evidence));
-    assert.equal(evidence.length, 4);
-    assert.deepEqual(
-      evidence.map((value) => field(value, "reason")),
-      ["http", "schema", "http", "ready_count"],
-    );
-    assert.equal(field(result, "source_cache_failure_overflow"), 4);
-    assert.equal(JSON.stringify(result).includes("private-sentinel"), false);
-    const timings = field(result, "query_seconds");
-    assert.ok(Array.isArray(timings) && timings.length > 0);
-    assert.equal(result.scheduled, 0);
-    assert.equal(result.success, 0);
-    console.log(
-      JSON.stringify({ ok: true, closed_query_failures: 17, scheduled: 0 }),
-    );
-  } else {
-    assert.deepEqual(
-      {
-        scheduled: result.scheduled,
-        missed: result.missed,
-        success: result.success,
-        unexpected: result.unexpected_failures,
-        completed: result.completed,
-      },
-      {
-        scheduled: 400,
-        missed: 0,
-        success: 400,
-        unexpected: 0,
-        completed: true,
-      },
-    );
-    const applicationCounts = Object.fromEntries(
-      Object.entries(counts).filter(([name]) =>
-        [
-          "site.resource.test",
-          "api.resource.test",
-          "mcp",
-          "telegram",
-          "logto",
-        ].includes(name),
-      ),
-    );
-    assert.deepEqual(applicationCounts, {
-      "site.resource.test": 100,
-      "api.resource.test": 100,
-      mcp: 50,
-      telegram: 50,
-      logto: 50,
-    });
-    if (enabled) {
-      assert.ok(
-        "stored_probe_points" in result &&
-          "unexplained_probe_loss" in result &&
-          "query_seconds" in result,
-      );
-      assert.equal(result.stored_probe_points, 400);
-      assert.equal(result.unexplained_probe_loss, 0);
-      assert.ok(
-        Array.isArray(result.query_seconds) && result.query_seconds.length > 0,
-      );
-      assert.ok(monitoringQueries > 0);
-    }
-    if (diagnosticOrdinal !== null) {
-      assert.deepEqual(
-        actorIndices,
-        Array.from({ length: 50 }, (_, index) => index),
-      );
-      assert.deepEqual(
-        [...updateIds].sort((a, b) => a - b),
-        Array.from(
-          { length: 50 },
-          (_, index) => 2000000 + diagnosticOrdinal * 1000 + index * 8 + 6,
+        anchor.every(
+          (value) => typeof value === "number" && Number.isFinite(value),
         ),
       );
-      assert.equal(field(result, "diagnostic_only"), true);
-      assert.equal(field(result, "actor_cohort"), 0);
-      const max = field(result, "maximum_inflight");
-      assert.ok(typeof max === "number" && max === 8);
+      assert.ok(anchor[0] <= anchor[2]);
+      assert.ok(Number.isSafeInteger(anchor[1]) && anchor[1] >= 0);
     }
-    console.log(
-      JSON.stringify({
-        ok: true,
-        scheduled: 400,
-        mcp_sse: 50,
-        ...(diagnosticOrdinal === null ? {} : { diagnosticOrdinal }),
-      }),
+    assert.ok(phaseEnd[0] - phaseStart[0] >= phaseSeconds * 1000);
+    const requests = field(timing, "requests");
+    const rounds = field(timing, "observer_rounds");
+    if (!queryFailures) {
+      const web = field(timing, "web_transport"),
+        rows = field(web, "rows");
+      assert.ok(Array.isArray(rows));
+      assert.equal(rows.length, slotControl === undefined ? 100 : rows.length);
+      assert.ok(rows.length <= 100);
+      assert.equal(field(web, "overflow"), 0);
+      for (const row of rows) {
+        assert.ok(transportRow(row));
+        assert.ok([0, 1].includes(row[1]));
+        assert.equal(row[0] % 8, row[1]);
+        assert.equal(row[6], null);
+      }
+    } else assert.equal("web_transport" in timing, false);
+
+    assert.ok(Array.isArray(requests) && Array.isArray(rounds));
+    assert.ok((await stat(timerReceipt)).size <= 256);
+    /** @type {unknown} */ const timerCounts = JSON.parse(
+      await readFile(timerReceipt, "utf8"),
     );
+    assert.ok(
+      Array.isArray(timerCounts) &&
+        timerCounts.length === 3 &&
+        timerCounts.every(
+          (value) =>
+            typeof value === "number" &&
+            Number.isSafeInteger(value) &&
+            value >= 0,
+        ),
+    );
+    assert.ok(timerCounts[0] <= 128);
+    assert.equal(timerCounts[1], enabled && !queryFailures ? 1 : 0);
+    assert.equal(timerCounts[2], 0, "bounded timer receipt overflow");
+    if (!queryFailures) assert.equal(timerCounts[0], rounds.length);
+    const latencies = field(result, "latency");
+    assert.ok(Array.isArray(latencies));
+    assert.equal(requests.length, latencies.length);
+    const labels = [
+      "web_home",
+      "web_material",
+      "api_catalog",
+      "api_account",
+      "",
+      "",
+      "telegram_webhook",
+      "logto_discovery",
+    ];
+    for (const [index, row] of requests.entries()) {
+      assert.ok(timingRow(row));
+      assert.equal(row[0] % 8, row[1]);
+      assert.equal(field(latencies[index], "label"), labels[row[1]]);
+      assert.ok(
+        Math.abs(
+          row[3] - row[2] - Number(field(latencies[index], "elapsed_ms")),
+        ) < 1e-8,
+      );
+      assert.ok(row[2] >= 0 && row[3] >= row[2]);
+    }
+    for (const [index, row] of rounds.entries()) {
+      assert.ok(timingRow(row));
+      assert.equal(row[0], index);
+      assert.ok(row[1] >= 0 && row[2] >= row[1]);
+      if (index > 0) {
+        /** @type {unknown} */ const previous = rounds[index - 1];
+        assert.ok(timingRow(previous));
+        assert.ok(row[1] >= previous[2]);
+      }
+      assert.ok(Number.isInteger(row[3]) && row[3] >= 0 && row[3] <= 9);
+    }
+    assert.equal(field(timing, "request_overflow"), 0);
+    assert.equal(field(timing, "observer_overflow"), 0);
+    assert.equal(field(timing, "invalid_rows"), 0);
+    assert.equal(JSON.stringify(timing).includes("synthetic"), false);
+    if (enabled) assert.ok(rounds.length > 0);
+    else assert.deepEqual(rounds, []);
+    if (slotControl !== undefined) {
+      await writeFile(
+        join(directory, "slot-refusal-result.json"),
+        JSON.stringify(result),
+      );
+      // This deliberately incomplete control may reach the fixed phase deadline before all ticks.
+      assert.ok(
+        typeof result.scheduled === "number" &&
+          Number.isSafeInteger(result.scheduled) &&
+          result.scheduled > 0 &&
+          result.scheduled <= 400,
+      );
+      assert.ok(
+        typeof result.missed === "number" &&
+          Number.isSafeInteger(result.missed) &&
+          result.missed > 0 &&
+          result.missed <= result.scheduled,
+      );
+      assert.ok(
+        typeof result.success === "number" &&
+          Number.isSafeInteger(result.success) &&
+          result.success >= 0 &&
+          result.success <= result.scheduled,
+      );
+      assert.equal(result.success + result.missed, result.scheduled);
+      assert.equal(result.completed, false);
+      assert.equal(result.unexpected_failures, 0);
+      const refusal = field(result, "slot_refusal");
+      assert.equal(field(refusal, "state"), "captured");
+      const slots = field(refusal, "slots");
+      assert.ok(Array.isArray(slots) && slots.length === 8);
+      for (const slot of slots)
+        assert.ok(
+          Array.isArray(slot) &&
+            slot.length === 6 &&
+            slot[1] === (slotControl === "probe" ? 0 : 1),
+        );
+      console.log(JSON.stringify({ ok: true, incomplete: true }));
+    } else if (queryFailures) {
+      assert.equal(result.completed, false);
+      assert.deepEqual(
+        rounds.slice(0, 17).map((row) => {
+          assert.ok(timingRow(row));
+          return row[3];
+        }),
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 1, 8, 9, 9, 9, 9, 9],
+      );
+      assert.deepEqual(field(result, "query_failure_counts"), {
+        metrics_http: 3,
+        metrics_response: 1,
+        logs_http: 1,
+        traces_http: 1,
+        traces_response: 1,
+        umami_http: 1,
+        umami_response: 1,
+        source_cache_http: 2,
+        source_cache_response: 6,
+      });
+      assert.deepEqual(field(result, "query_failure_status_counts"), {
+        metrics_http: { 0: 1, 503: 1, unknown: 1 },
+        metrics_response: { 200: 1 },
+        logs_http: { 503: 1 },
+        traces_http: { 503: 1 },
+        traces_response: { 200: 1 },
+        umami_http: { 503: 1 },
+        umami_response: { 200: 1 },
+        source_cache_http: { 0: 1, 503: 1 },
+        source_cache_response: { 200: 6 },
+      });
+      assert.deepEqual(field(result, "source_cache_failure_counts"), {
+        http: 2,
+        schema: 1,
+        ready_count: 5,
+      });
+      const evidence = field(result, "source_cache_failures");
+      assert.ok(Array.isArray(evidence));
+      assert.equal(evidence.length, 4);
+      assert.deepEqual(
+        evidence.map((value) => field(value, "reason")),
+        ["http", "schema", "http", "ready_count"],
+      );
+      assert.equal(field(result, "source_cache_failure_overflow"), 4);
+      assert.equal(JSON.stringify(result).includes("private-sentinel"), false);
+      const timings = field(result, "query_seconds");
+      assert.ok(Array.isArray(timings) && timings.length > 0);
+      assert.equal(result.scheduled, 0);
+      assert.equal(result.success, 0);
+      console.log(
+        JSON.stringify({ ok: true, closed_query_failures: 17, scheduled: 0 }),
+      );
+    } else {
+      assert.deepEqual(
+        {
+          scheduled: result.scheduled,
+          missed: result.missed,
+          success: result.success,
+          unexpected: result.unexpected_failures,
+          completed: result.completed,
+        },
+        {
+          scheduled: 400,
+          missed: 0,
+          success: 400,
+          unexpected: 0,
+          completed: true,
+        },
+      );
+      const applicationCounts = Object.fromEntries(
+        Object.entries(counts).filter(([name]) =>
+          [
+            "site.resource.test",
+            "api.resource.test",
+            "mcp",
+            "telegram",
+            "logto",
+          ].includes(name),
+        ),
+      );
+      assert.deepEqual(applicationCounts, {
+        "site.resource.test": 100,
+        "api.resource.test": 100,
+        mcp: 50,
+        telegram: 50,
+        logto: 50,
+      });
+      if (enabled) {
+        assert.ok(
+          "stored_probe_points" in result &&
+            "unexplained_probe_loss" in result &&
+            "query_seconds" in result,
+        );
+        assert.equal(result.stored_probe_points, 400);
+        assert.equal(result.unexplained_probe_loss, 0);
+        assert.ok(
+          Array.isArray(result.query_seconds) &&
+            result.query_seconds.length > 0,
+        );
+        assert.ok(monitoringQueries > 0);
+      }
+      if (diagnosticOrdinal !== null) {
+        assert.deepEqual(
+          actorIndices,
+          Array.from({ length: 50 }, (_, index) => index),
+        );
+        assert.deepEqual(
+          [...updateIds].sort((a, b) => a - b),
+          Array.from(
+            { length: 50 },
+            (_, index) => 2000000 + diagnosticOrdinal * 1000 + index * 8 + 6,
+          ),
+        );
+        assert.equal(field(result, "diagnostic_only"), true);
+        assert.equal(field(result, "actor_cohort"), 0);
+        const max = field(result, "maximum_inflight");
+        assert.ok(typeof max === "number" && max === 8);
+      }
+      console.log(
+        JSON.stringify({
+          ok: true,
+          scheduled: 400,
+          mcp_sse: 50,
+          ...(diagnosticOrdinal === null ? {} : { diagnosticOrdinal }),
+        }),
+      );
+    }
+  } finally {
+    releaseHeld();
+    if (child && child.exitCode === null && child.signalCode === null)
+      child.kill("SIGKILL");
+    await closed?.catch(() => {});
+    server.closeAllConnections();
+    if (server.listening)
+      await new Promise((resolve) => server.close(() => resolve(undefined)));
   }
-} finally {
-  releaseHeld();
-  if (child && child.exitCode === null && child.signalCode === null)
-    child.kill("SIGKILL");
-  await closed?.catch(() => {});
-  server.closeAllConnections();
-  if (server.listening)
-    await new Promise((resolve) => server.close(() => resolve(undefined)));
+
+/** @param {unknown} value @returns {value is import("./phase-timing.mjs").WebRow} */
+function transportRow(value) {
+  return (
+    Array.isArray(value) &&
+    value.length === 11 &&
+    value.every(
+      (item) =>
+        item === null || (typeof item === "number" && Number.isFinite(item)),
+    ) &&
+    typeof value[0] === "number" &&
+    typeof value[1] === "number" &&
+    typeof value[10] === "number"
+  );
+}
+
+/** Real TLS and actual client functions, with only private-file and destination routing doubled. */
+async function webTransportContract() {
+  assert.ok(directory);
+  const { execFileSync } = await import("node:child_process");
+  const fs = (await import("node:fs")).default;
+  const https = (await import("node:https")).default;
+  const { syncBuiltinESMExports } = await import("node:module");
+  const { pathToFileURL } = await import("node:url");
+  const { phaseTiming } = await import("./phase-timing.mjs");
+  execFileSync(
+    "python3",
+    [
+      "-B",
+      "-c",
+      "import sys;from pathlib import Path;sys.path.insert(0,'scripts/observability-resource');import fixture;fixture.certificates(Path(sys.argv[1]))",
+      directory,
+    ],
+    { timeout: 5000, stdio: "pipe" },
+  );
+  const ca = await readFile(join(directory, "trust/provider.pem"));
+  const key = await readFile(join(directory, "provider-tls/server.key"));
+  let releaseHeaders = () => {},
+    releaseBody = () => {},
+    received = () => {};
+  let behavior = "ok",
+    connections = 0,
+    requests = 0;
+  const listener = https.createServer({ key, cert: ca }, async (_req, res) => {
+    requests++;
+    const headers = new Promise((resolve) => {
+      releaseHeaders = () => resolve(undefined);
+    });
+    const body = new Promise((resolve) => {
+      releaseBody = () => resolve(undefined);
+    });
+    received();
+    if (behavior === "disconnect") {
+      res.destroy();
+      return;
+    }
+    await headers;
+    res.writeHead(200, { "content-type": "text/html" });
+    res.flushHeaders();
+    await body;
+    if (behavior === "response-error") {
+      res.destroy();
+      return;
+    }
+    res.end(
+      behavior === "large"
+        ? "x".repeat(1024)
+        : '<html><body class="home-page">Главная</body></html>',
+    );
+  });
+  listener.on("secureConnection", () => connections++);
+  const read = fs.readFileSync,
+    request = https.request;
+  /** @type {import("node:http").ClientRequest[]} */ const seen = [];
+  try {
+    listener.listen(0, "127.0.0.1");
+    await once(listener, "listening");
+    const address = listener.address();
+    assert.ok(address && typeof address !== "string");
+    /** @param {import("node:fs").PathOrFileDescriptor} path @param {Parameters<typeof read>[1]} options */
+    const mappedRead = (path, options) =>
+      path === "/resource/full-profile.json"
+        ? read(profile, options)
+        : path === "/private/caddy-root.pem"
+          ? ca
+          : path === "/private/token.json"
+            ? JSON.stringify({
+                tokens: Array(256).fill("private-token-sentinel"),
+              })
+            : read(path, options);
+    assert.ok(Reflect.set(fs, "readFileSync", mappedRead));
+    /** @param {import("node:https").RequestOptions} options @param {(response:import("node:http").IncomingMessage)=>void} callback */
+    const mappedRequest = (options, callback) => {
+      assert.equal(options.hostname, "site.resource.test");
+      assert.equal(options.port, 443);
+      assert.equal(options.servername, "site.resource.test");
+      assert.equal(options.agent, false);
+      assert.deepEqual(options.ca, ca);
+      assert.equal(options.method, "GET");
+      assert.deepEqual(options.headers, {});
+      const req = request(
+        {
+          ...options,
+          hostname: "127.0.0.1",
+          port: address.port,
+          servername: "provider",
+        },
+        callback,
+      );
+      seen.push(req);
+      return req;
+    };
+    assert.ok(Reflect.set(https, "request", mappedRequest));
+    syncBuiltinESMExports();
+    const sourcePart = (await readFile(client, "utf8"))
+      .split("const [action, ...args] = process.argv.slice(2);")
+      .at(0);
+    assert.ok(sourcePart);
+    const source = sourcePart.replace(
+      /from "(\.\/[^"]+)"/gu,
+      /** @param {string} _all @param {string} path */
+      (_all, path) => `from "${new URL(path, pathToFileURL(client)).href}"`,
+    );
+    const modulePath = join(directory, "actual-web-client.mjs");
+    await writeFile(modulePath, source + "\nexport {call,operation};\n");
+    /** @type {unknown} */ const actual = await import(
+      pathToFileURL(modulePath).href
+    );
+    assert.ok(actual && typeof actual === "object");
+    /** @param {string} name @param {unknown[]} args @returns {Promise<unknown>} */
+    async function invoke(name, args) {
+      assert.ok(actual && typeof actual === "object");
+      /** @type {unknown} */ const fn = Reflect.get(actual, name);
+      assert.equal(typeof fn, "function");
+      assert.ok(typeof fn === "function");
+      /** @type {unknown} */ const value = await Reflect.apply(
+        fn,
+        undefined,
+        args,
+      );
+      return value;
+    }
+    const origin = performance.now(),
+      timing = phaseTiming(2, 0, origin, Date.now(), performance.now());
+    let arrived = () => {};
+    const arrival = new Promise((resolve) => {
+      arrived = () => resolve(undefined);
+    });
+    received = () => arrived();
+    const pending = invoke("operation", [
+      0,
+      false,
+      2,
+      2,
+      timing.webRequest?.(0, 0),
+    ]);
+    await arrival;
+    assert.equal(seen.length, 1);
+    releaseHeaders();
+    const firstRequest = seen[0];
+    assert.ok(firstRequest);
+    await once(firstRequest, "response");
+    const leaf = timing.result.web_transport;
+    assert.ok(leaf, "actual Web operation must record passive transport marks");
+    assert.equal(leaf.rows.length, 1);
+    const row = leaf.rows[0];
+    assert.ok(row);
+    assert.ok(row[8] !== null);
+    assert.equal(row[9], null);
+    releaseBody();
+    const result = await pending;
+    assert.equal(field(result, "status"), 200);
+    assert.equal(field(result, "label"), "web_home");
+    assert.equal(
+      field(result, "value"),
+      '<html><body class="home-page">Главная</body></html>',
+    );
+    assert.deepEqual(row.slice(0, 2), [0, 0]);
+    assert.equal(row[10], 0);
+    for (const value of row.slice(2, 10)) assert.ok(Number.isFinite(value));
+    const ended = field(result, "ended_ms"),
+      started = field(result, "started_ms");
+    assert.ok(
+      typeof ended === "number" &&
+        typeof started === "number" &&
+        row[9] !== null &&
+        row[2] !== null,
+    );
+    assert.equal(row[9] - row[2], ended - started);
+    assert.equal(field(result, "seconds"), (ended - started) / 1000);
+    assert.equal(connections, 1);
+    assert.equal(requests, 1);
+    assert.equal(leaf.state, "complete");
+    assert.equal(JSON.stringify(leaf).includes("private"), false);
+    // Each observer hook may fail independently without changing real transport results.
+    for (const hook of ["begin", "attach", "submitted", "headers", "finish"]) {
+      let arrived = () => {};
+      const arrival = new Promise((resolve) => {
+        arrived = () => resolve(undefined);
+      });
+      received = () => arrived();
+      const recorder = timing.webRequest(seen.length * 8, 0);
+      assert.ok(recorder);
+      /** @param {string} name */ const fail = (name) => {
+        if (name === hook) throw new Error("private-observer-sentinel");
+      };
+      const observer = {
+        /** @param {number} at */ begin(at) {
+          recorder.begin(at);
+          fail("begin");
+        },
+        /** @param {Parameters<typeof recorder.attach>[0]} req */ attach(req) {
+          recorder.attach(req);
+          fail("attach");
+        },
+        submitted() {
+          recorder.submitted();
+          fail("submitted");
+        },
+        headers() {
+          recorder.headers();
+          fail("headers");
+        },
+        /** @param {number} at @param {number} code */ finish(at, code) {
+          recorder.finish(at, code);
+          fail("finish");
+        },
+      };
+      const pending = invoke("call", [
+        "site.resource.test",
+        443,
+        "/",
+        "GET",
+        undefined,
+        {},
+        1_048_576,
+        observer,
+      ]);
+      await arrival;
+      releaseHeaders();
+      releaseBody();
+      assert.equal(field(await pending, "status"), 200);
+    }
+    /** @type {[string,number][]} */ const faults = [
+      ["disconnect", 1],
+      ["response-error", 2],
+      ["timeout", 3],
+      ["large", 4],
+    ];
+    for (const [fault, expected] of faults) {
+      behavior = fault;
+      let arrived = () => {};
+      const arrival = new Promise((resolve) => {
+        arrived = () => resolve(undefined);
+      });
+      received = () => arrived();
+      /** @type {number} */ const ordinal = seen.length * 8;
+      const recorder = timing.webRequest(ordinal, 0);
+      const pending = invoke("call", [
+        "site.resource.test",
+        443,
+        "/",
+        "GET",
+        undefined,
+        {},
+        fault === "large" ? 16 : 1_048_576,
+        recorder,
+      ]);
+      await arrival;
+      if (fault !== "timeout") {
+        if (fault === "response-error" || fault === "large") {
+          const req = seen.at(-1);
+          assert.ok(req);
+          const headers = once(req, "response");
+          releaseHeaders();
+          await headers;
+          releaseBody();
+        } else {
+          releaseHeaders();
+          releaseBody();
+        }
+      }
+      const failed = await pending;
+      releaseHeaders();
+      releaseBody();
+      assert.equal(field(failed, "status"), 0);
+      assert.equal(field(failed, "value"), null);
+      assert.equal(leaf.rows.find((row) => row[0] === ordinal)?.[10], expected);
+      const ended = field(failed, "ended_ms"),
+        started = field(failed, "started_ms");
+      assert.ok(typeof ended === "number" && typeof started === "number");
+      assert.equal(field(failed, "seconds"), (ended - started) / 1000);
+    }
+    // All requests use fresh TLS connections; observer cleanup retains unrelated listeners.
+    assert.equal(connections, seen.length);
+    assert.equal(requests, seen.length);
+    for (const req of seen) {
+      assert.equal(req.listenerCount("socket"), 0);
+      assert.ok(req.listenerCount("finish") <= 1);
+    }
+    assert.equal(JSON.stringify(leaf).includes("private"), false);
+    console.log(JSON.stringify({ ok: true, web_transport: true }));
+  } finally {
+    releaseHeaders();
+    releaseBody();
+    fs.readFileSync = read;
+    https.request = request;
+    syncBuiltinESMExports();
+    listener.closeAllConnections();
+    if (listener.listening)
+      await new Promise((resolve) => listener.close(() => resolve(undefined)));
+  }
 }

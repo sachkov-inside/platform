@@ -225,7 +225,7 @@ except KeyboardInterrupt:sys.exit(42)
                 return {'mode':'on' if enabled else 'off','name':definition['name'],'errors':[],
                     'samples':[{'counters':{'errors':{}},'host':{},'counter_clock_anchor':[1,2,3]}],
                     'load':{'completed':True,'query_seconds':[.1],
-                        'timing_diagnostics':{'state':'complete','requests':[[0,0,1,2]]}},
+                        'timing_diagnostics':{'state':'complete','requests':[[0,0,1,2]],'web_transport':{'schema':1,'state':'partial','rows':[[0,0,1,1,None,None,None,None,1.5,2,5]],'overflow':0,'invalid':1}}},
                     'source_cache_samples':[{'postgresql':'observed','caddy':'observed'}]*{'idle':2,'steady':8,'spike':2}[definition['name']]}
             def invoke(compose,args,**options):
                 if args[-1]=='loss':return '{"attempted":1,"acknowledged":0,"explained_loss":1}'
@@ -263,7 +263,7 @@ except KeyboardInterrupt:sys.exit(42)
             self.assertNotIn('counter_clock_anchor',json.dumps(summary))
             for index in range(12):
                 raw=json.loads((output/f'fullstack-phase-{index}.json').read_text())
-                self.assertEqual(raw['load']['timing_diagnostics'],{'state':'complete','requests':[[0,0,1,2]]})
+                self.assertEqual(raw['load']['timing_diagnostics'],{'state':'complete','requests':[[0,0,1,2]],'web_transport':{'schema':1,'state':'partial','rows':[[0,0,1,1,None,None,None,None,1.5,2,5]],'overflow':0,'invalid':1}})
                 self.assertTrue(raw['load']['completed'])
                 self.assertEqual(raw['samples'][0]['counter_clock_anchor'],[1,2,3])
             self.assertEqual(first_dispatched,[(pair,on,name,group,group*3+phase)

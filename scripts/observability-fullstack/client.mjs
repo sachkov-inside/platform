@@ -109,7 +109,7 @@ function queryOne(raw) {
     pair[1] === "1"
   );
 }
-/** @param {string} host @param {number} port @param {string} path @param {string} [method] @param {unknown} [body] @param {Record<string,string>} [headers] @param {number} [maximumBytes] */
+/** @param {string} host @param {number} port @param {string} path @param {string} [method] @param {unknown} [body] @param {Record<string,string>} [headers] @param {number} [maximumBytes] @param {ReturnType<ReturnType<typeof phaseTiming>["webRequest"]>} [observer] */
 async function call(
   host,
   port,
@@ -118,6 +118,7 @@ async function call(
   body = undefined,
   headers = {},
   maximumBytes = 1_048_576,
+  observer = undefined,
 ) {
   if (
     (host === "inside-web-http" &&
@@ -144,6 +145,16 @@ async function call(
   )
     throw new Error("private target only");
   const started = performance.now();
+  let observerFault = false;
+  /** @param {()=>void} action */
+  const observe = (action) => {
+    try {
+      action();
+    } catch {
+      observerFault = true;
+    }
+  };
+  observe(() => observer?.begin(started));
   return await new Promise(
     /** @param {(value: {status:number,value:unknown,seconds:number,started_ms:number,ended_ms:number}) => void} resolve */ (
       resolve,
@@ -154,11 +165,12 @@ async function call(
       const chunks = [];
       const payload = body === undefined ? undefined : JSON.stringify(body);
       /** @param {number} status @param {unknown} value */
-      const finish = (status, value) => {
+      const finish = (status, value, failure = 0) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
         const ended = performance.now();
+        observe(() => observer?.finish(ended, observerFault ? 5 : failure));
         resolve({
           status,
           value,
@@ -190,15 +202,16 @@ async function call(
           },
         },
         (response) => {
+          observe(() => observer?.headers());
           response.on("data", (/** @type {unknown} */ chunk) => {
             if (!Buffer.isBuffer(chunk)) {
-              finish(0, null);
+              finish(0, null, 4);
               req.destroy();
               return;
             }
             bytes += chunk.length;
             if (bytes > maximumBytes) {
-              finish(0, null);
+              finish(0, null, 4);
               req.destroy();
             } else chunks.push(chunk);
           });
@@ -221,14 +234,16 @@ async function call(
             }
             finish(response.statusCode ?? 0, value);
           });
-          response.on("error", () => finish(0, null));
+          response.on("error", () => finish(0, null, 2));
         },
       );
       const timer = setTimeout(() => {
-        finish(0, null);
+        finish(0, null, 3);
         req.destroy();
       }, 2000);
-      req.on("error", () => finish(0, null));
+      req.on("error", () => finish(0, null, 1));
+      observe(() => observer?.attach(req));
+      observe(() => observer?.submitted());
       req.end(payload);
     },
   );
@@ -543,14 +558,29 @@ async function telegramUpdate(actor, update) {
     },
   );
 }
-/** @param {number} index @param {boolean} enabled @param {number} phase @param {number} [cohort] */
-async function operation(index, enabled, phase, cohort = phase) {
+/** @param {number} index @param {boolean} enabled @param {number} phase @param {number} [cohort] @param {ReturnType<ReturnType<typeof phaseTiming>["webRequest"]>} [observer] */
+async function operation(
+  index,
+  enabled,
+  phase,
+  cohort = phase,
+  observer = undefined,
+) {
   const actor = (cohort * 50 + Math.floor(index / 8)) % profile.accounts;
   const bearer = privateTokens()[actor];
   const kind = index % 8;
   if (kind === 0)
     return {
-      ...(await call("site.resource.test", 443, "/")),
+      ...(await call(
+        "site.resource.test",
+        443,
+        "/",
+        "GET",
+        undefined,
+        {},
+        1_048_576,
+        observer,
+      )),
       label: "web_home",
     };
   if (kind === 1)
@@ -560,6 +590,11 @@ async function operation(index, enabled, phase, cohort = phase) {
         443,
         "/materials/resource-material-" +
           String((index % profile.materials) + 1),
+        "GET",
+        undefined,
+        {},
+        1_048_576,
+        observer,
       )),
       label: "web_material",
     };
@@ -837,7 +872,13 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
           else unexpected++;
         }
         if (enabled) occupancy.stage(slot, 1);
-        return await operation(index, enabled, phase, cohort);
+        return await operation(
+          index,
+          enabled,
+          phase,
+          cohort,
+          index % 8 < 2 ? timing.webRequest(index, index % 8) : undefined,
+        );
       })()
         .then((value) => {
           occupancy.stage(slot, 2);
