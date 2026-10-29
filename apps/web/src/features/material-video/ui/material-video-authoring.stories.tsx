@@ -9,6 +9,7 @@ import { MaterialVideoAuthoringView } from "./material-video-authoring.client";
 /** Видео, загруженное через платформу: его можно убрать из материала и удалить из Kinescope. */
 const platformVideo: MaterialAuthoringVideo = {
   origin: "platform_upload",
+  protected: true,
   state: "ready",
   title: "Разбор проверки skill contract",
   videoId: "03000000-0000-4000-8000-000000000001",

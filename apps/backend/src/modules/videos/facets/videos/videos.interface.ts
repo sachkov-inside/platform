@@ -29,6 +29,8 @@ export const videoPresentationSchema = z
 export const videoAuthoringPresentationSchema = videoPresentationSchema
   .extend({
     origin: videoOriginSchema,
+    /** Plays only with a Platform token, so it serves a free or a closed Material (ADR 0041). */
+    protected: z.boolean(),
   })
   .strict();
 export const videoDtoSchema = videoAuthoringPresentationSchema
@@ -57,15 +59,17 @@ export function isVideoDeletionState(value: string): boolean {
 }
 
 export interface VideoAccessFacts {
-  readonly access: VideoAccess;
   readonly materialId: string;
+  /** Stored in the protected project: plays only with a Platform token, so it may serve closed access. */
+  readonly protected: boolean;
   readonly videoId: string;
 }
 
 export interface VideoPlayback {
-  readonly access: VideoAccess;
   readonly embedLocator: string;
   readonly materialId: string;
+  /** The player needs a Platform token, whatever the Material's access. */
+  readonly protected: boolean;
   readonly providerVideoId: string;
   readonly videoId: string;
 }

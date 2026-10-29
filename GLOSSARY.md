@@ -277,7 +277,8 @@ _Avoid_: Media library item, attachment URL, mutable file
 **Video**:
 A recording belonging to one Material, with its own identity, readiness and origin. A Material
 selects at most one ready Video; Platform-uploaded recordings may be explicitly deleted by the
-author, while externally attached recordings may only be detached.
+author, while externally attached recordings may only be detached. A protected recording plays only
+with a Platform token and serves its Material whether it is free or closed.
 _Avoid_: Inline video node, iframe block, provider URL as Material content
 
 **VideoDeletion**:

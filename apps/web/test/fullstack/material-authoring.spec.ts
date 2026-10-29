@@ -485,8 +485,10 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       data: { materialId, videoId },
     });
     expect(session.status()).toBe(200);
+    // The upload sits in the protected project, so even this free lesson's player needs a token
+    // and may later close without a new upload (ADR 0041).
     await expect(session.json()).resolves.toMatchObject({
-      drmAuthToken: null,
+      drmAuthToken: expect.any(String),
       progressScope: "account",
       videoId,
     });
@@ -499,7 +501,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     );
     expect(anonymousSession.status()).toBe(200);
     await expect(anonymousSession.json()).resolves.toMatchObject({
-      drmAuthToken: null,
+      drmAuthToken: expect.any(String),
       progressScope: "anonymous",
       resumeSeconds: null,
       videoId,

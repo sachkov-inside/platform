@@ -19,7 +19,6 @@ import {
   dependencyUnavailable,
   forbidden,
   invalidRequest,
-  projectForAccess,
   toDto,
   uploadNotAuthorized,
   uploadOutcomeUnknown,
@@ -49,7 +48,8 @@ export async function initVideoUpload(
   const parsed = initInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   if (!(await context.managerAllowed(parsed.data.actor))) return forbidden();
-  const projectId = projectForAccess(context.projects, parsed.data.access);
+  // Every upload goes to the protected project, so its Material can change access later (ADR 0041).
+  const projectId = context.projects.protected;
   const reserved = await reserveUploadAttempt(context, parsed.data, projectId);
   if (!reserved.ok) return reserved.result;
   const { attemptId, createdAt } = reserved.value;
@@ -111,7 +111,7 @@ async function reserveUploadAttempt(
   if (existing !== null) {
     return {
       ok: false,
-      result: await replayUploadAttempt(context, existing, input, projectId),
+      result: await replayUploadAttempt(context, existing, input),
     };
   }
   if (unresolved !== null) return { ok: false, result: uploadOutcomeUnknown() };
@@ -142,12 +142,7 @@ async function reserveUploadAttempt(
     if (concurrent !== null) {
       return {
         ok: false,
-        result: await replayUploadAttempt(
-          context,
-          concurrent,
-          input,
-          projectId,
-        ),
+        result: await replayUploadAttempt(context, concurrent, input),
       };
     }
     const concurrentUnresolved = await unsettled().catch(
@@ -247,7 +242,7 @@ async function recordUploadedVideo(
       const saved = await transaction.video.create({
         data: {
           id: videoId,
-          access: input.access,
+          access: "closed",
           createdAt,
           createdBy: input.actor,
           materialId: input.materialId,
@@ -296,12 +291,11 @@ async function replayUploadAttempt(
   context: VideoContext,
   attempt: UploadAttempt,
   input: InitUploadInput,
-  projectId: string,
 ): Promise<InitVideoUploadResult> {
+  // A replay returns the recorded attempt, including one made before uploads moved to one project.
   if (
     attempt.access !== input.access ||
     attempt.filename !== input.filename ||
-    attempt.projectId !== projectId ||
     attempt.title !== input.title ||
     Number(attempt.byteSize) !== input.byteSize
   )

@@ -359,20 +359,30 @@ export async function previewRelease(
       item.publication,
     );
     const alreadyPublic = publicationConflictFound !== undefined;
-    // A Video keeps the access it was attached with; changing a Material's access needs a new recording decision.
+    // A protected recording serves either access, so an access change keeps the Video (ADR 0041).
+    // A public recording cannot be closed, and a target before ADR 0041 cannot change the access
+    // of a Material with a Video at all; both refuse the Save, so the preview names them first.
     const currentAccess = current.metadata.access ?? entry.access;
-    const existingVideo =
-      attached !== null && !String(attached).startsWith("attach:");
+    // Only a kept Video has a protection the target reports. A replacement is new to this preview;
+    // every new upload is protected, and a public recording named by ID fails on apply instead.
+    const keptProtection =
+      current.primaryVideoId !== null && attached === current.primaryVideoId
+        ? current.primaryVideo?.protected
+        : true;
     const videoAccessConflict =
-      existingVideo &&
-      currentAccess !== undefined &&
-      currentAccess !== item.access;
+      currentAccess === undefined || currentAccess === item.access
+        ? undefined
+        : keptProtection === undefined
+          ? "video_access_change"
+          : !keptProtection && item.access === "closed"
+            ? "video_not_protected"
+            : undefined;
     // On 2026-10-19 an older prepared package replaced newer content; history decides instead.
     const recordedCommit = current.source?.["commit"];
     const commitConflictFound = await commitConflict(recordedCommit);
     const change =
       current.contentVersion !== entry.contentVersion ||
-      videoAccessConflict ||
+      videoAccessConflict !== undefined ||
       alreadyPublic ||
       commitConflictFound !== undefined
         ? "conflict"
@@ -405,7 +415,7 @@ export async function previewRelease(
           }
         : {}),
       ...(commitConflictFound ? { conflictReason: commitConflictFound } : {}),
-      ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
+      ...(videoAccessConflict ? { conflictReason: videoAccessConflict } : {}),
       ...(publicationConflictFound
         ? { conflictReason: publicationConflictFound.code }
         : {}),

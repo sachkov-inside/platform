@@ -155,7 +155,7 @@ describe("Inline material video", () => {
       videos: assembleVideos({
         canManage: () => Promise.resolve(true),
         prisma: database.prisma,
-        projects: { free: "public-project", closed: "member-project" },
+        projects: { public: "public-project", protected: "member-project" },
         provider: unusedVideoProvider,
       }),
     });
@@ -327,7 +327,7 @@ describe("Reference reads on an exhausted pool", () => {
         videos: assembleVideos({
           canManage: () => Promise.resolve(true),
           prisma,
-          projects: { free: "public-project", closed: "member-project" },
+          projects: { public: "public-project", protected: "member-project" },
           provider: unusedVideoProvider,
         }),
       }).authoring.saveMaterial({
