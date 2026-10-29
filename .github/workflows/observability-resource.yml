@@ -39,6 +39,7 @@ env:
 
 jobs:
   resource:
+    needs: fullstack-protocol
     name: Isolated short synthetic SDK resource comparison
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -109,6 +110,7 @@ jobs:
           retention-days: 7
 
   fullstack:
+    needs: fullstack-protocol
     name: Representative whole-process monitoring OFF/ON resource proof
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -132,9 +134,6 @@ jobs:
           throw new Error("Resource host Node contract refused");
           console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
           '
-      - name: Verify whole-stack admission, ownership and acceptance contracts
-        timeout-minutes: 2
-        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-fullstack -p 'test_*.py'
       - name: Bind complete source and existing disk admission
         timeout-minutes: 1
         run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/fullstack-metadata"
@@ -172,6 +171,7 @@ jobs:
           retention-days: 7
 
   stability:
+    needs: fullstack-protocol
     if: >-
       ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body || '', '<!-- monitoring-stability: run -->') }}
     name: Diagnostic monitoring stability (never capacity acceptance)
@@ -197,9 +197,6 @@ jobs:
           throw new Error("Resource host Node contract refused");
           console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
           '
-      - name: Verify whole-stack admission, ownership and acceptance contracts
-        timeout-minutes: 2
-        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-fullstack -p 'test_*.py'
       - name: Require exact diagnostic marker in the strict PR context
         timeout-minutes: 1
         run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission
@@ -241,6 +238,7 @@ jobs:
           retention-days: 7
 
   cpu-control:
+    needs: fullstack-protocol
     if: >-
       ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body || '', '<!-- monitoring-cpu-control: app-unlimited-v1 -->') }}
     name: Matched CPU-policy diagnostic (never capacity acceptance)
@@ -271,9 +269,6 @@ jobs:
       - name: Require exact CPU marker in the strict PR context
         timeout-minutes: 1
         run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission
-      - name: Verify whole-stack admission, ownership and acceptance contracts
-        timeout-minutes: 2
-        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-fullstack -p 'test_*.py'
       - name: Bind complete source and existing disk admission
         timeout-minutes: 1
         run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/cpu-control-metadata"
@@ -310,3 +305,51 @@ jobs:
           path: ${{ runner.temp }}/cpu-control-public
           if-no-files-found: warn
           retention-days: 7
+
+  fullstack-protocol-shard:
+    name: Whole-stack protocol group ${{ matrix.group }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Verify pinned host Node facts
+        timeout-minutes: 1
+        run: >-
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          const expected = "v" + readFileSync(".node-version", "utf8").trim();
+          if (process.version !== expected || process.arch !== "x64" || process.platform !== "linux")
+          throw new Error("Resource host Node contract refused");
+          console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
+          '
+      - name: Verify exact workflow checkout identity
+        timeout-minutes: 1
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Verify complete whole-stack protocol group
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/protocol_runner.py --group "${{ matrix.group }}"
+
+  fullstack-protocol:
+    name: Whole-stack protocol complete
+    needs: [fullstack-protocol-shard]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    env:
+      RESULT: ${{ needs.fullstack-protocol-shard.result }}
+    steps:
+      - name: Require all four provider results to succeed
+        run: test "$RESULT" = success

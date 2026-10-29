@@ -1,4 +1,5 @@
 """Separate closed diagnostics never produce capacity acceptance."""
+from test_protocol_runner import inverse_protocol_workflow
 import copy
 import hashlib
 import json
@@ -461,7 +462,7 @@ class Stability(unittest.TestCase):
                 with self.assertRaises(ValueError):stability.validate(broken,'a'*40)
 
     def test_additive_workflow_does_not_change_existing_jobs_or_release_coverage(self):
-        workflow=(fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text();original=workflow.split('\n  stability:\n')[0]
+        workflow=inverse_protocol_workflow((fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text());original=workflow.split('\n  stability:\n')[0]
         # #1566 host-Node-only baseline at 188f5b69a; the exact hash still protects both original jobs.
         self.assertEqual(hashlib.sha256(original.rstrip().encode()).hexdigest(),'1473ec8f69a7102099a27fe95fdae45ab4b0997c3b5ce708f7f9eef7e224faff')
         diagnostic=workflow.split('\n  stability:\n')[1]
