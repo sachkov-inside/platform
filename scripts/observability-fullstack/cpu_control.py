@@ -434,14 +434,22 @@ def cfs_phase(full,output,ordinal,summary):
     need(digest([frame.get('host') for frame in frames])==digest(summary['host_samples']) and raw.get('source_cache_samples')==summary['source_cache_samples']
          and raw.get('loadgen_cpu_pressure')==summary['loadgen_cpu_pressure'])
     counters=[];clean=True
+    active=set((*full.APPS,*full.CORE) if summary['mode']=='on' else full.APPS)
     for frame in frames:
         need(type(frame) is dict and type(frame.get('counters')) is dict)
         value=frame['counters'];services=value.get('services');errors=value.get('errors')
-        need(type(services) is dict and set(services)<=set(full.SERVICES) and type(errors) is dict and set(errors)<=set(full.SERVICES)
+        need(type(services) is dict and set(services)==active and type(errors) is dict and set(errors)<=active
              and all(type(error) is str and error in ('engine_read_failed','required_counter_unavailable') for error in errors.values()))
         clean=clean and not errors
+        for service in services.values():
+            need(type(service) is dict)
+            for key in ('cpu_total_ns','memory_charged_bytes'):
+                counter=service.get(key);need(counter is None or type(counter) is int and 0<=counter<=2**53-1)
+                clean=clean and counter is not None
         number(value.get('at_seconds'),nullable=True);counters.append(value)
-    need(type(raw.get('errors')) is list and summary['errors']==raw['errors']+(['counter_missing'] if not clean else []))
+    pressure=full.loadgen_cpu_pressure(frames)
+    need(digest(pressure)==digest(raw['loadgen_cpu_pressure']))
+    need(type(raw.get('errors')) is list and summary['errors']==raw['errors']+(['counter_missing'] if any(value['errors'] for value in counters) else []))
     before,after=counters[0].get('at_seconds'),counters[-1].get('at_seconds')
     duration=after-before if before is not None and after is not None and after>before else None
     number(duration,upper=600,nullable=True);roles=[]
@@ -459,7 +467,7 @@ def cfs_phase(full,output,ordinal,summary):
             deltas[key]=values[-1]-values[0] if known and not changed else None
         available=all(value is not None for value in deltas.values()) and duration is not None
         roles.append({'role':index,'available':available,'counter_reset':reset,**deltas})
-    complete=clean and duration is not None and all(row['available'] for row in roles)
+    complete=clean and pressure['state']=='unthrottled' and duration is not None and all(row['available'] for row in roles)
     return {'ordinal':ordinal,'pair':summary['pair'],'mode':summary['mode'],'phase':summary['name'],
             'duration_seconds':duration,'roles':roles},complete
 
