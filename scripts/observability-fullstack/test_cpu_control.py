@@ -59,7 +59,7 @@ def assemble(root,profile,*,control=True):
             if any(arg.endswith(suffix) for arg in args):return pins()[role]
         raise AssertionError('unexpected native boundary')
     output=root/profile
-    with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'):
+    with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'install_horizon'):
         fullstack.inputs(output,images)
     return output,json.loads((output/'compose.json').read_text())
 
@@ -637,6 +637,28 @@ class CpuControl(unittest.TestCase):
                             with self.assertRaises((ValueError,TypeError,KeyError)):cpu.collect(fullstack,root,base/'metadata',destination)
                             self.assertFalse(destination.exists())
                         finally:target.write_bytes(saved)
+
+    def test_preparation_exhausting_job_allowance_never_acquires_worker_or_fakes_public_owner(self):
+        import cpu_control as cpu
+        from collections import namedtuple
+        usage=namedtuple('usage','total used free')
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';images=base/'images.json';private(images,pins());now=[0.0]
+            stage=fullstack.preparation.begin(images,SOURCE,pins()['owner'],{'fixture':True},str(root/PROFILES[0]),docker=lambda _: '',identify=lambda:{'fixture':True},web=True,applications=True)
+            def prepare(path,images):path.mkdir(mode=0o700);now[0]=2911
+            def command(args,**options):
+                if args[0]=='git':return '' if args[-1]=='--porcelain' else SOURCE
+                if args[:3]==['docker','context','show']:return 'owned'
+                if args[:3]==['docker','compose','ls']:return '[]'
+                raise AssertionError(args)
+            with patch.object(cpu,'admission',return_value=0),patch.object(cpu.time,'monotonic',side_effect=lambda:now[0]),patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})),patch.object(fullstack.preparation,'recover_stage',return_value=stage),patch.object(fullstack,'inputs',side_effect=prepare),patch.object(fullstack.pilot.platform,'system',return_value='Linux'),patch.object(fullstack.pilot.daemon,'identify',return_value={'endpoint':'unix:///owned','storage':str(base)}),patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot.shutil,'disk_usage',return_value=usage(128*1024**3,0,64*1024**3)),patch.object(fullstack.pilot,'supervise_worker',side_effect=AssertionError('worker acquired after preparation allowance expired')) as worker:
+                with self.assertRaises(ValueError):cpu.run_pair(fullstack,root,images,base/'metadata')
+                worker.assert_not_called();self.assertFalse((root/PROFILES[0]/'owner.json').exists())
+                result=cpu.read(root/cpu.OUTCOME);self.assertEqual(result['exits'],[1,None]);self.assertEqual(result['cleanup'],[False,False])
+                context=result['profiles'][0];self.assertEqual(context['stage'],'prepare_inputs');self.assertEqual(context['state'],'failed');self.assertFalse(context['prepared'])
+                self.assertEqual(context['category'],'value_error');self.assertEqual(stage._pending(),[])
+                with self.assertRaises((ValueError,OSError)):cpu.collect(fullstack,root,base/'metadata',base/'public')
+                self.assertFalse((base/'public').exists())
 
     def test_actual_event_admission_requires_pr_head_base_repository_and_open_pr_binding(self):
         import cpu_control as cpu

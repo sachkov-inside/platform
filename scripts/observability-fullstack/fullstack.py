@@ -35,6 +35,7 @@ import source_guard
 import contact_job
 import stability
 import cpu_control
+import horizon_build
 import slot_refusal
 import startup_refusal
 import health_timing
@@ -145,6 +146,12 @@ def inputs(output, images):
     (output/'compose.json').chmod(0o600)
     pilot.write_json(output/'fullstack-source.json',{'source':source,'images':pins,'profile':settings,
         'capacity_scope':'whole isolated process topology; source-cache sampler workload, physical Timeweb verification and seven days remain open'})
+    # Compiler output can reside on another filesystem than Docker's storage.
+    compiler_storage=monitor/'horizon'
+    disk=pilot.shutil.disk_usage(compiler_storage)
+    admission=pilot.check_disk(total=disk.total,free=disk.free)
+    if not admission['ready']:raise RuntimeError(admission['reason'])
+    with pilot.disk_budget(compiler_storage):pilot.install_horizon(monitor)
 
 
 def mode(output,enabled):
@@ -297,7 +304,7 @@ def seed(compose,output,*,timing=None):
         grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
         if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
         call('grafana_permissions',invoke,compose,['run','--rm','--no-deps','--user','0:0','--cap-add','CHOWN','--entrypoint','chown','grafana',grafana_uid,'/var/lib/grafana'],timeout=30)
-        call('horizon_install',production.pilot.install_horizon,output/'monitoring')
+        call('horizon_install',horizon_build.verify,output/'monitoring')
         call('plugin_install',production.pilot.install_plugin,output/'monitoring')
         call('seed_contacts_join',contacts.wait)
     return guard_proof
