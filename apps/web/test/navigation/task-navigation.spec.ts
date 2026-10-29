@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
 import { z } from "zod";
 import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
+import { expectCourseReadingHost } from "../support/course-reading-host";
 import {
   protectedTaskMarker,
   taskNavigationSlug,
@@ -283,6 +284,7 @@ test("free lesson without mode variants reads saved Task state privately", async
   await expect(
     page.locator('[data-material-reader-state="available"]:visible'),
   ).toBeVisible();
+  await expectCourseReadingHost(page);
   if (testInfo.project.name === "mobile-chromium")
     await page
       .getByRole("button", { name: "Вся программа", exact: true })
@@ -295,6 +297,7 @@ test("free lesson without mode variants reads saved Task state privately", async
   await expect(
     page.locator('[data-material-reader-state="available"]:visible'),
   ).toBeVisible();
+  await expectCourseReadingHost(page);
   if (testInfo.project.name === "mobile-chromium")
     await page
       .getByRole("button", { name: "Вся программа", exact: true })
@@ -315,6 +318,7 @@ test("optional private Task status failure preserves the free lesson and public 
     "/materials/navigation-lesson-1?from=%2Fproducts%2Fnavigation-saved-tasks-failing%2Fprogramme",
   );
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+  await expectCourseReadingHost(page);
   if (testInfo.project.name === "mobile-chromium")
     await page
       .getByRole("button", { name: "Вся программа", exact: true })
