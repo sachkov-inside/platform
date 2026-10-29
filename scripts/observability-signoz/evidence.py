@@ -113,6 +113,10 @@ def failure(value):
 
 def inside_failures(output):
     stages={'entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
+            'bootstrap_read_response','bootstrap_read_deadline','bootstrap_read_decode','bootstrap_read_object',
+            'bootstrap_read_envelope','bootstrap_read_type','bootstrap_read_warning','bootstrap_read_results',
+            'bootstrap_read_query','bootstrap_read_columns','bootstrap_read_rows','bootstrap_read_number',
+            'bootstrap_read_number_range','bootstrap_read_count_nonzero',
             'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics',
             'trace_log','mcp_read','finite_gateway','viewer_admin_denial','viewer_revoke','viewer_revoked_denial'}
     categories={'ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',

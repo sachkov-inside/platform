@@ -15,7 +15,11 @@ class Publication(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);source=root/'private';source.mkdir(mode=0o700)
             engine=source/'engine-1-12345678';engine.mkdir(mode=0o700)
-            for stage in ('bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read'):
+            for stage in ('bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
+                'bootstrap_read_response','bootstrap_read_deadline','bootstrap_read_decode','bootstrap_read_object',
+                'bootstrap_read_envelope','bootstrap_read_type','bootstrap_read_warning','bootstrap_read_results',
+                'bootstrap_read_query','bootstrap_read_columns','bootstrap_read_rows','bootstrap_read_number',
+                'bootstrap_read_number_range','bootstrap_read_count_nonzero'):
                 with self.subTest(stage=stage):
                     row={'inside_failed':1,'stage':stage,'category':'ControlFailure','http_status':200,'transport':'reader_identity'}
                     lifecycle.private_json(engine/'inside-failure.json',row)
