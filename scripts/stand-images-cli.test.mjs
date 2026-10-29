@@ -1,166 +1,185 @@
 // @ts-check
 import assert from "node:assert/strict";
-// deterministic-test-allow unit-io: owned CLI subprocess contract, fake Docker only, bounded synchronous lifetime and no descendant processes.
-import { spawnSync } from "node:child_process";
-import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
-import { z } from "zod";
+import { runStandImages } from "./stand-images.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
-const imageId = (/** @type {number} */ n) =>
-  `sha256:${String(n).padStart(64, "0")}`;
+const now = new Date("2026-10-29T12:00:00Z");
+const id = (/** @type {number} */ n) => `sha256:${String(n).padStart(64, "0")}`;
 
 /** @param {import("node:test").TestContext} t */
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "stand-images-cli-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const log = join(directory, "calls.jsonl");
   const manifest = join(directory, "protected.json");
-  await writeFile(manifest, JSON.stringify([imageId(2)]));
-  await writeFile(
-    join(directory, "docker"),
-    `#!${process.execPath}
-const fs = require('node:fs');
-const args = process.argv.slice(2);
-fs.appendFileSync(process.env.FAKE_DOCKER_LOG, JSON.stringify(args) + '\\n');
-const command = args[0] === '--context' ? args.slice(2) : args;
-if (process.env.FAKE_DOCKER_DOWN) process.exit(1);
-if (command[0] === 'info') console.log(process.env.FAKE_DOCKER_CHANGED && fs.readFileSync(process.env.FAKE_DOCKER_LOG, 'utf8').split('"info"').length > 2 ? 'changed-daemon' : 'fixture-daemon');
-else if (command.includes('inspect')) {
-  for (const n of [1, 2]) console.log(JSON.stringify({
-    Id: 'sha256:' + String(n).padStart(64, '0'), RepoTags: [],
-    Created: n === 1 ? '2026-01-02T00:00:00Z' : '2026-01-01T00:00:00Z', Size: 1,
-    Config: { Labels: { 'com.docker.compose.project': 'inside-platform', 'com.docker.compose.service': 'api' } }
-  }));
-} else if (command[1] === 'ls') {
-  for (const n of [1, 2]) console.log('sha256:' + String(n).padStart(64, '0') + (command.includes('--format') ? '\\t0' : ''));
-}
-`,
-    { mode: 0o700 },
-  );
-  return {
-    manifest,
-    directory,
-    run: (/** @type {string[]} */ args, extra = {}) =>
-      spawnSync(
-        process.execPath,
-        [resolve("scripts/stand-images.mjs"), ...args],
-        {
-          env: {
-            ...process.env,
-            PATH: directory,
-            TMPDIR: directory,
-            FAKE_DOCKER_LOG: log,
-            ...extra,
-          },
-          encoding: "utf8",
-          timeout: 10_000,
-        },
-      ),
-    calls: async () => {
-      try {
-        return (await readFile(log, "utf8"))
-          .trim()
-          .split("\n")
-          .filter(Boolean)
-          .map((line) =>
-            z
-              .array(z.string())
-              .parse(/** @type {unknown} */ (JSON.parse(line))),
-          );
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          "code" in error &&
-          error.code === "ENOENT"
+  const lockTarget = join(directory, "stand-lock");
+  await writeFile(manifest, JSON.stringify([id(2)]));
+  /** @type {string[][]} */
+  const calls = [];
+  let output = "";
+  let inspections = 0;
+  let infos = 0;
+  const state = {
+    down: false,
+    changed: false,
+    acquired: false,
+    newProtection: false,
+    removalFails: false,
+  };
+  /** @param {string[]} args */
+  const executeDocker = async (args) => {
+    calls.push(args);
+    const command = args[0] === "--context" ? args.slice(2) : args;
+    if (state.down) throw new Error("daemon stopped");
+    if (command[0] === "info")
+      return state.changed && ++infos > 1 ? "changed-daemon" : "fixture-daemon";
+    if (command[1] === "inspect") {
+      inspections += 1;
+      if (inspections > 1 && state.newProtection)
+        await writeFile(manifest, JSON.stringify([id(2)]));
+      return [1, 2]
+        .map((n) =>
+          JSON.stringify({
+            Id: id(n),
+            RepoTags: [],
+            Created: n === 1 ? "2026-10-01T00:00:00Z" : "2026-09-01T00:00:00Z",
+            Size: 1,
+            Config: {
+              Labels: {
+                "com.docker.compose.project": "inside-platform",
+                "com.docker.compose.service": "api",
+              },
+            },
+          }),
         )
-          return [];
-        throw error;
-      }
-    },
+        .join("\n");
+    }
+    if (command[1] === "ls")
+      return [1, 2]
+        .map(
+          (n) =>
+            id(n) +
+            (command.includes("--format")
+              ? inspections > 1 && state.acquired && n === 2
+                ? "\t1"
+                : "\t0"
+              : ""),
+        )
+        .join("\n");
+    if (state.removalFails) throw new Error("image removal refused");
+    return "";
+  };
+  return {
+    state,
+    manifest,
+    lockTarget,
+    calls,
+    executeDocker,
+    output: () => output,
+    run: (/** @type {string[]} */ args, execute = executeDocker) =>
+      runStandImages({
+        args,
+        executeDocker: execute,
+        defaultProtectionFile: manifest,
+        lockTarget,
+        now: () => now,
+        write: (line) => {
+          output += line;
+        },
+      }),
   };
 }
 
-test("CLI pins every Docker call and retains the explicit recovery manifest", async (t) => {
+test("command pins every Docker call and retains the default recovery manifest", async (t) => {
   const f = await fixture(t);
-  const result = f.run([
-    "--context",
-    "orbstack",
-    "--protected-images",
-    f.manifest,
-    "--apply",
-  ]);
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /explicit recovery image/u);
-  assert.match(result.stdout, /Removed 0/u);
-  const calls = await f.calls();
-  assert.ok(calls.length > 0);
+  await f.run(["--context", "orbstack", "--apply"]);
+  assert.match(f.output(), /explicit recovery image/u);
+  assert.match(f.output(), /Removed 0/u);
+  assert.ok(f.calls.length > 0);
   assert.ok(
-    calls.every((args) => args[0] === "--context" && args[1] === "orbstack"),
+    f.calls.every((args) => args[0] === "--context" && args[1] === "orbstack"),
   );
-  assert.ok(calls.every((args) => !args.includes("rm")));
+  assert.ok(f.calls.every((args) => !args.includes("rm")));
 });
 
-test("CLI refuses unknown options and missing or invalid protection before Docker", async (t) => {
+test("command refuses unknown options and missing or invalid protection before Docker", async (t) => {
   const f = await fixture(t);
   for (const args of [
     ["--unknown"],
     ["--context"],
-    ["--protected-images", join(f.directory, "missing")],
-  ]) {
-    assert.equal(f.run([...args, "--apply"]).status, 1);
-  }
+    ["--protected-images", join(f.manifest, "missing")],
+  ])
+    await assert.rejects(f.run([...args, "--apply"]));
   for (const raw of ["not-json", "{}", '["not-an-image-id"]']) {
     await writeFile(f.manifest, raw);
-    assert.equal(
-      f.run(["--protected-images", f.manifest, "--apply"]).status,
-      1,
-    );
+    await assert.rejects(f.run(["--apply"]));
   }
-  assert.deepEqual(await f.calls(), []);
+  assert.deepEqual(f.calls, []);
 });
 
-test("CLI refuses an occupied stand lock and a stopped daemon, and permits retry", async (t) => {
+test("command refuses an occupied stand lock and a stopped daemon, and releases on failure", async (t) => {
   const f = await fixture(t);
-  const release = await acquireLocalSetupLock(
-    "fixture",
-    join(f.directory, "inside-platform-local-setup"),
-  );
+  const release = await acquireLocalSetupLock("fixture", f.lockTarget);
   try {
-    const busy = f.run(["--apply"]);
-    assert.equal(busy.status, 1);
-    assert.match(busy.stderr, /Another stand operation/u);
-    assert.deepEqual(await f.calls(), []);
+    await assert.rejects(f.run(["--apply"]), /Another stand operation/u);
+    assert.deepEqual(f.calls, []);
   } finally {
     await release();
   }
-  assert.equal(f.run(["--apply"], { FAKE_DOCKER_DOWN: "1" }).status, 1);
-  const retried = f.run(["--apply", "--protected-images", f.manifest]);
-  assert.equal(retried.status, 0, retried.stderr);
+  f.state.down = true;
+  await assert.rejects(f.run(["--apply"]), /daemon stopped/u);
+  f.state.down = false;
+  await f.run(["--apply"]);
 });
 
-test("CLI refuses a changed daemon before deleting an eligible image", async (t) => {
+test("command refuses changed and unexpected daemons before deleting", async (t) => {
   const f = await fixture(t);
-  const result = f.run(["--context", "orbstack", "--apply"], {
-    FAKE_DOCKER_CHANGED: "1",
+  await assert.rejects(
+    f.run(["--apply", "--daemon-id", "other-daemon"]),
+    /does not match/u,
+  );
+  assert.equal(f.calls.length, 1);
+  f.calls.length = 0;
+  await writeFile(f.manifest, "[]");
+  f.state.changed = true;
+  await assert.rejects(f.run(["--apply"]), /Docker daemon changed/u);
+  assert.ok(f.calls.every((args) => !args.includes("rm")));
+});
+
+test("command rechecks newly acquired container and recovery references before deletion", async (t) => {
+  for (const protection of ["container", "recovery"]) {
+    const f = await fixture(t);
+    await writeFile(f.manifest, "[]");
+    f.state.acquired = protection === "container";
+    f.state.newProtection = protection === "recovery";
+    await f.run(["--apply"]);
+    assert.match(f.output(), /Removed 0/u);
+    assert.ok(f.calls.every((args) => !args.includes("rm")));
+  }
+});
+
+test("command preserves its lock while asynchronous Docker is pending and after removal failure", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.manifest, "[]");
+  const started = Promise.withResolvers();
+  const resume = Promise.withResolvers();
+  const pending = f.run(["--apply"], async (args) => {
+    started.resolve();
+    await resume.promise;
+    return f.executeDocker(args);
   });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /Docker daemon changed/u);
-  assert.ok((await f.calls()).every((args) => !args.includes("rm")));
-});
-
-test("scheduled CLI refuses an unexpected initial daemon", async (t) => {
-  const f = await fixture(t);
-  const result = f.run([
-    "--context",
-    "orbstack",
-    "--daemon-id",
-    "accepted-daemon",
-    "--apply",
-  ]);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /Docker daemon does not match/u);
-  assert.equal((await f.calls()).length, 1);
+  try {
+    await started.promise;
+    await assert.rejects(acquireLocalSetupLock("busy", f.lockTarget), /busy/u);
+  } finally {
+    resume.resolve();
+  }
+  await pending;
+  f.state.removalFails = true;
+  await assert.rejects(f.run(["--apply"]), /image removal refused/u);
+  f.state.removalFails = false;
+  await f.run(["--apply"]);
 });

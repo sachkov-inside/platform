@@ -248,10 +248,12 @@ selected Docker context unless `--context <name>` pins every Docker call. Schedu
 pass `--daemon-id <ID>` recorded from `docker --context <name> info --format '{{.ID}}'` at installation.
 An unavailable or unexpected daemon refuses cleanup; identity is checked again before deletion.
 
-Pass `--protected-images <absolute-json-path>` to retain an explicit JSON array of immutable image
-IDs, including pre-optimization recovery images. A missing or malformed requested file refuses the
-whole run. Preserve the legacy manifest at
-`~/.local/state/platform-orbstack/1527/optimization/protected-images.json` and its backups; age and
+By default, the command reads the existing legacy recovery manifest at
+`~/.local/state/platform-orbstack/1527/optimization/protected-images.json`. Its absence is allowed
+on machines without that legacy setup; malformed or unreadable existing files refuse the run.
+Pass `--protected-images <absolute-json-path>` to require a specific JSON array of immutable image
+IDs. A missing or malformed explicitly requested file refuses the whole run. Scheduled installation
+always passes that explicit path. Preserve the legacy manifest and its backups; age and
 lack of containers do not release those references. Images with the
 `dev.inside.resource-preparation` label are always retained, even when they inherit stand labels.
 Their named next consumers, recovery and retirement belong to the existing #1566 preparation
@@ -272,6 +274,7 @@ LaunchAgent output goes to `/dev/null` instead of growing append-only logs. Befo
 job, verify it is idle and preserve its plist. Validate the bundle's dry-run against the source,
 then repoint only this LaunchAgent. Run one controlled apply with before/after container, volume,
 readiness and disk evidence. No engine restart, stand reservation or service interruption is needed.
+Docker commands run asynchronously so the existing stand lock continues renewing during slow calls.
 If the stand lock is busy, preserve the runtime and retry later. GC remains engine-owned; the
 maintenance job never prunes cache or volumes and does not build images to trigger GC.
 

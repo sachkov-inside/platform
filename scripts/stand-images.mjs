@@ -2,11 +2,12 @@
 // Stale images of the shared stand (#1779). Only images the stand's own Compose project built are
 // considered; volumes, the build cache, other projects and images any container uses are never
 // touched. The default run only reports; `--apply` removes the listed images without force.
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseArgs, promisify } from "node:util";
 import { z } from "zod";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
@@ -109,20 +110,22 @@ export function standImagePlan({
  * The stand images any container, running or stopped, uses. The daemon's own count is the
  * authority: with the containerd store a container names a platform manifest or config digest,
  * not the image ID. An image whose count the daemon cannot give is treated as used.
- * @param {(args: string[]) => string} docker
+ * @param {(args: string[]) => string | Promise<string>} docker
  */
-export function usedImageIds(docker) {
+export async function usedImageIds(docker) {
   return new Set(
-    docker([
-      "image",
-      "ls",
-      "--all",
-      "--no-trunc",
-      "--filter",
-      `label=com.docker.compose.project=${standProject}`,
-      "--format",
-      "{{.ID}}\t{{.Containers}}",
-    ])
+    (
+      await docker([
+        "image",
+        "ls",
+        "--all",
+        "--no-trunc",
+        "--filter",
+        `label=com.docker.compose.project=${standProject}`,
+        "--format",
+        "{{.ID}}\t{{.Containers}}",
+      ])
+    )
       .split("\n")
       .filter(Boolean)
       .flatMap((line) => {
@@ -132,21 +135,31 @@ export function usedImageIds(docker) {
   );
 }
 
-/** @param {(args: string[]) => string} docker */
-export function standImages(docker) {
-  const ids = docker([
-    "image",
-    "ls",
-    "--all",
-    "--quiet",
-    "--no-trunc",
-    "--filter",
-    `label=com.docker.compose.project=${standProject}`,
-  ])
+/** @param {(args: string[]) => string | Promise<string>} docker */
+export async function standImages(docker) {
+  const ids = (
+    await docker([
+      "image",
+      "ls",
+      "--all",
+      "--quiet",
+      "--no-trunc",
+      "--filter",
+      `label=com.docker.compose.project=${standProject}`,
+    ])
+  )
     .split("\n")
     .filter(Boolean);
   if (ids.length === 0) return [];
-  return docker(["image", "inspect", "--format", "{{json .}}", ...new Set(ids)])
+  return (
+    await docker([
+      "image",
+      "inspect",
+      "--format",
+      "{{json .}}",
+      ...new Set(ids),
+    ])
+  )
     .split("\n")
     .filter(Boolean)
     .map((line) => /** @type {unknown} */ (JSON.parse(line)));
@@ -155,22 +168,49 @@ export function standImages(docker) {
 /**
  * Removes only the planned immutable image, without force or implicit parent pruning.
  * Docker refuses images with multiple repository references; those need their owner's handoff.
- * @param {(args: string[]) => string} docker
+ * @param {(args: string[]) => string | Promise<string>} docker
  * @param {PlannedImage} image
  */
-export function removeStandImage(docker, image) {
+export async function removeStandImage(docker, image) {
   if (image.verdict !== "remove") throw new Error(`${image.id} is kept`);
-  docker(["image", "rm", "--no-prune", image.id]);
+  await docker(["image", "rm", "--no-prune", image.id]);
 }
 
-if (
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+const dockerCommandTimeoutMilliseconds = 120_000;
+const executeFile = promisify(execFile);
+
+/** @param {string[]} args */
+async function executeDockerCommand(args) {
+  const { stdout } = await executeFile("docker", args, {
+    encoding: "utf8",
+    timeout: dockerCommandTimeoutMilliseconds,
+  });
+  return stdout;
+}
+
+/**
+ * Command boundary. Docker stays asynchronous so the shared lock can renew during slow calls.
+ * Tests replace only external I/O, the clock and their isolated lock/default-manifest paths.
+ * @param {{args?: string[]; executeDocker?: (args: string[]) => Promise<string>; now?: () => Date; write?: (line: string) => void; lockTarget?: string; defaultProtectionFile?: string}} [options]
+ */
+export async function runStandImages({
+  args = process.argv.slice(2),
+  executeDocker = executeDockerCommand,
+  now = () => new Date(),
+  write = (line) => {
+    process.stdout.write(line);
+  },
+  lockTarget,
+  defaultProtectionFile = join(
+    homedir(),
+    ".local/state/platform-orbstack/1527/optimization/protected-images.json",
+  ),
+} = {}) {
   /** @type {(() => Promise<void>) | undefined} */
   let release;
   try {
     const { values } = parseArgs({
+      args,
       options: {
         apply: { type: "boolean", default: false },
         context: { type: "string" },
@@ -180,87 +220,98 @@ if (
     });
     const apply = values.apply;
     const context = values.context;
-    const protectedFile = values["protected-images"];
-    const protectedIds = () =>
-      new Set(
-        protectedFile === undefined
-          ? []
-          : z
-              .array(imageSchema.shape.Id)
-              .parse(
-                /** @type {unknown} */ (
-                  JSON.parse(readFileSync(protectedFile, "utf8"))
-                ),
-              ),
-      );
-    // A requested but unreadable manifest is a refusal, never an empty protection list.
-    protectedIds();
-    /** @param {string[]} args */
-    const docker = (args) =>
-      execFileSync(
-        "docker",
-        context === undefined ? args : ["--context", context, ...args],
-        {
-          encoding: "utf8",
-          timeout: 120_000,
-          stdio: ["ignore", "pipe", "pipe"],
-        },
+    const protectedFile = values["protected-images"] ?? defaultProtectionFile;
+    const protectedIds = async () => {
+      try {
+        const raw = await readFile(protectedFile, "utf8");
+        return new Set(
+          z
+            .array(imageSchema.shape.Id)
+            .parse(/** @type {unknown} */ (JSON.parse(raw))),
+        );
+      } catch (error) {
+        if (
+          values["protected-images"] === undefined &&
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return new Set();
+        throw error;
+      }
+    };
+    // An absent legacy default is allowed on other machines. Explicit paths always fail closed.
+    await protectedIds();
+    /** @param {string[]} command */
+    const docker = (command) =>
+      executeDocker(
+        context === undefined ? command : ["--context", context, ...command],
       );
     if (apply)
       release = await acquireLocalSetupLock(
         "Another stand operation is running; retry the image cleanup when it finishes",
+        lockTarget,
       );
-    const daemonId = docker(["info", "--format", "{{.ID}}"]).trim();
+    const daemonId = (await docker(["info", "--format", "{{.ID}}"])).trim();
     if (!daemonId) throw new Error("Docker daemon identity is unavailable");
     if (values["daemon-id"] !== undefined && values["daemon-id"] !== daemonId)
       throw new Error(
         "Docker daemon does not match the maintenance installation",
       );
     const plan = standImagePlan({
-      images: standImages(docker),
-      usedImageIds: usedImageIds(docker),
-      protectedImageIds: protectedIds(),
-      now: new Date(),
+      images: await standImages(docker),
+      usedImageIds: await usedImageIds(docker),
+      protectedImageIds: await protectedIds(),
+      now: now(),
     });
     for (const image of plan)
-      process.stdout.write(
+      write(
         `${image.verdict}\t${image.id.slice(7, 19)}\t${image.tags.join(",") || "<untagged>"}\t${(image.size / 1024 ** 3).toFixed(2)} GiB\t${image.reason}\n`,
       );
     const stale = plan.filter((image) => image.verdict === "remove");
     if (!apply) {
-      process.stdout.write(
-        `${stale.length} stale stand image(s); pnpm stand:images --apply removes them\n`,
+      write(
+        `${stale.length} stale stand image(s); rerun this command with --apply to remove them\n`,
       );
     } else {
       let removed = 0;
       for (const image of stale) {
         // Plain Compose and protection changes may bypass our cooperative lock. Re-plan by ID.
         const current = standImagePlan({
-          images: standImages(docker),
-          usedImageIds: usedImageIds(docker),
-          protectedImageIds: protectedIds(),
-          now: new Date(),
+          images: await standImages(docker),
+          usedImageIds: await usedImageIds(docker),
+          protectedImageIds: await protectedIds(),
+          now: now(),
         }).find((candidate) => candidate.id === image.id);
         if (!current || current.verdict === "keep") {
-          process.stdout.write(
+          write(
             `keep\t${image.id.slice(7, 19)}\t${current?.reason ?? "no longer present"}\n`,
           );
           continue;
         }
-        if (docker(["info", "--format", "{{.ID}}"]).trim() !== daemonId)
+        if ((await docker(["info", "--format", "{{.ID}}"])).trim() !== daemonId)
           throw new Error("Docker daemon changed; refusing image cleanup");
-        removeStandImage(docker, current);
+        await removeStandImage(docker, current);
         removed += 1;
-        process.stdout.write(`removed\t${image.id.slice(7, 19)}\n`);
+        write(`removed\t${image.id.slice(7, 19)}\n`);
       }
-      process.stdout.write(`Removed ${removed} stale stand image(s)\n`);
+      write(`Removed ${removed} stale stand image(s)\n`);
     }
+  } finally {
+    await release?.();
+  }
+}
+
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  try {
+    await runStandImages();
   } catch (error) {
     process.stderr.write(
       `${error instanceof Error ? error.message : "Stand image cleanup failed"}\n`,
     );
     process.exitCode = 1;
-  } finally {
-    await release?.();
   }
 }
