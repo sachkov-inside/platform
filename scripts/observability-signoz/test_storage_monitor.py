@@ -64,11 +64,11 @@ class WorkerEvidence(unittest.TestCase):
         before=sys.path.copy()
         try:import runtime
         finally:sys.path[:]=before
-        for mode in ('functional_failure','monitor_signal','validation_failure'):
+        for mode in ('functional_failure','monitor_signal','validation_failure','agent_start_failure'):
             with tempfile.TemporaryDirectory() as tmp:
                 root=Path(tmp);private=root/'private';private.mkdir(mode=0o700)
                 (private/'private').mkdir();(private/'driver').mkdir();(private/'driver/inside.py').write_text('# controlled driver fixture\n')
-                engine=benign_engine(private);engine.identity={'daemon_id':'fixture'};validated=[];functional_started=threading.Event()
+                engine=benign_engine(private);engine.identity={'daemon_id':'fixture'};validated=[];functional_started=threading.Event();events=[];test=self
                 lock=lifecycle.verify_packet();pins={r['repository'].split('/')[-1]:r for r in lock['images']}
                 images={}
                 for role,name in lifecycle.ROLE_IMAGES.items():
@@ -80,9 +80,15 @@ class WorkerEvidence(unittest.TestCase):
                     def __init__(self,*_args,**_kwargs):self.containers={role:'c'*64 for role in lifecycle.SERVICES};self.images={}
                     def compose(self,*_args):pass
                     def discover(self):pass
-                    def record(self):pass
-                    def record_profile(self,_source):pass  # Actual numeric inspection is covered by test_profiles.
-                    def start(self,*_args):pass
+                    def record(self):events.append('registered')
+                    def record_profile(self,_source):events.append('profile')  # Numeric inspection is covered by test_profiles.
+                    def start(self,*names):
+                        if 'agent' in names:
+                            test.assertEqual(set(validated),set(lifecycle.SERVICES))
+                            test.assertIn('registered',events);test.assertIn('profile',events)
+                            test.assertTrue(evidence.images(evidence.read(private/'images.json'))['container_bindings_complete'])
+                        events.extend('start:'+name for name in names)
+                        if mode=='agent_start_failure' and 'agent' in names:raise primary
                     def wait(self,*_args):pass
                     def exec(self,args,**_kwargs):
                         if args==['disk']:return json.dumps({'fsid':1,'device':2,'block':4096,'blocks':25000000,'available':23000000,'files':0,'free_files':0})
@@ -93,6 +99,9 @@ class WorkerEvidence(unittest.TestCase):
                 primary=RuntimeError('private body fixture')
                 def functional(*_args):
                     self.assertEqual(set(validated),set(lifecycle.SERVICES))
+                    self.assertEqual(events.count('start:agent'),1)
+                    self.assertLess(events.index('start:agent'),events.index('start:histogram-init'))
+                    self.assertLess(events.index('start:agent'),events.index('start:keeper'))
                     persisted=evidence.images(evidence.read(private/'images.json'))
                     self.assertTrue(persisted['container_bindings_complete'])
                     functional_started.set()
@@ -119,20 +128,23 @@ class WorkerEvidence(unittest.TestCase):
                          patch.object(lifecycle,'histogram_asset'),patch.object(runtime.observer,'observe',return_value={'available':True,'counts':{'applied_migrations':1,'migration_lock_rows':0}}),\
                          patch.object(runtime,'functional_with_client',side_effect=functional):
                         with self.assertRaises(BaseException) as caught:runtime.worker(private)
-                    if mode=='functional_failure':self.assertIs(caught.exception,primary)
+                    if mode in ('functional_failure','agent_start_failure'):self.assertIs(caught.exception,primary)
                     elif mode=='monitor_signal':self.assertEqual(str(caught.exception),'worker_interrupted_or_storage')
                     else:self.assertEqual(str(caught.exception),'image_attachment_identity')
                     self.assertFalse(evidence.collect(private,root/'public',lambda _value:None))
                     public=json.loads((root/'public/witness.json').read_text())
                     self.assertEqual(public['images']['container_bindings_complete'],mode!='validation_failure')
                     self.assertFalse(public['passed']);self.assertFalse(public['functional']['available'])
-                    expected={'functional_failure':'functional_failure','monitor_signal':'worker_interrupted_or_storage','validation_failure':'image_attachment_identity'}
+                    expected={'functional_failure':'functional_failure','monitor_signal':'worker_interrupted_or_storage','validation_failure':'image_attachment_identity','agent_start_failure':'functional_failure'}
                     self.assertEqual(public['failure']['reason'],expected[mode])
                     if mode=='monitor_signal':
                         self.assertEqual(public['storage_monitor']['first_failure'],{'stage':'host_snapshot','reason':'command_failed'})
                     else:self.assertFalse(public['storage_monitor']['failed'])
                     self.assertNotIn('private body fixture',json.dumps(public))
                     self.assertFalse(engine.child)
+                    self.assertEqual(events.count('start:agent'),0 if mode=='validation_failure' else 1)
+                    if mode in ('validation_failure','agent_start_failure'):
+                        self.assertNotIn('start:histogram-init',events);self.assertNotIn('start:keeper',events)
                 finally:
                     for s,handler in previous.items():signal.signal(s,handler)
                     engine.cancel_children()

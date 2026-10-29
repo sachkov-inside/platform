@@ -145,6 +145,10 @@ if __name__=='__main__':
     try:
         if sys.argv[1:] == ['serve']:
             while True:time.sleep(60)
+        elif sys.argv[1:] == ['socket-identity']:
+            try:identity=socket_identity()
+            except FileNotFoundError:print('{"available":false}')
+            else:print(json.dumps({'available':True,'identity':identity},separators=(',',':')))
         else:require(not sys.argv[1:]);run()
     except BaseException:
         print('{"agent_failed":1}');sys.exit(1)

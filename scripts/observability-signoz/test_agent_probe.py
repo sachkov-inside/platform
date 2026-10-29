@@ -1,12 +1,72 @@
 """Limited-client protocol, explicit denial vs unknown; no namespace claim on Mac."""
 import errno
+from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler,HTTPServer
+import io
+import json
+from pathlib import Path
+import runpy
 import socket
+import sys
+import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import agent_probe
+
+
+class IdentityCommand(unittest.TestCase):
+    def command(self,path,args=('socket-identity',),changed=None):
+        native_lstat=Path.lstat;output=io.StringIO();status=0
+        def lstat(value,*positional,**keywords):
+            native=native_lstat(path if value==Path('/gateway/reader.sock') else value,*positional,**keywords)
+            if changed is not None and value==Path('/gateway/reader.sock'):
+                native=SimpleNamespace(**{k:getattr(native,k) for k in ('st_mode','st_uid','st_gid','st_nlink','st_dev','st_ino')})
+                for key,value in changed.items():setattr(native,key,value)
+            return native
+        with patch.object(sys,'argv',[agent_probe.__file__,*args]),patch.object(Path,'lstat',lstat),\
+             patch.object(agent_probe.os,'open',side_effect=AssertionError('no admission/private access')),\
+             patch.object(socket,'create_connection',side_effect=AssertionError('no backend request')),redirect_stdout(output):
+            try:runpy.run_path(agent_probe.__file__,run_name='__main__')
+            except SystemExit as error:status=error.code
+        return status,json.loads(output.getvalue())
+
+    def test_literal_identity_command_reports_absence_and_actual_owned_Unix_socket(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'reader.sock'
+            self.assertEqual(self.command(path),(0,{'available':False}))
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as stream:
+                stream.bind(str(path));path.chmod(0o600)
+                self.assertEqual(self.command(path),(0,{'available':True,'identity':agent_probe.socket_identity(path)}))
+
+    def test_identity_command_refuses_socket_symlink_type_permissions_owner_and_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'reader.sock';alias=root/'alias'
+            path.write_text('not a socket')
+            self.assertEqual(self.command(path),(1,{'agent_failed':1}));path.unlink()
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as stream:
+                stream.bind(str(path));path.chmod(0o600);alias.symlink_to(path)
+                self.assertEqual(self.command(alias),(1,{'agent_failed':1}))
+                path.chmod(0o640)
+                self.assertEqual(self.command(path),(1,{'agent_failed':1}));path.chmod(0o600)
+                native=path.lstat()
+                for changed in ({'st_uid':native.st_uid+1},{'st_gid':native.st_gid+1},{'st_nlink':2}):
+                    with self.subTest(changed=changed):self.assertEqual(self.command(path,changed=changed),(1,{'agent_failed':1}))
+                self.assertEqual(self.command(path,('socket-identity','/other/path')),(1,{'agent_failed':1}))
+
+    def test_wire_refuses_actual_socket_replaced_after_admission(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'reader.sock';original=root/'original.sock'
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as first,socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as replacement:
+                first.bind(str(path));path.chmod(0o600);identity=agent_probe.socket_identity(path)
+                # Keep the original inode alive so the replacement cannot reuse it.
+                path.rename(original);replacement.bind(str(path));path.chmod(0o600)
+                actual_identity=agent_probe.socket_identity
+                with patch.object(agent_probe,'socket_identity',side_effect=lambda:actual_identity(path)),\
+                     patch.object(socket,'create_connection',side_effect=AssertionError('no backend request')):
+                    with self.assertRaises(ValueError):agent_probe.wire({'socket_identity':identity},agent_probe.time.monotonic()+1)
 
 
 class DirectBoundary(unittest.TestCase):
