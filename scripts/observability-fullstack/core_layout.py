@@ -127,6 +127,8 @@ def construct(primary,core,*,run,source,images,project,nonce,uid,gid):
     plan=copy.deepcopy(primary)
     sig_roles=();sig_volumes=();sig_memory=0
     if core==SIGNOZ:
+        need(plan['services']['alloy'].get('networks')=={'storage':{},'telemetry':{'aliases':['inside-telemetry']},'loopback':{}}
+            and plan['services']['host-agent'].get('networks')==['hostsource'],'representative_retained_edge_networks')
         lifecycle=signoz_lifecycle()
         canonical=lifecycle.make_plan(run/'signoz',lifecycle.verify_packet()['images'],project,nonce,uid,gid,profile_id=lifecycle.MCP512_PROFILE)
         lifecycle.plan_profile(canonical,lifecycle.MCP512_PROFILE)
@@ -140,6 +142,8 @@ def construct(primary,core,*,run,source,images,project,nonce,uid,gid):
             if 'networks' in value:
                 value['networks']={'sig-backend':value['networks']['backend']}
                 if role=='mcp':value['networks']['sig-backend']={'aliases':['mcp']}
+                if role=='collector':
+                    value['networks'].update({network:{'aliases':['inside-signoz-collector']} for network in ('storage','hostsource')})
             for mount in value.get('volumes',[]):
                 if mount['type']=='volume':mount['source']='sig-'+mount['source']
             plan['services'][name]=value

@@ -570,7 +570,12 @@ root/project/nonce/uid/gid. Два закрытых значения: `primary-v
 хранилища и его четыре тома. Все 11 служб SigNoz получают префикс `sig-`,
 семь томов и внутренняя сеть `sig-backend` имеют отдельные имена.
 Приложение сохраняет собственные `postgres` и `mcp`; alias `mcp` у SigNoz
-доступен только в `sig-backend`. Network-none agent, остановленные init jobs,
+доступен только в `sig-backend`. Только `sig-collector` дополнительно подключён
+к существующим `storage` и `hostsource` с фиксированным alias
+`inside-signoz-collector`. Конструктор сначала подтверждает исходные сети Alloy
+и host-agent; их службы, сети и mounts не расширяются. PostgreSQL, MCP и server
+SigNoz остаются только во внутренней сети, новых host ports нет.
+Network-none agent, остановленные init jobs,
 права и read-only mounts берутся из прежнего строгого функционального плана.
 Его validator не принимает объединённый план.
 

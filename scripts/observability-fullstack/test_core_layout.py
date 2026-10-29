@@ -149,5 +149,36 @@ class CoreLayout(unittest.TestCase):
             self.assertEqual(runs[0],runs[1]);self.assertEqual(calls[:2],calls[2:])
             self.assertEqual(runs[0][1]['services'],fullstack.SERVICES)
 
+    def test_collector_ingress_joins_only_existing_edges_without_exposing_private_backends(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,primary=assemble(Path(directory).resolve(),'primary',control=False)
+            self.assertEqual(primary['services']['alloy']['networks'],
+                {'storage':{},'telemetry':{'aliases':['inside-telemetry']},'loopback':{}})
+            self.assertEqual(primary['services']['host-agent']['networks'],['hostsource'])
+            layout=self.build(primary,output);plan=layout.plan
+            self.assertEqual(plan['services']['sig-collector']['networks'],
+                {'sig-backend':{'aliases':['signoz-ingester']},'storage':{'aliases':['inside-signoz-collector']},
+                 'hostsource':{'aliases':['inside-signoz-collector']}})
+            for role in ('sig-postgres','sig-server','sig-mcp','sig-clickhouse','sig-keeper'):
+                self.assertEqual(set(plan['services'][role]['networks']),{'sig-backend'})
+                self.assertNotIn('ports',plan['services'][role])
+            for role in ('alloy','host-agent'):
+                observed=copy.deepcopy(plan['services'][role]);observed.pop('labels')
+                self.assertEqual(observed,primary['services'][role])
+            for change in ('extra_collector_network','missing_alias','extra_alias','server_ingress','mcp_ingress','database_ingress','port'):
+                candidate=layout.plan
+                if change=='extra_collector_network':candidate['services']['sig-collector']['networks']['pilot']={}
+                elif change=='missing_alias':candidate['services']['sig-collector']['networks']['storage']={}
+                elif change=='extra_alias':candidate['services']['sig-collector']['networks']['storage']['aliases'].append('mcp')
+                elif change=='server_ingress':candidate['services']['sig-server']['networks']['storage']={}
+                elif change=='mcp_ingress':candidate['services']['sig-mcp']['networks']['storage']={}
+                elif change=='database_ingress':candidate['services']['sig-postgres']['networks']['hostsource']={}
+                elif change=='port':candidate['services']['sig-collector']['ports']=['4318:4318']
+                with self.subTest(change=change),self.assertRaises(ValueError):layout.validate(candidate)
+            for role,networks in (('alloy',{'pilot':{}}),('host-agent',['hostsource','storage'])):
+                candidate=copy.deepcopy(primary);candidate['services'][role]['networks']=networks
+                with self.subTest(retained=role),self.assertRaisesRegex(ValueError,'representative_retained_edge_networks'):
+                    self.build(candidate,output)
+
 
 if __name__=='__main__':unittest.main()
