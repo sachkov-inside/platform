@@ -37,15 +37,26 @@ export function productList(
     ],
   };
 }
-export function courseButton(product: LearnerProduct): TelegramButton[] {
+export function courseButtons(product: LearnerProduct): TelegramButton[] {
   return product.materials.state === "available" &&
     hasText(product.programmeUrl)
-    ? [{ text: "Открыть курс", url: product.programmeUrl }]
+    ? [
+        ...(product.slug === "ai-engineering"
+          ? [
+              {
+                text: "С чего начать",
+                url: "https://sachkov.dev/materials/inside-content-aie-ch1-course",
+              },
+            ]
+          : []),
+        { text: "Открыть курс", url: product.programmeUrl },
+      ]
     : [];
 }
 export function productCard(
   product: LearnerProduct,
   admission: CommunityAdmission,
+  groupUrl?: string,
 ): LearnerScreen {
   const restricted = admission.kind === "moderation_blocked";
   const material =
@@ -71,7 +82,8 @@ export function productCard(
   return {
     text: `${product.name}\n\n${material}. ${community}.`,
     buttons: [
-      ...courseButton(product),
+      ...courseButtons(product),
+      ...courseGroupButtons(product, admission, groupUrl),
       ...(product.community.state === "available" &&
       !restricted &&
       admission.kind !== "member"
@@ -86,6 +98,30 @@ export function productCard(
       products,
     ],
   };
+}
+export function courseGroupButtons(
+  product: LearnerProduct,
+  admission: CommunityAdmission,
+  groupUrl?: string,
+): TelegramButton[] {
+  if (
+    product.community.state !== "available" ||
+    admission.kind !== "member" ||
+    !hasText(groupUrl)
+  )
+    return [];
+  return [
+    { text: "Открыть группу", url: groupUrl },
+    ...(product.slug === "ai-engineering" &&
+    groupUrl === "https://t.me/c/4421726276/1"
+      ? [
+          {
+            text: "Навигация по группе",
+            url: "https://t.me/c/4421726276/14",
+          },
+        ]
+      : []),
+  ];
 }
 export function helpScreen(
   topic: string,
