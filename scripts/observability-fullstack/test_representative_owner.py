@@ -403,4 +403,125 @@ class RecoveryOwner(unittest.TestCase):
             path.write_bytes(original);self.assertTrue(owner.cleanup_exact())
 
 
+
+class DiscoveryReceiptRecovery(unittest.TestCase):
+    prepare=NativeOwner.prepare
+
+    def test_rejected_receipts_preserve_valid_prefix_for_live_and_recovered_cleanup(self):
+        cases=[('containers','Image',True),('containers','Image','not-a-digest'),
+            ('containers','Image','sha256:'+'e'*64),('volumes','CreatedAt',True),
+            ('volumes','Mountpoint',False),('networks','Created',True),
+            ('networks','IPAM',{'Driver':'default','Options':None,'Config':[{'foreign':True}]})]
+        for recovery in (False,True):
+            for kind,field,bad in cases:
+                with self.subTest(recovery=recovery,kind=kind,field=field,bad=bad),tempfile.TemporaryDirectory() as directory:
+                    output,native,owner,layout=self.prepare(Path(directory).resolve())
+                    target=next(key for key,value in native.objects.items() if
+                        ('Config' in value if kind=='containers' else 'Mountpoint' in value if kind=='volumes' else 'IPAM' in value)
+                        and key not in {spec['image'] for spec in layout.plan['services'].values()})
+                    original=native.call
+                    def call(args,timeout=10):
+                        result=original(args,timeout)
+                        # Model an interrupted acquisition with one object not yet
+                        # visible. Every observed receipt is real producer state.
+                        if args[0]=='ps' or len(args)>1 and args[1]=='ls':
+                            return '\n'.join(row for row in result.splitlines() if row!=target)
+                        return result
+                    native.call=call
+                    with self.assertRaisesRegex(ValueError,'acquisition_incomplete'):owner.create()
+                    path=output/'representative-owner/resources.json';prefix=path.read_bytes();record=json.loads(prefix)
+                    self.assertTrue(record['containers'] and record['volumes'] and record['networks'])
+                    if recovery:owner=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                    native.call=original;native.objects[target][field]=bad
+                    with self.assertRaises(ValueError) as rejected:owner.discover()
+                    self.assertEqual(path.read_bytes(),prefix)
+                    safe=next(role for role in record['containers'] if
+                        not any(m['type']=='volume' and layout.plan['volumes'][m['source']]['name']==target
+                            for m in owners._mounts(layout.plan['services'][role]))
+                        and not any(layout.plan['networks'][name]['name']==native.objects[target].get('Name')
+                            for name in layout.plan['services'][role].get('networks',[])))
+                    safe_id=record['containers'][safe]['Id']
+                    # Public validation must still use the previously valid memory
+                    # and durable authority after the proposed receipt is refused.
+                    validation_error=None
+                    try:self.assertEqual(owner.validate(safe)['Id'],safe_id)
+                    except ValueError as error:validation_error=error
+                    with self.assertRaises(ValueError) as cleanup:
+                        try:owner.cleanup_exact()
+                        except ValueError as error:
+                            saved_tb=error.__traceback__;raise
+                    self.assertNotIn(safe_id,native.acquired)
+                    self.assertIsNone(validation_error)
+                    self.assertEqual(str(cleanup.exception),str(rejected.exception))
+                    frames=[];tb=saved_tb
+                    while tb is not None:frames.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
+                    self.assertIn('discover',frames);self.assertIn('_registry',frames)
+                    self.assertIn(target,native.acquired);self.assertNotIn(safe_id,native.acquired)
+                    self.assertFalse(any(args[-1]==target and (args[0]=='rm' or len(args)>1 and args[1]=='rm') for args in native.calls))
+                    final=json.loads(path.read_text());self.assertEqual(final['status'],'cleanup_failed')
+                    receipt=json.loads((path.parent/'cleanup.json').read_text())
+                    self.assertFalse(receipt['passed']);self.assertEqual(receipt['failed_operations'][0],'discover')
+                    self.assertTrue(any(label.startswith('residue:') for label in receipt['failed_operations']))
+
+
+class DeadlineAwareRecovery(unittest.TestCase):
+    prepare=NativeOwner.prepare
+
+    def test_expired_identify_uses_actual_raw_only_with_remaining_original_tail(self):
+        import threading
+        import shutil
+        life=fullstack.core_layout.signoz_lifecycle()
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+            original_deadline=native.deadline
+            # SOURCE-MODEL adapter at the native identify boundary. The unchanged
+            # Engine.raw executes only an owned benign true child, never Docker.
+            native.run=output;native.invocation=Path(shutil.which('true')).absolute()
+            native.cli=native.invocation.resolve(strict=True);info=native.invocation.lstat()
+            native.invocation_identity=(info.st_dev,info.st_ino,info.st_mode,str(native.cli))
+            children=[]
+            class RegisteredChildren(set):
+                def add(self,process):
+                    children.append({'pid':process.pid,'group':os.getpgid(process.pid),'reaped_exit':None})
+                    super().add(process)
+                def discard(self,process):
+                    next(row for row in children if row['pid']==process.pid)['reaped_exit']=process.returncode
+                    super().discard(process)
+            native.plugin=None;native.lock=threading.RLock();native.child=RegisteredChildren();native.child_threads={}
+            native.cancel_requested=set();native.cancel_requested_at={}
+            observed=[]
+            def identify():
+                observed.append(native.deadline)
+                life.Engine.raw(native,[])
+                return dict(native.identity)
+            native.identify=identify
+            with patch.object(owners.time,'monotonic',return_value=original_deadline+1):
+                with self.assertRaisesRegex(life.Refusal,'global_deadline'):native.identify()
+                observed.clear()
+                recovered=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                self.assertTrue(observed)
+                self.assertTrue(all(original_deadline+1<end<=original_deadline+90 for end in observed))
+                # Cleanup guards also enter actual raw under the same tail.
+                self.assertTrue(recovered.cleanup_exact());self.assertEqual(native.acquired,set())
+                self.assertTrue(all(original_deadline+1<end<=original_deadline+90 for end in observed))
+                self.assertLessEqual(native.deadline,original_deadline+90)
+            self.assertEqual(native.child,set());self.assertEqual(native.child_threads,{})
+            self.assertTrue(children);self.assertTrue(all(row['pid']==row['group'] and row['reaped_exit']==0 for row in children))
+            print('SOURCE-MODEL actual Engine.raw children reaped: '+json.dumps(children))
+
+    def test_invalid_original_budget_refuses_before_identify_worker_or_native_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+            path=output/'representative-owner/resources.json';original=path.read_bytes();record=json.loads(original)
+            deadline=native.deadline;now=owners.time.monotonic()
+            for bad in (True,0,2**63-1,int((now-91)*10**9),int((now+601)*10**9)):
+                with self.subTest(deadline=bad):
+                    path.write_text(json.dumps(record|{'deadline_mono_ns':bad}))
+                    before=list(native.calls)
+                    with patch.object(owners.time,'monotonic',return_value=now),patch.object(native,'identify',side_effect=AssertionError('native authority before valid budget')) as identify,patch.object(owners,'_stop_worker') as stop:
+                        with self.assertRaises(ValueError):owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                        identify.assert_not_called();stop.assert_not_called()
+                    self.assertEqual(native.calls,before);self.assertEqual(native.deadline,deadline)
+            path.write_bytes(original);self.assertTrue(owner.cleanup_exact())
+
 if __name__=='__main__':unittest.main()

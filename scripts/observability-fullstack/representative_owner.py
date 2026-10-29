@@ -283,7 +283,10 @@ class CompositeOwner:
                 receipt={key:value[key] for key in ('Id','Created','Image')}
                 previous=self.__registry['containers'].get(role)
                 need(previous is None or previous==receipt,'representative_replaced_container')
-                self.__registry['containers'][role]=receipt;self.__record();present['containers'].add(role)
+                # Refused native input must not replace the last valid authority.
+                candidate=self.__registry|{'containers':self.__registry['containers']|{role:receipt}}
+                _registry(candidate,self.__layout)
+                self.__registry=candidate;self.__record();present['containers'].add(role)
             for kind in ('volumes','networks'):
                 singular=kind[:-1]
                 for name,spec in plan[kind].items():
@@ -306,7 +309,9 @@ class CompositeOwner:
                         receipt={key:value[key] for key in ('Id','Name','Created','Driver','Internal','IPAM')}
                     previous=self.__registry[kind].get(name)
                     need(previous is None or previous==receipt,'representative_replaced_'+singular)
-                    self.__registry[kind][name]=receipt;self.__record();present[kind].add(name)
+                    candidate=self.__registry|{kind:self.__registry[kind]|{name:receipt}}
+                    _registry(candidate,self.__layout)
+                    self.__registry=candidate;self.__record();present[kind].add(name)
             self.__present=present
 
     def validate(self,role):
@@ -426,14 +431,17 @@ class CompositeOwner:
              and stat.S_IMODE(directory.stat().st_mode)==0o700,'representative_registry_directory')
         record,receipt=_json(directory/'resources.json')
         _registry(record,layout)
-        need(encoded(record['daemon'])==encoded(engine.identity)==encoded(engine.identify()) and encoded(record['binding'])==encoded(fixed_bindings)
+        need(encoded(record['daemon'])==encoded(engine.identity) and encoded(record['binding'])==encoded(fixed_bindings)
              and encoded(record['inputs'])==encoded(inputs) and encoded(record['root'])==encoded(layout.manifest['root_identity'])
              and record['plan_sha256']==layout.manifest['plan_sha256']
              and record['manifest_sha256']==sha(layout._manifest.encode()),'representative_recovery_binding')
         need(type(record['deadline_mono_ns']) is int and 0<record['deadline_mono_ns']<2**63
              and -87<record['deadline_mono_ns']/10**9-time.monotonic()<=600,'representative_recovery_cleanup_budget')
         recovery_end=min(record['deadline_mono_ns']/10**9+90,time.monotonic()+90)
+        # identify() reaches Engine.raw and therefore needs this validated tail
+        # too. It cannot grant a new 600s phase or extend the original 90s tail.
         engine.deadline=recovery_end
+        need(encoded(record['daemon'])==encoded(engine.identify()),'representative_recovery_binding')
         reader=cls.__new__(cls);reader.__engine=engine
         if record['images']:
             need(encoded(record['images'])==encoded(reader.__image_receipts(layout.plan)),'representative_recovery_images')
