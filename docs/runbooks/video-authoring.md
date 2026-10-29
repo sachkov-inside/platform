@@ -105,9 +105,10 @@ or `processing` attempt; a failed one starts anew anyway. An `initializing` atte
 yet: its replayed init answer names the recording, and a public one is discarded the same way
 before any byte is sent. A protected recording, a test-adapter receipt (`--replace-test-upload`
 owns it) or no receipt leaves the command as without the flag, so the same command can be
-repeated. A target that does not report `protected` for the stored Video (a source before ADR 0041)
-stops the command and leaves the journal unchanged. A reconcile error, such as `provider_mismatch`
-(the recording is gone from Kinescope) or `video_not_found` (the stand database was reset), also
+repeated. A target that does not report `protected` (a source before ADR 0041) stops the command:
+for a stored Video with the journal unchanged, for an init answer before any byte is sent, with the
+attempt kept in `initializing`. A reconcile error, such as `provider_mismatch` (Kinescope no longer
+reports the recording in its project) or `video_not_found` (the stand database was reset), also
 stops it with the journal unchanged; report the source and `videoId` to the owner. The flag is
 refused on trusted targets before any request. The command deletes nothing at the provider; the
 public recording stays in Kinescope until the owner removes it.

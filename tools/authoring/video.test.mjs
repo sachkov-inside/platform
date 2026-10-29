@@ -76,7 +76,8 @@ async function fixture(
  * The authoring API double: the environment probe, upload init keyed by idempotency key and
  * reconcile, which reports processing once and then ready. A new upload is protected (ADR 0041);
  * `earlierProtected` is what reconcile reports for the earlier upload, `null` for a target that
- * predates ADR 0041 and reports no protection; `earlierKey` replays the earlier public attempt.
+ * predates ADR 0041 and reports no protection for any Video; `earlierKey` replays the earlier
+ * public attempt.
  *
  * @param {{
  *   endpoint?: string;
@@ -130,7 +131,12 @@ function providerApi({
           attempts.set(key, {
             providerVideoId: "provider-one",
             uploadEndpoint: endpoint,
-            video: { videoId, materialId, state: "uploading" },
+            video: {
+              videoId,
+              materialId,
+              state: "uploading",
+              ...(earlierProtected === null ? {} : { protected: true }),
+            },
           });
         if (lose) {
           lose = false;
@@ -1088,7 +1094,7 @@ test("--replace-public-upload starts anew when a replayed attempt names a public
   );
 });
 
-test("both replace flags discard a test-adapter receipt once", async (t) => {
+test("both replace flags discard a test-adapter receipt without asking the target", async (t) => {
   const setup = await fixture(t, { target: stand });
   await earlierUpload(setup, "https://uploads.invalid/earlier-provider");
   const api = providerApi();
@@ -1102,6 +1108,22 @@ test("both replace flags discard a test-adapter receipt once", async (t) => {
     api.calls.some((call) => call.path.includes(earlierVideoId)),
     false,
   );
+});
+
+test("--replace-public-upload stops before any byte when a new attempt reports no protection", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  const api = providerApi({
+    endpoint: "https://uploader.kinescope.io/files/provider-one",
+    earlierProtected: null,
+  });
+  await assert.rejects(
+    upload(setup, api, { origin: "stand", replacePublicUpload: true }),
+    /does not report whether video .* is protected/u,
+  );
+  const receipt = uploadReceiptSchema.parse(
+    resourcesOf(await setup.read())[uploadReceiptKey(materialId, setup.sha256)],
+  );
+  assert.equal(receipt.phase, "initializing");
 });
 
 test("--replace-public-upload stops when the target does not report protection", async (t) => {

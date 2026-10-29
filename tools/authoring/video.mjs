@@ -522,7 +522,11 @@ export async function uploadVideo({
           let initialized = await initialize(receipt);
           // An attempt whose answer was lost replays as recorded, which before ADR 0041 may be
           // a public recording; only its answer names that Video.
-          if (replacePublicUpload && initialized.video.protected === false) {
+          if (replacePublicUpload && initialized.video.protected === undefined)
+            throw new Error(
+              `${target.id} does not report whether video ${initialized.video.videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
+            );
+          if (replacePublicUpload && !initialized.video.protected) {
             discard(initialized.video.videoId);
             receipt = await startAttempt();
             initialized = await initialize(receipt);
