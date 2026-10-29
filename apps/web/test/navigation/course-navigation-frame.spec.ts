@@ -300,3 +300,42 @@ test("accepted Reader actions fit desktop, tablet and phone with the same naviga
         .getByRole("link", { name: "Дальше", exact: true }),
     ).toHaveCount(0);
 });
+
+test("rapid mobile arrows keep the programme selection on the displayed lesson", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+  );
+  await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+  const navigation = page.getByRole("navigation", {
+    name: "Навигация по урокам",
+  });
+  const backendPort = process.env["FAKE_BACKEND_PORT"];
+  if (backendPort === undefined) throw new Error("Missing fake backend port");
+  const control = `http://127.0.0.1:${backendPort}/__control`;
+  await request.post(control, { data: { delayMs: 1500 } });
+  try {
+    await navigation
+      .getByRole("link", { name: "Следующий шаг", exact: true })
+      .click();
+    await navigation
+      .getByRole("link", { name: "Следующий шаг", exact: true })
+      .click();
+    await navigation
+      .getByRole("link", { name: "Предыдущий шаг", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Урок 6", exact: true }),
+    ).toBeVisible();
+    await navigation.getByRole("button", { name: "Вся программа" }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "Программа: Курс со справочными документами",
+    });
+    await expect(dialog.locator('[aria-current="step"]')).toHaveText("Урок 6");
+  } finally {
+    await request.post(control, { data: { delayMs: 0 } });
+  }
+});
