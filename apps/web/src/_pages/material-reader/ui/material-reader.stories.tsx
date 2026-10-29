@@ -1206,7 +1206,7 @@ export const FreeLessonGuest: Story = {
           signedIn={false}
           returnTo={materialReaderHref(
             material.slug,
-            "/products/platform-inside/programme",
+            productProgrammeHref("platform-inside"),
           )}
         />
       }
@@ -1228,7 +1228,10 @@ export const FreeLessonGuest: Story = {
     await expect(form).toHaveAttribute("method", "post");
     await expect(form?.querySelector('input[name="returnTo"]')).toHaveAttribute(
       "value",
-      materialReaderHref(material.slug, "/products/platform-inside/programme"),
+      materialReaderHref(
+        material.slug,
+        productProgrammeHref("platform-inside"),
+      ),
     );
     await expect(
       canvas.queryByRole("link", { name: "Получить доступ" }),
