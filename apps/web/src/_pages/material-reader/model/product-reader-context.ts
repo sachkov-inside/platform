@@ -126,11 +126,13 @@ export function resolveProductReaderContext({
           returnTarget,
         })
       : primaryProgramme;
-  const reference = supplementary
-    ? primaryProgramme?.references?.find(
-        (item) => item.slug === currentMaterialSlug,
-      )
-    : undefined;
+  // Without an anchor the primary context already carries its own reference selection.
+  const reference =
+    supplementary && anchor !== undefined
+      ? primaryProgramme?.references?.find(
+          (item) => item.slug === currentMaterialSlug,
+        )
+      : undefined;
   const programme =
     anchoredProgramme == null || reference === undefined
       ? anchoredProgramme

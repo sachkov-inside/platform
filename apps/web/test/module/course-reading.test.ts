@@ -314,6 +314,25 @@ describe("supplementary Material navigation", () => {
     ).toBe(false);
   });
 
+  it("selects a programme lesson opened for reference in its own chapter without claiming a position", () => {
+    const context = courseReadingContext({
+      product: referenceProduct,
+      current: { kind: "material", slug: "second" },
+      referenceView: true,
+      returnTarget: parseMaterialReaderReturnTarget(
+        "/products/course/programme?part=materials&at=second",
+      ),
+    });
+    expect(context).toMatchObject({
+      current: { id: "material:second" },
+      currentChapterId: "two:1",
+      currentPosition: 0,
+      previous: null,
+      next: null,
+    });
+    expect(context?.activeReferenceId).toBeUndefined();
+  });
+
   it("does not invent a reference missing from published Product membership", () => {
     const context = courseReadingContext({
       product,

@@ -262,6 +262,39 @@ it("retains the originating lesson and marks the reference outside the step sequ
   });
 });
 
+it("keeps a catalogue-opened programme lesson selected in its chapter outside the step sequence", () => {
+  const context = resolveProductReaderContext({
+    currentMaterialSlug: "later",
+    referenceView: true,
+    returnTarget: parseMaterialReaderReturnTarget(
+      "/products/course/programme?part=materials&at=later",
+    ),
+    product: {
+      kind: "ready",
+      reference: { slug: "course", name: "Курс" },
+      chapters: [
+        { id: "one", name: "Первая", summary: "", materialIds: ["lesson-id"] },
+        { id: "two", name: "Вторая", summary: "", materialIds: ["later-id"] },
+      ],
+      items: [
+        { materialId: "lesson-id", slug: "lesson", title: "Урок" },
+        { materialId: "later-id", slug: "later", title: "Позже" },
+      ],
+    },
+  });
+  expect(context).toMatchObject({
+    supplementary: true,
+    next: null,
+    previous: null,
+    programme: {
+      current: { id: "material:later" },
+      currentChapterId: "two:1",
+      currentPosition: 0,
+    },
+  });
+  expect(context?.programme?.activeReferenceId).toBeUndefined();
+});
+
 it("follows repeated flat programme positions while excluding catalogue-only documents", () => {
   const product = {
     kind: "ready" as const,

@@ -229,25 +229,26 @@ export function courseReadingContext({
     current.kind === "material"
       ? `material:${current.slug}`
       : `task:${current.code}`;
-  const position = referenceView
-    ? -1
-    : steps.findIndex((step) =>
-        current.kind === "material"
-          ? step.kind === "material" &&
-            (step.id === id || step.id.startsWith(`${id}:`)) &&
-            (current.placementId === undefined ||
-              step.placementId === current.placementId)
-          : step.id === id,
-      );
+  const stepIndex = steps.findIndex((step) =>
+    current.kind === "material"
+      ? step.kind === "material" &&
+        (step.id === id || step.id.startsWith(`${id}:`)) &&
+        (current.placementId === undefined ||
+          step.placementId === current.placementId)
+      : step.id === id,
+  );
+  const position = referenceView ? -1 : stepIndex;
+  /** A programme lesson opened for reference keeps its chapter row selected, without a position. */
+  const placedStep = steps[stepIndex];
   const reference =
-    position >= 0 || current.kind !== "material"
+    position >= 0 || placedStep !== undefined || current.kind !== "material"
       ? undefined
       : references.find((item) => item.id === `reference:${current.slug}`);
   const referenceItem = publishedItems.find(
     (item) => item.slug === reference?.slug,
   );
   const step =
-    steps[position] ??
+    placedStep ??
     (reference === undefined
       ? undefined
       : {
@@ -257,7 +258,7 @@ export function courseReadingContext({
         });
   const chapter =
     chapters.find((entry) =>
-      entry.steps.some((entryStep) => entryStep.id === steps[position]?.id),
+      entry.steps.some((entryStep) => entryStep.id === placedStep?.id),
     ) ??
     (reference === undefined
       ? undefined
