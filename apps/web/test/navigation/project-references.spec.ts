@@ -4,6 +4,9 @@ const programme = "/products/reference-course/programme";
 const lesson = `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`;
 
 async function referenceGroup(page: Page) {
+  // After hydration the persistent host takes over the rail and mounts it anew (#1804); a control
+  // read or opened before that handoff belongs to the replaced copy.
+  await expect(page.locator("[data-course-reading-host]")).toBeVisible();
   if (page.viewportSize()?.width === 390) {
     await page.getByRole("button", { name: "Вся программа" }).click();
     return page
