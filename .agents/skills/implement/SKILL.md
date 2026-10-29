@@ -3,6 +3,8 @@ name: implement
 description: "Implement assigned software/tooling work, including a request to build the agreed result after discussion. Capture the task, implement with tests, and complete independent review and project checks. Use for one task or a ticket within an assigned specification."
 ---
 
+If the user passes a ticket reference, fetch it from the issue tracker and state its title before starting. If the reference is ambiguous, ask.
+
 ## Capture and route the assignment
 
 1. Read the project's `AGENTS.md`, `WORKFLOW.md`, and tracker instructions. Recover the requested

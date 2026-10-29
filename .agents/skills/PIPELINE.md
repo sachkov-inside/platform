@@ -9,6 +9,26 @@ workspace source and record their exact commit here. `sync-pipeline` is not inst
 
 ## Source versions
 
+- Installed selected set: workspace `5cdf9b286b6b3244fd498e6f12ed58f0684a4ee8`.
+- Complete upstream sync: `a496f5513d4a4cf889bc48e189e579f4b0bdf6aa` (2026-10-29).
+  This supersedes the earlier complete baseline and selective source pins below for all 25
+  directories in Set. Every selected directory, including supporting files and Codex metadata,
+  is copied unchanged from `pipeline/skills/<name>` at the pinned workspace commit.
+- Source task: [workspace#26](https://github.com/KirillSachkov/workspace/issues/26).
+  Platform adoption: [#1839](https://github.com/sachkov-inside/platform/issues/1839).
+  Pre-update Platform commit: `81102ac9c08f5987335117424e873639a7a16bd4`.
+  The adopting PR linked by #1839 records the accepted integration and evidence.
+- Comparison against all recorded previous source revisions found no unrecorded local differences.
+  Project selection, outside-pipeline skills, classification state, invocation policies and
+  WORKFLOW.md exceptions are retained. This update performs no conversational-routing migration.
+- Canonical source includes the verified GitLab list flags (`glab mr list -F json`,
+  `glab issue list -O json`) and wizard Readline `${e}` marker fix.
+- Shared adaptations remain canonical; project controls stay in WORKFLOW.md and docs/agents.
+  No missing skill is added. Recommendations from a partial set may name an absent skill;
+  that recommendation does not install or invoke it.
+
+### Previous source versions (historical)
+
 - Complete-set baseline: workspace `a1233e8`, upstream `dd400c3ad65e57c06f05e832e0aac92c7992f34d`.
 - `classify-change`, `code-review`, `tdd`, and `setup-matt-pocock-skills`, including supporting
   files and metadata: workspace `d459183f46290ef74ede4f3eca349ab0682cbd0c`.
