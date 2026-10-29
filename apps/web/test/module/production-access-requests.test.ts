@@ -207,6 +207,54 @@ describe("production access pass request allowlist", () => {
     ).toMatchObject({ allowed: false });
   });
 
+  it("lets the Kinescope player read the recording and request its licence, not its metrics", () => {
+    const recording = "6b2b6d5f-c42e-464f-a3b3-6163b0382240";
+    for (const url of [
+      "https://player.kinescope.io/latest/iframe.player.js",
+      "https://kinescope.io/embed/eeyo7vVgiTWgQnXQec2F2j?drmauthtoken=x",
+      `https://kinescope.io/${recording}/master.m3u8`,
+      "https://edge-ams-2.kinescopecdn.net/a/videos/b/assets/0",
+    ])
+      expect(checkPassRequest({ method: "GET", url }), url).toEqual({
+        allowed: true,
+        operation: "read",
+      });
+    for (const [method, url] of [
+      [
+        "POST",
+        `https://license.kinescope.io/v1/vod/${recording}/acquire/clearkey`,
+      ],
+      [
+        "GET",
+        `https://license.kinescope.io/v2/vod/${recording}/acquire/sample-aes/5438`,
+      ],
+    ] as const)
+      expect(checkPassRequest({ method, url }), url).toEqual({
+        allowed: true,
+        operation: "video-licence",
+      });
+
+    for (const [method, url] of [
+      ["POST", "https://player-metrics.kinescope.io/v1/batch/gzip"],
+      ["POST", "https://sentry.kinescope.io/api/3/envelope/"],
+      ["POST", `https://kinescope.io/${recording}/master.m3u8`],
+      ["POST", "https://license.kinescope.io/v1/vod/x/release"],
+      ["GET", "https://license.kinescope.io/v1/vod/x/release"],
+      ["GET", "https://license.kinescope.io:444/v1/vod/x/acquire/clearkey"],
+      [
+        "PUT",
+        `https://license.kinescope.io/v1/vod/${recording}/acquire/clearkey`,
+      ],
+      ["GET", "https://kinescope.io:444/embed/x"],
+      ["GET", "https://kinescope.io.example.test/embed/x"],
+      ["GET", "https://kinescopecdn.net.example.test/videos/x"],
+    ] as const)
+      expect(
+        checkPassRequest({ method, url }),
+        `${method} ${url}`,
+      ).toMatchObject({ allowed: false });
+  });
+
   it("allows the Platform sign-in and the Logto one-time token sign-in", () => {
     for (const [method, url] of [
       ["POST", `${web}/auth/sign-in`],
