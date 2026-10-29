@@ -1,4 +1,4 @@
-"""Pinned scalar and MCP response boundaries; no network/provider calls."""
+"""Owned loopback HTTP scalar and MCP contracts; no external providers."""
 import copy
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
