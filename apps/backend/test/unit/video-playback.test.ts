@@ -1,9 +1,14 @@
-import { SignJWT, decodeJwt } from "jose";
+import { generateKeyPairSync } from "node:crypto";
+
+import { SignJWT, decodeJwt, decodeProtectedHeader } from "jose";
 import { describe, expect, test, vi } from "vitest";
 
 import { accountId } from "../../src/modules/accounts/index.js";
 import type { ContentAccess } from "../../src/modules/content-access/index.js";
-import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
+import {
+  assembleVideoPlayback,
+  standPreviewKeys,
+} from "../../src/modules/materials/facets/video-playback/video-playback.js";
 import type { Videos } from "../../src/modules/videos/index.js";
 
 const account = accountId("81000000-0000-4000-8000-000000000001");
@@ -320,6 +325,149 @@ describe("Video playback authorization", () => {
     ).resolves.toBe(false);
   });
 
+  test("lets production accept the stand's short author preview of a protected recording only", async () => {
+    const stand = standKeyHalves();
+    const managerAllows = vi.fn().mockResolvedValue({
+      decidedAt: now.toISOString(),
+      effect: "allow",
+      reason: "materials_manager",
+    });
+    const standPlayback = assembleVideoPlayback({
+      clock: () => now,
+      contentAccess: { authorize: managerAllows },
+      jwtSecret: "stand-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      standPreview: standPreviewKeys(stand),
+      videos: videoDependencies({ protected: true }),
+    });
+    const productionAuthorize = vi.fn();
+    const production = (
+      keys = standPreviewKeys({
+        privateKey: undefined,
+        publicKey: stand.publicKey,
+      }),
+      clock = () => now,
+    ) =>
+      assembleVideoPlayback({
+        clock,
+        contentAccess: { authorize: productionAuthorize },
+        jwtSecret: "production-playback-secret-with-at-least-32-characters",
+        jwtTtlSeconds: 60,
+        standPreview: keys,
+        // Production knows no stand Video: a lookup would find nothing.
+        videos: {
+          ...videoDependencies({ protected: true }),
+          loadPlayback: vi.fn().mockResolvedValue({ ok: true, value: null }),
+        },
+      });
+
+    const preview = await standPlayback.createSession({
+      correlationId: "stand-preview",
+      materialId,
+      preview: true,
+      subject: { accountId: account, kind: "account" },
+      videoId,
+    });
+    if (!preview.ok || preview.value.drmAuthToken === null)
+      throw new Error("stand preview token missing");
+    const token = preview.value.drmAuthToken;
+    expect(decodeProtectedHeader(token).alg).toBe("EdDSA");
+    expect(decodeJwt(token)).toMatchObject({
+      act: "preview",
+      aud: "kinescope-drm-callback",
+      iss: "inside-stand",
+      pid: "provider-video",
+      sub: account,
+    });
+    expect(decodeJwt(token)).not.toHaveProperty("vid");
+    await expect(
+      production().authorizeProvider({
+        providerVideoId: "provider-video",
+        token,
+      }),
+    ).resolves.toBe(true);
+    expect(productionAuthorize).not.toHaveBeenCalled();
+
+    // Another recording, an expired token, a production without the key or with another key refuse.
+    await expect(
+      production().authorizeProvider({ providerVideoId: "other-video", token }),
+    ).resolves.toBe(false);
+    await expect(
+      // Past the token's 60 seconds and the stand's five seconds of clock drift.
+      production(
+        undefined,
+        () => new Date(now.getTime() + 66_000),
+      ).authorizeProvider({
+        providerVideoId: "provider-video",
+        token,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      production({}).authorizeProvider({
+        providerVideoId: "provider-video",
+        token,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      production(
+        standPreviewKeys({
+          privateKey: undefined,
+          publicKey: standKeyHalves().publicKey,
+        }),
+      ).authorizeProvider({ providerVideoId: "provider-video", token }),
+    ).resolves.toBe(false);
+
+    // The stand key never signs ordinary playback, and a forged play or long token is refused.
+    const play = await standPlayback.createSession({
+      correlationId: "stand-play",
+      materialId,
+      subject: { accountId: account, kind: "account" },
+      videoId,
+    });
+    if (!play.ok || play.value.drmAuthToken === null)
+      throw new Error("stand play token missing");
+    expect(decodeProtectedHeader(play.value.drmAuthToken).alg).toBe("HS256");
+    const signing = standPreviewKeys(stand).signing;
+    if (signing === undefined) throw new Error("stand signing key missing");
+    const forge = (claims: Record<string, unknown>, lifetime: number) =>
+      new SignJWT({ pid: "provider-video", ...claims })
+        .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
+        .setIssuer("inside-stand")
+        .setAudience("kinescope-drm-callback")
+        .setSubject(account)
+        .setJti("forged")
+        .setIssuedAt(Math.floor(now.getTime() / 1000))
+        .setExpirationTime(Math.floor(now.getTime() / 1000) + lifetime)
+        .sign(signing);
+    const issuedLater = await new SignJWT({
+      act: "preview",
+      pid: "provider-video",
+    })
+      .setProtectedHeader({ alg: "EdDSA", typ: "JWT" })
+      .setIssuer("inside-stand")
+      .setAudience("kinescope-drm-callback")
+      .setSubject(account)
+      .setJti("issued-later")
+      .setIssuedAt(Math.floor(now.getTime() / 1000) + 365 * 24 * 60 * 60)
+      .setExpirationTime(
+        Math.floor(now.getTime() / 1000) + 365 * 24 * 60 * 60 + 60,
+      )
+      .sign(signing);
+    for (const forged of [
+      await forge({ act: "play" }, 60),
+      await forge({}, 60),
+      await forge({ act: "preview" }, 301),
+      // A future issue time would otherwise keep a five-minute token valid for a year.
+      issuedLater,
+    ])
+      await expect(
+        production().authorizeProvider({
+          providerVideoId: "provider-video",
+          token: forged,
+        }),
+      ).resolves.toBe(false);
+  });
+
   test("maps progress to the strict Videos port without leaking Material context", async () => {
     const authorize = vi.fn().mockResolvedValue({
       decidedAt: now.toISOString(),
@@ -370,4 +518,13 @@ function videoDependencies(recording: { readonly protected: boolean }) {
       .mockResolvedValue({ ok: true, value: { positionSeconds: 77 } }),
     saveProgress: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
   } satisfies Pick<Videos, "loadPlayback" | "loadProgress" | "saveProgress">;
+}
+
+function standKeyHalves() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const privateJwk = privateKey.export({ format: "jwk" });
+  const publicJwk = publicKey.export({ format: "jwk" });
+  if (privateJwk.d === undefined || publicJwk.x === undefined)
+    throw new Error("Ed25519 key export failed");
+  return { privateKey: privateJwk.d, publicKey: publicJwk.x };
 }
