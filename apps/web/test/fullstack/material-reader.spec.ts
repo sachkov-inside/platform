@@ -879,6 +879,8 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
   await captureIssue195Evidence(page, testInfo, "playlist");
   await captureIssue271Evidence(page, testInfo, "playlist");
 
+  // The free lesson opens to a reader signed in through Telegram (#1825); the guest sees a gate.
+  await signInFullStack(page.context());
   await representativeProductItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
