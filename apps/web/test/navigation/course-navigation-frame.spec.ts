@@ -313,7 +313,9 @@ test("rapid mobile arrows keep the programme selection on the displayed lesson",
   const navigation = page.getByRole("navigation", {
     name: "Навигация по урокам",
   });
-  const control = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"]}/__control`;
+  const backendPort = process.env["FAKE_BACKEND_PORT"];
+  if (backendPort === undefined) throw new Error("Missing fake backend port");
+  const control = `http://127.0.0.1:${backendPort}/__control`;
   await request.post(control, { data: { delayMs: 1500 } });
   try {
     await navigation
