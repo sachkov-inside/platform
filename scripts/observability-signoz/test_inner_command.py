@@ -18,6 +18,147 @@ from test_oci_admission import fixture, Native, container_fixture
 
 
 class FirstInnerCommand(unittest.TestCase):
+    def test_actual_disk_helper_finishes_real_filesystem_calls_and_preserves_seven_stdout_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);helper=root/'owned-cli';inside=Path(lifecycle.__file__).with_name('inside.py')
+            # This owned CLI adapter maps only the fixture's fixed mount to an
+            # actual temporary filesystem. All stat calls and helper bytes are real.
+            helper.write_text('#!'+sys.executable+'\n'+'''import os,runpy,sys
+from pathlib import Path
+root=Path(__file__).parent;native_stat=os.stat;native_statvfs=os.statvfs
+def mounted_stat(path,*args,**kwargs):return native_stat(root if path=='/disk' else path,*args,**kwargs)
+def mounted_statvfs(path):return native_statvfs(root if path=='/disk' else path)
+os.stat=mounted_stat;os.statvfs=mounted_statvfs
+sys.argv=['inside.py','disk']
+runpy.run_path('''+repr(str(inside))+''',run_name='__main__')
+# Inject a native CLI failure only after successful helper dispatch so Engine.raw
+# retains both the actual seven-field stdout and the helper's stderr milestones.
+raise SystemExit(7)
+''');helper.chmod(0o700)
+            engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+            native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+            engine.anon=root;engine.endpoint='private-endpoint'
+            try:
+                with self.assertRaises(lifecycle.Refusal) as caught:
+                    engine.raw(['--config',str(root),'--host',engine.endpoint,'exec','private-CID','python','/driver/inside.py','disk'],timeout=3)
+                self.assertEqual(caught.exception.reason,'command_failed')
+                context=lifecycle.first_raw_command(caught.exception)
+                self.assertEqual(context['native_exit'],7);self.assertFalse(context['alive_before_reap'])
+                self.assertEqual(context['disk_helper_stage'],'syscalls_complete')
+                result=json.loads((root/'failure-1-stdout.private').read_text())
+                self.assertEqual(set(result),{'fsid','device','block','blocks','available','files','free_files'})
+                self.assertTrue(all(type(value) is int for value in result.values()))
+                self.assertEqual(result['device'],root.stat().st_dev)
+                self.assertEqual(result['block'],os.statvfs(root).f_frsize)
+                self.assertFalse(engine.child)
+            finally:engine.cancel_children()
+
+    def test_owned_disk_timeout_keeps_helper_stage_on_original_exception_after_reap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);helper=root/'owned-cli'
+            helper.write_text('#!'+sys.executable+'\n'+'''import sys,time
+from pathlib import Path
+sys.stderr.write('signoz-disk-stage-v1:entered\\n');sys.stderr.flush()
+sys.stderr.write('signoz-disk-stage-v1:imports_complete\\n');sys.stderr.flush()
+(Path(__file__).parent/'blocked').touch()
+time.sleep(30)
+''');helper.chmod(0o700)
+            engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+            native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+            engine.anon=root;engine.endpoint='private-endpoint';engine.deadline=time.monotonic()+60
+            real_clock=time.monotonic
+            def clock():return real_clock()+(20 if (root/'blocked').exists() else 0)
+            try:
+                with patch.object(lifecycle,'time',types.SimpleNamespace(monotonic=clock)):
+                    with self.assertRaises(lifecycle.Refusal) as caught:
+                        engine.raw(['--config',str(root),'--host',engine.endpoint,'exec','private-CID','python','/driver/inside.py','disk'],timeout=3)
+                original=caught.exception
+                self.assertEqual(original.reason,'command_deadline')
+                self.assertFalse(engine.child)
+                context=lifecycle.first_raw_command(original)
+                self.assertEqual(context['disk_helper_stage'],'imports_complete')
+                self.assertEqual(context['command_class'],'disk_exec')
+                self.assertIsNone(context['native_exit']);self.assertTrue(context['alive_before_reap'])
+                self.assertEqual(context['timeout_seconds'],3)
+                with self.assertRaises(lifecycle.Refusal):engine.raw(['private-argv'],timeout=.2)
+                self.assertEqual(lifecycle.first_raw_command(original),context)
+                public=evidence.inner_command(context)
+                self.assertTrue(public['available']);self.assertEqual(public['disk_helper_stage'],'imports_complete')
+                self.assertNotIn('private-',json.dumps(public))
+            finally:engine.cancel_children()
+
+    def test_owned_raw_accepts_only_complete_ordered_disk_markers(self):
+        entered=b'signoz-disk-stage-v1:entered\n'
+        imported=b'signoz-disk-stage-v1:imports_complete\n'
+        finished=b'signoz-disk-stage-v1:syscalls_complete\n'
+        cases=((b'','unknown'),(entered,'entered'),(entered+imported,'imports_complete'),
+               (entered+imported+finished,'syscalls_complete'),(entered[:-1],'unknown'),
+               (imported+entered,'unknown'),(entered+entered,'unknown'),
+               (entered+b'private-email-key-URL\n','unknown'),(entered+b'x'*129,'unknown'))
+        for payload,expected in cases:
+            with self.subTest(expected=expected,payload_size=len(payload)),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);helper=root/'owned-cli'
+                helper.write_text('#!'+sys.executable+'\nimport sys\nsys.stderr.buffer.write('+repr(payload)+');sys.stderr.flush()\nraise SystemExit(7)\n');helper.chmod(0o700)
+                engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+                native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+                engine.anon=root;engine.endpoint='private-endpoint'
+                try:
+                    with self.assertRaises(lifecycle.Refusal) as caught:
+                        engine.raw(['--config',str(root),'--host',engine.endpoint,'exec','private-CID','python','/driver/inside.py','disk'],timeout=3)
+                    self.assertEqual(caught.exception.reason,'command_failed')
+                    public=evidence.inner_command(lifecycle.first_raw_command(caught.exception))
+                    self.assertEqual(public['disk_helper_stage'],expected)
+                    self.assertEqual(public['native_exit'],7);self.assertFalse(engine.child)
+                    self.assertNotIn('private-',json.dumps(public));self.assertNotIn('signoz-disk-stage',json.dumps(public))
+                finally:engine.cancel_children()
+        # One real unrelated command suffices to prove isolation from the same
+        # valid marker stream, independently of the nine selected-command cases.
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);helper=root/'owned-cli';payload=entered+imported+finished
+            helper.write_text('#!'+sys.executable+'\nimport sys\nsys.stderr.buffer.write('+repr(payload)+');sys.stderr.flush()\nraise SystemExit(7)\n');helper.chmod(0o700)
+            engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+            native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+            try:
+                with self.assertRaises(lifecycle.Refusal) as unrelated:
+                    engine.raw(['private-unrelated-command'],timeout=3)
+                other=evidence.inner_command(lifecycle.first_raw_command(unrelated.exception))
+                self.assertTrue(other['available']);self.assertNotIn('disk_helper_stage',other)
+                self.assertEqual(other['native_exit'],7);self.assertFalse(engine.child)
+            finally:engine.cancel_children()
+
+    def test_incomplete_stderr_pipe_after_owned_reap_cannot_establish_disk_stage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);helper=root/'owned-cli'
+            helper.write_text('#!'+sys.executable+'\n'+'''import sys,time
+from pathlib import Path
+sys.stderr.write('signoz-disk-stage-v1:entered\\n');sys.stderr.flush()
+(Path(__file__).parent/'blocked').touch()
+time.sleep(30)
+''');helper.chmod(0o700)
+            engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+            native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+            engine.anon=root;engine.endpoint='private-endpoint';engine.deadline=time.monotonic()+60
+            native_popen=lifecycle.subprocess.Popen;held=[];real_clock=time.monotonic
+            def clock():return real_clock()+(20 if (root/'blocked').exists() else 0)
+            def incomplete_pipe(*args,**kwargs):
+                read,write=os.pipe();held.append(write)
+                try:
+                    kwargs['stderr']=write;proc=native_popen(*args,**kwargs)
+                    proc.stderr=os.fdopen(read,'rb');return proc
+                except BaseException:os.close(read);raise
+            try:
+                with patch.object(lifecycle.subprocess,'Popen',incomplete_pipe),patch.object(lifecycle,'time',types.SimpleNamespace(monotonic=clock)):
+                    with self.assertRaises(lifecycle.Refusal) as caught:
+                        engine.raw(['--config',str(root),'--host',engine.endpoint,'exec','private-CID','python','/driver/inside.py','disk'],timeout=3)
+                self.assertEqual(caught.exception.reason,'command_deadline')
+                context=evidence.inner_command(lifecycle.first_raw_command(caught.exception))
+                self.assertEqual(context['disk_helper_stage'],'unknown')
+                self.assertTrue(context['alive_before_reap']);self.assertIsNone(context['native_exit'])
+                self.assertFalse(engine.child)
+            finally:
+                for descriptor in held:os.close(descriptor)
+                engine.cancel_children()
+
     def test_real_preflight_and_final_exec_keep_distinct_first_command_after_later_failure(self):
         for mode,command,timeout in [('preflight','daemon_info',10),('disk','disk_exec',3)]:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory() as tmp:
@@ -35,7 +176,9 @@ if args[:1]==['--context']:
 if args[:1]!=['--config']:raise SystemExit(7)
 args=args[4:]
 if args[0]=='inspect':print(json.dumps([json.loads((r/'container.json').read_text())]));raise SystemExit
-if mode=='disk':(r/'blocked').touch();time.sleep(30)
+if mode=='disk':
+ sys.stderr.write('signoz-disk-stage-v1:entered\\nsignoz-disk-stage-v1:imports_complete\\n');sys.stderr.flush()
+ (r/'blocked').touch();time.sleep(30)
 print(json.dumps(dict(fsid=1,device=2,block=4096,blocks=25000000,available=23000000,files=0,free_files=0)))
 ''');helper.chmod(0o700)
                 engine=benign_engine(root);engine.deadline=time.monotonic()+60
@@ -72,6 +215,8 @@ print(json.dumps(dict(fsid=1,device=2,block=4096,blocks=25000000,available=23000
                     self.assertEqual(inner['command_class'],command);self.assertEqual(inner['timeout_seconds'],timeout)
                     self.assertGreaterEqual(inner['elapsed_seconds'],20)
                     self.assertIsNone(inner['native_exit']);self.assertTrue(inner['alive_before_reap'])
+                    if mode=='disk':self.assertEqual(inner['disk_helper_stage'],'imports_complete')
+                    else:self.assertNotIn('disk_helper_stage',inner)
                     self.assertTrue(monitor['monitor_reaped']);self.assertFalse(engine.child)
                     self.assertNotIn('private-',json.dumps(public));self.assertFalse(public['passed'])
                 finally:

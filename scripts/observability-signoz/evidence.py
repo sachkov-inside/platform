@@ -135,14 +135,20 @@ def inside_failures(output):
 def inner_command(value):
     """Optional closed numeric evidence; malformed context never invents zeros."""
     try:
-        require(type(value) is dict and set(value)=={'command_class','timeout_seconds','elapsed_seconds','native_exit','alive_before_reap'})
+        fields={'command_class','timeout_seconds','elapsed_seconds','native_exit','alive_before_reap'}
+        require(type(value) is dict and set(value) in (fields,fields|{'disk_helper_stage'}))
         require(type(value['command_class']) is str and value['command_class'] in lifecycle.RAW_COMMAND_CLASSES)
         timeout=number(value['timeout_seconds'],690);require(timeout>0)
         elapsed=number(value['elapsed_seconds'],690)
         code=value['native_exit'];require(code is None or type(code) is int and -128<=code<=255)
         alive=boolean(value['alive_before_reap']);require(alive==(code is None))
-        return {'available':True,'command_class':value['command_class'],'timeout_seconds':timeout,
+        result={'available':True,'command_class':value['command_class'],'timeout_seconds':timeout,
                 'elapsed_seconds':elapsed,'native_exit':code,'alive_before_reap':alive}
+        if 'disk_helper_stage' in value:
+            require(value['command_class']=='disk_exec')
+            stage=value['disk_helper_stage']
+            result['disk_helper_stage']=stage if type(stage) is str and stage in lifecycle.DISK_HELPER_STAGES else 'unknown'
+        return result
     except Exception:return {'available':False}
 
 

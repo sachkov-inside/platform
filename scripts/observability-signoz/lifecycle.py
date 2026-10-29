@@ -61,6 +61,11 @@ NATIVE_OPERATIONS = frozenset((('unknown','unknown'),('image_pull','amd64_digest
 STDERR_CATEGORIES = frozenset(('unclassified','unknown_platform_flag'))
 RAW_COMMAND_CLASSES = frozenset(('context_show','context_inspect','daemon_info',
     'container_inspect','disk_exec','unknown'))
+DISK_HELPER_MARKERS = ((b'signoz-disk-stage-v1:entered\n','entered'),
+    (b'signoz-disk-stage-v1:imports_complete\n','imports_complete'),
+    (b'signoz-disk-stage-v1:syscalls_complete\n','syscalls_complete'))
+DISK_HELPER_STAGES = frozenset(('unknown',*(stage for _,stage in DISK_HELPER_MARKERS)))
+DISK_HELPER_CAPTURE_LIMIT = 128
 _RAW_FAILURE_AUTHORITY = object()
 ALIASES = {'keeper': 'signoz-telemetrykeeper-clickhousekeeper-0',
            'postgres': 'signoz-metastore-postgres-0',
@@ -151,6 +156,26 @@ def first_raw_command(error):
             return dict(context[1])
     except BaseException:pass
     return None
+
+
+def disk_helper_after_reap(stream,captured,eof):
+    """Read only already-available pipe bytes after owned reap, never wait again."""
+    if len(captured)>DISK_HELPER_CAPTURE_LIMIT:return 'unknown'
+    raw=bytearray(captured)
+    try:
+        while not eof and len(raw)<=DISK_HELPER_CAPTURE_LIMIT:
+            chunk=os.read(stream.fileno(),DISK_HELPER_CAPTURE_LIMIT+1-len(raw))
+            if not chunk:eof=True
+            else:raw.extend(chunk)
+    except (OSError,ValueError):return 'unknown'
+    if not eof:return 'unknown'
+    prefix=b''
+    for marker,stage in DISK_HELPER_MARKERS:
+        prefix+=marker
+        if raw==prefix:return stage
+    # Even a fully drained Docker CLI pipe cannot prove that the remote helper
+    # never entered. Empty, truncated, mixed or reordered markers stay unknown.
+    return 'unknown'
 
 
 def digest(path):
@@ -363,6 +388,7 @@ class Engine:
         with self.lock:
             self.child.add(proc);self.child_threads[proc]=threading.get_ident()
         selector=selectors.DefaultSelector();data=[bytearray(),bytearray()];started=time.monotonic();deadline=started+timeout
+        stderr_eof=False;raw_failure_context=None
         def monitor_cancelled_before_deadline():
             if threading.current_thread().name!='owned-signoz-storage' or not getattr(self,'monitor_stop',threading.Event()).is_set():return False
             with self.lock:
@@ -380,7 +406,9 @@ class Engine:
                     raise Refusal('command_deadline')
                 for key,_ in selector.select(min(.1,max(0,deadline-time.monotonic()))):
                     chunk=os.read(key.fileobj.fileno(),65536)
-                    if not chunk:selector.unregister(key.fileobj);continue
+                    if not chunk:
+                        if key.data==1:stderr_eof=True
+                        selector.unregister(key.fileobj);continue
                     data[key.data].extend(chunk)
                     need(len(data[0])+len(data[1])<=OUTPUT_LIMIT,'command_output_limit')
             code=proc.wait(timeout=max(.001,deadline-time.monotonic()))
@@ -405,10 +433,12 @@ class Engine:
                 try:
                     # Bind to this exact exception, never the mutable latest engine failure.
                     # A non-raw exception cannot supply this in-memory authority marker.
-                    vars(error).setdefault('_signoz_raw_failure',(_RAW_FAILURE_AUTHORITY,{
+                    context=(_RAW_FAILURE_AUTHORITY,{
                         'command_class':raw_command_class(args,self,binary),
                         'timeout_seconds':timeout,'elapsed_seconds':time.monotonic()-started,
-                        'native_exit':native_exit,'alive_before_reap':alive_before_reap}))
+                        'native_exit':native_exit,'alive_before_reap':alive_before_reap})
+                    if vars(error).setdefault('_signoz_raw_failure',context) is context:
+                        raw_failure_context=context[1]
                 except BaseException:pass
                 index=getattr(self,'failure_index',0)+1;self.failure_index=index
                 row={'native_exit':native_exit,'alive_before_reap':alive_before_reap,
@@ -435,6 +465,8 @@ class Engine:
             try:os.killpg(proc.pid,signal.SIGKILL)
             except ProcessLookupError:pass
             proc.wait(timeout=1)
+            if raw_failure_context is not None and raw_failure_context['command_class']=='disk_exec':
+                raw_failure_context['disk_helper_stage']=disk_helper_after_reap(proc.stderr,data[1],stderr_eof)
             for stream in (proc.stdout,proc.stderr):stream.close()
             with self.lock:
                 self.child.discard(proc)

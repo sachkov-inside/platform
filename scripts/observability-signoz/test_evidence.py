@@ -84,6 +84,19 @@ class Publication(unittest.TestCase):
             lifecycle.private_json(path,record)
             self.assertEqual(evidence.storage_monitor(record)['first_inner_command'],{'available':False})
 
+    def test_disk_stage_projection_preserves_legacy_unknown_and_hides_invalid_private_values(self):
+        original={'command_class':'disk_exec','timeout_seconds':3,'elapsed_seconds':3.01,'native_exit':None,'alive_before_reap':True}
+        self.assertEqual(evidence.inner_command(original),{'available':True,**original})
+        for stage in ('entered','imports_complete','syscalls_complete','unknown'):
+            self.assertEqual(evidence.inner_command({**original,'disk_helper_stage':stage}),
+                             {'available':True,**original,'disk_helper_stage':stage})
+        for stage in ('not_entered','private-key-email-URL',[],{},None,True,5,float('nan'),'x'*2000):
+            public=evidence.inner_command({**original,'disk_helper_stage':stage})
+            self.assertEqual(public,{'available':True,**original,'disk_helper_stage':'unknown'})
+            self.assertNotIn('private-',json.dumps(public))
+        self.assertEqual(evidence.inner_command({**original,'command_class':'daemon_info','disk_helper_stage':'entered'}),{'available':False})
+        self.assertEqual(evidence.inner_command({**original,'disk_helper_stage':'entered','private-key':'secret'}),{'available':False})
+
     def test_complete_closed_functional_receipt_remains_explicitly_not_capacity(self):
         for profile_id in (lifecycle.BASELINE_PROFILE,lifecycle.MCP512_PROFILE):
             with self.subTest(profile=profile_id):self.complete_profile(profile_id)

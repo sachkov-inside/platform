@@ -47,7 +47,7 @@ class SdkPhaseTest(unittest.TestCase):
     def test_strict_bounded_reader_refuses_private_duplicates_links_and_modes(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory).resolve(); path=output/phase.NAME
-            for raw in [b'{}',b'{"schema":1,"schema":1}',b'{"x":NaN}',b' '*513,b'['*600]:
+            for raw in [b'{}',b'{"schema":1,"schema":1}',b'{"x":NaN}',b' '*(phase.MAX_BYTES+1),b'['*600]:
                 path.write_bytes(raw);path.chmod(0o600)
                 with self.assertRaises(ValueError):phase.read(path,source=SOURCE)
             path.unlink();target=output/'private';target.write_bytes(b'private');path.symlink_to(target)
@@ -525,7 +525,12 @@ class SdkEntrypointPhaseTest(unittest.TestCase):
                             listener.bind(('127.0.0.1',port));listener.listen(1)
                         except OSError:self.fail('owned fixture listener remained')
                 value=phase.read(output/phase.NAME,source=SOURCE)
+                transport=value.pop('transport',None)
+                if transport is not None:self.assertEqual(phase._transport(transport),transport)
                 if failure=='success':
+                    self.assertIsNotNone(transport)
+                    self.assertTrue(transport['available'])
+                    self.assertIsNotNone(transport['sdkFlushMs'])
                     self.assertTrue(observed['normal'],'original producer return changed')
                     self.assertTrue(observed['completed_after_cleanup'],'completion preceded original cleanup')
                     self.assertEqual(value,{**record('completed','result_ready'),'diagnostics':dict(available=True,saturated=False,droppedSpans=0,failedTraceExports=0,failedMetricExports=0),'exportFailures':dict(available=True,traces=None,metrics=None)})
@@ -836,7 +841,7 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                     target.mkdir(mode=0o700)
                 with patch.object(sdk_storage.ci,'collect',side_effect=collect):sdk_storage.collect(output,metadata,destination)
             canonical=(destination/phase.NAME).read_bytes()
-            self.assertEqual(canonical,(json.dumps({**expected,'diagnostics':{'available':False},'exportFailures':{'available':False}},sort_keys=True,separators=(',',':'))+'\n').encode())
+            self.assertEqual(canonical,(json.dumps({**expected,'diagnostics':{'available':False},'exportFailures':{'available':False},'transport':{'available':False}},sort_keys=True,separators=(',',':'))+'\n').encode())
             self.assertLessEqual(len(canonical),phase.MAX_BYTES)
             invalid={**expected,'private':'private-corpus-marker'};(output/phase.NAME).write_text(json.dumps(invalid));(output/phase.NAME).chmod(0o600)
             with patch.object(sdk_storage.diagnostics,'read',return_value={}),patch.object(sdk_storage.ci,'collect') as collect:
@@ -864,7 +869,7 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                     self.assertFalse(destination.exists())
                 else:
                     sdk_storage.collect(output,metadata,destination)
-                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),{**record('unknown','unknown','unavailable'),'diagnostics':{'available':False},'exportFailures':{'available':False}})
+                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),{**record('unknown','unknown','unavailable'),'diagnostics':{'available':False},'exportFailures':{'available':False},'transport':{'available':False}})
                     self.assertEqual(json.loads((destination/'source.json').read_text()),value)
 
     def test_unobservable_parent_and_disappearing_present_file_are_refused(self):
@@ -888,7 +893,7 @@ class SdkCounterProjectionTest(unittest.TestCase):
                 output=Path(directory).resolve()
                 value={**record('failed','sdk_diagnostics','operation_failed'),'diagnostics':counters}
                 phase.write(output/phase.NAME,value,source=SOURCE)
-                self.assertEqual(phase.load_for_collection(output,source=SOURCE),{**value,'exportFailures':{'available':False}})
+                self.assertEqual(phase.load_for_collection(output,source=SOURCE),{**value,'exportFailures':{'available':False},'transport':{'available':False}})
                 self.assertLessEqual((output/phase.NAME).stat().st_size,512)
 
     def test_optional_invalid_or_absent_counters_are_unavailable_never_zero_or_primary(self):
