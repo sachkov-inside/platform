@@ -129,6 +129,7 @@ def await_fact(read,predicate,seconds=60):
         value=read()
         if predicate(value):return value
         time.sleep(.25)
+    control.trace_log_wait()
     raise control.ControlFailure()
 
 
@@ -179,8 +180,10 @@ def run():
         await_fact(retained,lambda count:count==400)
         control.FUNCTIONAL_STAGE='trace_log'
         for signal_name in ('traces','logs'):
-            await_fact(lambda:control.scalar(query(scalar_query(signal_name,TRACE_ID),key)),lambda count:count==1)
-            require(control.scalar(query(scalar_query(signal_name,'0'*32),key))==0)
+            with control.trace_log_read(control.TRACE_LOG_READS[(signal_name,'positive')]):
+                await_fact(lambda:control.trace_log_count(control.scalar(query(scalar_query(signal_name,TRACE_ID),key))),lambda count:count==1)
+            with control.trace_log_read(control.TRACE_LOG_READS[(signal_name,'negative')]):
+                require(control.trace_log_count(control.scalar(query(scalar_query(signal_name,'0'*32),key)))==0)
         facts['retained_400']=1;facts['trace_log_correlation']=1
         # Native MCP executes a source-fixed scalar trace read; full raw metric count above
         # is separately verified against the400 actual OTLP points.

@@ -123,6 +123,11 @@ def inside_failures(output):
             'mcp_initialize_version','mcp_inventory_cursor','mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool',
             'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics',
             'trace_log','mcp_read','finite_gateway','viewer_admin_denial','viewer_revoke','viewer_revoked_denial'}
+    stages.update(signal+'_'+polarity+'_'+step for signal in ('traces','logs') for polarity in ('positive','negative')
+        for step in ('read','query_admission','query_request','query_headers','query_read','query_response','query_deadline',
+            'query_decode','query_object','query_envelope','query_close','scalar_type','scalar_warning','scalar_results',
+            'scalar_query','scalar_columns','scalar_rows','scalar_number','scalar_number_range','count_zero','count_one',
+            'count_many','wait_unknown','wait_zero','wait_one','wait_many'))
     categories={'ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
                 'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'}
     transports={'none','mcp_http','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'}
@@ -133,7 +138,7 @@ def inside_failures(output):
         if not path.exists():continue
         row=read(path);require(type(row) is dict and set(row)=={'inside_failed','stage','category','http_status','transport'}
             and type(row['inside_failed']) is int and row['inside_failed']==1)
-        result.append({'stage':row['stage'] if type(row['stage']) is str and row['stage'] in stages else 'unavailable',
+        result.append({'stage':row['stage'] if type(row['stage']) is str and len(row['stage'])<=48 and row['stage'] in stages else 'unavailable',
             'category':row['category'] if type(row['category']) is str and row['category'] in categories else 'unavailable',
             'transport':row['transport'] if type(row['transport']) is str and row['transport'] in transports else 'unavailable',
             'http_status':integer(row['http_status'],599)})
