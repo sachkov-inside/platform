@@ -1,8 +1,8 @@
 # Platform v1 application specification
 
-Current Product commerce follows [ADR 0037](../adr/0037-products-without-subscriptions.md), accepted
-2026-10-20: one-time Product purchases and grants, with no current subscription sales, renewal
-controls, invitation checkout or new recurring charges. Historical financial reconciliation and
+Current Product commerce follows the [2026-10-23 access model](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026),
+recorded in [ADR 0040](../adr/0040-unified-product-access.md): one-time Product purchases and grants,
+with subscription functionality removed, including renewal controls, invitation checkout and new recurring charges. Historical financial reconciliation and
 rights remain intact. The account presents Products, including retained revoked/expired
 assignments, and keeps financial history separate. A Product's community entry uses its explicit
 Telegram-group association and Account-scoped admission; the current provider serves `primary`.
@@ -43,7 +43,7 @@ application-level NFR, порядком production foundations и ADR inputs. П
 [MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`GLOSSARY.md`](../../GLOSSARY.md).
 Код, tests и возможные application ADR принадлежат этому repository.
 
-Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Products и Product Access. Мастерская (Workshop) отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md);
+Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Products и Product Access. Мастерская (Workshop) отменена [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md);
 [Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет её контракт как историю. Код и contracts Мастерской
 удалены в [#1063](https://github.com/sachkov-inside/platform/issues/1063).
 
@@ -634,7 +634,7 @@ canonical Task titles, Material ordinals, current selection and progress remain 
 материала между главами меняет группировку опубликованного маршрута сразу. Сам состав маршрута
 по-прежнему определяется публикацией, поэтому черновики и неопубликованные материалы в него не
 попадают. Прогресс «N из M» считает тот же состав, что показывает программа, и от группировки по
-главам не меняется ([ADR 0033](../adr/0033-product-tariff-payment-model.md),
+главам не меняется ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md),
 [#1050](https://github.com/sachkov-inside/platform/issues/1050)).
 
 Materials читает главы, текущие привязки и опубликованный маршрут одним снимком в
@@ -645,7 +645,7 @@ Materials читает главы, текущие привязки и опубл
 Архивную программу, прогресс и материалы читает только Account с доступом к продукту; гость и
 Account без права получают «не найдено». `ContentAccess` применяет это правило также к файлам
 и видео материалов, которые входят только в архивные продукты. Ответы держателю не попадают
-в общий кеш. Web после гостевого «не найдено» читает продукт и программу в личной части запроса ([ADR 0033](../adr/0033-product-tariff-payment-model.md)).
+в общий кеш. Web после гостевого «не найдено» читает продукт и программу в личной части запроса ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)).
 
 
 
@@ -1192,8 +1192,10 @@ owns editor and source-authoring instructions.
    returned embed locator, authoritative status и sync/error facts. Upload attempt фиксируется до
    provider I/O; один unresolved attempt на Material+actor блокирует новый key после ambiguous
    timeout, поэтому browser retry не создаёт второй provider object. Browser выполняет resumable
-   Tus transfer без API token. Attach-existing всегда делает server lookup в фиксированном public
-   или membership project. Material ссылается на Video только после `ready`, поэтому закрытая или
+   Tus transfer без API token. Каждая загрузка идёт в защищённый (membership) project, поэтому урок
+   меняет access без новой загрузки ([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)).
+   Attach-existing делает server lookup по ID и принимает только запись защищённого project или,
+   для free Material, public project; Video хранит защиту своего project. Material ссылается на Video только после `ready`, поэтому закрытая или
    перезагруженная вкладка оставляет Platform Upload без ссылки. Редактор получает последнюю такую
    загрузку Material, пока её исход не установлен, и сверяет её обычной reconciliation. Итог этой
    сверки: `ready` привязывается обычным Save, продолжающаяся обработка ждёт, а `uploading` без
@@ -1214,8 +1216,9 @@ owns editor and source-authoring instructions.
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для
    retry/reconciliation.
-10. Save/publish с `primaryVideoId` fails closed для missing, processing/failed, wrong-Material,
-    wrong-access или wrong-project Video. Current и published pointers меняются одной Material Save;
+10. Save/publish с `primaryVideoId` fails closed для missing, processing/failed, wrong-Material
+    или wrong-project Video, а closed Material ещё и для записи public project. Смена access
+    Material с защищённой записью остаётся обычным Save. Current и published pointers меняются одной Material Save;
     неуспешная replacement не меняет уже опубликованный playback. «Убрать из материала» и обычная
     replacement никогда не удаляют provider object. Только отдельное подтверждённое действие для
     immutable `platform_upload` атомарно сохраняет detach/replacement и durable VideoDeletion;
@@ -1226,10 +1229,14 @@ owns editor and source-authoring instructions.
 11. Reader сначала получает только safe Video presentation. При открытии страницы автоматически
     запрашивается playback session; до её allow нет iframe, provider script/request, locator или token.
     Playback session повторно вызывает exact `ContentAccess`
-    `play`; membership Video получает short-lived JWT, а strict provider authorization callback ещё
-    раз проверяет token, Video mapping и current access. Mismatch, tampering, expiry и outage deny.
-    Platform-owned responsive frame загружает плеер без дополнительной кнопки и без autoplay;
-    controls остаются в Kinescope, технические пояснения не выводятся. Subtitles/transcripts вне V1.
+    `play`; каждая защищённая запись получает short-lived JWT, в том числе для анонимного зрителя
+    free Material (пустой `sub`), а strict provider authorization callback ещё раз проверяет token,
+    Video mapping и current access Material. Mismatch, tampering, expiry и outage deny.
+    Platform-owned responsive frame загружает плеер без autoplay. При наличии Material cover
+    обложка видна в 16:9 до запуска мышью или клавиатурой, включая draft preview. Запуск сохраняет
+    resume; прямой `#t=` и переход по главе открывают плеер на выбранном моменте. Без обложки
+    остаётся poster провайдера; controls остаются в Kinescope, технические пояснения не выводятся.
+    Subtitles/transcripts вне V1.
 12. Account resume хранится coarse server-side по `(accountId, videoId)` и работает между
     устройствами. Anonymous public resume хранится versioned по local Video ID в `localStorage`;
     replacement не наследует позицию. Ни один resume path не меняет manual `ReadingState` и не
@@ -1258,7 +1265,7 @@ Storybook и реальные маршруты используют один pro
 - anonymous/non-member search сопоставляет только public projection и всё равно показывает
   membership results с замком; поиск идёт по title, summary и public search text и от доступа не
   зависит. Закрытый материал открывает только доступ к продукту, в который он входит;
-  общего права на все закрытые материалы нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)).
+  общего права на все закрытые материалы нет ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)).
   `Account × Material` grants не вводятся;
 - Topic/Product являются контекстной навигацией; Reader не запрашивает derived related выдачу и
   принимает back context только из allowlist Home/Library/Topic/Product/Profile. Выбранный Product
@@ -1859,9 +1866,9 @@ group and starting learning. Explicit programme return links keep their target. 
 remain available. Completed onboarding disappears from desktop and mobile navigation.
 Learning-start persistence is independent of the current lesson composition.
 
-[The access model](../product/access-model.md#product-community-and-revocation-owner-decision-2026-10-14)
-owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
-owns the module boundary and historical-policy trade-offs. This implementation does not authorize
+[The access model](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+owns Product acquisition, preservation and owner withdrawal. [ADR 0040](../adr/0040-unified-product-access.md)
+owns the current module-boundary rationale; Git retains the historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the legal edition for this model is purchase
 edition 7, accepted and published through #1464.
 

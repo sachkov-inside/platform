@@ -45,6 +45,12 @@ export const publishSelectionSchema = z.union([
 const materialSchema = materialReceiptSchema.extend({
   publicationState: publicationStateSchema.optional(),
   primaryVideoId: z.uuid().nullable(),
+  // A target before ADR 0041 does not report whether the recording is protected.
+  primaryVideo: z
+    .object({ protected: z.boolean().optional() })
+    .passthrough()
+    .nullable()
+    .optional(),
   metadata: z
     .object({
       slug: text,
@@ -111,6 +117,8 @@ export const videoSchema = z
       "delete_failed",
     ]),
     durationSeconds: z.number().int().positive().optional(),
+    // In the protected project (ADR 0041); a target before that decision does not report it.
+    protected: z.boolean().optional(),
   })
   .passthrough();
 /** @typedef {z.infer<typeof videoSchema>} Video */
@@ -645,6 +653,33 @@ export const uploadReceiptSchema = z.discriminatedUnion("phase", [
     durationSeconds: z.number().int().positive().nullable(),
   }),
 ]);
+
+/**
+ * @param {string} materialId
+ * @param {string} sha256 the recording's checksum
+ */
+export const uploadReceiptKey = (materialId, sha256) =>
+  `upload:${materialId}:${sha256}`;
+
+/**
+ * Every recording upload of one Material the journal holds, with the checksum its key names.
+ *
+ * @param {Record<string, unknown>} resources
+ * @param {string} materialId
+ */
+export function uploadReceiptsOf(resources, materialId) {
+  const prefix = uploadReceiptKey(materialId, "");
+  return Object.entries(resources).flatMap(([key, value]) =>
+    key.startsWith(prefix)
+      ? [
+          {
+            sha256: hash.parse(key.slice(prefix.length)),
+            receipt: uploadReceiptSchema.parse(value),
+          },
+        ]
+      : [],
+  );
+}
 
 /**
  * The receipt stored under a resource key, checked against the shape its prefix names.

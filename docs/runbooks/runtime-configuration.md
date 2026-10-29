@@ -135,6 +135,58 @@ integration routes are `/integrations/kinescope/v1/webhook` and
 `/integrations/kinescope/v1/authorize`; expose them only through the approved HTTPS domain and copy
 their exact provider-side settings during the credentialed acceptance run.
 
+### Kinescope provider settings
+
+These settings live in the Kinescope dashboard or API, not in Platform; changing them is an owner
+action. Kinescope documents its controls in
+[access restrictions](https://docs.kinescope.ru/zashita-kontenta/ogranichenie-dostupa-k-video/) and
+the [authorization backend](https://docs.kinescope.ru/instrukcii-dlya-razrabotchikov/avtorizatsionnyy-bekend-dlya-kontrolya-dostupa-k-video/).
+
+Platform uploads every recording to the membership project, which protects free and closed
+lessons alike, so a lesson changes access without a new upload
+([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)). The public project keeps older
+free recordings that play without a token.
+
+| Setting | «Sachkov Inside» (public, older `free` recordings) | «Sachkov Inside Membership» (protected, every new recording) |
+| --- | --- | --- |
+| Кто может смотреть | Все | Все; the authorization backend decides |
+| Где можно показывать плеер | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus `127.0.0.1` while the owner reviews on the stand | На указанных доменах: `sachkov.dev`, `*.sachkov.dev`, plus `127.0.0.1` while the owner previews on the stand (step 6) |
+| Authorization backend | none; set it per project, never for the whole workspace | `https://sachkov.dev/integrations/kinescope/v1/authorize`, Basic `KINESCOPE_CALLBACK_USERNAME`/`_PASSWORD` from the production `api.env`, `strict: true` |
+
+The webhook belongs to the workspace: `https://sachkov.dev/integrations/kinescope/v1/webhook` with
+Basic `KINESCOPE_WEBHOOK_USERNAME`/`_PASSWORD` and the `media.update.status` event. Caddy serves both
+routes on `sachkov.dev` and `inside.sachkov.dev`. A private Kinescope link bypasses the domain list,
+so share none for course video. Kinescope calls the authorization backend when the player requests a
+DRM licence; confirm in the dashboard that the membership project encrypts its video, otherwise
+the backend is never asked.
+
+Switch them on in this order, checking a free and a closed lesson on `https://sachkov.dev` (as a
+member and as a guest) after each step, so production playback never breaks. Start only once
+production runs a release with ADR 0041, which gives a token to every viewer of a protected
+recording; an earlier release sends a guest of a free lesson no token, and step 4 would lock it.
+
+1. Encryption of the membership project (dashboard, project settings, Super plan). Kinescope turns it
+   off only through support, and without it the backend is never asked.
+2. Webhook. It only speeds up readiness; the API poll stays authoritative.
+3. Domain lists on both projects, with every production host listed before the mode becomes
+   «На указанных доменах». Apply them to existing videos as well.
+4. Membership authorization backend with `strict: false`. A member plays a closed lesson and a
+   guest is refused (Platform answers `403`); a guest plays a free lesson whose recording is in this
+   project (`200`). Read the API log for `/integrations/kinescope/v1/authorize`.
+5. Switch it to `strict: true`, so a timeout or error also refuses playback, and repeat the check.
+
+6. Optional, with the owner's consent (#1808): the stand's preview key. Add the line printed by
+   `pnpm stand:kinescope preview-key` (`KINESCOPE_STAND_PREVIEW_PUBLIC_KEY`, the public half only) to
+   `api.env` and restart `api`, and add `127.0.0.1` to the membership project's domain list, so the
+   owner's stand can still preview and read protected recordings. Production refuses to start with the
+   private half. Remove the line and restart `api` to revoke it, and take `127.0.0.1` off the list
+   ([stand runbook](local-stand-kinescope.md#preview-after-protection-1808)).
+
+Rollback is the reverse step: `strict: false`, or remove the backend, or return the domain mode to
+«Везде». The [local stand](local-stand-kinescope.md) plays only while its origin is on the
+project's domain list, and recordings of the membership project after step 4 only with step 6, in
+its author preview and in the reader of an Account with `materials:manage`.
+
 The bank contour follows the same shape. `TBANK_PROVIDER_MODE` is `real` by default everywhere and
 selects the terminal from `TBANK_CONFIG_JSON`; `test` replaces it with the local stand double
 described in the [local development runbook](local-acceptance-sale.md#purchase-and-recovery)

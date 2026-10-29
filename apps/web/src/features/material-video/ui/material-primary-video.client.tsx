@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Circle,
   LoaderCircle,
+  Play,
   RotateCcw,
   VideoOff,
 } from "lucide-react";
@@ -11,15 +12,19 @@ import { useMutation } from "@tanstack/react-query";
 import {
   type Ref,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { z } from "zod";
 
+import { ContentCoverImage, type ContentCover } from "@/entities/material";
+
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
+import { loadKinescopeIframePlayer } from "../api/kinescope-iframe-api.browser";
 import {
   createMaterialVideoPlaybackSession,
   saveMaterialVideoProgress,
@@ -32,6 +37,7 @@ import {
 } from "../model/video";
 
 interface MaterialPrimaryVideoProps {
+  readonly cover?: ContentCover | null | undefined;
   readonly showWatchedAction?: boolean;
   readonly className?: string;
   readonly materialId: string;
@@ -59,12 +65,16 @@ interface MaterialPrimaryVideoProps {
 export type PlayerPhase = "loading" | "playing" | "error";
 
 export function MaterialPrimaryVideo({
+  cover,
   className,
   materialId,
   preview = false,
   video,
   showWatchedAction = true,
 }: MaterialPrimaryVideoProps) {
+  const [started, setStarted] = useState(false);
+  const startRequestedRef = useRef(false);
+  const startPlayerRef = useRef<(() => Promise<void>) | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const progressInteractionRef = useRef(false);
   const progressContextRef = useRef<{
@@ -97,6 +107,13 @@ export function MaterialPrimaryVideo({
     mutate: persistAccountProgress,
     mutateAsync: persistAccountProgressAsync,
   } = useMutation({ mutationFn: saveMaterialVideoProgress });
+  // Reads the latest chapters: a Reader refresh delivers an equal list as a new array.
+  const showChapterAt = useEffectEvent((seconds: number) => {
+    setActiveChapter(
+      video.chapters?.findLast((chapter) => chapter.start <= seconds)?.start ??
+        null,
+    );
+  });
 
   useEffect(() => {
     if (video.state !== "ready") return;
@@ -112,6 +129,7 @@ export function MaterialPrimaryVideo({
       const href = event.newURL === "" ? window.location.href : event.newURL;
       requestedHref = href;
       if (readVideoTimeFragment(new URL(href).hash, Infinity) === null) return;
+      setStarted(true);
       // Keep Next's canonical URL in sync before a pending refresh can erase it.
       window.history.replaceState(null, "", href);
       seekToReadyFragment?.(href);
@@ -128,6 +146,10 @@ export function MaterialPrimaryVideo({
           videoId: video.videoId,
         });
         if (!isActive()) return;
+        if (
+          readVideoTimeFragment(new URL(requestedHref).hash, Infinity) !== null
+        )
+          setStarted(true);
         if (session === null || session.videoId !== video.videoId) {
           throw new Error("Playback session is unavailable");
         }
@@ -161,9 +183,9 @@ export function MaterialPrimaryVideo({
             );
           }
         }
-        const iframeApi = await import("@kinescope/player-iframe-api-loader");
-        if (!isActive()) return;
-        const factory = await iframeApi.load();
+        // No provider script before the session allows playback
+        // (platform-v1, «Assets, downloads и video», item 11).
+        const factory = await loadKinescopeIframePlayer();
         if (!isActive()) return;
         // The SDK replaces its target; retain the React-owned mount for retries.
         const playerTarget = document.createElement("div");
@@ -192,6 +214,8 @@ export function MaterialPrimaryVideo({
         );
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
+        // The provider shows its own poster and loading state; metadata arrives behind it.
+        setPhase("playing");
         let metadataDuration = 0;
         await new Promise<void>((resolve, reject) => {
           let settled = false;
@@ -241,13 +265,7 @@ export function MaterialPrimaryVideo({
           new URL(requestedHref).hash,
         );
         let currentTime = resumeSeconds ?? 0;
-        const updateChapter = (seconds: number) => {
-          setActiveChapter(
-            video.chapters?.findLast((chapter) => chapter.start <= seconds)
-              ?.start ?? null,
-          );
-        };
-        updateChapter(currentTime);
+        showChapterAt(currentTime);
         let pendingSeek: number | null = null;
         let seeking = false;
         const seekToMoment = async (seconds: number) => {
@@ -261,7 +279,7 @@ export function MaterialPrimaryVideo({
               await player.seekTo(target);
               if (isActive()) {
                 currentTime = target;
-                updateChapter(target);
+                showChapterAt(target);
               }
             }
           } finally {
@@ -306,7 +324,7 @@ export function MaterialPrimaryVideo({
           player.Events.TimeUpdate,
           ({ data: { currentTime: nextTime } }) => {
             currentTime = nextTime;
-            updateChapter(nextTime);
+            showChapterAt(nextTime);
             if (Math.abs(currentTime - lastPersisted) >= 15)
               persist(currentTime);
           },
@@ -319,7 +337,15 @@ export function MaterialPrimaryVideo({
           persist(duration);
           setWatchedOverride(true);
         });
-        setPhase("playing");
+        // Install listeners before a queued start; no continuation may outlive this resource.
+        startPlayerRef.current = async () => {
+          try {
+            await player.play();
+          } catch {
+            if (isActive()) setPhase("error");
+          }
+        };
+        if (startRequestedRef.current) await startPlayerRef.current();
       } catch {
         if (isActive()) {
           removeTimeListener();
@@ -332,6 +358,7 @@ export function MaterialPrimaryVideo({
     void loadPlayer();
     return () => {
       active = false;
+      startPlayerRef.current = null;
       cancelMetadataWait?.();
       removeTimeListener();
       void mountedPlayer?.destroy();
@@ -342,7 +369,6 @@ export function MaterialPrimaryVideo({
     persistAccountProgress,
     preview,
     retryAttempt,
-    video.chapters,
     video.durationSeconds,
     video.state,
     video.title,
@@ -406,6 +432,13 @@ export function MaterialPrimaryVideo({
 
   return (
     <MaterialVideoPlayerView
+      cover={cover}
+      showPoster={!started}
+      onStart={() => {
+        startRequestedRef.current = true;
+        setStarted(true);
+        void startPlayerRef.current?.();
+      }}
       description={video.description}
       chapters={video.chapters ?? []}
       activeChapter={activeChapter}
@@ -432,6 +465,9 @@ export function MaterialPrimaryVideo({
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly cover?: ContentCover | null | undefined;
+  readonly showPoster?: boolean;
+  readonly onStart?: () => void;
   readonly description?: string | undefined;
   readonly chapters?: readonly {
     readonly start: number;
@@ -452,6 +488,9 @@ export interface MaterialVideoPlayerViewProps {
 
 /** Production player shell shared with Storybook state fixtures. */
 export function MaterialVideoPlayerView({
+  cover,
+  showPoster = false,
+  onStart,
   description,
   chapters = [],
   activeChapter = null,
@@ -466,6 +505,11 @@ export function MaterialVideoPlayerView({
   watchedDisabled = false,
   showWatchedAction = true,
 }: MaterialVideoPlayerViewProps) {
+  const hasPoster =
+    showPoster &&
+    cover != null &&
+    cover.renditions.length > 0 &&
+    phase !== "error";
   return (
     <section
       aria-labelledby="primary-video-heading"
@@ -477,7 +521,31 @@ export function MaterialVideoPlayerView({
         Видео: {title}
       </h2>
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-sidebar text-sidebar-foreground shadow-card ring-1 ring-sidebar-border">
-        <div className="absolute inset-0" data-video-player-mount />
+        <div
+          className="absolute inset-0"
+          data-video-player-mount
+          inert={hasPoster}
+          aria-hidden={hasPoster || undefined}
+        />
+        {hasPoster ? (
+          <button
+            type="button"
+            aria-label={`Смотреть видео: ${title}`}
+            onClick={onStart}
+            className="absolute inset-0 z-10 grid size-full cursor-pointer place-items-center focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-ring"
+          >
+            <ContentCoverImage
+              alt=""
+              cover={cover}
+              priority
+              className="absolute inset-0 size-full"
+              sizes="(min-width: 768px) 43rem, 100vw"
+            />
+            <span className="relative grid size-16 place-items-center rounded-full bg-background/90 text-foreground shadow-card">
+              <Play aria-hidden="true" className="size-7" />
+            </span>
+          </button>
+        ) : null}
         {phase === "playing" ? null : (
           <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_70%_20%,color-mix(in_oklch,var(--accent)_18%,transparent),transparent_42%),linear-gradient(145deg,var(--sidebar),color-mix(in_oklch,var(--sidebar)_84%,black))] p-3 text-center sm:p-6">
             <div className="max-w-md">

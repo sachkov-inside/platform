@@ -291,7 +291,7 @@ Platform уже выбрала локальную ограниченную по 
 не обращаются в Telegram; события и фоновая сверка обновляют данные. Принята задержка отзыва
 доступа до пяти минут и отказ при недопустимом устаревании. Поэтому независимый вход полезен,
 но сам по себе не обещает бессрочную работу закрытой библиотеки при длительном сбое Telegram.
-[Принятое межрепозиторное решение](../adr/workspace/0002-project-telegram-membership-events-into-postgresql.md).
+[Принятое межрепозиторное решение](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/workspace/0002-project-telegram-membership-events-into-postgresql.md).
 
 ## Смежные ограничения, влияющие на выбор
 

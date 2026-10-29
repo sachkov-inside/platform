@@ -73,7 +73,7 @@ describe("source publication only", () => {
     const videos = assembleVideos({
       prisma: database.prisma,
       canManage: () => Promise.resolve(true),
-      projects: { free: "public", closed: "private" },
+      projects: { public: "public", protected: "private" },
       provider: {
         delete: () => Promise.reject(new Error("unused")),
         initUpload: () => Promise.reject(new Error("unused")),

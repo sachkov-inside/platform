@@ -10,7 +10,11 @@ import { canonical } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { applyRelease, previewRelease, releaseTarget } from "./release.mjs";
-import { itemAt, reservationBodySchema } from "./test-support.mjs";
+import {
+  itemAt,
+  readJournalFile,
+  reservationBodySchema,
+} from "./test-support.mjs";
 import { trustedTarget, trustedTransport } from "./target.mjs";
 import { parseEnv } from "../../scripts/identity-proof-bootstrap.mjs";
 
@@ -79,6 +83,8 @@ function api(mode = "development") {
   };
   /** @type {string[]} */
   const writes = [];
+  /** The Material apply commands in the order they arrived. @type {unknown[]} */
+  const commands = [];
   /** Receipts by idempotency key, as Platform keeps them. @type {Map<string, unknown>} */
   const receipts = new Map();
   const faults = {
@@ -88,6 +94,7 @@ function api(mode = "development") {
   return {
     material,
     writes,
+    commands,
     faults,
     /** @type {import("./target.mjs").LocalTransport} */
     async request(path, body, key) {
@@ -111,6 +118,7 @@ function api(mode = "development") {
         writes.push(path);
         const command = materialApplyRequest({ path, body })?.body;
         assert.ok(command);
+        commands.push(command);
         assert.equal(command.expectedContentVersion, material.contentVersion);
         Object.assign(material, {
           contentVersion: material.contentVersion + 1,
@@ -404,5 +412,87 @@ test("full package restore discloses current and desired content revisions along
   assert.notEqual(
     row.contentReplacement.current,
     row.contentReplacement.desired,
+  );
+});
+
+test("preview reports a pending or ready recording upload and apply attaches only a ready one", async (t) => {
+  const setup = await fixture(t);
+  const server = api();
+  const options = { publish: /** @type {const} */ ("all"), origin: "editor" };
+  const first = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    request: server.request,
+  });
+  assert.equal(
+    Object.hasOwn(itemAt(first.preview.materials, 0), "videoUploads"),
+    false,
+  );
+  await applyRelease(first.path, setup.state, { request: server.request });
+  const journalPath = join(setup.state, "journal.json");
+  const journal = await readJournalFile(setup.state);
+  const videoId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const sha256 = "c".repeat(64);
+  const upload = {
+    sourceId: "inside-content:one",
+    idempotencyKey: "video-upload:one",
+    byteSize: 15,
+    filename: "final.mp4",
+    title: "Final",
+    access: "free",
+    videoId,
+    providerVideoId: "provider-one",
+    uploadEndpoint: "https://uploader.kinescope.io/files/provider-one",
+  };
+  const resources = (journal.resources ??= {});
+  resources[`upload:${materialId}:${sha256}`] = {
+    ...upload,
+    phase: "transfer",
+  };
+  await writeFile(journalPath, canonical(journal));
+
+  const pending = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    request: server.request,
+  });
+  const waiting = itemAt(pending.preview.materials, 0);
+  assert.deepEqual(waiting["videoUploads"], [{ state: "pending", sha256 }]);
+  assert.equal(waiting.change, "unchanged");
+  assert.equal(waiting.videoChange, undefined);
+  const kept = await applyRelease(pending.path, setup.state, {
+    request: server.request,
+  });
+  assert.equal(kept.applied, 0);
+
+  resources[`upload:${materialId}:${sha256}`] = {
+    ...upload,
+    phase: "ready",
+    durationSeconds: 600,
+  };
+  resources["source-video:inside-content:one"] = {
+    videoId,
+    providerVideoId: "provider-one",
+    sha256,
+  };
+  await writeFile(journalPath, canonical(journal));
+  const ready = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    request: server.request,
+  });
+  const attached = itemAt(ready.preview.materials, 0);
+  assert.deepEqual(attached["videoUploads"], [{ state: "ready", sha256 }]);
+  assert.equal(attached.videoChange, true);
+  const report = await applyRelease(ready.path, setup.state, {
+    request: server.request,
+  });
+  assert.equal(report.applied, 1);
+  assert.deepEqual(
+    server.commands.map(
+      (command) =>
+        z
+          .object({ primaryVideoId: z.uuid().nullable() })
+          .passthrough()
+          .parse(command).primaryVideoId,
+    ),
+    [null, videoId],
   );
 });

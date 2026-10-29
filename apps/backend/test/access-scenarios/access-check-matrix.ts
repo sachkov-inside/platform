@@ -72,6 +72,7 @@ export const accessCheckActions = [
   "read-product-a",
   "read-product-b",
   "read-free-practice",
+  "read-free-lesson",
   "manage-materials",
   "manage-billing",
   "use-other-account-data",
@@ -202,6 +203,8 @@ const httpTests = {
     "expired Product A grant exposes no protected bytes while the public Material stays open",
   revoked:
     "revoking Product A closes the next request and the earlier playback token while Product B stays open",
+  freeLessonVideo:
+    "free lesson gives a guest and an Account without entitlement a playback token that the Kinescope authorization backend accepts",
   ownerSurfaces:
     "Materials-only and Billing-only Accounts get a typed denial on each other's write next to their own",
 } as const;
@@ -459,6 +462,25 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       production: productionPass,
     },
   },
+  ...(["anonymous", "account-without-entitlement"] as const).map(
+    (state): AccessCheckRow => ({
+      state,
+      action: "read-free-lesson",
+      surface: "video",
+      expected: "allowed",
+      levels: {
+        "facade-postgresql": viaHttp(
+          "Отдельного facade-теста видео бесплатного урока нет; Nest HTTP проходит настоящий ContentAccess и выдачу playback session на PostgreSQL",
+        ),
+        "nest-http": test(http, httpTests.freeLessonVideo),
+        "learner-mcp": notApplicable(mcpMediaReference),
+        "web-bff": viaHttp(
+          "BFF передаёт playback session без своего решения доступа; бесплатный урок без входа и Account без права проверяет Nest HTTP",
+        ),
+        production: productionPass,
+      },
+    }),
+  ),
   ...learnerReads("learner-product-a", "read-product-a", "allowed"),
   ...learnerReads("learner-product-a", "read-product-b", "denied"),
   ...learnerReads("learner-product-b", "read-product-b", "allowed"),

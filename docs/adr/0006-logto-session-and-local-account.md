@@ -2,38 +2,40 @@
 status: accepted
 ---
 
-# Let Logto own authentication sessions and model one local Account
+# Logto владеет сессией входа, Platform хранит один Account
 
-The owner-approved [2026-10-20 Account profile and first-email contract](../specifications/account-profile-v1.md)
-supersedes the first-email-attachment exclusion below: a verified first email can be attached to
-the existing provider user without changing or merging the local Account. Historical permission
-and Membership names below do not override the current Accounts and Product Access contracts.
+Platform использует BFF cookie официального `@logto/next` и отображает проверенную пару
+Logto `(issuer, subject)` на один локальный человеческий Account. Platform владеет бизнес-правами,
+но не зеркалирует provider sessions и не помещает снимок авторизации в токен.
 
-Platform keeps the official `@logto/next` BFF cookie as its only authentication session and maps a
-verified Logto `(issuer, subject)` directly to one local human `Account`. Platform owns business
-permissions and Membership facts, but does not mirror provider sessions, model a generic
-human/service Principal, or snapshot authorization into tokens. The earlier generalized
-`IdentityPrincipals + Platform Session` model proved the protocol contour but added local
-session/idempotency/reauth state and service abstractions without real independent consumers.
+Прежняя модель IdentityPrincipals + Platform Session добавляла локальные session/idempotency/reauth
+состояния без независимого потребителя. Поэтому второй механизм сессий и общий human/service
+Principal отвергнуты. Разрешения и Product Access проверяются своими владельцами, отдельно от факта входа.
 
-This deliberately accepts the maximum five-minute lifetime of an already issued Platform-audience
-JWT after provider logout or suspension. Stronger Account disable/revocation and step-up are
-deferred until a real sensitive consumer can define their exact guarantees. `materials:manage` is
-the only current Platform permission; MembershipEntitlement remains a separate time-bounded content
-access fact. A future M2M identity requires its own ADR only when an independent technical actor has
-a concrete authorization consumer.
+Сознательный компромисс: уже выданный JWT для аудитории Platform может оставаться действительным
+до пяти минут после logout или suspension у провайдера. Более сильное прекращение сессий и step-up
+требуют конкретного чувствительного сценария с явно принятыми гарантиями, а не неявного обещания.
+Независимый M2M actor также требует своего решения, когда появляется реальный потребитель.
 
-Issue #116 subsequently verified this boundary against pinned Logto `1.41.0-inside.2`: recipient
-send reservations and dependency failure behavior remain inside the IdP, while repeated real
-sign-ins converge on one `Account` and the retired Platform session table remains absent. This is
-operational evidence for the accepted decision, not a new authentication architecture.
+По #299 от 06.09.2026 email-code и подтверждённый ботом Telegram-вход завершаются через Logto.
+Telegram-only Account не получает выдуманный email. Отдельный подписанный interaction claim
+доказывает Telegram establishment; Account по-прежнему разрешается по issuer/subject.
+Явное связывание идентичностей не разрешает автоматическое слияние двух Accounts.
 
-On 2026-09-06 the owner extended the establishment rule in
-[Platform #299](https://github.com/sachkov-inside/platform/issues/299): email-code and bot-confirmed
-Telegram sign-in both finish through Logto. The earlier email-only flow remains decision history.
-A Telegram-only Account has no fabricated email. A separate Logto-signed interaction claim proves
-Telegram establishment; matching the exact issuer and subject still resolves the Account. Explicit
-linking allows an email Account to use Telegram; automatic merging, first email attachment,
-identity replacement and recovery remain excluded. This extends the accepted session boundary
-without creating a second authentication mechanism. See the current
-[identity specification](../specifications/identity-principals-session-v1.md#telegram-sign-in--platform-299).
+Поправка 20.10.2026 разрешает прикрепить первый проверенный email к существующему provider user,
+сохраняя тот же Account. Она заменяет прежний запрет первого email, но не разрешает произвольную
+замену identity или восстановление чужой учётной записи.
+
+Решение владельца 28.10.2026 (#1785) временно оставляет доступным вход только через Telegram.
+Email-панель кабинета отключена; сохранённая provider/BFF реализация первого email не означает
+доступный пользовательский путь. Это меняет доступность сценария, а не границу единого Account.
+Действующий контракт находится в
+[Account profile](../specifications/account-profile-v1.md) и
+[identity specification](../specifications/identity-principals-session-v1.md).
+Историческая проверка #116 на Logto `1.41.0-inside.2` подтверждала тогдашнюю реализацию,
+а не закрепляла эту версию навсегда или единственное имя permission.
+
+## История
+
+[Редакция до аудита 28.10.2026](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0006-logto-session-and-local-account.md) сохраняет исходное обоснование,
+этапы реализации и прежние имена. Эта редактура уточняет действующую область решения.

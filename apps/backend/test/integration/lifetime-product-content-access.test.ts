@@ -98,7 +98,7 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
       prisma: db.prisma,
       canManage: () => Promise.resolve(false),
       provider: { delete: external, initUpload: external, find: external },
-      projects: { free: "free", closed: "closed" },
+      projects: { public: "free", protected: "closed" },
       clock: () => now,
     });
     const content = assembleContentAccess({

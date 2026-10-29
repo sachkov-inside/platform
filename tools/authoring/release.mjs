@@ -27,6 +27,7 @@ import {
   parseReceipt,
   publishSelectionSchema,
   sourceVideoReceiptSchema,
+  uploadReceiptsOf,
 } from "./local-boundaries.mjs";
 import {
   archiveProposalKeys,
@@ -74,12 +75,14 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
+ * @property {VideoUpload[]} [videoUploads] Recordings `authoring:video` uploaded for this Material
  * @property {import("./local-sync.mjs").DesiredPublication} publication
  * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
  * @property {{ current: string | null; desired: string }} [contentReplacement]
  * @property {{ current: string | null; desired: string | null }} [sourceCommit] Content commits of the target row and the package
  * @property {string} [conflictReason]
  * @property {{ from: string; to: string }} [accessChange]
+ * @typedef {{ state: "pending" | "ready"; sha256: string }} VideoUpload
  * @typedef {object} ProductChange
  * @property {string} sourceId
  * @property {string} title
@@ -116,6 +119,35 @@ export function releaseTarget(value) {
       `Release to ${value} is not enabled: only local loopback targets and the named trusted targets exist`,
     );
   }
+}
+
+/**
+ * The recordings `authoring:video` uploaded for one Material: the ready one, which apply attaches,
+ * and any whose transfer or processing has not finished, which apply leaves alone.
+ *
+ * @param {Record<string, unknown>} resources
+ * @param {string} materialId
+ * @param {string} sourceId the Material's source key, as its upload receipts name it
+ * @param {{ sha256: string } | undefined} ready its `source-video` receipt
+ * @returns {VideoUpload[]}
+ */
+function videoUploads(resources, materialId, sourceId, ready) {
+  /** @type {VideoUpload[]} */
+  const pending = uploadReceiptsOf(resources, materialId)
+    .filter(
+      ({ receipt }) =>
+        receipt.sourceId === sourceId &&
+        receipt.phase !== "ready" &&
+        receipt.phase !== "failed",
+    )
+    .map(({ sha256 }) => ({ state: /** @type {const} */ ("pending"), sha256 }))
+    .sort((left, right) => left.sha256.localeCompare(right.sha256));
+  return [
+    ...(ready === undefined
+      ? []
+      : [{ state: /** @type {const} */ ("ready"), sha256: ready.sha256 }]),
+    ...pending,
+  ];
 }
 
 /**
@@ -327,20 +359,30 @@ export async function previewRelease(
       item.publication,
     );
     const alreadyPublic = publicationConflictFound !== undefined;
-    // A Video keeps the access it was attached with; changing a Material's access needs a new recording decision.
+    // A protected recording serves either access, so an access change keeps the Video (ADR 0041).
+    // A public recording cannot be closed, and a target before ADR 0041 cannot change the access
+    // of a Material with a Video at all; both refuse the Save, so the preview names them first.
     const currentAccess = current.metadata.access ?? entry.access;
-    const existingVideo =
-      attached !== null && !String(attached).startsWith("attach:");
+    // Only a kept Video has a protection the target reports. A replacement is new to this preview;
+    // every new upload is protected, and a public recording named by ID fails on apply instead.
+    const keptProtection =
+      current.primaryVideoId !== null && attached === current.primaryVideoId
+        ? current.primaryVideo?.protected
+        : true;
     const videoAccessConflict =
-      existingVideo &&
-      currentAccess !== undefined &&
-      currentAccess !== item.access;
+      currentAccess === undefined || currentAccess === item.access
+        ? undefined
+        : keptProtection === undefined
+          ? "video_access_change"
+          : !keptProtection && item.access === "closed"
+            ? "video_not_protected"
+            : undefined;
     // On 2026-10-19 an older prepared package replaced newer content; history decides instead.
     const recordedCommit = current.source?.["commit"];
     const commitConflictFound = await commitConflict(recordedCommit);
     const change =
       current.contentVersion !== entry.contentVersion ||
-      videoAccessConflict ||
+      videoAccessConflict !== undefined ||
       alreadyPublic ||
       commitConflictFound !== undefined
         ? "conflict"
@@ -349,6 +391,7 @@ export async function previewRelease(
           : entry.digest !== digest
             ? "changed"
             : "unchanged";
+    const uploads = videoUploads(resources, entry.materialId, key, uploaded);
     const coverSha =
       row.coverAssetId === null
         ? null
@@ -361,6 +404,7 @@ export async function previewRelease(
         desired: materialRevision(manifest, row),
       },
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
+      ...(uploads.length === 0 ? {} : { videoUploads: uploads }),
       ...(typeof recordedCommit === "string" || sourceCommit !== undefined
         ? {
             sourceCommit: {
@@ -371,7 +415,7 @@ export async function previewRelease(
           }
         : {}),
       ...(commitConflictFound ? { conflictReason: commitConflictFound } : {}),
-      ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
+      ...(videoAccessConflict ? { conflictReason: videoAccessConflict } : {}),
       ...(publicationConflictFound
         ? { conflictReason: publicationConflictFound.code }
         : {}),
@@ -947,7 +991,7 @@ if (
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, videoUploads: preview.materials.flatMap((item) => (item.videoUploads ?? []).map((upload) => ({ sourceId: item.sourceId, ...upload }))), changes: preview.materials.filter((item) => item.change !== "unchanged").map(({ videoUploads: _listedAbove, ...item }) => item) }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z

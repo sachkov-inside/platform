@@ -128,7 +128,7 @@ Materials можно открыть публично для знакомства
 
 Самостоятельная практика находится внутри материалов и заданий продукта: действия читателя,
 инструкции агенту и способы проверить результат. Отдельная Мастерская и Kafka-first delivery
-отложены 2026-09-05 и отменены [ADR 0033](../adr/0033-product-tariff-payment-model.md): Мастерской
+отложены 2026-09-05 и отменены [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md): Мастерской
 не будет. Концепция Tracks, Laboratories и Production Cases остаётся историей.
 
 ### Серия о создании Inside

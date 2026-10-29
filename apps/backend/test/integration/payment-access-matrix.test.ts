@@ -232,7 +232,7 @@ describe("оплата, выдача прав и доступ к материа�
     videos = assembleVideos({
       prisma: db.prisma,
       provider: createTestVideoProvider(),
-      projects: { free: "free", closed: "members" },
+      projects: { public: "free", protected: "members" },
       canManage: () => Promise.resolve(false),
       clock: () => now,
     });

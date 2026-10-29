@@ -468,10 +468,28 @@ describe("ContentAccess authorization", () => {
       subject: { kind: "account" as const, accountId },
       expected: { effect: "allow", reason: "active_membership" },
     },
+    {
+      // A protected recording serves a lesson that was opened after its upload (ADR 0041).
+      name: "protected recording of a free Material",
+      facts: { ...membershipMaterial(44), access: "free" as const },
+      protectedRecording: true,
+      subject: { kind: "anonymous" as const },
+      expected: { effect: "allow", reason: "public_resource" },
+    },
+    {
+      name: "protected recording of a closed Material for a visitor",
+      facts: membershipMaterial(45),
+      protectedRecording: true,
+      subject: { kind: "anonymous" as const },
+      expected: { effect: "deny", reason: "authentication_required" },
+    },
   ])(
     "authorizes play through the referenced Material for a $name",
-    async ({ facts, subject, expected }) => {
-      const video = primaryVideo(facts, 1);
+    async ({ facts, subject, expected, ...rest }) => {
+      const video = {
+        ...primaryVideo(facts, 1),
+        ...("protectedRecording" in rest ? { protected: true } : {}),
+      };
       const referencedFacts = { ...facts, primaryVideoId: video.videoId };
       const contentAccess = assembleContentAccess({
         videoResourceFacts: {
@@ -505,9 +523,9 @@ describe("ContentAccess authorization", () => {
     },
   );
 
-  test("fails closed when Video facts point at a different access class", async () => {
+  test("fails closed when a closed Material points at a public recording", async () => {
     const facts = membershipMaterial(42);
-    const video = { ...primaryVideo(facts, 2), access: "free" as const };
+    const video = { ...primaryVideo(facts, 2), protected: false };
     const referencedFacts = { ...facts, primaryVideoId: video.videoId };
     const contentAccess = assembleContentAccess({
       videoResourceFacts: {
@@ -1030,7 +1048,7 @@ describe("archived-only Material resources", () => {
             Promise.resolve({
               videoId,
               materialId: facts.materialId,
-              access: "free" as const,
+              protected: false,
             }),
           findMany: () => Promise.resolve([]),
         },
@@ -1144,7 +1162,7 @@ function primaryVideo(
   return {
     videoId: `84000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
     materialId: material.materialId,
-    access: material.access,
+    protected: material.access === "closed",
   };
 }
 

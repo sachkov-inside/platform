@@ -227,6 +227,7 @@ describe("Material Authoring action workflow", () => {
           latestVideoDeletion: null,
           unselectedVideoUpload: {
             origin: "platform_upload",
+            protected: true,
             state: "processing",
             title: "Незавершённая загрузка",
             videoId: "70000000-0000-4000-8000-000000000001",

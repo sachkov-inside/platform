@@ -73,6 +73,7 @@ import {
 } from "./features/deliver-material-asset/deliver-material-asset.js";
 import {
   assembleVideoPlayback,
+  standPreviewKeys,
   VIDEO_PLAYBACK,
   type VideoPlayback,
 } from "./facets/video-playback/video-playback.js";
@@ -268,6 +269,10 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
           contentAccess,
           jwtSecret: config.kinescope.playbackJwtSecret,
           jwtTtlSeconds: config.kinescope.playbackJwtTtlSeconds,
+          standPreview: standPreviewKeys({
+            privateKey: config.kinescope.standPreviewPrivateKey,
+            publicKey: config.kinescope.standPreviewPublicKey,
+          }),
           videos,
         }),
     },

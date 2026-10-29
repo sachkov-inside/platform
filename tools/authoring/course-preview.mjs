@@ -10,7 +10,11 @@ import {
   materialRevision,
 } from "./package.mjs";
 
-/** @param {import('./package.mjs').Manifest} original */
+/**
+ * Lesson access stays as authored, as on production (ADR 0041): the stand shows the course with the
+ * access its learners get. Only practice definitions are published, so the stand can exercise them.
+ * @param {import('./package.mjs').Manifest} original
+ */
 export function coursePreviewManifest(original) {
   const manifest = structuredClone(original);
   const product = manifest.products.find(
@@ -18,37 +22,6 @@ export function coursePreviewManifest(original) {
   );
   if (product === undefined || manifest.products.length !== 1)
     throw new Error("Course preview requires only Inside AI Engineering");
-  // Programme accepted 2026-10-16; chapter nine added in Content 23026bf (#1791). The first-chapter
-  // access policy is unchanged.
-  const chapterIds = [
-    "project-setup",
-    "mvp-platform",
-    "production-release",
-    "team-agent-infrastructure",
-    "business-agent",
-    "agent-rag",
-    "agent-security",
-    "quality-and-production",
-    "cloud-agents",
-  ];
-  if (
-    !product.complete ||
-    product.chapters.length !== chapterIds.length ||
-    product.chapters.some(
-      (chapter, index) => chapter.sourceId !== chapterIds[index],
-    )
-  )
-    throw new Error(
-      "Course preview refuses an unknown course programme; review its acceptance profile",
-    );
-  const first = product.chapters.find(
-    (row) => row.sourceId === "project-setup",
-  );
-  if (first === undefined || first.materialIds.length === 0)
-    throw new Error("Course preview needs project-setup materials");
-  const free = new Set(first.materialIds);
-  for (const row of manifest.materials)
-    row.access = free.has(row.sourceId) ? "free" : "closed";
   for (const practice of manifest.practiceDefinitions ?? []) {
     const material = manifest.materials.find(
       (row) =>

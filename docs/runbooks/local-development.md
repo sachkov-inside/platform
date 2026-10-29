@@ -17,6 +17,8 @@ procedures; open the one that matches the task.
   sign-in callbacks, troubleshooting and the disposable production smoke from owned cache.
 - [Local stand accounts and product view](local-stand-accounts.md): the owner's purchase order,
   local account gateway and recovery, and where the owner's product data lives.
+- [Real Kinescope on the stand](local-stand-kinescope.md): production provider access without
+  deletion, what plays, readiness and switching back to the test adapter.
 - [Local PostgreSQL and migrations](local-database.md): inspection, seed behaviour, migration and
   Prisma schema checks.
 - [Former MinIO objects](local-minio-transfer.md): one-off copy into RustFS.

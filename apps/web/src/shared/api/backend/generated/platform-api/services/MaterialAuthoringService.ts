@@ -1577,6 +1577,7 @@ export class MaterialAuthoringService {
       durationSeconds?: number;
       failureCode?: string;
       origin: 'external_attachment' | 'platform_upload';
+      protected: boolean;
       state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
@@ -1602,6 +1603,7 @@ export class MaterialAuthoringService {
       durationSeconds?: number;
       failureCode?: string;
       origin: 'external_attachment' | 'platform_upload';
+      protected: boolean;
       state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
@@ -1620,6 +1622,7 @@ export class MaterialAuthoringService {
       durationSeconds?: number;
       failureCode?: string;
       origin: 'external_attachment' | 'platform_upload';
+      protected: boolean;
       state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;

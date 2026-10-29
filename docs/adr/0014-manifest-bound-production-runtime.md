@@ -9,8 +9,9 @@ the public edge is refined by the owner decision in
 [#805](https://github.com/sachkov-inside/platform/issues/805); the remaining rules of this decision
 are unchanged.
 
-Platform deploys one release unit containing seven processes: migrations, API, MCP, web, Material
-Asset worker, Profile Avatar worker and Video deletion worker. Production Compose consumes only the
+Platform deploys one manifest-bound application release unit. The process inventory is owned by
+[production Compose](../../compose.production.yaml); ADR 0025 records the addition of Billing and
+Notifications workers and the environment-owned broker. Production Compose consumes only the
 backend and web digest references selected from `release-manifest.json`; it never builds application
 source. The release ordinal and source SHA are embedded into a read-only file in both images and
 supplied separately as runtime configuration. Every process compares the two identities at startup

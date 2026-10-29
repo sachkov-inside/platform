@@ -97,7 +97,7 @@ function fixture() {
   };
 }
 
-test("local access and practice preview preserve drafts and the original immutable package", async (t) => {
+test("practice preview preserves authored access, drafts and the original immutable package", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "course-preview-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const original = fixture();
@@ -127,9 +127,10 @@ test("local access and practice preview preserve drafts and the original immutab
   const preview = await loadPackage(previewPath);
   assert.equal(await prepareCoursePreview(path, root), previewPath);
   assert.equal(await readFile(path, "utf8"), bytes);
+  // Access stays as authored: the target's default (closed) applies, as on production.
   assert.deepEqual(
     preview.manifest.materials.map((m) => m.access),
-    ["free", "free", "closed", "closed", "closed"],
+    [null, null, null, null, null],
   );
   assert.ok(preview.manifest.materials.every((m) => m.stage === "draft"));
   assert.equal(
@@ -145,50 +146,22 @@ test("local access and practice preview preserve drafts and the original immutab
   assert.throws(() => coursePreviewManifest(wrong), /requires only/u);
 });
 
-test("unknown course programmes cannot inherit the local access profile", () => {
+test("the course profile keeps authored access whatever the programme", () => {
   const original = fixture();
-  const chapter = original.products[0]?.chapters[0];
-  assert.ok(chapter);
-  chapter.sourceId = "unknown-chapter";
-  assert.throws(
-    () => coursePreviewManifest(original),
-    /unknown course programme/u,
-  );
-  assert.equal(original.materials[0]?.access, null);
-});
-
-test("the eight-chapter programme without cloud agents cannot inherit the local access profile", () => {
-  const original = fixture();
+  const opened = original.materials[2];
+  assert.ok(opened);
+  opened.access = "free";
   const product = original.products[0];
   assert.ok(product);
   product.chapters = product.chapters.filter(
     (chapter) => chapter.sourceId !== "cloud-agents",
   );
-  assert.throws(
-    () => coursePreviewManifest(original),
-    /unknown course programme/u,
+  const preview = coursePreviewManifest(original);
+  assert.deepEqual(
+    preview.materials.map((row) => row.access),
+    [null, null, "free", null, null],
   );
-  assert.equal(original.materials[0]?.access, null);
-});
-
-test("the superseded five-chapter outline cannot inherit the current local profile", () => {
-  const original = fixture();
-  const product = original.products[0];
-  assert.ok(product);
-  product.chapters = product.chapters.filter(
-    (chapter) =>
-      ![
-        "production-release",
-        "agent-rag",
-        "agent-security",
-        "cloud-agents",
-      ].includes(chapter.sourceId),
-  );
-  assert.throws(
-    () => coursePreviewManifest(original),
-    /unknown course programme/u,
-  );
-  assert.equal(original.materials[0]?.access, null);
+  assert.deepEqual(preview.products, original.products);
 });
 
 test("v2 guide envelope produces a separate preview without changing source IDs", async (t) => {
@@ -223,7 +196,7 @@ test("v2 guide envelope produces a separate preview without changing source IDs"
   assert.deepEqual(preview.manifest.requiredFeatures, ["github-anchors-v1"]);
   assert.deepEqual(
     preview.manifest.materials.map((row) => row.access),
-    ["free", "free", "closed", "closed", "closed"],
+    [null, null, null, null, null],
   );
 });
 

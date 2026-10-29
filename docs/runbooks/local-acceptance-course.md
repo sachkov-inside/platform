@@ -12,13 +12,14 @@ The source repository can be selected with `--content PATH`;
 `--ref COMMIT` pins the chosen content revision.
 
 The local preview leaves the original package and Content files unchanged. It creates a separately
-hashed package using the explicit acceptance profile for #1284: all materials in `project-setup`
-are free; materials in the other chapters and supplementary materials are closed. The profile
-requires the exact chapter list `chapterIds` in `tools/authoring/course-preview.mjs`, in that order,
-and a nonempty `project-setup`; it refuses an unknown programme until its profile is reviewed.
-Source IDs and chapter composition remain unchanged. Practice definitions are published only
-in this local copy, while lesson editorial stages stay unchanged. Task access and publication state
-remain authored; this profile does not choose access for Tasks. The receipt records both package
+hashed package in which practice definitions are published only in this local copy. Lesson and
+Task access stay as authored in Content, with the `closed` default for a lesson that names none, so
+the stand shows the access production has (owner request of 2026-10-28; the earlier profile of
+#1284 made `project-setup` free). Opening a chapter is a Content change that travels to both
+targets, and its lessons keep their protected recordings
+([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)). The profile accepts any
+programme of `inside-ai-engineering`; source IDs, chapter composition and lesson editorial stages
+remain unchanged. The receipt records both package
 paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;
 refresh the browser. It is a one-shot committed sync, not a watcher for unsaved edits.
 
