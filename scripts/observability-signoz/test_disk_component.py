@@ -142,6 +142,149 @@ class ComponentCollection(unittest.TestCase):
                 self.assertFalse(component.collect(output,root/'unknown'))
 
 
+def measurement_fixture(output):
+    """Native adapter only: real existing/Owned/run_case/collector, controlled cost."""
+    import copy
+    from test_profiles import owned_fixture
+    inventory,_=collection_fixture(output)
+    (output/'component-inventory-after.json').unlink()
+    _,template=owned_fixture(output,component.PROFILE)
+    plan=evidence.read(output/'compose.json')
+    class Native:
+        identity={'daemon_id':'owned-daemon','endpoint':'private-endpoint','storage':str(output)}
+        image_proofs=template.image_proofs
+        clock=1000.
+        deadline=1060.
+        commands=0
+        executions=[]
+        after_exec=None
+        component_entered=False
+        values=copy.deepcopy(template.values)
+        ids=dict(inventory['resources']['containers'])
+        def inspect(self,kind,identity):
+            args=[kind,'inspect',identity] if kind in ('image','volume','network') else ['inspect',identity]
+            return json.loads(self.call(args))[0]
+        def call(self,args,timeout=10):
+            self.commands+=1;self.clock+=.7
+            if self.clock>=self.deadline:raise lifecycle.Refusal('global_deadline')
+            if args[:2]==['ps','-aq']:return '\n'.join(self.ids.values())
+            if args[:2]==['volume','ls']:
+                name=args[-1].removeprefix('name=^').removesuffix('$')
+                return name if name in self.values else ''
+            if args[:2]==['network','ls']:return 'f'*64
+            if args[0]=='exec':
+                if timeout!=3 or args!=self.component_argv:raise AssertionError('fixed final dispatch required')
+                self.component_entered=True;self.executions.append(list(args))
+                if self.after_exec:self.after_exec(len(self.executions))
+                if args[2:]==['/bin/true']:return ''
+                if args[2:]==['python','-c',component.IMPORTS]:return 'disk-component-imports-v1\n'
+                if args[2:]==['python','/driver/inside.py','disk']:
+                    return json.dumps(dict(fsid=1,device=2,block=4096,blocks=25000000,available=23000000,files=0,free_files=0))
+                raise AssertionError('unexpected native command')
+            if args[0]=='inspect':return json.dumps([self.values[args[1]]])
+            if args[:2] in (['image','inspect'],['volume','inspect'],['network','inspect']):
+                return json.dumps([self.values[args[2]]])
+            raise AssertionError('unexpected native command')
+    native=Native()
+    for role,cid in native.ids.items():
+        spec=plan['services'][role];row=native.values[cid]
+        row['Config'].update(User=spec['user'],Entrypoint=spec.get('entrypoint',[]),
+            Cmd=spec['command'],Env=[k+'='+v for k,v in spec.get('environment',{}).items()])
+    for name,spec in plan['volumes'].items():
+        identity=inventory['resources']['volumes'][spec['name']]
+        native.values[spec['name']]={**identity,'Labels':spec['labels'],'Options':None}
+    spec=next(iter(plan['networks'].values()))
+    native.values['f'*64]={'Id':'f'*64,'Name':spec['name'],'Labels':spec['labels'],'Internal':True,'Driver':'bridge'}
+    pin=next(r for r in lifecycle.verify_packet(component.PROFILE)['images'] if r['repository'].endswith('/python'))
+    proof=native.image_proofs[pin['pinned']]
+    native.values[proof.runtime_reference]={'Id':proof.config_digest,'Os':'linux','Architecture':'amd64',
+        'Config':dict(proof.config),'RootFS':{'Type':'layers','Layers':list(proof.diff_ids)},'RepoDigests':[proof.runtime_reference]}
+    owner=evidence.read(output/'owner.json');owner['daemon']=native.identity
+    lifecycle.private_json(output/'owner.json',owner)
+    lifecycle.private_json(output/'component-host-initial.json',lifecycle.host_snapshot(native,output))
+    return evidence.read(output/'source.json'),evidence.read(output/'component-request.json'),native,inventory
+
+
+class ComponentMeasurement(unittest.TestCase):
+    def test_actual_measure_preserves_three_cases_and_complete_identity_with_bounded_native_cost(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();output=root/'private';output.mkdir(mode=0o700)
+            source,value,native,before=measurement_fixture(output)
+            with patch.object(component,'time',SimpleNamespace(monotonic=lambda:native.clock)):
+                component.measure(output,source,value,native)
+            self.assertLess(native.clock-1000,60)
+            self.assertEqual(len(native.executions),3)
+            self.assertEqual(evidence.read(output/'component-inventory-after.json'),before)
+            rows=evidence.read(output/'component-cases.json')['cases']
+            self.assertEqual([row['status'] for row in rows],['succeeded']*3)
+            outcome=evidence.read(output/'component-outcome.json')
+            outcome['phases']['measure']['elapsed_seconds']=native.clock-1000
+            lifecycle.private_json(output/'component-outcome.json',outcome)
+            with patch.object(runtime,'verify_source'):
+                self.assertTrue(component.collect(output,root/'public'))
+            self.assertTrue(evidence.read(root/'public/component.json')['diagnostic_complete'])
+
+    def test_complete_after_inventory_rejects_container_volume_replacement_and_quota_changes(self):
+        import copy
+        from types import SimpleNamespace
+        for changed in ('container_created','container_replaced','volume_created','quota'):
+            with self.subTest(changed=changed),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp).resolve();output=root/'private';output.mkdir(mode=0o700)
+                source,value,native,before=measurement_fixture(output)
+                def mutate(count):
+                    if count!=3:return
+                    cid=native.ids['disk'];row=native.values[cid]
+                    if changed=='container_created':row['Created']='replacement'
+                    elif changed=='container_replaced':
+                        native.ids['disk']='e'*64;native.values['e'*64]=copy.deepcopy(row)
+                        native.values['e'*64]['Id']='e'*64
+                    elif changed=='volume_created':
+                        name=next(iter(before['resources']['volumes']))
+                        native.values[name]['CreatedAt']='replacement'
+                    else:row['HostConfig']['MemorySwap']+=1
+                native.after_exec=mutate
+                with patch.object(component,'time',SimpleNamespace(monotonic=lambda:native.clock)):
+                    with self.assertRaises((lifecycle.Refusal,ValueError)):component.measure(output,source,value,native)
+                self.assertEqual(len(native.executions),3)
+                self.assertFalse((output/'component-inventory-after.json').exists())
+                with patch.object(runtime,'verify_source'):
+                    self.assertFalse(component.collect(output,root/'public'))
+
+    def test_each_case_still_validates_disk_before_its_final_native_command(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();output=root/'private';output.mkdir(mode=0o700)
+            source,value,native,_=measurement_fixture(output)
+            def mutate(count):
+                if count==1:native.values[native.ids['disk']]['HostConfig']['MemorySwap']+=1
+            native.after_exec=mutate
+            with patch.object(component,'time',SimpleNamespace(monotonic=lambda:native.clock)):
+                with self.assertRaises(lifecycle.Refusal):component.measure(output,source,value,native)
+            self.assertEqual(len(native.executions),1)
+            rows=evidence.read(output/'component-cases.json')['cases']
+            self.assertEqual([row['status'] for row in rows],['succeeded','not_run','not_run'])
+            self.assertTrue(all(not row['entered_final_exec'] for row in rows[1:]))
+            self.assertFalse((output/'component-inventory-after.json').exists())
+            with patch.object(runtime,'verify_source'):
+                self.assertFalse(component.collect(output,root/'public'))
+
+    def test_interrupted_partial_measurement_keeps_cases_but_cannot_complete_collection(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();output=root/'private';output.mkdir(mode=0o700)
+            source,value,native,_=measurement_fixture(output)
+            def interrupt(count):
+                if count==3:raise KeyboardInterrupt
+            native.after_exec=interrupt
+            with patch.object(component,'time',SimpleNamespace(monotonic=lambda:native.clock)):
+                with self.assertRaises(KeyboardInterrupt):component.measure(output,source,value,native)
+            self.assertEqual(len(evidence.read(output/'component-cases.json')['cases']),2)
+            self.assertFalse((output/'component-inventory-after.json').exists())
+            with patch.object(runtime,'verify_source'):
+                self.assertFalse(component.collect(output,root/'public'))
+
+
 class ComponentNegativeContracts(unittest.TestCase):
     def test_raw_deadline_is_retained_and_children_reaped_without_a_real_three_second_pause(self):
         import types
