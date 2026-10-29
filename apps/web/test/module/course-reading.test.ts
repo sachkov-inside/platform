@@ -333,6 +333,35 @@ describe("supplementary Material navigation", () => {
     expect(context?.activeReferenceId).toBeUndefined();
   });
 
+  it("keeps catalogue-opened Materials outside the programme and chapter attachments as references", () => {
+    const extra = courseReadingContext({
+      product: referenceProduct,
+      current: { kind: "material", slug: "extra" },
+      referenceView: true,
+    });
+    expect(extra).toMatchObject({
+      activeReferenceId: "reference:extra",
+      currentPosition: 0,
+    });
+    const attachment = courseReadingContext({
+      product: {
+        ...referenceProduct,
+        chapters: referenceProduct.chapters.map((chapter) =>
+          chapter.id === "two"
+            ? { ...chapter, supplementaryMaterialIds: ["first-id"] }
+            : chapter,
+        ),
+      },
+      current: { kind: "material", slug: "first" },
+      referenceView: true,
+    });
+    expect(attachment).toMatchObject({
+      activeReferenceId: "reference:first",
+      currentChapterId: "two:1",
+      currentPosition: 0,
+    });
+  });
+
   it("does not invent a reference missing from published Product membership", () => {
     const context = courseReadingContext({
       product,

@@ -159,9 +159,11 @@ export function resolveProductReaderContext({
       : {}),
     ...(programme === undefined ? {} : { programme }),
     currentPosition:
-      programme?.current.materialOrdinal ??
-      programme?.currentPosition ??
-      flatIndex + 1,
+      programme?.currentPosition === 0
+        ? 0
+        : (programme?.current.materialOrdinal ??
+          programme?.currentPosition ??
+          flatIndex + 1),
     next: supplementary
       ? null
       : (programme?.next ??

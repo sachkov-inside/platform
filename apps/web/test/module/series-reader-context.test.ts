@@ -284,6 +284,7 @@ it("keeps a catalogue-opened programme lesson selected in its chapter outside th
   });
   expect(context).toMatchObject({
     supplementary: true,
+    currentPosition: 0,
     next: null,
     previous: null,
     programme: {
