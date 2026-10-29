@@ -13,7 +13,6 @@ import {
   productBDeferred,
   identityEmail,
   passCells,
-  videoDeferred,
   freePracticeDeferred,
 } from "../production/pass-config";
 import { redactPassText } from "../production/pass-redaction";
@@ -176,25 +175,44 @@ describe("production access pass configuration", () => {
   it("defers only unavailable owner-selected fixtures and checks retired practice denial", () => {
     const cells: readonly PassCell[] = passCells;
     const reasons = cells.map((cell) => {
-      const { action, state, surface } = passCellParts(cell.id);
+      const { action, state } = passCellParts(cell.id);
       if (
         action === "read-product-b" ||
         (state === "learner-product-b" && action !== "read-product-a")
       )
         return [cell.deferred, productBDeferred];
-      if (surface === "video") return [cell.deferred, videoDeferred];
       if (action === "read-free-practice")
         return [cell.deferred, freePracticeDeferred];
       return [cell.deferred, undefined];
     });
 
     for (const [actual, expected] of reasons) expect(actual).toBe(expected);
-    expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(30);
+    expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(37);
     const retired = cells.find((cell) =>
       cell.id.includes("/read-retired-practice/"),
     );
     expect(retired?.expected).toBe("denied");
     expect(retired?.deferred).toBeUndefined();
+  });
+
+  it("plays the Product A video for its learner and the free lesson video for a guest and an Account without entitlement", () => {
+    const video = passCells
+      .filter(({ id }) => id.endsWith("/video@browser"))
+      .filter((cell) => !("deferred" in cell))
+      .map(({ id, expected }) => [id, expected]);
+
+    expect(Object.fromEntries(video)).toEqual({
+      "anonymous/read-product-a/video@browser": "denied",
+      "account-without-entitlement/read-product-a/video@browser": "denied",
+      "learner-product-a/read-product-a/video@browser": "allowed",
+      "learner-product-b/read-product-a/video@browser": "denied",
+      "expired/read-product-a/video@browser": "denied",
+      "anonymous/read-free-lesson/video@browser": "allowed",
+      "account-without-entitlement/read-free-lesson/video@browser": "allowed",
+    });
+    expect(passCellCheck("anonymous/read-free-lesson/video@browser")).toBe(
+      "Бесплатный урок: основное видео: playback session и лицензия Kinescope",
+    );
   });
 
   it("reads every Product surface in the browser and body and practice through learner MCP too", () => {
