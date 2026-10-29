@@ -21,7 +21,7 @@ export const productionTarget = {
 
 /**
  * Product A — единственный опубликованный Product production с закрытыми материалами. Тело проверяется
- * на `bodyMaterialSlug`; картинку даёт `assetMaterialSlug`, основное видео — закрытый урок
+ * на `bodyMaterialSlug`; картинку даёт `assetMaterialSlug`, основное видео даёт закрытый урок
  * `videoMaterialSlug` с защищённой записью Kinescope, задание — Product Task `taskCode`.
  * Материалы production проход не меняет.
  */

@@ -161,7 +161,7 @@ describe("scoped Account access over Nest HTTP", () => {
     }
   });
 
-  test("free lesson gives a guest and an Account without entitlement a playback token that Kinescope accepts", async () => {
+  test("free lesson gives a guest and an Account without entitlement a playback token that the Kinescope authorization backend accepts", async () => {
     const { bearer } = await signedInAccount();
     for (const token of [null, bearer]) {
       const session = await playback(world.freeProduct, token);

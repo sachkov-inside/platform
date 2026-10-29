@@ -69,9 +69,9 @@ const platformRecordingPaths = ["/communications/visit"];
 /** PAT прохода; другие PAT пользователя проход не удаляет. */
 export const passPatPrefix = "inside-production-access-";
 export const videoPlaybackSessions = "/api/material-video-playback-sessions";
-/** Хосты плеера Kinescope: страница плеера, скрипты, манифесты, сегменты и лицензия. */
-const kinescopeHosts =
-  /^(?:kinescope\.io|player\.kinescope\.io|license\.kinescope\.io|[a-z0-9-]+\.kinescopecdn\.net)$/u;
+/** Хосты плеера Kinescope: страница плеера, скрипты, манифесты и сегменты записи. */
+const kinescopePlayerHosts =
+  /^(?:kinescope\.io|player\.kinescope\.io|[a-z0-9-]+\.kinescopecdn\.net)$/u;
 /** Запрос лицензии записи: ClearKey (`POST`) и ключ SAMPLE-AES (`GET`). */
 export const kinescopeLicencePath =
   /^\/v[0-9]+\/vod\/[^/]+\/acquire\/[a-z-]+(?:\/[^/]+)?$/u;
@@ -196,16 +196,15 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
     if (method === "GET" || method === "HEAD") return allow("read");
     return reject(`${method} ${path} is not a pass operation`);
   }
-  if (kinescopeHosts.test(url.hostname) && url.port === "") {
-    if (
-      origin === productionTarget.kinescopeLicence &&
-      (method === "GET" || method === "POST") &&
+  if (origin === productionTarget.kinescopeLicence)
+    return (method === "GET" || method === "POST") &&
       kinescopeLicencePath.test(path)
-    )
-      return allow("video-licence");
-    if (method === "GET" || method === "HEAD") return allow("read");
-    return reject(`${method} ${path} is not a Kinescope player read`);
-  }
+      ? allow("video-licence")
+      : reject(`${method} ${path} is not a Kinescope licence request`);
+  if (kinescopePlayerHosts.test(url.hostname) && url.port === "")
+    return method === "GET" || method === "HEAD"
+      ? allow("read")
+      : reject(`${method} ${path} is not a Kinescope player read`);
   return reject(`origin ${origin} is not in the pass allowlist`);
 }
 
@@ -379,6 +378,8 @@ export async function passPagePost(
     async (request) => {
       const answer = await fetch(request.url, {
         method: "POST",
+        // Как Node `fetch` прохода: тело не уходит по redirect, который allowlist не видел.
+        redirect: "manual",
         headers: { "content-type": "application/json" },
         body: request.payload,
       });

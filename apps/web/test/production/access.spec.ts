@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
+  errors,
   expect,
   test,
   type Browser,
@@ -71,10 +72,19 @@ interface Observation {
 }
 type Actor = PassIdentity | "anonymous";
 
-const playbackSessionInputSchema = z
-  .object({ materialId: z.uuid(), videoId: z.uuid() })
-  .strict();
+const playbackSessionInputSchema = z.object({
+  materialId: z.uuid(),
+  videoId: z.uuid(),
+});
 type PlaybackSessionInput = z.infer<typeof playbackSessionInputSchema>;
+
+/** Стоп для зависшего плеера: в production лицензия приходит за секунды после запуска. */
+const licenceBudgetMs = 90_000;
+/**
+ * Окно, в котором плеер без токена мог бы получить лицензию другой схемы шифрования. Отказ
+ * засчитывается, только когда за всё окно лицензия не пришла.
+ */
+const tokenlessLicenceBudgetMs = 30_000;
 
 function isPlaybackSessionRequest(request: BrowserRequest): boolean {
   return (
@@ -84,11 +94,65 @@ function isPlaybackSessionRequest(request: BrowserRequest): boolean {
   );
 }
 
-function isLicenceResponse(response: BrowserResponse): boolean {
+/** Ответ Kinescope на запрос лицензии из плеера на этой странице, а не на соседней. */
+function isLicenceResponse(response: BrowserResponse, page: Page): boolean {
   const url = new URL(response.url());
+  if (
+    url.origin !== productionTarget.kinescopeLicence ||
+    !kinescopeLicencePath.test(url.pathname)
+  )
+    return false;
+  try {
+    return response.frame().page() === page;
+  } catch {
+    // A service worker response belongs to no page.
+    return false;
+  }
+}
+
+/**
+ * Следит за лицензиями плеера страницы с момента вызова. Плеер может попробовать несколько схем
+ * шифрования, поэтому итог — выданная лицензия, а без неё последний отказ или `null` без ответа.
+ */
+function watchLicences(page: Page) {
+  const refused: number[] = [];
+  let granted = false;
+  const listener = (response: BrowserResponse) => {
+    if (!isLicenceResponse(response, page)) return;
+    if (response.status() === 200) granted = true;
+    else refused.push(response.status());
+  };
+  page.context().on("response", listener);
+  return {
+    async outcome(budgetMs: number): Promise<number | null> {
+      try {
+        if (!granted)
+          await page.context().waitForEvent("response", {
+            predicate: (response) =>
+              isLicenceResponse(response, page) && response.status() === 200,
+            timeout: budgetMs,
+          });
+        return 200;
+      } catch (error) {
+        if (!(error instanceof errors.TimeoutError)) throw error;
+        return refused.at(-1) ?? null;
+      } finally {
+        page.context().off("response", listener);
+      }
+    },
+  };
+}
+
+/** Ждёт, пока Reader покажет тело или отказ, и говорит, открыт ли урок. */
+async function readerAvailable(page: Page): Promise<boolean> {
+  const state = page
+    .locator(
+      "[data-application-content] [data-material-reader-state='available'], [data-application-content] [data-material-reader-state='access-required']",
+    )
+    .first();
+  await expect(state).toBeVisible();
   return (
-    url.origin === productionTarget.kinescopeLicence &&
-    kinescopeLicencePath.test(url.pathname)
+    (await state.getAttribute("data-material-reader-state")) === "available"
   );
 }
 
@@ -136,7 +200,12 @@ test("production access observes every live cell in one isolated scenario", asyn
     bodySnippet?: string | undefined;
     taskSnippet?: string | undefined;
     assetPath?: string | undefined;
-    video?: PlaybackSessionInput | undefined;
+    video?:
+      | {
+          readonly session: PlaybackSessionInput;
+          readonly embedLocator: string;
+        }
+      | undefined;
   } = {};
 
   async function observeCell(
@@ -155,20 +224,14 @@ test("production access observes every live cell in one isolated scenario", asyn
         return observeBodyThroughMcp(identity);
       case "assets@browser":
         return observeAsset(browser, identity);
-      case "video@browser":
-        return action === "read-free-lesson"
-          ? observeVideoPlayback(
-              await sessionOf(browser, identity),
-              identity,
-              freeVideoMaterialSlug,
-            )
-          : identity === "learner-product-a"
-            ? observeVideoPlayback(
-                await sessionOf(browser, identity),
-                identity,
-                productA.videoMaterialSlug,
-              )
-            : observeVideoDenial(await sessionOf(browser, identity), identity);
+      case "video@browser": {
+        const context = await sessionOf(browser, identity);
+        if (action === "read-free-lesson")
+          return observeVideoPlayback(context, identity, freeVideoMaterialSlug);
+        return identity === "learner-product-a"
+          ? observeVideoPlayback(context, identity, productA.videoMaterialSlug)
+          : observeVideoDenial(context, identity);
+      }
       case "practice@browser":
         return observeTaskPage(await sessionOf(browser, identity), identity);
       case "practice@learner-mcp":
@@ -373,14 +436,7 @@ test("production access observes every live cell in one isolated scenario", asyn
   async function openMaterial(context: BrowserContext, slug: string) {
     const page = await context.newPage();
     await page.goto(`/materials/${slug}`);
-    const state = page.locator(
-      "[data-application-content] [data-material-reader-state='available'], [data-application-content] [data-material-reader-state='access-required']",
-    );
-    await expect(state.first()).toBeVisible();
-    const readerState = await state
-      .first()
-      .getAttribute("data-material-reader-state");
-    return { page, available: readerState === "available" };
+    return { page, available: await readerAvailable(page) };
   }
 
   async function observeBodyPage(
@@ -653,16 +709,9 @@ test("production access observes every live cell in one isolated scenario", asyn
       const sessionRequest = page.waitForRequest(isPlaybackSessionRequest);
       // A closed lesson sends no request: the page closes with the wait still pending.
       sessionRequest.catch(() => undefined);
+      const licences = watchLicences(page);
       await page.goto(`/materials/${slug}`);
-      const state = page
-        .locator(
-          "[data-application-content] [data-material-reader-state='available'], [data-application-content] [data-material-reader-state='access-required']",
-        )
-        .first();
-      await expect(state).toBeVisible();
-      if (
-        (await state.getAttribute("data-material-reader-state")) !== "available"
-      )
+      if (!(await readerAvailable(page)))
         return await browserDenial(
           context,
           actor,
@@ -679,27 +728,25 @@ test("production access observes every live cell in one isolated scenario", asyn
           `playback session: HTTP ${String(response.status())}`,
         );
       const session = z
-        .object({ drmAuthToken: z.string().nullable(), videoId: z.uuid() })
+        .object({ drmAuthToken: z.string().nullable(), embedLocator: z.url() })
         .parse(await response.json());
       if (session.drmAuthToken === null)
         throw new Error(
           "The recording plays without a token: it proves no protected delivery",
         );
-      if (actor === "learner-product-a" && slug === productA.videoMaterialSlug)
-        learnerA.video = playbackSessionInputSchema.parse(
-          request.postDataJSON(),
-        );
+      if (actor === "learner-product-a")
+        learnerA.video = {
+          session: playbackSessionInputSchema.parse(request.postDataJSON()),
+          embedLocator: session.embedLocator,
+        };
       // Плеер спрашивает лицензию, когда начинает воспроизведение.
-      const licence = context.waitForEvent("response", {
-        predicate: isLicenceResponse,
-        timeout: 90_000,
-      });
-      licence.catch(() => undefined);
       const poster = page.getByRole("button", { name: /^Смотреть видео/u });
       if (await poster.isVisible()) await poster.click();
       else await page.locator("[data-video-player-mount] iframe").click();
-      const licenceStatus = (await licence).status();
-      return licenceStatus === 200
+      const licence = await licences.outcome(licenceBudgetMs);
+      if (licence === null)
+        throw new Error("The player requested no licence of the recording");
+      return licence === 200
         ? {
             observed: "allowed",
             note: "playback session с токеном; лицензия Kinescope HTTP 200",
@@ -707,7 +754,7 @@ test("production access observes every live cell in one isolated scenario", asyn
         : await browserDenial(
             context,
             actor,
-            `playback session с токеном; лицензия Kinescope HTTP ${String(licenceStatus)}`,
+            `playback session с токеном; лицензия Kinescope HTTP ${String(licence)}`,
           );
     } finally {
       await page.close();
@@ -716,35 +763,79 @@ test("production access observes every live cell in one isolated scenario", asyn
 
   /**
    * Отказ: со страницы закрытого урока identity просит playback session того же видео, что получил
-   * ученик A.
+   * ученик A. Гость вдобавок запускает ту же запись без токена: Kinescope не выдаёт лицензию, пока
+   * authorization backend Platform не подтвердил доступ. Без Account и права у других identities
+   * токена тоже нет, поэтому эта проверка одна.
    */
   async function observeVideoDenial(
     context: BrowserContext,
     actor: Actor,
   ): Promise<Observation> {
-    const input = required(learnerA.video, "Protected video session request");
+    const video = required(learnerA.video, "Protected video session");
     const page = await context.newPage();
     try {
       await page.goto(`/materials/${productA.videoMaterialSlug}`);
-      const response = await passPagePost(page, videoPlaybackSessions, input);
+      if (await readerAvailable(page))
+        return { observed: "allowed", note: "урок открыт" };
+      const response = await passPagePost(
+        page,
+        videoPlaybackSessions,
+        video.session,
+      );
       if (response.status === 200 || response.text.includes("drmAuthToken"))
         return {
           observed: "allowed",
           note: `playback session: HTTP ${String(response.status)}`,
         };
-      // Тот же ответ BFF даёт чужой Origin без тела; код говорит, что решение принял backend.
+      // Чужой Origin получает тот же 403, но без тела; код говорит, что решение принял backend.
       expect(response.status).toBe(403);
       expect(JSON.parse(response.text)).toEqual({
         code: "playback_unavailable",
       });
+      if (actor !== "anonymous")
+        return await browserDenial(
+          context,
+          actor,
+          "playback session: HTTP 403 playback_unavailable",
+        );
+      const licence = await tokenlessLicence(page, video.embedLocator);
+      if (licence === 200)
+        return { observed: "allowed", note: "лицензия без токена: HTTP 200" };
+      if (licence === null)
+        throw new Error("The tokenless player requested no licence");
       return await browserDenial(
         context,
         actor,
-        "playback session: HTTP 403 playback_unavailable",
+        `playback session: HTTP 403 playback_unavailable; лицензия без токена: HTTP ${String(licence)}`,
       );
     } finally {
       await page.close();
     }
+  }
+
+  /** Плеер записи без `drmauthtoken` на странице sachkov.dev: так его видит Kinescope у гостя. */
+  async function tokenlessLicence(
+    page: Page,
+    embedLocator: string,
+  ): Promise<number | null> {
+    const source = new URL(embedLocator);
+    source.searchParams.set("dnt", "1");
+    const licences = watchLicences(page);
+    await page.evaluate((src) => {
+      const frame = document.createElement("iframe");
+      frame.src = src;
+      frame.allow = "autoplay; encrypted-media";
+      frame.dataset["passTokenlessPlayer"] = "";
+      frame.style.cssText =
+        "position:fixed;inset:0;width:640px;height:360px;z-index:2147483647";
+      document.body.append(frame);
+    }, source.href);
+    const player = page.locator("[data-pass-tokenless-player]");
+    await expect(
+      page.frameLocator("[data-pass-tokenless-player]").locator("video"),
+    ).toBeAttached();
+    await player.click();
+    return licences.outcome(tokenlessLicenceBudgetMs);
   }
 
   async function observeMaterialsAuthoring(

@@ -204,7 +204,7 @@ const httpTests = {
   revoked:
     "revoking Product A closes the next request and the earlier playback token while Product B stays open",
   freeLessonVideo:
-    "free lesson gives a guest and an Account without entitlement a playback token that Kinescope accepts",
+    "free lesson gives a guest and an Account without entitlement a playback token that the Kinescope authorization backend accepts",
   ownerSurfaces:
     "Materials-only and Billing-only Accounts get a typed denial on each other's write next to their own",
 } as const;

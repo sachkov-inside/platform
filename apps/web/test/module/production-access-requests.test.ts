@@ -238,6 +238,8 @@ describe("production access pass request allowlist", () => {
       ["POST", "https://player-metrics.kinescope.io/v1/batch/gzip"],
       ["POST", `https://kinescope.io/${recording}/master.m3u8`],
       ["POST", "https://license.kinescope.io/v1/vod/x/release"],
+      ["GET", "https://license.kinescope.io/v1/vod/x/release"],
+      ["GET", "https://license.kinescope.io:444/v1/vod/x/acquire/clearkey"],
       [
         "PUT",
         `https://license.kinescope.io/v1/vod/${recording}/acquire/clearkey`,
