@@ -1,3 +1,4 @@
+import { FreeMaterialBadge } from "./free-material-badge";
 import {
   ChevronRight,
   Clock3,
@@ -418,7 +419,11 @@ function ProductMaterialRow({
       : formatDuration(material.primaryVideoDurationSeconds);
   // Бесплатный урок открыт каждому, поэтому уточнять у него нечего.
   const pending = accessPending && material.access !== "free";
-  const locked = !pending && material.availability === "locked";
+  // Бесплатный урок, который откроется после входа (#1825), отмечен словом, а не замком.
+  const locked =
+    !pending &&
+    material.availability === "locked" &&
+    material.access !== "free";
   const unavailable = !pending && material.availability === "unavailable";
   return (
     <ProductRowArticle
@@ -429,8 +434,9 @@ function ProductMaterialRow({
       {/* Строка в одну линию: номер, название, у урока продолжения компактная кнопка, затем
           длительность видео и место статуса чтения или доступа постоянной ширины, чтобы
           длительности стояли колонкой (решение владельца 29.10.2026). Формат словом не пишется:
-          урок с видео узнаётся по значку и длительности (решение владельца 29.10.2026). Открытость
-          показывает замок у закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
+          урок с видео узнаётся по значку и длительности (решение владельца 29.10.2026). Бесплатный
+          урок отмечен словом «Бесплатно» перед длительностью, закрытый замком (решение владельца
+          29.10.2026, #1647, заменило решение 09.10.2026 без метки). */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -459,6 +465,7 @@ function ProductMaterialRow({
             шрифте браузера номер урока оставался рядом с названием. */}
         <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
           <ProductContinuationAction href={readerHref} slug={material.slug} />
+          {material.access === "free" ? <FreeMaterialBadge /> : null}
           {duration === undefined ? null : (
             <span
               className="inline-flex items-center gap-1 tabular-nums"

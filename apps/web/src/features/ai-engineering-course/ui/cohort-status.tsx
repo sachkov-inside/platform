@@ -8,13 +8,16 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import "./cohort-status.css";
 
 /**
- * Набор на поток в нижнем блоке страницы курса. Слева поток и обещание, рядом пункты блока
- * «что входит», справа билет: цена предзаказа, скидка к цене после старта и кнопки. Пока
- * предзаказ не открыт, в билете нет цены и кнопки оплаты.
+ * Билет в нижнем блоке страницы курса. Слева поток и обещание, рядом пункты блока «что входит»,
+ * справа билет: цена, скидка к цене после старта и кнопки. На предзаказе билет продаёт предзаказ,
+ * после старта и между потоками доступ к курсу (#1647). Пока продажи нет, в билете нет цены и
+ * кнопки оплаты.
  */
 export interface CohortStatus {
-  /** Сколько дней до старта: «до старта 31 день»; наклейка над заголовком блока. */
-  readonly countdown: string;
+  /** Что продаёт билет: предзаказ до старта или доступ к идущему курсу. */
+  readonly kind: "preorder" | "access";
+  /** Сколько дней до старта: «до старта 31 день»; наклейка над заголовком блока. `null` — без неё. */
+  readonly countdown: string | null;
   readonly title: string;
   readonly text: string;
   readonly price: PreorderPrice | null;
@@ -23,7 +26,14 @@ export interface CohortStatus {
   /** Страница оплаты; `null` — оплатить сейчас нельзя или продукт уже открыт. */
   readonly purchaseHref: Route | null;
   readonly programmeHref: Route;
+  /** Есть бесплатные уроки: ссылка в программу зовёт попробовать бесплатно. */
+  readonly freeStart: boolean;
 }
+
+const ticketCopy = {
+  preorder: { head: "Предзаказ", purchase: "Оформить предзаказ" },
+  access: { head: "Доступ к курсу", purchase: "Приобрести доступ" },
+} as const;
 
 export function CohortStatusView({
   status,
@@ -33,14 +43,18 @@ export function CohortStatusView({
   return (
     <div className="aie-cohort-status">
       <div className="aie-cohort-status-intro">
-        <span className="aie-cohort-status-countdown">{status.countdown}</span>
+        {status.countdown === null ? null : (
+          <span className="aie-cohort-status-countdown">
+            {status.countdown}
+          </span>
+        )}
         <h2>{status.title}</h2>
-        <p>{status.text}</p>
+        {status.text === "" ? null : <p>{status.text}</p>}
       </div>
       <div className="aie-cohort-ticket-wrap">
         <div className="aie-cohort-ticket">
           <div className="aie-cohort-ticket-head">
-            <span>Предзаказ</span>
+            <span>{ticketCopy[status.kind].head}</span>
             {status.discount === null ? null : (
               <span className="aie-cohort-ticket-discount">
                 {status.discount}
@@ -59,7 +73,7 @@ export function CohortStatusView({
                 className="aie-cohort-ticket-buy"
                 href={status.purchaseHref}
               >
-                Оформить предзаказ
+                {ticketCopy[status.kind].purchase}
                 <ArrowRight aria-hidden="true" />
               </Link>
             )}
@@ -67,11 +81,16 @@ export function CohortStatusView({
               className="aie-cohort-ticket-programme"
               href={status.programmeHref}
             >
-              Открыть программу
+              {programmeCallLabel(status.freeStart)}
             </IntentPrefetchLink>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+/** Вторая ссылка билета ведёт в программу; при бесплатных уроках она зовёт попробовать (#1647). */
+export function programmeCallLabel(freeStart: boolean): string {
+  return freeStart ? "Попробовать бесплатно" : "Открыть программу";
 }

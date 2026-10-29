@@ -241,8 +241,15 @@ export const Guest: Story = {
   args: { result: lockedResult, learning: { kind: "guest" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Открытость показывает замок у закрытых уроков, метки «Бесплатно» в строках нет.
-    await expect(canvas.queryAllByText("Бесплатно")).toHaveLength(0);
+    // Бесплатные уроки отмечены словом, закрытые замком (решение владельца 29.10.2026, #1647).
+    const free = canvas.getAllByText("Бесплатно");
+    await expect(free).toHaveLength(3);
+    for (const label of free) {
+      await expect(label).toBeVisible();
+      await expect(
+        label.closest('[data-material-availability="locked"]'),
+      ).toBeNull();
+    }
     const cards = canvasElement.querySelectorAll("[data-product-ordinal]");
     const locked = canvasElement.querySelectorAll(
       '[data-material-availability="locked"]',
@@ -254,6 +261,41 @@ export const Guest: Story = {
     await expect(
       canvas.getByRole("link", { name: "Модель предметной области" }),
     ).toBeVisible();
+  },
+};
+function fail(message: string): never {
+  throw new Error(message);
+}
+
+/**
+ * Гостю бесплатный урок курса откроется после входа через Telegram (#1825): строка отмечена словом
+ * «Бесплатно» без замка, замок остаётся только у закрытых уроков (#1647).
+ */
+export const GuestFreeLessonsAfterSignIn: Story = {
+  args: {
+    result: {
+      ...result,
+      items: materials.map((material) => ({
+        ...material,
+        availability: "locked" as const,
+      })),
+    },
+    learning: { kind: "guest" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const free = canvas.getAllByText("Бесплатно");
+    await expect(free).toHaveLength(3);
+    for (const label of free) {
+      const row =
+        label.closest<HTMLElement>("[data-material-availability]") ??
+        fail("Missing programme row");
+      await expect(within(row).queryByText("Нужен доступ")).toBeNull();
+    }
+    const cards = canvasElement.querySelectorAll("[data-product-ordinal]");
+    await expect(canvas.getAllByText("Нужен доступ")).toHaveLength(
+      cards.length - 3,
+    );
   },
 };
 /**
@@ -282,7 +324,7 @@ export const GuestFreeLessonsNeedSignIn: Story = {
       ),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("link", { name: "Оплатить сейчас" }),
+      canvas.getByRole("link", { name: "Приобрести доступ" }),
     ).toBeVisible();
   },
 };
@@ -312,7 +354,7 @@ export const GuestOnlyFreeLessons: Story = {
       ),
     ).toBeVisible();
     await expect(
-      canvas.queryByRole("link", { name: "Оплатить сейчас" }),
+      canvas.queryByRole("link", { name: "Приобрести доступ" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -338,7 +380,7 @@ export const LockedProductInvitesPayment: Story = {
     const canvas = within(canvasElement);
     // Приглашение, а не цена: сумму и состав показывает страница оплаты.
     await expect(
-      canvas.getByRole("link", { name: "Оплатить сейчас" }),
+      canvas.getByRole("link", { name: "Приобрести доступ" }),
     ).toHaveAttribute("href", "/products/platform-inside/buy");
     await expect(canvas.queryByText(/2\s?500/u)).not.toBeInTheDocument();
     await expect(
@@ -355,7 +397,7 @@ export const PaymentInviteMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole("link", { name: "Оплатить сейчас" }),
+      within(canvasElement).getByRole("link", { name: "Приобрести доступ" }),
     ).toBeVisible();
   },
 };
@@ -372,7 +414,7 @@ export const SubscriptionNotForSaleHidesInvite: Story = {
       canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
     ).not.toBeInTheDocument();
     await expect(
-      canvas.queryByRole("link", { name: "Оплатить сейчас" }),
+      canvas.queryByRole("link", { name: "Приобрести доступ" }),
     ).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Модель предметной области" }),
@@ -384,7 +426,7 @@ export const OpenProductHidesPayment: Story = {
   play: async ({ canvasElement }) => {
     // Право уже открыто: предлагать покупку нечего, даже когда цена заведена.
     await expect(
-      within(canvasElement).queryByRole("link", { name: "Оплатить сейчас" }),
+      within(canvasElement).queryByRole("link", { name: "Приобрести доступ" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -1167,7 +1209,10 @@ export const CompactMobileRoute: Story = {
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
-    await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
+    // Метка бесплатного урока остаётся и на телефоне (#1647).
+    const free = rows.getAllByText("Бесплатно");
+    await expect(free).toHaveLength(2);
+    for (const label of free) await expect(label).toBeVisible();
     // Ни одна строка не подписана форматом материала отдельным словом.
     await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
     await expect(rows.queryByText("Видео")).not.toBeInTheDocument();
@@ -1205,7 +1250,7 @@ export const DesktopRouteDetails: Story = {
     await expect(route.queryByText(videoSummary)).not.toBeInTheDocument();
     await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
     await expect(route.queryByText("Platform")).not.toBeInTheDocument();
-    await expect(route.queryAllByText("Бесплатно")).toHaveLength(0);
+    await expect(route.getAllByText("Бесплатно")).toHaveLength(2);
     await expect(route.getByText("Продолжить", { exact: true })).toBeVisible();
     const cards = [
       ...canvasElement.querySelectorAll<HTMLElement>(
