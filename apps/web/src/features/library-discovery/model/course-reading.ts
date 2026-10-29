@@ -298,3 +298,16 @@ export function courseReadingContext({
     next: position < 0 ? null : (steps[position + 1] ?? null),
   };
 }
+
+/** A programme step opened for reference keeps its chapter label, though it claims no position. */
+export function readsProgrammeStepForReference(
+  context: CourseReadingContext,
+): boolean {
+  return (
+    context.currentPosition === 0 &&
+    context.activeReferenceId === undefined &&
+    context.chapters.some((chapter) =>
+      chapter.steps.some((step) => step.id === context.current.id),
+    )
+  );
+}

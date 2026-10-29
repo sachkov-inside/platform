@@ -41,7 +41,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     .getByRole("navigation", { name: "Разделы продукта" })
     .getByRole("button", { name: /^Материалы/u })
     .click();
-  const catalogue = page.getByRole("list", { name: "Материалы курса" });
+  const catalogue = page.getByRole("region", { name: "Материалы курса" });
   await expect(catalogue.getByRole("listitem")).toHaveCount(12);
   await expect(catalogue.getByRole("heading").first()).toHaveText(
     "Материал 120",
@@ -67,7 +67,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     catalogue.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Дополнительные", exact: true })
+    .getByRole("button", { name: "Вне программы", exact: true })
     .click();
   await expect(
     catalogue.getByRole("heading", { name: "Материал 1", exact: true }),

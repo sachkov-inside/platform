@@ -34,9 +34,10 @@ import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
 import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import type {
-  CourseReadingContext,
-  CourseReadingStep,
+import {
+  readsProgrammeStepForReference,
+  type CourseReadingContext,
+  type CourseReadingStep,
 } from "../model/course-reading";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
@@ -176,7 +177,9 @@ export function CourseReadingHeader({
             compact
             items={[
               { label: context.name, href: context.href },
-              ...(supplementary && context.currentPosition === 0
+              ...(supplementary &&
+              context.currentPosition === 0 &&
+              !readsProgrammeStepForReference(context)
                 ? [{ label: "Дополнительный материал" }]
                 : [
                     {
@@ -579,7 +582,7 @@ export function ProgrammeDialog({
           opensProgramme
           current
           caption={
-            supplementary ? (
+            supplementary && !readsProgrammeStepForReference(context) ? (
               context.currentPosition === 0 ? (
                 "Дополнительный материал"
               ) : (

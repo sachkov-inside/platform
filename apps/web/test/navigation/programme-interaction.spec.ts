@@ -31,7 +31,9 @@ test("the first available programme switch opens the catalogue across delayed hy
     await expect(materials).toBeEnabled();
     if (!availableBeforeHydration) await materials.click();
     await expect(
-      page.getByRole("list", { name: "Материалы курса" }).getByRole("listitem"),
+      page
+        .getByRole("region", { name: "Материалы курса" })
+        .getByRole("listitem"),
     ).toHaveCount(12);
   } finally {
     releaseScripts?.();
@@ -87,7 +89,7 @@ test("a selected catalogue survives delivery of optional onboarding without repl
       .getByRole("button", { name: /^Материалы/u });
     await expect(materials).toBeEnabled();
     await materials.click();
-    const catalogue = page.getByRole("list", { name: "Материалы курса" });
+    const catalogue = page.getByRole("region", { name: "Материалы курса" });
     await expect(catalogue.getByRole("listitem")).toHaveCount(12);
     await surface.evaluate((node) => {
       node.setAttribute("data-retained-programme", "true");
