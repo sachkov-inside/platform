@@ -12,9 +12,43 @@ PORT = 8080
 OWNER = 'monitoring-1566-signoz-functional'
 MAX_BODY = 65536
 DEADLINE = None
+FAILURE_STAGES = frozenset(('entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
+    'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics','trace_log','mcp_read','finite_gateway',
+    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial'))
+FAILURE_TRANSPORTS = frozenset(('none','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'))
+FAILURE_CATEGORIES = frozenset(('ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
+    'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'))
+_FAILURE_AUTHORITY = object()
 
 class ControlFailure(Exception):
     pass
+
+def _closed_name(value, allowed):
+    return value if type(value) is str and len(value)<=48 and value in allowed else 'unavailable'
+
+def _current_failure(error):
+    status=globals().get('LAST_HTTP_STATUS',0)
+    return (_closed_name(globals().get('FUNCTIONAL_STAGE','entry'),FAILURE_STAGES),
+            _closed_name(globals().get('STEP','none'),FAILURE_TRANSPORTS),
+            status if type(status) is int and 0<=status<=599 else 0,
+            _closed_name(type(error).__name__,FAILURE_CATEGORIES))
+
+def preserve_failure(error):
+    # Per-exception authority, never a global first-error latch. Local negatives stay local.
+    fields=vars(error);saved=fields.get('_signoz_first_failure')
+    if type(saved) is tuple and len(saved)==2 and saved[0] is _FAILURE_AUTHORITY:return
+    fields['_signoz_first_failure']=(_FAILURE_AUTHORITY,_current_failure(error))
+
+def failure_context(error):
+    saved=vars(error).get('_signoz_first_failure')
+    if type(saved) is tuple and len(saved)==2 and saved[0] is _FAILURE_AUTHORITY:
+        row=saved[1]
+        if not (type(row) is tuple and len(row)==4 and type(row[2]) is int and 0<=row[2]<=599):
+            row=('unavailable','unavailable',0,'unavailable')
+    else:row=_current_failure(error)
+    return {'inside_failed':1,'stage':_closed_name(row[0],FAILURE_STAGES),
+        'category':_closed_name(row[3],FAILURE_CATEGORIES),'http_status':row[2],
+        'transport':_closed_name(row[1],FAILURE_TRANSPORTS)}
 
 def require(ok):
     if not ok:
@@ -97,6 +131,7 @@ class FixedRead:
 
 def bootstrap():
     global FUNCTIONAL_STAGE
+    FUNCTIONAL_STAGE='bootstrap'
     # Generated only inside the admitted isolated fixture.
     password = 'Aa9!' + secrets.token_urlsafe(32)
     email = 'control@signoz-fixture.invalid'
@@ -120,17 +155,21 @@ def bootstrap():
     _, account, _ = request('POST', '/api/v1/service_accounts', {'name': OWNER}, admin, (201,))
     account_id = uid(account.get('id'))
     key_id = None
+    primary = None
     try:
         request('POST', '/api/v1/service_account_roles',
                 {'serviceAccountId': account_id, 'roleId': viewer}, admin, (201,))
+        FUNCTIONAL_STAGE='bootstrap_key'
         _, key, _ = request('POST', '/api/v1/service_accounts/' + account_id + '/keys',
                           {'name': 'bounded-control', 'expiresAt': int(time.time()) + 900},
                           admin, (201,))
         key_id = uid(key.get('id'))
         require(isinstance(key.get('key'), str) and key['key'])
         reader = {'SIGNOZ-API-KEY': key['key']}
+        FUNCTIONAL_STAGE='bootstrap_identity'
         _, identity, _ = request('GET', '/api/v1/service_accounts/me', auth=reader)
         require(identity.get('id') == account_id and identity.get('orgId') == org)
+        FUNCTIONAL_STAGE='bootstrap_roles'
         attached = identity.get('serviceAccountRoles')
         require(isinstance(attached, list) and len(attached) == 1)
         require(attached[0].get('roleId') == viewer)
@@ -144,6 +183,7 @@ def bootstrap():
             else:
                 raise ControlFailure()
         # One actual backend read. No retry hiding migration/query failure.
+        FUNCTIONAL_STAGE='bootstrap_fixed_read'
         count, query_seconds = proxy.call('empty_fixture_span_count', {})
         require(count == 0)
         hook = globals().get('FUNCTIONAL_HOOK')
@@ -162,9 +202,15 @@ def bootstrap():
                 'empty_fixture_span_count': count, 'query_seconds': query_seconds,
                 'local_raw_input_negatives': 3, 'admin_read_denied': 1,
                 'revoke_denied': 1}
+    except BaseException as error:
+        primary=error;preserve_failure(error)
+        raise
     finally:
         # An unsuccessful path still attempts revoke under the SAME deadline.
         # Outer controller must always remove the whole owned fixture afterward.
         if key_id is not None:
-            request('DELETE', '/api/v1/service_accounts/' + account_id + '/keys/' + key_id,
-                    auth=admin, accepted=(204,))
+            try:
+                request('DELETE', '/api/v1/service_accounts/' + account_id + '/keys/' + key_id,
+                        auth=admin, accepted=(204,))
+            except Exception:
+                if primary is None:raise
