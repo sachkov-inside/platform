@@ -1,0 +1,75 @@
+/* Throwaway styles for the material catalog layout prototype. */
+.mosaic {
+  columns: 1;
+  column-gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@container library (min-width: 34rem) {
+  .mosaic {
+    columns: 2;
+  }
+}
+@container library (min-width: 54rem) {
+  .mosaic {
+    columns: 3;
+  }
+}
+.mosaicItem {
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
+}
+
+.switcher {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: max-content;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  background: var(--foreground);
+  color: var(--background);
+  box-shadow: 0 6px 24px #0002;
+}
+.switcher > div {
+  display: grid;
+  min-width: 12rem;
+  max-width: 22rem;
+  text-align: center;
+}
+.switcher small {
+  font-size: 0.6875rem;
+  opacity: 0.75;
+}
+.switcher strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.switcher span {
+  font-size: 0.75rem;
+  line-height: 1.1rem;
+  opacity: 0.8;
+}
+.switcher button {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.switcher button:hover {
+  background: color-mix(in srgb, var(--background) 15%, transparent);
+}
+.switcher button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
