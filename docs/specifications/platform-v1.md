@@ -704,6 +704,9 @@ delivery date is invented for a planned chapter. Chapter headings remain visible
 rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
 Lesson rows name no Material format. A lesson with a primary video shows a play icon and the video
 duration at every width; a lesson without video shows neither. Task rows keep their «Задание» label.
+A studied lesson shows a thin accent check without a filled circle. The continuation lesson row is
+highlighted and carries a compact «Продолжить» or «Начать обучение» button at its right end, not a
+full-width button below the title; with enlarged text the right-hand group wraps to its own line.
 
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит

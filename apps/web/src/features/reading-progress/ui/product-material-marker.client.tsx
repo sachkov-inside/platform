@@ -23,10 +23,15 @@ export function ProductMaterialMarker({
       aria-label={`Материал ${String(ordinal)}${isRead ? ", изучен" : ""}`}
       className={cn(
         "grid place-items-center rounded-full text-xs font-bold",
+        // В строке программы отметка тонкая галочка без круга: она не спорит с названием урока.
         statusOnly
-          ? "size-5 sm:size-6"
-          : "size-6 ring-4 ring-background sm:size-8",
-        isRead ? "bg-accent text-accent-foreground" : "bg-primary text-white",
+          ? "size-5 text-accent"
+          : cn(
+              "size-6 ring-4 ring-background sm:size-8",
+              isRead
+                ? "bg-accent text-accent-foreground"
+                : "bg-primary text-white",
+            ),
       )}
       data-product-marker
       data-product-marker-read={isRead}
@@ -35,8 +40,8 @@ export function ProductMaterialMarker({
       {isRead ? (
         <Check
           aria-hidden="true"
-          className="size-4 sm:size-5"
-          strokeWidth={3}
+          className={statusOnly ? "size-4" : "size-4 sm:size-5"}
+          strokeWidth={statusOnly ? 2.5 : 3}
         />
       ) : (
         <span aria-hidden="true">{ordinal}</span>

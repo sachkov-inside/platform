@@ -160,10 +160,12 @@ const meta = {
     (Story, context) => {
       const view = context.args.learning;
       const read = view?.kind === "ready" ? view.read : 0;
+      // Как и сервер, тестовый прогресс описывает каждый урок, иначе счётчик главы ждёт ответа.
       const states = new Map(
-        materials
-          .slice(0, read)
-          .map((item) => [item.materialId ?? "", { isRead: true, version: 1 }]),
+        materials.map((item, index) => [
+          item.materialId ?? "",
+          { isRead: index < read, version: 1 },
+        ]),
       );
       return (
         <MaterialReadingScope

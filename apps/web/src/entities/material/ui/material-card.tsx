@@ -418,7 +418,8 @@ function ProductMaterialRow({
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      {/* Строка в одну линию: номер, название, длительность видео, статус. Формат словом не
+      {/* Строка в одну линию: номер, название, длительность видео, статус и у урока продолжения
+          компактная кнопка справа (решение владельца 29.10.2026). Формат словом не
           пишется: урок с видео узнаётся по значку и длительности (решение владельца 29.10.2026).
           Открытость показывает замок у закрытых уроков, метки «Бесплатно» нет (решение владельца
           09.10.2026). */}
@@ -445,7 +446,8 @@ function ProductMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
-        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+        {/* При крупном шрифте блок справа уходит на следующую строку и переносится сам. */}
+        <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
             <span
               className="inline-flex items-center gap-1 tabular-nums"
@@ -472,9 +474,9 @@ function ProductMaterialRow({
           ) : (
             readingStatus
           )}
+          <ProductContinuationAction href={readerHref} slug={material.slug} />
         </span>
       </div>
-      <ProductContinuationAction href={readerHref} slug={material.slug} />
     </ProductRowArticle>
   );
 }

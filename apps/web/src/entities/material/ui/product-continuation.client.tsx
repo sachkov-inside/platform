@@ -1,6 +1,6 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
 import { createContext, use, useState, type ReactNode } from "react";
 
@@ -56,7 +56,7 @@ export function ProductContinuationProvider({
   );
 }
 
-/** Строка программы: урок продолжения раскрыт — светлый фон и рамка, внутри кнопка. */
+/** Строка программы: урок продолжения выделен светлым фоном и рамкой, справа кнопка. */
 export function ProductRowArticle({
   availability,
   children,
@@ -88,8 +88,9 @@ export function ProductRowArticle({
 }
 
 /**
- * Кнопка в раскрытой строке урока продолжения: «Продолжить» или «Начать обучение» прямо в списке
- * программы (решение владельца 09.10.2026). У остальных строк её нет.
+ * Кнопка в строке урока продолжения: «Продолжить» или «Начать обучение» прямо в списке программы
+ * (решение владельца 09.10.2026). Она стоит справа в той же строке, а не во всю ширину под ней
+ * (решение владельца 29.10.2026). У остальных строк её нет.
  */
 export function ProductContinuationAction({
   href,
@@ -101,11 +102,11 @@ export function ProductContinuationAction({
   const continuation = use(ProductContinuationContext);
   if (continuation?.materialSlug !== slug) return null;
   const className =
-    "relative z-10 mt-2 flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[0.8125rem] font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm";
+    "relative z-10 inline-flex min-h-8 max-w-full shrink-0 items-center gap-1 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[0.8125rem]";
   const contents = (
     <>
-      <Play aria-hidden="true" className="size-3 fill-current" />
       {continuation.label}
+      <ArrowRight aria-hidden="true" className="size-3.5" />
     </>
   );
   return continuation.reserved ? (
