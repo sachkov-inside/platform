@@ -167,7 +167,7 @@ test("command preserves its lock while asynchronous Docker is pending and after 
   const started = Promise.withResolvers();
   const resume = Promise.withResolvers();
   const pending = f.run(["--apply"], async (args) => {
-    started.resolve();
+    started.resolve(undefined);
     await resume.promise;
     return f.executeDocker(args);
   });
@@ -175,7 +175,7 @@ test("command preserves its lock while asynchronous Docker is pending and after 
     await started.promise;
     await assert.rejects(acquireLocalSetupLock("busy", f.lockTarget), /busy/u);
   } finally {
-    resume.resolve();
+    resume.resolve(undefined);
   }
   await pending;
   f.state.removalFails = true;
