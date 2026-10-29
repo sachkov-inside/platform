@@ -43,7 +43,6 @@ export interface MaterialCardProps {
   readonly productOrdinal?: number;
   readonly readingStatus?: React.ReactElement;
   readonly showAccessDetails?: boolean;
-  readonly showFormat?: boolean;
   /**
    * Доступность читателя ещё уточняется: строка программы нарисована из общих данных, а замок или
    * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
@@ -66,7 +65,6 @@ export function MaterialCard({
       format={material.format}
     />
   ),
-  showFormat = true,
   showAccessDetails = false,
   accessPending = false,
   variant,
@@ -81,7 +79,6 @@ export function MaterialCard({
   if (variant === "product") {
     return (
       <ProductMaterialRow
-        showFormat={showFormat}
         accessPending={accessPending}
         headingLevel={headingLevel}
         material={material}
@@ -401,7 +398,6 @@ function MaterialRow({
  * `ProductContinuationProvider`.
  */
 function ProductMaterialRow({
-  showFormat,
   accessPending,
   headingLevel: Heading,
   material,
@@ -409,7 +405,6 @@ function ProductMaterialRow({
   ordinal,
   readingStatus,
 }: {
-  readonly showFormat: boolean;
   readonly accessPending: boolean;
   readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
@@ -417,7 +412,11 @@ function ProductMaterialRow({
   readonly ordinal: number | undefined;
   readonly readingStatus: React.ReactNode;
 }) {
-  const duration = materialDuration(material);
+  // Значок воспроизведения обещает видео, поэтому длительность берётся только у основного видео.
+  const duration =
+    material.primaryVideoDurationSeconds === undefined
+      ? undefined
+      : formatDuration(material.primaryVideoDurationSeconds);
   // Бесплатный урок открыт каждому, поэтому уточнять у него нечего.
   const pending = accessPending && material.access !== "free";
   // Бесплатный урок, который откроется после входа (#1825), отмечен словом, а не замком.
@@ -432,9 +431,12 @@ function ProductMaterialRow({
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      {/* Строка в одну линию: номер, тип словом, название, статус. Бесплатный урок отмечен
-          словом «Бесплатно», закрытый замком (решение владельца 29.10.2026, #1647, заменило
-          решение 09.10.2026 без метки). */}
+      {/* Строка в одну линию: номер, название, у урока продолжения компактная кнопка, затем
+          длительность видео и место статуса чтения или доступа постоянной ширины, чтобы
+          длительности стояли колонкой (решение владельца 29.10.2026). Формат словом не пишется:
+          урок с видео узнаётся по значку и длительности (решение владельца 29.10.2026). Бесплатный
+          урок отмечен словом «Бесплатно» перед длительностью, закрытый замком (решение владельца
+          29.10.2026, #1647, заменило решение 09.10.2026 без метки). */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -445,19 +447,9 @@ function ProductMaterialRow({
             {ordinal}
           </span>
         )}
-        {showFormat ? (
-          <span
-            aria-hidden="true"
-            className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
-            data-product-format
-          >
-            {material.format}
-          </span>
-        ) : null}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_112px]">
           <span className="sr-only">
             {ordinal === undefined ? "" : `Урок ${String(ordinal)}. `}
-            {showFormat ? `${material.format}. ` : ""}
           </span>
           <Heading className="min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
             <IntentPrefetchLink
@@ -468,32 +460,45 @@ function ProductMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
-        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+        {/* Название начинается с 112 px: если рядом с такой шириной блок справа не помещается, блок
+            уходит на следующую строку и там переносится сам. Пиксели, а не rem, чтобы при крупном
+            шрифте браузера номер урока оставался рядом с названием. */}
+        <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+          <ProductContinuationAction href={readerHref} slug={material.slug} />
           {material.access === "free" ? <FreeMaterialBadge /> : null}
           {duration === undefined ? null : (
-            <span className="tabular-nums max-sm:hidden" data-product-duration>
+            <span
+              className="inline-flex items-center gap-1 tabular-nums"
+              data-product-duration
+            >
+              <Play aria-hidden="true" className="size-3 fill-current" />
+              <span className="sr-only">Видео, </span>
               {duration}
             </span>
           )}
-          {pending ? (
-            <span
-              aria-hidden="true"
-              className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
-              data-product-access-pending
-            />
-          ) : locked ? (
-            <>
-              <LockKeyhole aria-hidden="true" className="size-4" />
-              <span className="sr-only">Нужен доступ</span>
-            </>
-          ) : unavailable ? (
-            <span className="sr-only">Доступ временно не определён</span>
-          ) : (
-            readingStatus
-          )}
+          <span
+            className="grid w-5 shrink-0 place-items-center"
+            data-product-status
+          >
+            {pending ? (
+              <span
+                aria-hidden="true"
+                className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
+                data-product-access-pending
+              />
+            ) : locked ? (
+              <>
+                <LockKeyhole aria-hidden="true" className="size-4" />
+                <span className="sr-only">Нужен доступ</span>
+              </>
+            ) : unavailable ? (
+              <span className="sr-only">Доступ временно не определён</span>
+            ) : (
+              readingStatus
+            )}
+          </span>
         </span>
       </div>
-      <ProductContinuationAction href={readerHref} slug={material.slug} />
     </ProductRowArticle>
   );
 }

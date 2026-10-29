@@ -92,9 +92,9 @@ An unbound lesson renders no invented Task or verification state. The practice i
 
 Embedded and legacy Tasks create no additional programme positions, counters, previous/next entries or
 chapter-selector entries. A chapter using embedded practice displays unified Material steps without
-Task/Material format badges. Chapter two retains its current presentation. Reading activity and saved
-Task submissions remain distinct persisted facts; opening a lesson or producing an unsent report never
-creates a submission or changes `isRead` automatically.
+Task badges. Material rows carry no format badge in any chapter; standalone Task rows keep «Задание».
+Reading activity and saved Task submissions remain distinct persisted facts; opening a lesson or
+producing an unsent report never creates a submission or changes `isRead` automatically.
 
 MCP retains the current Task protocol and requirements versions. Its practice context includes the bound
 lesson without truncation or a misleading partial-context claim. Existing chunk/version guards continue
