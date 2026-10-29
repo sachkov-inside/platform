@@ -54,10 +54,14 @@ function opensProgrammeStepForReference(
   id: string,
   context: CourseReadingContext,
 ): boolean {
-  if (!id.startsWith("reference:") || context.currentPosition !== 0)
-    return false;
-  const step = `material:${id.slice("reference:".length)}`;
+  const reference = context.references?.find((item) => item.id === id);
   return (
-    context.current.id === step || context.current.id.startsWith(`${step}:`)
+    reference !== undefined &&
+    context.currentPosition === 0 &&
+    materialPath(reference.href) === materialPath(context.current.href)
   );
+}
+
+function materialPath(href: string): string {
+  return new URL(href, "https://inside.local").pathname;
 }

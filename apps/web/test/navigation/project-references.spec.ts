@@ -88,7 +88,7 @@ test("reference navigation preserves nine steps and restores the originating les
   await expect.poll(() => scrollPosition(page)).toBe(500);
 });
 
-test("a programme lesson opened from the catalogue stays selected without a course position", async ({
+test("a programme lesson opened from the catalogue stays selected without step navigation", async ({
   page,
 }) => {
   await page.goto(
@@ -114,9 +114,8 @@ test("a programme lesson opened from the catalogue stays selected without a cour
       .getByRole("button", { name: "Закрыть" })
       .click();
   await expect(page.getByRole("link", { name: "К уроку" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Следующий шаг" })).toHaveCount(
-    0,
-  );
+  for (const name of ["Предыдущий шаг", "Следующий шаг"])
+    await expect(page.getByRole("link", { name })).toHaveCount(0);
 });
 
 test("programme references keep course navigation without adding a numbered step; standalone links remain standalone", async ({

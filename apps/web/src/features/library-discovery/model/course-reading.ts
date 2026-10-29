@@ -240,9 +240,9 @@ export function courseReadingContext({
           step.placementId === current.placementId)
       : step.id === id,
   );
+  const position = referenceView ? -1 : stepIndex;
   // A programme step opened for reference stays selected in its chapter without claiming a position;
   // a chapter attachment keeps its attachment row.
-  const position = referenceView ? -1 : stepIndex;
   const attached =
     referenceView &&
     current.kind === "material" &&
