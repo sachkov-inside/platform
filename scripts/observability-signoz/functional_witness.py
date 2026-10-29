@@ -14,11 +14,16 @@ TRACE_ID='00000000000000000000000000001566'
 SPAN_ID='0000000000001566'
 SERVICE='platform-fallback-control'
 
+# Only the source-fixed inventory call owns this receive capability. Wire defaults
+# remain64KiB even when a caller supplies a tools/list body or a stage string.
+_MCP_INVENTORY_RECEIVE = object()
+_MCP_INVENTORY_REQUEST = {'jsonrpc':'2.0','id':2,'method':'tools/list','params':{}}
+
 
 def require(value,*,mcp_stage=None):control.require(value,mcp_stage=mcp_stage)
 
 
-def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,),*,decode_json=True):
+def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,),*,decode_json=True,_receive_operation=None):
     # Context belongs to THIS wire attempt, never a prior bootstrap query/revoke.
     mcp=host=='mcp' and port==8000
     control.STEP='mcp_http' if mcp else 'none';control.LAST_HTTP_STATUS=0
@@ -30,9 +35,13 @@ def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,),*,de
         stage='mcp_wire_request'
         connection.request(method,path,data,{'Content-Type':'application/json','Connection':'close',**(headers or {})})
         stage='mcp_wire_headers';response=connection.getresponse();control.LAST_HTTP_STATUS=response.status
-        stage='mcp_wire_read';payload=response.read(65537)
+        stage='mcp_wire_read'
+        inventory=(_receive_operation is _MCP_INVENTORY_RECEIVE and mcp
+            and path=='/mcp' and method=='POST' and body is _MCP_INVENTORY_REQUEST)
+        limit=262144 if inventory else 65536
+        payload=response.read(limit+1)
         require(response.status in accepted,mcp_stage='mcp_wire_status' if mcp else None)
-        require(len(payload)<=65536,mcp_stage='mcp_wire_size' if mcp else None)
+        require(len(payload)<=limit,mcp_stage=('mcp_inventory_size' if inventory else 'mcp_wire_size') if mcp else None)
         require(time.monotonic()-started<=10,mcp_stage='mcp_wire_deadline' if mcp else None)
         stage='mcp_wire_decode'
         return response.status,json.loads(payload) if payload and decode_json else None
@@ -84,6 +93,17 @@ def retained_count(data):
 def mcp_call(method,params,key,identifier):
     body={'jsonrpc':'2.0','id':identifier,'method':method,'params':params}
     _,value=wire('mcp',8000,'/mcp','POST',body,{'SIGNOZ-API-KEY':key,'Accept':'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'})
+    return _mcp_result(value,identifier)
+
+
+def _mcp_inventory(key):
+    _,value=wire('mcp',8000,'/mcp','POST',_MCP_INVENTORY_REQUEST,
+        {'SIGNOZ-API-KEY':key,'Accept':'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'},
+        _receive_operation=_MCP_INVENTORY_RECEIVE)
+    return _mcp_result(value,2)
+
+
+def _mcp_result(value,identifier):
     require(type(value) is dict,mcp_stage='mcp_rpc_object')
     require(value.get('jsonrpc')=='2.0',mcp_stage='mcp_rpc_version')
     require(value.get('id')==identifier,mcp_stage='mcp_rpc_id')
@@ -140,7 +160,7 @@ def run():
         require(initialized.get('protocolVersion')=='2025-11-25',mcp_stage='mcp_initialize_version')
         wire('mcp',8000,'/mcp','POST',{'jsonrpc':'2.0','method':'notifications/initialized'}, {'SIGNOZ-API-KEY':key,'Accept':'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'},accepted=(200,202,204))
         control.FUNCTIONAL_STAGE='mcp_inventory'
-        inventory=mcp_call('tools/list',{},key,2);tools=inventory.get('tools')
+        inventory=_mcp_inventory(key);tools=inventory.get('tools')
         require(inventory.get('nextCursor') in (None,''),mcp_stage='mcp_inventory_cursor')
         require(type(tools) is list,mcp_stage='mcp_inventory_tools')
         require(1<=len(tools)<=128,mcp_stage='mcp_inventory_count')

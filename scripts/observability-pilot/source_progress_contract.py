@@ -1,4 +1,4 @@
-"""Three synthetic passive-progress controls, outside the 277-method source discovery."""
+"""Three synthetic passive-progress controls, outside the 284-method source discovery."""
 import ast
 import io
 import json
@@ -31,17 +31,24 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         result=subprocess.run([sys.executable,'-c',identity,str(root.resolve()),
             str(root.resolve().parent/'observability-caddy-storage')],capture_output=True,timeout=5)
         self.assertEqual(result.returncode,0,'closed Core/Caddy module identity refused')
-        self.assertEqual(result.stdout,b'[87, 277]\n')
+        self.assertEqual(result.stdout,b'[87, 284]\n')
         for path in sorted(root.glob('test_*.py')):
             for cls in ast.parse(path.read_text()).body:
                 if isinstance(cls,ast.ClassDef):
                     expected.extend(path.stem+'.'+cls.name+'.'+method.name for method in cls.body
                         if isinstance(method,ast.FunctionDef) and method.name.startswith('test_'))
-        self.assertEqual(len(expected),277)
+        self.assertEqual(len(expected),284)
         self.assertEqual(tuple(sorted(expected)),owner.SOURCE_IDS)
-        # Exactly three named additions retain all274 frozen baseline methods.
+        # Exactly ten named additions retain all274 frozen baseline methods.
         import hashlib
         added=(
+            'test_archive_download.ArchiveDownload.test_actual_stdlib_child_preserves_exact_parent_size_digest_and_finite_transport_failure',
+            'test_archive_download.ArchiveDownload.test_interrupt_keeps_original_object_traceback_after_kill_reap_and_secondary_cleanup_error',
+            'test_archive_download.ArchiveDownload.test_invalid_pinned_size_refuses_before_any_child',
+            'test_archive_download.ArchiveDownload.test_original_parent_total_budget_includes_real_TLS_handshake_and_reaps_child_pipes',
+            'test_archive_download.ArchiveDownload.test_real_TLS_trickle_cannot_complete_valid_archive_after_original_total_budget',
+            'test_archive_download.ArchiveDownload.test_timeout_keeps_actual_first_exception_and_reaps_despite_secondary_cleanup_error',
+            'test_archive_download.ArchiveDownload.test_timeout_still_waits_after_actual_kill_raises_secondary_error',
             'test_pilot.PilotPreparationTest.test_cleanup_captures_native_host_failure_before_down_without_reading_logs',
             'test_pilot.PilotPreparationTest.test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner',
             'test_privacy.CollectorPrivacyContract.test_shared_native_writer_keeps_one_second_batch_without_other_queue_overrides')
@@ -50,14 +57,14 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         self.assertEqual(len(baseline),274)
         self.assertEqual(hashlib.sha256(json.dumps(baseline,separators=(',',':')).encode()).hexdigest(),
             'e0fac579823df0df2d5658f678db37241c367c0dcdfe7f840262a903d2512051')
-        self.assertEqual(len(json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()),31051)
+        self.assertEqual(len(json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()),31875)
         self.assertLessEqual((root/'source-tests.json').stat().st_size,32768)
         self.assertEqual(len([node for node in ast.parse(Path(__file__).read_text()).body
             if isinstance(node,ast.ClassDef) for method in node.body
             if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')]),3)
         suite=unittest.TestLoader().discover(str(root),pattern='test_*.py')
         mapping=owner.verify_inventory(suite)
-        self.assertEqual(len(mapping),277)
+        self.assertEqual(len(mapping),284)
         with self.assertRaisesRegex(ValueError,'^closed Core source inventory refused$'):
             owner.verify_inventory(unittest.TestSuite())
 
@@ -116,7 +123,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                         self.assertIs(BaseException.__traceback__.__get__(primary),before)
         writer.fault=None
 
-        # Project actual stdlib result records without executing any of the 277 discovered fixture bodies.
+        # Project actual stdlib result records without executing any of the 284 discovered fixture bodies.
         cases=[CoreSourceProgress(method) for method in PROTOCOL_METHODS]
         observed=unittest.TextTestResult(io.StringIO(),True,1)
         for case in cases:observed.startTest(case);observed.stopTest(case)
