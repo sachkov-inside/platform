@@ -403,7 +403,11 @@ function ProductMaterialRow({
   readonly ordinal: number | undefined;
   readonly readingStatus: React.ReactNode;
 }) {
-  const duration = materialDuration(material);
+  // Значок воспроизведения обещает видео, поэтому длительность берётся только у основного видео.
+  const duration =
+    material.primaryVideoDurationSeconds === undefined
+      ? undefined
+      : formatDuration(material.primaryVideoDurationSeconds);
   // Бесплатный урок открыт каждому, поэтому уточнять у него нечего.
   const pending = accessPending && material.access !== "free";
   const locked = !pending && material.availability === "locked";

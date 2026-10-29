@@ -523,9 +523,9 @@ heading, step labels, Topic and redundant reading/access/continuation captions a
 The current Material keeps its visual highlight; inaccessible covers remain blurred with a lock.
 
 On wide screens the centered Product page is capped at 1040 px. Equal-height rows use 16:9 covers,
-a two-line title, an optional one-line published summary and a format badge to the right. On narrow
-screens the cover is square, format sits above the title and summaries are hidden. Video duration
-uses a contrasting badge below the square or over the wide cover. Enlarged text permits taller rows.
+a two-line title and an optional one-line published summary. On narrow screens the cover is square
+and summaries are hidden. Format labels and video duration follow the programme lesson-row rule
+below. Enlarged text permits taller rows.
 The presentation neither invents descriptions nor reads body content for previews.
 
 Material covers use the existing upload/replace/remove lifecycle. Landscape 16:9 source images

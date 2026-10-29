@@ -1097,7 +1097,7 @@ export const CompactMobileRoute: Story = {
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
     await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
-    // Формат словом не пишется: урок с видео узнаётся по значку и длительности.
+    // В строках нет слов «Гайд» и «Видео»: формат материала не подписывается.
     await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
     await expect(rows.queryByText("Видео")).not.toBeInTheDocument();
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
@@ -1144,6 +1144,13 @@ export const DesktopRouteDetails: Story = {
     const heights = cards.map((card) => card.getBoundingClientRect().height);
     await expect(cards).toHaveLength(3);
     await expect(Math.max(...heights)).toBeLessThanOrEqual(144);
+    // На широком экране значок и длительность тоже есть только у урока с видео.
+    const durations = canvasElement.querySelectorAll<HTMLElement>(
+      "[data-product-duration]",
+    );
+    await expect(durations).toHaveLength(1);
+    await expect(durations[0]).toBeVisible();
+    await expect(cards[0]).toContainElement(durations[0] ?? null);
     const card = cards[2];
     const title = card?.querySelector("h3,h4");
     const preview = card?.querySelector("[data-product-preview]");
