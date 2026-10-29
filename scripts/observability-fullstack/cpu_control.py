@@ -402,6 +402,7 @@ def run_pair(full,root,images,metadata):
             def prepare(path):
                 observed['stage']='prepare_inputs'
                 full.inputs(path,images)
+                need(0<=time.monotonic()-started<=3600-690)
                 observed['prepared']=True
             try:
                 full.pilot.run(output,prepare_inputs=prepare,worker_script=Path(__file__).resolve(),

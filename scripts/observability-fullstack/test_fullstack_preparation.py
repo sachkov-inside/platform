@@ -14,6 +14,108 @@ import fullstack
 
 
 class Preparation(unittest.TestCase):
+    def test_actual_parent_callback_builds_under_retained_live_output_filesystem_guard(self):
+        import horizon_build
+        from test_cpu_control import pins,private,broker_tls_plan_fixture,SOURCE
+        from collections import namedtuple
+        import signal
+        import sys
+        usage=namedtuple('usage','total used free')
+        for fault in ('success','timeout','interrupt','disk_stop','admission'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
+                base=Path(directory).resolve();output=base/'output';images=base/'images.json';private(images,pins())
+                dockerfs=base/'docker';dockerfs.mkdir();pidfile=base/'compiler.pid';paths=[];built=[];workers=[];errors=[]
+                stage=fullstack.preparation.begin(images,SOURCE,pins()['owner'],{'fixture':True},str(output),docker=lambda _: '',identify=lambda:{'fixture':True},web=True,applications=True)
+                original_handler=signal.getsignal(signal.SIGUSR1)
+                def disk(path):
+                    paths.append(Path(path));free=64*1024**3
+                    if Path(path)==output/'monitoring/horizon':
+                        if fault=='admission':free=15*1024**3
+                        elif fault=='disk_stop' and pidfile.exists():free-=4*1024**3
+                    return usage(128*1024**3,0,free)
+                def command(args,**options):
+                    if args[0]=='git':return '' if args[-1]=='--porcelain' else SOURCE
+                    if args[:3]==['docker','context','show']:return 'owned'
+                    if args[:3]==['docker','compose','ls']:return '[]'
+                    if args[0]=='bash':return broker_tls_plan_fixture(output,args,options)
+                    if args[:3]==['docker','image','inspect']:
+                        return next(pins()[role] for role in ('backend','foundation','web','telegram','logto') if args[3].endswith('-'+role+(':local' if role=='foundation' else ':v1')))
+                    raise AssertionError(args)
+                def run(args,**options):
+                    if args[-1]=='version':return f'go version {horizon_build.VERSION} linux/{horizon_build.architecture()}\n'.encode()
+                    if args[-2:] in (['mod','download'],['mod','verify']):return b''
+                    self.assertIn(str(output),stage._pending());self.assertFalse((output/'owner.json').exists())
+                    self.assertNotEqual(signal.getsignal(signal.SIGUSR1),original_handler)
+                    self.assertIn(output/'monitoring/horizon',paths)
+                    horizon=output/'monitoring/horizon';(horizon/'sdk').mkdir();built.append(True)
+                    code='import os,pathlib,sys,time; pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); '
+                    if fault=='success':code+='pathlib.Path(sys.argv[2]).write_bytes(b"owned-compiler-fixture")'
+                    elif fault=='interrupt':code+='os.kill(int(sys.argv[3]),2); time.sleep(10)'
+                    else:code+='time.sleep(10)'
+                    try:return horizon_build.execute([sys.executable,'-c',code,str(pidfile),str(horizon/'guard'),str(os.getpid())],timeout=.3 if fault=='timeout' else 3)
+                    except BaseException as error:errors.append(error);raise
+                def install(path):
+                    self.assertEqual(path,output/'monitoring')
+                    return horizon_build.build(path,lambda _:self.fail('unexpected fixture download'),run=run)
+                def worker(*args,**options):
+                    workers.append(True);self.assertTrue((output/'owner.json').exists())
+                    horizon_build.verify(output/'monitoring')
+                    fullstack.pilot.write_json(output/'cleanup.json',{'down':'passed','residue':'passed'});return 0
+                with patch.object(fullstack.pilot.platform,'system',return_value='Linux'),patch.object(fullstack.pilot.daemon,'identify',return_value={'endpoint':'unix:///owned','storage':str(dockerfs)}),patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot.shutil,'disk_usage',side_effect=disk),patch.object(fullstack.pilot,'POLL_INTERVAL_SECONDS',.01),patch.object(fullstack.pilot,'install_horizon',side_effect=install),patch.object(horizon_build.shutil,'which',return_value='/owned/go'),patch.object(horizon_build,'parser_security_module',return_value=output/'monitoring/horizon/guard.mod'),patch.object(fullstack.pilot,'supervise_worker',side_effect=worker):
+                    with stage.in_use():
+                        stage.require_consumer(str(output))
+                        if fault=='success':fullstack.pilot.run(output,prepare_inputs=lambda path:fullstack.inputs(path,images),ports=())
+                        else:
+                            expected=TimeoutError if fault=='timeout' else KeyboardInterrupt if fault=='interrupt' else RuntimeError
+                            with self.assertRaises(expected) as caught:fullstack.pilot.run(output,prepare_inputs=lambda path:fullstack.inputs(path,images),ports=())
+                            if fault!='admission':self.assertIs(caught.exception,errors[0])
+                self.assertEqual(workers,[True] if fault=='success' else [])
+                self.assertEqual(built,[] if fault=='admission' else [True])
+                self.assertEqual(signal.getsignal(signal.SIGUSR1),original_handler)
+                self.assertFalse(any((output/'monitoring/horizon'/name).exists() for name in ('sdk','mod','cache','tmp','home','metricsql-security')))
+                if pidfile.exists():
+                    with self.assertRaises(ProcessLookupError):os.kill(int(pidfile.read_text()),0)
+                if fault!='success':self.assertFalse((output/'owner.json').exists());self.assertFalse((output/'monitoring/horizon/binary.json').exists())
+
+    def test_worker_seed_verifies_prepared_guard_without_download_or_build_fallback(self):
+        import horizon_build
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        for fault in ('valid','missing_binary','missing_binding','source','toolchain','pin','patch','digest','mode','binary_symlink','binding_symlink','source_symlink','directory_symlink'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
+                output=Path(directory).resolve();monitor=output/'monitoring';monitor.mkdir();horizon_build.prepare(monitor)
+                def compiler(args,**options):
+                    if args[-1]=='version':return f'go version {horizon_build.VERSION} {horizon_build.platform.system().lower()}/{horizon_build.architecture()}\n'.encode()
+                    if '-o' in args:Path(args[args.index('-o')+1]).write_bytes(b'owned compiled fixture')
+                    return b''
+                with patch.object(horizon_build.shutil,'which',return_value='/owned/go'),patch.object(horizon_build,'parser_security_module',return_value=monitor/'horizon/guard.mod'):
+                    horizon_build.build(monitor,lambda _:self.fail('fixture download'),run=compiler)
+                if fault in ('source','toolchain','pin','patch'):
+                    path=monitor/'horizon/source.json';manifest=json.loads(path.read_text())
+                    key={'source':'infra/observability/horizon/main.go','pin':'infra/observability/horizon/toolchain.lock.json','patch':'infra/observability/horizon/metricsql-security.patch'}.get(fault)
+                    if key:manifest['inputs'][key]='f'*64
+                    else:manifest['toolchain']='go0.0.0'
+                    path.write_text(json.dumps(manifest))
+                elif fault=='digest':(monitor/'horizon/guard').chmod(0o700);(monitor/'horizon/guard').write_bytes(b'changed');(monitor/'horizon/guard').chmod(0o500)
+                elif fault=='mode':(monitor/'horizon/guard').chmod(0o700)
+                elif fault.startswith('missing_'):(monitor/'horizon'/('guard' if fault=='missing_binary' else 'binary.json')).unlink()
+                elif fault.endswith('_symlink'):
+                    path=monitor/'horizon' if fault=='directory_symlink' else monitor/'horizon'/{'binary_symlink':'guard','binding_symlink':'binary.json','source_symlink':'source.json'}[fault]
+                    saved=path.with_name(path.name+'-saved');path.rename(saved);path.symlink_to(saved)
+                (output/'runtime/rabbitmq').mkdir(parents=True);(output/'provider').mkdir()
+                (monitor/'umami.database.password').write_text('a'*64)
+                (output/'compose.json').write_text(json.dumps({'services':{'grafana':{'user':'1000:1000'}}}))
+                def native(compose,args,**options):
+                    if args[-1]=='seed':return '{"key":"synthetic"}'
+                    if args[-1]=='establish':return json.dumps({'created':256,'accounts':[f'{i:08x}-0000-0000-0000-000000000000' for i in range(256)]})
+                    return '{}'
+                def sql(compose,query,**options):return '{"accounts":256,"materials":512,"public_materials":512}' if 'public_materials' in query else ''
+                with patch.object(fullstack.contact_job,'start',return_value=nullcontext(SimpleNamespace(wait=lambda:None))),patch.object(fullstack,'invoke',side_effect=native),patch.object(fullstack,'sql',side_effect=sql),patch.object(fullstack.resource_runtime,'wait_ready'),patch.object(fullstack,'ready'),patch.object(fullstack.extra,'initialize'),patch.object(fullstack.telegram,'initialize'),patch.object(fullstack.source_cache,'select_caddy_server',return_value='srv0'),patch.object(fullstack.source_guard,'prove',return_value={}),patch.object(fullstack.pilot,'install_horizon',side_effect=AssertionError('worker must never install/build')),patch.object(fullstack.pilot,'downloaded_asset',side_effect=AssertionError('worker must never download')),patch.object(horizon_build,'build',side_effect=AssertionError('worker must never compile')),patch.object(fullstack.pilot,'install_plugin'),patch.object(horizon_build,'verify',wraps=horizon_build.verify) as verify:
+                    if fault=='valid':fullstack.seed([],output)
+                    else:
+                        with self.assertRaises((ValueError,OSError)):fullstack.seed([],output)
+                    verify.assert_called_once_with(monitor)
+
     def source_phase(self, *, missing_delivery=False):
         # Real phase thread, source projections and atomic tempfile publication;
         # Engine/SQL/wget/load effects are controlled wire boundaries, not Linux proof.
@@ -260,7 +362,7 @@ class Preparation(unittest.TestCase):
                 for role in ('web','telegram','logto'):
                     if '-'+role+':v1' in ' '.join(args):return pins[role]
                 return pins['backend']
-            with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'):
+            with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'install_horizon'):
                 fullstack.inputs(output,images)
             plan=json.loads((output/'compose.json').read_text())
             self.assertEqual(set(plan['services']),set(fullstack.SERVICES))

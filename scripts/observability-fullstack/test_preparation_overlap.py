@@ -47,7 +47,7 @@ class PreparationOverlap(unittest.TestCase):
                     patch.object(fullstack.extra,'initialize'),patch.object(fullstack.telegram,'initialize'), \
                     patch.object(fullstack.source_cache,'select_caddy_server',return_value='srv0'), \
                     patch.object(fullstack.source_guard,'prove',return_value={'closed':'proof'}), \
-                    patch.object(fullstack.production.pilot,'install_horizon',side_effect=assets), \
+                    patch.object(fullstack.horizon_build,'verify',side_effect=assets), \
                     patch.object(fullstack.production.pilot,'install_plugin',side_effect=lambda *_:events.append('plugin')):
                 result=fullstack.seed([],output)
             self.assertEqual(result,{'closed':'proof'})
