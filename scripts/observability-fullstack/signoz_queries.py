@@ -96,9 +96,21 @@ class RepresentativeReads:
     """Prepared trusted controller interface; no runtime, key or reader authority is granted."""
     def __init__(self,layout,phase,start_ms,cut_ms,*,web=None):
         need(type(layout) is core_layout.Layout)
-        layout.validate(layout.plan,layout.manifest)
-        manifest=layout.manifest
-        need(manifest['core']==core_layout.SIGNOZ and manifest['owner']==core_layout.OWNER and manifest['profile']==core_layout.PROFILE)
+        import representative_owner
+        manifest=representative_owner._validated_layout(layout)
+        self._initialize(manifest,phase,start_ms,cut_ms,web=web)
+
+    @classmethod
+    def from_native_scope(cls,scope):
+        import representative_scope
+        need(Path(representative_scope.__file__).resolve()==Path(__file__).resolve().with_name('representative_scope.py'))
+        value=representative_scope._consume(scope)
+        reader=cls.__new__(cls)
+        reader._initialize(value['binding'],value['phase'],value['start_ms'],value['cut_ms'],web=value['web'],native=scope)
+        return reader
+
+    def _initialize(self,manifest,phase,start_ms,cut_ms,*,web=None,native=None):
+        self._native=native
         _metric.FixedMetricReads(phase,start_ms,cut_ms)
         need(type(manifest['source']) is dict and set(manifest['source'])=={'commit','tree'}
             and all(type(value) is str and re.fullmatch('[a-f0-9]{40}',value) is not None for value in manifest['source'].values()))
@@ -117,7 +129,13 @@ class RepresentativeReads:
     @property
     def binding(self):return json.loads(self._binding)
 
+    def _current(self):
+        if self._native is not None:
+            import representative_scope
+            representative_scope._check_reader(self._native)
+
     def prepare(self,operation,parameters):
+        self._current()
         need(type(operation) is str and operation in OPERATIONS and type(parameters) is dict and parameters=={})
         if operation=='web_current':need(self._web!='null')
         if operation!='retained_probes':
@@ -294,6 +312,7 @@ sum(duplicates) AS duplicate_samples, sum(flagged) AS flagged_samples, sum(bad) 
         return {'ok':reason=='ready','reason':reason,'evaluation_seconds':cut,'sources':sources}
 
     def observe(self,request,status,body):
+        self._current()
         need(type(request) is Request and request._owner is self._owner and request._binding==self._binding)
         expected=self.prepare(request._operation,{})
         need(request._payload==expected._payload)
