@@ -482,19 +482,21 @@ export const CohortAnnouncement: Story = {
 };
 
 /** Между потоками: курс открыт, плашка называет событие следующего потока. */
+/** Между потоками продажа открыта: метка набора на первом экране и билет доступа внизу. */
+const betweenCohort: ProductSalesState = {
+  ...cohort,
+  name: "Поток 2",
+  stage: "between",
+  startsOn: null,
+  nextEvent: "эфир 15 декабря",
+};
 export const CohortBetween: Story = {
   parameters: { account: "authenticated" },
   args: {
     heroCall: (
       <CohortCallView
         call={cohortCall({
-          cohort: {
-            ...cohort,
-            name: "Поток 2",
-            stage: "between",
-            startsOn: null,
-            nextEvent: "эфир 15 декабря",
-          },
+          cohort: betweenCohort,
           offer: productWithSupportOffer,
           productAccess: "closed",
           signedIn: true,
@@ -502,20 +504,44 @@ export const CohortBetween: Story = {
         })}
       />
     ),
+    statusCall: (
+      <CohortStatusView
+        status={
+          cohortStatus({
+            cohort: betweenCohort,
+            offer: productWithSupportOffer,
+            productAccess: "closed",
+            slug: "ai-engineering",
+          }) ?? fail("Между потоками с продажей рисуется билет")
+        }
+      />
+    ),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
+      canvas.getByRole("link", { name: /Идёт набор на курс/u }),
+    ).toHaveAttribute("href", "#enroll");
+    await expect(
       canvas.getByText(/Следующий поток: эфир 15 декабря/u),
     ).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Оплатить" })).toBeVisible();
+    const ticket = within(
+      canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
+        fail("Билет нижнего блока"),
+    );
+    await expect(
+      ticket.getByRole("link", { name: /Приобрести доступ/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/buy");
+    await expect(
+      ticket.getByRole("link", { name: "Открыть программу" }),
+    ).toBeVisible();
   },
 };
 
-/** Анимация первого экрана зовёт того, кто ещё не учится, начать бесплатно (#1647). */
+/** Анимация первого экрана зовёт того, кто ещё не учится, попробовать бесплатно (#1647). */
 const freeStartBadge = (countdown: string | null) => (
   <>
-    <CourseLearningLink label="Начать бесплатно" slug="ai-engineering" />
+    <CourseLearningLink intent="try-free" slug="ai-engineering" />
     {countdown === null ? null : <StartCountdownBadge text={countdown} />}
   </>
 );
@@ -527,7 +553,7 @@ async function expectFreeStart(
     canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
     fail("Анимация курса");
   await expect(
-    within(film).getByRole("link", { name: "Начать бесплатно" }),
+    within(film).getByRole("link", { name: "Попробовать бесплатно" }),
   ).toHaveAttribute("href", "/products/ai-engineering/programme");
   const ticket =
     canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
@@ -541,7 +567,7 @@ async function expectFreeStart(
 
 /**
  * Как сейчас на production до открытия продаж: список ожидания на первом экране и в билете, на
- * анимации «Начать бесплатно», в билете «Попробовать бесплатно» (#1647).
+ * анимации и в билете «Попробовать бесплатно» (#1647).
  */
 export const FreeStartWaitlist: Story = {
   args: {
@@ -645,6 +671,14 @@ export const FreeStartSale: Story = {
   },
   play: async ({ canvasElement }) => {
     await expectFreeStart(canvasElement, "Доступ к курсу");
+    // Первый экран цену не показывает: метка набора ведёт к билету (решение владельца 29.10.2026).
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).getByRole("link", { name: /Идёт набор на курс/u }),
+    ).toHaveAttribute("href", "#enroll");
+    await expect(within(hero).queryByText(/₽/u)).toBeNull();
     const ticket =
       canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
       fail("Билет нижнего блока");

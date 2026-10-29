@@ -82,13 +82,26 @@ describe("cohort recruitment plaque in the course status block", () => {
     });
     expect(running).toMatchObject({
       kind: "access",
-      countdown: "",
+      countdown: null,
       title: "Присоединяйся к курсу",
-      discount: null,
+      // Цена предложения ниже цены потока: она зачёркнута, рядом скидка (решение владельца 29.10.2026).
+      discount: "−25\u00a0%",
       purchaseHref: "/products/ai-engineering/buy",
     });
     expect(running?.price?.price).toMatch(/^29\s900\s₽$/u);
-    expect(running?.price?.priceAfterStart).toBeNull();
+    expect(running?.price?.priceAfterStart).not.toBeNull();
+    const fullPrice = cohortStatus({
+      cohort: {
+        ...cohort,
+        stage: "running",
+        priceAfterStartKopecks: 2_990_000,
+      },
+      offer,
+      productAccess: "closed",
+      slug,
+    });
+    expect(fullPrice?.price?.priceAfterStart).toBeNull();
+    expect(fullPrice?.discount).toBeNull();
     const between = cohortStatus({
       cohort: {
         ...cohort,

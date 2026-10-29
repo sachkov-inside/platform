@@ -6,6 +6,7 @@ import {
   expect,
   test,
   type BrowserContext,
+  type Page,
   type TestInfo,
 } from "@playwright/test";
 import { z } from "zod";
@@ -51,6 +52,15 @@ async function signIn(context: BrowserContext, baseURL: string, slug: string) {
     },
   ]);
 }
+/** Тому, кто ещё не учится, анимация зовёт попробовать бесплатные уроки (#1647). */
+async function expectTryFreeOnFilm(page: Page, slug: string) {
+  const film = page.locator(".aie-learning-film");
+  await expect(film.getByRole("link")).toHaveCount(1);
+  await expect(
+    film.getByRole("link", { name: "Попробовать бесплатно" }),
+  ).toHaveAttribute("href", `/products/${slug}/programme`);
+}
+
 for (const scenario of [
   "guest",
   "paid",
@@ -105,20 +115,28 @@ for (const scenario of [
           .getByRole("button", { name: "Вступить в список ожидания" })
           .first(),
       ).toBeVisible();
+      // Курс с бесплатными уроками зовёт из билета попробовать бесплатно (#1647).
       await expect(
         page
-          .getByRole("link", { name: "Открыть программу", exact: true })
+          .getByRole("link", { name: "Попробовать бесплатно", exact: true })
           .last(),
       ).toHaveAttribute("href", `/products/${slug}/programme`);
     } else if (scenario === "guest") {
+      // Первый экран цену не показывает; покупку несёт билет нижнего блока (#1647).
       await expect(
-        page.getByRole("link", { name: /^Оплатить/u }).first(),
+        page.getByRole("link", { name: /^Приобрести доступ/u }).first(),
       ).toHaveAttribute("href", `/products/${slug}/buy`);
-    } else {
       await expect(page.getByRole("link", { name: /^Оплатить/u })).toHaveCount(
         0,
       );
-      await expect(page.locator(".aie-learning-film")).toHaveCount(0);
+    } else {
+      await expect(
+        page.getByRole("link", { name: /^(Оплатить|Приобрести доступ)/u }),
+      ).toHaveCount(0);
+      // Неизвестный доступ может принадлежать ученику: ему бесплатное не предлагается.
+      if (scenario === "unknown")
+        await expect(page.locator(".aie-learning-film")).toHaveCount(0);
+      else await expectTryFreeOnFilm(page, slug);
     }
     for (const suffix of ["/access", "/intake", "/membership"])
       expect(
@@ -176,9 +194,9 @@ test("the same public Product shell isolates guest, holder and later guest acros
             .getByRole("link", { name: "Продолжить обучение" }),
         ).toBeVisible();
       else {
-        await expect(page.locator(".aie-learning-film")).toHaveCount(0);
+        await expectTryFreeOnFilm(page, slug);
         await expect(
-          page.getByRole("link", { name: /^Оплатить/u }).first(),
+          page.getByRole("link", { name: /^Приобрести доступ/u }).first(),
         ).toHaveAttribute("href", `/products/${slug}/buy`);
       }
     } finally {

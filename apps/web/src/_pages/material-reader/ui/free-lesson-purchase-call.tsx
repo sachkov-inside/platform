@@ -6,62 +6,51 @@ import { Button } from "@/shared/ui/button";
 
 import type { FreeLessonCall } from "../model/purchase-product";
 
-/** Слова призыва рядом: заголовок, объяснение и кнопка меняются вместе с тем, куда он ведёт. */
-const actionCopy = {
-  purchase: {
-    explanation: "Остальные уроки и задания курса открываются после покупки.",
-    label: "Приобрести курс",
-  },
-  course: {
-    explanation: "Остальные уроки и задания входят в полный курс.",
-    label: "Подробнее о курсе",
-  },
+const actionLabel = {
+  purchase: "Приобрести курс",
+  course: "Подробнее о курсе",
 } as const;
 
 /**
- * Призыв в конце бесплатного урока курса (#1647): урок отмечен бесплатным, закрытый следующий шаг
- * назван закрытым, а кнопка ведёт на оплату курса или, пока он не продаётся, на его страницу.
+ * Призыв в конце бесплатного урока курса (#1647). Состояние показывает сам вид, без поясняющих
+ * фраз (DESIGN.md): закрытый следующий шаг стоит с замком и названием, иначе урок отмечен
+ * бесплатным; рядом кнопка на оплату курса или, пока он не продаётся, на его страницу.
  */
 export function FreeLessonPurchaseCallView({
   call,
 }: {
   readonly call: FreeLessonCall;
 }) {
-  const copy = actionCopy[call.action.kind];
   return (
     <section
-      aria-labelledby="free-lesson-call-heading"
-      className="mt-8 rounded-2xl border border-black/6 bg-muted p-5 sm:p-6"
+      aria-label="Продолжение курса"
+      className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/6 bg-muted px-4 py-3 sm:px-5"
       data-free-lesson-call={call.action.kind}
     >
-      <FreeMaterialBadge />
-      <h2
-        className="mt-3 text-balance text-lg font-semibold tracking-[-0.02em] sm:text-xl"
-        id="free-lesson-call-heading"
-      >
-        {call.lockedNext === null
-          ? "Этот урок открыт бесплатно"
-          : "Дальше уроки полного курса"}
-      </h2>
-      {call.lockedNext === null ? null : (
-        <p className="mt-3 flex items-start gap-2 text-sm leading-6 [overflow-wrap:anywhere]">
-          <LockKeyhole
-            aria-hidden="true"
-            className="mt-1 size-4 shrink-0 text-accent"
-          />
-          <span>Следующий шаг закрыт: «{call.lockedNext}»</span>
-        </p>
+      {call.lockedNext === null ? (
+        <FreeMaterialBadge />
+      ) : (
+        <span className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-accent">
+            <LockKeyhole aria-hidden="true" className="size-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs leading-5 text-muted-foreground">
+              Следующий шаг
+            </span>
+            <span className="block text-sm font-semibold leading-5 [overflow-wrap:anywhere]">
+              <span className="sr-only">Закрыт: </span>
+              {call.lockedNext}
+            </span>
+          </span>
+        </span>
       )}
-      <p className="mt-2 text-pretty text-sm leading-6 text-muted-foreground">
-        {copy.explanation}
-      </p>
       <Button
         asChild
-        className="mt-4 h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
-        size="lg"
+        className="h-auto min-h-11 max-w-full shrink-0 whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
       >
         <Link href={call.action.href}>
-          {copy.label}
+          {actionLabel[call.action.kind]}
           <ArrowRight
             aria-hidden="true"
             className="shrink-0 transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"

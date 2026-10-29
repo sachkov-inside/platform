@@ -145,9 +145,9 @@ export async function PersonalCourseFilmOverlay({
         </>
       ) : (
         <>
-          {/* Тому, кто ещё не учится, анимация зовёт начать бесплатно (#1647). */}
+          {/* Тому, кто ещё не учится, анимация зовёт попробовать бесплатно (#1647). */}
           {state.access === "closed" && hasFreeLessons(result) ? (
-            <CourseLearningLink label="Начать бесплатно" slug={slug} />
+            <CourseLearningLink intent="try-free" slug={slug} />
           ) : null}
           <SaleCountdown sale={state.sale} />
         </>

@@ -1918,11 +1918,14 @@ export const FreeLessonPurchase: Story = {
       canvasElement.querySelector<HTMLElement>("[data-free-lesson-call]") ??
       fail("Missing free lesson call");
     const region = within(call);
-    await expect(region.getByText("Бесплатно")).toBeVisible();
+    // Закрытый шаг показан замком и названием, без поясняющих фраз (DESIGN.md, #1647).
     await expect(
-      region.getByText(/Онбординг нового разработчика за час/u),
+      region.getByText("Онбординг нового разработчика за час"),
     ).toBeVisible();
+    await expect(call.querySelector("svg.lucide-lock-keyhole")).not.toBeNull();
     await expect(region.getByText(/закрыт/iu)).toBeInTheDocument();
+    await expect(region.queryByRole("heading")).toBeNull();
+    await expect(region.queryByText(/после покупки/u)).toBeNull();
     await expect(
       region.getByRole("link", { name: "Приобрести курс" }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
@@ -1975,6 +1978,7 @@ export const FreeLessonCourseNotSold: Story = {
       call.queryByRole("link", { name: "Приобрести курс" }),
     ).not.toBeInTheDocument();
     await expect(call.queryByText(/закрыт/iu)).not.toBeInTheDocument();
+    await expect(call.getByText("Бесплатно")).toBeVisible();
   },
 };
 

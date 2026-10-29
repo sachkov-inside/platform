@@ -16,8 +16,8 @@ import "./cohort-status.css";
 export interface CohortStatus {
   /** Что продаёт билет: предзаказ до старта или доступ к идущему курсу. */
   readonly kind: "preorder" | "access";
-  /** Сколько дней до старта: «до старта 31 день»; наклейка над заголовком блока. Пусто — без наклейки. */
-  readonly countdown: string;
+  /** Сколько дней до старта: «до старта 31 день»; наклейка над заголовком блока. `null` — без неё. */
+  readonly countdown: string | null;
   readonly title: string;
   readonly text: string;
   readonly price: PreorderPrice | null;
@@ -43,7 +43,7 @@ export function CohortStatusView({
   return (
     <div className="aie-cohort-status">
       <div className="aie-cohort-status-intro">
-        {status.countdown === "" ? null : (
+        {status.countdown === null ? null : (
           <span className="aie-cohort-status-countdown">
             {status.countdown}
           </span>
