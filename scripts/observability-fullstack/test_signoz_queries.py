@@ -30,7 +30,7 @@ class RepresentativeQueries(unittest.TestCase):
         root=Path(cls.directory.name).resolve()
         output,primary=assemble(root,'queries',control=False)
         cls.layout=fullstack.assemble_core(primary,'signoz-mcp512-v1',run=output,
-            source={'commit':SOURCE,'tree':'b'*40},images=pins(),
+            source={'commit':SOURCE,'tree':SOURCE},images=pins(),
             project='inside-observability-representative-'+'1'*12,nonce='2'*32,uid=1001,gid=1001)
 
 
@@ -244,6 +244,32 @@ class RepresentativeQueries(unittest.TestCase):
         for index,value in [(1,5),(2,CUT+1),(3,'f'*40),(1,True)]:
             native=json.loads(good);native['data']['data']['results'][0]['data'][0][index]=value
             self.assertEqual(reader.observe(request,200,json.dumps(native).encode()),{'ok':False,'reason':'schema'})
+
+
+
+class PreparedLayoutProvenance(unittest.TestCase):
+    def test_original_producer_records_are_required_and_self_consistent_layout_is_not_authority(self):
+        import hashlib
+        from core_layout import Layout,encoded
+        with tempfile.TemporaryDirectory() as directory:
+            output,primary=assemble(Path(directory).resolve(),'provenance',control=False)
+            layout=fullstack.assemble_core(primary,'signoz-mcp512-v1',run=output,
+                source={'commit':SOURCE,'tree':SOURCE},images=pins(),
+                project='inside-observability-representative-'+'1'*12,nonce='2'*32,uid=1001,gid=1001)
+            self.assertEqual(signoz_queries.RepresentativeReads(layout,4,START,CUT).prepare('readiness_metrics',{}).path,'/api/v5/query_range')
+            plan=layout.plan;plan['services']['sig-mcp']['environment']['ANALYTICS_ENABLED']='true'
+            manifest=layout.manifest;manifest['plan_sha256']=hashlib.sha256(encoded(plan).encode()).hexdigest()
+            forged=Layout(encoded(plan),encoded(manifest),layout._files)
+            with self.assertRaisesRegex(ValueError,'provenance'):signoz_queries.RepresentativeReads(forged,4,START,CUT)
+            producer=output/'fullstack-source.json';original=producer.read_bytes();producer.unlink()
+            with self.assertRaises(FileNotFoundError):signoz_queries.RepresentativeReads(layout,4,START,CUT)
+            producer.write_bytes(original);producer.chmod(0o600)
+            value=json.loads(original);value['images']['web']='sha256:'+'f'*64;producer.write_text(json.dumps(value))
+            with self.assertRaises(ValueError):signoz_queries.RepresentativeReads(layout,4,START,CUT)
+            producer.write_bytes(original)
+            plan=primary;plan['services']['api']['cpus']=2
+            (output/'compose.json').write_text(json.dumps(plan))
+            with self.assertRaises(ValueError):signoz_queries.RepresentativeReads(layout,4,START,CUT)
 
 
 if __name__=='__main__':unittest.main()

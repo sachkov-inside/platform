@@ -660,7 +660,8 @@ reader recipes и viewer/MCP/revoke proof, общие workload/storage/recovery 
 
 ### Подготовленные чтения SigNoz
 
-`signoz_queries.RepresentativeReads` принимает только закрытый `Layout`, фазу0..13
+`signoz_queries.RepresentativeReads` принимает закрытый `Layout` с доступными исходными
+приватными `compose.json` и `fullstack-source.json` подготовленного fixture, фазу0..13
 и окно доверенного controller. Controller создаёт новый reader для каждого чтения:
 один раз снимает текущий clock cut и передаёт его как `cut_ms`, вместе с началом
 текущей фазы. Плановое окончание 40-секундной фазы не является текущим cut.
@@ -701,6 +702,83 @@ Missing, дубликаты, flags, partial/warning, неверный cohort/cut
 SDK witness и одинаковый read-only MCP запрос обязательны на следующем шаге.
 Sig runtime остаётся закрыт, полная нагрузка,600s fit и мощность production не
 подтверждены. Эти чтения не добавляют прогрев, запросы или операции нагрузки.
+
+
+### Подготовленный общий владелец и передача query scope
+
+`representative_owner.CompositeOwner.prepare` сам вызывает настоящий
+`fullstack.assemble_core` по файлам подготовленного fixture, его `resource-source.json`/`resource-images.json`
+и проверенным пяти
+application images. Переданный вручную `Layout` не создаёт владельца. Прежний
+Layout-based reader теперь также восстанавливает канонический план по исходным
+приватным файлам. Отдельного сериализованного снимка без этих файлов недостаточно.
+Это ужесточение подготовленного API, а не новый runtime selector. Приватные
+файлы fixture до `prepare` остаются доверенным вводом controller: исходный
+producer не записывает независимый hash/capability для primary compose. Код
+проверяет admission records и изменения после подготовки, но не утверждает,
+что распознаёт подмену всех файлов до подготовки владельцем host account.
+
+Общий владелец хранит закрытый каталог 38 служб, 11 томов и 10 сетей и отдельный
+приватный registry в `representative-owner`. Исходный `compose.json` не заменяется.
+Существующий минимальный владелец 11 служб и его guards не меняются. Перед каждым
+действием проверяются источник, root, daemon, план, env files и уже записанные
+native identities. Намерение создать ресурсы записывается до `create`, найденные
+CID/Created/image, volume и network receipts записываются по одному. Очистка
+сохраняет состояния до удаления, продолжает безопасные попытки после первой
+ошибки и отдельно проверяет остатки. Recovery сначала проверяет закрытую схему
+всего registry, полные типизированные receipts и текущие image receipts. Частичный
+набор ресурсов допустим после прерванного acquisition, неполная запись identity
+не допускается. Эти проверки предшествуют остановке worker и удалению ресурсов.
+Recovery использует оставшийся исходный лимит600+90, включая проверки images,
+и существующий `runtime.stop_worker`, не запускает новый supervisor.
+Для acquisition нужен приватный worker receipt с `pid`, `group`, `start_ticks`.
+Текущий primary receipt без `start_ticks` не подходит для этого пути; его native
+подключение и проверка остановки сессии остаются работой следующего этапа.
+
+`representative_scope.mint` создаёт одну текущую генерацию чтения после проверки
+работающего `sig-disk`. Единственный helper pathname:
+`/private/representative-scope/current.json`, mode0600 в свежем каталоге mode0700.
+Файл открывается без symlink и hardlink, ограничен 32 KiB. В нём нет ключей, SQL,
+URL и произвольных путей загрузки. Registry сериализует поколения, сохраняет
+использованный cut и атомарно захватывает поколение до единственного exec.
+Параллельные execute/close сериализованы; успешный execute внутри `with` не вызывает
+повторное закрытие при выходе, а повторный execute отклоняется. Файл активного
+чтения не заменяется.
+
+Identity каталога записывается сразу после его создания, identity файла до записи
+его содержимого. Расходование поколения сохраняет эти записи до завершения
+удаления. Recovery расходует прерванное поколение и не повторяет запрос. Сбой в
+неустранимом промежутке между созданием inode и его durable registration не даёт
+права принять этот inode во владение. Неизвестный или заменённый inode сохраняется
+и отмечается ошибкой; владелец всё равно возвращается для независимой очистки
+безопасно зарегистрированных native ресурсов. Результат такой очистки не считается
+успешным. Исходная ошибка сохраняется, исходный лимит600+90 не продлевается.
+
+Под существующим read-only `/driver` расположен ровно пятифайловый mirror:
+`representative_scope.py`, `signoz_queries.py`, `core_layout.py`, `metric_recipe.py`
+и `profile.json` с исходной структурой каталогов. Старые файлы minimal driver
+сохраняются. Helper проверяет mirror до imports query-модулей и не вызывает
+конструктор fixture. `RepresentativeReads.from_native_scope` принимает только
+текущий непрозрачный scope своего процесса; reader проверяет его срок, inode и
+поколение при подготовке и разборе каждого запроса. Один приватный initializer
+сохраняет прежние десять payloads и parser semantics.
+
+Подготовленный exact-CID exec передаёт только ожидаемый digest через argv,
+поскольку `Engine.raw` сохраняет stdin DEVNULL. Controller независимо сверяет
+CID, Created, image и план до и после вызова. Helper проверяет digest и Linux
+init birth/netns/pidns. Digest означает целостность в доверенном канале controller,
+не подпись и не независимую аттестацию CID или telemetry. Controller, host account,
+исходники, daemon/kernel и native helper остаются доверенными. Agent и loadgen не
+получают права записи в private/mirror и права выбора digest или CID.
+
+Все локальные проверки этого этапа являются SOURCE-MODEL, включая реальные
+приватные файлы и короткий subprocess. На Mac namespace receipts инъецируются
+явно. Native acquisition, attachment/mount/source/transport и Linux session
+recovery этим не подтверждены. Подготовленный helper выполняет только проверку
+scope, без query transport и ключей. `--core signoz-mcp512-v1` остаётся закрыт.
+До следующего этапа обязательны независимые Standards/Spec/Security, actual
+Risk/Participation и native Linux proof. Нагрузка3200/12, четыре режима,
+sample1/source5/query10, пять application images и лимит600+90 сохраняются.
 
 
 ### Пассивные отметки времени Web-запросов
