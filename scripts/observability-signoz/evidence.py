@@ -112,7 +112,8 @@ def failure(value):
 
 
 def inside_failures(output):
-    stages={'entry','bootstrap','mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics',
+    stages={'entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
+            'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics',
             'trace_log','mcp_read','finite_gateway','viewer_admin_denial','viewer_revoke','viewer_revoked_denial'}
     categories={'ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
                 'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'}
@@ -122,10 +123,11 @@ def inside_failures(output):
         require(directory.is_dir() and not directory.is_symlink())
         path=directory/'inside-failure.json'
         if not path.exists():continue
-        row=read(path);require(type(row) is dict and row.get('inside_failed')==1)
-        result.append({'stage':row.get('stage') if row.get('stage') in stages else 'unavailable',
-            'category':row.get('category') if row.get('category') in categories else 'unavailable',
-            'transport':row.get('transport') if row.get('transport') in transports else 'unavailable',
+        row=read(path);require(type(row) is dict and set(row)=={'inside_failed','stage','category','http_status','transport'}
+            and type(row['inside_failed']) is int and row['inside_failed']==1)
+        result.append({'stage':row['stage'] if type(row['stage']) is str and row['stage'] in stages else 'unavailable',
+            'category':row['category'] if type(row['category']) is str and row['category'] in categories else 'unavailable',
+            'transport':row['transport'] if type(row['transport']) is str and row['transport'] in transports else 'unavailable',
             'http_status':integer(row['http_status'],599)})
     return {'available':bool(result),'samples':result}
 
