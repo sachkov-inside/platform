@@ -410,3 +410,75 @@ source profile и проверяет контекст строки. Diagnostic w
 Более длинный прогрев увеличивает время фоновых запросов и sampler, поэтому новый
 контроль не называется побайтово или по полному объёму работы прежним экспериментом.
 Исходный primary workload, квоты, sampling и критерии приёмки остаются прежними.
+
+## Отдельный контроль ограничений CPU приложения
+
+Точный комментарий `<!-- monitoring-cpu-control: app-unlimited-v1 -->` в описании PR
+включает отдельный, по умолчанию выключенный job `Matched CPU-policy diagnostic
+(never capacity acceptance)` при следующем обычном событии PR. Само редактирование
+описания не создаёт запуск. Исходные short/full/stability jobs сохранены побайтово.
+Проверка события требует точный регистр, один комментарий и обычное действие
+opened/reopened/synchronize. Неизвестный CPU selector, дубликат или смешение с
+комментарием stability отвергаются до подготовки образов. Права и pins прежние,
+новых secrets и ручного dispatch нет.
+
+На одном runner сначала выполняется `fixture-capped-v1`, затем
+`app-cpu-unlimited-v1`. Каждый использует исходные 3200 операций, 12 фаз,
+256 Accounts, 512 Materials, 8 слотов и запросы с пределом 2 секунды.
+Сохраняются OFF→ON и ON→OFF, sampling1, критерии p95 5%, CPU 10%, свежести,
+потерь и запаса. Это не примированный протокол stability. Пять исходных immutable
+образов собираются один раз. У каждого профиля свой новый проект, базы и тома.
+Два именованных consumer leases регистрируются до освобождения первого.
+Второй профиль может получить проект только после успешного cleanup первого,
+повторной проверки source/images/lease и достаточного остатка общего времени.
+Первый ненулевой код сохраняется, даже если второй профиль прошёл. Retry,
+continue-on-error и сокращения корпуса нет. При неизвестном cleanup второй не стартует.
+
+Из плана второго профиля удаляются только `cpus` ровно у api, mcp,
+material-assets-worker, profile-avatars-worker, video-deletions-worker,
+billing-worker, notifications-worker, web, postgres, rabbitmq, telegram и logto.
+Первый план сохраняет CPU1 у этих ролей. Сравнивается весь план; другие ограничения
+CPU, образы, память, pids, swap, mount, сети и настройки SDK/logging не меняются.
+У десяти ролей остаётся 512MiB, у rabbitmq и logto 768MiB. Caddy сохраняет .5CPU,
+loadgen 2CPU, provider/bot-provider .25CPU; monitoring, host-agent, Umami и
+временные migration/broker-config процессы сохраняют свои ограничения.
+
+После каждой из четырёх пересборок режима и в конце worker выполняется ограниченная
+двумя секундами проверка текущих 12 container IDs и одна bulk-проекция Docker.
+Проверяются project/service/ID, running, Memory, NanoCpus, CpuQuota, CpuPeriod и
+CpusetCpus. Ожидаемая кодировка capped: NanoCpus1000000000, CpuQuota0, CpuPeriod0,
+CpusetCpus пустой; uncapped: все три числа0 и CpusetCpus пустой. Эти условия должны
+быть подтверждены фактическим native-запуском, fixture-тест не заменяет его.
+Пропущенное поле, подмена, дубликат, изменение памяти или неизвестное число не
+считаются нулём. Последний снимок требует прежние IDs последнего режима.
+Числовые снимки не содержат ID, labels, argv, env или raw errors.
+
+Каждый worker сохраняет прежние 600 секунд и отдельный cleanup 90 секунд.
+Общий job остаётся 60 минут, подготовки образов это не отменяет. Внутренний clock
+первого шага разрешает следующий профиль лишь при остатке не меньше 690 секунд.
+Не более пяти двухсекундных quota-проверок входят в исходный срок каждого worker.
+Завершение всей пары в этот срок не обещается. Незапущенный или незаконченный
+профиль оставляет сравнение incomplete. Recovery использует зарегистрированного
+владельца и leases, ему не нужен комментарий в актуальном описании PR.
+
+Артефакт `observability-cpu-control-<run_id>-<run_attempt>` содержит отдельный
+`fullstack-cpu-control.json` schema1, source/profile/plan/workload bindings,
+коды и cleanup каждого профиля, числовые quota-снимки и исходный oracle.
+Исходные verdicts сохраняются отдельно в `<profile>-verdict.json`.
+Всегда указаны diagnostic_only=true, capacity=false, minimum_candidate_gib=null.
+Даже успешная пара не заменяет primary acceptance. Обычный и stability collectors
+отвергают CPU evidence; отдельный collector отвергает смешение, replay и downgrade
+до создания public artifacts. Приватные запросы связывают исходники, workload,
+пять образов, output, план и отдельного supervisor/project владельца.
+
+Read-only проверка production от 29.10.2026 установила отсутствие CPU quota/cpuset
+у этих 12 ролей. Это не полная копия production: material-assets-worker здесь
+512MiB вместо 768MiB; postgres и logto сохраняют конечные ограничения памяти,
+а в production память этих двух ролей не ограничена. CPU хоста остаётся CPU runner,
+а не двумя CPU production. Порядок capped→uncapped фиксирован, влияние cache и
+порядка не отделено от CPU policy. Если capped-симптом не повторился, это
+non-reproduction. Исчезновение симптома с подтверждёнными снятыми caps поддерживает
+гипотезу об ограничениях, но не доказывает единственную причину. Сохранение симптома
+означает, что снятия этих caps недостаточно. CPU0 означает отсутствие quota
+контейнера, а не отсутствие нагрузки. Минимум сервера и достаточность production
+по этим данным не устанавливаются.

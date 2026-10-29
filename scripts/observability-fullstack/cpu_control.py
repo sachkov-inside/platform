@@ -1,0 +1,454 @@
+"""Closed same-runner CPU-policy control. Never a production capacity acceptance."""
+import copy
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import re
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+PROFILES=('fixture-capped-v1','app-cpu-unlimited-v1')
+ROLES=('api','mcp','material-assets-worker','profile-avatars-worker','video-deletions-worker',
+       'billing-worker','notifications-worker','web','postgres','rabbitmq','telegram','logto')
+IMAGES=('backend','foundation','web','telegram','logto')
+KIND='app-cpu-control-v1'
+EVENT_MARKER='<!-- monitoring-cpu-control: app-unlimited-v1 -->'
+PAIR='cpu-control-pair.json'
+MARKER='cpu-control-request.json'
+BASELINE='cpu-control-baseline.json'
+OWNER='cpu-control-owner.json'
+QUOTAS='cpu-control-quotas.json'
+OUTCOME='cpu-control-outcome.json'
+NAME='fullstack-cpu-control.json'
+FILES=(MARKER,BASELINE,OWNER,QUOTAS,NAME)
+MAX_BYTES=1_048_576
+ACCEPTANCE={'diagnostic_only':True,'capacity':False,'minimum_candidate_gib':None}
+CPU_KEYS={'cpu_quota','cpu_period','cpuset','cpu_count','cpu_percent','cpu_shares','deploy'}
+
+
+def need(ok):
+    if not ok:raise ValueError('closed_cpu_control')
+
+
+def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def present(path):return Path(path).exists() or Path(path).is_symlink()
+
+
+def directory(path,*,private=True):
+    path=Path(path).absolute();need(path==path.resolve())
+    info=path.lstat();need(stat.S_ISDIR(info.st_mode) and info.st_uid==os.getuid() and not info.st_mode&(0o077 if private else 0o022))
+    return path
+
+
+def read(path,*,private=True,limit=MAX_BYTES):
+    path=Path(path);directory(path.parent,private=False)
+    descriptor=os.open(path,os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW)
+    with os.fdopen(descriptor,'rb') as stream:
+        info=os.fstat(stream.fileno())
+        need(stat.S_ISREG(info.st_mode) and info.st_uid==os.getuid() and info.st_nlink==1
+             and not info.st_mode&(0o077 if private else 0o022) and info.st_size<=limit)
+        raw=stream.read(limit+1)
+    need(len(raw)<=limit)
+    def unique(pairs):
+        value={}
+        for key,item in pairs:need(key not in value);value[key]=item
+        return value
+    return json.loads(raw,object_pairs_hook=unique,parse_constant=lambda _:need(False))
+
+
+def write(path,value,*,once=False):
+    path=Path(path);directory(path.parent)
+    raw=(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode();need(len(raw)<=MAX_BYTES)
+    flags=os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW|(os.O_EXCL if once else 0)
+    descriptor=os.open(path,flags,0o600)
+    with os.fdopen(descriptor,'wb') as stream:
+        info=os.fstat(stream.fileno());need(stat.S_ISREG(info.st_mode) and info.st_uid==os.getuid() and info.st_nlink==1 and not info.st_mode&0o077)
+        stream.truncate();stream.write(raw)
+
+
+def selector(value):need(type(value) is str and value in PROFILES);return value
+
+
+def image_set(value):
+    need(type(value) is dict and set(value)==set(IMAGES))
+    need(all(type(v) is str and re.fullmatch('sha256:[a-f0-9]{64}',v) for v in value.values()))
+    return value
+
+
+def require_event(event,*,head=None,base=None):
+    need(type(event) is dict and event.get('action') in ('opened','reopened','synchronize'))
+    pr=event.get('pull_request');need(type(pr) is dict)
+    need(type(event.get('number')) is int and 0<event['number']<=2**31-1
+         and type(pr.get('number')) is int and pr['number']==event['number'] and pr.get('state')=='open'
+         and type(event.get('repository')) is dict and event['repository'].get('full_name')=='sachkov-inside/platform')
+    for name,expected in (('head',head),('base',base)):
+        row=pr.get(name);need(type(row) is dict and type(row.get('sha')) is str and re.fullmatch('[a-f0-9]{40}',row['sha'])
+                            and (expected is None or row['sha']==expected))
+    need(pr['base'].get('ref')=='main' and type(pr['base'].get('repo')) is dict and pr['base']['repo'].get('full_name')=='sachkov-inside/platform')
+    body=pr.get('body');need(type(body) is str and len(body.encode())<=65536)
+    # contains() is only a coarse workflow filter. No body fragment becomes an argument.
+    need(body.count(EVENT_MARKER)==1 and body.lower().count('<!-- monitoring-cpu-control:')==1
+         and '<!-- monitoring-stability:' not in body.lower())
+
+
+def admission(full):
+    full.hosted.context()
+    # The provider event can have unrelated fields; only this bounded closed decision is used.
+    require_event(read(Path(os.environ['GITHUB_EVENT_PATH']),private=False,limit=262144),
+                  head=os.environ['PILOT_PR_HEAD_SHA'],base=os.environ['PILOT_PR_BASE_SHA'])
+    started=float(os.environ['CPU_CONTROL_JOB_STARTED']);need(math.isfinite(started) and 0<=time.monotonic()-started<3600)
+    return started
+
+
+def pair(full,root,source):
+    root=directory(root);value=read(root/PAIR)
+    need(type(value) is dict and set(value)=={'schema','kind','source','root','nonce','profiles','images','workload_sha256'})
+    need(type(value['schema']) is int and value['schema']==1 and value['kind']==KIND and value['source']==source
+         and re.fullmatch('[a-f0-9]{40}',source) and value['root']==str(root) and value['profiles']==list(PROFILES)
+         and type(value['nonce']) is str and re.fullmatch('[a-f0-9]{32}',value['nonce'])
+         and value['workload_sha256']==hashlib.sha256(full.PROFILE.read_bytes()).hexdigest())
+    image_set(value['images']);full.acceptance.validate_profile(json.loads(full.PROFILE.read_text()))
+    return value
+
+
+def transform(plan,profile):
+    selector(profile);need(type(plan) is dict and type(plan.get('services')) is dict)
+    for role in ROLES:
+        service=plan['services'].get(role);need(type(service) is dict and not CPU_KEYS.intersection(service))
+        expected='1' if role in (*ROLES[:7],'postgres') else 1
+        need(type(service.get('cpus')) is type(expected) and service['cpus']==expected)
+        need(service.get('mem_limit')==('768m' if role in ('rabbitmq','logto') else '512m'))
+    result=copy.deepcopy(plan)
+    if profile==PROFILES[1]:
+        for role in ROLES:del result['services'][role]['cpus']
+    return result
+
+
+def prepare_plan(full,output,source,plan):
+    value=pair(full,output.parent,source);profile=selector(output.name)
+    need(set(plan['services'])==set(full.SERVICES))
+    selected=transform(plan,profile)
+    output.chmod(0o700);directory(output)
+    write(output/BASELINE,plan,once=True)
+    marker={'schema':1,'kind':KIND,'source':source,'profile':profile,'output':digest(str(output)),
+            'pair':digest(value),'workload_sha256':value['workload_sha256'],'baseline_sha256':digest(plan),
+            'plan_sha256':digest(selected),'roles':list(ROLES)}
+    write(output/MARKER,marker,once=True)
+    return selected
+
+
+def expected_request(full,output,source):
+    output=directory(output);value=pair(full,output.parent,source);profile=selector(output.name)
+    baseline=read(output/BASELINE);plan=transform(baseline,profile)
+    expected={'schema':1,'kind':KIND,'source':source,'profile':profile,'output':digest(str(output)),
+              'pair':digest(value),'workload_sha256':value['workload_sha256'],'baseline_sha256':digest(baseline),
+              'plan_sha256':digest(plan),'roles':list(ROLES)}
+    need(set(baseline['services'])==set(full.SERVICES))
+    prepared=read(output/'fullstack-source.json',private=False)
+    need(prepared['source']==source and prepared['profile']==json.loads(full.PROFILE.read_text())
+         and {k:prepared['images'][k] for k in IMAGES}==value['images'])
+    return expected,plan
+
+
+def request(full,output,source):
+    expected,plan=expected_request(full,output,source);actual=read(output/MARKER)
+    need(type(actual) is dict and type(actual.get('schema')) is int and actual==expected)
+    return expected,plan
+
+
+def owner_binding(full,output,owner,marker):
+    need(type(owner) is dict and set(owner)=={'project','cwd','supervisor_pid','docker_storage','orbstack','daemon','cleanup'})
+    need(owner['cwd']==str(full.ROOT) and type(owner['supervisor_pid']) is int and owner['supervisor_pid']>0
+         and type(owner['project']) is str and re.fullmatch(re.escape(full.PREFIX)+'[a-f0-9]{12}',owner['project']))
+    return {'schema':1,'source':marker['source'],'request':digest(marker),'owner':digest(owner),
+            'project':owner['project'],'nonce':owner['project'][-12:],'output':marker['output'],
+            'profile':marker['profile'],'baseline_sha256':marker['baseline_sha256'],'plan_sha256':marker['plan_sha256']}
+
+
+def bind_worker(full,output,owner,source):
+    marker,plan=request(full,output,source)
+    need(read(output/'owner.json',private=False)==owner)
+    need(owner['supervisor_pid']==os.getppid() and read(output/'compose.json')==plan)
+    need(not any(present(output/name) for name in (full.stability.MARKER,full.stability.NAME)))
+    binding=owner_binding(full,output,owner,marker)
+    write(output/OWNER,binding,once=True)
+    write(output/QUOTAS,{'schema':1,'source':source,'request':digest(marker),'owner':digest(binding),'snapshots':[],'last_ids':{}},once=True)
+    return marker
+
+
+def mode_plan(full,initial,enabled):
+    expected=copy.deepcopy(initial)
+    expected['services']['web']['environment']['INSIDE_WEB_HTTP_METRICS_ENABLED']='true' if enabled else 'false'
+    for role in (*full.BACKENDS,'telegram'):expected['services'][role]['environment']['INSIDE_OTEL_ENABLED']='true' if enabled else 'false'
+    for role in (*full.BACKENDS,'web','rabbitmq','postgres','telegram','logto','caddy'):
+        expected['services'][role]['logging']=full.production.logging('platform-'+role if role in (*full.BACKENDS,'web','rabbitmq') else role) if enabled else {'driver':'none'}
+    return expected
+
+
+def current_plan(full,output,source,enabled):
+    marker,initial=request(full,output,source)
+    need(read(output/'compose.json')==mode_plan(full,initial,enabled))
+    return marker
+
+
+PROJECTION='{"id":{{json .Id}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"running":{{json .State.Running}},"memory":{{json .HostConfig.Memory}},"nano_cpus":{{json .HostConfig.NanoCpus}},"cpu_quota":{{json .HostConfig.CpuQuota}},"cpu_period":{{json .HostConfig.CpuPeriod}},"cpuset_cpus":{{json .HostConfig.CpusetCpus}}}'
+
+
+def quota_rows(raw,ids,project,profile):
+    selector(profile);need(type(raw) is str and len(raw.encode())<=16384)
+    from acquisition import decode_json
+    values=[decode_json(line) for line in raw.splitlines()];need(len(values)==len(ids)==len(ROLES) and len(set(ids))==len(ROLES))
+    found={};identity={}
+    for row in values:
+        need(type(row) is dict and set(row)=={'id','project','service','running','memory','nano_cpus','cpu_quota','cpu_period','cpuset_cpus'})
+        role=row['service'];need(type(role) is str and role in ROLES and role not in found and row['id'] in ids
+             and type(row['id']) is str and re.fullmatch('[a-f0-9]{64}',row['id']) and row['project']==project and row['running'] is True)
+        numbers=[row[k] for k in ('memory','nano_cpus','cpu_quota','cpu_period')]
+        expected=[(768 if role in ('rabbitmq','logto') else 512)*1024**2,1_000_000_000 if profile==PROFILES[0] else 0,0,0]
+        # Compose --cpus encodes NanoCpus; missing quota/period/cpuset is never zero.
+        need(all(type(v) is int for v in numbers) and numbers==expected and row['cpuset_cpus']=='')
+        found[role]=[ROLES.index(role),*numbers,0];identity[role]=row['id']
+    need(set(found)==set(ROLES));return [found[role] for role in ROLES],identity
+
+
+def ledger(full,output,source):
+    marker,_=request(full,output,source);owner=read(output/'owner.json',private=False)
+    binding=owner_binding(full,output,owner,marker);recorded=read(output/OWNER)
+    need(type(recorded) is dict and type(recorded.get('schema')) is int and recorded==binding)
+    value=read(output/QUOTAS)
+    need(type(value) is dict and set(value)=={'schema','source','request','owner','snapshots','last_ids'}
+         and type(value['schema']) is int and value['schema']==1 and value['source']==source
+         and value['request']==digest(marker) and value['owner']==digest(binding))
+    snapshots=value['snapshots'];need(type(snapshots) is list and len(snapshots)<=5)
+    indices=[]
+    for snapshot in snapshots:
+        need(type(snapshot) is dict and set(snapshot)=={'ordinal','rows'} and type(snapshot['ordinal']) is int)
+        indices.append(snapshot['ordinal']);need(type(snapshot['rows']) is list and len(snapshot['rows'])==12)
+        for index,row in enumerate(snapshot['rows']):
+            expected=[index,(768 if ROLES[index] in ('rabbitmq','logto') else 512)*1024**2,1_000_000_000 if marker['profile']==PROFILES[0] else 0,0,0,0]
+            need(type(row) is list and all(type(n) is int for n in row) and row==expected)
+    need(indices==list(range(len(indices))) or bool(indices) and indices[-1]==4 and indices[:-1]==list(range(len(indices)-1)))
+    identities=value['last_ids'];need(type(identities) is dict)
+    need(not snapshots and identities=={} or set(identities)==set(ROLES) and len(set(identities.values()))==12
+         and all(type(v) is str and re.fullmatch('[a-f0-9]{64}',v) for v in identities.values()))
+    return value,owner,marker
+
+
+def capture(full,output,compose,source,ordinal,enabled):
+    need(type(ordinal) is int and ordinal in range(5) and type(enabled) is bool)
+    current_plan(full,output,source,enabled)
+    value,owner,marker=ledger(full,output,source)
+    indices=[row['ordinal'] for row in value['snapshots']]
+    need(ordinal not in indices and (ordinal==len(indices) or ordinal==4))
+    deadline=time.monotonic()+2
+    def invoke(compose,args):
+        remaining=deadline-time.monotonic();need(remaining>0)
+        return full.invoke(compose,args,timeout=remaining)
+    ids=invoke(compose,['ps','-q',*ROLES]).split()
+    need(len(ids)==12 and len(set(ids))==12 and all(re.fullmatch('[a-f0-9]{64}',v) for v in ids))
+    rows,identities=quota_rows(invoke(['docker'],['inspect','--format',PROJECTION,*ids]),ids,owner['project'],marker['profile'])
+    if ordinal==4:need(identities==value['last_ids'])
+    value['snapshots'].append({'ordinal':ordinal,'rows':rows});value['last_ids']=identities
+    write(output/QUOTAS,value)
+
+
+def reject(output):
+    if any(present(Path(output)/name) for name in FILES) or present(Path(output).parent/PAIR):need(False)
+
+
+def cleanup_passed(result):return type(result) is dict and result.get('down')=='passed' and result.get('residue')=='passed'
+
+
+def validate_owner_plan(full,output,source):
+    # The durable owner binding survives removal of the private request marker.
+    marker,initial=expected_request(full,output,source)
+    owner=read(output/'owner.json',private=False);binding=owner_binding(full,output,owner,marker)
+    if present(output/OWNER):
+        recorded=read(output/OWNER);need(type(recorded) is dict and type(recorded.get('schema')) is int and recorded==binding)
+    else:request(full,output,source)
+    current=read(output/'compose.json')
+    need(current in (initial,mode_plan(full,initial,False),mode_plan(full,initial,True)))
+
+
+def worker_cleanup(full,output,source,exit_code):
+    directory(output);validate_owner_plan(full,output,source)
+    owner=read(output/'owner.json',private=False)
+    worker=read(output/'worker.json',private=False)
+    need(type(worker) is dict and set(worker)=={'pid','group','supervisor_pid','deadline_seconds'}
+         and type(worker['pid']) is int and worker['pid']>0 and type(worker['group']) is int
+         and worker['group']==worker['pid'] and type(worker['supervisor_pid']) is int and worker['supervisor_pid']==owner['supervisor_pid']
+         and type(worker['deadline_seconds']) is int and worker['deadline_seconds']==600)
+    outcome=read(output/'worker-outcome.json',private=False);cleanup=read(output/'cleanup.json',private=False)
+    need(type(outcome) is dict and set(outcome)=={'exit_code','duration_seconds','monitor_failed','cleanup'}
+         and type(outcome['exit_code']) is int and outcome['exit_code']==exit_code
+         and type(outcome['duration_seconds']) in (int,float) and math.isfinite(outcome['duration_seconds'])
+         and 0<=outcome['duration_seconds']<=3600 and type(outcome['monitor_failed']) is bool
+         and outcome['cleanup']==cleanup)
+    return cleanup_passed(cleanup)
+
+
+def settle_profile(full,stage,output,exit_code):
+    # The supervisor already spent its single90s cleanup. Never retry it in the pair.
+    if not present(output) or not present(output/'owner.json'):
+        stage.release(str(output),cleanup_ok=True);return False
+    good=False
+    try:
+        good=worker_cleanup(full,output,stage.receipt['source'],exit_code)
+        return good
+    finally:stage.release(str(output),cleanup_ok=good)
+
+
+def recover_profile(full,stage,output):
+    # Never let marker presence, selector or PR body grant cleanup authority.
+    if not present(output):
+        stage.release(str(output),cleanup_ok=True);return True
+    directory(output)
+    if not present(output/'owner.json'):
+        stage.release(str(output),cleanup_ok=True);return True
+    validate_owner_plan(full,output,stage.receipt['source'])
+    result=full.resource_runtime.ci.recover(output,project_prefix=full.PREFIX,services=full.SERVICES)
+    good=cleanup_passed(result);stage.release(str(output),cleanup_ok=good);return good
+
+
+def run_pair(full,root,images,metadata):
+    started=admission(full);source,disk=full.hosted.metadata_source(metadata);need(disk['ready'])
+    root=Path(root).absolute();need(root==root.resolve() and not present(root))
+    directory(root.parent,private=False)
+    pins=read(images);need(pins['source']==source['checkout_sha'])
+    selected=image_set({k:pins[k] for k in IMAGES})
+    stage=full.preparation.recover_stage(images);need(stage.receipt['source']==source['checkout_sha'])
+    capped,uncapped=(root/profile for profile in PROFILES)
+    with stage.in_use():
+        stage.require_consumer(str(capped));stage.retain(str(uncapped),'second CPU-control profile')
+        root.mkdir(mode=0o700)
+        import secrets
+        value={'schema':1,'kind':KIND,'source':source['checkout_sha'],'root':str(root),'nonce':secrets.token_hex(16),
+               'profiles':list(PROFILES),'images':selected,'workload_sha256':hashlib.sha256(full.PROFILE.read_bytes()).hexdigest()}
+        write(root/PAIR,value,once=True)
+        result={'schema':1,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False]}
+        write(root/OUTCOME,result,once=True)
+        first_error=None
+        for index,output in enumerate((capped,uncapped)):
+            if index and not result['cleanup'][0]:break
+            # Full per-profile worker+cleanup allowance must remain inside the same60min job.
+            if not 0<=time.monotonic()-started<=3600-690:break
+            try:
+                stage.require_consumer(str(output));full.hosted.metadata_source(metadata)
+                need(read(images)==pins)
+            except BaseException as error:
+                if first_error is None:first_error=error
+                break
+            try:
+                full.pilot.run(output,prepare_inputs=lambda path:full.inputs(path,images),worker_script=Path(__file__).resolve(),
+                    ports=(18427,13000,14318,1514,13301),services=full.SERVICES,project_prefix=full.PREFIX,
+                    scope='CPU-policy diagnostic only; not capacity acceptance',missing=['production capacity and seven days'],worker_pass_fds=stage.pass_fds())
+                result['exits'][index]=0
+            except BaseException as error:
+                code=error.returncode if isinstance(error,subprocess.CalledProcessError) else 130 if isinstance(error,KeyboardInterrupt) else 1
+                result['exits'][index]=code if type(code) is int and -255<=code<=255 else 1
+                if first_error is None:first_error=error
+            finally:
+                write(root/OUTCOME,result)
+                try:result['cleanup'][index]=settle_profile(full,stage,output,result['exits'][index])
+                except BaseException as error:
+                    if first_error is None:first_error=error
+                finally:write(root/OUTCOME,result)
+            if isinstance(first_error,(KeyboardInterrupt,SystemExit)):break
+        # A never-started retained consumer has no acquired project to recover.
+        if result['exits'][1] is None:
+            try:recover_profile(full,stage,uncapped)
+            except BaseException as error:
+                if first_error is None:first_error=error
+        if first_error is not None:raise first_error
+        need(result['exits']==[0,0] and result['cleanup']==[True,True])
+
+
+def recover_pair(full,root,images):
+    root=Path(root).absolute();need(root==root.resolve())
+    if not full.preparation.directory(images).exists():
+        need(not present(root));return
+    stage=full.preparation.recover_stage(images)
+    with stage.in_use():
+        for profile in PROFILES:
+            output=root/profile;key=full.preparation.consumer_key(str(output))
+            if present(stage.path/('retain-'+key+'.json')):recover_profile(full,stage,output)
+
+
+def verdict(value):
+    need(type(value) is dict)
+    basic={'state','minimum_candidate_gib'}
+    full=basic|{'measured_peak_host_used_bytes','required_bytes_with_25pct_reserve'}
+    need(set(value) in (basic,full) and value['state'] in ('passed','failed','incomplete')
+         and (value['minimum_candidate_gib'] is None or type(value['minimum_candidate_gib']) is int and value['minimum_candidate_gib'] in (4,8)))
+    if set(value)==basic:need(value=={'state':'incomplete','minimum_candidate_gib':None})
+    else:need(all(type(value[k]) in (int,float) and math.isfinite(value[k]) and 0<=value[k]<=2**53-1 for k in full-basic))
+    return value
+
+
+def collect(full,root,metadata,destination):
+    source,disk=full.hosted.metadata_source(metadata);sha=source['checkout_sha']
+    root=directory(root);value=pair(full,root,sha);outcome=read(root/OUTCOME)
+    need(type(outcome) is dict and set(outcome)=={'schema','source','pair','exits','cleanup'}
+         and type(outcome['schema']) is int and outcome['schema']==1 and outcome['source']==sha and outcome['pair']==digest(value)
+         and type(outcome['exits']) is list and len(outcome['exits'])==2 and all(v is None or type(v) is int and -255<=v<=255 for v in outcome['exits'])
+         and type(outcome['cleanup']) is list and len(outcome['cleanup'])==2 and all(type(v) is bool for v in outcome['cleanup']))
+    rows=[];verdicts={}
+    for index,profile in enumerate(PROFILES):
+        output=root/profile
+        row={'profile':profile,'run_exit':outcome['exits'][index],'cleanup':outcome['cleanup'][index],'state':'not_run',
+             'plan_sha256':None,'baseline_sha256':None,'snapshots':[],'original_oracle':{'state':'incomplete','minimum_candidate_gib':None}}
+        if present(output):
+            marker,_=request(full,output,sha);row.update(plan_sha256=marker['plan_sha256'],baseline_sha256=marker['baseline_sha256'],state='incomplete')
+            if row['run_exit'] is not None:
+                observed=worker_cleanup(full,output,sha,row['run_exit']);need(not row['cleanup'] or observed)
+            if present(output/QUOTAS):
+                quotas,owner,_=ledger(full,output,sha);row['snapshots']=quotas['snapshots']
+                actual_cleanup=read(output/'cleanup.json',private=False) if present(output/'cleanup.json') else {}
+                need(not row['cleanup'] or cleanup_passed(actual_cleanup))
+                proof=read(output/'fullstack-proof.json',private=False)
+                original=verdict(proof.get('measured_linux_acceptance',{'state':'incomplete','minimum_candidate_gib':None}))
+                if original['state']!='incomplete':
+                    phases=proof.get('phases');need(type(phases) is list and len(phases)==12)
+                    expected=[(pair,mode,definition['name']) for pair,modes in enumerate(json.loads(full.PROFILE.read_text())['pairs']) for mode in modes for definition in json.loads(full.PROFILE.read_text())['phases']]
+                    need([(r['pair'],r['mode'],r['name']) for r in phases]==expected and full.evaluate(proof)==original)
+                row['original_oracle']=original;verdicts[profile+'-verdict.json']=original
+                worker=read(output/'worker-outcome.json',private=False) if present(output/'worker-outcome.json') else {}
+                need(row['run_exit'] is None or worker.get('exit_code')==row['run_exit'])
+                if row['run_exit']==0 and row['cleanup'] and original['state']=='passed' and proof.get('state')=='measured' and len(proof.get('phases',[]))==12 and [s['ordinal'] for s in quotas['snapshots']]==list(range(5)):
+                    row['state']='complete'
+        else:need(row['run_exit'] is None and not row['cleanup'])
+        rows.append(row)
+    # Baselines use fresh output paths; their hashes need not equal one another.
+    result={'schema':1,'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
+            **ACCEPTANCE,'state':'complete' if all(row['state']=='complete' for row in rows) else 'incomplete','profiles':rows,
+            'fixed_order':list(PROFILES),'host_and_order_confounded':True}
+    # All private reads/validation precede creation; publish canonical snapshots only.
+    destination=Path(destination);need(destination.absolute()==destination.resolve() and not present(destination))
+    directory(destination.parent,private=False);destination.mkdir(mode=0o700)
+    created=destination.lstat()
+    descriptor=os.open(destination,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:
+        pinned=os.fstat(descriptor);need((created.st_dev,created.st_ino)==(pinned.st_dev,pinned.st_ino))
+        for name,snapshot in {NAME:result,**verdicts,'source.json':source,'admission.json':disk}.items():
+            current=destination.lstat();need((current.st_dev,current.st_ino)==(pinned.st_dev,pinned.st_ino))
+            raw=(json.dumps(snapshot,sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode();need(len(raw)<=MAX_BYTES)
+            fd=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=descriptor)
+            with os.fdopen(fd,'wb') as stream:stream.write(raw)
+    finally:os.close(descriptor)
+    return result
+
+
+if __name__=='__main__':
+    import fullstack
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('action',choices=('worker',));parser.add_argument('--output',type=Path,required=True)
+    args=parser.parse_args()
+    signal.signal(signal.SIGTERM,lambda *_:(_ for _ in ()).throw(KeyboardInterrupt()))
+    fullstack.worker(args.output,cpu=True)

@@ -34,6 +34,7 @@ import stage_timing
 import source_guard
 import contact_job
 import stability
+import cpu_control
 import slot_refusal
 import startup_refusal
 import health_timing
@@ -58,6 +59,11 @@ def inputs(output, images):
     acceptance.validate_profile(json.loads(PROFILE.read_text()))
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     pins=json.loads(images.read_text())
+    if cpu_control.present(output.parent/cpu_control.PAIR):
+        request=cpu_control.pair(sys.modules[__name__],output.parent,source)
+        cpu_control.selector(output.name)
+        cpu_control.need(not cpu_control.present(output) and cpu_control.read(images)==pins
+                         and {k:pins[k] for k in cpu_control.IMAGES}==request['images'])
     if (set(pins)!={'schema','source','owner','backend','foundation','web','telegram','logto'} or pins['schema']!=3
             or pins['source']!=source or any(type(pins[role]) is not str or re.fullmatch(r'sha256:[0-9a-f]{64}',pins[role]) is None for role in ('web','telegram','logto'))):raise ValueError('fullstack_source_images')
     base={key:pins[key] for key in ('source','owner','backend','foundation')}|{'schema':1}
@@ -133,6 +139,8 @@ def inputs(output, images):
     for name in ('loadgen','provider'):
         plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'stability-protocol.mjs')+':/resource/stability-protocol.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
+    if cpu_control.present(output.parent/cpu_control.PAIR):
+        plan=cpu_control.prepare_plan(sys.modules[__name__],output,source,plan)
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
     pilot.write_json(output/'fullstack-source.json',{'source':source,'images':pins,'profile':settings,
@@ -625,11 +633,15 @@ def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
     return active
 
 
-def worker(output):
+def worker(output,*,cpu=False):
+    if not cpu:cpu_control.reject(output)
     if sys.platform!='linux':raise ValueError('fullstack_linux_required')
-    owner=json.loads((output/'owner.json').read_text())
+    owner=cpu_control.read(output/'owner.json',private=False) if cpu else json.loads((output/'owner.json').read_text())
     if owner['supervisor_pid']!=os.getppid():raise ValueError('external_supervisor_required')
     compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
+    cpu_source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip() if cpu else None
+    if cpu:cpu_control.bind_worker(sys.modules[__name__],output,owner,cpu_source)
+    cpu_enabled=False
     if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
         return stability_worker(output,owner,compose)
     profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
@@ -649,6 +661,9 @@ def worker(output):
                     group=pair*2+position
                     active=configure_mode(compose,output,enabled=state=='on',timing=timing,group=group,report=report)
                     enabled=state=='on'
+                    if cpu:
+                        cpu_enabled=enabled
+                        cpu_control.capture(sys.modules[__name__],output,compose,cpu_source,group,enabled)
                     for definition in profile['phases']:
                         index=len(report['phases'])
                         measured=phase(compose,owner['project'],definition,active,enabled,pair,output,timing=timing,group=group,index=index)
@@ -686,7 +701,14 @@ def worker(output):
         except BaseException:pass
         raise
     else:pilot.write_json(output/'fullstack-proof.json',report)
-    finally:timing.finish()
+    finally:
+        timing.finish()
+        if cpu:
+            # Failed final attestation cannot mask the original worker failure.
+            failed=sys.exc_info()[0] is not None
+            try:cpu_control.capture(sys.modules[__name__],output,compose,cpu_source,4,cpu_enabled)
+            except BaseException:
+                if not failed:raise
 
 
 def evaluate(report):
@@ -722,6 +744,7 @@ def evaluate(report):
 
 
 def collect(output, metadata, destination):
+    cpu_control.reject(output)
     if any((output/name).exists() or (output/name).is_symlink() for name in (stability.MARKER,stability.NAME)):raise ValueError('diagnostic_is_not_acceptance')
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
@@ -786,6 +809,7 @@ def stability_worker(output,owner,compose):
 
 
 def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROTOCOL):
+    cpu_control.reject(output)
     stability.require_protocol(protocol)
     source,_=hosted.metadata_source(metadata)
     marker=output/stability.MARKER
@@ -801,16 +825,24 @@ def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROT
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission'))
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission','cpu-control-admission','cpu-control-run','cpu-control-recover','cpu-control-collect'))
     parser.add_argument('--output',type=Path);parser.add_argument('--images',type=Path)
     parser.add_argument('--protocol',choices=(stability.COLD_PROTOCOL,stability.PRIMED_PROTOCOL))
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
     if args.protocol is not None and args.action not in ('diagnostic-run','diagnostic-collect'):parser.error('--protocol requires diagnostic action')
     protocol=args.protocol or stability.COLD_PROTOCOL
+    if args.action=='cpu-control-admission':return cpu_control.admission(sys.modules[__name__])
     if args.action=='diagnostic-admission':
         hosted.context();stability.require_marker(stability.read_json(Path(os.environ['GITHUB_EVENT_PATH'])))
         return
     if args.output is None:parser.error('--output required')
+    if args.action.startswith('cpu-control-'):
+        if args.action=='cpu-control-run':
+            try:return cpu_control.run_pair(sys.modules[__name__],args.output,args.images,args.metadata)
+            except subprocess.CalledProcessError as error:raise SystemExit(error.returncode if 0<error.returncode<=255 else 1)
+        if args.action=='cpu-control-recover':return cpu_control.recover_pair(sys.modules[__name__],args.output,args.images)
+        return cpu_control.collect(sys.modules[__name__],args.output,args.metadata,args.public)
+    if args.action in ('run','diagnostic-run'):cpu_control.reject(args.output)
     if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)
     if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public,protocol=protocol)
