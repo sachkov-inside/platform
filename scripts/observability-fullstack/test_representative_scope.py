@@ -296,4 +296,234 @@ class SubprocessScope(unittest.TestCase):
                     self.assertLessEqual(native.deadline,original_deadline+90)
 
 
+
+class RemediationScope(unittest.TestCase):
+    prepare=owner_tests.NativeOwner.prepare
+
+    def native_ack(self,native,output):
+        original=native.call
+        def call(args,timeout=10):
+            if args[0]!='exec':return original(args,timeout)
+            native.calls.append(list(args))
+            value=json.loads((output/'signoz/private/representative-scope/current.json').read_text())
+            return json.dumps({'scope_verified':True,'generation':value['generation'],'digest':args[-1]})
+        native.call=call
+
+    def test_context_managed_execute_succeeds_and_replay_refuses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            self.native_ack(native,output)
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                with scopes.mint(owner,4,START,CUT) as dispatch:self.assertEqual(dispatch.execute(),{'ok':True})
+                with self.assertRaises(ValueError):dispatch.execute()
+            self.assertTrue(owner.cleanup_exact())
+
+    def test_concurrent_execute_claims_one_generation_once(self):
+        import threading
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            self.native_ack(native,output);returned=threading.Event();release=threading.Event();results=[]
+            original=owner_tests.owners.CompositeOwner._scope_exec
+            def pause(own,generation,digest):
+                raw=original(own,generation,digest)
+                if threading.current_thread().name=='first-dispatch':returned.set();self.assertTrue(release.wait(5))
+                return raw
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                dispatch=scopes.mint(owner,4,START,CUT)
+                def execute():
+                    try:results.append(dispatch.execute())
+                    except BaseException as error:results.append(error)
+                with patch.object(owner_tests.owners.CompositeOwner,'_scope_exec',pause):
+                    first=threading.Thread(target=execute,name='first-dispatch');second=threading.Thread(target=execute,name='second-dispatch')
+                    try:
+                        first.start();self.assertTrue(returned.wait(5));second.start();second.join(1)
+                    finally:release.set();first.join(5);second.join(5)
+                self.assertFalse(first.is_alive());self.assertFalse(second.is_alive())
+                self.assertEqual(sum(args[0]=='exec' for args in native.calls),1)
+                self.assertEqual(results.count({'ok':True}),1)
+                self.assertEqual(sum(isinstance(result,ValueError) for result in results),1)
+                self.assertIsNone(json.loads((output/'representative-owner/resources.json').read_text())['dispatch'])
+            self.assertTrue(owner.cleanup_exact())
+
+    def test_crash_before_scope_receipt_preserves_unknown_inode_and_cleans_native(self):
+        class Crash(BaseException):pass
+        for stage in ('directory','file'):
+            with self.subTest(stage=stage),tempfile.TemporaryDirectory() as directory:
+                output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+                target=output/'signoz/private/representative-scope';original_directory=scopes._directory;original_write=scopes._write
+                def check(path):
+                    if path==target:raise Crash('after-directory-creation')
+                    return original_directory(path)
+                def write(path,raw,*args,**kwargs):
+                    result=original_write(path,raw,*args,**kwargs)
+                    if path==target/'current.json':raise Crash('after-file-fsync')
+                    return result
+                with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                    with patch.object(scopes.Dispatch,'close',side_effect=Crash('process-gone')):
+                        with patch.object(scopes,'_directory',check) if stage=='directory' else patch.object(scopes,'_write',write):
+                            with self.assertRaises(Crash):scopes.mint(owner,4,START,CUT)
+                recovered=owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+                if target.exists():
+                    identity=(target.stat().st_dev,target.stat().st_ino)
+                    with self.assertRaises((ValueError,OSError)):recovered.cleanup_exact()
+                    self.assertEqual((target.stat().st_dev,target.stat().st_ino),identity)
+                    self.assertFalse(json.loads((output/'representative-owner/cleanup.json').read_text())['passed'])
+                else:self.assertTrue(recovered.cleanup_exact())
+                self.assertEqual(native.acquired,set())
+
+    def test_consumed_scope_retains_cleanup_pointer_until_unlink_completes(self):
+        class Crash(BaseException):pass
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            target=output/'signoz/private/representative-scope/current.json';original=Path.unlink
+            def unlink(path,*args,**kwargs):
+                if path==target:raise Crash('after-consume-before-unlink')
+                return original(path,*args,**kwargs)
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                dispatch=scopes.mint(owner,4,START,CUT)
+                with patch.object(Path,'unlink',unlink),self.assertRaises(Crash):dispatch.close()
+                self.assertTrue(target.exists())
+                recovered=owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+                self.assertFalse(target.exists(),'durable consume must retain the exact cleanup pointer')
+                with self.assertRaises((ValueError,OSError)):dispatch.execute()
+                self.assertTrue(recovered.cleanup_exact())
+
+
+    def test_execute_close_and_failure_recovery_races_preserve_first_native_error(self):
+        import threading
+        for action in ('close_success','close_failure','recover_failure'):
+            with self.subTest(action=action),tempfile.TemporaryDirectory() as directory:
+                output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+                self.native_ack(native,output);original_call=native.call
+                first_error=RuntimeError('first-native-error');results={};returned=threading.Event();release=threading.Event();closing=threading.Event()
+                def call(args,timeout=10):
+                    result=original_call(args,timeout)
+                    if args[0]=='exec' and action!='close_success':raise first_error
+                    return result
+                native.call=call;original_exec=owner_tests.owners.CompositeOwner._scope_exec
+                def pause(own,generation,digest):
+                    try:return original_exec(own,generation,digest)
+                    finally:returned.set();self.assertTrue(release.wait(5))
+                with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                    dispatch=scopes.mint(owner,4,START,CUT)
+                    def execute():
+                        try:results['execute']=dispatch.execute()
+                        except BaseException as error:results['execute']=error
+                    def close():
+                        closing.set()
+                        try:results['close']=dispatch.close()
+                        except BaseException as error:results['close']=error
+                    with patch.object(owner_tests.owners.CompositeOwner,'_scope_exec',pause):
+                        worker=threading.Thread(target=execute);closer=None;recovered=None
+                        try:
+                            worker.start();self.assertTrue(returned.wait(5))
+                            if action=='recover_failure':
+                                recovered=owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+                            else:
+                                closer=threading.Thread(target=close);closer.start();self.assertTrue(closing.wait(5))
+                        finally:
+                            release.set();worker.join(5)
+                            if closer is not None:closer.join(5)
+                    self.assertFalse(worker.is_alive())
+                    if closer is not None:self.assertFalse(closer.is_alive());self.assertIsInstance(results['close'],ValueError)
+                    if action=='close_success':self.assertEqual(results['execute'],{'ok':True})
+                    else:self.assertIs(results['execute'],first_error)
+                    self.assertEqual(sum(args[0]=='exec' for args in native.calls),1)
+                    with self.assertRaises((ValueError,OSError)):dispatch.execute()
+                self.assertTrue((recovered or owner).cleanup_exact());self.assertEqual(native.acquired,set())
+
+    def test_scope_record_failure_and_expiry_recover_each_registered_acquisition(self):
+        for expired in (False,True):
+            with self.subTest(expired=expired),tempfile.TemporaryDirectory() as directory:
+                output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+                deadline=native.deadline;first=RuntimeError('first-scope-record-failure')
+                clock=[owner_tests.owners.time.monotonic()];original_record=owner_tests.owners.CompositeOwner._scope_record
+                def record(own,*args):
+                    if not expired:raise first
+                    clock[0]=deadline+1
+                    return original_record(own,*args)
+                with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                    with patch.object(owner_tests.owners.CompositeOwner,'_scope_record',record),patch.object(owner_tests.owners.time,'monotonic',side_effect=lambda:clock[0]):
+                        with self.assertRaises(ValueError if expired else RuntimeError) as caught:scopes.mint(owner,4,START,CUT)
+                    if expired:self.assertIn('deadline',str(caught.exception))
+                    else:self.assertIs(caught.exception,first)
+                    target=output/'signoz/private/representative-scope'
+                    if expired:
+                        pending=json.loads((output/'representative-owner/resources.json').read_text())['dispatch']
+                        self.assertEqual(pending['status'],'minting');self.assertIsNotNone(pending['directory']);self.assertIsNotNone(pending['file'])
+                    with patch.object(owner_tests.owners.time,'monotonic',return_value=deadline+1):
+                        recovered=owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+                        self.assertFalse(target.exists());self.assertTrue(recovered.cleanup_exact());self.assertLessEqual(native.deadline,deadline+90)
+                    self.assertEqual(native.acquired,set())
+
+    def test_context_failure_after_successful_execute_keeps_original_exception(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk');self.native_ack(native,output)
+            first=RuntimeError('context-primary-error')
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                with self.assertRaises(RuntimeError) as caught:
+                    with scopes.mint(owner,4,START,CUT) as dispatch:
+                        self.assertEqual(dispatch.execute(),{'ok':True});raise first
+                self.assertIs(caught.exception,first)
+            self.assertTrue(owner.cleanup_exact())
+
+
+    def test_recovery_rejects_every_malformed_inflight_identity_before_worker_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                dispatch=scopes.mint(owner,4,START,CUT)
+                path=output/'representative-owner/resources.json';original=path.read_bytes();record=json.loads(original);pending=record['dispatch']
+                changes=[pending|{'generation':True},pending|{'generation':2},pending|{'status':'unknown'},pending|{'digest':True},
+                    pending|{'file':None},pending|{'directory':None},pending|{'file':[1,True,os.getuid()]},
+                    pending|{'directory':pending['directory']+[1]},pending|{'extra':1}]
+                changes += [{k:v for k,v in pending.items() if k!=field} for field in pending]
+                for changed in changes:
+                    path.write_text(json.dumps(record|{'dispatch':changed}));before=list(native.calls)
+                    with self.subTest(changed=changed),patch.object(owner_tests.owners,'_stop_worker') as stop:
+                        with self.assertRaises(ValueError):owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+                        stop.assert_not_called();self.assertEqual(native.calls,before)
+                path.write_bytes(original);dispatch.close()
+            self.assertTrue(owner.cleanup_exact())
+
+    def test_process_death_after_file_open_preserves_unregistered_inode_and_cleans_native(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            target=output/'signoz/private/representative-scope/current.json'
+            child=os.fork()
+            if child==0:
+                try:
+                    os.setsid();original=owner_tests.owners.CompositeOwner._scope_acquire
+                    def acquire(own,generation,**receipt):
+                        if 'file' in receipt:os._exit(23)
+                        return original(own,generation,**receipt)
+                    with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000),patch.object(owner_tests.owners.CompositeOwner,'_scope_acquire',acquire):
+                        scopes.mint(owner,4,START,CUT)
+                except BaseException:os._exit(24)
+                os._exit(25)
+            reaped=False
+            try:
+                import time
+                end=time.monotonic()+5
+                while True:
+                    done,status=os.waitpid(child,os.WNOHANG)
+                    if done:reaped=True;break
+                    if time.monotonic()>=end:
+                        os.kill(child,signal.SIGKILL);os.waitpid(child,0);reaped=True;self.fail('owned mint child timed out')
+                    time.sleep(.01)
+                self.assertEqual(os.waitstatus_to_exitcode(status),23)
+            finally:
+                if not reaped:
+                    try:os.kill(child,signal.SIGKILL);os.waitpid(child,0)
+                    except ProcessLookupError:pass
+            self.assertTrue(target.exists());self.assertEqual(target.read_bytes(),b'')
+            identity=(target.stat().st_dev,target.stat().st_ino)
+            pending=json.loads((output/'representative-owner/resources.json').read_text())['dispatch']
+            self.assertIsNotNone(pending['directory']);self.assertIsNone(pending['file'])
+            recovered=owner_tests.owners.CompositeOwner.recover(native,output,owner_tests.BINDINGS,owner_tests.pins())
+            with self.assertRaises(ValueError):recovered.cleanup_exact()
+            self.assertEqual(native.acquired,set());self.assertEqual((target.stat().st_dev,target.stat().st_ino),identity)
+            self.assertFalse(json.loads((output/'representative-owner/cleanup.json').read_text())['passed'])
+
+
 if __name__=='__main__':unittest.main()

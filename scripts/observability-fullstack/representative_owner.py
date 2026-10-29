@@ -121,7 +121,7 @@ class CompositeOwner:
     never ownership or a way to construct a helper scope.
     """
     __slots__=('__engine','__run','__binding','__images','__layout','__inputs','__registry',
-               '__directory','__files','__lock','__deadline','__cleanup_end','__cleanup_started','__present')
+               '__directory','__files','__lock','__deadline','__cleanup_end','__cleanup_started','__present','__scope_failure')
 
     @classmethod
     def prepare(cls,engine,prepared_primary,fixed_bindings,checked_images):
@@ -141,7 +141,7 @@ class CompositeOwner:
         own.__engine=engine;own.__run=prepared_primary
         own.__binding=encoded(fixed_bindings);own.__images=encoded(checked_images)
         own.__layout=layout;own.__inputs=encoded(inputs);own.__lock=threading.RLock()
-        own.__deadline=engine.deadline;own.__cleanup_end=None;own.__cleanup_started=False;own.__present=None;own.__files={}
+        own.__deadline=engine.deadline;own.__cleanup_end=None;own.__cleanup_started=False;own.__present=None;own.__files={};own.__scope_failure=None
         own.__directory=prepared_primary/DIRECTORY
         own.__directory.mkdir(mode=0o700)
         own.__registry={'schema':1,'status':'prepared','daemon':json.loads(encoded(engine.identity)),'binding':json.loads(own.__binding),
@@ -173,7 +173,9 @@ class CompositeOwner:
         finally:
             if temporary.exists() and _identity(temporary.lstat())==_identity(info):temporary.unlink()
 
-    def __record(self):self.__write('resources.json',self.__registry)
+    def __record(self):
+        _registry(self.__registry,self.__layout)
+        self.__write('resources.json',self.__registry)
 
     def __guard(self,*,cleanup=False):
         need(type(self) is CompositeOwner)
@@ -182,7 +184,8 @@ class CompositeOwner:
              and encoded(inputs)==self.__inputs,'representative_preparation_changed')
         record,receipt=_json(self.__directory/'resources.json')
         need(receipt[0]==self.__files['resources.json'],'representative_registry_replaced')
-        need(record==self.__registry,'representative_registry_changed')
+        _registry(record,self.__layout)
+        need(encoded(record)==encoded(self.__registry),'representative_registry_changed')
         if record['worker'] is not None:need(_worker(self.__run)==record['worker'],'representative_worker_changed')
         plan,receipt=_json(self.__directory/'compose.json');self.__layout.validate(plan)
         need(receipt[0]==self.__files['compose.json'],'representative_compose_replaced')
@@ -208,7 +211,7 @@ class CompositeOwner:
         need(type(actual) is dict and all(actual.get(k)==v for k,v in expected.items()),'representative_foreign_labels')
         need(not any(k.startswith('inside.monitoring.') and k not in expected for k in actual),'representative_foreign_labels')
 
-    def __admit_images(self,plan):
+    def __image_receipts(self,plan):
         life=core_layout.signoz_lifecycle()
         lock=life.verify_packet()
         proofs=life.image_proof.load(life.CONFIG/'oci',lock)
@@ -232,7 +235,11 @@ class CompositeOwner:
                     need((config.get(key) or None)==(proof.config.get(key) or None),'representative_image_defaults')
             images[reference]={'id':value['Id'],'config':config,'descriptor':proof.descriptor if proof else value.get('Descriptor'),
                                'relation':relation}
-        if self.__registry['images']:need(self.__registry['images']==images,'representative_images_changed')
+        return images
+
+    def __admit_images(self,plan):
+        images=self.__image_receipts(plan)
+        if self.__registry['images']:need(encoded(self.__registry['images'])==encoded(images),'representative_images_changed')
         self.__registry['images']=images;self.__record()
 
     def create(self):
@@ -366,6 +373,9 @@ class CompositeOwner:
                     if first is None:first=sys.exc_info()
                     failures.append(label)
                     return None
+            if self.__scope_failure is not None:
+                first=self.__scope_failure;failures.append('scope_recovery')
+            attempt('scope_cleanup',lambda:self._scope_cleanup(recovery=True))
             attempt('discover',self.discover)
             states={}
             if 'states.json' in self.__files:
@@ -412,13 +422,21 @@ class CompositeOwner:
         # have stopped its registered worker session before opening this boundary.
         layout,inputs=_canonical(prepared_primary,fixed_bindings,checked_images,admit=True)
         directory=prepared_primary/DIRECTORY
+        need(directory==directory.resolve() and directory.stat().st_uid==os.getuid()
+             and stat.S_IMODE(directory.stat().st_mode)==0o700,'representative_registry_directory')
         record,receipt=_json(directory/'resources.json')
-        need(record['daemon']==engine.identity==engine.identify() and record['binding']==fixed_bindings
-             and record['inputs']==inputs and record['root']==layout.manifest['root_identity']
+        _registry(record,layout)
+        need(encoded(record['daemon'])==encoded(engine.identity)==encoded(engine.identify()) and encoded(record['binding'])==encoded(fixed_bindings)
+             and encoded(record['inputs'])==encoded(inputs) and encoded(record['root'])==encoded(layout.manifest['root_identity'])
              and record['plan_sha256']==layout.manifest['plan_sha256']
              and record['manifest_sha256']==sha(layout._manifest.encode()),'representative_recovery_binding')
         need(type(record['deadline_mono_ns']) is int and 0<record['deadline_mono_ns']<2**63
-             and record['deadline_mono_ns']/10**9+90-time.monotonic()>3,'representative_recovery_cleanup_budget')
+             and -87<record['deadline_mono_ns']/10**9-time.monotonic()<=600,'representative_recovery_cleanup_budget')
+        recovery_end=min(record['deadline_mono_ns']/10**9+90,time.monotonic()+90)
+        engine.deadline=recovery_end
+        reader=cls.__new__(cls);reader.__engine=engine
+        if record['images']:
+            need(encoded(record['images'])==encoded(reader.__image_receipts(layout.plan)),'representative_recovery_images')
         if record['worker'] is not None:
             need(_worker(prepared_primary)==record['worker'],'representative_recovery_worker_changed')
             _stop_worker(record['worker'])
@@ -430,21 +448,40 @@ class CompositeOwner:
         own.__files={path.name:_read(path)[1] for path in directory.iterdir() if path.name in ('compose.json','resources.json','states.json','cleanup.json')}
         own.__lock=threading.RLock();own.__deadline=record['deadline_mono_ns']/10**9
         need(-90<own.__deadline-time.monotonic()<=600,'representative_recovery_deadline')
-        own.__cleanup_end=min(own.__deadline+90,time.monotonic()+90)
-        own.__cleanup_started=False;own.__present=None;engine.deadline=own.__cleanup_end
+        own.__cleanup_end=recovery_end
+        own.__cleanup_started=False;own.__present=None;own.__scope_failure=None;engine.deadline=own.__cleanup_end
         own.__guard(cleanup=True)
-        pending=record['dispatch']
-        if pending is not None:
-            # A crash consumes this generation. NEVER dispatch its digest again.
-            record['dispatch']=None;own.__record()
-            directory=prepared_primary/'signoz/private/representative-scope'
-            if pending['file'] is not None:
-                need(directory==directory.resolve() and _identity(directory.stat())==pending['directory'],'representative_recovery_scope_directory')
-                path=directory/'current.json';raw,identity=_read(path,32768)
-                need(identity==pending['file'] and sha(raw)==pending['digest'],'representative_recovery_scope_replaced')
-                path.unlink();directory.rmdir()
-            else:need(not directory.exists(),'representative_recovery_unrecorded_scope')
+        if record['dispatch'] is not None:
+            # Consume durably, retaining acquisition identities until exact unlink.
+            try:
+                own._scope_consume(record['dispatch']['generation'])
+                own._scope_cleanup(recovery=True)
+            except BaseException:own.__scope_failure=sys.exc_info()
         return own
+
+    def _scope_cleanup(self,*,recovery=False):
+        with self.__lock:
+            self.__guard(cleanup=self.__cleanup_end is not None)
+            current=self.__registry['dispatch']
+            if current is None:return
+            need(current['status']=='consumed','representative_scope_inflight')
+            import representative_scope as scopes
+            directory=self.__run/'signoz/private/representative-scope'
+            if not recovery and current['directory'] is not None:
+                need(scopes._directory(directory)==current['directory'],'representative_dispatch_directory_changed')
+            if directory.exists() or directory.is_symlink():
+                need(current['directory'] is not None and scopes._directory(directory)==current['directory'],
+                     'representative_recovery_unrecorded_scope')
+                path=directory/'current.json'
+                if not recovery and current['file'] is not None:_read(path,32768)
+                if path.exists() or path.is_symlink():
+                    raw,identity=_read(path,32768)
+                    need(current['file'] is not None and identity==current['file'],'representative_dispatch_replacement')
+                    if current['digest'] is not None:need(sha(raw)==current['digest'],'representative_recovery_scope_replaced')
+                    path.unlink()
+                need(not any(directory.iterdir()),'representative_dispatch_directory_changed')
+                directory.rmdir()
+            self.__registry['dispatch']=None;self.__record()
 
 
     def _scope_begin(self,phase,start_ms,cut_ms):
@@ -458,7 +495,7 @@ class CompositeOwner:
             self.__registry['generation']+=1
             generation=self.__registry['generation']
             self.__registry['phase_cuts'][key]={'start_ms':start_ms,'cut_ms':cut_ms}
-            self.__registry['dispatch']={'generation':generation,'status':'minting','file':None,'digest':None}
+            self.__registry['dispatch']={'generation':generation,'status':'minting','directory':None,'file':None,'digest':None}
             self.__record()
             manifest=self.__layout.manifest
             return {'generation':generation,'binding':{key:manifest[key] for key in ('source','root','root_identity','profile','project','nonce')},
@@ -467,18 +504,31 @@ class CompositeOwner:
                 'native':{'cid':native['Id'],'created':native['Created'],'image':native['Image'],'init_pid':native['State']['Pid']},
                 'owner_deadline_ns':int(self.__deadline*10**9)},self.__run/'signoz'
 
+    def _scope_acquire(self,generation,*,directory=None,file=None):
+        with self.__lock:
+            self.__guard();current=self.__registry['dispatch']
+            need(current is not None and current['generation']==generation and current['status']=='minting','representative_scope_generation')
+            if directory is not None:
+                need(current['directory'] is None and current['file'] is None,'representative_scope_acquisition')
+                _inode(directory);current['directory']=directory
+            if file is not None:
+                need(current['directory'] is not None and current['file'] is None,'representative_scope_acquisition')
+                _inode(file);current['file']=file
+            self.__record()
+
     def _scope_record(self,generation,receipt):
         with self.__lock:
             self.__guard();current=self.__registry['dispatch']
             need(current is not None and current['generation']==generation and current['status']=='minting','representative_scope_generation')
             need(type(receipt) is dict and set(receipt)=={'file','directory','digest'},'representative_scope_receipt')
+            need(receipt['directory']==current['directory'] and receipt['file']==current['file'] and _hex(receipt['digest'],64),'representative_scope_acquisition')
             current.update(json.loads(encoded(receipt)));current['status']='ready';self.__record()
 
-    def _scope_check(self,generation,digest):
+    def _scope_check(self,generation,digest,*,executing=False):
         with self.__lock:
             self.__guard();current=self.__registry['dispatch']
             need(current is not None and current['generation']==generation and current['digest']==digest
-                 and current['status']=='ready','representative_scope_consumed')
+                 and current['status']==('executing' if executing else 'ready'),'representative_scope_consumed')
             native=self.validate('sig-disk')
             need(native['State']['Running'] is True and native['State']['Status']=='running','representative_scope_native_stopped')
             return {'cid':native['Id'],'created':native['Created'],'image':native['Image'],'init_pid':native['State']['Pid']}
@@ -487,14 +537,101 @@ class CompositeOwner:
         with self.__lock:
             self.__guard(cleanup=self.__cleanup_end is not None);current=self.__registry['dispatch']
             need(current is not None and current['generation']==generation,'representative_scope_consumed')
-            self.__registry['dispatch']=None;self.__record()
+            current['status']='consumed';self.__record()
 
     def _scope_exec(self,generation,digest):
         with self.__lock:
             native=self._scope_check(generation,digest)
+            self.__registry['dispatch']['status']='executing';self.__record()
             # DEVNULL remains unchanged. Only a digest crosses the trusted argv channel.
             return self.__engine.call(['exec',native['cid'],'python','-I','-B',
                 '/driver/scripts/observability-fullstack/representative_scope.py',digest],timeout=10)
+
+
+def _hex(value,length):return type(value) is str and re.fullmatch('[a-f0-9]{'+str(length)+'}',value) is not None
+
+def _text(value):return type(value) is str and 0<len(value)<=4096
+
+def _inode(value):
+    need(type(value) is list and len(value)==3 and all(type(v) is int and v>=0 for v in value)
+         and value[1]>0 and value[2]==os.getuid(),'representative_registry_inode')
+
+
+def _registry(record,layout):
+    """Recovery JSON is unknown until its entire closed ownership schema passes.
+
+    Resource maps may be partial after acquisition failure. Each retained receipt
+    must still carry its complete immutable identity, never an identity subset.
+    Exact source/input/daemon/image values are checked separately before authority.
+    """
+    need(type(record) is dict and set(record)=={'schema','status','daemon','binding','root','plan_sha256',
+        'manifest_sha256','deadline_mono_ns','inputs','containers','volumes','networks','images','generation','dispatch','phase_cuts','worker'},
+        'representative_registry_schema')
+    need(type(record['schema']) is int and record['schema']==1 and type(record['status']) is str
+         and record['status'] in ('prepared','acquiring','created','cleaned','cleanup_failed'),'representative_registry_status')
+    need(type(record['deadline_mono_ns']) is int and 0<record['deadline_mono_ns']<2**63)
+    need(type(record['generation']) is int and 0<=record['generation']<2**53,'representative_registry_generation')
+    for key in ('plan_sha256','manifest_sha256'):need(_hex(record[key],64))
+    if record['worker'] is not None:_worker_record(record['worker'])
+    plan=layout.plan
+    for kind,catalogue in (('containers',plan['services']),('volumes',plan['volumes']),('networks',plan['networks'])):
+        rows=record[kind];need(type(rows) is dict and set(rows)<=set(catalogue),'representative_registry_roles')
+        identities=set()
+        for name,row in rows.items():
+            fields={'Id','Created','Image'} if kind=='containers' else {'Name','CreatedAt','Mountpoint','Driver'} if kind=='volumes' else {'Id','Name','Created','Driver','Internal','IPAM'}
+            need(type(row) is dict and set(row)==fields,'representative_registry_receipt')
+            if kind=='containers':
+                need(_hex(row['Id'],64) and _text(row['Created']) and type(row['Image']) is str
+                     and re.fullmatch('sha256:[a-f0-9]{64}',row['Image']) is not None)
+            else:
+                spec=catalogue[name]
+                need(type(row['Name']) is str and row['Name']==spec['name'] and type(row['Driver']) is str
+                     and row['Driver']==spec.get('driver','local' if kind=='volumes' else 'bridge'))
+                if kind=='volumes':need(_text(row['CreatedAt']) and _text(row['Mountpoint']) and row['Mountpoint'].startswith('/'))
+                else:
+                    need(_hex(row['Id'],64) and _text(row['Created']) and type(row['Internal']) is bool
+                         and row['Internal'] is spec.get('internal',False))
+                    ipam=row['IPAM'];need(type(ipam) is dict and set(ipam)=={'Driver','Options','Config'} and _text(ipam['Driver']))
+                    options=ipam['Options'];need(options is None or type(options) is dict and all(_text(k) and type(v) is str for k,v in options.items()))
+                    need(type(ipam['Config']) is list)
+                    for config in ipam['Config']:
+                        need(type(config) is dict and set(config)<={'Subnet','IPRange','Gateway','AuxiliaryAddresses'})
+                        for key,value in config.items():
+                            if key=='AuxiliaryAddresses':need(type(value) is dict and all(_text(k) and _text(v) for k,v in value.items()))
+                            else:need(type(value) is str)
+            identity=row['Name'] if kind=='volumes' else row['Id']
+            need(identity not in identities,'representative_registry_duplicate_identity');identities.add(identity)
+    images=record['images'];refs={spec['image'] for spec in plan['services'].values()}
+    need(type(images) is dict and (not images or set(images)==refs),'representative_registry_images')
+    for image in images.values():
+        need(type(image) is dict and set(image)=={'id','config','descriptor','relation'} and type(image['id']) is str
+             and re.fullmatch('sha256:[a-f0-9]{64}',image['id']) is not None and type(image['config']) is dict
+             and type(image['relation']) is str and image['relation'] in ('config_id','child_id'),'representative_registry_images')
+        # The complete config/descriptor is compared byte-canonically with freshly
+        # admitted native image receipts before any worker/destructive authority.
+        need(image['descriptor'] is None or type(image['descriptor']) is dict)
+    if any(record[k] for k in ('containers','volumes','networks')) or record['status'] in ('acquiring','created'):
+        need(bool(images) and record['worker'] is not None,'representative_registry_acquisition')
+    for role,row in record['containers'].items():need(row['Image']==images[plan['services'][role]['image']]['id'])
+    cuts=record['phase_cuts'];need(type(cuts) is dict)
+    for phase,window in cuts.items():
+        need(type(phase) is str and phase in {str(i) for i in range(14)} and type(window) is dict and set(window)=={'start_ms','cut_ms'})
+        need(all(type(v) is int for v in window.values()) and 0<window['start_ms']<window['cut_ms']<2**53
+             and window['cut_ms']-window['start_ms']<=600000)
+    need(len(cuts)<=record['generation'] and (record['generation']==0)==(not cuts))
+    if record['status'] in ('prepared','acquiring'):need(record['generation']==0)
+    dispatch=record['dispatch']
+    if dispatch is not None:
+        need(type(dispatch) is dict and set(dispatch)=={'generation','status','directory','file','digest'}
+             and type(dispatch['generation']) is int and dispatch['generation']==record['generation']>0
+             and type(dispatch['status']) is str and dispatch['status'] in ('minting','ready','executing','consumed')
+             and bool(cuts) and record['worker'] is not None,'representative_registry_dispatch')
+        for key in ('directory','file'):
+            if dispatch[key] is not None:_inode(dispatch[key])
+        need(dispatch['file'] is None or dispatch['directory'] is not None)
+        need(dispatch['digest'] is None or _hex(dispatch['digest'],64) and dispatch['file'] is not None)
+        if dispatch['status'] in ('ready','executing'):need(dispatch['digest'] is not None)
+        if dispatch['status']=='minting':need(dispatch['digest'] is None)
 
 
 def _mounts(spec):
@@ -622,11 +759,15 @@ def _healthy(states,manifest):
 
 def _worker(run):
     record,_=_json(run/'worker.json')
+    _worker_record(record)
+    return record
+
+
+def _worker_record(record):
     need(type(record) is dict and set(record)=={'pid','group','start_ticks'}
         and type(record['pid']) is int and record['pid']>1 and record['group']==record['pid']
         and type(record['group']) is int and type(record['start_ticks']) is str
         and re.fullmatch('[0-9]{1,24}',record['start_ticks']) is not None,'representative_worker_registration')
-    return record
 
 
 def _stop_worker(record):

@@ -288,4 +288,119 @@ class RecoveryOwner(unittest.TestCase):
                 self.assertEqual(len(json.loads((output/'representative-owner/states.json').read_text())),38)
 
 
+    def test_recovery_rejects_damaged_closed_registry_before_worker_or_native_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+            path=output/'representative-owner/resources.json';original=path.read_bytes();record=json.loads(original)
+            volume=next(iter(record['volumes']));network=next(iter(record['networks']));role=next(iter(record['containers']))
+            changes=[('schema',True),('generation',True),('generation',-1),('unknown',1),('status','foreign'),
+                ('worker',record['worker']|{'group':True}),('worker',record['worker']|{'extra':1}),
+                ('phase_cuts',{'14':{'start_ms':1,'cut_ms':2}}),('phase_cuts',{'4':{'start_ms':True,'cut_ms':2}}),
+                ('dispatch',{'generation':1,'status':'ready','file':None,'digest':None}),
+                ('images',{}),('containers',record['containers']|{'foreign':record['containers'][role]}),
+                ('containers',record['containers']|{role:record['containers'][role]|{'Id':True}}),
+                ('containers',record['containers']|{role:record['containers'][role]|{'extra':1}}),
+                ('volumes',record['volumes']|{volume:{'Name':record['volumes'][volume]['Name']}}),
+                ('networks',record['networks']|{network:{'Name':record['networks'][network]['Name']}}),
+                ('networks',record['networks']|{network:record['networks'][network]|{'Internal':1}})]
+            for kind,key in (('containers',role),('volumes',volume),('networks',network)):
+                row=record[kind][key]
+                for field in row:
+                    changes.append((kind,record[kind]|{key:{k:v for k,v in row.items() if k!=field}}))
+                changes.extend([(kind,record[kind]|{key:None}),(kind,record[kind]|{'unknown':row})])
+            changes.extend([('generation',1),('deadline_mono_ns',True),('deadline_mono_ns',2**63-1),('phase_cuts',[]),
+                ('networks',record['networks']|{network:record['networks'][network]|{'IPAM':{'Driver':'default','Options':None,'Config':[{'foreign':True}]}}}),
+                ('volumes',record['volumes']|{volume:record['volumes'][volume]|{'Mountpoint':True}})])
+            image=next(iter(record['images']))
+            for field,value in [('id',True),('config',{}),('relation','foreign'),('descriptor',True),('extra',1)]:
+                changes.append(('images',record['images']|{image:record['images'][image]|{field:value}}))
+            duplicate=copy.deepcopy(record['containers']);roles=list(duplicate);duplicate[roles[1]]=duplicate[roles[0]]
+            changes.append(('containers',duplicate))
+            for key,value in changes:
+                with self.subTest(key=key,value=value):
+                    path.write_text(json.dumps(record|{key:value}));before=list(native.calls)
+                    with patch.object(owners,'_stop_worker') as stop:
+                        with self.assertRaises(ValueError):owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                        stop.assert_not_called()
+                    self.assertEqual(native.calls,before)
+            for raw in (json.dumps(record)[:-1]+',"schema":1}',json.dumps({k:v for k,v in record.items() if k!='containers'})):
+                path.write_text(raw)
+                with patch.object(owners,'_stop_worker') as stop:
+                    with self.assertRaises(ValueError):owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                    stop.assert_not_called()
+            path.write_bytes(original)
+            self.assertTrue(owner.cleanup_exact())
+
+    def test_recovery_name_only_receipts_preserve_same_name_replacement(self):
+        for kind in ('volumes','networks'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as directory:
+                output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+                path=output/'representative-owner/resources.json';record=json.loads(path.read_text())
+                name=next(iter(record[kind]));receipt=record[kind][name]
+                native.acquired.clear()
+                identity=receipt.get('Id',receipt['Name']);native.acquired.add(identity)
+                native.objects[identity]['CreatedAt' if kind=='volumes' else 'Created']='replacement-birth'
+                record[kind][name]={'Name':receipt['Name']};path.write_text(json.dumps(record))
+                with patch.object(owners,'_stop_worker') as stop:
+                    with self.assertRaises(ValueError):owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                    stop.assert_not_called()
+                self.assertIn(identity,native.acquired)
+
+
+    def test_recovery_partial_resource_maps_keep_complete_receipts_and_finish_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());native.fail_create=True
+            original=native.inspect;count=[0]
+            def inspect(kind,identity):
+                if kind!='image':
+                    count[0]+=1
+                    if count[0]==7:raise RuntimeError('interrupted-partial-discovery')
+                return original(kind,identity)
+            native.inspect=inspect
+            with self.assertRaisesRegex(RuntimeError,'first-create-failure'):owner.create()
+            native.inspect=original
+            record=json.loads((output/'representative-owner/resources.json').read_text())
+            self.assertEqual(sum(len(record[k]) for k in ('containers','volumes','networks')),6)
+            recovered=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+            self.assertTrue(recovered.cleanup_exact());self.assertEqual(native.acquired,set())
+
+    def test_full_receipt_discovery_failure_preserves_replacement_during_cleanup(self):
+        for kind in ('volumes','networks'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as directory:
+                output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+                record=json.loads((output/'representative-owner/resources.json').read_text())
+                receipt=next(iter(record[kind].values()));identity=receipt.get('Id',receipt['Name'])
+                recovered=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                native.objects[identity]['CreatedAt' if kind=='volumes' else 'Created']='replacement-birth'
+                with self.assertRaises(ValueError):recovered.cleanup_exact()
+                self.assertIn(identity,native.acquired)
+                self.assertFalse(any(args[-1]==identity and (args[0]=='rm' or len(args)>1 and args[1]=='rm') for args in native.calls))
+                self.assertFalse(json.loads((output/'representative-owner/cleanup.json').read_text())['passed'])
+
+
+    def test_expired_recovery_image_inspections_use_remaining_original_cleanup_tail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+            deadline=native.deadline;original=native.inspect
+            def inspect(kind,identity):
+                if kind=='image':
+                    self.assertGreater(native.deadline,owners.time.monotonic())
+                    self.assertLessEqual(native.deadline,deadline+90)
+                return original(kind,identity)
+            native.inspect=inspect
+            with patch.object(owners.time,'monotonic',return_value=deadline+1):
+                recovered=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                self.assertTrue(recovered.cleanup_exact());self.assertEqual(native.acquired,set())
+
+
+    def test_active_owner_rejects_bool_schema_before_native_action(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+            path=output/'representative-owner/resources.json';original=path.read_bytes();record=json.loads(original)
+            path.write_text(json.dumps(record|{'schema':True}));before=list(native.calls)
+            with self.assertRaises(ValueError):owner.start('sig-disk')
+            self.assertEqual(native.calls,before)
+            path.write_bytes(original);self.assertTrue(owner.cleanup_exact())
+
+
 if __name__=='__main__':unittest.main()

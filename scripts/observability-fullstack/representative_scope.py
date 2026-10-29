@@ -57,11 +57,13 @@ def _read(path,*,private=False,maximum=_MAX):
         return raw,_identity(info)
 
 
-def _write(path,raw):
+def _write(path,raw,acquired=None):
     fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     info=os.fstat(fd)
     try:
-        with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
+        with os.fdopen(fd,'wb') as stream:
+            if acquired is not None:acquired(_identity(info))
+            stream.write(raw);stream.flush();os.fsync(stream.fileno())
         parent=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
         try:os.fsync(parent)
         finally:os.close(parent)
@@ -138,10 +140,12 @@ def mint(owner,phase,start_ms,cut_ms,web=None):
     dispatch._Dispatch__owner=owner;dispatch._Dispatch__generation=base['generation']
     dispatch._Dispatch__directory=directory;dispatch._Dispatch__directory_identity=None
     dispatch._Dispatch__file=None;dispatch._Dispatch__closed=False
+    dispatch._Dispatch__lock=threading.RLock();dispatch._Dispatch__close_error=None
     try:
         (run/'private').mkdir(mode=0o700,parents=True,exist_ok=True)
         directory.mkdir(mode=0o700)
         dispatch._Dispatch__directory_identity=_directory(directory)
+        owner._scope_acquire(base['generation'],directory=dispatch._Dispatch__directory_identity)
         driver.mkdir(mode=0o700,exist_ok=True)
         mirror=_install_mirror(driver)
         native=base['native']|_process_receipt(base['native']['init_pid'])
@@ -151,7 +155,7 @@ def mint(owner,phase,start_ms,cut_ms,web=None):
             'issued_mono_ns':mono,'deadline_mono_ns':deadline}
         _validate(document)
         raw=_encoded(document);need(0<len(raw)<=_MAX)
-        digest=_sha(raw);identity=_write(directory/_NAME,raw)
+        digest=_sha(raw);identity=_write(directory/_NAME,raw,lambda identity:owner._scope_acquire(base['generation'],file=identity))
         dispatch._Dispatch__file=identity;dispatch._Dispatch__digest=digest
         dispatch._Dispatch__document=document;dispatch._Dispatch__mirror=mirror;dispatch._Dispatch__driver=driver
         owner._scope_record(base['generation'],{'file':identity,'directory':dispatch._Dispatch__directory_identity,'digest':digest})
@@ -165,31 +169,37 @@ def mint(owner,phase,start_ms,cut_ms,web=None):
 class Dispatch:
     """Controller-only in-flight token. Digest is the sole admitted exec argument."""
     __slots__=('__owner','__generation','__directory','__directory_identity','__file','__closed',
-        '__digest','__document','__mirror','__driver')
+        '__digest','__document','__mirror','__driver','__lock','__close_error')
     @property
     def digest(self):return self.__digest
     def __repr__(self):return '<RepresentativeDispatch>'
     def __enter__(self):return self
     def __exit__(self,kind,error,traceback):
-        if error is None:self.close()
-        else:
-            try:self.close()
-            except BaseException:pass
+        with self.__lock:
+            if error is None:
+                if not self.__closed:self.close()
+                elif self.__close_error is not None:
+                    first=self.__close_error;raise first[1].with_traceback(first[2])
+            elif not self.__closed:
+                try:self.close()
+                except BaseException:pass
         return False
-    def _check(self):
+    def _check(self,*,executing=False):
         need(not self.__closed,'representative_dispatch_consumed')
         need(_directory(self.__directory)==self.__directory_identity)
         raw,identity=_read(self.__directory/_NAME,private=True)
         need(identity==self.__file and _sha(raw)==self.__digest and _mirror(self.__driver)==self.__mirror,'representative_dispatch_mutation')
-        native=self.__owner._scope_check(self.__generation,self.__digest)
+        native=self.__owner._scope_check(self.__generation,self.__digest,executing=executing)
         need(native|_process_receipt(native['init_pid'])==self.__document['native'],'representative_dispatch_native_changed')
         _validate(self.__document)
     def execute(self):
         """Prepared finite helper verification only. No query transport/keys exist here."""
+        with self.__lock:return self.__execute()
+    def __execute(self):
         try:
             self._check()
             raw=self.__owner._scope_exec(self.__generation,self.__digest)
-            self._check()
+            self._check(executing=True)
             need(type(raw) is str and len(raw)<=1024)
             value=json.loads(raw,object_pairs_hook=_unique,parse_constant=lambda _:need(False))
             need(type(value) is dict and set(value)=={'scope_verified','generation','digest'}
@@ -202,27 +212,17 @@ class Dispatch:
         self.close()
         return {'ok':True}
     def close(self):
-        need(not self.__closed,'representative_dispatch_consumed')
-        self.__closed=True
-        # Consumption is durable before unlink. An uncertain deletion prevents the
-        # next fixed pathname from being minted; recovery never retries this read.
-        first=None
-        try:self.__owner._scope_consume(self.__generation)
-        except BaseException:first=sys.exc_info()
-        # Failed consumption leaves the exact recorded inode for bounded recovery.
-        if first is not None:raise first[1].with_traceback(first[2])
-        try:
-            if self.__file is not None:
-                need(_directory(self.__directory)==self.__directory_identity)
-                _,identity=_read(self.__directory/_NAME,private=True)
-                need(identity==self.__file,'representative_dispatch_replacement')
-                (self.__directory/_NAME).unlink()
-            if self.__directory_identity is not None:
-                need(_directory(self.__directory)==self.__directory_identity and not any(self.__directory.iterdir()),'representative_dispatch_directory_changed')
-                self.__directory.rmdir()
-        except BaseException:
-            if first is None:first=sys.exc_info()
-        if first is not None:raise first[1].with_traceback(first[2])
+        with self.__lock:
+            need(not self.__closed,'representative_dispatch_consumed')
+            self.__closed=True
+            try:
+                # Keep the complete durable acquisition ledger after consumption.
+                # Only successful exact unlink permits clearing its cleanup pointer.
+                self.__owner._scope_consume(self.__generation)
+                self.__owner._scope_cleanup()
+            except BaseException:
+                self.__close_error=sys.exc_info()
+                raise
 
 
 def _unique(pairs):
