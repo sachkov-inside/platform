@@ -34,6 +34,7 @@ import stage_timing
 import source_guard
 import contact_job
 import stability
+import cpu_control
 import slot_refusal
 import startup_refusal
 import health_timing
@@ -58,6 +59,11 @@ def inputs(output, images):
     acceptance.validate_profile(json.loads(PROFILE.read_text()))
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     pins=json.loads(images.read_text())
+    if cpu_control.present(output.parent/cpu_control.PAIR):
+        request=cpu_control.pair(sys.modules[__name__],output.parent,source)
+        cpu_control.selector(output.name)
+        cpu_control.need(not cpu_control.present(output) and cpu_control.read(images)==pins
+                         and {k:pins[k] for k in cpu_control.IMAGES}==request['images'])
     if (set(pins)!={'schema','source','owner','backend','foundation','web','telegram','logto'} or pins['schema']!=3
             or pins['source']!=source or any(type(pins[role]) is not str or re.fullmatch(r'sha256:[0-9a-f]{64}',pins[role]) is None for role in ('web','telegram','logto'))):raise ValueError('fullstack_source_images')
     base={key:pins[key] for key in ('source','owner','backend','foundation')}|{'schema':1}
@@ -133,6 +139,8 @@ def inputs(output, images):
     for name in ('loadgen','provider'):
         plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'stability-protocol.mjs')+':/resource/stability-protocol.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
+    if cpu_control.present(output.parent/cpu_control.PAIR):
+        plan=cpu_control.prepare_plan(sys.modules[__name__],output,source,plan)
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
     pilot.write_json(output/'fullstack-source.json',{'source':source,'images':pins,'profile':settings,
@@ -625,11 +633,15 @@ def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
     return active
 
 
-def worker(output):
+def worker(output,*,cpu=False):
+    if not cpu:cpu_control.reject(output)
     if sys.platform!='linux':raise ValueError('fullstack_linux_required')
-    owner=json.loads((output/'owner.json').read_text())
+    owner=cpu_control.read(output/'owner.json',private=False) if cpu else json.loads((output/'owner.json').read_text())
     if owner['supervisor_pid']!=os.getppid():raise ValueError('external_supervisor_required')
     compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
+    cpu_source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip() if cpu else None
+    if cpu:cpu_control.bind_worker(sys.modules[__name__],output,owner,cpu_source)
+    cpu_enabled=False
     if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
         return stability_worker(output,owner,compose)
     profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
@@ -649,6 +661,9 @@ def worker(output):
                     group=pair*2+position
                     active=configure_mode(compose,output,enabled=state=='on',timing=timing,group=group,report=report)
                     enabled=state=='on'
+                    if cpu:
+                        cpu_enabled=enabled
+                        cpu_control.capture(sys.modules[__name__],output,compose,cpu_source,group,enabled)
                     for definition in profile['phases']:
                         index=len(report['phases'])
                         measured=phase(compose,owner['project'],definition,active,enabled,pair,output,timing=timing,group=group,index=index)
@@ -686,18 +701,30 @@ def worker(output):
         except BaseException:pass
         raise
     else:pilot.write_json(output/'fullstack-proof.json',report)
-    finally:timing.finish()
+    finally:
+        timing.finish()
+        if cpu:
+            # Failed final attestation cannot mask the original worker failure.
+            failed=sys.exc_info()[0] is not None
+            try:cpu_control.capture(sys.modules[__name__],output,compose,cpu_source,4,cpu_enabled)
+            except BaseException:
+                if not failed:raise
 
 
-def evaluate(report):
+def p95_pair(before,after):
+    a,b=measurements.percentile(before,.95),measurements.percentile(after,.95)
+    return {'off_count':len(before),'on_count':len(after),'off_p95_ms':a,'on_p95_ms':b,
+            'overhead_percent':(b/a-1)*100 if a and b and len(before)==len(after) else None}
+
+
+def assessment_inputs(report):
     phases=report['phases'];loads=[row['load'] for row in phases]
     pairs=[]
     for pair in (0,1):
         for label in ('web_home','web_material','api_catalog','api_account','telegram_webhook','logto_discovery'):
             before=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='off' for sample in row['load']['latency'] if sample['label']==label]
             after=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='on' for sample in row['load']['latency'] if sample['label']==label]
-            a,b=measurements.percentile(before,.95),measurements.percentile(after,.95)
-            pairs.append((b/a-1)*100 if a and b and len(before)==len(after) else None)
+            pairs.append(p95_pair(before,after)['overhead_percent'])
     def cpu(mode):
         values=[]
         for row in phases:
@@ -708,7 +735,7 @@ def evaluate(report):
         return sum(values)/len(values) if values else None
     off,on=cpu('off'),cpu('on')
     hosts=[sample for row in phases for sample in row['host_samples']]
-    return acceptance.assess({'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(row.get('loadgen_cpu_pressure',{}).get('state')=='unthrottled' for row in phases) and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
+    return {'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(row.get('loadgen_cpu_pressure',{}).get('state')=='unthrottled' for row in phases) and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
         'oom':any('process_replaced_or_oom' in row['errors'] for row in phases),
         'enospc':any(row['disk_free_fraction']==0 or row['free_inodes']==0 for row in hosts),
         'unexplained_loss':sum(row['unexpected_failures']+(row['unexplained_probe_loss'] or 0) for row in loads),
@@ -718,10 +745,15 @@ def evaluate(report):
         'additional_host_cpu_fraction':max(0,on-off) if on is not None and off is not None else None,
         'minimum_host_memory_free_fraction':min((row['memory_free_fraction'] for row in hosts),default=None),
         'minimum_host_disk_free_fraction':min((row['disk_free_fraction'] for row in hosts),default=None),
-        'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)})
+        'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)}
+
+
+def evaluate(report):
+    return acceptance.assess(assessment_inputs(report))
 
 
 def collect(output, metadata, destination):
+    cpu_control.reject(output)
     if any((output/name).exists() or (output/name).is_symlink() for name in (stability.MARKER,stability.NAME)):raise ValueError('diagnostic_is_not_acceptance')
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
@@ -786,6 +818,7 @@ def stability_worker(output,owner,compose):
 
 
 def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROTOCOL):
+    cpu_control.reject(output)
     stability.require_protocol(protocol)
     source,_=hosted.metadata_source(metadata)
     marker=output/stability.MARKER
@@ -801,16 +834,24 @@ def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROT
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission'))
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission','cpu-control-admission','cpu-control-run','cpu-control-recover','cpu-control-collect'))
     parser.add_argument('--output',type=Path);parser.add_argument('--images',type=Path)
     parser.add_argument('--protocol',choices=(stability.COLD_PROTOCOL,stability.PRIMED_PROTOCOL))
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
     if args.protocol is not None and args.action not in ('diagnostic-run','diagnostic-collect'):parser.error('--protocol requires diagnostic action')
     protocol=args.protocol or stability.COLD_PROTOCOL
+    if args.action=='cpu-control-admission':return cpu_control.admission(sys.modules[__name__])
     if args.action=='diagnostic-admission':
         hosted.context();stability.require_marker(stability.read_json(Path(os.environ['GITHUB_EVENT_PATH'])))
         return
     if args.output is None:parser.error('--output required')
+    if args.action.startswith('cpu-control-'):
+        if args.action=='cpu-control-run':
+            try:return cpu_control.run_pair(sys.modules[__name__],args.output,args.images,args.metadata)
+            except subprocess.CalledProcessError as error:raise SystemExit(error.returncode if 0<error.returncode<=255 else 1)
+        if args.action=='cpu-control-recover':return cpu_control.recover_pair(sys.modules[__name__],args.output,args.images)
+        return cpu_control.collect(sys.modules[__name__],args.output,args.metadata,args.public)
+    if args.action in ('run','diagnostic-run'):cpu_control.reject(args.output)
     if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)
     if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public,protocol=protocol)
