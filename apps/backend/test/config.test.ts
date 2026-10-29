@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import { parseMcpConfig } from "../src/config/mcp-config.js";
@@ -588,6 +590,84 @@ describe("bank payment contour", () => {
       }),
     ).toThrow(
       "TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them",
+    );
+  });
+});
+
+describe("stand preview key", () => {
+  const productionKinescope = {
+    ...productionWorker,
+    KINESCOPE_API_BASE_URL: "https://api.kinescope.io",
+    KINESCOPE_API_TOKEN: "worker-kinescope-api-token",
+    KINESCOPE_CALLBACK_PASSWORD: "worker-callback-password",
+    KINESCOPE_CALLBACK_USERNAME: "worker-callback-user",
+    KINESCOPE_MEMBERSHIP_PROJECT_ID: "worker-membership-project",
+    KINESCOPE_PLAYBACK_JWT_SECRET:
+      "worker-playback-secret-at-least-32-characters",
+    KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
+    KINESCOPE_PROVIDER_MODE: "real",
+    KINESCOPE_PUBLIC_PROJECT_ID: "worker-public-project",
+    KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
+    KINESCOPE_WEBHOOK_PASSWORD: "worker-webhook-password",
+    KINESCOPE_WEBHOOK_USERNAME: "worker-webhook-user",
+  };
+  const halves = () => {
+    const pair = generateKeyPairSync("ed25519");
+    return {
+      d: pair.privateKey.export({ format: "jwk" }).d ?? "",
+      x: pair.publicKey.export({ format: "jwk" }).x ?? "",
+    };
+  };
+
+  it("lets production hold only the public half", () => {
+    const { d, x } = halves();
+    expect(
+      parsePlatformProcessConfig(
+        { ...productionKinescope, KINESCOPE_STAND_PREVIEW_PUBLIC_KEY: x },
+        "video-deletions-worker",
+      ).kinescope,
+    ).toMatchObject({ standPreviewPublicKey: x });
+    expect(() =>
+      parsePlatformProcessConfig(
+        {
+          ...productionKinescope,
+          KINESCOPE_STAND_PREVIEW_PRIVATE_KEY: d,
+          KINESCOPE_STAND_PREVIEW_PUBLIC_KEY: x,
+        },
+        "video-deletions-worker",
+      ),
+    ).toThrow(
+      "KINESCOPE_STAND_PREVIEW_PRIVATE_KEY must not be set in production mode",
+    );
+  });
+
+  it("gives the stand a matching pair of well-formed halves", () => {
+    const { d, x } = halves();
+    const stand = { NODE_ENV: "development" };
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        KINESCOPE_STAND_PREVIEW_PRIVATE_KEY: d,
+        KINESCOPE_STAND_PREVIEW_PUBLIC_KEY: x,
+      }).kinescope,
+    ).toMatchObject({ standPreviewPrivateKey: d, standPreviewPublicKey: x });
+    expect(() =>
+      parsePlatformConfig({ ...stand, KINESCOPE_STAND_PREVIEW_PRIVATE_KEY: d }),
+    ).toThrow("KINESCOPE_STAND_PREVIEW_PRIVATE_KEY needs its own");
+    expect(() =>
+      parsePlatformConfig({
+        ...stand,
+        KINESCOPE_STAND_PREVIEW_PRIVATE_KEY: d,
+        KINESCOPE_STAND_PREVIEW_PUBLIC_KEY: halves().x,
+      }),
+    ).toThrow("KINESCOPE_STAND_PREVIEW_PRIVATE_KEY needs its own");
+    expect(() =>
+      parsePlatformConfig({
+        ...stand,
+        KINESCOPE_STAND_PREVIEW_PUBLIC_KEY: "not-a-key",
+      }),
+    ).toThrow(
+      "KINESCOPE_STAND_PREVIEW_PUBLIC_KEY must be a base64url Ed25519 key",
     );
   });
 });

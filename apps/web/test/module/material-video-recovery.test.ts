@@ -14,6 +14,7 @@ const uploadedVideo = (
   state: MaterialAuthoringVideo["state"],
 ): MaterialAuthoringVideo => ({
   origin: "platform_upload",
+  protected: true,
   state,
   title: "Разбор проверки skill contract",
   videoId: "30000000-0000-4000-8000-000000000001",
@@ -21,6 +22,7 @@ const uploadedVideo = (
 
 const otherVideo: MaterialAuthoringVideo = {
   origin: "platform_upload",
+  protected: true,
   state: "ready",
   title: "Уже выбранное видео",
   videoId: "30000000-0000-4000-8000-000000000002",

@@ -74,13 +74,27 @@ async function fixture(
 
 /**
  * The authoring API double: the environment probe, upload init keyed by idempotency key and
- * reconcile, which reports processing once and then ready.
+ * reconcile, which reports processing once and then ready. A new upload is protected (ADR 0041);
+ * `earlierProtected` is what reconcile reports for the earlier upload, `null` for a target that
+ * predates ADR 0041 and reports no protection for any Video; `earlierKey` replays the earlier
+ * public attempt.
+ *
+ * @param {{
+ *   endpoint?: string;
+ *   loseFirstInit?: boolean;
+ *   mode?: string;
+ *   byteSize?: number;
+ *   earlierProtected?: boolean | null;
+ *   earlierKey?: string;
+ * }} [options]
  */
 function providerApi({
   endpoint = "https://uploads.invalid/provider-one",
   loseFirstInit = false,
   mode = "development",
   byteSize = 15,
+  earlierProtected = true,
+  earlierKey = undefined,
 } = {}) {
   /** @type {{ path: string; key: string | undefined }[]} */
   const calls = [];
@@ -102,11 +116,27 @@ function providerApi({
           filename: "final.mp4",
           title: "Финальная запись",
         });
+        if (key === earlierKey)
+          return {
+            providerVideoId: "earlier-provider",
+            uploadEndpoint: earlierProviderEndpoint,
+            video: {
+              videoId: earlierVideoId,
+              materialId,
+              state: "ready",
+              protected: false,
+            },
+          };
         if (!attempts.has(key))
           attempts.set(key, {
             providerVideoId: "provider-one",
             uploadEndpoint: endpoint,
-            video: { videoId, materialId, state: "uploading" },
+            video: {
+              videoId,
+              materialId,
+              state: "uploading",
+              ...(earlierProtected === null ? {} : { protected: true }),
+            },
           });
         if (lose) {
           lose = false;
@@ -120,6 +150,15 @@ function providerApi({
           materialId,
           state: ++reconciles >= 2 ? "ready" : "processing",
           durationSeconds: 600,
+          protected: true,
+        };
+      if (path === `/authoring/videos/${earlierVideoId}/reconcile`)
+        return {
+          videoId: earlierVideoId,
+          materialId,
+          state: "ready",
+          durationSeconds: 600,
+          ...(earlierProtected === null ? {} : { protected: earlierProtected }),
         };
       throw new Error(`Unexpected API request: ${path}`);
     },
@@ -759,6 +798,8 @@ test(
 
 const stand = "http://127.0.0.1:4398";
 const earlierVideoId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const earlierProviderEndpoint =
+  "https://uploader.kinescope.io/files/earlier-provider";
 
 /**
  * Stores a ready upload of the fixture's file, as an earlier run left it.
@@ -902,6 +943,217 @@ test("--replace-test-upload is refused on a trusted target before any request", 
       replaceTestUpload: true,
     }),
     /--replace-test-upload is only for local targets/u,
+  );
+  assert.deepEqual(api.calls, []);
+  assert.equal(await setup.raw(), before);
+});
+
+test(
+  "--replace-public-upload uploads again a file whose recording the target reports public",
+  transferTest,
+  async (t) => {
+    const setup = await fixture(t, { target: stand });
+    await earlierUpload(setup, earlierProviderEndpoint);
+    const tus = await tusServer(t, { length: 15 });
+    const api = providerApi({
+      endpoint: tus.endpoint,
+      earlierProtected: false,
+    });
+    const options = { origin: "stand", fetcher: tus.fetcher };
+    // Without the flag the earlier public receipt answers, and nothing is sent.
+    assert.equal(
+      (await upload(setup, api, options)).providerVideoId,
+      "earlier-provider",
+    );
+    const result = await upload(setup, api, {
+      ...options,
+      replacePublicUpload: true,
+    });
+    assert.equal(result.videoId, videoId);
+    assert.equal(result.providerVideoId, "provider-one");
+    assert.ok(tus.received().equals(setup.bytes));
+    const resources = resourcesOf(await setup.read());
+    const receipt = uploadReceiptSchema.parse(
+      resources[uploadReceiptKey(materialId, setup.sha256)],
+    );
+    assert.notEqual(receipt.idempotencyKey, "video-upload:earlier");
+    assert.equal(receipt.phase, "ready");
+    assert.deepEqual(
+      sourceVideoReceiptSchema.parse(resources[`source-video:${sourceId}`]),
+      { videoId, providerVideoId: "provider-one", sha256: setup.sha256 },
+    );
+    // The new upload is protected, so repeating the flag returns it without another upload.
+    const repeated = await upload(setup, api, {
+      ...options,
+      replacePublicUpload: true,
+    });
+    assert.equal(repeated.videoId, videoId);
+    assert.equal(
+      api.calls.filter((call) => call.path.endsWith("/uploads")).length,
+      1,
+    );
+  },
+);
+
+test("--replace-public-upload replaces an unfinished upload into the public project", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  await earlierUpload(setup, earlierProviderEndpoint);
+  const journal = await setup.read();
+  const resources = resourcesOf(journal);
+  const key = uploadReceiptKey(materialId, setup.sha256);
+  resources[key] = {
+    ...uploadReceiptSchema.parse(resources[key]),
+    phase: "processing",
+  };
+  delete resources[`source-video:${sourceId}`];
+  await writeFile(join(setup.state, "journal.json"), canonical(journal));
+  const api = providerApi({ earlierProtected: false });
+  const result = await upload(setup, api, {
+    origin: "stand",
+    replacePublicUpload: true,
+  });
+  assert.equal(result.videoId, videoId);
+  assert.notEqual(
+    uploadReceiptSchema.parse(resourcesOf(await setup.read())[key])
+      .idempotencyKey,
+    "video-upload:earlier",
+  );
+});
+
+test("--replace-public-upload leaves a recording that is not public as without the flag", async (t) => {
+  await t.test("protected", async (t) => {
+    const setup = await fixture(t, { target: stand });
+    const before = await earlierUpload(setup, earlierProviderEndpoint);
+    const api = providerApi({ earlierProtected: true });
+    const result = await upload(setup, api, {
+      origin: "stand",
+      replacePublicUpload: true,
+    });
+    assert.equal(result.providerVideoId, "earlier-provider");
+    assert.deepEqual(resourcesOf(await setup.read()), before);
+    assert.deepEqual(
+      api.calls.map((call) => call.path),
+      [
+        "/authoring/import/materials/environment",
+        `/authoring/videos/${earlierVideoId}/reconcile`,
+      ],
+    );
+  });
+  // A test-adapter receipt names no provider recording; --replace-test-upload owns it.
+  await t.test("test adapter", async (t) => {
+    const setup = await fixture(t, { target: stand });
+    const before = await earlierUpload(
+      setup,
+      "https://uploads.invalid/earlier-provider",
+    );
+    const api = providerApi({ earlierProtected: false });
+    const result = await upload(setup, api, {
+      origin: "stand",
+      replacePublicUpload: true,
+    });
+    assert.equal(result.providerVideoId, "earlier-provider");
+    assert.deepEqual(resourcesOf(await setup.read()), before);
+    assert.deepEqual(
+      api.calls.map((call) => call.path),
+      ["/authoring/import/materials/environment"],
+    );
+  });
+});
+
+// An earlier run whose init answer was lost holds no Video; the replayed answer names it.
+test("--replace-public-upload starts anew when a replayed attempt names a public recording", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  const journal = await setup.read();
+  const key = uploadReceiptKey(materialId, setup.sha256);
+  (journal.resources ??= {})[key] = {
+    sourceId,
+    idempotencyKey: "video-upload:earlier",
+    byteSize: 15,
+    filename: "final.mp4",
+    title: "Финальная запись",
+    access: "closed",
+    phase: "initializing",
+  };
+  await writeFile(join(setup.state, "journal.json"), canonical(journal));
+  const api = providerApi({ earlierKey: "video-upload:earlier" });
+  const result = await upload(setup, api, {
+    origin: "stand",
+    replacePublicUpload: true,
+  });
+  assert.equal(result.videoId, videoId);
+  assert.deepEqual(
+    api.calls
+      .filter((call) => call.path.endsWith("/uploads"))
+      .map((call) => call.key === "video-upload:earlier"),
+    [true, false],
+  );
+  assert.notEqual(
+    uploadReceiptSchema.parse(resourcesOf(await setup.read())[key])
+      .idempotencyKey,
+    "video-upload:earlier",
+  );
+});
+
+test("both replace flags discard a test-adapter receipt without asking the target", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  await earlierUpload(setup, "https://uploads.invalid/earlier-provider");
+  const api = providerApi();
+  const result = await upload(setup, api, {
+    origin: "stand",
+    replaceTestUpload: true,
+    replacePublicUpload: true,
+  });
+  assert.equal(result.videoId, videoId);
+  assert.equal(
+    api.calls.some((call) => call.path.includes(earlierVideoId)),
+    false,
+  );
+});
+
+test("--replace-public-upload stops before any byte when a new attempt reports no protection", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  const api = providerApi({
+    endpoint: "https://uploader.kinescope.io/files/provider-one",
+    earlierProtected: null,
+  });
+  await assert.rejects(
+    upload(setup, api, { origin: "stand", replacePublicUpload: true }),
+    /does not report whether video .* is protected/u,
+  );
+  const receipt = uploadReceiptSchema.parse(
+    resourcesOf(await setup.read())[uploadReceiptKey(materialId, setup.sha256)],
+  );
+  assert.equal(receipt.phase, "initializing");
+});
+
+test("--replace-public-upload stops when the target does not report protection", async (t) => {
+  const setup = await fixture(t, { target: stand });
+  await earlierUpload(setup, earlierProviderEndpoint);
+  const before = await setup.read();
+  const api = providerApi({ earlierProtected: null });
+  await assert.rejects(
+    upload(setup, api, { origin: "stand", replacePublicUpload: true }),
+    /does not report whether video .* is protected/u,
+  );
+  assert.deepEqual(await setup.read(), before);
+  assert.equal(
+    api.calls.some((call) => call.path.endsWith("/uploads")),
+    false,
+  );
+});
+
+test("--replace-public-upload is refused on a trusted target before any request", async (t) => {
+  const setup = await fixture(t, { target: production });
+  const before = await setup.raw();
+  const api = providerApi({ mode: "production" });
+  await assert.rejects(
+    upload(setup, api, {
+      origin: "production",
+      accessToken: ownerToken,
+      sha256: setup.sha256,
+      replacePublicUpload: true,
+    }),
+    /--replace-public-upload is only for local targets/u,
   );
   assert.deepEqual(api.calls, []);
   assert.equal(await setup.raw(), before);

@@ -40,10 +40,10 @@ not modified; no commit, push, Git hook or file watcher is involved. Immutable p
 report. After an error, rerun the same commit: the journal resumes partial application.
 Refresh the browser after a transfer; report links point at the reader origin of the target.
 
-The opt-in `--course-preview` profile validates the current AI Engineering programme
-(`chapterIds` in `tools/authoring/course-preview.mjs`) before applying the existing local access policy: first-chapter Materials free, other Materials closed.
-It preserves Task access and the original immutable package. Programme-only updates use the shell
-scope described below and do not invoke this access profile.
+The opt-in `--course-preview` profile publishes AI Engineering practice definitions in a separate
+local copy; lesson and Task access stay as authored, like on production. It preserves the original
+immutable package. Programme-only updates use the shell
+scope described below and do not invoke this profile.
 
 What the transfer applies:
 
@@ -100,7 +100,7 @@ product selection; confirm each one before naming it with `--archive`.
 Video keeps the access it was attached with, so that change needs a separate recording decision.
 
 A finished recording for a synchronized Material is uploaded with
-`pnpm authoring:video upload --target editor|stand --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE [--sha256 HEX] [--replace-test-upload]`.
+`pnpm authoring:video upload --target editor|stand --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE [--sha256 HEX] [--replace-test-upload] [--replace-public-upload]`.
 The idempotency key is journaled before the first call; an unknown outcome stops for inspection.
 The test Kinescope adapter's `.invalid` endpoint takes no bytes; a real Kinescope endpoint receives
 the file over Tus, and the same command continues an interrupted transfer

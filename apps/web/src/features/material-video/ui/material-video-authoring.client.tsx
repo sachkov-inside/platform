@@ -582,8 +582,9 @@ export function MaterialVideoAuthoringView({
             className="grid gap-1.5 text-xs font-medium"
             htmlFor="provider-video-id"
           >
-            ID видео · проект «
-            {access === "closed" ? "Для участников" : "Публичный"}»
+            {/* A free lesson also accepts a public recording, which can never become closed (ADR 0041). */}
+            ID видео · проект «Для участников»
+            {access === "closed" ? "" : " или «Публичный»"}
             <input
               className="h-10 min-w-0 rounded-xl border border-input bg-background px-3 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={disabled}

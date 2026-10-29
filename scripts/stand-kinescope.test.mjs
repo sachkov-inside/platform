@@ -11,6 +11,8 @@ import {
   readStandKinescope,
   removeStandKinescope,
   standKinescopeEnvironment,
+  standPreviewLines,
+  withStandPreviewKey,
   writeStandKinescope,
 } from "./stand-kinescope.mjs";
 
@@ -152,4 +154,39 @@ test("detaching test-adapter Videos touches only placeholder projects in one tra
     () => detachTestVideos((args) => (args[0] === "ps" ? "abc123" : "ERROR")),
     /did not confirm/u,
   );
+});
+
+test("the preview key is generated once, kept across imports and shows only its public half", () => {
+  const imported = standKinescopeEnvironment(production);
+  let generated = 0;
+  const generate = () => {
+    generated += 1;
+    return { privateKey: "p".repeat(43), publicKey: "x".repeat(43) };
+  };
+  const first = withStandPreviewKey(imported, generate);
+  assert.equal(first.publicKey, "x".repeat(43));
+  assert.ok(first.contents.startsWith(imported.trimEnd()));
+  assert.deepEqual(standPreviewLines(first.contents), [
+    `KINESCOPE_STAND_PREVIEW_PRIVATE_KEY=${"p".repeat(43)}`,
+    `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"x".repeat(43)}`,
+  ]);
+  assert.deepEqual(withStandPreviewKey(first.contents, generate), first);
+  assert.equal(generated, 1);
+  // Production's own values never carry the stand's private half into the stand file.
+  assert.deepEqual(
+    standPreviewLines(
+      standKinescopeEnvironment(
+        `${production}\nKINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"y".repeat(43)}`,
+      ),
+    ),
+    [],
+  );
+  for (const broken of [
+    `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"x".repeat(43)}\n`,
+    `KINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"x".repeat(43)}\nKINESCOPE_STAND_PREVIEW_PUBLIC_KEY=${"y".repeat(43)}\n`,
+  ])
+    assert.throws(
+      () => withStandPreviewKey(`${imported}${broken}`, generate),
+      /incomplete preview key/u,
+    );
 });

@@ -85,6 +85,7 @@ export type MaterialPreviewVideo =
   | {
       readonly durationSeconds?: number | undefined;
       readonly kind: "attached";
+      readonly cover?: ContentCover | null | undefined;
       readonly ready: boolean;
       readonly title: string;
       readonly videoId: string;

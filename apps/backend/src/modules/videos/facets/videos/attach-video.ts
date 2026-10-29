@@ -6,12 +6,13 @@ import {
 } from "../../domain/video-identifiers.js";
 import { attachInput } from "./video-inputs.js";
 import {
+  accessOfProject,
   dependencyUnavailable,
   forbidden,
   invalidRequest,
-  projectForAccess,
   providerLifecycle,
   providerMismatch,
+  recordingServesAccess,
   toDto,
   type VideoContext,
 } from "./video-records.js";
@@ -30,27 +31,30 @@ export async function attachExistingVideo(
   const parsed = attachInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   if (!(await context.managerAllowed(parsed.data.actor))) return forbidden();
-  const projectId = projectForAccess(context.projects, parsed.data.access);
   try {
     const reconciliationCutoff = context.now();
     const remote = await context.provider.find({
       id: parsed.data.providerVideoId,
-      projectId,
+      projectId: context.projects.protected,
     });
+    // The provider names the project; it must be one Platform uses and must serve the access.
+    const recordingAccess =
+      remote === null
+        ? null
+        : accessOfProject(context.projects, remote.projectId);
     if (
       remote === null ||
       remote.id !== parsed.data.providerVideoId ||
-      remote.projectId !== projectId
+      recordingAccess === null ||
+      !recordingServesAccess(recordingAccess, parsed.data.access)
     )
       return providerMismatch();
+    const projectId = remote.projectId;
     const duplicate = await context.prisma.video.findFirst({
       where: { providerVideoId: remote.id, projectId },
     });
     if (duplicate !== null) {
-      if (
-        duplicate.materialId !== parsed.data.materialId ||
-        duplicate.access !== parsed.data.access
-      ) {
+      if (duplicate.materialId !== parsed.data.materialId) {
         return providerMismatch();
       }
       if (
@@ -69,7 +73,7 @@ export async function attachExistingVideo(
       const video = await transaction.video.create({
         data: {
           id: newVideoId(),
-          access: parsed.data.access,
+          access: recordingAccess,
           createdAt: savedAt,
           createdBy: parsed.data.actor,
           failureCode: lifecycle.failureCode,

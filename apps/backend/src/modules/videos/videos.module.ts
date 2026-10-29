@@ -40,8 +40,8 @@ export const VIDEOS = Symbol("VIDEOS");
           prisma,
           provider,
           projects: {
-            free: config.kinescope.publicProjectId,
-            closed: config.kinescope.membershipProjectId,
+            public: config.kinescope.publicProjectId,
+            protected: config.kinescope.membershipProjectId,
           },
         });
       },

@@ -45,6 +45,12 @@ export const publishSelectionSchema = z.union([
 const materialSchema = materialReceiptSchema.extend({
   publicationState: publicationStateSchema.optional(),
   primaryVideoId: z.uuid().nullable(),
+  // A target before ADR 0041 does not report whether the recording is protected.
+  primaryVideo: z
+    .object({ protected: z.boolean().optional() })
+    .passthrough()
+    .nullable()
+    .optional(),
   metadata: z
     .object({
       slug: text,
@@ -111,6 +117,8 @@ export const videoSchema = z
       "delete_failed",
     ]),
     durationSeconds: z.number().int().positive().optional(),
+    // In the protected project (ADR 0041); a target before that decision does not report it.
+    protected: z.boolean().optional(),
   })
   .passthrough();
 /** @typedef {z.infer<typeof videoSchema>} Video */

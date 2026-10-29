@@ -3,6 +3,8 @@ import {
   notificationsConfigSchema,
   parseNotificationsConfig,
 } from "./notifications-config.js";
+import { createPrivateKey, createPublicKey } from "node:crypto";
+
 import { z } from "zod";
 import { hasText, presentText } from "../infrastructure/contracts/text.js";
 
@@ -198,6 +200,14 @@ const telegramMembershipSchema = z
     supportUrl: httpUrlSchema("MEMBERSHIP_SUPPORT_URL").optional(),
   })
   .readonly();
+const ed25519KeyHalfSchema = (name: string) =>
+  z
+    .base64url({
+      message: `${name} must be a base64url Ed25519 key of 32 bytes`,
+    })
+    .length(43, {
+      message: `${name} must be a base64url Ed25519 key of 32 bytes`,
+    });
 const kinescopeSchema = z
   .object({
     apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),
@@ -213,6 +223,13 @@ const kinescopeSchema = z
     ),
     providerMode: z.enum(["real", "test"]),
     publicProjectId: z.string().min(1).max(128),
+    // Ed25519 halves of the stand's preview key, base64url as in a JWK (#1808).
+    standPreviewPrivateKey: ed25519KeyHalfSchema(
+      "KINESCOPE_STAND_PREVIEW_PRIVATE_KEY",
+    ).optional(),
+    standPreviewPublicKey: ed25519KeyHalfSchema(
+      "KINESCOPE_STAND_PREVIEW_PUBLIC_KEY",
+    ).optional(),
     uploaderBaseUrl: kinescopeUrlSchema("KINESCOPE_UPLOADER_BASE_URL"),
     webhookPassword: z.string().min(16),
     webhookUsername: z.string().min(1),
@@ -692,6 +709,12 @@ export function parsePlatformConfig(
         mode,
         DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID,
       ),
+      standPreviewPrivateKey: presentText(
+        environment["KINESCOPE_STAND_PREVIEW_PRIVATE_KEY"]?.trim(),
+      ),
+      standPreviewPublicKey: presentText(
+        environment["KINESCOPE_STAND_PREVIEW_PUBLIC_KEY"]?.trim(),
+      ),
       uploaderBaseUrl: readRuntimeValue(
         environment,
         "KINESCOPE_UPLOADER_BASE_URL",
@@ -785,6 +808,24 @@ export function parsePlatformConfig(
 
   if (mode === "production" && config.data.kinescope.providerMode !== "real") {
     throw new Error("KINESCOPE_PROVIDER_MODE must be real in production mode");
+  }
+
+  // Production only accepts the stand's previews; it never signs one (#1808).
+  const { standPreviewPrivateKey, standPreviewPublicKey } =
+    config.data.kinescope;
+  if (mode === "production" && standPreviewPrivateKey !== undefined) {
+    throw new Error(
+      "KINESCOPE_STAND_PREVIEW_PRIVATE_KEY must not be set in production mode",
+    );
+  }
+  if (
+    standPreviewPrivateKey !== undefined &&
+    (standPreviewPublicKey === undefined ||
+      !isEd25519Pair(standPreviewPrivateKey, standPreviewPublicKey))
+  ) {
+    throw new Error(
+      "KINESCOPE_STAND_PREVIEW_PRIVATE_KEY needs its own KINESCOPE_STAND_PREVIEW_PUBLIC_KEY",
+    );
   }
 
   // Проверяется собранный контур, а не только имя режима: двойника банка в production нет.
@@ -1069,4 +1110,20 @@ function integerStringSchema(
 
 function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Platform configuration is invalid";
+}
+
+/** The private half derives exactly this public half; a malformed key is no pair. */
+function isEd25519Pair(privateHalf: string, publicHalf: string): boolean {
+  try {
+    const derived = createPublicKey(
+      createPrivateKey({
+        format: "jwk",
+        key: { crv: "Ed25519", d: privateHalf, kty: "OKP", x: publicHalf },
+      }),
+    ).export({ format: "jwk" });
+    return derived.x === publicHalf;
+  } catch {
+    // Not a dependency failure: a key Node cannot import is a configuration error.
+    return false;
+  }
 }

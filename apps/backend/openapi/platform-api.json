@@ -54928,6 +54928,9 @@
                           ],
                           "type": "string"
                         },
+                        "protected": {
+                          "type": "boolean"
+                        },
                         "state": {
                           "enum": [
                             "uploading",
@@ -54954,7 +54957,8 @@
                         "state",
                         "title",
                         "videoId",
-                        "origin"
+                        "origin",
+                        "protected"
                       ],
                       "type": "object"
                     },
@@ -55097,6 +55101,9 @@
                           ],
                           "type": "string"
                         },
+                        "protected": {
+                          "type": "boolean"
+                        },
                         "state": {
                           "enum": [
                             "uploading",
@@ -55123,7 +55130,8 @@
                         "state",
                         "title",
                         "videoId",
-                        "origin"
+                        "origin",
+                        "protected"
                       ],
                       "type": "object"
                     },
@@ -55205,6 +55213,9 @@
                           ],
                           "type": "string"
                         },
+                        "protected": {
+                          "type": "boolean"
+                        },
                         "state": {
                           "enum": [
                             "uploading",
@@ -55231,7 +55242,8 @@
                         "state",
                         "title",
                         "videoId",
-                        "origin"
+                        "origin",
+                        "protected"
                       ],
                       "type": "object"
                     }
@@ -61107,6 +61119,9 @@
                       ],
                       "type": "string"
                     },
+                    "protected": {
+                      "type": "boolean"
+                    },
                     "state": {
                       "enum": [
                         "uploading",
@@ -61134,6 +61149,7 @@
                     "title",
                     "videoId",
                     "origin",
+                    "protected",
                     "access",
                     "materialId"
                   ],
@@ -61619,6 +61635,9 @@
                           ],
                           "type": "string"
                         },
+                        "protected": {
+                          "type": "boolean"
+                        },
                         "state": {
                           "enum": [
                             "uploading",
@@ -61646,6 +61665,7 @@
                         "title",
                         "videoId",
                         "origin",
+                        "protected",
                         "access",
                         "materialId"
                       ],
@@ -75298,6 +75318,9 @@
                       ],
                       "type": "string"
                     },
+                    "protected": {
+                      "type": "boolean"
+                    },
                     "state": {
                       "enum": [
                         "uploading",
@@ -75325,6 +75348,7 @@
                     "title",
                     "videoId",
                     "origin",
+                    "protected",
                     "access",
                     "materialId"
                   ],
@@ -75787,6 +75811,9 @@
                       ],
                       "type": "string"
                     },
+                    "protected": {
+                      "type": "boolean"
+                    },
                     "state": {
                       "enum": [
                         "uploading",
@@ -75814,6 +75841,7 @@
                     "title",
                     "videoId",
                     "origin",
+                    "protected",
                     "access",
                     "materialId"
                   ],

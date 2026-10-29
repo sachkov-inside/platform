@@ -66,7 +66,7 @@ async function prepare() {
   const videoOwner = assembleVideos({
     prisma: observer.prisma,
     canManage: () => Promise.resolve(true),
-    projects: { free: "public", closed: "members" },
+    projects: { public: "public", protected: "members" },
     provider: { initUpload: unused, delete: unused, find: providerFind },
     clock: () => now,
   });
