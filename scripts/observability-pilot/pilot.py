@@ -235,8 +235,38 @@ def downloaded_asset(asset):
     size = asset.get("size_bytes")
     if type(size) is not int or not 0 < size <= COMPRESSED_ASSET_MEMORY_BUDGET_BYTES:
         raise RuntimeError("pinned archive has invalid size metadata")
-    with urllib.request.urlopen(asset["url"], timeout=ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS) as response:
-        archive = response.read(size + 1)
+    # urlopen's timeout is socket-idle, not an absolute response lifetime. Keep
+    # the fixed stdlib transfer in this worker's existing process group so both
+    # the 30s parent boundary and the outer 600s supervisor can stop every read.
+    code = """import json,sys,urllib.request
+try:
+ url,size,budget=json.loads(sys.stdin.buffer.read())
+ with urllib.request.urlopen(url,timeout=budget) as response:
+  sys.stdout.buffer.write(response.read(size+1))
+except BaseException:
+ sys.exit(1)
+"""
+    payload=json.dumps([asset["url"],size,ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS]).encode()
+    deadline=time.monotonic()+ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS
+    process=subprocess.Popen([sys.executable,'-I','-B','-c',code],stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+    try:
+        archive,_=process.communicate(payload,timeout=max(0,deadline-time.monotonic()))
+        if process.returncode!=0:raise RuntimeError('pinned archive download failed')
+    finally:
+        primary=sys.exc_info()[1];cleanup_error=None
+        try:
+            if process.poll() is None:process.kill()
+        except BaseException as error:cleanup_error=error
+        try:process.wait(timeout=1)
+        except BaseException as error:
+            if cleanup_error is None:cleanup_error=error
+        for stream in (process.stdin,process.stdout):
+            if stream is None:continue
+            try:stream.close()
+            except BaseException as error:
+                if cleanup_error is None:cleanup_error=error
+        if primary is None and cleanup_error is not None:raise cleanup_error
     if len(archive) != size or "sha256:" + hashlib.sha256(archive).hexdigest() != asset["digest"]:
         raise RuntimeError("pinned archive failed size/digest check")
     return archive

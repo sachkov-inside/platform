@@ -83,6 +83,26 @@ Publisher releases: [Grafana 13.2.4](https://github.com/grafana/grafana/releases
 Для каждого asset закреплён `size_bytes` из GitHub Releases. Downloader читает не больше
 этого размера плюс один байт и требует точного размера и SHA256; дополнительный предел
 сжатого содержимого архива составляет 128MiB.
+
+Скачивание каждого закреплённого архива ограничено общим deadline30s, включая
+запуск дочернего Python, connect, TLS handshake и чтение body. Socket-idle timeout
+`urlopen` сам по себе этого не гарантирует: непрерывный trickle может длиться дольше.
+Фиксированный stdlib child получает URL, размер и прежний timeout через private stdin,
+не через argv или environment. Он остаётся в process group исходного worker, не
+создаёт descendants или новую session. Stderr не публикуется; stdout содержит только
+не более `size_bytes + 1` байт. Parent сохраняет прежние точный size и SHA256 checks,
+128MiB compressed cap и все последующие archive validation. Timeout или прерывание
+немедленно останавливает child, reaps его и закрывает pipes; обычный вторичный отказ
+cleanup не заменяет исходный exception/traceback. Retry, fallback, cache, curl,
+TLS bypass и перенос скачивания за пределы600s не добавляются.
+
+Отказ66fc на `plugin_install` произошёл до запуска приложения: worker exit124 за
+600.0319s, стадия599.849s, стек в `downloaded_asset`/`response.read(size + 1)`.
+Это отказ подготовки внешнего архива, а не результат измерения приложения или мощности
+мониторинга. Local verified-TLS trickle/handshake и реальные child contracts проверяют
+общий deadline с уменьшенным тестовым интервалом. Реальный архив здесь не скачивается;
+успех следующего source-bound CI и укладывание полной подготовки в600s остаются открыты.
+
 У VictoriaLogs datasource v0.33.1 опубликованный ZIP занимает 79,389,151B и превышает прежний
 общий предел 64MiB. Проверенная по закреплённому digest центральная директория ZIP содержит
 45 entries общим распакованным объёмом 224,056,733B; крупнейший entry занимает 28,246,176B.

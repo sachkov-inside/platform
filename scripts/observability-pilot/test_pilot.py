@@ -25,6 +25,13 @@ SERVER_SHUTDOWN_BUDGET_SECONDS = 2
 DESCENDANT_PROBE_TIMEOUT_SECONDS = .1
 
 
+def completed_archive_process(payload):
+    # Parent validation seam; real stdlib child/TLS/deadline/cleanup live in test_archive_download.
+    process=SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO(),stderr=None,returncode=0,
+        communicate=lambda *_args,**_kwargs:(payload,None),poll=lambda:0,wait=lambda **_kwargs:0)
+    return patch('pilot.subprocess.Popen',return_value=process)
+
+
 class PilotPreparationTest(unittest.TestCase):
     def test_startup_timeout_records_stage_status_without_response_payload(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -118,7 +125,7 @@ class PilotPreparationTest(unittest.TestCase):
         payload = b"f" * 79_389_151
         asset = {"url": "https://fixture.invalid/plugin.zip", "size_bytes": 79_389_151,
                  "digest": "sha256:" + hashlib.sha256(payload).hexdigest()}
-        with patch("pilot.urllib.request.urlopen", return_value=io.BytesIO(payload)):
+        with completed_archive_process(payload):
             result = pilot.downloaded_asset(asset)
         self.assertEqual(len(result), 79_389_151)
         self.assertEqual(result[-1:], b"f")
@@ -132,7 +139,7 @@ class PilotPreparationTest(unittest.TestCase):
         ):
             with self.subTest(label=label):
                 asset = {"url": "https://fixture.invalid/archive", "size_bytes": 7, "digest": expected_digest}
-                with patch("pilot.urllib.request.urlopen", return_value=io.BytesIO(delivered)):
+                with completed_archive_process(delivered):
                     with self.assertRaisesRegex(RuntimeError, "size/digest check"):
                         pilot.downloaded_asset(asset)
 
@@ -151,7 +158,7 @@ class PilotPreparationTest(unittest.TestCase):
                 "artifacts": {"victorialogs-datasource": {"assets": [asset]}},
             }))
             with patch("pilot.CONFIG", root), \
-                    patch("pilot.urllib.request.urlopen", return_value=io.BytesIO(payload)):
+                    completed_archive_process(payload):
                 with self.assertRaisesRegex(RuntimeError, "unpacked size"):
                     pilot.install_plugin(output)
             self.assertEqual(list((output / "plugins").iterdir()), [])

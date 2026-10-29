@@ -15,19 +15,40 @@ SPAN_ID='0000000000001566'
 SERVICE='platform-fallback-control'
 
 
-def require(value):control.require(value)
+def require(value,*,mcp_stage=None):control.require(value,mcp_stage=mcp_stage)
 
 
 def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,),*,decode_json=True):
-    connection=http.client.HTTPConnection(host,port,timeout=control.remaining())
-    data=None if body is None else json.dumps(body,separators=(',',':')).encode()
-    started=time.monotonic()
+    # Context belongs to THIS wire attempt, never a prior bootstrap query/revoke.
+    mcp=host=='mcp' and port==8000
+    control.STEP='mcp_http' if mcp else 'none';control.LAST_HTTP_STATUS=0
+    connection=None;primary=None;stage='mcp_wire_admission'
     try:
+        connection=http.client.HTTPConnection(host,port,timeout=control.remaining())
+        data=None if body is None else json.dumps(body,separators=(',',':')).encode()
+        started=time.monotonic()
+        stage='mcp_wire_request'
         connection.request(method,path,data,{'Content-Type':'application/json','Connection':'close',**(headers or {})})
-        response=connection.getresponse();payload=response.read(65537)
-        require(response.status in accepted and len(payload)<=65536 and time.monotonic()-started<=10)
+        stage='mcp_wire_headers';response=connection.getresponse();control.LAST_HTTP_STATUS=response.status
+        stage='mcp_wire_read';payload=response.read(65537)
+        require(response.status in accepted,mcp_stage='mcp_wire_status' if mcp else None)
+        require(len(payload)<=65536,mcp_stage='mcp_wire_size' if mcp else None)
+        require(time.monotonic()-started<=10,mcp_stage='mcp_wire_deadline' if mcp else None)
+        stage='mcp_wire_decode'
         return response.status,json.loads(payload) if payload and decode_json else None
-    finally:connection.close()
+    except BaseException as error:
+        primary=error
+        if mcp:control._tag_mcp_failure(error,stage)
+        raise
+    finally:
+        if connection is not None:
+            try:connection.close()
+            except Exception as error:
+                # Ordinary cleanup failure cannot replace the original wire error.
+                # Cleanup interruptions retain their pre-existing propagation.
+                if primary is None:
+                    if mcp:control._tag_mcp_failure(error,'mcp_wire_close')
+                    raise
 
 
 def scalar_query(signal_name,trace_id):
@@ -63,8 +84,12 @@ def retained_count(data):
 def mcp_call(method,params,key,identifier):
     body={'jsonrpc':'2.0','id':identifier,'method':method,'params':params}
     _,value=wire('mcp',8000,'/mcp','POST',body,{'SIGNOZ-API-KEY':key,'Accept':'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'})
-    require(type(value) is dict and value.get('jsonrpc')=='2.0' and value.get('id')==identifier and 'error' not in value)
-    result=value.get('result');require(type(result) is dict and result.get('isError') is not True);return result
+    require(type(value) is dict,mcp_stage='mcp_rpc_object')
+    require(value.get('jsonrpc')=='2.0',mcp_stage='mcp_rpc_version')
+    require(value.get('id')==identifier,mcp_stage='mcp_rpc_id')
+    require('error' not in value,mcp_stage='mcp_rpc_error')
+    result=value.get('result');require(type(result) is dict,mcp_stage='mcp_rpc_result')
+    require(result.get('isError') is not True,mcp_stage='mcp_rpc_is_error');return result
 
 
 def mcp_count(payload,key):
@@ -112,11 +137,17 @@ def run():
         await_fact(mcp_ready,bool,55)
         control.FUNCTIONAL_STAGE='mcp_initialize'
         initialized=mcp_call('initialize',{'protocolVersion':'2025-11-25','capabilities':{},'clientInfo':{'name':'platform-owned-witness','version':'1'}},key,1)
-        require(initialized.get('protocolVersion')=='2025-11-25')
+        require(initialized.get('protocolVersion')=='2025-11-25',mcp_stage='mcp_initialize_version')
         wire('mcp',8000,'/mcp','POST',{'jsonrpc':'2.0','method':'notifications/initialized'}, {'SIGNOZ-API-KEY':key,'Accept':'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'},accepted=(200,202,204))
         control.FUNCTIONAL_STAGE='mcp_inventory'
         inventory=mcp_call('tools/list',{},key,2);tools=inventory.get('tools')
-        require(inventory.get('nextCursor') in (None,'') and type(tools) is list and 1<=len(tools)<=128 and any(t.get('name')=='signoz_execute_builder_query' for t in tools))
+        require(inventory.get('nextCursor') in (None,''),mcp_stage='mcp_inventory_cursor')
+        require(type(tools) is list,mcp_stage='mcp_inventory_tools')
+        require(1<=len(tools)<=128,mcp_stage='mcp_inventory_count')
+        try:query_tool=any(t.get('name')=='signoz_execute_builder_query' for t in tools)
+        except BaseException as error:
+            control._tag_mcp_failure(error,'mcp_inventory_query_tool');raise
+        require(query_tool,mcp_stage='mcp_inventory_query_tool')
         control.FUNCTIONAL_STAGE='ingest'
         for signal_name,body in corpus().items():
             _,reply=wire('signoz-ingester',4318,'/v1/'+signal_name,'POST',body)

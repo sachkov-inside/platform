@@ -16,14 +16,19 @@ BOOTSTRAP_READ_STAGES = frozenset(('bootstrap_read_response','bootstrap_read_dea
     'bootstrap_read_object','bootstrap_read_envelope','bootstrap_read_type','bootstrap_read_warning',
     'bootstrap_read_results','bootstrap_read_query','bootstrap_read_columns','bootstrap_read_rows',
     'bootstrap_read_number','bootstrap_read_number_range','bootstrap_read_count_nonzero'))
+MCP_READ_STAGES = frozenset(('mcp_wire_admission','mcp_wire_request','mcp_wire_headers','mcp_wire_read',
+    'mcp_wire_status','mcp_wire_size','mcp_wire_deadline','mcp_wire_decode','mcp_wire_close',
+    'mcp_rpc_object','mcp_rpc_version','mcp_rpc_id','mcp_rpc_error','mcp_rpc_result','mcp_rpc_is_error',
+    'mcp_initialize_version','mcp_inventory_cursor','mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool'))
 FAILURE_STAGES = frozenset(('entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
     'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics','trace_log','mcp_read','finite_gateway',
-    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial')) | BOOTSTRAP_READ_STAGES
-FAILURE_TRANSPORTS = frozenset(('none','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'))
+    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial')) | BOOTSTRAP_READ_STAGES | MCP_READ_STAGES
+FAILURE_TRANSPORTS = frozenset(('none','mcp_http','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'))
 FAILURE_CATEGORIES = frozenset(('ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
     'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'))
 _FAILURE_AUTHORITY = object()
 _BOOTSTRAP_READ_AUTHORITY = object()
+_MCP_READ_AUTHORITY = object()
 
 class ControlFailure(Exception):
     pass
@@ -34,6 +39,12 @@ def _closed_name(value, allowed):
 def _current_failure(error):
     status=globals().get('LAST_HTTP_STATUS',0)
     stage=globals().get('FUNCTIONAL_STAGE','entry')
+    mcp=vars(error).get('_signoz_mcp_validation')
+    if (type(mcp) is tuple and len(mcp)==5 and mcp[0] is _MCP_READ_AUTHORITY
+            and type(mcp[1]) is int and mcp[1]==id(error)
+            and _closed_name(mcp[2],MCP_READ_STAGES)!='unavailable'
+            and type(mcp[4]) is int and 0<=mcp[4]<=599):
+        return (mcp[2],_closed_name(mcp[3],FAILURE_TRANSPORTS),mcp[4],_closed_name(type(error).__name__,FAILURE_CATEGORIES))
     tagged=vars(error).get('_signoz_bootstrap_validation')
     if (type(tagged) is tuple and len(tagged)==3 and tagged[0] is _BOOTSTRAP_READ_AUTHORITY
             and type(tagged[1]) is int and tagged[1]==id(error)
@@ -64,10 +75,23 @@ def _tag_bootstrap_failure(error,stage):
     if _closed_name(stage,BOOTSTRAP_READ_STAGES)!='unavailable':
         vars(error)['_signoz_bootstrap_validation']=(_BOOTSTRAP_READ_AUTHORITY,id(error),stage)
 
-def require(ok,*,bootstrap_stage=None):
+def _tag_mcp_failure(error,stage):
+    if _closed_name(stage,MCP_READ_STAGES)=='unavailable':return
+    saved=vars(error).get('_signoz_mcp_validation')
+    if (type(saved) is tuple and len(saved)==5 and saved[0] is _MCP_READ_AUTHORITY
+            and type(saved[1]) is int and saved[1]==id(error)
+            and _closed_name(saved[2],MCP_READ_STAGES)!='unavailable'):return
+    status=globals().get('LAST_HTTP_STATUS',0)
+    vars(error)['_signoz_mcp_validation']=(_MCP_READ_AUTHORITY,id(error),stage,
+        _closed_name(globals().get('STEP','none'),FAILURE_TRANSPORTS),
+        status if type(status) is int and 0<=status<=599 else 0)
+
+
+def require(ok,*,bootstrap_stage=None,mcp_stage=None):
     if not ok:
         error=ControlFailure()
         _tag_bootstrap_failure(error,bootstrap_stage)
+        _tag_mcp_failure(error,mcp_stage)
         raise error
 
 def uid(value):

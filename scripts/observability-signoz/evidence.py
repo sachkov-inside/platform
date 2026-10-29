@@ -117,11 +117,15 @@ def inside_failures(output):
             'bootstrap_read_envelope','bootstrap_read_type','bootstrap_read_warning','bootstrap_read_results',
             'bootstrap_read_query','bootstrap_read_columns','bootstrap_read_rows','bootstrap_read_number',
             'bootstrap_read_number_range','bootstrap_read_count_nonzero',
+            'mcp_wire_admission','mcp_wire_request','mcp_wire_headers','mcp_wire_read','mcp_wire_status',
+            'mcp_wire_size','mcp_wire_deadline','mcp_wire_decode','mcp_wire_close','mcp_rpc_object',
+            'mcp_rpc_version','mcp_rpc_id','mcp_rpc_error','mcp_rpc_result','mcp_rpc_is_error',
+            'mcp_initialize_version','mcp_inventory_cursor','mcp_inventory_tools','mcp_inventory_count','mcp_inventory_query_tool',
             'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics',
             'trace_log','mcp_read','finite_gateway','viewer_admin_denial','viewer_revoke','viewer_revoked_denial'}
     categories={'ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
                 'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'}
-    transports={'none','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'}
+    transports={'none','mcp_http','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'}
     result=[]
     for directory in sorted(output.glob('engine-*'))[:32]:
         require(directory.is_dir() and not directory.is_symlink())

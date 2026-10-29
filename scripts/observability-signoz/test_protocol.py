@@ -41,7 +41,7 @@ class ClosedProtocol(unittest.TestCase):
         class Connection(connection):
             def __init__(self,host,port,**kwargs):
                 self.fixture_host=(host,port);self.fixture_timeout=kwargs['timeout'];self.close_calls=0
-                super().__init__('127.0.0.1',server.server_port,**kwargs)
+                super().__init__(host,port,**kwargs) if host=='127.0.0.1' else super().__init__('127.0.0.1',server.server_port,**kwargs)
                 connections.append(self)
             def getresponse(self):
                 response=super().getresponse()
@@ -176,6 +176,120 @@ class ClosedProtocol(unittest.TestCase):
         points=corpus['metrics']['resourceMetrics'][0]['scopeMetrics'][0]['metrics'][0]['gauge']['dataPoints']
         self.assertEqual(len(points),400)
         self.assertEqual({p['asInt'] for p in points},{str(i) for i in range(1,401)})
+
+    def test_real_inventory_status_body_decode_and_RPC_predicates_report_only_first_closed_refusal(self):
+        initialized={'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2025-11-25'}}
+        inventory={'jsonrpc':'2.0','id':2,'result':{'tools':[{'name':'signoz_execute_builder_query'}]}}
+        prefix=[(200,b'ok'),(200,json.dumps(initialized).encode()),(202,b'')]
+        cases=[('status',403,b'private-MCP-canary','mcp_wire_status',control.ControlFailure),
+            ('oversize',200,b'x'*65537,'mcp_wire_size',control.ControlFailure),
+            ('decode',200,b'private-MCP-canary','mcp_wire_decode',json.JSONDecodeError)]
+        mutations=[('object',[],'mcp_rpc_object'),('version',dict(inventory,jsonrpc='private-MCP-canary'),'mcp_rpc_version'),
+            ('id',dict(inventory,id=99),'mcp_rpc_id'),('error',dict(inventory,error={'message':'private-MCP-canary'}),'mcp_rpc_error'),
+            ('result',dict(inventory,result=[]),'mcp_rpc_result'),('isError',dict(inventory,result={'isError':True}),'mcp_rpc_is_error'),
+            ('cursor',dict(inventory,result={'tools':inventory['result']['tools'],'nextCursor':'private-MCP-canary'}),'mcp_inventory_cursor'),
+            ('tools',dict(inventory,result={'tools':{}}),'mcp_inventory_tools'),
+            ('empty',dict(inventory,result={'tools':[]}),'mcp_inventory_count'),
+            ('large',dict(inventory,result={'tools':[{}]*129}),'mcp_inventory_count'),
+            ('missing',dict(inventory,result={'tools':[{'name':'private-MCP-canary'}]}),'mcp_inventory_query_tool')]
+        cases.extend((name,200,json.dumps(value).encode(),stage,control.ControlFailure) for name,value,stage in mutations)
+        for name,status,body,stage,category in cases:
+            with self.subTest(name=name),self.http_fixture(prefix+[(status,body)]) as (calls,connections),\
+                patch.object(control,'STEP','query_v5',create=True),patch.object(control,'LAST_HTTP_STATUS',200,create=True):
+                errors=[]
+                with self.assertRaises(category) as caught:self.functional_run(errors)
+                self.assertIs(errors[0][0],caught.exception)
+                self.assertEqual(control.failure_context(caught.exception),{'inside_failed':1,'stage':stage,'category':category.__name__,'http_status':status,'transport':'mcp_http'})
+                self.assertEqual(len(calls),4);self.assertNotIn('private-MCP-canary',json.dumps(control.failure_context(caught.exception)))
+
+    def test_native_like_inventory_at_original_bounds_still_reaches_ingest_without_extra_requests(self):
+        initialized={'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2025-11-25'}}
+        for count,cursor in ((1,None),(128,'')):
+            tools=[{'name':'other_fixed_tool'}]*(count-1)+[{'name':'signoz_execute_builder_query'}]
+            inventory={'jsonrpc':'2.0','id':2,'result':{'tools':tools,'nextCursor':cursor}}
+            replies=[(200,b'ok'),(200,json.dumps(initialized).encode()),(202,b''),(200,json.dumps(inventory).encode()),(503,b'')]
+            with self.subTest(count=count),self.http_fixture(replies) as (calls,_):
+                errors=[]
+                with self.assertRaises(control.ControlFailure):self.functional_run(errors)
+                self.assertEqual(errors[0][1],'ingest');self.assertEqual(len(calls),5)
+                self.assertEqual([json.loads(c[2])['method'] for c in calls[1:4]],['initialize','notifications/initialized','tools/list'])
+
+    def test_actual_MCP_wire_deadline_admission_read_and_close_keep_first_error_and_unknown_status(self):
+        with self.http_fixture([]) as (calls,connections),patch.object(control,'DEADLINE',time.monotonic()-1),\
+            patch.object(control,'STEP','query_v5',create=True),patch.object(control,'LAST_HTTP_STATUS',200,create=True):
+            with self.assertRaises(control.ControlFailure) as caught:witness.mcp_call('tools/list',{},'fixture-key',2)
+            self.assertEqual(control.failure_context(caught.exception),{'inside_failed':1,'stage':'mcp_wire_admission','category':'ControlFailure','http_status':0,'transport':'mcp_http'})
+            self.assertEqual((calls,connections),([],[]))
+        with self.http_fixture([(200,b'{}')]) as (calls,_),patch.object(witness,'time',SimpleNamespace(monotonic=iter((0,10.001)).__next__)):
+            with self.assertRaises(control.ControlFailure) as caught:witness.mcp_call('tools/list',{},'fixture-key',2)
+            self.assertEqual(control.failure_context(caught.exception)['stage'],'mcp_wire_deadline');self.assertEqual(len(calls),1)
+        error=OSError('private-MCP-canary');cleanup=OSError('private-secondary-canary')
+        with self.http_fixture([(200,b'{}')],read_error=error) as (calls,connections):
+            close=witness.http.client.HTTPConnection.close
+            def fail_close(connection):close(connection);raise cleanup
+            frames=[]
+            with patch.object(witness.http.client.HTTPConnection,'close',fail_close),self.assertRaises(OSError) as caught:
+                try:witness.mcp_call('tools/list',{},'fixture-key',2)
+                except OSError as original:
+                    frame=original.__traceback__
+                    while frame is not None:frames.append(frame);frame=frame.tb_next
+                    raise
+            self.assertIs(caught.exception,error)
+            self.assertIn(connections[0].fixture_read_traceback,frames)
+            self.assertEqual(control.failure_context(error),{'inside_failed':1,'stage':'mcp_wire_read','category':'OSError','http_status':200,'transport':'mcp_http'})
+            self.assertEqual(len(calls),1)
+        reply=json.dumps({'jsonrpc':'2.0','id':2,'result':{}}).encode()
+        with self.http_fixture([(200,reply)]) as (calls,_):
+            close=witness.http.client.HTTPConnection.close
+            def fail_close_first(connection):close(connection);raise cleanup
+            with patch.object(witness.http.client.HTTPConnection,'close',fail_close_first),self.assertRaises(OSError) as caught:
+                witness.mcp_call('tools/list',{},'fixture-key',2)
+            self.assertIs(caught.exception,cleanup);self.assertEqual(control.failure_context(cleanup)['stage'],'mcp_wire_close')
+
+    def test_actual_bootstrap_MCP_failure_survives_revoke204_or_secondary500_with_original_traceback(self):
+        from test_auth import AuthWire
+        for revoke_status in (204,500):
+            before=[];errors=[]
+            def hook(_proxy,key):
+                control.FUNCTIONAL_STAGE='mcp_inventory'
+                try:witness.mcp_call('tools/list',{},key,2)
+                except BaseException as error:
+                    before.append((error,error.__traceback__));raise
+            with self.subTest(revoke_status=revoke_status),self.http_fixture([(403,b'private-MCP-canary')]) as (calls,_):
+                failure=AuthWire().exercise(False,project_failure=True,revoke_status=revoke_status,failure_hook=hook,observed_errors=errors)
+                self.assertIs(errors[0],before[0][0])
+                frames=[];frame=errors[0].__traceback__
+                while frame is not None:frames.append(frame);frame=frame.tb_next
+                self.assertIn(before[0][1],frames)
+                self.assertEqual(failure,{'inside_failed':1,'stage':'mcp_wire_status','category':'ControlFailure','http_status':403,'transport':'mcp_http'})
+                self.assertEqual(len(calls),1);self.assertNotIn('private-MCP-canary',json.dumps(failure))
+
+    def test_MCP_diagnostic_is_per_exception_and_copied_private_tags_cannot_poison_later_errors(self):
+        bad=json.dumps({'jsonrpc':'2.0','id':2,'error':{'message':'private-MCP-canary'}}).encode()
+        good=json.dumps({'jsonrpc':'2.0','id':2,'result':{}}).encode()
+        with self.http_fixture([(200,bad),(200,good)]) as (calls,_):
+            with self.assertRaises(control.ControlFailure) as caught:witness.mcp_call('tools/list',{},'fixture-key',2)
+            self.assertEqual(control.failure_context(caught.exception)['stage'],'mcp_rpc_error')
+            self.assertEqual(witness.mcp_call('tools/list',{},'fixture-key',2),{});self.assertEqual(len(calls),2)
+        for tag in (None,[],{},'private-MCP-canary',caught.exception._signoz_mcp_validation,
+            (object(),0,'mcp_rpc_error','mcp_http',200)):
+            error=RuntimeError('private-MCP-canary');error._signoz_mcp_validation=tag
+            with patch.object(control,'FUNCTIONAL_STAGE','mcp_inventory',create=True),patch.object(control,'STEP','mcp_http',create=True),patch.object(control,'LAST_HTTP_STATUS',0,create=True):
+                control.preserve_failure(error)
+                self.assertEqual(control.failure_context(error),{'inside_failed':1,'stage':'mcp_inventory','category':'RuntimeError','http_status':0,'transport':'mcp_http'})
+        for stage in ('private-MCP-canary',[],{},'x'*1000):
+            error=RuntimeError('private-MCP-canary')
+            error._signoz_mcp_validation=(control._MCP_READ_AUTHORITY,id(error),stage,'mcp_http',200)
+            with patch.object(control,'FUNCTIONAL_STAGE','mcp_inventory',create=True):
+                self.assertEqual(control.failure_context(error)['stage'],'mcp_inventory')
+            self.assertNotIn('private-MCP-canary',json.dumps(control.failure_context(error)))
+        # Predicate evaluation exceptions retain their actual class; no invented schema fix.
+        reply=json.dumps({'jsonrpc':'2.0','id':2,'result':{'tools':[None]}}).encode()
+        init=json.dumps({'jsonrpc':'2.0','id':1,'result':{'protocolVersion':'2025-11-25'}}).encode()
+        with self.http_fixture([(200,b'ok'),(200,init),(202,b''),(200,reply)]) as (calls,_):
+            with self.assertRaises(AttributeError) as caught:self.functional_run()
+            self.assertEqual(control.failure_context(caught.exception)['stage'],'mcp_inventory_query_tool')
+            self.assertEqual(control.failure_context(caught.exception)['category'],'unavailable')
 
 
 if __name__ == '__main__':unittest.main()
