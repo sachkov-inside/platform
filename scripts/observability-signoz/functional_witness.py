@@ -18,7 +18,7 @@ SERVICE='platform-fallback-control'
 def require(value):control.require(value)
 
 
-def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,)):
+def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,),*,decode_json=True):
     connection=http.client.HTTPConnection(host,port,timeout=control.remaining())
     data=None if body is None else json.dumps(body,separators=(',',':')).encode()
     started=time.monotonic()
@@ -26,7 +26,7 @@ def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,)):
         connection.request(method,path,data,{'Content-Type':'application/json','Connection':'close',**(headers or {})})
         response=connection.getresponse();payload=response.read(65537)
         require(response.status in accepted and len(payload)<=65536 and time.monotonic()-started<=10)
-        return response.status,json.loads(payload) if payload else None
+        return response.status,json.loads(payload) if payload and decode_json else None
     finally:connection.close()
 
 
@@ -107,7 +107,7 @@ def run():
         control.FUNCTIONAL_STAGE='mcp_ready'
         # The upstream MCP must build its native docs index; shallow liveness is insufficient.
         def mcp_ready():
-            try:return wire('mcp',8000,'/readyz',accepted=(200,503))[0]==200
+            try:return wire('mcp',8000,'/readyz',accepted=(200,503),decode_json=False)[0]==200
             except (OSError,http.client.HTTPException):return False
         await_fact(mcp_ready,bool,55)
         control.FUNCTIONAL_STAGE='mcp_initialize'
