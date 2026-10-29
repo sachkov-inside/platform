@@ -100,7 +100,7 @@ product selection; confirm each one before naming it with `--archive`.
 Video keeps the access it was attached with, so that change needs a separate recording decision.
 
 A finished recording for a synchronized Material is uploaded with
-`pnpm authoring:video upload --target editor|stand --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE [--sha256 HEX] [--replace-test-upload]`.
+`pnpm authoring:video upload --target editor|stand --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE [--sha256 HEX] [--replace-test-upload] [--replace-public-upload]`.
 The idempotency key is journaled before the first call; an unknown outcome stops for inspection.
 The test Kinescope adapter's `.invalid` endpoint takes no bytes; a real Kinescope endpoint receives
 the file over Tus, and the same command continues an interrupted transfer

@@ -360,6 +360,8 @@ async function assertUnchanged(file, hashed, path) {
  * @param {number} [options.attempts]
  * @param {(sent: number, total: number) => void} [options.onProgress]
  * @param {boolean} [options.replaceTestUpload] a local target uploads again a file the test adapter took
+ * @param {boolean} [options.replacePublicUpload] a local target uploads again a file whose recording
+ *   it reports outside the protected project
  */
 export async function uploadVideo({
   stateDirectory,
@@ -375,11 +377,16 @@ export async function uploadVideo({
   attempts = 40,
   onProgress,
   replaceTestUpload = false,
+  replacePublicUpload = false,
 }) {
   const target = authoringTarget(origin);
   if (replaceTestUpload && target.kind === "trusted")
     throw new Error(
       `--replace-test-upload is only for local targets; ${target.name} never took a test-adapter upload`,
+    );
+  if (replacePublicUpload && target.kind === "trusted")
+    throw new Error(
+      `--replace-public-upload is only for local targets; ${target.name} keeps its recordings`,
     );
   if (expected === undefined && target.kind === "trusted")
     throw new Error(
@@ -422,22 +429,59 @@ export async function uploadVideo({
           );
         const receiptKey = uploadReceiptKey(material.materialId, sha256);
         let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
-        // Only the test adapter's attempt is discarded. Any other receipt is a real or unfinished
-        // provider record: the command continues it as usual, so repeating the same command is safe.
-        if (
-          replaceTestUpload &&
-          receipt !== undefined &&
-          "uploadEndpoint" in receipt &&
-          new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
-        ) {
+        /**
+         * Forgets an attempt, and the original's recording when it is this attempt's Video, so
+         * the file uploads as new. The provider keeps the earlier recording.
+         *
+         * @param {string} discardedVideoId
+         */
+        const discard = (discardedVideoId) => {
           const attached = `source-video:${sourceId}`;
           if (
             parseReceipt(sourceVideoReceiptSchema, resources[attached])
-              ?.videoId === receipt.videoId
+              ?.videoId === discardedVideoId
           )
             delete resources[attached];
           delete resources[receiptKey];
+        };
+        const testAdapter =
+          receipt !== undefined &&
+          "uploadEndpoint" in receipt &&
+          new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid");
+        // Only the test adapter's attempt, or one the target reports public, is discarded. Any
+        // other receipt is continued as usual, so repeating the same command is safe.
+        if (
+          replaceTestUpload &&
+          testAdapter &&
+          receipt !== undefined &&
+          "videoId" in receipt
+        ) {
+          discard(receipt.videoId);
           receipt = undefined;
+        }
+        if (
+          replacePublicUpload &&
+          !testAdapter &&
+          receipt !== undefined &&
+          "videoId" in receipt &&
+          receipt.phase !== "failed"
+        ) {
+          // The target's own record decides; the receipt's access predates ADR 0041 and says
+          // nothing about the project a recording landed in.
+          const video = await request(
+            `/authoring/videos/${receipt.videoId}/reconcile`,
+            {},
+            undefined,
+            { method: "POST" },
+          );
+          if (video.protected === undefined)
+            throw new Error(
+              `${target.id} does not report whether video ${receipt.videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
+            );
+          if (!video.protected) {
+            discard(receipt.videoId);
+            receipt = undefined;
+          }
         }
         // A failed provider outcome is known, so the same file may start a fresh attempt.
         if (receipt?.phase === "failed") receipt = undefined;
@@ -549,7 +593,7 @@ export async function uploadVideo({
 }
 
 const usage =
-  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took; any other upload continues as usual";
+  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload] [--replace-public-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took; any other upload continues as usual\n       --replace-public-upload (local targets only) uploads again a file whose recording the target reports outside the protected project; any other upload continues as usual";
 
 if (
   process.argv[1] &&
@@ -564,6 +608,7 @@ if (
       title: { type: "string" },
       sha256: { type: "string" },
       "replace-test-upload": { type: "boolean", default: false },
+      "replace-public-upload": { type: "boolean", default: false },
       target: { type: "string", default: "editor" },
     },
   });
@@ -585,6 +630,7 @@ if (
     title: values.title,
     sha256: values.sha256,
     replaceTestUpload: values["replace-test-upload"],
+    replacePublicUpload: values["replace-public-upload"],
     origin: target.id,
     accessToken:
       target.kind === "trusted"
