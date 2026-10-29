@@ -27,6 +27,7 @@ export function cohortCall({
   productAccess,
   slug,
   continuationMaterialSlug = null,
+  freeStart = false,
 }: {
   readonly cohort: ProductSalesState | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
@@ -36,6 +37,11 @@ export function cohortCall({
   readonly signedIn: boolean;
   readonly slug: string;
   readonly continuationMaterialSlug?: string | null;
+  /**
+   * В курсе есть бесплатные уроки, и тот, кому он закрыт, видит на анимации «Попробовать
+   * бесплатно» в программу: вторая кнопка туда же первому экрану не нужна (#1647).
+   */
+  readonly freeStart?: boolean;
 }): CohortCall {
   const programme = productProgrammeHref(slug);
   const openProgramme = {
@@ -49,6 +55,7 @@ export function cohortCall({
       action: courseLearningAction(slug, continuationMaterialSlug),
     };
   if (cohort === null) return { banner: null, action: null };
+  const programmeAction = freeStart ? null : openProgramme;
 
   const payable = offer !== null;
 
@@ -56,7 +63,7 @@ export function cohortCall({
     case "announcement":
       return {
         banner: null,
-        action: openProgramme,
+        action: programmeAction,
       };
     case "preorder":
       // Первый экран только сообщает о наборе и ведёт к цене внизу страницы; предзаказ
@@ -87,6 +94,6 @@ export function cohortCall({
             },
             action: null,
           }
-        : { banner: null, action: openProgramme };
+        : { banner: null, action: programmeAction };
   }
 }

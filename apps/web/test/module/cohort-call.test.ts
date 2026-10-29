@@ -25,6 +25,7 @@ const call = (
     productAccess: ProductAccess;
     signedIn: boolean;
     continuationMaterialSlug: string | null;
+    freeStart: boolean;
   }> = {},
 ) =>
   cohortCall({
@@ -122,6 +123,30 @@ describe("first screen call of a product cohort", () => {
           ?.kind,
       ).toBe("programme");
     }
+  });
+});
+
+describe("first screen of a course with free lessons (#1647)", () => {
+  it("leaves the programme to the try-free call on the animation", () => {
+    // Анимация уже зовёт «Попробовать бесплатно» в программу: вторая кнопка туда же лишняя.
+    for (const current of [
+      { ...cohort, stage: "announcement" as const },
+      { ...cohort, stage: "running" as const },
+      { ...cohort, stage: "between" as const },
+    ])
+      expect(
+        call({ cohort: current, offer: null, freeStart: true }).action,
+      ).toBeNull();
+    expect(
+      call({ cohort: { ...cohort, stage: "announcement" }, freeStart: true })
+        .action,
+    ).toBeNull();
+  });
+
+  it("keeps the learner's own action", () => {
+    expect(call({ productAccess: "open", freeStart: true }).action?.label).toBe(
+      "Открыть программу",
+    );
   });
 });
 

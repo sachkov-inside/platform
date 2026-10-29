@@ -74,6 +74,7 @@ export async function PersonalCohortCall({
             productAccess: state.access,
             signedIn: state.signedIn,
             slug,
+            freeStart: state.access === "closed" && hasFreeLessons(result),
           })}
         />
       )}

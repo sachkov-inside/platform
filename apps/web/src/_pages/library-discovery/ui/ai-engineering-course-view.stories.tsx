@@ -601,6 +601,34 @@ export const FreeStartWaitlistMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+/** Анонс без продажи: на первом экране в программу ведёт только «Попробовать бесплатно» (#1647). */
+export const FreeStartAnnouncement: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: { ...preorderCohort, stage: "announcement" },
+          offer: null,
+          productAccess: "closed",
+          signedIn: false,
+          slug: "ai-engineering",
+          freeStart: true,
+        })}
+      />
+    ),
+    heroBadge: freeStartBadge("до старта 31 день"),
+  },
+  play: async ({ canvasElement }) => {
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    const links = within(hero).getAllByRole("link");
+    await expect(links.map((link) => link.textContent)).toEqual([
+      "Попробовать бесплатно",
+    ]);
+  },
+};
+
 /** Предзаказ открыт: в билете цена со скидкой, «Оформить предзаказ» и «Попробовать бесплатно». */
 export const FreeStartPreorder: Story = {
   parameters: { account: "authenticated" },
