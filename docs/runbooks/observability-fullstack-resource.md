@@ -458,15 +458,38 @@ CpusetCpus пустой; uncapped: все три числа0 и CpusetCpus пу�
 первого шага разрешает следующий профиль лишь при остатке не меньше 690 секунд.
 Не более пяти двухсекундных quota-проверок входят в исходный срок каждого worker.
 Завершение всей пары в этот срок не обещается. Незапущенный или незаконченный
-профиль оставляет сравнение incomplete. Recovery использует зарегистрированного
+профиль оставляет сравнение incomplete. Ошибка записи outcome не пропускает settlement
+и не заменяет исходную ошибку worker. Она остаётся отмеченной в schema2 outcome,
+делает задание красным и блокирует второй профиль. Settlement читает результат
+единственного cleanup supervisor, повторного native cleanup внутри пары нет.
+Recovery использует зарегистрированного
 владельца и leases, ему не нужен комментарий в актуальном описании PR.
 
 Артефакт `observability-cpu-control-<run_id>-<run_attempt>` содержит отдельный
-`fullstack-cpu-control.json` schema1, source/profile/plan/workload bindings,
-коды и cleanup каждого профиля, числовые quota-снимки и исходный oracle.
+`fullstack-cpu-control.json` schema2, source/profile/plan/workload bindings,
+коды и cleanup каждого профиля, числовые quota-снимки и исходный oracle. Schema1
+не является свидетельством новых полей. Проекция также содержит точные входы
+исходной оценки, p95 OFF/ON и число наблюдений по каждой из шести HTTP labels
+в каждой паре, разницу в процентах, значения и признаки исходных resource gates.
+Общая функция p95 и исходная оценка сохраняют прежние формулы и пороги.
+Для каждого из 12 фазовых окон сохраняются числовая длительность и дельты
+CPU/CFS четырёх счётчиков по 12 фиксированным ролям. Это границы фаз, а не
+доказательство причины задержки отдельного запроса. Неизвестное значение или
+сброс счётчика дают null и явный признак, а не нулевую дельту.
+
 Исходные verdicts сохраняются отдельно в `<profile>-verdict.json`.
 Всегда указаны diagnostic_only=true, capacity=false, minimum_candidate_gib=null.
-Даже успешная пара не заменяет primary acceptance. Обычный и stability collectors
+`measurement_complete=true` и `state=measurement_complete` означают полностью
+наблюдённые 12 фаз и 3200 успешных операций каждого профиля, отсутствие ошибок
+качества, потерь, OOM/ENOSPC, корректные источники, counters, HTTP-данные, cleanup
+и пять quota-снимков. Это отдельный признак полноты измерения. Полностью
+измеренный capped-корпус с проваленным p95, CPU или reserve может сравниваться
+с uncapped: исходный oracle=failed и ненулевой код первого worker сохраняются,
+задание остаётся красным. Исходный assessment.complete также сохраняется, включая
+прежний inode reserve; каждый reserve gate виден отдельно. Missing/невалидные
+данные не дают measurement_complete. Ошибка публикации оставляет всю пару
+incomplete даже при завершённом измерении. Даже полностью измеренная пара
+не заменяет primary acceptance. Обычный и stability collectors
 отвергают CPU evidence; отдельный collector отвергает смешение, replay и downgrade
 до создания public artifacts. Приватные запросы связывают исходники, workload,
 пять образов, output, план и отдельного supervisor/project владельца.

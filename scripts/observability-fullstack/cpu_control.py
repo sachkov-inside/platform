@@ -152,7 +152,7 @@ def expected_request(full,output,source):
               'plan_sha256':digest(plan),'roles':list(ROLES)}
     need(set(baseline['services'])==set(full.SERVICES))
     prepared=read(output/'fullstack-source.json',private=False)
-    need(prepared['source']==source and prepared['profile']==json.loads(full.PROFILE.read_text())
+    need(prepared['source']==source and digest(prepared['profile'])==digest(json.loads(full.PROFILE.read_text()))
          and {k:prepared['images'][k] for k in IMAGES}==value['images'])
     return expected,plan
 
@@ -332,18 +332,25 @@ def run_pair(full,root,images,metadata):
         value={'schema':1,'kind':KIND,'source':source['checkout_sha'],'root':str(root),'nonce':secrets.token_hex(16),
                'profiles':list(PROFILES),'images':selected,'workload_sha256':hashlib.sha256(full.PROFILE.read_bytes()).hexdigest()}
         write(root/PAIR,value,once=True)
-        result={'schema':1,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False]}
-        write(root/OUTCOME,result,once=True)
+        result={'schema':2,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False],'publication_failed':False}
         first_error=None
+        def remember(error):
+            nonlocal first_error
+            if first_error is None:first_error=error
+        def publish(*,once=False):
+            try:write(root/OUTCOME,result,once=once)
+            except BaseException as error:
+                result['publication_failed']=True;remember(error)
+        publish(once=True)
         for index,output in enumerate((capped,uncapped)):
-            if index and not result['cleanup'][0]:break
+            if result['publication_failed'] or index and not result['cleanup'][0]:break
             # Full per-profile worker+cleanup allowance must remain inside the same60min job.
             if not 0<=time.monotonic()-started<=3600-690:break
             try:
                 stage.require_consumer(str(output));full.hosted.metadata_source(metadata)
                 need(read(images)==pins)
             except BaseException as error:
-                if first_error is None:first_error=error
+                remember(error)
                 break
             try:
                 full.pilot.run(output,prepare_inputs=lambda path:full.inputs(path,images),worker_script=Path(__file__).resolve(),
@@ -353,19 +360,20 @@ def run_pair(full,root,images,metadata):
             except BaseException as error:
                 code=error.returncode if isinstance(error,subprocess.CalledProcessError) else 130 if isinstance(error,KeyboardInterrupt) else 1
                 result['exits'][index]=code if type(code) is int and -255<=code<=255 else 1
-                if first_error is None:first_error=error
+                remember(error)
             finally:
-                write(root/OUTCOME,result)
+                # Publication is never allowed to skip or mask mandatory settlement.
+                publish()
                 try:result['cleanup'][index]=settle_profile(full,stage,output,result['exits'][index])
-                except BaseException as error:
-                    if first_error is None:first_error=error
-                finally:write(root/OUTCOME,result)
+                except BaseException as error:remember(error)
+                finally:publish()
             if isinstance(first_error,(KeyboardInterrupt,SystemExit)):break
-        # A never-started retained consumer has no acquired project to recover.
-        if result['exits'][1] is None:
-            try:recover_profile(full,stage,uncapped)
-            except BaseException as error:
-                if first_error is None:first_error=error
+        # Never-started consumers have no acquired project to recover.
+        for index,output in enumerate((capped,uncapped)):
+            if result['exits'][index] is None:
+                try:recover_profile(full,stage,output)
+                except BaseException as error:remember(error)
+        if result['publication_failed']:publish()  # Persist failure state, never retry a profile/cleanup.
         if first_error is not None:raise first_error
         need(result['exits']==[0,0] and result['cleanup']==[True,True])
 
@@ -392,18 +400,164 @@ def verdict(value):
     return value
 
 
+LABELS=('web_home','web_material','api_catalog','api_account','telegram_webhook','logto_discovery')
+CFS=('cpu_total_ns','cpu_periods','cpu_throttled_periods','cpu_throttled_ns')
+PHASE_ERRORS={'process_replaced_or_oom','sampler_failed','fixture_loadgen_cpu_throttled','fixture_loadgen_cpu_unavailable','counter_missing'}
+
+
+def number(value,*,lower=0,upper=2**53-1,nullable=False):
+    need(nullable and value is None or type(value) in (int,float) and math.isfinite(value) and lower<=value<=upper)
+    return value
+
+
+def assessment(value):
+    fields={'complete','oom','enospc','unexplained_loss','query_max_seconds','ingestion_lag_seconds',
+            'http_p95_overhead_percent','additional_host_cpu_fraction','minimum_host_memory_free_fraction',
+            'minimum_host_disk_free_fraction','peak_host_used_bytes'}
+    need(type(value) is dict and set(value)==fields)
+    for key in ('complete','oom','enospc'):need(type(value[key]) is bool)
+    for key in fields-{'complete','oom','enospc'}:
+        number(value[key],lower=-100 if key=='http_p95_overhead_percent' else 0,
+               upper=1 if key.endswith('_fraction') else 2**53-1,nullable=True)
+    if value['unexplained_loss'] is not None:need(type(value['unexplained_loss']) is int)
+    if value['peak_host_used_bytes'] is not None:need(type(value['peak_host_used_bytes']) is int)
+    return value
+
+
+def cfs_phase(full,output,ordinal,summary):
+    raw=read(output/('fullstack-phase-'+str(ordinal)+'.json'),private=False)
+    need(type(raw) is dict and type(raw.get('pair')) is int and (raw.get('pair'),raw.get('mode'),raw.get('name'))==(summary['pair'],summary['mode'],summary['name']))
+    frames=raw.get('samples');need(type(frames) is list and 2<=len(frames)<=64 and all(type(frame) is dict for frame in frames))
+    need(type(raw.get('load')) is dict)
+    keys=('completed','scheduled','success','missed','unexpected_failures','unexplained_probe_loss','latency','query_seconds','ingestion_lag_seconds')
+    need(all(key in raw['load'] for key in keys) and digest({key:raw['load'][key] for key in keys})==digest({key:summary['load'][key] for key in keys}))
+    need(digest([frame.get('host') for frame in frames])==digest(summary['host_samples']) and raw.get('source_cache_samples')==summary['source_cache_samples']
+         and raw.get('loadgen_cpu_pressure')==summary['loadgen_cpu_pressure'])
+    counters=[];clean=True
+    for frame in frames:
+        need(type(frame) is dict and type(frame.get('counters')) is dict)
+        value=frame['counters'];services=value.get('services');errors=value.get('errors')
+        need(type(services) is dict and set(services)<=set(full.SERVICES) and type(errors) is dict and set(errors)<=set(full.SERVICES)
+             and all(type(error) is str and error in ('engine_read_failed','required_counter_unavailable') for error in errors.values()))
+        clean=clean and not errors
+        number(value.get('at_seconds'),nullable=True);counters.append(value)
+    need(type(raw.get('errors')) is list and summary['errors']==raw['errors']+(['counter_missing'] if not clean else []))
+    before,after=counters[0].get('at_seconds'),counters[-1].get('at_seconds')
+    duration=after-before if before is not None and after is not None and after>before else None
+    number(duration,upper=600,nullable=True);roles=[]
+    for index,role in enumerate(ROLES):
+        deltas={};reset=False
+        for key in CFS:
+            values=[]
+            for counter in counters:
+                service=counter['services'].get(role,{})
+                need(type(service) is dict)
+                value=service.get(key);need(value is None or type(value) is int and 0<=value<=2**53-1);values.append(value)
+            known=all(value is not None for value in values)
+            changed=known and any(b<a for a,b in zip(values,values[1:]))
+            reset=reset or changed
+            deltas[key]=values[-1]-values[0] if known and not changed else None
+        available=all(value is not None for value in deltas.values()) and duration is not None
+        roles.append({'role':index,'available':available,'counter_reset':reset,**deltas})
+    complete=clean and duration is not None and all(row['available'] for row in roles)
+    return {'ordinal':ordinal,'pair':summary['pair'],'mode':summary['mode'],'phase':summary['name'],
+            'duration_seconds':duration,'roles':roles},complete
+
+
+def measurement(full,output,proof):
+    need(type(proof) is dict and type(proof.get('schema')) is int and proof['schema']==1
+         and digest(proof.get('profile'))==digest(json.loads(full.PROFILE.read_text())) and proof.get('state') in ('running','measured','failed'))
+    phases=proof.get('phases');need(type(phases) is list and len(phases)<=12)
+    if len(phases)<12:return {'available':False}
+    profile=json.loads(full.PROFILE.read_text())
+    expected=[(pair,mode,definition) for pair,modes in enumerate(profile['pairs']) for mode in modes for definition in profile['phases']]
+    totals=dict.fromkeys(('scheduled','success','missed','unexpected_failures','unexplained_probe_loss'),0)
+    quality=True;http=True;source=True;counter_complete=True;phase_errors=0;cfs=[];inodes=[]
+    for ordinal,(row,(pair,mode,definition)) in enumerate(zip(phases,expected)):
+        need(type(row) is dict and type(row.get('pair')) is int and (row['pair'],row.get('mode'),row.get('name'))==(pair,mode,definition['name']))
+        load=row.get('load');need(type(load) is dict and type(load.get('completed')) is bool)
+        offered=definition['seconds']*definition['requests_per_second']
+        for key in totals:
+            value=load.get(key)
+            if key=='unexplained_probe_loss' and value is None:
+                totals[key]=None;quality=False
+            else:
+                need(type(value) is int and 0<=value<=3200)
+                if totals[key] is not None:totals[key]+=value
+        quality=quality and load['completed'] and load['scheduled']==load['success']==offered and load['missed']==load['unexpected_failures']==load['unexplained_probe_loss']==0
+        errors=row.get('errors');need(type(errors) is list and all(type(error) is str and error in PHASE_ERRORS for error in errors))
+        phase_errors+=len(errors);quality=quality and not errors
+        pressure=row.get('loadgen_cpu_pressure');need(type(pressure) is dict and pressure.get('state') in ('unthrottled','throttled','unavailable'))
+        quality=quality and pressure['state']=='unthrottled'
+        latencies=load.get('latency');need(type(latencies) is list and len(latencies)<=300)
+        counts=dict.fromkeys(LABELS,0)
+        for sample in latencies:
+            need(type(sample) is dict and set(sample)=={'label','elapsed_ms'} and type(sample['label']) is str and sample['label'] in LABELS)
+            number(sample['elapsed_ms'],upper=600_000);counts[sample['label']]+=1
+        http=http and all(count==offered//8 for count in counts.values())
+        queries=load.get('query_seconds');need(type(queries) is list and len(queries)<=400)
+        for value in queries:number(value,upper=600)
+        number(load.get('ingestion_lag_seconds'),upper=600,nullable=True)
+        sources=row.get('source_cache_samples');need(type(sources) is list and len(sources)<=64)
+        for sample in sources:
+            need(type(sample) is dict and set(sample)=={'postgresql','caddy'} and all(type(v) is str and v in ('observed','unavailable') for v in sample.values()))
+        source=source and (mode=='off' or load['completed'] and bool(queries) and len(sources)>={'idle':2,'steady':8,'spike':2}[definition['name']] and all(sample=={'postgresql':'observed','caddy':'observed'} for sample in sources))
+        quality=quality and (mode=='off' or definition['name']=='idle' or load['ingestion_lag_seconds'] is not None)
+        storage=row.get('storage_samples');need(type(storage) is list and len(storage)<=2);quality=quality and len(storage)==2
+        hosts=row.get('host_samples');need(type(hosts) is list and 2<=len(hosts)<=64)
+        for host in hosts:
+            need(type(host) is dict)
+            for key in ('total_inodes','free_inodes','cpu_total','cpu_busy','used_bytes','device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes'):
+                value=host.get(key);need(value is None or type(value) is int and 0<=value<=2**53-1)
+                quality=quality and value is not None
+            for key in ('memory_free_fraction','disk_free_fraction'):number(host.get(key),upper=1,nullable=True)
+            quality=quality and all(host.get(key) is not None for key in ('memory_free_fraction','disk_free_fraction'))
+            total,free=host.get('total_inodes'),host.get('free_inodes')
+            if total is not None and free is not None:
+                need(free<=total);inodes.append(free/total if total>0 else None)
+            else:inodes.append(None)
+        for key in ('cpu_total','cpu_busy','device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes'):
+            values=[host.get(key) for host in hosts]
+            quality=quality and all(v is not None for v in values) and all(b>=a for a,b in zip(values,values[1:]))
+        quality=quality and hosts[-1]['cpu_total']>hosts[0]['cpu_total']
+        projected,known=cfs_phase(full,output,ordinal,row);cfs.append(projected)
+        counter_complete=counter_complete and known and projected['duration_seconds']>=definition['seconds']
+    need(type(proof.get('source_cache_workload')) is bool and proof['source_cache_workload']==source)
+    inputs=assessment(full.assessment_inputs(proof))
+    quality=bool(quality and http and source and counter_complete and totals['scheduled']==totals['success']==3200
+                 and not inputs['oom'] and not inputs['enospc'] and inputs['unexplained_loss']==0
+                 and all(value is not None for value in inputs.values())
+                 and proof.get('controlled_outage')=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0})
+    pairs=[]
+    for pair in (0,1):
+        for label in LABELS:
+            before=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='off' for sample in row['load']['latency'] if sample['label']==label]
+            after=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='on' for sample in row['load']['latency'] if sample['label']==label]
+            pairs.append({'pair':pair,'label':label,**full.p95_pair(before,after)})
+    gates={key:{'observed':inputs[key],'passed':None if inputs[key] is None else inputs[key]>=limit if lower else inputs[key]<=limit}
+           for key,(limit,lower) in full.acceptance.LIMITS.items()}
+    # Original complete includes inode reserve. With all other quality facts known,
+    # its exact value exposes that original condition without a second gate formula.
+    gates['host_inode_reserve']={'minimum_free_fraction':min(inodes) if inodes and all(v is not None for v in inodes) else None,
+                                 'passed':inputs['complete'] if quality else None}
+    return {'available':True,'assessment_inputs':inputs,'p95_pairs':pairs,'cfs_phases':cfs,'resource_gates':gates,
+            'quality':{'complete':quality,**totals,'http_complete':bool(http),'source_complete':bool(source),
+                       'counter_complete':bool(counter_complete),'phase_errors':phase_errors}}
+
+
 def collect(full,root,metadata,destination):
     source,disk=full.hosted.metadata_source(metadata);sha=source['checkout_sha']
     root=directory(root);value=pair(full,root,sha);outcome=read(root/OUTCOME)
-    need(type(outcome) is dict and set(outcome)=={'schema','source','pair','exits','cleanup'}
-         and type(outcome['schema']) is int and outcome['schema']==1 and outcome['source']==sha and outcome['pair']==digest(value)
+    need(type(outcome) is dict and set(outcome)=={'schema','source','pair','exits','cleanup','publication_failed'}
+         and type(outcome['schema']) is int and outcome['schema']==2 and outcome['source']==sha
+         and type(outcome['publication_failed']) is bool and outcome['pair']==digest(value)
          and type(outcome['exits']) is list and len(outcome['exits'])==2 and all(v is None or type(v) is int and -255<=v<=255 for v in outcome['exits'])
          and type(outcome['cleanup']) is list and len(outcome['cleanup'])==2 and all(type(v) is bool for v in outcome['cleanup']))
     rows=[];verdicts={}
     for index,profile in enumerate(PROFILES):
         output=root/profile
         row={'profile':profile,'run_exit':outcome['exits'][index],'cleanup':outcome['cleanup'][index],'state':'not_run',
-             'plan_sha256':None,'baseline_sha256':None,'snapshots':[],'original_oracle':{'state':'incomplete','minimum_candidate_gib':None}}
+             'plan_sha256':None,'baseline_sha256':None,'snapshots':[],'measurement':{'available':False},'original_oracle':{'state':'incomplete','minimum_candidate_gib':None}}
         if present(output):
             marker,_=request(full,output,sha);row.update(plan_sha256=marker['plan_sha256'],baseline_sha256=marker['baseline_sha256'],state='incomplete')
             if row['run_exit'] is not None:
@@ -414,20 +568,23 @@ def collect(full,root,metadata,destination):
                 need(not row['cleanup'] or cleanup_passed(actual_cleanup))
                 proof=read(output/'fullstack-proof.json',private=False)
                 original=verdict(proof.get('measured_linux_acceptance',{'state':'incomplete','minimum_candidate_gib':None}))
-                if original['state']!='incomplete':
-                    phases=proof.get('phases');need(type(phases) is list and len(phases)==12)
-                    expected=[(pair,mode,definition['name']) for pair,modes in enumerate(json.loads(full.PROFILE.read_text())['pairs']) for mode in modes for definition in json.loads(full.PROFILE.read_text())['phases']]
-                    need([(r['pair'],r['mode'],r['name']) for r in phases]==expected and full.evaluate(proof)==original)
+                measured=measurement(full,output,proof);row['measurement']=measured
+                if measured['available']:need(full.acceptance.assess(measured['assessment_inputs'])==original)
+                else:need(original['state']=='incomplete')
                 row['original_oracle']=original;verdicts[profile+'-verdict.json']=original
                 worker=read(output/'worker-outcome.json',private=False) if present(output/'worker-outcome.json') else {}
                 need(row['run_exit'] is None or worker.get('exit_code')==row['run_exit'])
-                if row['run_exit']==0 and row['cleanup'] and original['state']=='passed' and proof.get('state')=='measured' and len(proof.get('phases',[]))==12 and [s['ordinal'] for s in quotas['snapshots']]==list(range(5)):
-                    row['state']='complete'
+                runtime_complete=(row['run_exit']==0 and original['state']=='passed' and proof.get('state')=='measured'
+                                  or row['run_exit']==1 and original['state']=='failed' and proof.get('state')=='failed')
+                if runtime_complete and row['cleanup'] and measured['available'] and measured['quality']['complete'] and [s['ordinal'] for s in quotas['snapshots']]==list(range(5)):
+                    row['state']='measurement_complete'
         else:need(row['run_exit'] is None and not row['cleanup'])
         rows.append(row)
     # Baselines use fresh output paths; their hashes need not equal one another.
-    result={'schema':1,'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
-            **ACCEPTANCE,'state':'complete' if all(row['state']=='complete' for row in rows) else 'incomplete','profiles':rows,
+    result={'schema':2,'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
+            **ACCEPTANCE,'state':'measurement_complete' if not outcome['publication_failed'] and all(row['state']=='measurement_complete' for row in rows) else 'incomplete','profiles':rows,
+            'measurement_complete':not outcome['publication_failed'] and all(row['state']=='measurement_complete' for row in rows),
+            'publication_failed':outcome['publication_failed'],
             'fixed_order':list(PROFILES),'host_and_order_confounded':True}
     # All private reads/validation precede creation; publish canonical snapshots only.
     destination=Path(destination);need(destination.absolute()==destination.resolve() and not present(destination))

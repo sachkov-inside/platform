@@ -711,15 +711,20 @@ def worker(output,*,cpu=False):
                 if not failed:raise
 
 
-def evaluate(report):
+def p95_pair(before,after):
+    a,b=measurements.percentile(before,.95),measurements.percentile(after,.95)
+    return {'off_count':len(before),'on_count':len(after),'off_p95_ms':a,'on_p95_ms':b,
+            'overhead_percent':(b/a-1)*100 if a and b and len(before)==len(after) else None}
+
+
+def assessment_inputs(report):
     phases=report['phases'];loads=[row['load'] for row in phases]
     pairs=[]
     for pair in (0,1):
         for label in ('web_home','web_material','api_catalog','api_account','telegram_webhook','logto_discovery'):
             before=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='off' for sample in row['load']['latency'] if sample['label']==label]
             after=[sample['elapsed_ms'] for row in phases if row['pair']==pair and row['mode']=='on' for sample in row['load']['latency'] if sample['label']==label]
-            a,b=measurements.percentile(before,.95),measurements.percentile(after,.95)
-            pairs.append((b/a-1)*100 if a and b and len(before)==len(after) else None)
+            pairs.append(p95_pair(before,after)['overhead_percent'])
     def cpu(mode):
         values=[]
         for row in phases:
@@ -730,7 +735,7 @@ def evaluate(report):
         return sum(values)/len(values) if values else None
     off,on=cpu('off'),cpu('on')
     hosts=[sample for row in phases for sample in row['host_samples']]
-    return acceptance.assess({'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(row.get('loadgen_cpu_pressure',{}).get('state')=='unthrottled' for row in phases) and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
+    return {'complete':report.get('source_cache_workload') is True and len(phases)==12 and all(row.get('loadgen_cpu_pressure',{}).get('state')=='unthrottled' for row in phases) and all(len(row.get('storage_samples',[]))==2 for row in phases) and all(row['total_inodes']>0 and row['free_inodes']/row['total_inodes']>=.25 for row in hosts) and all(type(sample.get(key)) is int for sample in hosts for key in ('device_io_reads','device_io_writes','device_io_read_bytes','device_io_written_bytes')) and all(not row['errors'] and row['load']['completed'] for row in phases) and all(row['load']['unexplained_probe_loss']==0 and (row['name']=='idle' or row['mode']=='off' or row['load']['ingestion_lag_seconds'] is not None) for row in phases) and report['controlled_outage']=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0},
         'oom':any('process_replaced_or_oom' in row['errors'] for row in phases),
         'enospc':any(row['disk_free_fraction']==0 or row['free_inodes']==0 for row in hosts),
         'unexplained_loss':sum(row['unexpected_failures']+(row['unexplained_probe_loss'] or 0) for row in loads),
@@ -740,7 +745,11 @@ def evaluate(report):
         'additional_host_cpu_fraction':max(0,on-off) if on is not None and off is not None else None,
         'minimum_host_memory_free_fraction':min((row['memory_free_fraction'] for row in hosts),default=None),
         'minimum_host_disk_free_fraction':min((row['disk_free_fraction'] for row in hosts),default=None),
-        'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)})
+        'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)}
+
+
+def evaluate(report):
+    return acceptance.assess(assessment_inputs(report))
 
 
 def collect(output, metadata, destination):

@@ -37,13 +37,24 @@ def private(path,value):
     path.write_text(json.dumps(value));path.chmod(0o600)
 
 
+def broker_tls_plan_fixture(output,args,options):
+    """No crypto claim: TLS issuance is outside the CPU-plan assertion seam."""
+    target=output/'runtime/rabbitmq/tls'
+    expected=['bash',str(fullstack.ROOT/'infra/production/broker/issue-broker-tls.sh'),str(target),'2','2']
+    if args!=expected or options!={'timeout':15} or type(options.get('timeout')) is not int:raise AssertionError('unexpected broker TLS plan request')
+    target.mkdir(mode=0o700)
+    for name in ('ca.pem','ca-key.pem','server.pem','server-key.pem'):
+        path=target/name;path.write_text('CPU-control plan fixture only: '+name+'\n');path.chmod(0o600)
+    return ''
+
+
 def assemble(root,profile,*,control=True):
-    """Real inputs including configuration/certificates; only external image IDs are adapted."""
+    """Real plan/configuration with fixed image-ID and broker-TLS ports; no broker crypto proof."""
     images=root/'images.json';private(images,pins())
     if control:private(root/'cpu-control-pair.json',request(root))
     def command(args,**kwargs):
         if args[0]=='git':return SOURCE
-        if args[0]=='bash':return subprocess.run(args,capture_output=True,text=True,check=True,timeout=15).stdout
+        if args[0]=='bash':return broker_tls_plan_fixture(root/profile,args,kwargs)
         for role,suffix in [('backend','-backend:v1'),('foundation','-foundation:local'),('web','-web:v1'),('telegram','-telegram:v1'),('logto','-logto:v1')]:
             if any(arg.endswith(suffix) for arg in args):return pins()[role]
         raise AssertionError('unexpected native boundary')
@@ -218,9 +229,11 @@ class CpuControl(unittest.TestCase):
                     phases.append({'pair':pair,'mode':mode,'name':name,'errors':[],
                         'loadgen_cpu_pressure':{'state':'unthrottled'},'storage_samples':[{},{}],
                         'host_samples':[host,{**host,'cpu_total':100,'cpu_busy':20}],
-                        'load':{'completed':True,'latency':[{'label':label,'elapsed_ms':1} for label in labels],
-                                'unexpected_failures':0,'unexplained_probe_loss':0,'query_seconds':[1],'ingestion_lag_seconds':2 if mode=='on' else None}})
-        result={'state':'measured','source_cache_workload':True,'phases':phases,
+                        'load':{'completed':True,'scheduled':0 if name=='idle' else 400,'success':0 if name=='idle' else 400,'missed':0,
+                                'latency':[] if name=='idle' else [{'label':label,'elapsed_ms':1} for label in labels for _ in range(50)],
+                                'unexpected_failures':0,'unexplained_probe_loss':0,'query_seconds':[1],'ingestion_lag_seconds':2 if mode=='on' else None},
+                        'source_cache_samples':[{'postgresql':'observed','caddy':'observed'}]*{'idle':2,'steady':8,'spike':2}[name] if mode=='on' else []})
+        result={'schema':1,'profile':json.loads(fullstack.PROFILE.read_text()),'state':'measured','source_cache_workload':True,'phases':phases,
                 'controlled_outage':{'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0}}
         result['measured_linux_acceptance']=fullstack.evaluate(result)
         self.assertEqual(result['measured_linux_acceptance']['state'],'passed')
@@ -234,10 +247,18 @@ class CpuControl(unittest.TestCase):
             with patch.object(fullstack,'invoke',side_effect=native):
                 for ordinal,enabled in enumerate((False,True,True,False,False)):
                     fullstack.mode(output,enabled);cpu.capture(fullstack,output,[],SOURCE,ordinal,enabled)
-            private(output/'fullstack-proof.json',self.proof())
+            proof=self.proof();private(output/'fullstack-proof.json',proof)
+            for ordinal,phase in enumerate(proof['phases']):
+                frames=[]
+                seconds=40 if phase['name']=='steady' else 10
+                for index in (0,1):
+                    values={role:{'cpu_total_ns':index*1_000_000_000,'cpu_periods':index*100,'cpu_throttled_periods':index*2,'cpu_throttled_ns':index*50_000_000} for role in ROLES}
+                    frames.append({'counters':{'at_seconds':100+index*seconds,'services':values,'errors':{}},'host':phase['host_samples'][index],
+                                   'counter_clock_anchor':[100000+index*seconds*1000,1800000000000+index*seconds*1000,100001+index*seconds*1000]})
+                private(output/('fullstack-phase-'+str(ordinal)+'.json'),{**phase,'samples':frames})
             self.worker_receipt(output,owner,0,True)
         value=cpu.pair(fullstack,root,SOURCE)
-        private(root/cpu.OUTCOME,{'schema':1,'source':SOURCE,'pair':cpu.digest(value),'exits':[0,0],'cleanup':[True,True]})
+        private(root/cpu.OUTCOME,{'schema':2,'source':SOURCE,'pair':cpu.digest(value),'exits':[0,0],'cleanup':[True,True],'publication_failed':False})
 
     def test_actual_collector_emits_only_bound_numerical_control_and_preserves_raw_oracles(self):
         import cpu_control as cpu
@@ -245,7 +266,7 @@ class CpuControl(unittest.TestCase):
             base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700);self.completed(root)
             with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
                 result=cpu.collect(fullstack,root,base/'metadata',base/'public')
-            self.assertEqual(result['state'],'complete');self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib']);self.assertTrue(result['diagnostic_only'])
+            self.assertEqual(result['state'],'measurement_complete');self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib']);self.assertTrue(result['diagnostic_only'])
             self.assertEqual([r['profile'] for r in result['profiles']],list(PROFILES))
             self.assertTrue(all(r['original_oracle']['state']=='passed' for r in result['profiles']))
             self.assertEqual(json.loads((base/'public'/(PROFILES[0]+'-verdict.json')).read_text()),self.proof()['measured_linux_acceptance'])
@@ -257,7 +278,7 @@ class CpuControl(unittest.TestCase):
             with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
                 result=cpu.collect(fullstack,root,base/'metadata',base/'failed')
             self.assertEqual(result['state'],'incomplete');self.assertEqual(result['profiles'][0]['run_exit'],17)
-            self.assertEqual(result['profiles'][1]['state'],'complete')
+            self.assertEqual(result['profiles'][1]['state'],'measurement_complete')
 
     def test_collector_refuses_replay_forgery_downgrade_limits_owner_and_partial_cleanup_before_publication(self):
         import cpu_control as cpu
@@ -401,3 +422,158 @@ class CpuControl(unittest.TestCase):
         private(output/'worker.json',{'pid':os.getpid(),'group':os.getpid(),'supervisor_pid':owner['supervisor_pid'],'deadline_seconds':600})
         private(output/'worker-outcome.json',{'exit_code':code,'duration_seconds':1,'monitor_failed':False,'cleanup':cleanup})
         private(output/'cleanup.json',cleanup)
+
+    def test_pair_outcome_write_failure_always_settles_preserves_primary_and_blocks_second(self):
+        import cpu_control as cpu
+        for code,position in ((17,'before'),(17,'after'),(0,'before'),(0,'after')):
+            with self.subTest(code=code,position=position),tempfile.TemporaryDirectory() as directory:
+                base=Path(directory).resolve();root=base/'pair';images=base/'images.json';private(images,pins())
+                stage=fullstack.preparation.begin(images,SOURCE,pins()['owner'],{'fixture':True},str(root/PROFILES[0]),docker=lambda _: '',identify=lambda:{'fixture':True},web=True,applications=True)
+                primary=subprocess.CalledProcessError(17,'actual-first-worker');publication=OSError('owned outcome publication failed')
+                acquired=[];settled=[];injected=False;real_write=cpu.write;real_settle=cpu.settle_profile
+                def run(output,**options):
+                    acquired.append(output.name);_,_,owner=self.bound(root,output.name,control=False)
+                    self.worker_receipt(output,owner,code,True)
+                    if code:raise primary
+                def settle(*args,**options):
+                    result=real_settle(*args,**options);settled.append(args[2].name);return result
+                def write(path,value,**options):
+                    nonlocal injected
+                    if Path(path).name==cpu.OUTCOME and not options.get('once') and not injected and bool(settled)==(position=='after'):
+                        injected=True;raise publication
+                    return real_write(path,value,**options)
+                with patch.object(cpu,'admission',return_value=__import__('time').monotonic()),patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})),patch.object(fullstack.preparation,'recover_stage',return_value=stage),patch.object(fullstack.pilot,'run',side_effect=run),patch.object(cpu,'settle_profile',side_effect=settle),patch.object(cpu,'write',side_effect=write),patch.object(fullstack.resource_runtime.ci,'recover',side_effect=AssertionError('native cleanup retry')):
+                    traceback_codes=[]
+                    def invoke_pair():
+                        try:cpu.run_pair(fullstack,root,images,base/'metadata')
+                        except BaseException as error:
+                            current=error.__traceback__
+                            while current is not None:
+                                traceback_codes.append(current.tb_frame.f_code);current=current.tb_next
+                            raise
+                    with self.assertRaises(BaseException) as caught:invoke_pair()
+                self.assertIn(run.__code__ if code else write.__code__,traceback_codes)
+                self.assertTrue(injected);self.assertIs(caught.exception,primary if code else publication)
+                self.assertEqual(settled,[PROFILES[0]]);self.assertEqual(acquired,[PROFILES[0]])
+                result=cpu.read(root/cpu.OUTCOME);self.assertEqual(result['exits'],[code,None]);self.assertTrue(result['publication_failed'])
+                self.assertEqual(stage._pending(),[])
+
+    def test_numeric_failed_capped_corpus_remains_a_measured_comparison_with_raw_failure(self):
+        import cpu_control as cpu
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700);self.completed(root)
+            output=root/PROFILES[0];proof=cpu.read(output/'fullstack-proof.json')
+            for phase in proof['phases']:
+                if phase['mode']=='on':
+                    for latency in phase['load']['latency']:latency['elapsed_ms']=2
+            proof['measured_linux_acceptance']=fullstack.evaluate(proof);proof['state']='failed'
+            self.assertEqual(proof['measured_linux_acceptance']['state'],'failed')
+            private(output/'fullstack-proof.json',proof)
+            for ordinal,phase in enumerate(proof['phases']):
+                path=output/('fullstack-phase-'+str(ordinal)+'.json');raw=cpu.read(path);raw['load']=phase['load'];private(path,raw)
+            self.worker_receipt(output,cpu.read(output/'owner.json'),1,True)
+            outcome=cpu.read(root/cpu.OUTCOME);outcome['exits'][0]=1;private(root/cpu.OUTCOME,outcome)
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
+                result=cpu.collect(fullstack,root,base/'metadata',base/'numeric-failure')
+            self.assertEqual(result['state'],'measurement_complete');self.assertTrue(result['measurement_complete'])
+            self.assertEqual(result['profiles'][0]['run_exit'],1);self.assertEqual(result['profiles'][0]['original_oracle']['state'],'failed')
+            self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib'])
+            measured=result['profiles'][0]['measurement'];self.assertTrue(measured['quality']['complete'])
+            self.assertEqual(measured['assessment_inputs']['http_p95_overhead_percent'],100)
+            self.assertEqual(measured['quality']['success'],3200)
+            self.assertEqual(len(measured['p95_pairs']),12)
+            for pair in measured['p95_pairs']:
+                self.assertEqual((pair['off_count'],pair['on_count'],pair['off_p95_ms'],pair['on_p95_ms'],pair['overhead_percent']),(100,100,1,2,100))
+            self.assertEqual(measured['cfs_phases'][0]['roles'][0]['cpu_throttled_ns'],50_000_000)
+
+    def test_measured_resource_failures_preserve_each_original_gate_without_quality_promotion(self):
+        import cpu_control as cpu
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700);self.completed(root);output=root/PROFILES[0]
+            original=cpu.read(output/'fullstack-proof.json');raws=[cpu.read(output/('fullstack-phase-'+str(i)+'.json')) for i in range(12)]
+            for kind,gate in (('cpu','additional_host_cpu_fraction'),('memory','minimum_host_memory_free_fraction'),('disk','minimum_host_disk_free_fraction'),('inodes','host_inode_reserve')):
+                proof=copy.deepcopy(original)
+                for phase in proof['phases']:
+                    if kind=='cpu' and phase['mode']=='on':phase['host_samples'][-1]['cpu_busy']=40
+                    for host in phase['host_samples']:
+                        if kind=='memory':host['memory_free_fraction']=.2
+                        if kind=='disk':host['disk_free_fraction']=.2
+                        if kind=='inodes':host['free_inodes']=20
+                proof['measured_linux_acceptance']=fullstack.evaluate(proof);proof['state']='failed';private(output/'fullstack-proof.json',proof)
+                self.assertEqual(proof['measured_linux_acceptance']['state'],'failed')
+                for i,phase in enumerate(proof['phases']):
+                    raw=copy.deepcopy(raws[i])
+                    for frame,host in zip(raw['samples'],phase['host_samples']):frame['host']=host
+                    private(output/('fullstack-phase-'+str(i)+'.json'),raw)
+                self.worker_receipt(output,cpu.read(output/'owner.json'),1,True)
+                outcome=cpu.read(root/cpu.OUTCOME);outcome['exits'][0]=1;private(root/cpu.OUTCOME,outcome)
+                with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
+                    result=cpu.collect(fullstack,root,base/'metadata',base/kind)
+                self.assertTrue(result['measurement_complete']);measured=result['profiles'][0]['measurement']
+                self.assertFalse(measured['resource_gates'][gate]['passed']);self.assertTrue(measured['quality']['complete'])
+                if kind=='inodes':self.assertFalse(measured['assessment_inputs']['complete'])
+                self.assertEqual(result['profiles'][0]['original_oracle']['state'],'failed');self.assertEqual(result['profiles'][0]['run_exit'],1)
+                self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib'])
+
+    def test_numeric_projection_rejects_private_malformed_values_and_keeps_unknown_counters_unknown(self):
+        import cpu_control as cpu
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700);self.completed(root);output=root/PROFILES[0]
+            good=cpu.read(output/'fullstack-proof.json');path=output/'fullstack-phase-0.json';raw=cpu.read(path)
+            bads=[]
+            for value in (True,float('nan'),float('inf'),-1,'private-latency'):
+                bad=copy.deepcopy(good);bad['phases'][1]['load']['latency'][0]['elapsed_ms']=value;bads.append(bad)
+            for field,value in [('label','private-label'),('extra','private-sentinel')]:
+                bad=copy.deepcopy(good);bad['phases'][1]['load']['latency'][0][field]=value;bads.append(bad)
+            bad=copy.deepcopy(good);bad['profile']['schema']=True;bads.append(bad)
+            bad=copy.deepcopy(good);bad['profile']['materials']=512.0;bads.append(bad)
+            for field,value in [('schema',True),('schema',0),('state','private-state'),('source_cache_workload','private-source')]:
+                bad=copy.deepcopy(good);bad[field]=value;bads.append(bad)
+            for index,bad in enumerate(bads):
+                private(output/'fullstack-proof.json',bad);destination=base/('invalid-'+str(index))
+                with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})),self.assertRaises((ValueError,TypeError)):
+                    cpu.collect(fullstack,root,base/'metadata',destination)
+                self.assertFalse(destination.exists())
+            private(output/'fullstack-proof.json',good)
+            bad=copy.deepcopy(raw)
+            for sample in bad['samples']:sample['counters']['services']['api']['cpu_periods']=None
+            private(path,bad)
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
+                result=cpu.collect(fullstack,root,base/'metadata',base/'unknown-counter')
+            self.assertFalse(result['measurement_complete']);role=result['profiles'][0]['measurement']['cfs_phases'][0]['roles'][0]
+            self.assertFalse(role['available']);self.assertIsNone(role['cpu_periods'])
+            self.assertFalse(result['profiles'][0]['measurement']['quality']['counter_complete'])
+            # A counter reset is explicit unknown, never a zero delta or a good measurement.
+            bad=copy.deepcopy(raw);bad['samples'][0]['counters']['services']['api']['cpu_periods']=200;private(path,bad)
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
+                result=cpu.collect(fullstack,root,base/'metadata',base/'counter-reset')
+            role=result['profiles'][0]['measurement']['cfs_phases'][0]['roles'][0]
+            self.assertFalse(result['measurement_complete']);self.assertTrue(role['counter_reset']);self.assertIsNone(role['cpu_periods'])
+
+    def test_quality_loss_oom_enospc_unavailable_source_or_counter_cannot_form_measured_comparison(self):
+        import cpu_control as cpu
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700);self.completed(root);output=root/PROFILES[0]
+            good=cpu.read(output/'fullstack-proof.json');raws=[cpu.read(output/('fullstack-phase-'+str(i)+'.json')) for i in range(12)]
+            for kind in ('oom','enospc','source','http_loss','unknown_loss'):
+                proof=copy.deepcopy(good);phase=proof['phases'][4]
+                if kind=='oom':phase['errors']=['process_replaced_or_oom']
+                if kind=='enospc':phase['host_samples'][0]['disk_free_fraction']=0
+                if kind=='source':
+                    phase['source_cache_samples'][0]['postgresql']='unavailable';proof['source_cache_workload']=False
+                if kind=='http_loss':
+                    phase['load'].update(completed=False,success=399,missed=1);phase['load']['latency'].pop();proof['source_cache_workload']=False
+                if kind=='unknown_loss':phase['load']['unexplained_probe_loss']=None
+                proof['measured_linux_acceptance']=fullstack.evaluate(proof);proof['state']='failed';private(output/'fullstack-proof.json',proof)
+                for ordinal,summary in enumerate(proof['phases']):
+                    raw=copy.deepcopy(raws[ordinal]);raw.update(load=summary['load'],errors=summary['errors'],source_cache_samples=summary['source_cache_samples'])
+                    for frame,host in zip(raw['samples'],summary['host_samples']):frame['host']=host
+                    private(output/('fullstack-phase-'+str(ordinal)+'.json'),raw)
+                self.worker_receipt(output,cpu.read(output/'owner.json'),1,True)
+                outcome=cpu.read(root/cpu.OUTCOME);outcome['exits'][0]=1;private(root/cpu.OUTCOME,outcome)
+                with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{'ready':True})):
+                    result=cpu.collect(fullstack,root,base/'metadata',base/kind)
+                self.assertFalse(result['measurement_complete']);self.assertEqual(result['state'],'incomplete')
+                self.assertFalse(result['profiles'][0]['measurement']['quality']['complete'])
+                if kind=='unknown_loss':self.assertIsNone(result['profiles'][0]['measurement']['quality']['unexplained_probe_loss'])
+                self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib'])
