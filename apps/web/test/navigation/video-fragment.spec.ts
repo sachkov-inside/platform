@@ -12,20 +12,6 @@ declare global {
   }
 }
 
-test("the Reader HTML starts the provider script before hydration", async ({
-  request,
-}) => {
-  const html = await (
-    await request.get("/materials/navigation-video-fragment")
-  ).text();
-  expect(html).toMatch(
-    /<link rel="preload" href="https:\/\/player\.kinescope\.io\/latest\/iframe\.player\.js" as="script"/u,
-  );
-  expect(html).toMatch(
-    /<link rel="preconnect" href="https:\/\/kinescope\.io"/u,
-  );
-});
-
 test("a Reader refresh keeps the player and cannot erase a native video fragment", async ({
   page,
 }, testInfo) => {
@@ -382,3 +368,80 @@ for (const failed of [false, true]) {
     },
   );
 }
+
+test("a provider script failure offers a retry that requests the script anew", async ({
+  page,
+}) => {
+  await page.route("**/api/reading-progress/open", (route) =>
+    route.fulfill({
+      json: {
+        kind: "saved",
+        openedAt: "2030-01-01T00:00:00.000Z",
+        replayed: false,
+      },
+    }),
+  );
+  await page.route("**/api/material-video-playback-sessions", (route) =>
+    route.fulfill({
+      json: {
+        drmAuthToken: null,
+        embedLocator: "https://kinescope.io/embed/fragment-video",
+        progressScope: "anonymous",
+        resumeSeconds: null,
+        videoId: "44444444-4444-4444-8444-444444444444",
+      },
+    }),
+  );
+  await page.route("https://kinescope.io/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<title>Test video</title>",
+    }),
+  );
+  const scriptRequests: string[] = [];
+  let available = false;
+  // The real loader runs; only the provider's script response is replaced.
+  await page.route("https://player.kinescope.io/**", (route) => {
+    scriptRequests.push(route.request().url());
+    if (!available) return route.abort("connectionfailed");
+    return route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        window.Kinescope = { IframePlayer: { version: "1.0.0", create: (mount, options) => {
+          const iframe = document.createElement("iframe");
+          iframe.src = options.url;
+          mount.append(iframe);
+          return Promise.resolve({
+            Events: { Loaded: "loaded", DurationChange: "duration", Error: "error",
+              TimeUpdate: "time", Pause: "pause", Ended: "ended" },
+            destroy: () => { iframe.remove(); return Promise.resolve(); },
+            getDuration: () => Promise.resolve(600),
+            on: () => undefined,
+            off: () => undefined,
+            seekTo: () => Promise.resolve(),
+          });
+        } } };
+        window.KinescopeIframeApiReadyHandlers = {
+          push: (handler) => handler(window.Kinescope.IframePlayer),
+        };
+      `,
+    });
+  });
+  await page.goto("/materials/navigation-video-fragment");
+  const retry = page.getByRole("button", { name: "Повторить", exact: true });
+  await expect(retry).toBeVisible();
+  expect(scriptRequests).toEqual([
+    "https://player.kinescope.io/latest/iframe.player.js",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=2",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=3",
+  ]);
+  available = true;
+  await retry.click();
+  await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+  await expect(
+    page.getByText("Загружаем видео…", { exact: true }),
+  ).not.toBeVisible();
+  expect(scriptRequests.at(-1)).toBe(
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=4",
+  );
+});

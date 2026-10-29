@@ -16,16 +16,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { preconnect, preload } from "react-dom";
 import { z } from "zod";
 
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
-import {
-  kinescopeIframeApiUrl,
-  loadKinescopeIframePlayer,
-} from "../api/kinescope-iframe-api.browser";
+import { loadKinescopeIframePlayer } from "../api/kinescope-iframe-api.browser";
 import {
   createMaterialVideoPlaybackSession,
   saveMaterialVideoProgress,
@@ -111,12 +107,6 @@ export function MaterialPrimaryVideo({
     );
   });
 
-  if (video.state === "ready") {
-    // The HTML starts the provider connection and script; the session no longer gates them.
-    preconnect("https://kinescope.io");
-    preload(kinescopeIframeApiUrl, { as: "script" });
-  }
-
   useEffect(() => {
     if (video.state !== "ready") return;
     let active = true;
@@ -140,9 +130,6 @@ export function MaterialPrimaryVideo({
       window.removeEventListener("hashchange", captureFragment);
     };
     const loadPlayer = async () => {
-      const playerFactory = loadKinescopeIframePlayer();
-      // A failed session is reported first; the parallel script load stays silent.
-      playerFactory.catch(() => undefined);
       try {
         const session = await createPlaybackSession({
           materialId,
@@ -183,7 +170,8 @@ export function MaterialPrimaryVideo({
             );
           }
         }
-        const factory = await playerFactory;
+        // No provider script before the session allows playback (platform-v1, Reader item 11).
+        const factory = await loadKinescopeIframePlayer();
         if (!isActive()) return;
         // The SDK replaces its target; retain the React-owned mount for retries.
         const playerTarget = document.createElement("div");

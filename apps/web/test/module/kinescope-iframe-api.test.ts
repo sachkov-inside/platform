@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  iframeApiRequestUrl,
+  iframeApiTiming as timing,
   kinescopeIframeApiUrl,
   loadHedgedIframeApi,
 } from "@/features/material-video/api/kinescope-iframe-api.browser";
 
-const timing = { attempts: 3, deadlineMs: 20_000, hedgeAfterMs: 5_000 };
-
 function provider() {
   const requests: {
-    readonly url: string;
     readonly resolve: (api: string) => void;
     readonly reject: (error: Error) => void;
   }[] = [];
@@ -17,9 +16,9 @@ function provider() {
     requests,
     loading: {
       current: () => undefined,
-      request: (url: string) =>
+      request: () =>
         new Promise<string>((resolve, reject) => {
-          requests.push({ reject, resolve, url });
+          requests.push({ reject, resolve });
         }),
     },
   };
@@ -44,16 +43,11 @@ describe("Kinescope iframe API loading", () => {
   it("sends a second request when the first one stalls and keeps the first that answers", async () => {
     const { loading, requests } = provider();
     const loaded = loadHedgedIframeApi(loading, timing);
-    expect(requests.map((request) => request.url)).toEqual([
-      kinescopeIframeApiUrl,
-    ]);
-    await vi.advanceTimersByTimeAsync(4_999);
+    expect(requests).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(timing.hedgeAfterMs - 1);
     expect(requests).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1);
-    expect(requests.map((request) => request.url)).toEqual([
-      kinescopeIframeApiUrl,
-      `${kinescopeIframeApiUrl}?attempt=2`,
-    ]);
+    expect(requests).toHaveLength(2);
     requests[1]?.resolve("second");
     await expect(loaded).resolves.toBe("second");
     requests[0]?.resolve("first");
@@ -66,10 +60,7 @@ describe("Kinescope iframe API loading", () => {
     const loaded = loadHedgedIframeApi(loading, timing);
     requests[0]?.reject(new Error("network"));
     await vi.advanceTimersByTimeAsync(0);
-    expect(requests.map((request) => request.url)).toEqual([
-      kinescopeIframeApiUrl,
-      `${kinescopeIframeApiUrl}?attempt=2`,
-    ]);
+    expect(requests).toHaveLength(2);
     requests[1]?.resolve("api");
     await expect(loaded).resolves.toBe("api");
   });
@@ -102,5 +93,10 @@ describe("Kinescope iframe API loading", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(await outcome).toBeInstanceOf(Error);
     requests[0]?.resolve("late");
+  });
+
+  it("gives every later request its own address", () => {
+    expect(iframeApiRequestUrl(1)).toBe(kinescopeIframeApiUrl);
+    expect(iframeApiRequestUrl(4)).toBe(`${kinescopeIframeApiUrl}?attempt=4`);
   });
 });
