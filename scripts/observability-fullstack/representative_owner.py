@@ -23,6 +23,13 @@ DIRECTORY='representative-owner'
 _SOURCE=('scripts/observability-fullstack/fullstack.py','scripts/observability-fullstack/core_layout.py',
     'scripts/observability-fullstack/representative_owner.py','scripts/observability-fullstack/signoz_ingestion.py',
     'scripts/observability-fullstack/representative_scope.py','scripts/observability-fullstack/signoz_queries.py',
+    'scripts/observability-fullstack/representative_reader.py','scripts/observability-fullstack/representative_agent.py',
+    'scripts/observability-fullstack/representative_stored.py','scripts/observability-fullstack/representative_witness.py',
+    'scripts/observability-signoz/control.py','scripts/observability-signoz/functional_witness.py',
+    'scripts/observability-signoz/gateway.py','scripts/observability-signoz/agent_probe.py',
+    'scripts/observability-sdk-storage/sdk_storage.py','scripts/observability-sdk-storage/sdk_semantics.py',
+    'scripts/observability-sdk-storage/emitter.mjs',
+    'scripts/observability-sdk-storage/emitter_phase.py','scripts/observability-sdk-storage/emitter-phase.mjs',
     'scripts/observability-signoz/lifecycle.py','scripts/observability-signoz/image_proof.py',
     'scripts/observability-signoz/runtime.py',
     'infra/observability/fullstack/profile.json')
@@ -121,7 +128,7 @@ class CompositeOwner:
     never ownership or a way to construct a helper scope.
     """
     __slots__=('__engine','__run','__binding','__images','__layout','__inputs','__registry',
-               '__directory','__files','__lock','__deadline','__cleanup_end','__cleanup_started','__present','__scope_failure')
+               '__directory','__files','__lock','__deadline','__cleanup_end','__cleanup_started','__present','__scope_failure','__session','__native_calls','__native_threads','__native_failure')
 
     @classmethod
     def prepare(cls,engine,prepared_primary,fixed_bindings,checked_images):
@@ -141,7 +148,7 @@ class CompositeOwner:
         own.__engine=engine;own.__run=prepared_primary
         own.__binding=encoded(fixed_bindings);own.__images=encoded(checked_images)
         own.__layout=layout;own.__inputs=encoded(inputs);own.__lock=threading.RLock()
-        own.__deadline=engine.deadline;own.__cleanup_end=None;own.__cleanup_started=False;own.__present=None;own.__files={};own.__scope_failure=None
+        own.__deadline=engine.deadline;own.__cleanup_end=None;own.__cleanup_started=False;own.__present=None;own.__files={};own.__scope_failure=None;own.__session=None;own.__native_calls=set();own.__native_threads={};own.__native_failure=None
         own.__directory=prepared_primary/DIRECTORY
         own.__directory.mkdir(mode=0o700)
         own.__registry={'schema':1,'status':'prepared','daemon':json.loads(encoded(engine.identity)),'binding':json.loads(own.__binding),
@@ -457,7 +464,7 @@ class CompositeOwner:
         own.__lock=threading.RLock();own.__deadline=record['deadline_mono_ns']/10**9
         need(-90<own.__deadline-time.monotonic()<=600,'representative_recovery_deadline')
         own.__cleanup_end=recovery_end
-        own.__cleanup_started=False;own.__present=None;own.__scope_failure=None;engine.deadline=own.__cleanup_end
+        own.__cleanup_started=False;own.__present=None;own.__scope_failure=None;own.__session=None;own.__native_calls=set();own.__native_threads={};own.__native_failure=None;engine.deadline=own.__cleanup_end
         own.__guard(cleanup=True)
         if record['dispatch'] is not None:
             # Consume durably, retaining acquisition identities until exact unlink.
@@ -547,13 +554,185 @@ class CompositeOwner:
             need(current is not None and current['generation']==generation,'representative_scope_consumed')
             current['status']='consumed';self.__record()
 
+    def prepare_native_session(self,observed):
+        """Bind actual private SDK receipt and source files before literal bootstrap."""
+        import representative_scope as scopes
+        import secrets
+        with self.__lock:
+            self.__guard();need(self.__session is None and self.__registry['generation']==0,'representative_session_replay')
+            need(type(observed) is dict and set(observed)=={'schema','trace_id','root_id','provider_requests','body_read','runtime_modules'}
+                and type(observed['schema']) is int and observed['schema']==2 and type(observed['provider_requests']) is int
+                and observed['provider_requests']==1 and observed['body_read']=='passed'
+                and _hex(observed['trace_id'],32) and observed['trace_id']!='0'*32
+                and _hex(observed['root_id'],16) and observed['root_id']!='0'*16,'representative_sdk_receipt')
+            modules=observed['runtime_modules'];need(type(modules) is dict and 4<=len(modules)<=1000)
+            required={'apps/backend/dist/infrastructure/observability/'+name+'.js' for name in ('technical-telemetry-runtime','technical-telemetry')}
+            required|={'apps/backend/dist/infrastructure/object-storage/'+name+'.js' for name in ('s3-object-storage','s3-request-observation')}
+            need(required<=set(modules),'representative_sdk_modules')
+            for name,digest in modules.items():
+                need(type(name) is str and len(name)<=512 and not name.startswith('/') and '..' not in name.split('/')
+                    and name.startswith(('apps/backend/dist/','node_modules/','packages/','docs/contracts/dist/')) and _hex(digest,64))
+                need(sha(_read(ROOT/name)[0])==digest,'representative_sdk_module_changed')
+            native=self.validate('sig-disk');need(native['State']['Running'],'representative_session_native_stopped')
+            run=self.__run/'signoz';driver=run/'driver';mirror=scopes._install_mirror(driver)
+            path=run/'agent-driver/representative_agent.py';raw,_=_read(ROOT/'scripts/observability-fullstack/representative_agent.py')
+            scopes._write(path,raw)
+            need({p.name for p in path.parent.iterdir()}=={'agent_probe.py','representative_agent.py'})
+            manifest=self.__layout.manifest
+            document={'schema':1,'binding':{k:manifest[k] for k in ('source','root','root_identity','profile','project','nonce')},
+                'native':{'cid':native['Id'],'created':native['Created'],'image':native['Image'],'init_pid':native['State']['Pid'],
+                    **scopes._process_receipt(native['State']['Pid'])},'deadline_mono_ns':int(self.__deadline*10**9),
+                'mirror':{name:value[0] for name,value in mirror.items()},'agent_key':secrets.token_hex(32),'sdk':observed}
+            body=scopes._encoded(document);need(len(body)<=65536)
+            session=run/'private/representative-session.json';identity=scopes._write(session,body)
+            self.__session=(session,identity,sha(body),document,mirror,[path,scopes._read(path,private=True)[1],sha(raw)])
+
+    def __session_guard(self):
+        import representative_scope as scopes
+        self.__guard();need(self.__session is not None,'representative_session_missing')
+        path,identity,digest,document,mirror,agent=self.__session
+        raw,current=scopes._read(path,private=True,maximum=65536)
+        need(current==identity and sha(raw)==digest and scopes._mirror(self.__run/'signoz/driver')==mirror,'representative_session_changed')
+        raw,current=scopes._read(agent[0],private=True);need(current==agent[1] and sha(raw)==agent[2])
+        return document
+
+    def bootstrap(self):
+        """Only the source-fixed no-argv resident, under the SAME absolute owner."""
+        try:return self.__bootstrap()
+        except BaseException:
+            with self.__lock:self.__native_failure=sys.exc_info()
+            raise
+
+    def __bootstrap(self):
+        with self.__lock:
+            self.__session_guard();need('bootstrap' not in self.__native_calls,'representative_bootstrap_replay')
+            native=self.validate('sig-disk');self.__native_calls.add('bootstrap');self.__native_threads['bootstrap']=threading.current_thread()
+            timeout=self.__deadline-time.monotonic();need(0<timeout<=600)
+        # Native Engine owns/cancels this child, without holding the owner lock.
+        try:
+            result=self.__engine.call(['exec',native['Id'],'python','-I','-B',
+                '/driver/scripts/observability-fullstack/representative_reader.py'],timeout=timeout)
+        except BaseException:
+            with self.__lock:self.__native_failure=sys.exc_info()
+            raise
+        with self.__lock:self.__session_guard();self.validate('sig-disk')
+        value=json.loads(result)
+        need(type(value) is dict and set(value)=={'bootstrap','viewer_admin_denied','viewer_revoked_denied','reads','sdk'}
+            and all(value[k] is True for k in ('bootstrap','viewer_admin_denied','viewer_revoked_denied')) and type(value['reads']) is int and value['reads']==10)
+        sdk=value['sdk'];need(type(sdk) is dict and set(sdk)=={'sdk_span_semantics','sdk_metric_semantics','stored_spans','logical_series','unknown_fields','full_privacy','original_vm_oracle','native_probe_cases'}
+            and sdk['sdk_span_semantics']==sdk['sdk_metric_semantics']=='passed' and type(sdk['stored_spans']) is int and sdk['stored_spans']==3
+            and type(sdk['logical_series']) is int and sdk['logical_series']==67 and sdk['full_privacy']=='unknown' and sdk['original_vm_oracle']=='not_applicable'
+            and sdk['native_probe_cases']==['zero','latest_zero','future']
+            and type(sdk['unknown_fields']) is list and 1<=len(sdk['unknown_fields'])<=32
+            and all(type(v) is str and re.fullmatch('[a-z_.]+',v) is not None for v in sdk['unknown_fields']))
+        return value
+
+    def prepare_agent(self):
+        """Wait only for socket readiness, then bind the existing admission mount."""
+        import representative_scope as scopes
+        import representative_agent as agent
+        with self.__lock:
+            document=self.__session_guard();need('agent_admission' not in self.__native_calls)
+            native=self.validate('sig-agent');need(native['State']['Running'])
+        while time.monotonic()<self.__deadline:
+            with self.__lock:
+                if self.__native_failure is not None:raise self.__native_failure[1].with_traceback(self.__native_failure[2])
+            result=self.__engine.call(['exec',native['Id'],'python','-I','-B','/driver/agent_probe.py','socket-identity'],timeout=min(10,self.__deadline-time.monotonic()))
+            socket=json.loads(result)
+            if socket.get('available') is True:break
+            need(socket=={'available':False});time.sleep(.05)
+        else:raise ValueError('representative_agent_ready_deadline')
+        with self.__lock:
+            self.__session_guard();self.validate('sig-agent')
+            need(set(socket)=={'available','identity'} and type(socket['identity']) is dict)
+            targets={}
+            for role in agent.ENDPOINTS:
+                value=self.validate('sig-'+role)
+                backend=self.__layout.plan['networks']['sig-backend']['name']
+                address=value['NetworkSettings']['Networks'][backend]['IPAddress']
+                need(type(address) is str and address,'representative_backend_address');targets[role]=address
+            config={'schema':1,'nonce':document['binding']['nonce'],'agent_key':document['agent_key'],
+                'socket_identity':socket['identity'],'deadline_mono_ns':document['deadline_mono_ns'],
+                'network_namespace':scopes._process_receipt(native['State']['Pid'])['netns'],'targets':targets}
+            path=self.__run/'signoz/agent-admission/representative.json';scopes._write(path,scopes._encoded(config))
+            self.__native_calls.add('agent_admission')
+
+    def agent(self):
+        with self.__lock:
+            self.__session_guard();need('agent_admission' in self.__native_calls and 'agent' not in self.__native_calls)
+            native=self.validate('sig-agent');self.__native_calls.add('agent')
+            timeout=min(10,self.__deadline-time.monotonic());need(timeout>0)
+        result=self.__engine.call(['exec',native['Id'],'python','-I','-B','/driver/representative_agent.py'],timeout=timeout)
+        with self.__lock:self.__session_guard();self.validate('sig-agent')
+        value=json.loads(result)
+        need(type(value) is dict and set(value)=={'schema','reads','gateway_denials','direct_ip_denials','alias_kernel_denials','alias_dns_unknown'}
+            and all(type(v) is int and 0<=v<=100 for v in value.values()) and value['schema']==1 and value['reads']==10
+            and value['gateway_denials']==4 and value['direct_ip_denials']==11
+            and value['alias_kernel_denials']+value['alias_dns_unknown']==11)
+        return value
+
+    def _cancel_readers(self,control,reader):
+        # Only the two registered native reader threads can select cancellation.
+        # Engine still owns the actual child processes and their reap.
+        for thread in (control,reader):
+            if thread is not None:
+                need(type(thread) is threading.Thread and any(thread is owned for owned in self.__native_threads.values()))
+                self.__engine.cancel_thread_children(thread)
+
+    def helper_receipt(self):
+        """Read only the fixed owned sanitizer's private file, never an endpoint."""
+        with self.__lock:
+            self.__guard();native=self.validate('sig-trace-sanitizer');need(native['State']['Running'])
+        result=self.__engine.call(['exec',native['Id'],'python','-I','-B','-c',_HELPER_RECEIPT],timeout=3)
+        with self.__lock:self.__guard();self.validate('sig-trace-sanitizer')
+        need(type(result) is str and len(result)<=8192)
+        return json.loads(result,object_pairs_hook=__import__('representative_scope')._unique)
+
     def _scope_exec(self,generation,digest):
         with self.__lock:
             native=self._scope_check(generation,digest)
             self.__registry['dispatch']['status']='executing';self.__record()
-            # DEVNULL remains unchanged. Only a digest crosses the trusted argv channel.
+            # Preserved verify-only literal invocation.
             return self.__engine.call(['exec',native['cid'],'python','-I','-B',
                 '/driver/scripts/observability-fullstack/representative_scope.py',digest],timeout=10)
+
+    def _scope_read(self,generation,digest):
+        with self.__lock:
+            native=self._scope_check(generation,digest)
+            self.__registry['dispatch']['status']='executing';self.__record();self.__native_threads['reader']=threading.current_thread()
+        # Release owner lock while the resident/agent execute. The durable claim
+        # has already consumed authority for every competing verify/read caller.
+        result=self.__engine.call(['exec',native['cid'],'python','-I','-B',
+            '/driver/scripts/observability-fullstack/representative_reader.py',digest],timeout=10)
+        with self.__lock:self._scope_check(generation,digest,executing=True)
+        return result
+
+
+# This command is literal, private and read-only. The owned helper source/bind/CID
+# is attested independently by the canonical owner before and after execution.
+_HELPER_RECEIPT="""import hashlib,json,os,stat,time
+from pathlib import Path
+started=time.monotonic_ns()
+p=Path('/state/receipt.json')
+parent=p.parent.lstat()
+assert stat.S_ISDIR(parent.st_mode) and parent.st_uid==os.getuid() and stat.S_IMODE(parent.st_mode)==0o700
+fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+with os.fdopen(fd,'rb') as stream:
+ i=os.fstat(stream.fileno())
+ assert stat.S_ISREG(i.st_mode) and i.st_uid==os.getuid() and i.st_nlink==1 and stat.S_IMODE(i.st_mode)==0o600 and 0<i.st_size<=4096
+ raw=stream.read(4097)
+ assert len(raw)==i.st_size and (p.lstat().st_dev,p.lstat().st_ino)==(i.st_dev,i.st_ino)
+birth=int(Path('/proc/1/stat').read_text().rsplit(')',1)[1].split()[19])
+cgroup=hashlib.sha256(Path('/proc/1/cgroup').read_bytes()).hexdigest()
+source=hashlib.sha256(Path('/driver/trace_sanitizer.py').read_bytes()).hexdigest()
+def unique(pairs):
+ result=dict(pairs)
+ assert len(result)==len(pairs)
+ return result
+print(json.dumps({'receipt':json.loads(raw,object_pairs_hook=unique),'identity':[i.st_dev,i.st_ino,i.st_uid,i.st_nlink],
+ 'process_start_ticks':birth,'cgroup_sha256':cgroup,'source_sha256':source,
+ 'read_start_ns':started,'read_end_ns':time.monotonic_ns()},separators=(',',':')))
+"""
 
 
 def _hex(value,length):return type(value) is str and re.fullmatch('[a-f0-9]{'+str(length)+'}',value) is not None

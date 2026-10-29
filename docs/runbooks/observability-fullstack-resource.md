@@ -754,11 +754,16 @@ Identity каталога записывается сразу после его 
 безопасно зарегистрированных native ресурсов. Результат такой очистки не считается
 успешным. Исходная ошибка сохраняется, исходный лимит600+90 не продлевается.
 
-Под существующим read-only `/driver` расположен ровно пятифайловый mirror:
-`representative_scope.py`, `signoz_queries.py`, `core_layout.py`, `metric_recipe.py`
-и `profile.json` с исходной структурой каталогов. Старые файлы minimal driver
-сохраняются. Helper проверяет mirror до imports query-модулей и не вызывает
-конструктор fixture. `RepresentativeReads.from_native_scope` принимает только
+Под существующим read-only `/driver` закрытый mirror содержит одиннадцать файлов:
+прежние `representative_scope.py`, `signoz_queries.py`, `core_layout.py`,
+`metric_recipe.py`, `profile.json`, новые `representative_reader.py`,
+`representative_agent.py`, `representative_stored.py`, чистый `sdk_semantics.py`,
+неизменный `collector_privacy.py` и существующий корневой `control.py`.
+Относительные каталоги сохраняются, bytes корневого `control.py` проверяются
+отдельно по тому же manifest. Остальные старые файлы minimal driver сохраняются.
+Helper проверяет всю закрытую структуру до imports query-модулей и не вызывает
+конструктор fixture. Полный checkout, runtime constructor, конфигурация и ключи
+в этот mirror не копируются. `RepresentativeReads.from_native_scope` принимает только
 текущий непрозрачный scope своего процесса; reader проверяет его срок, inode и
 поколение при подготовке и разборе каждого запроса. Один приватный initializer
 сохраняет прежние десять payloads и parser semantics.
@@ -774,11 +779,90 @@ init birth/netns/pidns. Digest означает целостность в дов
 Все локальные проверки этого этапа являются SOURCE-MODEL, включая реальные
 приватные файлы и короткий subprocess. На Mac namespace receipts инъецируются
 явно. Native acquisition, attachment/mount/source/transport и Linux session
-recovery этим не подтверждены. Подготовленный helper выполняет только проверку
-scope, без query transport и ключей. `--core signoz-mcp512-v1` остаётся закрыт.
-До следующего этапа обязательны независимые Standards/Spec/Security, actual
-Risk/Participation и native Linux proof. Нагрузка3200/12, четыре режима,
+recovery этим не подтверждены. Прежние `Dispatch.execute` и digest entrypoint
+`representative_scope.py` по-прежнему выполняют только проверку scope.
+Отдельный `Dispatch.read` использует тот же атомарный захват и расходование
+поколения и literal digest-only entrypoint `representative_reader.py`.
+Проверить, а затем повторно прочитать тот же scope нельзя.
+`--core signoz-mcp512-v1` остаётся закрыт. До следующего этапа обязательны
+независимые Standards/Spec/Security, actual Risk/Participation и native Linux proof. Нагрузка3200/12, четыре режима,
 sample1/source5/query10, пять application images и лимит600+90 сохраняются.
+
+
+### Подготовка исходников Task4b, отдельное native исполнение не включено
+
+Task4b добавляет приватный resident-процесс с неизменным `control.bootstrap`.
+Он один раз создаёт viewer, проверяет его identity и роль, выполняет исходные
+403, revoke204 и revoked401. Admin/viewer authority живёт только в его памяти,
+не передаётся agent, host, argv, stdout или артефактам. Бюджет control берётся
+из оставшегося абсолютного срока владельца600, а query scope сохраняет10 секунд.
+Вложенный `runtime.run` и новый owner clock не используются.
+
+Digest exec и resident обмениваются только связанными session/generation/digest/ACK
+через свежий owned каталог `/tmp/representative-reader` с mode0700 и файлами0600.
+Проверяются PID/birth, namespace, inode, links и срок. Нового control listener,
+admin route или выбора plugin нет. Resident сам загружает текущий непрозрачный scope
+в том же потоке, который подготавливает и разбирает запросы. ACK появляется после
+фактических запросов, конечных protocol negatives и повторной проверки scope/session.
+
+Отдельный standalone agent использует существующий gateway Unix socket. Запрос
+содержит только одну из прежних десяти операций и пустой объект параметров.
+Каждый допустимый запрос вызывает свежие HTTP и MCP чтения одного неизменного
+`RepresentativeReads.Request`. Agent не выбирает SQL, URL, phase, окно, модуль,
+проекцию или credentials. HTTP разбирается с исходной внешней оболочкой. MCP0.15
+принимается только как единственный text block с целым upstream JSON. Notes,
+warning/partial/error/isError, duplicate keys и неоднозначный structuredContent
+не становятся успешным ответом. Общий предел ответа остаётся64 KiB; только
+фиксированный inventory сохраняет прежнюю отдельную возможность256 KiB.
+
+Приватные fixed stored recipes читают полные поддерживаемые resource/scope,
+attributes, events, status, trace_state, links, log body и metric metadata до
+проекции. SDK spans/metrics проверяются общим чистым `sdk_semantics.py` с отдельным
+результатом семантического подмножества. Native flags и наносекунды не заменяются
+VM-полями или значениями по умолчанию. Недоступные drop counters, link attributes,
+link traceState/flags, exemplars и schema URLs остаются неизвестными. Такой
+результат не означает PASS исходного VM raw oracle или полной privacy.
+
+SDK producer использует существующий compiled emitter и retained Alloy
+`127.0.0.1:14318`, фактические module hashes, trace/root IDs и flush receipt.
+Он доказывает один S3 request, но не retry/worker workload. Web witness сохраняет
+настоящий process epoch и увеличение200/404 counters. PostgreSQL/Caddy получают
+настоящие source-owned чтения через `source_cache.sample`; обычный app release
+`v1 -> _OTHER` не подменяется отдельным SDK source-SHA cohort.
+
+Есть отдельное отклонение для трёх известных storage-semantic probes:
+`zero`, `latest_zero`, `future`. Неизменная Alloy privacy policy удаляет их
+закрытый служебный словарь. Поэтому trusted resident отправляет эти фиксированные
+fixtures непосредственно в существующий `signoz-ingester:4318`, по прежней
+functional control authority. Они имеют отдельные `service.name`, instance и
+case labels. Это проверка raw storage и отказа от будущего latest sample,
+а не SDK/privacy-path/source/app-health proof. Настоящие SDK, primary privacy и
+дополнительный link metadata challenge продолжают проходить через Alloy/helper.
+Политика Alloy не расширяется, SQL INSERT fixtures не используются.
+
+Контроллер читает приватный sanitizer receipt только через фиксированный owned CID
+и read-only exec. Source hash, inode/UID/links, PID/start/cgroup и монотонные
+счётчики проверяются независимо; rejected/partial/unknown не заменяются нулями.
+Agent и loadgen различают фактический `ENETUNREACH`, DNS unknown и отказ listener.
+DNS unknown не считается kernel denial. Trusted host-agent bridge остаётся
+отдельным исключением, не обычным reader. Эти сведения не доказывают ещё не
+исполненную native изоляцию.
+
+Новый приватный coordinator записывает и fsync-ит точные `pid/group/start_ticks`
+до снятия barrier единственного worker. Он использует неизменные
+`process_start`, `supervisor.wait`, `stop_worker` и `Engine.raw`; рабочие дочерние
+процессы наследуют зарегистрированную сессию. Независимая очистка выполняется
+после остановки worker по прежнему registry и исходному пределу600+90. Подмена
+birth или ресурса сохраняет неизвестный объект и даёт ошибку. Сэмплированный
+максимум RSS host emitter обозначен как наблюдавшийся, не как точный итоговый peak.
+
+Все эти исходники подготовлены для отдельного назначения D7. SOURCE-MODEL
+проверки на Mac используют настоящие HTTP/Unix/files/process seams; инъецированные
+Linux namespace/birth receipts явно остаются моделями. Они не доказывают native
+schema/API parity, применение migrations, полный privacy,600s fit, расходы всех
+ролей или cleanup реального Docker project. До native trial нужны applicable
+minimal MCP PASS, frozen source reviews и проверки текущего head. Task5 с полным
+корпусом3200/12 и Task6 с необязательной CI activation остаются отдельной работой.
 
 
 ### Пассивные отметки времени Web-запросов
