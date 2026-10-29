@@ -10,6 +10,12 @@ import evidence
 import pilot
 import source_status_query
 
+# Assigning MCP_DISABLED_TOOLS replaces vendor defaults. Keep all six v1.20.2
+# safety disables, then omit documentation indexing from this fixed metric fixture.
+# Revalidate this set against vendor config whenever its binary pin changes.
+_QUERY_DISABLED_TOOLS = ('export,flags,metric_relabel_debug,downsampling_filters_debug,'
+                         'retention_filters_debug,test_rules,documentation')
+
 
 @contextmanager
 def session(executable, token, *, progress=None, failure=None, _fixture=None):
@@ -32,7 +38,8 @@ def session(executable, token, *, progress=None, failure=None, _fixture=None):
                       'primary':'mcp_values','additional_1':'mcp_timestamps'}[phase])
     environment={'PATH':os.environ.get('PATH',''),'HOME':str(executable.parent),
                  'MCP_SERVER_MODE':'stdio','VM_INSTANCE_ENTRYPOINT':'http://127.0.0.1:18427/metrics',
-                 'VM_INSTANCE_BEARER_TOKEN':token,'VM_INSTANCE_TYPE':'single'}
+                 'VM_INSTANCE_BEARER_TOKEN':token,'VM_INSTANCE_TYPE':'single',
+                 'MCP_DISABLED_TOOLS':_QUERY_DISABLED_TOOLS}
     argv=None
     if _fixture is not None:argv,environment=_fixture
     try:

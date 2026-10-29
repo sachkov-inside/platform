@@ -15,6 +15,32 @@ class MCPObservation(unittest.TestCase):
             root=Path(directory);values,stamps=acquisition()
             value_file=root/'values';stamp_file=root/'stamps'
             value_file.write_text(json.dumps(values));stamp_file.write_text(json.dumps(stamps))
+            # Drive the generated native environment through the actual owned
+            # process path, without the _fixture environment replacement seam.
+            native=root/'mcp-victoriametrics';environment_receipt=root/'environment.json'
+            settings={'CADDY_TEST_REPORT':str(root/'generated-owner'),
+                      'CADDY_TEST_BODY_FILE':str(value_file),'CADDY_TEST_TIMESTAMP_FILE':str(stamp_file)}
+            script=("#!"+sys.executable+"\nimport os,json\nfrom pathlib import Path\n"
+                    +"Path("+repr(str(environment_receipt))+").write_text(json.dumps({key:os.environ.get(key) for key in "
+                    +repr(['MCP_DISABLED_TOOLS','MCP_SERVER_MODE','VM_INSTANCE_ENTRYPOINT','VM_INSTANCE_TYPE'])+"}))\n"
+                    +"os.execve("+repr(sys.executable)+","+repr([sys.executable,'-B',str(Path(__file__).with_name('fixtures')/'mcp.py')])
+                    +",{**os.environ,**"+repr(settings)+"})\n")
+            native.write_text(script);native.chmod(0o700)
+            from unittest.mock import patch
+            try:
+                with patch.dict(os.environ,{'MCP_DISABLED_TOOLS':'foreign_override'}):
+                    generated,private=mcp_snapshot.read_snapshot(native,'a'*32,evaluated_at=100,wall_clock=lambda:101)
+                observed=json.loads(environment_receipt.read_text())
+                self.assertEqual(observed,{'MCP_DISABLED_TOOLS':'export,flags,metric_relabel_debug,downsampling_filters_debug,retention_filters_debug,test_rules,documentation',
+                    'MCP_SERVER_MODE':'stdio','VM_INSTANCE_ENTRYPOINT':'http://127.0.0.1:18427/metrics','VM_INSTANCE_TYPE':'single'})
+                self.assertEqual(generated['state'],'observed')
+                self.assertEqual(private['values'],value_file.read_bytes())
+                self.assertEqual(private['timestamps'],stamp_file.read_bytes())
+            finally:
+                if (root/'generated-owner').exists():
+                    owner=json.loads((root/'generated-owner').read_text())
+                    for pid in (owner['pid'],owner['helper']):
+                        with self.assertRaises(ProcessLookupError):os.kill(pid,0)
             fixture=([sys.executable,'-B',str(Path(__file__).with_name('fixtures')/'mcp.py')],
                      {'PATH':os.environ.get('PATH',''),'HOME':directory,'CADDY_TEST_REPORT':str(root/'owner'),
                       'CADDY_TEST_BODY_FILE':str(value_file),'CADDY_TEST_TIMESTAMP_FILE':str(stamp_file)})
