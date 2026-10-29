@@ -90,7 +90,40 @@ test("an unlabelled stand image is reported, never removed", () => {
   );
 });
 
-test("removal untags without force and refuses a kept image", () => {
+test("explicit recovery images survive even when older than the rollback build", () => {
+  const plan = standImagePlan({
+    images: [image(1, { daysOld: 1 }), image(2, { daysOld: 90 })],
+    usedImageIds: new Set(),
+    protectedImageIds: new Set([id(2)]),
+    now,
+  });
+  assert.equal(plan[1]?.verdict, "keep");
+  assert.match(plan[1]?.reason ?? "", /recovery/u);
+});
+
+test("preparation lifecycle owns images even when they inherit stand labels", () => {
+  const prepared = image(2, { daysOld: 90 });
+  const plan = standImagePlan({
+    images: [
+      image(1, { daysOld: 1 }),
+      {
+        ...prepared,
+        Config: {
+          Labels: {
+            ...prepared.Config.Labels,
+            "dev.inside.resource-preparation": "owner-token",
+          },
+        },
+      },
+    ],
+    usedImageIds: new Set(),
+    now,
+  });
+  assert.equal(plan[1]?.verdict, "keep");
+  assert.match(plan[1]?.reason ?? "", /preparation/u);
+});
+
+test("removal uses immutable IDs without pruning parents or forcing, and refuses a kept image", () => {
   /** @type {string[][]} */
   const calls = [];
   /** @param {string[]} args */
@@ -111,8 +144,8 @@ test("removal untags without force and refuses a kept image", () => {
   removeStandImage(docker, tagged);
   removeStandImage(docker, untagged);
   assert.deepEqual(calls, [
-    ["image", "rm", "inside/logto-proof:11"],
-    ["image", "rm", id(3)],
+    ["image", "rm", "--no-prune", id(2)],
+    ["image", "rm", "--no-prune", id(3)],
   ]);
   assert.ok(
     calls.every((args) => !args.includes("--force") && !args.includes("-f")),

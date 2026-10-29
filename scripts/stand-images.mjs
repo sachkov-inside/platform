@@ -3,8 +3,10 @@
 // considered; volumes, the build cache, other projects and images any container uses are never
 // touched. The default run only reports; `--apply` removes the listed images without force.
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { z } from "zod";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
@@ -30,6 +32,7 @@ const imageSchema = z.object({
  *   service: string;
  *   created: Date;
  *   size: number;
+ *   preparationOwned: boolean;
  *   verdict: "keep" | "remove";
  *   reason: string;
  * }} PlannedImage
@@ -38,10 +41,15 @@ const imageSchema = z.object({
 /**
  * Keeps every image a container uses and, per Compose service, the newest unused one as the
  * previous build for a rollback; an older unused image is stale after seven days.
- * @param {{ images: unknown[]; usedImageIds: ReadonlySet<string>; now: Date }} input
+ * @param {{ images: unknown[]; usedImageIds: ReadonlySet<string>; protectedImageIds?: ReadonlySet<string>; now: Date }} input
  * @returns {PlannedImage[]}
  */
-export function standImagePlan({ images, usedImageIds, now }) {
+export function standImagePlan({
+  images,
+  usedImageIds,
+  protectedImageIds = new Set(),
+  now,
+}) {
   const own = images
     .map((raw) => imageSchema.parse(raw))
     .filter((image) => {
@@ -54,6 +62,10 @@ export function standImagePlan({ images, usedImageIds, now }) {
       service: image.Config.Labels?.["com.docker.compose.service"] ?? "",
       created: new Date(image.Created),
       size: image.Size,
+      preparationOwned: Object.hasOwn(
+        image.Config.Labels ?? {},
+        "dev.inside.resource-preparation",
+      ),
     }))
     .sort((left, right) => right.created.getTime() - left.created.getTime());
   /** @type {Set<string>} */
@@ -61,6 +73,14 @@ export function standImagePlan({ images, usedImageIds, now }) {
   return own.map((image) => {
     if (usedImageIds.has(image.id))
       return { ...image, verdict: "keep", reason: "a container uses it" };
+    if (protectedImageIds.has(image.id))
+      return { ...image, verdict: "keep", reason: "explicit recovery image" };
+    if (image.preparationOwned)
+      return {
+        ...image,
+        verdict: "keep",
+        reason: "owned by preparation lifecycle",
+      };
     if (image.service === "")
       return { ...image, verdict: "keep", reason: "no Compose service label" };
     if (!previousKept.has(image.service)) {
@@ -133,37 +153,73 @@ export function standImages(docker) {
 }
 
 /**
- * Removes one planned image without force: each tag first, then the untagged image itself.
+ * Removes only the planned immutable image, without force or implicit parent pruning.
+ * Docker refuses images with multiple repository references; those need their owner's handoff.
  * @param {(args: string[]) => string} docker
  * @param {PlannedImage} image
  */
 export function removeStandImage(docker, image) {
   if (image.verdict !== "remove") throw new Error(`${image.id} is kept`);
-  for (const tag of image.tags) docker(["image", "rm", tag]);
-  if (image.tags.length === 0) docker(["image", "rm", image.id]);
+  docker(["image", "rm", "--no-prune", image.id]);
 }
 
 if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const apply = process.argv.includes("--apply");
-  /** @param {string[]} args */
-  const docker = (args) =>
-    execFileSync("docker", args, {
-      encoding: "utf8",
-      timeout: 120_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  const release = apply
-    ? await acquireLocalSetupLock(
-        "Another stand operation is running; retry the image cleanup when it finishes",
-      )
-    : undefined;
+  /** @type {(() => Promise<void>) | undefined} */
+  let release;
   try {
+    const { values } = parseArgs({
+      options: {
+        apply: { type: "boolean", default: false },
+        context: { type: "string" },
+        "daemon-id": { type: "string" },
+        "protected-images": { type: "string" },
+      },
+    });
+    const apply = values.apply;
+    const context = values.context;
+    const protectedFile = values["protected-images"];
+    const protectedIds = () =>
+      new Set(
+        protectedFile === undefined
+          ? []
+          : z
+              .array(imageSchema.shape.Id)
+              .parse(
+                /** @type {unknown} */ (
+                  JSON.parse(readFileSync(protectedFile, "utf8"))
+                ),
+              ),
+      );
+    // A requested but unreadable manifest is a refusal, never an empty protection list.
+    protectedIds();
+    /** @param {string[]} args */
+    const docker = (args) =>
+      execFileSync(
+        "docker",
+        context === undefined ? args : ["--context", context, ...args],
+        {
+          encoding: "utf8",
+          timeout: 120_000,
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+    if (apply)
+      release = await acquireLocalSetupLock(
+        "Another stand operation is running; retry the image cleanup when it finishes",
+      );
+    const daemonId = docker(["info", "--format", "{{.ID}}"]).trim();
+    if (!daemonId) throw new Error("Docker daemon identity is unavailable");
+    if (values["daemon-id"] !== undefined && values["daemon-id"] !== daemonId)
+      throw new Error(
+        "Docker daemon does not match the maintenance installation",
+      );
     const plan = standImagePlan({
       images: standImages(docker),
       usedImageIds: usedImageIds(docker),
+      protectedImageIds: protectedIds(),
       now: new Date(),
     });
     for (const image of plan)
@@ -178,12 +234,22 @@ if (
     } else {
       let removed = 0;
       for (const image of stale) {
-        // Another session's plain Compose run takes no lock: check again right before removal.
-        if (usedImageIds(docker).has(image.id)) {
-          process.stdout.write(`keep\t${image.id.slice(7, 19)}\tnow in use\n`);
+        // Plain Compose and protection changes may bypass our cooperative lock. Re-plan by ID.
+        const current = standImagePlan({
+          images: standImages(docker),
+          usedImageIds: usedImageIds(docker),
+          protectedImageIds: protectedIds(),
+          now: new Date(),
+        }).find((candidate) => candidate.id === image.id);
+        if (!current || current.verdict === "keep") {
+          process.stdout.write(
+            `keep\t${image.id.slice(7, 19)}\t${current?.reason ?? "no longer present"}\n`,
+          );
           continue;
         }
-        removeStandImage(docker, image);
+        if (docker(["info", "--format", "{{.ID}}"]).trim() !== daemonId)
+          throw new Error("Docker daemon changed; refusing image cleanup");
+        removeStandImage(docker, current);
         removed += 1;
         process.stdout.write(`removed\t${image.id.slice(7, 19)}\n`);
       }
