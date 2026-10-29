@@ -778,6 +778,7 @@ const libraryResult = {
 
 export const MaterialLibrary: Story = {
   // Каталог читает Date.now после гидрации; история подставляет тот же момент, что и в датах.
+  // На странице документации подмена действует, пока страница открыта.
   beforeEach: () => {
     const realNow = Date.now.bind(Date);
     Date.now = () => libraryNow;
@@ -793,6 +794,7 @@ export const MaterialLibrary: Story = {
     const canvas = within(canvasElement);
     await openPart(canvasElement, /^Материалы/u);
     const library = canvas.getByRole("region", { name: "Материалы курса" });
+    // Первая порция из 12 заканчивается на сентябре; августовские уроки ещё скрыты.
     await expect(
       within(library)
         .getAllByRole("heading", { level: 3 })

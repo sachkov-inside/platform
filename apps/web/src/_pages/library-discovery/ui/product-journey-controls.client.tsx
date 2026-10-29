@@ -30,6 +30,7 @@ import {
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { resetShellScroll } from "@/shared/lib/shell-scroll";
+import { MOSCOW_TIME_ZONE } from "@/shared/lib/moscow-format";
 import { cn } from "@/shared/lib/utils";
 import {
   catalogReaderReturnHref,
@@ -326,6 +327,7 @@ export function ProductJourneyControls({
       (search.has("page") && requestedPage > 1
         ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
         : undefined));
+  // После гидрации каталог добавляет группу «Новое», поэтому карточку возврата находим ещё раз.
   useEffect(() => {
     if (returnSlug === undefined) return;
     routeRef.current
@@ -333,7 +335,7 @@ export function ProductJourneyControls({
         `[data-route-material="${CSS.escape(returnSlug)}"]`,
       )
       ?.scrollIntoView({ block: "center" });
-  }, [returnSlug]);
+  }, [returnSlug, hydrated]);
 
   function selectPart(id: JourneyPart["id"]) {
     if (id === part?.id) return;
@@ -588,7 +590,7 @@ const readServerNewMaterialCutoff = () => null;
 const catalogMonth = new Intl.DateTimeFormat("ru-RU", {
   month: "long",
   year: "numeric",
-  timeZone: "Europe/Moscow",
+  timeZone: MOSCOW_TIME_ZONE,
 });
 
 interface CatalogGroup {
@@ -610,14 +612,20 @@ function orderCatalog(
   // Программа продукта без глав идёт своим порядком, затем главы, а материалы вне программы в
   // конце, сначала новые.
   const position = new Map(entries.map((entry, index) => [entry, index]));
-  const section = (entry: CatalogEntry) =>
-    entry.place !== null ? 1 : entry.inProgramme ? 0 : 2;
+  const sections = ["programme", "chapters", "extra"] as const;
+  const sectionOf = (entry: CatalogEntry) =>
+    entry.place !== null
+      ? "chapters"
+      : entry.inProgramme
+        ? "programme"
+        : "extra";
+  const section = (entry: CatalogEntry) => sections.indexOf(sectionOf(entry));
   return [...entries].sort((left, right) => {
     const differences = [
       section(left) - section(right),
       (left.place?.chapter ?? 0) - (right.place?.chapter ?? 0),
       (left.place?.lesson ?? 0) - (right.place?.lesson ?? 0),
-      section(left) === 2
+      sectionOf(left) === "extra"
         ? (right.material.publishedAt ?? "").localeCompare(
             left.material.publishedAt ?? "",
           )
