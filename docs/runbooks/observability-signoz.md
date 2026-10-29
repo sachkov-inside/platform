@@ -252,6 +252,19 @@ SIGTERM и SIGKILL Node owner. Регрессионные проверки за�
 OCI metadata, конфигурацию и хеши первичных исходников API. Bootstrap основан на
 [SigNoz v0.146.0](https://github.com/SigNoz/signoz/tree/da556abac1fd41590811b8e0dcbcbdea242dd285),
 native transport на [SigNoz MCP v0.15.0](https://github.com/SigNoz/signoz-mcp-server/tree/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d).
+
+Готовность native MCP проверяется через `/readyz`, который ждёт готовности индекса
+документации. В закреплённой версии этот endpoint возвращает обычный текст: HTTP 503
+означает, что индекс ещё не готов, HTTP 200 означает готовность. Только этот вызов
+использует HTTP status без разбора JSON. Тело по-прежнему читается целиком в пределах
+65536 bytes, сохраняются исходные ограничения 10 секунд на запрос, общего времени
+и закрытие соединения. JSON-RPC `initialize`, `tools/list`, чтения MCP и ответы OTLP
+по-прежнему требуют корректный JSON. Пустой HTTP 202 после `notifications/initialized`
+сохраняет прежнее поведение. Закреплённый MCP использует `JSONResponse: true`, поэтому
+это изменение не добавляет разбор SSE и не заменяет готовность проверкой `/livez`.
+Локальные HTTP-тесты проверяют эту границу протокола; завершение всего функционального
+опыта и достаточность сервера подтверждаются отдельно фактическим native-прогоном.
+
 Используются `/api/v1/register`, `/api/v2/sessions/email_password`, `/api/v1/roles`,
 `/api/v1/service_accounts`, `/api/v1/service_account_roles`, создание/удаление keys,
 `/api/v1/service_accounts/me` и `/api/v5/query_range`. При несовместимом API или недоступности
