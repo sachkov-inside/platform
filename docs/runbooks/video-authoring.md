@@ -72,7 +72,8 @@ pnpm authoring:video upload --target production --state ~/.inside-authoring/prod
   names the `videoId` and idempotency key; repeating it stops the same way. Report both to the owner.
   Starting a replacement upload is the owner's decision after checking that attempt in Kinescope
   and Platform; the command never starts one by itself and offers no way to discard the stored
-  attempt. Do not edit the journal by hand.
+  attempt (the local-only flags below discard only a test-adapter or public attempt). Do not edit
+  the journal by hand.
 - Success prints one JSON document on stdout with `target`, `sourceId`, `materialId`, `videoId`,
   `providerVideoId`, `durationSeconds`, `sha256` and `next`, and exits 0. The journal then holds
   `source-video:SOURCE_ID`, which the next release attaches as the primary Video.
@@ -93,6 +94,24 @@ when it names the same `videoId`, then uploads the file as new with a fresh idem
 refused on trusted targets before any request. Any other stored receipt for this file, or none,
 is left as it is and the command runs as without the flag: it continues an unfinished upload or
 returns the ready one. So an interrupted run can be repeated with the same flag.
+
+A file uploaded before [ADR 0041](../adr/0041-protected-recording-serves-any-access.md) for a free
+lesson has a receipt whose recording is in the public project, so a rerun returns that public
+recording. `--replace-public-upload` asks the target about the stored attempt's Video
+(`POST /authoring/videos/VIDEO_ID/reconcile`) and discards the receipt only when the answer says
+`protected: false`, together with the `source-video:SOURCE_ID` receipt when it names the same
+`videoId`; the file then uploads as new into the protected project. This covers a ready, `transfer`
+or `processing` attempt; a failed one starts anew anyway. An `initializing` attempt holds no Video
+yet: its replayed init answer names the recording, and a public one is discarded the same way
+before any byte is sent. A protected recording, a test-adapter receipt (`--replace-test-upload`
+owns it) or no receipt leaves the command as without the flag, so the same command can be
+repeated. A target that does not report `protected` (a source before ADR 0041) stops the command:
+for a stored Video with the journal unchanged, for an init answer before any byte is sent, with the
+attempt kept in `initializing`. A reconcile error, such as `provider_mismatch` (Kinescope no longer
+reports the recording in its project) or `video_not_found` (the stand database was reset), also
+stops it with the journal unchanged; report the source and `videoId` to the owner. The flag is
+refused on trusted targets before any request. The command deletes nothing at the provider; the
+public recording stays in Kinescope until the owner removes it.
 
 `authoring:release preview` lists every such upload in `videoUploads` (`sourceId`, `state`
 `pending` or `ready`, `sha256`), and each Material row carries its own `videoUploads`. Apply attaches
@@ -116,7 +135,9 @@ provider recording serves the stand and production and survives a later change o
 4. Access is ordinary source content. Opening or closing the lesson later is a release with an
    `accessChange` and no `videoChange`. Only a recording in the public project cannot serve a
    closed lesson: the preview names it `video_not_protected` (the target would refuse the Save with
-   `video_provider_mismatch`); upload the master to the protected project and record the new ID. A
+   `video_provider_mismatch`); upload the master to the protected project and record the new ID.
+   When the stand journal already holds the public upload of that master, the upload needs
+   `--replace-public-upload` (see above). A
    target that predates ADR 0041 refuses any access change of a lesson that keeps its Video, which
    the preview names `video_access_change`.
 
