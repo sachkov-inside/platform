@@ -1,6 +1,6 @@
 """Private trace edge contracts; owned wire doubles are not native Alloy/Sig proof."""
 import copy
-from contextlib import contextmanager
+from contextlib import contextmanager,ExitStack
 import socket
 import time
 import os
@@ -28,6 +28,21 @@ def payload(count=1,links=1):
                 'flags':257,'traceState':'private=SECRET_SENTINEL','attributes':[{'key':'user.email',
                 'value':{'kvlistValue':{'values':[{'key':'deep','value':{'stringValue':'SECRET_SENTINEL'}}]}}}]} for j in range(links)]
         } for i in range(count)]}]}]}
+
+
+def reap_process(process):
+    """Register immediately after this test's process acquisition, before any next one."""
+    try:
+        if process.poll() is None:
+            try:group=os.getpgid(process.pid)
+            except ProcessLookupError:group=None
+            if group is not None:
+                if group!=process.pid:raise RuntimeError('owned process group changed')
+                os.killpg(process.pid,signal.SIGKILL)
+        process.wait(timeout=2)
+    finally:
+        if process.stdout:process.stdout.close()
+        if process.stderr:process.stderr.close()
 
 
 @contextmanager
@@ -210,31 +225,26 @@ server=Ready(('127.0.0.1',0),r)
 print(json.dumps({'port':server.server_port}),flush=True)
 s.run(server)
 """
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory,ExitStack() as cleanup:
             child=subprocess.Popen([sys.executable,'-B','-c',code,directory],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,text=True)
+            cleanup.callback(reap_process,child)
             unrelated=subprocess.Popen([sys.executable,'-c','import signal;signal.pause()'],start_new_session=True)
-            try:
-                with selectors.DefaultSelector() as ready:
-                    ready.register(child.stdout,selectors.EVENT_READ);self.assertTrue(ready.select(3),'owned helper published listener')
-                    port=json.loads(child.stdout.readline())['port']
-                with socket.create_connection(('127.0.0.1',port),timeout=2) as client:
-                    client.sendall(b'POST /v1/traces HTTP/1.1\r\nHost: private\r\n')
-                    with selectors.DefaultSelector() as accepted:
-                        accepted.register(child.stdout,selectors.EVENT_READ);self.assertTrue(accepted.select(2),'signal handler installed before actual accept')
-                        self.assertEqual(json.loads(child.stdout.readline()),{'accepted':True})
-                    self.assertEqual(os.getpgid(child.pid),child.pid);os.killpg(child.pid,signal.SIGTERM)
-                    child.wait(timeout=2);self.assertEqual(child.returncode,128+signal.SIGTERM)
-                    try:self.assertEqual(client.recv(1),b'')
-                    except ConnectionResetError:pass  # Kernel may reset unread request bytes on process exit.
-                self.assertIsNone(unrelated.poll())
-                with socket.socket() as probe:
-                    self.assertNotEqual(probe.connect_ex(('127.0.0.1',port)),0)
-            finally:
-                for process in (child,unrelated):
-                    if process.poll() is None:os.killpg(process.pid,signal.SIGKILL)
-                    process.wait(timeout=2)
-                if child.stdout:child.stdout.close()
-                if child.stderr:child.stderr.close()
+            cleanup.callback(reap_process,unrelated)
+            with selectors.DefaultSelector() as ready:
+                ready.register(child.stdout,selectors.EVENT_READ);self.assertTrue(ready.select(3),'owned helper published listener')
+                port=json.loads(child.stdout.readline())['port']
+            with socket.create_connection(('127.0.0.1',port),timeout=2) as client:
+                client.sendall(b'POST /v1/traces HTTP/1.1\r\nHost: private\r\n')
+                with selectors.DefaultSelector() as accepted:
+                    accepted.register(child.stdout,selectors.EVENT_READ);self.assertTrue(accepted.select(2),'signal handler installed before actual accept')
+                    self.assertEqual(json.loads(child.stdout.readline()),{'accepted':True})
+                self.assertEqual(os.getpgid(child.pid),child.pid);os.killpg(child.pid,signal.SIGTERM)
+                child.wait(timeout=2);self.assertEqual(child.returncode,128+signal.SIGTERM)
+                try:self.assertEqual(client.recv(1),b'')
+                except ConnectionResetError:pass  # Kernel may reset unread request bytes on process exit.
+            self.assertIsNone(unrelated.poll())
+            with socket.socket() as probe:
+                self.assertNotEqual(probe.connect_ex(('127.0.0.1',port)),0)
 
     def test_actual_parser_bounded_batches_and_near_byte_limit_stay_inside_tentative_memory_budget(self):
         code="""import json,resource,sys,tracemalloc;import trace_sanitizer as s
@@ -272,6 +282,36 @@ assert peak<32*1024**2 and rss<64*1024**2
             self.assertEqual(requests,[])
         with patch.object(sys,'argv',['trace_sanitizer.py','--endpoint','http://foreign']),patch.object(sanitizer.socket,'getaddrinfo',side_effect=AssertionError('must refuse before DNS')):
             with self.assertRaisesRegex(sanitizer.Refusal,'closed_arguments'):sanitizer.main()
+
+    def test_second_process_acquisition_failure_reaps_real_first_listener_and_pipes_preserving_error(self):
+        original=subprocess.Popen;started=[];port=None;failure=OSError('controlled_second_acquisition')
+        def acquire(*args,**options):
+            nonlocal port
+            if started:raise failure
+            process=original(*args,**options);started.append(process)
+            with selectors.DefaultSelector() as ready:
+                ready.register(process.stdout,selectors.EVENT_READ)
+                self.assertTrue(ready.select(3),'first real helper bound its listener before second acquisition')
+                port=json.loads(process.stdout.readline())['port']
+            return process
+        try:
+            with patch.object(subprocess,'Popen',side_effect=acquire):
+                with self.assertRaises(OSError) as caught:
+                    self.test_real_owned_helper_process_interrupt_reaps_socket_and_preserves_unrelated_process()
+            self.assertIs(caught.exception,failure);self.assertEqual(len(started),1)
+            process=started[0]
+            self.assertIsNotNone(process.poll(),'first helper must be reaped when second acquisition fails')
+            self.assertTrue(process.stdout.closed);self.assertTrue(process.stderr.closed)
+            with socket.socket() as probe:
+                probe.settimeout(1);self.assertNotEqual(probe.connect_ex(('127.0.0.1',port)),0)
+        finally:
+            # The regression itself owns its RED-state leak and never leaves that child behind.
+            for process in started:
+                if process.poll() is None:
+                    self.assertEqual(os.getpgid(process.pid),process.pid);os.killpg(process.pid,signal.SIGKILL)
+                process.wait(timeout=2)
+                if process.stdout:process.stdout.close()
+                if process.stderr:process.stderr.close()
 
 
 if __name__=='__main__':unittest.main()
