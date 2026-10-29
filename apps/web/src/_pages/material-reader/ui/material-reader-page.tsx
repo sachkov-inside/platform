@@ -1,3 +1,4 @@
+import { internalRoute } from "@/shared/routing/internal-route";
 import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
 import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.server";
 import { materialSourceAnchors } from "@/entities/material";
@@ -356,7 +357,8 @@ async function ResolvedMaterialReader({
     return (
       <FreeLessonAccess
         signedIn={accessToken !== undefined}
-        returnTo={materialReaderHref(slug, returnTarget.href)}
+        // После входа читатель возвращается в то же место программы: якорь, вид и размещение.
+        returnTo={internalRoute(workspaceReturnTo(slug, workspaceQuery))}
         material={result.material}
         returnTarget={returnTarget}
         productContext={productContext}
