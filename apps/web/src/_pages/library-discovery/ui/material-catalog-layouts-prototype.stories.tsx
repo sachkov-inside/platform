@@ -9,6 +9,7 @@ import {
   List,
   type LucideIcon,
   NotebookPen,
+  Play,
   Search,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -258,6 +259,11 @@ const formatIcons: Readonly<Record<Format, LucideIcon>> = {
 };
 const variants = [
   {
+    id: "A2",
+    name: "Ровная сетка без подписей",
+    note: "Выбран A. Формат, длительность и «изучено» на обложке, свежие материалы в группе «Новое», подписан только урок программы.",
+  },
+  {
     id: "A",
     name: "Ровная сетка",
     note: "Каждая карточка с картинкой одного размера; без обложки рисуется узор.",
@@ -322,15 +328,19 @@ function groupItems(shown: readonly LibraryItem[], sort: Sort): Group[] {
   for (const item of ordered) {
     const id =
       sort === "new"
-        ? item.publishedAt.slice(0, 7)
+        ? isNew(item)
+          ? "new"
+          : item.publishedAt.slice(0, 7)
         : item.place === null
           ? "extra"
           : `chapter-${String(item.place.chapter)}`;
     const title =
       sort === "new"
-        ? capitalize(
-            monthFormat.format(new Date(`${item.publishedAt}T12:00:00`)),
-          )
+        ? isNew(item)
+          ? "Новое"
+          : capitalize(
+              monthFormat.format(new Date(`${item.publishedAt}T12:00:00`)),
+            )
         : item.place === null
           ? "Вне программы"
           : `Глава ${String(item.place.chapter)}. ${chapterNames[item.place.chapter - 1] ?? ""}`;
@@ -459,6 +469,70 @@ function EvenGrid({ groups }: { readonly groups: readonly Group[] }) {
       </ul>
     </GroupSection>
   ));
+}
+
+/** A2: the owner's pick of A, with format, length, novelty and progress drawn on the picture. */
+function QuietGrid({ groups }: { readonly groups: readonly Group[] }) {
+  return groups.map((group) => (
+    <GroupSection key={group.id} group={group}>
+      <ul className="grid grid-cols-1 gap-x-5 gap-y-7 @min-[34rem]/library:grid-cols-2 @min-[54rem]/library:grid-cols-3">
+        {group.items.map((item) => (
+          <li className="min-w-0" key={item.slug}>
+            <CardLink item={item} className="h-full gap-2.5">
+              <VisualCover item={item} />
+              <h3 className="mt-0.5 line-clamp-2 text-base leading-6 font-semibold tracking-[-0.02em] group-hover/card:text-action">
+                {item.title}
+              </h3>
+              <p className="line-clamp-2 text-sm leading-5 text-body-muted">
+                {item.summary}
+              </p>
+              {item.place === null ? null : (
+                <span className="mt-auto text-xs text-muted-foreground">
+                  Глава {item.place.chapter} · урок {item.place.lesson}
+                </span>
+              )}
+            </CardLink>
+          </li>
+        ))}
+      </ul>
+    </GroupSection>
+  ));
+}
+
+function VisualCover({ item }: { readonly item: LibraryItem }) {
+  const Icon = item.format === "video" ? Play : formatIcons[item.format];
+  return (
+    <span className="relative block">
+      <ContentCoverImage
+        alt=""
+        className="aspect-video w-full rounded-2xl"
+        cover={item.cover}
+        fallbackKind={
+          item.format === "video"
+            ? "video"
+            : item.format === "note"
+              ? "note"
+              : "material"
+        }
+        fallbackSeed={item.slug}
+      />
+      {item.read === true ? (
+        <span className="absolute top-2 right-2 grid size-6 place-items-center rounded-full bg-white/90 text-foreground shadow-sm">
+          <Check aria-hidden="true" className="size-3.5" strokeWidth={3} />
+          <span className="sr-only">Изучено</span>
+        </span>
+      ) : null}
+      <span className="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[0.7rem] font-semibold text-white tabular-nums">
+        <Icon
+          aria-hidden="true"
+          className="size-3"
+          {...(item.format === "video" ? { fill: "currentColor" } : {})}
+        />
+        <span className="sr-only">{formatLabels[item.format]}, </span>
+        {lengthLabel(item)}
+      </span>
+    </span>
+  );
 }
 
 /** B: videos keep their pictures on one shelf; texts sit on another without pictures. */
@@ -812,6 +886,8 @@ function Comparison({ initialVariant }: { readonly initialVariant?: number }) {
           <p className="py-10 text-sm text-muted-foreground">
             Ничего не нашлось. Попробуй другой запрос или сними фильтры.
           </p>
+        ) : current.id === "A2" ? (
+          <QuietGrid groups={groups} />
         ) : current.id === "A" ? (
           <EvenGrid groups={groups} />
         ) : current.id === "B" ? (
@@ -833,7 +909,9 @@ function Comparison({ initialVariant }: { readonly initialVariant?: number }) {
           <ArrowLeft size={18} />
         </button>
         <div>
-          <small>Прототип · {current.id} из A–D</small>
+          <small>
+            Прототип · {current.id} · {variant + 1} из {variants.length}
+          </small>
           <strong>{current.name}</strong>
           <span>{current.note}</span>
         </div>
