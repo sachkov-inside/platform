@@ -216,6 +216,15 @@ export const InProgress: Story = {
     await expect(
       canvasElement.querySelector('[data-product-marker-read="true"] svg'),
     ).toBeInTheDocument();
+    // Место статуса постоянной ширины: длительности изученных и неизученных уроков стоят колонкой.
+    const rights = new Set(
+      [
+        ...canvasElement.querySelectorAll<HTMLElement>(
+          "[data-product-duration]",
+        ),
+      ].map((duration) => Math.round(duration.getBoundingClientRect().right)),
+    );
+    await expect(rights.size).toBe(1);
   },
 };
 export const Mobile: Story = {
