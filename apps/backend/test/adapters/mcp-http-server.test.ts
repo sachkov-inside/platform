@@ -118,6 +118,58 @@ describe("MCP Streamable HTTP adapter", () => {
     }
   });
 
+  test.each([
+    { revision: "2025-11-25", mode: "legacy" },
+    { revision: "2026-07-28", mode: { pin: "2026-07-28" } },
+  ] as const)(
+    "preserves the existing $revision HTTP tool contract",
+    async ({ revision, mode }) => {
+      // Both eras are already supported by SDK 2.3. Pinning avoids a fallback hiding a broken leg.
+      const client = new Client(
+        { name: "mcp-explicit-revision", version: "1" },
+        {
+          supportedProtocolVersions: [revision],
+          versionNegotiation: { mode },
+        },
+      );
+      try {
+        await client.connect(
+          new StreamableHTTPClientTransport(endpoint, {
+            authProvider: { token: () => signToken("owner-001") },
+          }),
+        );
+        expect(client.getNegotiatedProtocolVersion()).toBe(revision);
+        const { tools } = await client.listTools();
+        expect(tools.map(({ name }) => name).sort()).toEqual(
+          readCommittedToolSurface(),
+        );
+      } finally {
+        await client.close();
+      }
+    },
+  );
+
+  test("rejects an authenticated unsupported method without exposing a learner response to caches", async () => {
+    const response = await fetch(
+      new URL(`${endpoint.pathname}/learning`, endpoint),
+      {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${await signLearningToken("owner-001")}`,
+        },
+      },
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("content-type")).toContain("application/json");
+    await expect(response.json()).resolves.toMatchObject({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32000, message: "Method not allowed." },
+    });
+  });
+
   test("isolates the authenticated learner endpoint and its discovery metadata", async () => {
     const learning = new URL(`${endpoint.pathname}/learning`, endpoint);
     const client = new Client({ name: "learning-http", version: "1" });
