@@ -292,15 +292,16 @@ def existing(output,source,value,current):
 
 def measure(output,source,value,current):
     own=existing(output,source,value,current)
+    before=evidence.read(output/'component-inventory-before.json')
     initial=evidence.read(output/'component-host-initial.json');rows=[]
     try:
         for case in CASES:
             lifecycle.check_host(initial,lifecycle.host_snapshot(current,output))
             row=run_case(own,case);rows.append(row)
             lifecycle.private_json(output/'component-cases.json',{'schema':1,'cases':rows})
-            require(live_inventory(own,source,value)==evidence.read(output/'component-inventory-before.json'))
         lifecycle.check_host(initial,lifecycle.host_snapshot(current,output))
-        lifecycle.private_json(output/'component-inventory-after.json',live_inventory(own,source,value))
+        after=live_inventory(own,source,value);require(after==before)
+        lifecycle.private_json(output/'component-inventory-after.json',after)
         require(all(r['entered_final_exec'] and r['status']!='not_run' for r in rows))
     finally:
         lifecycle.private_json(output/'component-cases.json',{'schema':1,'cases':rows})
