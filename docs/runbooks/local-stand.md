@@ -218,6 +218,26 @@ dangling, so `docker volume prune`, `docker system prune --volumes` or removing 
 volume erases the owner's product data. Remove only volumes whose `com.docker.compose.project`
 label names a Compose project this session created.
 
+## Images and build cache
+
+Rebuilds leave the stand's previous images behind, and BuildKit keeps build cache. Both are bounded
+without touching volumes (#1779):
+
+- **Build cache.** The OrbStack engine's builder GC (`~/.orbstack/config/docker.json`, set
+  2026-10-18) keeps at most 4 GiB of unused cache with 1 GiB reserved, and frees space when less
+  than 10 GiB of disk remains. The rule covers the whole engine, so it also trims other projects'
+  cache on this engine; 4 GiB sits below the 5–8 GB budget of the storage policy and is kept as is. `docker buildx inspect orbstack` shows the active rule; the engine
+  applies it after builds, so no manual prune is needed. A change to that file needs an engine
+  restart, which stops the stand: plan it as a stand outage with the owner.
+- **Stale images.** `pnpm stand:images` lists the images labelled with the stand's Compose project
+  (`com.docker.compose.project=inside-platform`), with a verdict and reason for each. A plain
+  `docker compose` run in any worktree uses the same default project name, so its images carry the
+  label too and get the same protection rules. It keeps
+  every image a container uses (running or stopped, by the daemon's own count), the newest unused image of each service as the
+  previous build for a rollback, and anything younger than seven days. `pnpm stand:images --apply`
+  removes only the remaining ones, without force, while holding the local setup lock that stand
+  operations use, and checks each image's use again right before removing it. It never prunes, never touches volumes, the build cache or other projects' images.
+
 ## Diagnose prerequisites
 
 `bash scripts/doctor.sh` checks the same Docker-only prerequisites and Compose contract without
