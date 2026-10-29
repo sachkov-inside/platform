@@ -39,6 +39,7 @@ import horizon_build
 import slot_refusal
 import startup_refusal
 import health_timing
+import core_layout
 pilot=resource_runtime.pilot
 PROFILE=ROOT/'infra/observability/fullstack/profile.json'
 BACKENDS=production.BACKENDS
@@ -56,7 +57,13 @@ def sql(compose,query,*,role='postgres',database='postgres',timeout=15):
     return invoke(compose,['exec','-T','postgres','psql','-X','-qAt','-U',role,'-d',database,'-v','ON_ERROR_STOP=1'],payload=query,timeout=timeout)
 
 
-def inputs(output, images):
+def assemble_core(primary, core, **binding):
+    """Pure, private construction only; representative runtime remains unavailable."""
+    return core_layout.construct(primary,core,**binding)
+
+
+def inputs(output, images, *, core=None):
+    if core is not None:core_layout.require_runtime(core)
     acceptance.validate_profile(json.loads(PROFILE.read_text()))
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     pins=json.loads(images.read_text())
@@ -844,7 +851,11 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','contacts','recover','collect','diagnostic-run','diagnostic-collect','diagnostic-admission','cpu-control-admission','cpu-control-run','cpu-control-recover','cpu-control-collect'))
     parser.add_argument('--output',type=Path);parser.add_argument('--images',type=Path)
     parser.add_argument('--protocol',choices=(stability.COLD_PROTOCOL,stability.PRIMED_PROTOCOL))
+    parser.add_argument('--core',choices=core_layout.CORES)
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
+    if args.core is not None:
+        if args.action!='run':parser.error('--core requires run action')
+        core_layout.require_runtime(args.core)
     if args.protocol is not None and args.action not in ('diagnostic-run','diagnostic-collect'):parser.error('--protocol requires diagnostic action')
     protocol=args.protocol or stability.COLD_PROTOCOL
     if args.action=='cpu-control-admission':return cpu_control.admission(sys.modules[__name__])
