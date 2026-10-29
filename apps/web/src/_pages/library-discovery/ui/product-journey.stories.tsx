@@ -116,21 +116,6 @@ type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {
   readonly learning?: ProductLearningView;
 };
 /**
- * Видимые на экране элементы: у строки урока метка «Бесплатно» есть и для телефона, и для
- * широкого экрана, а показывается одна из них.
- */
-function visible(elements: readonly HTMLElement[]): readonly HTMLElement[] {
-  // Строка формата на телефоне — текст для скринридера: она проходит checkVisibility, но
-  // сама занимает 1 px.
-  return elements.filter((element) => {
-    const box = (
-      element.closest("[data-product-meta]") ?? element
-    ).getBoundingClientRect();
-    return element.checkVisibility() && box.width > 1;
-  });
-}
-
-/**
  * Раздел программы открывается тем, что видно на экране: колонкой разделов на широком экране или
  * нижней панелью продукта на телефоне.
  */
@@ -1112,11 +1097,9 @@ export const CompactMobileRoute: Story = {
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
     await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
-    await expect(
-      visible([
-        ...canvasElement.querySelectorAll<HTMLElement>("[data-product-format]"),
-      ]),
-    ).not.toHaveLength(0);
+    // Формат словом не пишется: урок с видео узнаётся по значку и длительности.
+    await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
+    await expect(rows.queryByText("Видео")).not.toBeInTheDocument();
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
     await expect(rows.getByText("Продолжить", { exact: true })).toBeVisible();
     await expect(
@@ -1125,10 +1108,14 @@ export const CompactMobileRoute: Story = {
     await expect(
       route.querySelector('[data-material-availability="locked"]'),
     ).toHaveTextContent("Нужен доступ");
-    // На телефоне длительность в строке не показывается: место отдано названию.
-    await expect(
-      route.querySelector("[data-product-duration]"),
-    ).toHaveTextContent("21:00");
+    // Длительность видео видна и на телефоне; у текстовых уроков её нет.
+    const durations = route.querySelectorAll<HTMLElement>(
+      "[data-product-duration]",
+    );
+    await expect(durations).toHaveLength(1);
+    await expect(durations[0]).toBeVisible();
+    await expect(durations[0]).toHaveTextContent("Видео, 21:00");
+    await expect(durations[0]?.querySelector("svg")).toBeVisible();
     await expect(
       route.querySelector('[data-product-ordinal="2"]'),
     ).toHaveAttribute("aria-current", "step");
@@ -1208,9 +1195,9 @@ export const CompactMobileEnlargedText: Story = {
       await expect(
         canvasElement.querySelector('[data-material-availability="locked"]'),
       ).toBeVisible();
-      // На телефоне длительность уступает место названию; тип урока виден всегда.
+      // При крупном шрифте длительность видео остаётся видимой.
       await expect(
-        canvasElement.querySelector("[data-product-format]"),
+        canvasElement.querySelector("[data-product-duration]"),
       ).toBeVisible();
     } finally {
       root.style.fontSize = fontSize;

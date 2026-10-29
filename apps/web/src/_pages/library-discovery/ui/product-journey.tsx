@@ -173,10 +173,6 @@ function journeyRun(
   const tasks = (run.chapter?.tasks ?? []).filter(
     (task) => task.programmeVisibility !== "embedded",
   );
-  const unified =
-    run.chapter?.tasks?.some(
-      (task) => task.programmeVisibility === "embedded",
-    ) === true;
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
   const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
@@ -310,7 +306,6 @@ function journeyRun(
           <MaterialCard
             key={`card-${placementId ?? material.slug}`}
             readerContext={{ placementId }}
-            showFormat={!unified}
             accessPending={accessPending}
             productOrdinal={ordinal}
             readingStatus={

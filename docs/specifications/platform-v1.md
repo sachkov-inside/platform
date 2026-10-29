@@ -702,6 +702,8 @@ or HTML support. Published chapters show the outcome inside their topics disclos
 single-paragraph summary does not create an empty disclosure. No lesson list, release action or
 delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
 rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
+Lesson rows name no Material format. A lesson with a primary video shows a play icon and the video
+duration at every width; a lesson without video shows neither. Task rows keep their «Задание» label.
 
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
