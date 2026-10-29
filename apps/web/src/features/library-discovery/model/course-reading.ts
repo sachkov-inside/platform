@@ -246,8 +246,9 @@ export function courseReadingContext({
   const attached =
     referenceView &&
     current.kind === "material" &&
-    chapters.some((chapter) =>
-      chapter.references?.some((item) => item.slug === current.slug),
+    chapters.some(
+      (chapter) =>
+        chapter.references?.some((item) => item.slug === current.slug) === true,
     );
   const programmeStep = attached ? undefined : steps[stepIndex];
   const reference =
