@@ -73,7 +73,7 @@ import {
   MaterialReaderPending,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
-import { FreeLessonGate } from "./free-lesson-gate";
+import { FreeLessonAccess } from "./free-lesson-gate";
 import { MaterialReaderView } from "./material-reader-view";
 
 type ResolvedMaterial = Extract<
@@ -354,14 +354,9 @@ async function ResolvedMaterialReader({
   if (result.kind === "access" && result.material.access === "free") {
     // Бесплатный урок курса открывает вход через Telegram, а не покупка (#1825).
     return (
-      <MaterialReaderAccess
-        gate={
-          <FreeLessonGate
-            signedIn={accessToken !== undefined}
-            returnTo={materialReaderHref(slug, returnTarget.href)}
-          />
-        }
-        invitation={null}
+      <FreeLessonAccess
+        signedIn={accessToken !== undefined}
+        returnTo={materialReaderHref(slug, returnTarget.href)}
         material={result.material}
         returnTarget={returnTarget}
         productContext={productContext}

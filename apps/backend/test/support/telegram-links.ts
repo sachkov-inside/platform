@@ -9,19 +9,24 @@ import type { TelegramLinks } from "../../src/modules/content-access/index.js";
  */
 export const everyAccountLinked: TelegramLinks = {
   confirmedLinks: (accountIds) =>
-    Promise.resolve(
-      new Map<string, boolean>(accountIds.map((id) => [id, true])),
-    ),
+    Promise.resolve({
+      ok: true,
+      links: new Map(accountIds.map((id) => [id, true])),
+    }),
 };
 
+/** A fixed instant: only the ordering columns of the link record use it. */
+const linkedAt = new Date("2026-10-29T10:00:00.000Z");
+
 /**
- * Records a confirmed Telegram link for one Account, as a finished bot sign-in or linking does;
- * the database trigger projects it into the current link state that Content Access reads.
+ * Records a Telegram link for one Account: `linked` as a finished bot sign-in or linking leaves it,
+ * `pending` as a started one. The database trigger projects it into the state Content Access reads.
  */
 export async function linkTelegram(
   prisma: Pick<PlatformPrisma, "account" | "telegramLinkTransaction">,
   account: { readonly logtoSubject: string } | { readonly accountId: string },
-): Promise<string> {
+  status: "linked" | "pending" = "linked",
+): Promise<{ readonly accountId: string; readonly linkRef: string }> {
   const accountId =
     "accountId" in account
       ? account.accountId
@@ -31,22 +36,21 @@ export async function linkTelegram(
             select: { id: true },
           })
         ).id;
-  // deterministic-test-allow wall-clock: only the link ordering columns use it.
-  const now = new Date();
+  const linkRef = randomUUID();
   await prisma.telegramLinkTransaction.create({
     data: {
-      linkRef: randomUUID(),
+      linkRef,
       accountId,
       principalRef: randomUUID(),
       providerIdentityRef: `telegram-identity-${accountId}`,
       providerTransactionRef: randomUUID(),
       returnCorrelation: randomUUID(),
       tokenDigest: randomBytes(32).toString("base64url"),
-      status: "linked",
-      createdAt: now,
-      updatedAt: now,
-      expiresAt: new Date(now.getTime() + 60_000),
+      status,
+      createdAt: linkedAt,
+      updatedAt: linkedAt,
+      expiresAt: new Date(linkedAt.getTime() + 60_000),
     },
   });
-  return accountId;
+  return { accountId, linkRef };
 }

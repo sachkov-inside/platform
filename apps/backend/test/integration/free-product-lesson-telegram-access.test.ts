@@ -1,8 +1,8 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { composeTelegramLinks } from "../../src/entrypoints/composition/telegram-links.js";
+import { assembleTelegramLinks } from "../../src/entrypoints/composition/telegram-links.js";
 import {
   accountId as checkedAccountId,
   assembleAccounts,
@@ -16,6 +16,7 @@ import {
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 
+import { linkTelegram } from "../support/telegram-links.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -62,7 +63,7 @@ describe("free Product lesson and the stored Telegram link (#1825)", () => {
         }),
       ),
       accountRights: assembleDeterministicAccountRights(),
-      telegramLinks: composeTelegramLinks(
+      telegramLinks: assembleTelegramLinks(
         new TelegramAccountLinks(testDatabase.prisma),
       ),
     });
@@ -80,24 +81,11 @@ describe("free Product lesson and the stored Telegram link (#1825)", () => {
       reason: "telegram_link_required",
     });
 
-    const linkRef = randomUUID();
-    // deterministic-test-allow wall-clock: only the link ordering columns use it.
-    const now = new Date();
-    await testDatabase.prisma.telegramLinkTransaction.create({
-      data: {
-        linkRef,
-        accountId,
-        principalRef: randomUUID(),
-        providerIdentityRef: "telegram-identity-free-lesson",
-        providerTransactionRef: randomUUID(),
-        returnCorrelation: randomUUID(),
-        tokenDigest: randomBytes(32).toString("base64url"),
-        status: "pending",
-        createdAt: now,
-        updatedAt: now,
-        expiresAt: new Date(now.getTime() + 60_000),
-      },
-    });
+    const { linkRef } = await linkTelegram(
+      testDatabase.prisma,
+      { accountId },
+      "pending",
+    );
     // A started but unconfirmed link opens nothing.
     await expect(read()).resolves.toMatchObject({
       reason: "telegram_link_required",

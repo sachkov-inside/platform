@@ -111,12 +111,15 @@ export interface AccountRights {
 
 /**
  * Whether each Account has a current confirmed Telegram link, from Telegram sign-in or linking.
- * Telegram Integration implements this port; a failure rejects instead of answering `false`.
+ * Telegram Integration implements this port and has already recorded a failed read.
  */
 export interface TelegramLinks {
   confirmedLinks(
     accountIds: readonly AccountId[],
-  ): Promise<ReadonlyMap<string, boolean>>;
+  ): Promise<
+    | { readonly ok: true; readonly links: ReadonlyMap<AccountId, boolean> }
+    | { readonly ok: false }
+  >;
 }
 
 export interface ContentAccessDependencies {

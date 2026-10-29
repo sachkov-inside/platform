@@ -64,7 +64,7 @@ import {
   type Videos,
 } from "../../modules/videos/index.js";
 import { composeMaterialAccessFacts } from "./material-access-facts.js";
-import { composeTelegramLinks } from "./telegram-links.js";
+import { assembleTelegramLinks } from "./telegram-links.js";
 
 /** Process composition owns access policy wiring above the independent content owners. */
 @Global()
@@ -138,7 +138,7 @@ import { composeTelegramLinks } from "./telegram-links.js";
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
           accountRights,
-          telegramLinks: composeTelegramLinks(telegramAccountLinks),
+          telegramLinks: assembleTelegramLinks(telegramAccountLinks),
         }),
     },
   ],

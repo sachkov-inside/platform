@@ -1252,11 +1252,16 @@ describe("free Material in a Product programme (#1825)", () => {
         : {
             telegramLinks: {
               confirmedLinks: (accountIds: readonly AccountId[]) =>
-                telegramLinks === "unavailable"
-                  ? Promise.reject(new Error("telegram links unavailable"))
-                  : Promise.resolve(
-                      new Map(accountIds.map((id) => [id, actor.telegram])),
-                    ),
+                Promise.resolve(
+                  telegramLinks === "unavailable"
+                    ? { ok: false as const }
+                    : {
+                        ok: true as const,
+                        links: new Map(
+                          accountIds.map((id) => [id, actor.telegram]),
+                        ),
+                      },
+                ),
             },
           }),
       accountPermissions: {

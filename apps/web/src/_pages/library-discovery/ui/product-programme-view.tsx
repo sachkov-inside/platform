@@ -1,8 +1,8 @@
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { Send } from "lucide-react";
+import type { MaterialPreview } from "@/entities/material";
 import Link from "next/link";
 import type { ProductOnboardingPanel } from "./product-journey-controls.client";
-import { needsTelegramSignIn } from "../model/free-lessons";
 
 import {
   billingActionClass,
@@ -197,6 +197,11 @@ export function PendingProduct({
       <ProductProgrammeView artifacts={artifacts} pending result={result} />
     </PendingProductLearning>
   );
+}
+
+/** Бесплатный урок, который откроется после входа через Telegram, а не после покупки (#1825). */
+function needsTelegramSignIn(item: MaterialPreview): boolean {
+  return item.access === "free" && item.availability === "locked";
 }
 
 /**

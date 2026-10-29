@@ -34,6 +34,18 @@ import { CONTENT_ACCESS_BATCH_SIZE } from "./content-access.interface.js";
 
 type TelegramLinkState = "linked" | "not_linked" | "unavailable";
 
+/** Allow reasons without a Membership expiry: the decision itself carries no `validUntil`. */
+const unexpiringGrants = [
+  "public_resource",
+  "materials_manager",
+  "telegram_account",
+] as const;
+type UnexpiringGrant = (typeof unexpiringGrants)[number];
+
+function isUnexpiringGrant(reason: string): reason is UnexpiringGrant {
+  return (unexpiringGrants as readonly string[]).includes(reason);
+}
+
 interface SubjectFacts {
   readonly permission: "granted" | "denied" | "unavailable";
   readonly membership?: MembershipAccessState;
@@ -337,25 +349,22 @@ export function assembleContentAccess(
             { kind: "account", accountId: id },
             subjectFacts,
           );
-          const result: AccessDecision =
-            reason === "public_resource" ||
-            reason === "materials_manager" ||
-            reason === "telegram_account"
-              ? allow(reason, selected.contentVersion)
-              : reason === "active_membership" &&
-                  subjectFacts.membership?.kind === "active"
-                ? {
-                    ...metadata(),
-                    effect: "allow",
-                    reason,
-                    validUntil: subjectFacts.membership.validUntil,
-                    checkedContentVersion: selected.contentVersion,
-                  }
-                : decision(
-                    reason === "active_membership"
-                      ? "dependency_unavailable"
-                      : reason,
-                  );
+          const result: AccessDecision = isUnexpiringGrant(reason)
+            ? allow(reason, selected.contentVersion)
+            : reason === "active_membership" &&
+                subjectFacts.membership?.kind === "active"
+              ? {
+                  ...metadata(),
+                  effect: "allow",
+                  reason,
+                  validUntil: subjectFacts.membership.validUntil,
+                  checkedContentVersion: selected.contentVersion,
+                }
+              : decision(
+                  reason === "active_membership"
+                    ? "dependency_unavailable"
+                    : reason,
+                );
           return [id, result];
         }),
       );
@@ -395,11 +404,7 @@ export function assembleContentAccess(
         needsTelegram(facts, input.action),
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
-      if (
-        reason === "public_resource" ||
-        reason === "materials_manager" ||
-        reason === "telegram_account"
-      ) {
+      if (isUnexpiringGrant(reason)) {
         return allow(reason, facts.contentVersion);
       }
       if (reason === "active_membership") {
@@ -515,7 +520,7 @@ export function assembleContentAccess(
   }
 
   function allow(
-    reason: "public_resource" | "materials_manager" | "telegram_account",
+    reason: UnexpiringGrant,
     checkedContentVersion: number,
   ): AccessDecision {
     return { ...metadata(), effect: "allow", reason, checkedContentVersion };
@@ -593,11 +598,16 @@ async function readTelegramLinks(
   if (dependencies.telegramLinks === undefined)
     return new Map(accountIds.map((id) => [id, "not_linked" as const]));
   try {
-    const links = await dependencies.telegramLinks.confirmedLinks(accountIds);
+    const read = await dependencies.telegramLinks.confirmedLinks(accountIds);
+    // The owner has already recorded a failed read; it only closes the lesson here.
+    if (!read.ok)
+      return new Map(accountIds.map((id) => [id, "unavailable" as const]));
     return new Map(
       accountIds.map((id) => [
         id,
-        links.get(id) === true ? ("linked" as const) : ("not_linked" as const),
+        read.links.get(id) === true
+          ? ("linked" as const)
+          : ("not_linked" as const),
       ]),
     );
   } catch (error) {
@@ -663,12 +673,7 @@ function projectAvailability(
       : "unavailable";
   }
   const reason = evaluate(facts, action, subject, subjectFacts);
-  if (
-    reason === "public_resource" ||
-    reason === "materials_manager" ||
-    reason === "active_membership" ||
-    reason === "telegram_account"
-  ) {
+  if (isUnexpiringGrant(reason) || reason === "active_membership") {
     return "available";
   }
   if (reason === "resource_action_invalid" || reason === "resource_not_found") {
@@ -684,12 +689,7 @@ function evaluate(
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
-):
-  | DenyReason
-  | "public_resource"
-  | "materials_manager"
-  | "active_membership"
-  | "telegram_account" {
+): DenyReason | UnexpiringGrant | "active_membership" {
   const resource = resourceReason(facts, action);
   if (resource !== undefined) {
     return resource;

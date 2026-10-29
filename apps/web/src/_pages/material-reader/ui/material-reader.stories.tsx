@@ -16,7 +16,7 @@ import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
 import { resolveProductReaderContext } from "../model/product-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
-import { FreeLessonGate } from "./free-lesson-gate";
+import { FreeLessonAccess } from "./free-lesson-gate";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
   variantDiagram,
@@ -1200,19 +1200,13 @@ export const AccessNotOffered: Story = {
 /** Бесплатный урок курса для гостя (#1825): вход через Telegram вместо покупки, затем тот же урок. */
 export const FreeLessonGuest: Story = {
   render: () => (
-    <MaterialReaderAccess
-      gate={
-        <FreeLessonGate
-          signedIn={false}
-          returnTo={materialReaderHref(
-            material.slug,
-            productProgrammeHref("platform-inside"),
-          )}
-        />
-      }
-      invitation={null}
+    <FreeLessonAccess
+      signedIn={false}
+      returnTo={materialReaderHref(
+        material.slug,
+        productProgrammeHref("platform-inside"),
+      )}
       material={{ ...material, access: "free" }}
-      readingAction={accessReadingAction()}
     />
   ),
   play: async ({ canvasElement }) => {
@@ -1251,13 +1245,10 @@ export const FreeLessonGuestMobile: Story = {
 /** Вошёл по почте, Telegram не подключён: подключение здесь же, после него урок перечитывается. */
 export const FreeLessonWithoutTelegram: Story = {
   render: () => (
-    <MaterialReaderAccess
-      gate={
-        <FreeLessonGate signedIn returnTo={materialReaderHref(material.slug)} />
-      }
-      invitation={null}
+    <FreeLessonAccess
+      signedIn
+      returnTo={materialReaderHref(material.slug)}
       material={{ ...material, access: "free" }}
-      readingAction={accessReadingAction()}
     />
   ),
   play: async ({ canvasElement }) => {

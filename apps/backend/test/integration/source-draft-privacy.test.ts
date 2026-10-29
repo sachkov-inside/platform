@@ -102,11 +102,10 @@ describe("source-imported draft privacy", () => {
       authorPolicy: { canManage: (id) => id === owner },
       telegramLinks: {
         confirmedLinks: (ids) =>
-          Promise.resolve(
-            new Map<string, boolean>(
-              ids.map((id) => [id, id === telegramReaderId]),
-            ),
-          ),
+          Promise.resolve({
+            ok: true,
+            links: new Map(ids.map((id) => [id, id === telegramReaderId])),
+          }),
       },
     });
     const { authoring } = materials;

@@ -430,6 +430,34 @@ export class TelegramAccountLinks {
     }
   }
 
+  /**
+   * Whether each Account has a current confirmed link: a principal and a verified identity, the
+   * rule of `listLinkedAccountIds`. Telegram sign-in and linking both produce it (#1825).
+   */
+  async readConfirmedLinks(
+    accountIds: readonly string[],
+  ): Promise<
+    | { readonly ok: true; readonly links: ReadonlyMap<string, boolean> }
+    | { readonly ok: false }
+  > {
+    const read = await this.readBindings(accountIds);
+    if (!read.ok) return read;
+    return {
+      ok: true,
+      links: new Map(
+        accountIds.map((accountId) => {
+          const binding = read.bindings.get(accountId);
+          return [
+            accountId,
+            binding != null &&
+              binding.accountRef !== null &&
+              binding.telegramIdentityRef !== null,
+          ] as const;
+        }),
+      ),
+    };
+  }
+
   /** Current binding set only: historical revisions retain the single-binding contract. */
   async readBindings(
     accountIds: readonly string[],
