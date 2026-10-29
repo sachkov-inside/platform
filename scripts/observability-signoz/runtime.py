@@ -188,14 +188,16 @@ def functional_with_client(own,output,remaining):
         while time.monotonic()<current.deadline:
             if 'error' in completed:raise completed['error']
             if not thread.is_alive():raise lifecycle.Refusal('limited_client_gateway_missing')
-            candidate=json.loads(own.exec(['socket-identity'],timeout=10))
+            own.validate('agent')
+            candidate=json.loads(current.call(['exec',own.containers['agent'],'python','-B','/driver/agent_probe.py','socket-identity'],
+                timeout=10),object_pairs_hook=agent_probe.unique)
             lifecycle.need(type(candidate) is dict and type(candidate.get('available')) is bool,'closed_socket_identity')
             if candidate['available']:
                 lifecycle.need(set(candidate)=={'available','identity'},'closed_socket_identity')
                 identity=candidate['identity'];break
             lifecycle.need(set(candidate)=={'available'},'closed_socket_identity');time.sleep(.1)
         lifecycle.need(identity is not None,'global_deadline')
-        own.start('agent');namespace,isolation=client_namespace(own)
+        namespace,isolation=client_namespace(own)
         targets={role:own.validate(role)['NetworkSettings']['Networks'][own.plan['networks']['backend']['name']]['IPAddress'] for role in agent_probe.ENDPOINTS}
         config=agent_probe.admission({**client,'remaining_seconds':int(current.deadline-time.monotonic())-1,
             'socket_identity':identity,'targets':targets,'network_namespace':namespace})
@@ -258,6 +260,9 @@ def worker(output,profile_id=lifecycle.BASELINE_PROFILE):
             # Durable attachment proof survives any later initialization/functional
             # failure. It does not replace the final healthy-state acceptance.
             lifecycle.private_json(output/'images.json',own.images)
+            # Let the isolated resident import before functional starts. Readiness
+            # execs must not compete with functional and disk sampling at 0.1 CPU.
+            own.start('agent')
             own.start('histogram-init');own.wait('histogram-init',20)
             phase='PG_keeper';lifecycle.stage(output,phase);own.start('keeper','postgres');own.exec(['ready','postgres'],timeout=60)
             phase='CH';lifecycle.stage(output,phase);own.start('clickhouse');own.exec(['ready','clickhouse'],timeout=60)
