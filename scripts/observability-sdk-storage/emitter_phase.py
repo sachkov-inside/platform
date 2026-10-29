@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 NAME = 'sdk-emitter-phase.json'
-MAX_BYTES = 512
+MAX_BYTES = 1024
 PHASES = ('input_validation','hooks_setup','modules_import','provider_acquisition','sdk_acquisition',
           'storage_acquisition','scoped_read','read_contract','sdk_flush','sdk_diagnostics','sdk_shutdown',
           'witness_contract','result_ready','cleanup_sdk','cleanup_provider','cleanup_hooks')
@@ -64,9 +64,30 @@ def _failures(value):
     return result
 
 
+_TRANSPORT_TIMES = ('createdMs','submittedMs','bodyFinishedMs','headersMs','endMs','failureMs')
+
+
+def _transport(value):
+    unavailable={'available':False}
+    if (type(value) is not dict or set(value) != {'available','sdkFlushMs','metrics','traces'}
+            or value['available'] is not True):return unavailable
+    def timestamp(item):return item is None or type(item) is int and 0 <= item <= 600000
+    if not timestamp(value['sdkFlushMs']):return unavailable
+    result={'available':True,'sdkFlushMs':value['sdkFlushMs']}
+    for signal in ('metrics','traces'):
+        row=value[signal]
+        if (type(row) is not dict or set(row)!=set(_TRANSPORT_TIMES)
+                or any(not timestamp(row[key]) for key in _TRANSPORT_TIMES)):return unavailable
+        # Missing earlier milestones remain unknown, not fabricated zero or absence.
+        known=[row[key] for key in _TRANSPORT_TIMES[:-1] if row[key] is not None]
+        if known!=sorted(known):return unavailable
+        result[signal]={key:row[key] for key in _TRANSPORT_TIMES}
+    return result
+
+
 def validate(value, *, source):
     if (not _sha(source,40) or type(value) is not dict or any(type(key) is not str for key in value)
-            or set(value)-{'diagnostics','exportFailures'} != _FIELDS or type(value['schema']) is not int or value['schema'] != 1
+            or set(value)-{'diagnostics','exportFailures','transport'} != _FIELDS or type(value['schema']) is not int or value['schema'] != 1
             or any(type(value[key]) is not str for key in _FIELDS-{'schema'})
             or value['scope'] != 'sdk' or value['source'] != source):
         _refuse()
@@ -80,6 +101,7 @@ def validate(value, *, source):
     projected = {key:value[key] for key in sorted(_FIELDS)}
     if 'diagnostics' in value:projected['diagnostics'] = _counters(value['diagnostics'])
     if 'exportFailures' in value:projected['exportFailures'] = _failures(value['exportFailures'])
+    if 'transport' in value:projected['transport'] = _transport(value['transport'])
     return projected
 
 
@@ -267,7 +289,7 @@ def source_from_metadata(metadata):
 
 def load_for_collection(output,*,source):
     value = read(Path(output)/NAME,source=source)
-    return {**value,'diagnostics':_counters(value.get('diagnostics')),'exportFailures':_failures(value.get('exportFailures'))}
+    return {**value,'diagnostics':_counters(value.get('diagnostics')),'exportFailures':_failures(value.get('exportFailures')),'transport':_transport(value.get('transport'))}
 
 
 class OwnedSdkPhase:

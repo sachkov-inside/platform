@@ -1,6 +1,7 @@
 // @ts-check
 // One SDK/pipeline composition fixture. The HTTP scope is test-owned, not an API request.
 import assert from "node:assert/strict";
+import { observeSdkTransport } from "./transport.mjs";
 import {
   admitSdkEmitterPhase,
   createSdkEmitterPhase,
@@ -19,10 +20,18 @@ const privateMarker = "sdk-storage-private";
 /** @param {string} endpoint @param {string} release @param {unknown} [phase] */
 export async function emit(endpoint, release, phase = null) {
   const observationPhase = admitSdkEmitterPhase(phase);
+  /** @type {ReturnType<typeof observeSdkTransport>|undefined} */
+  let transport;
+  const recordFailure = () => {
+    if (transport !== undefined)
+      observationPhase?.transport(transport.snapshot());
+    observationPhase?.failed();
+  };
   try {
     observationPhase?.enter("input_validation");
     assert.match(endpoint, /^http:\/\/127\.0\.0\.1:[0-9]{1,5}$/u);
     assert.match(release, /^[0-9a-f]{40}$/u);
+    if (observationPhase !== null) transport = observeSdkTransport(endpoint);
     /** @type {Map<string, string>} */
     const loaded = new Map();
     observationPhase?.enter("hooks_setup");
@@ -115,8 +124,12 @@ export async function emit(endpoint, release, phase = null) {
         service: "platform-api",
         mode: "test",
         identity: { release, sourceSha: release },
-        onExportFailureObservation: (signal, failure) =>
-          observationPhase?.exportFailure(signal, failure),
+        onExportFailureObservation: (signal, failure) => {
+          transport?.exportFailure(signal);
+          if (transport !== undefined)
+            observationPhase?.transport(transport.snapshot());
+          observationPhase?.exportFailure(signal, failure);
+        },
       });
       observationPhase?.enter("storage_acquisition");
       const storage = objectStorage.createS3ObjectStorage({
@@ -152,19 +165,24 @@ export async function emit(endpoint, release, phase = null) {
         assert.equal(requests, 1);
         assert.equal(providerValid, true);
       } catch (error) {
-        observationPhase?.failed();
+        recordFailure();
         throw error;
       } finally {
         try {
           observation.finish(200, performance.now() - started);
         } catch (error) {
-          observationPhase?.failed();
+          recordFailure();
           // oxlint-disable-next-line eslint/no-unsafe-finally -- Preserve the original cleanup replacement behavior after observing its phase.
           throw error;
         }
       }
+      transport?.enterFlush();
+      if (transport !== undefined)
+        observationPhase?.transport(transport.snapshot());
       observationPhase?.enter("sdk_flush");
       await sdk.flush();
+      if (transport !== undefined)
+        observationPhase?.transport(transport.snapshot());
       observationPhase?.enter("sdk_diagnostics");
       const sdkDiagnostics = sdk.diagnostics();
       observationPhase?.diagnostics(sdkDiagnostics);
@@ -196,7 +214,7 @@ export async function emit(endpoint, release, phase = null) {
           .map(([path, sha256]) => ({ path, sha256 })),
       };
     } catch (error) {
-      observationPhase?.failed();
+      recordFailure();
       throw error;
     } finally {
       try {
@@ -214,7 +232,7 @@ export async function emit(endpoint, release, phase = null) {
         observationPhase?.enter("cleanup_hooks");
         hooks.deregister();
       } catch (error) {
-        observationPhase?.failed();
+        recordFailure();
         // oxlint-disable-next-line eslint/no-unsafe-finally -- Preserve the original cleanup replacement behavior after observing its phase.
         throw error;
       }
@@ -222,8 +240,10 @@ export async function emit(endpoint, release, phase = null) {
     observationPhase?.completed();
     return result;
   } catch (error) {
-    observationPhase?.failed();
+    recordFailure();
     throw error;
+  } finally {
+    transport?.close();
   }
 }
 
