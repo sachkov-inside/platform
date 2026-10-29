@@ -562,49 +562,98 @@ non-reproduction. Исчезновение симптома с подтверж�
 по этим данным не устанавливаются.
 
 
-Для сравнения с SigNoz подготовлен только приватный конструктор общего плана
-`fullstack.assemble_core`. Он принимает фактический план `fullstack.inputs`,
-пять закреплённых образов приложения, исходники commit/tree и единственные
-root/project/nonce/uid/gid. Два закрытых значения: `primary-v1` возвращает исходный
-план без изменений; `signoz-mcp512-v1` заменяет только семь служб основного
-хранилища и его четыре тома. Все 11 служб SigNoz получают префикс `sig-`,
-семь томов и внутренняя сеть `sig-backend` имеют отдельные имена.
-Приложение сохраняет собственные `postgres` и `mcp`; alias `mcp` у SigNoz
-доступен только в `sig-backend`. Только `sig-collector` дополнительно подключён
-к существующим `storage` и `hostsource` с фиксированным alias
-`inside-signoz-collector`. Конструктор сначала подтверждает исходные сети Alloy
-и host-agent; их службы, сети и mounts не расширяются. PostgreSQL, MCP и server
-SigNoz остаются только во внутренней сети, новых host ports нет.
-Network-none agent, остановленные init jobs,
-права и read-only mounts берутся из прежнего строгого функционального плана.
-Его validator не принимает объединённый план.
+Для сравнения с SigNoz подготовлен приватный конструктор общего плана
+`fullstack.assemble_core`. Он принимает фактический план `fullstack.inputs`, пять
+закреплённых образов приложения, исходники commit/tree и единственные
+root/project/nonce/uid/gid. `primary-v1` сохраняет исходный план; закрытый
+`signoz-mcp512-v1` заменяет семь служб основного хранилища и его четыре тома.
+Строгий функциональный план SigNoz по-прежнему содержит 11 служб, семь томов
+и собственные прежние ограничения. Репрезентативный план использует их имена
+с префиксом `sig-`, отдельную сеть `sig-backend` и сохраняет собственные
+`postgres` и `mcp` приложения. Alias `mcp` у SigNoz находится только в
+`sig-backend`. Прежний функциональный validator не принимает объединённый план.
 
-Общий профиль `representative-signoz-mcp512-v1` сохраняет приложение, Umami,
-Alloy, host-agent и остальные наблюдатели. Приватный manifest перечисляет все
-37 служб, 11 томов и 7 сетей, их владельца и полные лимиты. Сумма объявленных
-лимитов памяти, включая остановленные migration/init jobs, равна 16224 MiB;
-из них SigNoz занимает 4480 MiB. Сумма CPU caps всех объявленных служб равна 23.1.
-Эти суммы не означают одновременное потребление, необходимый размер хоста
-или приёмку. Название функционального SigNoz-профиля `under8g` не относится
-ко всему приложению. Единственный предполагаемый supervisor сохраняет
-600 секунд и отдельные 90 секунд cleanup, без вложенного supervisor.
+Только collector имеет дополнительные пути для сигналов. Три фиксированные
+внутренние сети отделяют trace-sanitizer от приложения и читателя:
+`sig-trace-edge` содержит только Alloy и helper, `sig-trace-forward` только
+helper и collector, `sig-signal-ingest` только Alloy и collector. Collector
+исключён из общей `storage`, куда входит loadgen. Он сохраняет `hostsource`
+для доверенного host-agent и прежний `sig-backend`. Helper не входит в эти
+сети и не получает query/admin keys, host ports, Docker socket, базу или данные.
+Привилегии и mounts host-agent не расширяются. Его фиксированный cAdvisor
+allowlist содержит ровно все роли общего плана и точный project.
 
-Возвращаемые `layout.plan` и `layout.manifest` являются копиями приватного
-снимка, а `layout.validate(plan, manifest)` отвергает любое отличие от него.
-Manifest содержит приватные пути и nonce, его нельзя копировать в публичный
-артефакт или считать подтверждением фактического acquisition/cleanup.
-Конструктор принимает доверенный результат существующего fixture assembler,
-не превращает произвольный внешний Compose JSON в разрешение на запуск.
+Общий профиль `representative-signoz-mcp512-v1` теперь перечисляет 38 служб,
+11 томов и 10 сетей. Сумма объявленных лимитов, включая остановленные
+migration/init jobs, приложение, Umami и наблюдателей, равна 16288 MiB и 23.15 CPU.
+Канонические 11 служб SigNoz сохраняют 4480 MiB и 2 CPU; helper добавляет
+64 MiB и 0.05 CPU, pids64, read-only root и отдельный tmpfs64 KiB.
+Это суммы ограничений, а не одновременное потребление или минимум хоста.
+Имя функционального профиля `under8g` не относится ко всему приложению.
+Один внешний supervisor сохраняет 600 секунд и отдельные 90 секунд cleanup.
 
-Runtime этого сравнения пока недоступен. Явный `--core signoz-mcp512-v1` для
-`run`, как и такой выбор в `inputs`, завершает работу с
-`representative_signoz_runtime_unavailable` до подготовки image lease,
-Docker или output. Обычный запуск и явный `--core primary-v1` сохраняют прежний
-путь. Ingestion/privacy, закрытые query recipes, viewer/MCP authority,
-генерация фильтров host-agent для точного project и полного фиксированного
-списка ролей, workload/recovery/storage чтения требуют следующих задач.
-До их реализации, независимого ревью безопасности и реальных функциональных
-проверок запуск репрезентативного SigNoz-корпуса не разрешён этим конструктором.
-Порядок фаз, 3200 операций, 12 фаз, четыре режима, исходные oracles и бюджеты
-не меняются. Native adapter, размещение на production и рекомендация по мощности
-на этом этапе не проверены.
+`signoz_ingestion` создаёт отдельные edge/host конфигурации из существующих
+`privacy_config.render`, `render_stdout`, Web HTTP и host правил. Основные
+конфигурации не меняются. Существующие OTLP фильтры выполняются перед helper,
+правила stdout сохраняют закрытую проекцию, затем Loki receiver переводит её
+в OTLP logs. Metrics/logs идут только через `sig-signal-ingest` к фиксированному
+collector; post-relabel host/cAdvisor/cache используют встроенный
+`otelcol.receiver.prometheus` и собственный alias collector в `hostsource`.
+Host/cAdvisor15s, cache1s и source5s не меняются. Генератор не создаёт значения,
+не меняет source clocks и не подменяет отсутствующие измерения нулями.
+Реальные типы, resource/label mapping, новые нули после старых единиц и timestamps
+после native преобразования и хранения требуют отдельного подтверждения.
+
+Только trace exporter использует JSON без сжатия к фиксированному helper:
+`encoding="json"`, `compression="none"`. Это поддерживают закреплённые
+Alloy1.21 и pdata1.68. OTLP JSON использует `traceId`, `spanId`, `traceState`,
+`flags`; ID кодируются hex. Helper удаляет только attributes и traceState
+у каждого span link, сохраняя IDs, flags, количество links и остальную структуру.
+Snake_case aliases, дубликаты полей, nonfinite JSON и неверные формы отвергаются.
+Заголовок `VT-Ignore-Fields` не пересылается в SigNoz, сами links не удаляются.
+
+У helper один активный запрос, запрошенный backlog1 и один downstream attempt
+без повторной отправки, redirect или proxy environment. Только POST `/v1/traces`,
+JSON Content-Type и единственный Content-Length. Пределы: body1 MiB, headers8 KiB,
+32 headers, depth32, nodes65536, spans1024, links128 на span и 4096 на request;
+ответ collector не больше16 KiB. Канонический backend отправляет не больше64
+spans в batch и32 links на span, Telegram links не создаёт. Настройки batch
+в Alloy не меняются; исходный alpha queue batching по умолчанию не включён.
+Дополнительные проверки принимают корректные512/1024 spans и сообщения около
+1 MiB, но это не обещание достаточности64 MiB или0.05 CPU в закреплённом образе.
+
+Один абсолютный срок4 секунды охватывает принятый запрос и ответ внутри прежнего
+Alloy timeout5s. Чтение порциями не начинает срок заново. Единственное разрешение
+имени фиксированного collector выполняется до приёма запросов внутри общего
+startup budget. Частичный HTTP200 сохраняет rejectedSpans и конечный признак
+предупреждения, без исходного errorMessage. Неизвестный результат, malformed
+ответ и transport failure не становятся подтверждением успеха. Helper не
+гарантирует exactly-once при утрате ACK: прежняя политика retry Alloy сохраняется.
+
+Один приватный `receipt.json` в tmpfs хранит source/nonce/project, instance,
+PID/start ticks/cgroup hash, ограниченные счётчики запросов, подтверждений,
+отвергнутых spans, partial/warnings/failures/unknown outcomes. Это не network API
+и не публичный артефакт. Ошибка записи переводит producer в broken и помечает его собственный прежний
+файл непригодным. Чужой replacement не изменяется. На Mac отсутствующие native
+process/cgroup facts остаются null.
+Задача workload/controller обязана впоследствии проверить фактический owned
+container/cgroup/source, отсутствие reset/replacement, partial и неизвестных
+результатов. Сам HTTP200 и успешный exporter не доказывают отсутствие потерь.
+Эта подготовка не добавляет новый verdict или ослабление общего oracle.
+
+`layout.plan`, `.manifest`, `.files` возвращают копии приватных снимков.
+Manifest связывает исходники, root inode, owner, полную топологию, все лимиты,
+generator inputs и config hashes. `layout.prepare_inputs()` пишет только два
+фиксированных свежих файла в `representative-ingestion` с mode0700/0600,
+не заменяет существующий каталог и отказывается при изменении исходников/root.
+Пути, nonce, полные планы и receipt нельзя копировать в публичные доказательства.
+
+Runtime сравнения всё ещё недоступен: `--core signoz-mcp512-v1` для `run`, как
+и такой выбор в `inputs`, завершается `representative_signoz_runtime_unavailable`
+до image lease, Docker или output. Обычный и явный `--core primary-v1` сохраняют
+прежний путь. Нужны независимые Standards/Spec/Security и actual classification,
+затем native parser/transform/stored privacy и metric bridge proof, закрытые
+reader recipes и viewer/MCP/revoke proof, общие workload/storage/recovery и CI.
+Текст конфигурации и локальный HTTP helper не являются native PASS. Фазы,
+3200 операций, 12 фаз, четыре режима, исходные oracles и600+90 не меняются.
+Размещение на production,600s fit и подходящая мощность сервера не подтверждены.
