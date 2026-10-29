@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ContentCoversService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -15,15 +15,15 @@ export class ContentCoversService {
     width,
     coverId,
   }: {
-    width: number;
-    coverId: string;
+    width: number,
+    coverId: string,
   }): CancelablePromise<Blob> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/content-covers/{coverId}/{width}",
+      method: 'GET',
+      url: '/content-covers/{coverId}/{width}',
       path: {
-        width: width,
-        coverId: coverId,
+        'width': width,
+        'coverId': coverId,
       },
     });
   }

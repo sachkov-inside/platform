@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class AccountsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -17,8 +17,8 @@ export class AccountsService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts",
+      method: 'POST',
+      url: '/accounts',
     });
   }
   /**
@@ -32,8 +32,8 @@ export class AccountsService {
     };
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current",
+      method: 'GET',
+      url: '/accounts/current',
     });
   }
   /**
@@ -51,40 +51,26 @@ export class AccountsService {
         accepted: boolean;
         digest: string;
         documentId: string;
-        kind: "terms" | "personal_data" | "marketing";
+        kind: 'terms' | 'personal_data' | 'marketing';
         version: string;
       }>;
       operationId: string;
-      screen: "checkout";
+      screen: 'checkout';
+    },
+  }): CancelablePromise<({
+    evidenceRefs: Array<string>;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'revision_conflict' | 'operation_conflict' | 'rate_limited' | 'challenge_invalid' | 'contact_required' | 'document_changed' | 'not_found' | 'provider_unavailable' | 'internal_error';
     };
-  }): CancelablePromise<
-    | {
-        evidenceRefs: Array<string>;
-        ok: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "revision_conflict"
-            | "operation_conflict"
-            | "rate_limited"
-            | "challenge_invalid"
-            | "contact_required"
-            | "document_changed"
-            | "not_found"
-            | "provider_unavailable"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/billing/consents",
+      method: 'POST',
+      url: '/accounts/current/billing/consents',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -95,54 +81,40 @@ export class AccountsService {
   public readBillingConsent({
     evidenceRef,
   }: {
-    evidenceRef: string;
-  }): CancelablePromise<
-    | {
-        evidence: {
-          acceptedAt: string;
-          buttonLabel: string | null;
-          contextRef: string;
-          document: {
-            commercialModel?: "product-lifetime-v1";
-            digest: string;
-            documentId: string;
-            kind: "terms" | "recurring" | "personal_data" | "marketing";
-            text: string;
-            url: string;
-            version: string;
-          };
-          evidenceRef: string;
-          shownTerms: {
-            amountKopecks: number;
-            nextChargeOn: string;
-            periodMonths: number;
-          } | null;
-        };
-        ok: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "revision_conflict"
-            | "operation_conflict"
-            | "rate_limited"
-            | "challenge_invalid"
-            | "contact_required"
-            | "document_changed"
-            | "not_found"
-            | "provider_unavailable"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+    evidenceRef: string,
+  }): CancelablePromise<({
+    evidence: {
+      acceptedAt: string;
+      buttonLabel: string | null;
+      contextRef: string;
+      document: {
+        commercialModel?: 'product-lifetime-v1';
+        digest: string;
+        documentId: string;
+        kind: 'terms' | 'recurring' | 'personal_data' | 'marketing';
+        text: string;
+        url: string;
+        version: string;
+      };
+      evidenceRef: string;
+      shownTerms: {
+        amountKopecks: number;
+        nextChargeOn: string;
+        periodMonths: number;
+      } | null;
+    };
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'revision_conflict' | 'operation_conflict' | 'rate_limited' | 'challenge_invalid' | 'contact_required' | 'document_changed' | 'not_found' | 'provider_unavailable' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/billing/consents/{evidenceRef}",
+      method: 'GET',
+      url: '/accounts/current/billing/consents/{evidenceRef}',
       path: {
-        evidenceRef: evidenceRef,
+        'evidenceRef': evidenceRef,
       },
     });
   }
@@ -151,46 +123,32 @@ export class AccountsService {
    * @returns any
    * @throws ApiError
    */
-  public readBillingContact(): CancelablePromise<
-    | {
-        contact: {
-          email: string;
-          revision: number;
-          verifiedAt: string;
-        } | null;
-        documents: Array<{
-          readonly appliesTo: Array<"one_time" | "subscription">;
-          commercialModel?: "product-lifetime-v1";
-          digest: string;
-          documentId: string;
-          kind: "terms" | "recurring" | "personal_data" | "marketing";
-          text: string;
-          url: string;
-          version: string;
-        }>;
-        ok: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "revision_conflict"
-            | "operation_conflict"
-            | "rate_limited"
-            | "challenge_invalid"
-            | "contact_required"
-            | "document_changed"
-            | "not_found"
-            | "provider_unavailable"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+  public readBillingContact(): CancelablePromise<({
+    contact: {
+      email: string;
+      revision: number;
+      verifiedAt: string;
+    } | null;
+    documents: Array<{
+      readonly appliesTo: Array<'one_time' | 'subscription'>;
+      commercialModel?: 'product-lifetime-v1';
+      digest: string;
+      documentId: string;
+      kind: 'terms' | 'recurring' | 'personal_data' | 'marketing';
+      text: string;
+      url: string;
+      version: string;
+    }>;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'revision_conflict' | 'operation_conflict' | 'rate_limited' | 'challenge_invalid' | 'contact_required' | 'document_changed' | 'not_found' | 'provider_unavailable' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/billing/contact",
+      method: 'GET',
+      url: '/accounts/current/billing/contact',
     });
   }
   /**
@@ -205,35 +163,21 @@ export class AccountsService {
       challengeRef: string;
       code: string;
       operationId: string;
+    },
+  }): CancelablePromise<({
+    ok: boolean;
+    revision: number;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'revision_conflict' | 'operation_conflict' | 'rate_limited' | 'challenge_invalid' | 'contact_required' | 'document_changed' | 'not_found' | 'provider_unavailable' | 'internal_error';
     };
-  }): CancelablePromise<
-    | {
-        ok: boolean;
-        revision: number;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "revision_conflict"
-            | "operation_conflict"
-            | "rate_limited"
-            | "challenge_invalid"
-            | "contact_required"
-            | "document_changed"
-            | "not_found"
-            | "provider_unavailable"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/billing/contact/confirm",
+      method: 'POST',
+      url: '/accounts/current/billing/contact/confirm',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -248,37 +192,23 @@ export class AccountsService {
       email: string;
       expectedRevision: number;
       operationId: string;
+    },
+  }): CancelablePromise<({
+    challengeRef: string;
+    delivery: 'sent' | 'unknown';
+    expiresAt: string;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'revision_conflict' | 'operation_conflict' | 'rate_limited' | 'challenge_invalid' | 'contact_required' | 'document_changed' | 'not_found' | 'provider_unavailable' | 'internal_error';
     };
-  }): CancelablePromise<
-    | {
-        challengeRef: string;
-        delivery: "sent" | "unknown";
-        expiresAt: string;
-        ok: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "revision_conflict"
-            | "operation_conflict"
-            | "rate_limited"
-            | "challenge_invalid"
-            | "contact_required"
-            | "document_changed"
-            | "not_found"
-            | "provider_unavailable"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/billing/contact/start",
+      method: 'POST',
+      url: '/accounts/current/billing/contact/start',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -286,39 +216,31 @@ export class AccountsService {
    * @returns any
    * @throws ApiError
    */
-  public listLegalAcceptances(): CancelablePromise<
-    | {
-        documents: Array<{
-          acceptanceRef: string;
-          acceptedAt: string;
-          buttonLabel: string | null;
-          documentId: string;
-          screen: "first-sign-in" | "checkout" | "subscription-resume" | null;
-          shownTerms: {
-            amountKopecks: number;
-            nextChargeOn: string;
-            periodMonths: number;
-          } | null;
-          url: string;
-          version: string;
-        }>;
-        ok: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "document_changed"
-            | "operation_conflict"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+  public listLegalAcceptances(): CancelablePromise<({
+    documents: Array<{
+      acceptanceRef: string;
+      acceptedAt: string;
+      buttonLabel: string | null;
+      documentId: string;
+      screen: 'first-sign-in' | 'checkout' | 'subscription-resume' | null;
+      shownTerms: {
+        amountKopecks: number;
+        nextChargeOn: string;
+        periodMonths: number;
+      } | null;
+      url: string;
+      version: string;
+    }>;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'document_changed' | 'operation_conflict' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/legal-acceptances",
+      method: 'GET',
+      url: '/accounts/current/legal-acceptances',
     });
   }
   /**
@@ -326,33 +248,25 @@ export class AccountsService {
    * @returns any
    * @throws ApiError
    */
-  public readTermsAcceptance(): CancelablePromise<
-    | {
-        accepted: boolean;
-        document: {
-          digest: string;
-          documentId: "terms";
-          url: string;
-          version: string;
-        };
-        ok: boolean;
-        previouslyAccepted: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "document_changed"
-            | "operation_conflict"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+  public readTermsAcceptance(): CancelablePromise<({
+    accepted: boolean;
+    document: {
+      digest: string;
+      documentId: 'terms';
+      url: string;
+      version: string;
+    };
+    ok: boolean;
+    previouslyAccepted: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'document_changed' | 'operation_conflict' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/legal-acceptances/terms",
+      method: 'GET',
+      url: '/accounts/current/legal-acceptances/terms',
     });
   }
   /**
@@ -368,29 +282,21 @@ export class AccountsService {
       digest: string;
       operationId: string;
       version: string;
+    },
+  }): CancelablePromise<({
+    acceptanceRef: string;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'document_changed' | 'operation_conflict' | 'internal_error';
     };
-  }): CancelablePromise<
-    | {
-        acceptanceRef: string;
-        ok: boolean;
-      }
-    | {
-        error: {
-          code:
-            | "invalid_input"
-            | "forbidden"
-            | "document_changed"
-            | "operation_conflict"
-            | "internal_error";
-        };
-        ok: boolean;
-      }
-  > {
+    ok: boolean;
+  })> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/legal-acceptances/terms",
+      method: 'POST',
+      url: '/accounts/current/legal-acceptances/terms',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -404,8 +310,8 @@ export class AccountsService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/telegram-sign-in/resume",
+      method: 'POST',
+      url: '/accounts/current/telegram-sign-in/resume',
       errors: {
         403: `The terms of use in force are not accepted yet`,
         500: `Terms acceptance could not be checked`,

@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductArtifactsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,22 +14,20 @@ export class ProductArtifactsService {
   public readProductArtifacts({
     productId,
   }: {
-    productId: string;
+    productId: string,
   }): CancelablePromise<{
     artifacts: Array<{
       artifactId: string;
-      availability: "available" | "locked";
-      content:
-        | {
-            contentType: string;
-            filename: string;
-            kind: "file";
-            size: number;
-          }
-        | {
-            externalUrl: string | null;
-            kind: "link";
-          };
+      availability: 'available' | 'locked';
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string | null;
+        kind: 'link';
+      });
       purpose: string;
       sourceId: string | null;
       title: string;
@@ -38,10 +36,10 @@ export class ProductArtifactsService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/products/{productId}/artifacts",
+      method: 'GET',
+      url: '/products/{productId}/artifacts',
       path: {
-        productId: productId,
+        'productId': productId,
       },
       errors: {
         401: `Optional Account proof is invalid`,
@@ -62,21 +60,21 @@ export class ProductArtifactsService {
     productId,
     preview,
   }: {
-    version: number;
-    artifactId: string;
-    productId: string;
-    preview?: boolean;
+    version: number,
+    artifactId: string,
+    productId: string,
+    preview?: boolean,
   }): CancelablePromise<Blob> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/products/{productId}/artifacts/{artifactId}/file",
+      method: 'GET',
+      url: '/products/{productId}/artifacts/{artifactId}/file',
       path: {
-        artifactId: artifactId,
-        productId: productId,
+        'artifactId': artifactId,
+        'productId': productId,
       },
       query: {
-        preview: preview,
-        version: version,
+        'preview': preview,
+        'version': version,
       },
       errors: {
         302: `Short-lived protected redirect`,

@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class OperationsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -12,26 +12,24 @@ export class OperationsService {
    * @throws ApiError
    */
   public getApiHealth(): CancelablePromise<{
-    database: "reachable";
-    process: "api";
-    release:
-      | {
-          release: string;
-          sourceSha: string;
-        }
-      | {
-          release: "development" | "test";
-          sourceSha: "0000000000000000000000000000000000000000";
-        };
+    database: 'reachable';
+    process: 'api';
+    release: ({
+      release: string;
+      sourceSha: string;
+    } | {
+      release: 'development' | 'test';
+      sourceSha: '0000000000000000000000000000000000000000';
+    });
     schema: {
       identity: string;
       migrationCount: number;
     };
-    status: "ready";
+    status: 'ready';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/health",
+      method: 'GET',
+      url: '/health',
       errors: {
         503: `PostgreSQL or schema readiness failed`,
       },
@@ -43,21 +41,19 @@ export class OperationsService {
    * @throws ApiError
    */
   public getApiLiveness(): CancelablePromise<{
-    process: "api";
-    release:
-      | {
-          release: string;
-          sourceSha: string;
-        }
-      | {
-          release: "development" | "test";
-          sourceSha: "0000000000000000000000000000000000000000";
-        };
-    status: "alive";
+    process: 'api';
+    release: ({
+      release: string;
+      sourceSha: string;
+    } | {
+      release: 'development' | 'test';
+      sourceSha: '0000000000000000000000000000000000000000';
+    });
+    status: 'alive';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/health/live",
+      method: 'GET',
+      url: '/health/live',
     });
   }
   /**
@@ -66,26 +62,24 @@ export class OperationsService {
    * @throws ApiError
    */
   public getApiReadiness(): CancelablePromise<{
-    database: "reachable";
-    process: "api";
-    release:
-      | {
-          release: string;
-          sourceSha: string;
-        }
-      | {
-          release: "development" | "test";
-          sourceSha: "0000000000000000000000000000000000000000";
-        };
+    database: 'reachable';
+    process: 'api';
+    release: ({
+      release: string;
+      sourceSha: string;
+    } | {
+      release: 'development' | 'test';
+      sourceSha: '0000000000000000000000000000000000000000';
+    });
     schema: {
       identity: string;
       migrationCount: number;
     };
-    status: "ready";
+    status: 'ready';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/health/ready",
+      method: 'GET',
+      url: '/health/ready',
       errors: {
         503: `PostgreSQL or schema readiness failed`,
       },

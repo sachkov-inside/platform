@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductWaitlistsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,16 +14,16 @@ export class ProductWaitlistsService {
   public readProductWaitlistIntake({
     productId,
   }: {
-    productId: string;
+    productId: string,
   }): CancelablePromise<{
     intakeId: string;
     name: string;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/product-waitlists/{productId}/intake",
+      method: 'GET',
+      url: '/product-waitlists/{productId}/intake',
       path: {
-        productId: productId,
+        'productId': productId,
       },
     });
   }
@@ -35,17 +35,17 @@ export class ProductWaitlistsService {
   public readProductWaitlistMembership({
     productId,
   }: {
-    productId: string;
+    productId: string,
   }): CancelablePromise<{
     active: boolean;
     intakeId: string;
     name: string;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/product-waitlists/{productId}/membership",
+      method: 'GET',
+      url: '/product-waitlists/{productId}/membership',
       path: {
-        productId: productId,
+        'productId': productId,
       },
     });
   }
@@ -61,17 +61,17 @@ export class ProductWaitlistsService {
       intakeId: string;
       operationId: string;
       source: string | null;
-    };
+    },
   }): CancelablePromise<{
     active: boolean;
     intakeId: string;
     name: string;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/product-waitlists/join",
+      method: 'POST',
+      url: '/product-waitlists/join',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -84,17 +84,17 @@ export class ProductWaitlistsService {
   }: {
     requestBody: {
       intakeId: string;
-    };
+    },
   }): CancelablePromise<{
     active: boolean;
     intakeId: string;
     name: string;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/product-waitlists/withdraw",
+      method: 'POST',
+      url: '/product-waitlists/withdraw',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
 }

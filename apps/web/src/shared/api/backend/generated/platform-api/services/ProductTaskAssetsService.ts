@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductTaskAssetsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -17,21 +17,21 @@ export class ProductTaskAssetsService {
     slug,
     width,
   }: {
-    assetId: string;
-    code: string;
-    slug: string;
-    width?: number;
+    assetId: string,
+    code: string,
+    slug: string,
+    width?: number,
   }): CancelablePromise<void> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/products/{slug}/tasks/{code}/assets/{assetId}",
+      method: 'GET',
+      url: '/library/products/{slug}/tasks/{code}/assets/{assetId}',
       path: {
-        assetId: assetId,
-        code: code,
-        slug: slug,
+        'assetId': assetId,
+        'code': code,
+        'slug': slug,
       },
       query: {
-        width: width,
+        'width': width,
       },
       errors: {
         302: `Protected asset redirect`,

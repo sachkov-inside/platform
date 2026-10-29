@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { RecursiveSchema1schema0 } from "../models/RecursiveSchema1schema0";
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { RecursiveSchema1schema0 } from '../models/RecursiveSchema1schema0';
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -15,109 +15,100 @@ export class MaterialAuthoringService {
   public listAuthoringContentCollections({
     kind,
   }: {
-    kind: "product" | "topic";
-  }): CancelablePromise<
-    Array<{
-      archived: boolean;
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
+    kind: 'product' | 'topic',
+  }): CancelablePromise<Array<{
+    archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+    /**
+     * Accounts whose Product Access is active now, a count without personal data. Null when it is not available: the actor lacks billing:manage, the collection is a Topic, or the Product Access owner did not answer; never a stand-in 0
+     */
+    holderCount: number | null;
+    id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
+    kind: 'product' | 'topic';
+    materialCount: number;
+    name: string;
+    page: {
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
         }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
       } | null;
-      /**
-       * Accounts whose Product Access is active now, a count without personal data. Null when it is not available: the actor lacks billing:manage, the collection is a Topic, or the Product Access owner did not answer; never a stand-in 0
-       */
-      holderCount: number | null;
-      id: string;
-      introduction: {
-        audience: string;
-        outcome: string;
-        prerequisites: string;
-        scope: string;
-      } | null;
-      kind: "product" | "topic";
-      materialCount: number;
-      name: string;
-      page: {
-        blocks: Array<
-          | {
-              badge: string;
-              highlights: Array<string>;
-              id: string;
-              kind: "hero";
-              lead: string;
-            }
-          | {
-              eyebrow: string;
-              id: string;
-              items: Array<{
-                detail: string;
-                detailLabel: string;
-                text: string;
-                title: string;
-              }>;
-              kind: "cards";
-              lead: string;
-              note: string;
-              title: string;
-            }
-          | {
-              id: string;
-              kind: "text";
-              paragraphs: Array<string>;
-              title: string;
-            }
-          | {
-              id: string;
-              items: Array<{
-                text: string;
-                title: string;
-              }>;
-              kind: "steps";
-              lead: string;
-              link: string;
-              title: string;
-            }
-          | {
-              id: string;
-              items: Array<string>;
-              kind: "list";
-              text: string;
-              title: string;
-            }
-          | {
-              id: string;
-              kind: "trial";
-              link: string;
-              text: string;
-              title: string;
-            }
-        >;
-        card: {
-          action: string;
-          eyebrow: string;
-          subtitle: string;
-        } | null;
-      } | null;
-      pageRejected: boolean;
-      presentation: string | null;
-      /**
-       * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
-       */
-      publishedMaterialCount: number;
-      slug: string;
-      sourceId: string | null;
-      summary: string;
-      version: number;
-    }>
-  > {
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
+    /**
+     * Materials published now: for a Product, programme memberships whose Material is published; for a Topic, its published Materials
+     */
+    publishedMaterialCount: number;
+    slug: string;
+    sourceId: string | null;
+    summary: string;
+    version: number;
+  }>> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/collections",
+      method: 'GET',
+      url: '/authoring/collections',
       query: {
-        kind: kind,
+        'kind': kind,
       },
     });
   }
@@ -130,11 +121,11 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      kind: "product" | "topic";
+      kind: 'product' | 'topic';
       name: string;
       slug: string;
       summary: string;
-    };
+    },
   }): CancelablePromise<{
     archived: boolean;
     cover: {
@@ -151,64 +142,57 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: "product" | "topic";
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
-      blocks: Array<
-        | {
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: "hero";
-            lead: string;
-          }
-        | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: "cards";
-            lead: string;
-            note: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "text";
-            paragraphs: Array<string>;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: "steps";
-            lead: string;
-            link: string;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<string>;
-            kind: "list";
-            text: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "trial";
-            link: string;
-            text: string;
-            title: string;
-          }
-      >;
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
       card: {
         action: string;
         eyebrow: string;
@@ -227,10 +211,10 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/collections",
+      method: 'POST',
+      url: '/authoring/collections',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -242,7 +226,7 @@ export class MaterialAuthoringService {
     collectionId,
     requestBody,
   }: {
-    collectionId: string;
+    collectionId: string,
     requestBody: {
       expectedVersion: number;
       introduction?: {
@@ -251,10 +235,10 @@ export class MaterialAuthoringService {
         prerequisites: string;
         scope: string;
       };
-      kind: "product" | "topic";
+      kind: 'product' | 'topic';
       name: string;
       summary: string;
-    };
+    },
   }): CancelablePromise<{
     archived: boolean;
     cover: {
@@ -271,64 +255,57 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: "product" | "topic";
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
-      blocks: Array<
-        | {
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: "hero";
-            lead: string;
-          }
-        | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: "cards";
-            lead: string;
-            note: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "text";
-            paragraphs: Array<string>;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: "steps";
-            lead: string;
-            link: string;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<string>;
-            kind: "list";
-            text: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "trial";
-            link: string;
-            text: string;
-            title: string;
-          }
-      >;
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
       card: {
         action: string;
         eyebrow: string;
@@ -347,13 +324,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/collections/{collectionId}",
+      method: 'PUT',
+      url: '/authoring/collections/{collectionId}',
       path: {
-        collectionId: collectionId,
+        'collectionId': collectionId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -365,12 +342,12 @@ export class MaterialAuthoringService {
     collectionId,
     requestBody,
   }: {
-    collectionId: string;
+    collectionId: string,
     requestBody: {
       archived: boolean;
       expectedVersion: number;
-      kind: "product" | "topic";
-    };
+      kind: 'product' | 'topic';
+    },
   }): CancelablePromise<{
     archived: boolean;
     cover: {
@@ -387,64 +364,57 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: "product" | "topic";
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
-      blocks: Array<
-        | {
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: "hero";
-            lead: string;
-          }
-        | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: "cards";
-            lead: string;
-            note: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "text";
-            paragraphs: Array<string>;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: "steps";
-            lead: string;
-            link: string;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<string>;
-            kind: "list";
-            text: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "trial";
-            link: string;
-            text: string;
-            title: string;
-          }
-      >;
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
       card: {
         action: string;
         eyebrow: string;
@@ -463,13 +433,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/collections/{collectionId}/archive",
+      method: 'PUT',
+      url: '/authoring/collections/{collectionId}/archive',
       path: {
-        collectionId: collectionId,
+        'collectionId': collectionId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -482,11 +452,11 @@ export class MaterialAuthoringService {
     ownerKind,
     requestBody,
   }: {
-    ownerId: string;
-    ownerKind: "material" | "product" | "topic";
+    ownerId: string,
+    ownerKind: 'material' | 'product' | 'topic',
     requestBody: {
       expectedCoverId: string | null;
-    };
+    },
   }): CancelablePromise<{
     cover: {
       coverId: string;
@@ -497,14 +467,14 @@ export class MaterialAuthoringService {
     } | null;
   }> {
     return this.httpRequest.request({
-      method: "DELETE",
-      url: "/authoring/content-covers/{ownerKind}/{ownerId}",
+      method: 'DELETE',
+      url: '/authoring/content-covers/{ownerKind}/{ownerId}',
       path: {
-        ownerId: ownerId,
-        ownerKind: ownerKind,
+        'ownerId': ownerId,
+        'ownerKind': ownerKind,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -517,14 +487,14 @@ export class MaterialAuthoringService {
     ownerKind,
     formData,
   }: {
-    ownerId: string;
-    ownerKind: "material" | "product" | "topic";
+    ownerId: string,
+    ownerKind: 'material' | 'product' | 'topic',
     formData: {
       checksumSha256: string;
       declaredSize: number;
-      expectedCoverId: string | "null";
+      expectedCoverId: (string | 'null');
       file: Blob;
-    };
+    },
   }): CancelablePromise<{
     cover: {
       coverId: string;
@@ -535,14 +505,14 @@ export class MaterialAuthoringService {
     } | null;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/content-covers/{ownerKind}/{ownerId}",
+      method: 'PUT',
+      url: '/authoring/content-covers/{ownerKind}/{ownerId}',
       path: {
-        ownerId: ownerId,
-        ownerKind: ownerKind,
+        'ownerId': ownerId,
+        'ownerKind': ownerKind,
       },
       formData: formData,
-      mediaType: "multipart/form-data",
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -554,7 +524,7 @@ export class MaterialAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    idempotencyKey: string;
+    idempotencyKey: string,
     requestBody: {
       body: {
         doc: Record<string, any>;
@@ -563,9 +533,9 @@ export class MaterialAuthoringService {
       expectedContentVersion: number;
       materialId: string;
       metadata: {
-        access: "free" | "closed" | "membership";
-        difficulty: "basic" | "intermediate" | "advanced" | null;
-        formatId: "video" | "guide" | "note" | null;
+        access: 'free' | 'closed' | 'membership';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
         seriesIds: Array<string>;
         summary: string | null;
@@ -575,7 +545,7 @@ export class MaterialAuthoringService {
       };
       notifyTelegram?: boolean;
       primaryVideoId: string | null;
-      publicationState: "draft" | "published" | "unpublished";
+      publicationState: 'draft' | 'published' | 'unpublished';
       source: {
         commit?: string | null;
         id: string;
@@ -587,21 +557,21 @@ export class MaterialAuthoringService {
         start: number;
         title: string;
       }>;
-    };
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/history/material-receipts",
+      method: 'POST',
+      url: '/authoring/history/material-receipts',
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -613,7 +583,7 @@ export class MaterialAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    idempotencyKey: string;
+    idempotencyKey: string,
     requestBody: {
       definition: {
         allowedFreedom: string;
@@ -636,28 +606,28 @@ export class MaterialAuthoringService {
         path: string;
         repository: string;
       };
-      publicationState: "published" | "unpublished";
+      publicationState: 'published' | 'unpublished';
       sourceReference: {
         materialSourceId: string;
         materialSourceRevision: string;
       };
-    };
+    },
   }): CancelablePromise<{
     boundContentVersion: number;
     definitionDigest: string;
     materialId: string;
     practiceId: string;
     practiceVersion: number;
-    publicationState: "published" | "unpublished";
+    publicationState: 'published' | 'unpublished';
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/history/practice-receipts",
+      method: 'POST',
+      url: '/authoring/history/practice-receipts',
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -670,8 +640,8 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/home-pin",
+      method: 'GET',
+      url: '/authoring/home-pin',
     });
   }
   /**
@@ -685,16 +655,16 @@ export class MaterialAuthoringService {
     requestBody: {
       expectedVersion: number;
       productId: string | null;
-    };
+    },
   }): CancelablePromise<{
     productId: string | null;
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/home-pin",
+      method: 'PUT',
+      url: '/authoring/home-pin',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -707,15 +677,15 @@ export class MaterialAuthoringService {
     ownerKind,
     formData,
   }: {
-    ownerId: string;
-    ownerKind: "material" | "product";
+    ownerId: string,
+    ownerKind: 'material' | 'product',
     formData: {
       checksumSha256: string;
       declaredSize: number;
-      expectedCoverId: string | "null";
+      expectedCoverId: (string | 'null');
       file: Blob;
       sourceId: string;
-    };
+    },
   }): CancelablePromise<{
     cover: {
       coverId: string;
@@ -726,14 +696,14 @@ export class MaterialAuthoringService {
     } | null;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/import/content-covers/{ownerKind}/{ownerId}",
+      method: 'PUT',
+      url: '/authoring/import/content-covers/{ownerKind}/{ownerId}',
       path: {
-        ownerId: ownerId,
-        ownerKind: ownerKind,
+        'ownerId': ownerId,
+        'ownerKind': ownerKind,
       },
       formData: formData,
-      mediaType: "multipart/form-data",
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -745,7 +715,7 @@ export class MaterialAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    idempotencyKey: string;
+    idempotencyKey: string,
     requestBody: {
       body: {
         doc: Record<string, any>;
@@ -754,9 +724,9 @@ export class MaterialAuthoringService {
       expectedContentVersion: number;
       materialId: string;
       metadata: {
-        access: "free" | "closed";
-        difficulty: "basic" | "intermediate" | "advanced" | null;
-        formatId: "video" | "guide" | "note" | null;
+        access: 'free' | 'closed';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
         productIds: Array<string>;
         summary: string | null;
@@ -766,7 +736,7 @@ export class MaterialAuthoringService {
       };
       notifyTelegram?: boolean;
       primaryVideoId: string | null;
-      publicationState: "draft" | "published" | "unpublished";
+      publicationState: 'draft' | 'published' | 'unpublished';
       source: {
         commit?: string | null;
         id: string;
@@ -778,21 +748,21 @@ export class MaterialAuthoringService {
         start: number;
         title: string;
       }>;
-    };
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/materials/apply",
+      method: 'POST',
+      url: '/authoring/import/materials/apply',
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -805,11 +775,11 @@ export class MaterialAuthoringService {
       packageFeatures: Array<string>;
       version: number;
     };
-    mode: "development" | "test" | "production";
+    mode: 'development' | 'test' | 'production';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/import/materials/environment",
+      method: 'GET',
+      url: '/authoring/import/materials/environment',
     });
   }
   /**
@@ -821,28 +791,28 @@ export class MaterialAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    idempotencyKey: string;
+    idempotencyKey: string,
     requestBody: {
       confirmedProductRemovals?: Array<string>;
       expectedContentVersion: number;
       materialId: string;
-      publicationState: "published" | "unpublished";
+      publicationState: 'published' | 'unpublished';
       sourceId: string;
-    };
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/materials/publication",
+      method: 'POST',
+      url: '/authoring/import/materials/publication',
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -861,18 +831,18 @@ export class MaterialAuthoringService {
         revision: string;
         version: 2;
       };
-    };
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/materials/reserve",
+      method: 'POST',
+      url: '/authoring/import/materials/reserve',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -883,10 +853,10 @@ export class MaterialAuthoringService {
   public readSourceMaterialState({
     namespace,
   }: {
-    namespace: string;
+    namespace: string,
   }): CancelablePromise<{
     materials: Array<{
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       contentVersion: number;
       materialId: string;
       memberships: Array<{
@@ -894,7 +864,7 @@ export class MaterialAuthoringService {
         ordinal: number;
         productId: string;
       }>;
-      publicationState: "draft" | "published" | "unpublished";
+      publicationState: 'draft' | 'published' | 'unpublished';
       slug: string | null;
       source: {
         commit: string | null;
@@ -907,10 +877,10 @@ export class MaterialAuthoringService {
     namespace: string;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/import/materials/state",
+      method: 'GET',
+      url: '/authoring/import/materials/state',
       query: {
-        namespace: namespace,
+        'namespace': namespace,
       },
     });
   }
@@ -928,9 +898,9 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       metadata: {
-        access: "free" | "closed";
-        difficulty: "basic" | "intermediate" | "advanced" | null;
-        formatId: "video" | "guide" | "note" | null;
+        access: 'free' | 'closed';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
         productIds: Array<string>;
         summary: string | null;
@@ -939,7 +909,7 @@ export class MaterialAuthoringService {
         topicId: string | null;
       };
       notifyTelegram?: boolean;
-      publicationState: "draft" | "published" | "unpublished";
+      publicationState: 'draft' | 'published' | 'unpublished';
       source: {
         commit?: string | null;
         id: string;
@@ -951,15 +921,15 @@ export class MaterialAuthoringService {
         start: number;
         title: string;
       }>;
-    };
+    },
   }): CancelablePromise<{
     valid: boolean;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/materials/validate",
+      method: 'POST',
+      url: '/authoring/import/materials/validate',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -971,9 +941,9 @@ export class MaterialAuthoringService {
     productId,
     formData,
   }: {
-    productId: string;
+    productId: string,
     formData: {
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       checksumSha256: string;
       declaredSize: number;
       file: Blob;
@@ -981,21 +951,21 @@ export class MaterialAuthoringService {
       purpose: string;
       sourceId: string;
       title: string;
-    };
+    },
   }): CancelablePromise<{
     artifactId: string;
-    outcome: "created" | "diverged" | "missing" | "unchanged" | "updated";
+    outcome: 'created' | 'diverged' | 'missing' | 'unchanged' | 'updated';
     sourceId: string | null;
     title: string;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/products/{productId}/artifacts",
+      method: 'POST',
+      url: '/authoring/import/products/{productId}/artifacts',
       path: {
-        productId: productId,
+        'productId': productId,
       },
       formData: formData,
-      mediaType: "multipart/form-data",
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -1008,30 +978,28 @@ export class MaterialAuthoringService {
     productId,
     requestBody,
   }: {
-    artifactId: string;
-    productId: string;
+    artifactId: string,
+    productId: string,
     requestBody: {
       materialIds: Array<string>;
       productSourceId: string;
       sourceId: string;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -1040,14 +1008,14 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/products/{productId}/artifacts/{artifactId}/materials",
+      method: 'POST',
+      url: '/authoring/import/products/{productId}/artifacts/{artifactId}/materials',
       path: {
-        artifactId: artifactId,
-        productId: productId,
+        'artifactId': artifactId,
+        'productId': productId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1078,16 +1046,16 @@ export class MaterialAuthoringService {
       }>;
       sourceId: string;
       stepGroups?: Record<string, string>;
-    };
+    },
   }): CancelablePromise<{
     orderVersion: string;
     productId: string;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/products/composition",
+      method: 'POST',
+      url: '/authoring/import/products/composition',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1103,7 +1071,7 @@ export class MaterialAuthoringService {
       slug: string;
       sourceId: string;
       summary: string;
-    };
+    },
   }): CancelablePromise<{
     archived: boolean;
     cover: {
@@ -1120,64 +1088,57 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: "product" | "topic";
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
-      blocks: Array<
-        | {
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: "hero";
-            lead: string;
-          }
-        | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: "cards";
-            lead: string;
-            note: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "text";
-            paragraphs: Array<string>;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: "steps";
-            lead: string;
-            link: string;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<string>;
-            kind: "list";
-            text: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "trial";
-            link: string;
-            text: string;
-            title: string;
-          }
-      >;
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
       card: {
         action: string;
         eyebrow: string;
@@ -1196,10 +1157,10 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/products/reserve",
+      method: 'POST',
+      url: '/authoring/import/products/reserve',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1222,72 +1183,65 @@ export class MaterialAuthoringService {
       name: string;
       source: {
         page: {
-          blocks: Array<
-            | {
-                badge: string;
-                highlights: Array<string>;
-                id: string;
-                kind: "hero";
-                lead: string;
-              }
-            | {
-                eyebrow: string;
-                id: string;
-                items: Array<{
-                  detail: string;
-                  detailLabel: string;
-                  text: string;
-                  title: string;
-                }>;
-                kind: "cards";
-                lead: string;
-                note: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "text";
-                paragraphs: Array<string>;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<{
-                  text: string;
-                  title: string;
-                }>;
-                kind: "steps";
-                lead: string;
-                link: string;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<string>;
-                kind: "list";
-                text: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "trial";
-                link: string;
-                text: string;
-                title: string;
-              }
-          >;
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
           card: {
             action: string;
             eyebrow: string;
             subtitle: string;
           } | null;
         } | null;
-        presentation: "default" | "ai-first-process" | "ai-engineering-course";
+        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
         slug: string;
       };
       sourceId: string;
       summary: string;
-    };
+    },
   }): CancelablePromise<{
     archived: boolean;
     cover: {
@@ -1304,64 +1258,57 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: "product" | "topic";
+    kind: 'product' | 'topic';
     materialCount: number;
     name: string;
     page: {
-      blocks: Array<
-        | {
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: "hero";
-            lead: string;
-          }
-        | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: "cards";
-            lead: string;
-            note: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "text";
-            paragraphs: Array<string>;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: "steps";
-            lead: string;
-            link: string;
-            title: string;
-          }
-        | {
-            id: string;
-            items: Array<string>;
-            kind: "list";
-            text: string;
-            title: string;
-          }
-        | {
-            id: string;
-            kind: "trial";
-            link: string;
-            text: string;
-            title: string;
-          }
-      >;
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
       card: {
         action: string;
         eyebrow: string;
@@ -1380,10 +1327,10 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/products/update",
+      method: 'POST',
+      url: '/authoring/import/products/update',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1403,79 +1350,72 @@ export class MaterialAuthoringService {
       };
       source: {
         page: {
-          blocks: Array<
-            | {
-                badge: string;
-                highlights: Array<string>;
-                id: string;
-                kind: "hero";
-                lead: string;
-              }
-            | {
-                eyebrow: string;
-                id: string;
-                items: Array<{
-                  detail: string;
-                  detailLabel: string;
-                  text: string;
-                  title: string;
-                }>;
-                kind: "cards";
-                lead: string;
-                note: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "text";
-                paragraphs: Array<string>;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<{
-                  text: string;
-                  title: string;
-                }>;
-                kind: "steps";
-                lead: string;
-                link: string;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<string>;
-                kind: "list";
-                text: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "trial";
-                link: string;
-                text: string;
-                title: string;
-              }
-          >;
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
           card: {
             action: string;
             eyebrow: string;
             subtitle: string;
           } | null;
         } | null;
-        presentation: "default" | "ai-first-process" | "ai-engineering-course";
+        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
         slug?: string;
       };
       sourceId: string;
-    };
+    },
   }): CancelablePromise<{
     valid: boolean;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/import/products/validate",
+      method: 'POST',
+      url: '/authoring/import/products/validate',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1493,24 +1433,24 @@ export class MaterialAuthoringService {
     /**
      * Only Materials of this format; combines with the other filters, and the totals count only matching Materials
      */
-    format?: "video" | "guide" | "note";
+    format?: 'video' | 'guide' | 'note',
     /**
      * Only Materials of this Topic; combines with the other filters, and the totals count only matching Materials
      */
-    topicId?: string;
-    search?: string;
-    publicationState?: "draft" | "published" | "unpublished";
-    page?: number;
+    topicId?: string,
+    search?: string,
+    publicationState?: 'draft' | 'published' | 'unpublished',
+    page?: number,
   }): CancelablePromise<{
     items: Array<{
       canDelete: boolean;
       contentVersion: number;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
       } | null;
       materialId: string;
-      publicationState: "draft" | "published" | "unpublished";
+      publicationState: 'draft' | 'published' | 'unpublished';
       title: string | null;
       topic: {
         id: string;
@@ -1524,14 +1464,14 @@ export class MaterialAuthoringService {
     totalPages: number;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/materials",
+      method: 'GET',
+      url: '/authoring/materials',
       query: {
-        format: format,
-        topicId: topicId,
-        search: search,
-        publicationState: publicationState,
-        page: page,
+        'format': format,
+        'topicId': topicId,
+        'search': search,
+        'publicationState': publicationState,
+        'page': page,
       },
     });
   }
@@ -1544,16 +1484,16 @@ export class MaterialAuthoringService {
     idempotencyKey,
     requestBody,
   }: {
-    idempotencyKey: string;
+    idempotencyKey: string,
     requestBody: {
       body: {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
       metadata: {
-        access: "free" | "closed";
-        difficulty: "basic" | "intermediate" | "advanced" | null;
-        formatId: "video" | "guide" | "note" | null;
+        access: 'free' | 'closed';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
         productIds: Array<string>;
         summary: string | null;
@@ -1561,21 +1501,21 @@ export class MaterialAuthoringService {
         title: string | null;
         topicId: string | null;
       };
-    };
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/materials",
+      method: 'POST',
+      url: '/authoring/materials',
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1588,26 +1528,26 @@ export class MaterialAuthoringService {
     materialId,
     requestBody,
   }: {
-    idempotencyKey: string;
-    materialId: string;
+    idempotencyKey: string,
+    materialId: string,
     requestBody: {
       deleteVideoId: string | null;
       expectedContentVersion: number;
-    };
+    },
   }): CancelablePromise<{
     materialId: string;
   }> {
     return this.httpRequest.request({
-      method: "DELETE",
-      url: "/authoring/materials/{materialId}",
+      method: 'DELETE',
+      url: '/authoring/materials/{materialId}',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1618,7 +1558,7 @@ export class MaterialAuthoringService {
   public loadCurrentMaterial({
     materialId,
   }: {
-    materialId: string;
+    materialId: string,
   }): CancelablePromise<{
     body: {
       doc: Record<string, any>;
@@ -1636,25 +1576,17 @@ export class MaterialAuthoringService {
     latestVideoDeletion: {
       durationSeconds?: number;
       failureCode?: string;
-      origin: "external_attachment" | "platform_upload";
+      origin: 'external_attachment' | 'platform_upload';
       protected: boolean;
-      state:
-        | "uploading"
-        | "processing"
-        | "ready"
-        | "failed"
-        | "deletion_requested"
-        | "deleting"
-        | "deleted"
-        | "delete_failed";
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
     } | null;
     materialId: string;
     metadata: {
-      access: "free" | "closed";
-      difficulty: "basic" | "intermediate" | "advanced" | null;
-      formatId: "video" | "guide" | "note" | null;
+      access: 'free' | 'closed';
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+      formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
       productMemberships: Array<{
         ordinal: number;
@@ -1670,22 +1602,14 @@ export class MaterialAuthoringService {
     primaryVideo: {
       durationSeconds?: number;
       failureCode?: string;
-      origin: "external_attachment" | "platform_upload";
+      origin: 'external_attachment' | 'platform_upload';
       protected: boolean;
-      state:
-        | "uploading"
-        | "processing"
-        | "ready"
-        | "failed"
-        | "deletion_requested"
-        | "deleting"
-        | "deleted"
-        | "delete_failed";
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
     } | null;
     primaryVideoId: string | null;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
     source?: {
       commit?: string;
@@ -1697,26 +1621,18 @@ export class MaterialAuthoringService {
     unselectedVideoUpload: {
       durationSeconds?: number;
       failureCode?: string;
-      origin: "external_attachment" | "platform_upload";
+      origin: 'external_attachment' | 'platform_upload';
       protected: boolean;
-      state:
-        | "uploading"
-        | "processing"
-        | "ready"
-        | "failed"
-        | "deletion_requested"
-        | "deleting"
-        | "deleted"
-        | "delete_failed";
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
     } | null;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/materials/{materialId}",
+      method: 'GET',
+      url: '/authoring/materials/{materialId}',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
     });
   }
@@ -1731,8 +1647,8 @@ export class MaterialAuthoringService {
     materialId,
     requestBody,
   }: {
-    idempotencyKey: string;
-    materialId: string;
+    idempotencyKey: string,
+    materialId: string,
     requestBody: {
       body: {
         doc: Record<string, any>;
@@ -1743,9 +1659,9 @@ export class MaterialAuthoringService {
       detachVideoIds: Array<string>;
       expectedContentVersion: number;
       metadata: {
-        access: "free" | "closed";
-        difficulty: "basic" | "intermediate" | "advanced" | null;
-        formatId: "video" | "guide" | "note" | null;
+        access: 'free' | 'closed';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
         productIds: Array<string>;
         summary: string | null;
@@ -1755,25 +1671,25 @@ export class MaterialAuthoringService {
       };
       notifyTelegram?: boolean;
       primaryVideoId: string | null;
-      publicationState: "draft" | "published" | "unpublished";
-    };
+      publicationState: 'draft' | 'published' | 'unpublished';
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/materials/{materialId}",
+      method: 'PUT',
+      url: '/authoring/materials/{materialId}',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1786,22 +1702,22 @@ export class MaterialAuthoringService {
     materialId,
     formData,
   }: {
-    idempotencyKey: string;
-    materialId: string;
+    idempotencyKey: string,
+    materialId: string,
     formData: {
       checksumSha256: string;
       declaredSize: number;
       file: Blob;
-      kind: "file" | "image";
-    };
+      kind: 'file' | 'image';
+    },
   }): CancelablePromise<{
     assetId: string;
     contentType: string;
     filename: string;
     height?: number;
-    kind: "file" | "image";
+    kind: 'file' | 'image';
     size: number;
-    state: "ready";
+    state: 'ready';
     variants?: Array<{
       height: number;
       width: number;
@@ -1809,16 +1725,16 @@ export class MaterialAuthoringService {
     width?: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/materials/{materialId}/assets",
+      method: 'POST',
+      url: '/authoring/materials/{materialId}/assets',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       formData: formData,
-      mediaType: "multipart/form-data",
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -1829,19 +1745,19 @@ export class MaterialAuthoringService {
   public previewCurrentMaterial({
     materialId,
   }: {
-    materialId: string;
+    materialId: string,
   }): CancelablePromise<{
     body: {
       blocks: Array<RecursiveSchema1schema0>;
       schemaVersion: 1;
     };
-    cacheScope: "private-no-store";
+    cacheScope: 'private-no-store';
     contentVersion: number;
     materialId: string;
     metadata: {
-      access: "free" | "closed";
-      difficulty: "basic" | "intermediate" | "advanced" | null;
-      formatId: "video" | "guide" | "note" | null;
+      access: 'free' | 'closed';
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+      formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
       productMemberships: Array<{
         ordinal: number;
@@ -1853,13 +1769,13 @@ export class MaterialAuthoringService {
       title: string | null;
       topicId: string | null;
     };
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/materials/{materialId}/preview",
+      method: 'GET',
+      url: '/authoring/materials/{materialId}/preview',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
     });
   }
@@ -1873,29 +1789,29 @@ export class MaterialAuthoringService {
     materialId,
     requestBody,
   }: {
-    idempotencyKey: string;
-    materialId: string;
+    idempotencyKey: string,
+    materialId: string,
     requestBody: {
       expectedContentVersion: number;
-      publicationState: "published" | "unpublished";
-    };
+      publicationState: 'published' | 'unpublished';
+    },
   }): CancelablePromise<{
     contentVersion: number;
     materialId: string;
-    publicationState: "draft" | "published" | "unpublished";
+    publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
     return this.httpRequest.request({
-      method: "PATCH",
-      url: "/authoring/materials/{materialId}/publication",
+      method: 'PATCH',
+      url: '/authoring/materials/{materialId}/publication',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
       headers: {
-        "idempotency-key": idempotencyKey,
+        'idempotency-key': idempotencyKey,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -1907,42 +1823,39 @@ export class MaterialAuthoringService {
     expectedContentVersion,
     materialId,
   }: {
-    expectedContentVersion: number;
-    materialId: string;
+    expectedContentVersion: number,
+    materialId: string,
   }): CancelablePromise<{
     contentVersion: number;
     extraction: {
       hasModeVariants: boolean;
       headings: Array<{
-        level: 2 | 3 | 4;
+        level: (2 | 3 | 4);
         text: string;
       }>;
       plainText: string;
-      resources: Array<
-        | {
-            alt: string;
-            assetId: string;
-            caption?: string;
-            kind: "image";
-          }
-        | {
-            assetId: string;
-            kind: "file";
-            label: string;
-          }
-      >;
+      resources: Array<({
+        alt: string;
+        assetId: string;
+        caption?: string;
+        kind: 'image';
+      } | {
+        assetId: string;
+        kind: 'file';
+        label: string;
+      })>;
     };
     materialId: string;
     projectionDigest: string;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/materials/{materialId}/validation",
+      method: 'GET',
+      url: '/authoring/materials/{materialId}/validation',
       path: {
-        materialId: materialId,
+        'materialId': materialId,
       },
       query: {
-        expectedContentVersion: expectedContentVersion,
+        'expectedContentVersion': expectedContentVersion,
       },
     });
   }
@@ -1954,7 +1867,7 @@ export class MaterialAuthoringService {
   public listMaterialAuthoringReferences(): CancelablePromise<{
     formats: Array<{
       archived: boolean;
-      id: "video" | "guide" | "note";
+      id: 'video' | 'guide' | 'note';
       name: string;
     }>;
     products: Array<{
@@ -1974,8 +1887,8 @@ export class MaterialAuthoringService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/materials/references",
+      method: 'GET',
+      url: '/authoring/materials/references',
     });
   }
   /**
@@ -1985,22 +1898,20 @@ export class MaterialAuthoringService {
    */
   public listReusableProductArtifacts(): CancelablePromise<{
     artifacts: Array<{
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       archived: boolean;
       artifactId: string;
-      content:
-        | {
-            contentType: string;
-            filename: string;
-            kind: "file";
-            size: number;
-          }
-        | {
-            externalUrl: string;
-            kind: "link";
-          };
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string;
+        kind: 'link';
+      });
       materialIds: Array<string>;
-      origin: "authoring" | "platform";
+      origin: 'authoring' | 'platform';
       productIds: Array<string>;
       purpose: string;
       sourceId: string | null;
@@ -2010,8 +1921,8 @@ export class MaterialAuthoringService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/product-artifacts",
+      method: 'GET',
+      url: '/authoring/product-artifacts',
     });
   }
   /**
@@ -2022,15 +1933,15 @@ export class MaterialAuthoringService {
   public removeProductArtifact({
     artifactId,
   }: {
-    artifactId: string;
+    artifactId: string,
   }): CancelablePromise<{
     artifactId: string;
   }> {
     return this.httpRequest.request({
-      method: "DELETE",
-      url: "/authoring/product-artifacts/{artifactId}",
+      method: 'DELETE',
+      url: '/authoring/product-artifacts/{artifactId}',
       path: {
-        artifactId: artifactId,
+        'artifactId': artifactId,
       },
     });
   }
@@ -2043,29 +1954,27 @@ export class MaterialAuthoringService {
     artifactId,
     requestBody,
   }: {
-    artifactId: string;
+    artifactId: string,
     requestBody: {
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       purpose: string;
       title: string;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2074,13 +1983,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PATCH",
-      url: "/authoring/product-artifacts/{artifactId}",
+      method: 'PATCH',
+      url: '/authoring/product-artifacts/{artifactId}',
       path: {
-        artifactId: artifactId,
+        'artifactId': artifactId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2092,27 +2001,25 @@ export class MaterialAuthoringService {
     artifactId,
     requestBody,
   }: {
-    artifactId: string;
+    artifactId: string,
     requestBody: {
       archived: boolean;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2121,13 +2028,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/product-artifacts/{artifactId}/archive",
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/archive',
       path: {
-        artifactId: artifactId,
+        'artifactId': artifactId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2139,27 +2046,25 @@ export class MaterialAuthoringService {
     artifactId,
     requestBody,
   }: {
-    artifactId: string;
+    artifactId: string,
     requestBody: {
       externalUrl: string;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2168,13 +2073,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/product-artifacts/{artifactId}/link",
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/link',
       path: {
-        artifactId: artifactId,
+        'artifactId': artifactId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2186,27 +2091,25 @@ export class MaterialAuthoringService {
     artifactId,
     requestBody,
   }: {
-    artifactId: string;
+    artifactId: string,
     requestBody: {
       materialIds: Array<string>;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2215,13 +2118,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/product-artifacts/{artifactId}/materials",
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/materials',
       path: {
-        artifactId: artifactId,
+        'artifactId': artifactId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2233,27 +2136,25 @@ export class MaterialAuthoringService {
     artifactId,
     requestBody,
   }: {
-    artifactId: string;
+    artifactId: string,
     requestBody: {
       productIds: Array<string>;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2262,13 +2163,13 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/product-artifacts/{artifactId}/products",
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/products',
       path: {
-        artifactId: artifactId,
+        'artifactId': artifactId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2284,24 +2185,22 @@ export class MaterialAuthoringService {
       checksumSha256: string;
       declaredSize: number;
       file: Blob;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2310,10 +2209,10 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/product-artifacts/file",
+      method: 'PUT',
+      url: '/authoring/product-artifacts/file',
       formData: formData,
-      mediaType: "multipart/form-data",
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -2325,31 +2224,29 @@ export class MaterialAuthoringService {
     formData,
   }: {
     formData: {
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       checksumSha256: string;
       declaredSize: number;
       file: Blob;
       productId: string;
       purpose: string;
       title: string;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2358,10 +2255,10 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/product-artifacts/files",
+      method: 'POST',
+      url: '/authoring/product-artifacts/files',
       formData: formData,
-      mediaType: "multipart/form-data",
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -2373,29 +2270,27 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       externalUrl: string;
       productId: string;
       purpose: string;
       title: string;
-    };
+    },
   }): CancelablePromise<{
-    access: "free" | "closed";
+    access: 'free' | 'closed';
     archived: boolean;
     artifactId: string;
-    content:
-      | {
-          contentType: string;
-          filename: string;
-          kind: "file";
-          size: number;
-        }
-      | {
-          externalUrl: string;
-          kind: "link";
-        };
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
     materialIds: Array<string>;
-    origin: "authoring" | "platform";
+    origin: 'authoring' | 'platform';
     productIds: Array<string>;
     purpose: string;
     sourceId: string | null;
@@ -2404,10 +2299,10 @@ export class MaterialAuthoringService {
     version: number;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/authoring/product-artifacts/links",
+      method: 'POST',
+      url: '/authoring/product-artifacts/links',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2418,25 +2313,23 @@ export class MaterialAuthoringService {
   public listAuthoringProductArtifacts({
     productId,
   }: {
-    productId: string;
+    productId: string,
   }): CancelablePromise<{
     artifacts: Array<{
-      access: "free" | "closed";
+      access: 'free' | 'closed';
       archived: boolean;
       artifactId: string;
-      content:
-        | {
-            contentType: string;
-            filename: string;
-            kind: "file";
-            size: number;
-          }
-        | {
-            externalUrl: string;
-            kind: "link";
-          };
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string;
+        kind: 'link';
+      });
       materialIds: Array<string>;
-      origin: "authoring" | "platform";
+      origin: 'authoring' | 'platform';
       productIds: Array<string>;
       purpose: string;
       sourceId: string | null;
@@ -2446,10 +2339,10 @@ export class MaterialAuthoringService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/products/{productId}/artifacts",
+      method: 'GET',
+      url: '/authoring/products/{productId}/artifacts',
       path: {
-        productId: productId,
+        'productId': productId,
       },
     });
   }
@@ -2463,25 +2356,25 @@ export class MaterialAuthoringService {
     productId,
     requestBody,
   }: {
-    chapterId: string;
-    productId: string;
+    chapterId: string,
+    productId: string,
     requestBody: {
       expectedOrderVersion: string;
       materialIds: Array<any>;
-    };
+    },
   }): CancelablePromise<{
     orderVersion: string;
     productId: string;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/products/{productId}/chapters/{chapterId}/attachments",
+      method: 'PUT',
+      url: '/authoring/products/{productId}/chapters/{chapterId}/attachments',
       path: {
-        chapterId: chapterId,
-        productId: productId,
+        'chapterId': chapterId,
+        'productId': productId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -2492,7 +2385,7 @@ export class MaterialAuthoringService {
   public loadAuthoringProductOrder({
     productId,
   }: {
-    productId: string;
+    productId: string,
   }): CancelablePromise<{
     archived: boolean;
     chapters: Array<{
@@ -2506,7 +2399,7 @@ export class MaterialAuthoringService {
       chapterId: string | null;
       materialId: string;
       ordinal: number;
-      publicationState: "draft" | "published" | "unpublished";
+      publicationState: 'draft' | 'published' | 'unpublished';
       stepGroup: string | null;
       title: string | null;
     }>;
@@ -2521,10 +2414,10 @@ export class MaterialAuthoringService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/products/{productId}/order",
+      method: 'GET',
+      url: '/authoring/products/{productId}/order',
       path: {
-        productId: productId,
+        'productId': productId,
       },
     });
   }
@@ -2537,7 +2430,7 @@ export class MaterialAuthoringService {
     productId,
     requestBody,
   }: {
-    productId: string;
+    productId: string,
     requestBody: {
       chapterAssignments?: Record<string, any>;
       chapters?: Array<{
@@ -2556,19 +2449,19 @@ export class MaterialAuthoringService {
         stepGroup: string | null;
       }>;
       stepGroups?: Record<string, string>;
-    };
+    },
   }): CancelablePromise<{
     orderVersion: string;
     productId: string;
   }> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/authoring/products/{productId}/order",
+      method: 'PUT',
+      url: '/authoring/products/{productId}/order',
       path: {
-        productId: productId,
+        'productId': productId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
 }

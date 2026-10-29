@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class AccessService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -19,12 +19,12 @@ export class AccessService {
       productId: string;
       reason: string;
       sourceRef: string;
-    };
+    },
   }): CancelablePromise<{
     ok: boolean;
-    outcome: "issued" | "already_active" | "revoked";
+    outcome: 'issued' | 'already_active' | 'revoked';
     value: {
-      access: "active" | "revoked";
+      access: 'active' | 'revoked';
       accountId: string;
       firstIssuedAt: string | null;
       productId: string;
@@ -32,10 +32,10 @@ export class AccessService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/admin/access/products/issue",
+      method: 'POST',
+      url: '/admin/access/products/issue',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -47,19 +47,19 @@ export class AccessService {
     requestBody,
   }: {
     requestBody: {
-      access?: "active" | "revoked";
+      access?: 'active' | 'revoked';
       accountId?: string;
       accountIds?: Array<string>;
       cursor?: string;
       limit: number;
-      order?: "recent";
+      order?: 'recent';
       productId?: string;
-    };
+    },
   }): CancelablePromise<{
     nextCursor: string | null;
     ok: boolean;
     value: Array<{
-      access: "active" | "revoked";
+      access: 'active' | 'revoked';
       accountId: string;
       firstIssuedAt: string | null;
       productId: string;
@@ -67,10 +67,10 @@ export class AccessService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/admin/access/products/list",
+      method: 'POST',
+      url: '/admin/access/products/list',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -84,29 +84,27 @@ export class AccessService {
     requestBody: {
       accountId: string;
       productId: string;
-    };
+    },
   }): CancelablePromise<{
     ok: boolean;
     value: {
       accountId: string;
       affected: Array<{
-        capabilities: Array<
-          "materials" | "community" | "reviews" | "support" | string
-        >;
-        source: "paid" | "manual" | "legacy" | "course_activation" | "unknown";
+        capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        source: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         validUntil: string | null;
       }>;
       affectedCount: number;
-      community: "closes" | "remains";
+      community: 'closes' | 'remains';
       productId: string;
       revision: number;
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/admin/access/products/preview-revoke",
+      method: 'POST',
+      url: '/admin/access/products/preview-revoke',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -120,11 +118,11 @@ export class AccessService {
     requestBody: {
       accountId: string;
       productId: string;
-    };
+    },
   }): CancelablePromise<{
     ok: boolean;
     value: {
-      access: "active" | "revoked";
+      access: 'active' | 'revoked';
       accountId: string;
       actions: Array<{
         actorId: string | null;
@@ -146,10 +144,10 @@ export class AccessService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/admin/access/products/read",
+      method: 'POST',
+      url: '/admin/access/products/read',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -166,11 +164,11 @@ export class AccessService {
       operationId: string;
       productId: string;
       reason: string;
-    };
+    },
   }): CancelablePromise<{
     ok: boolean;
     value: {
-      access: "active" | "revoked";
+      access: 'active' | 'revoked';
       accountId: string;
       firstIssuedAt: string | null;
       productId: string;
@@ -178,10 +176,10 @@ export class AccessService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/admin/access/products/restore",
+      method: 'POST',
+      url: '/admin/access/products/restore',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -198,11 +196,11 @@ export class AccessService {
       operationId: string;
       productId: string;
       reason: string;
-    };
+    },
   }): CancelablePromise<{
     ok: boolean;
     value: {
-      access: "revoked";
+      access: 'revoked';
       accountId: string;
       firstIssuedAt: string | null;
       productId: string;
@@ -210,10 +208,10 @@ export class AccessService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/admin/access/products/revoke",
+      method: 'POST',
+      url: '/admin/access/products/revoke',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
   /**
@@ -228,17 +226,17 @@ export class AccessService {
     limit,
     cursor,
   }: {
-    productId: string;
+    productId: string,
     /**
      * Only these Accounts (repeat the parameter, at most 50); an Account without access is absent
      */
-    accountIds?: Array<string>;
-    access?: "active" | "revoked";
-    limit?: number;
-    cursor?: string;
+    accountIds?: Array<string>,
+    access?: 'active' | 'revoked',
+    limit?: number,
+    cursor?: string,
   }): CancelablePromise<{
     items: Array<{
-      access: "active" | "revoked";
+      access: 'active' | 'revoked';
       accountId: string;
       firstIssuedAt: string | null;
       learning: {
@@ -264,16 +262,16 @@ export class AccessService {
     nextCursor: string | null;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/admin/products/{productId}/holders",
+      method: 'GET',
+      url: '/admin/products/{productId}/holders',
       path: {
-        productId: productId,
+        'productId': productId,
       },
       query: {
-        accountIds: accountIds,
-        access: access,
-        limit: limit,
-        cursor: cursor,
+        'accountIds': accountIds,
+        'access': access,
+        'limit': limit,
+        'cursor': cursor,
       },
     });
   }

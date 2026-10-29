@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class VideoPlaybackService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -16,28 +16,28 @@ export class VideoPlaybackService {
     materialId,
     preview,
   }: {
-    videoId: string;
-    materialId: string;
+    videoId: string,
+    materialId: string,
     /**
      * Author preview of the current saved Material; requires materials:manage
      */
-    preview?: boolean;
+    preview?: boolean,
   }): CancelablePromise<{
     drmAuthToken: string | null;
     embedLocator: string;
-    progressScope: "account" | "anonymous";
+    progressScope: 'account' | 'anonymous';
     resumeSeconds: number | null;
     videoId: string;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/materials/{materialId}/videos/{videoId}/playback",
+      method: 'POST',
+      url: '/materials/{materialId}/videos/{videoId}/playback',
       path: {
-        videoId: videoId,
-        materialId: materialId,
+        'videoId': videoId,
+        'materialId': materialId,
       },
       query: {
-        preview: preview,
+        'preview': preview,
       },
       errors: {
         401: `Optional Account proof is invalid`,
@@ -55,22 +55,22 @@ export class VideoPlaybackService {
     materialId,
     requestBody,
   }: {
-    videoId: string;
-    materialId: string;
+    videoId: string,
+    materialId: string,
     requestBody: {
       durationSeconds: number;
       positionSeconds: number;
-    };
+    },
   }): CancelablePromise<void> {
     return this.httpRequest.request({
-      method: "PUT",
-      url: "/materials/{materialId}/videos/{videoId}/progress",
+      method: 'PUT',
+      url: '/materials/{materialId}/videos/{videoId}/progress',
       path: {
-        videoId: videoId,
-        materialId: materialId,
+        'videoId': videoId,
+        'materialId': materialId,
       },
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
 }

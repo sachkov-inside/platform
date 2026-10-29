@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class PeopleService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -23,66 +23,66 @@ export class PeopleService {
     /**
      * People per page, 25 by default
      */
-    limit?: number;
+    limit?: number,
     /**
      * Opaque `nextCursor` of the previous page; valid only with the same query and filters
      */
-    cursor?: string;
+    cursor?: string,
     /**
      * Only people with a Telegram problem the Overview counts: community_failed, the latest community operation was rejected, failed or is overdue; delivery_failed, a Telegram delivery's result is unknown or it failed in the last 30 days
      */
-    telegram?: "community_failed" | "delivery_failed";
+    telegram?: 'community_failed' | 'delivery_failed',
     /**
      * Only people with a Product Access in this state (of `productId` when given, otherwise of any Product)
      */
-    state?: "active" | "revoked";
+    state?: 'active' | 'revoked',
     /**
      * Only people with a Product Access first acquired this way (of `productId` when given, otherwise of any Product)
      */
-    origin?: "paid" | "manual" | "legacy" | "course_activation" | "unknown";
+    origin?: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown',
     /**
      * Only people with a Product Access to this Product
      */
-    productId?: string;
+    productId?: string,
     /**
      * Trimmed, 1–160 characters. A UUID is an Account ID, an address is matched exactly, other text is a Telegram name or @username
      */
-    query?: string;
+    query?: string,
   }): CancelablePromise<{
     items: Array<{
       accountId: string;
-      contactsState: "complete" | "partial";
+      contactsState: 'complete' | 'partial';
       displayName: string | null;
       email: string | null;
       lastActivityAt: string | null;
       products: Array<{
-        access: "active" | "revoked";
+        access: 'active' | 'revoked';
         name: string;
-        origin: "paid" | "manual" | "legacy" | "course_activation" | "unknown";
+        origin: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         productId: string;
       }>;
       registeredAt: string;
-      telegram: "linked" | "not_linked";
+      telegram: 'linked' | 'not_linked';
       username: string | null;
     }>;
     /**
      * unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more than 50 people matched the text; the items, the total and the cursor cover only the first 50 matches
      */
-    nameSearch: "available" | "unavailable" | "truncated";
+    nameSearch: 'available' | 'unavailable' | 'truncated';
     nextCursor: string | null;
     total: number;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/people",
+      method: 'GET',
+      url: '/authoring/people',
       query: {
-        limit: limit,
-        cursor: cursor,
-        telegram: telegram,
-        state: state,
-        origin: origin,
-        productId: productId,
-        query: query,
+        'limit': limit,
+        'cursor': cursor,
+        'telegram': telegram,
+        'state': state,
+        'origin': origin,
+        'productId': productId,
+        'query': query,
       },
     });
   }
@@ -91,143 +91,120 @@ export class PeopleService {
    * @returns any
    * @throws ApiError
    */
-  public readPerson({ accountId }: { accountId: string }): CancelablePromise<{
-    learning:
-      | {
-          items: Array<{
-            name: string;
-            productId: string;
-            progress:
-              | {
-                  lastActivityAt: string | null;
-                  read: number;
-                  state: "measured";
-                  total: number;
-                }
-              | {
-                  state: "unavailable";
-                };
-            startedAt: string | null;
-          }>;
-          state: "ready";
-        }
-      | {
-          state: "unavailable";
-        };
-    payments:
-      | {
-          items: Array<{
-            amountKopecks: number;
-            createdAt: string;
-            paymentId: string;
-            paymentLinkId: string | null;
-            productId: string | null;
-            productName: string | null;
-            state: string;
-          }>;
-          state: "ready";
-        }
-      | {
-          state: "unavailable";
-        };
+  public readPerson({
+    accountId,
+  }: {
+    accountId: string,
+  }): CancelablePromise<{
+    learning: ({
+      items: Array<{
+        name: string;
+        productId: string;
+        progress: ({
+          lastActivityAt: string | null;
+          read: number;
+          state: 'measured';
+          total: number;
+        } | {
+          state: 'unavailable';
+        });
+        startedAt: string | null;
+      }>;
+      state: 'ready';
+    } | {
+      state: 'unavailable';
+    });
+    payments: ({
+      items: Array<{
+        amountKopecks: number;
+        createdAt: string;
+        paymentId: string;
+        paymentLinkId: string | null;
+        productId: string | null;
+        productName: string | null;
+        state: string;
+      }>;
+      state: 'ready';
+    } | {
+      state: 'unavailable';
+    });
     person: {
       accountId: string;
-      contactsState: "complete" | "partial";
+      contactsState: 'complete' | 'partial';
       displayName: string | null;
       email: string | null;
       registeredAt: string;
       telegramUrl: string | null;
       username: string | null;
     };
-    products:
-      | {
-          items: Array<{
-            access: "active" | "revoked";
-            firstIssuedAt: string | null;
-            history: Array<{
-              actor:
-                | {
-                    kind: "system";
-                  }
-                | {
-                    accountId: string;
-                    kind: "person";
-                    label: string | null;
-                  }
-                | {
-                    kind: "unknown";
-                  };
-              at: string;
-              kind:
-                | "purchase"
-                | "activation"
-                | "manual_issue"
-                | "transfer"
-                | "revoke"
-                | "restore"
-                | "migrate"
-                | "other";
-              reason: string | null;
-            }>;
-            name: string;
-            origin:
-              "paid" | "manual" | "legacy" | "course_activation" | "unknown";
-            productId: string;
-            revision: number;
-          }>;
-          state: "ready";
-        }
-      | {
-          state: "unavailable";
-        };
-    submissions:
-      | {
-          items: Array<{
-            count: number;
-            lastSubmittedAt: string;
-            lastTaskCode: string | null;
-            productId: string;
-          }>;
-          state: "ready";
-        }
-      | {
-          state: "forbidden";
-        }
-      | {
-          state: "unavailable";
-        };
-    telegram:
-      | {
-          link: "linked" | "not_linked";
-          marketing: "enabled" | "stopped" | "unknown";
-          membership: "member" | "not_member" | "unknown";
-          observedAt: string | null;
-          restriction: "none" | "moderation" | "external_unknown" | "unknown";
-          state: "ready";
-        }
-      | {
-          state: "unavailable";
-        };
-    waitlists:
-      | {
-          items: Array<{
-            active: boolean;
-            intakeName: string;
-            joinedAt: string;
-            productId: string;
-            productName: string | null;
-          }>;
-          state: "ready";
-        }
-      | {
-          state: "unavailable";
-        };
+    products: ({
+      items: Array<{
+        access: 'active' | 'revoked';
+        firstIssuedAt: string | null;
+        history: Array<{
+          actor: ({
+            kind: 'system';
+          } | {
+            accountId: string;
+            kind: 'person';
+            label: string | null;
+          } | {
+            kind: 'unknown';
+          });
+          at: string;
+          kind: 'purchase' | 'activation' | 'manual_issue' | 'transfer' | 'revoke' | 'restore' | 'migrate' | 'other';
+          reason: string | null;
+        }>;
+        name: string;
+        origin: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
+        productId: string;
+        revision: number;
+      }>;
+      state: 'ready';
+    } | {
+      state: 'unavailable';
+    });
+    submissions: ({
+      items: Array<{
+        count: number;
+        lastSubmittedAt: string;
+        lastTaskCode: string | null;
+        productId: string;
+      }>;
+      state: 'ready';
+    } | {
+      state: 'forbidden';
+    } | {
+      state: 'unavailable';
+    });
+    telegram: ({
+      link: 'linked' | 'not_linked';
+      marketing: 'enabled' | 'stopped' | 'unknown';
+      membership: 'member' | 'not_member' | 'unknown';
+      observedAt: string | null;
+      restriction: 'none' | 'moderation' | 'external_unknown' | 'unknown';
+      state: 'ready';
+    } | {
+      state: 'unavailable';
+    });
+    waitlists: ({
+      items: Array<{
+        active: boolean;
+        intakeName: string;
+        joinedAt: string;
+        productId: string;
+        productName: string | null;
+      }>;
+      state: 'ready';
+    } | {
+      state: 'unavailable';
+    });
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/people/{accountId}",
+      method: 'GET',
+      url: '/authoring/people/{accountId}',
       path: {
-        accountId: accountId,
+        'accountId': accountId,
       },
     });
   }
@@ -242,21 +219,21 @@ export class PeopleService {
     /**
      * 1–100 Account IDs separated by commas
      */
-    accountIds: string;
+    accountIds: string,
   }): CancelablePromise<{
     items: Array<{
       accountId: string;
-      contactsState: "complete" | "partial";
+      contactsState: 'complete' | 'partial';
       displayName: string | null;
       email: string | null;
       username: string | null;
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/people/identities",
+      method: 'GET',
+      url: '/authoring/people/identities',
       query: {
-        accountIds: accountIds,
+        'accountIds': accountIds,
       },
     });
   }
@@ -273,8 +250,8 @@ export class PeopleService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/people/product-choices",
+      method: 'GET',
+      url: '/authoring/people/product-choices',
     });
   }
   /**
@@ -289,12 +266,12 @@ export class PeopleService {
     /**
      * Trimmed, 1–160 characters. A UUID is an Account ID, an address is matched exactly, other text is a name or @username
      */
-    query: string;
-    limit?: number;
+    query: string,
+    limit?: number,
   }): CancelablePromise<{
     items: Array<{
       accountId: string;
-      contactsState: "complete" | "partial";
+      contactsState: 'complete' | 'partial';
       displayName: string | null;
       email: string | null;
       username: string | null;
@@ -302,14 +279,14 @@ export class PeopleService {
     /**
      * unavailable: the text was a name or @username and Telegram could not search it, so the empty list is no answer. truncated: more people matched the text than `limit`; the items are only the first matches
      */
-    nameSearch: "available" | "unavailable" | "truncated";
+    nameSearch: 'available' | 'unavailable' | 'truncated';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/authoring/people/search",
+      method: 'GET',
+      url: '/authoring/people/search',
       query: {
-        limit: limit,
-        query: query,
+        'limit': limit,
+        'query': query,
       },
     });
   }

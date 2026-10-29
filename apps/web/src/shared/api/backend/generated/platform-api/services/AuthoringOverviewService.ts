@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class AuthoringOverviewService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -17,388 +17,349 @@ export class AuthoringOverviewService {
     /**
      * Days in the period, 30 by default
      */
-    period?: 7 | 30 | 90;
+    period?: 7 | 30 | 90,
   }): CancelablePromise<{
     attention: {
       /**
        * People whose latest community operation failed or is overdue; the people list's telegram=community_failed total
        */
-      communityFailures:
-        | {
-            count: number;
-            state: "ready";
-          }
-        | {
-            state: "forbidden";
-          }
-        | {
-            state: "unavailable";
-          };
+      communityFailures: ({
+        count: number;
+        state: 'ready';
+      } | {
+        state: 'forbidden';
+      } | {
+        state: 'unavailable';
+      });
       /**
        * Confirmed payments whose access is not yet applied
        */
-      fulfillmentIncomplete:
-        | {
-            count: number;
-            state: "ready";
-          }
-        | {
-            state: "forbidden";
-          }
-        | {
-            state: "unavailable";
-          };
+      fulfillmentIncomplete: ({
+        count: number;
+        state: 'ready';
+      } | {
+        state: 'forbidden';
+      } | {
+        state: 'unavailable';
+      });
       /**
        * Submissions without Author Feedback
        */
-      submissionsAwaitingFeedback:
-        | {
-            count: number;
-            state: "ready";
-          }
-        | {
-            state: "forbidden";
-          }
-        | {
-            state: "unavailable";
-          };
+      submissionsAwaitingFeedback: ({
+        count: number;
+        state: 'ready';
+      } | {
+        state: 'forbidden';
+      } | {
+        state: 'unavailable';
+      });
       /**
        * People with a Telegram delivery whose result is unknown, or that failed in the last 30 days; the people list's telegram=delivery_failed total
        */
-      telegramDeliveryFailures:
-        | {
-            count: number;
-            state: "ready";
-          }
-        | {
-            state: "forbidden";
-          }
-        | {
-            state: "unavailable";
-          };
+      telegramDeliveryFailures: ({
+        count: number;
+        state: 'ready';
+      } | {
+        state: 'forbidden';
+      } | {
+        state: 'unavailable';
+      });
       /**
        * Payments whose bank result is unknown or only authorized
        */
-      undeterminedPayments:
-        | {
-            count: number;
-            state: "ready";
-          }
-        | {
-            state: "forbidden";
-          }
-        | {
-            state: "unavailable";
-          };
+      undeterminedPayments: ({
+        count: number;
+        state: 'ready';
+      } | {
+        state: 'forbidden';
+      } | {
+        state: 'unavailable';
+      });
     };
     events: {
-      access: "ready" | "forbidden" | "unavailable";
+      access: 'ready' | 'forbidden' | 'unavailable';
       /**
        * Newest first, merged across sources
        */
-      items: Array<
-        | {
-            amountKopecks: number;
-            kind: "payment_confirmed";
-            occurredAt: string;
-            /**
-             * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-             */
-            person: {
-              accountId: string;
-              name: string | null;
-              username: string | null;
-            };
-            product: {
-              id: string;
-              name: string;
-            } | null;
-            purchaseRef: string;
-          }
-        | {
-            kind: "access_issued";
-            occurredAt: string;
-            origin: "purchase" | "course_activation" | "manual" | "other";
-            /**
-             * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-             */
-            person: {
-              accountId: string;
-              name: string | null;
-              username: string | null;
-            };
-            product: {
-              id: string;
-              name: string;
-            };
-          }
-        | {
-            kind: "access_revoked";
-            occurredAt: string;
-            /**
-             * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-             */
-            person: {
-              accountId: string;
-              name: string | null;
-              username: string | null;
-            };
-            product: {
-              id: string;
-              name: string;
-            };
-          }
-        | {
-            kind: "access_restored";
-            occurredAt: string;
-            /**
-             * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-             */
-            person: {
-              accountId: string;
-              name: string | null;
-              username: string | null;
-            };
-            product: {
-              id: string;
-              name: string;
-            };
-          }
-        | {
-            commented: boolean;
-            kind: "submission";
-            occurredAt: string;
-            /**
-             * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-             */
-            person: {
-              accountId: string;
-              name: string | null;
-              username: string | null;
-            };
-            product: {
-              id: string;
-              name: string;
-            } | null;
-            submissionId: string;
-            taskTitle: string | null;
-          }
-      >;
-      payments: "ready" | "forbidden" | "unavailable";
-      submissions: "ready" | "forbidden" | "unavailable";
+      items: Array<({
+        amountKopecks: number;
+        kind: 'payment_confirmed';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        } | null;
+        purchaseRef: string;
+      } | {
+        kind: 'access_issued';
+        occurredAt: string;
+        origin: 'purchase' | 'course_activation' | 'manual' | 'other';
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        };
+      } | {
+        kind: 'access_revoked';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        };
+      } | {
+        kind: 'access_restored';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        };
+      } | {
+        commented: boolean;
+        kind: 'submission';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        } | null;
+        submissionId: string;
+        taskTitle: string | null;
+      })>;
+      payments: 'ready' | 'forbidden' | 'unavailable';
+      submissions: 'ready' | 'forbidden' | 'unavailable';
     };
-    funnel:
-      | {
-          state: "forbidden";
-        }
-      | {
-          state: "unavailable";
-        }
-      | {
-          /**
-           * The full report's default Product (its first); null without Products
-           */
-          product: {
-            id: string;
-            name: string;
-          } | null;
-          state: "ready";
-          steps: {
-            checkout: number | null;
-            entered: number | null;
-            openedChapter: number | null;
-            paid: number | null;
-          };
+    funnel: ({
+      state: 'forbidden';
+    } | {
+      state: 'unavailable';
+    } | {
+      /**
+       * The full report's default Product (its first); null without Products
+       */
+      product: {
+        id: string;
+        name: string;
+      } | null;
+      state: 'ready';
+      steps: {
+        checkout: number | null;
+        entered: number | null;
+        openedChapter: number | null;
+        paid: number | null;
+      };
+    });
+    learning: ({
+      state: 'forbidden';
+    } | {
+      state: 'unavailable';
+    } | {
+      /**
+       * Every non-archived Product, most holders first, then by name
+       */
+      products: Array<{
+        /**
+         * Mean share of programme Materials read over active holders; null without holders or programme Materials
+         */
+        averageProgress: number | null;
+        holders: number;
+        name: string;
+        productId: string;
+        started: number;
+      }>;
+      state: 'ready';
+    });
+    metrics: ({
+      state: 'forbidden';
+    } | {
+      /**
+       * Product Access first issued that day
+       */
+      newAccess: ({
+        state: 'unavailable';
+      } | {
+        /**
+         * The current period's new accesses by first-acquisition origin
+         */
+        byOrigin: {
+          course_activation: number;
+          manual: number;
+          other: number;
+          purchase: number;
         };
-    learning:
-      | {
-          state: "forbidden";
-        }
-      | {
-          state: "unavailable";
-        }
-      | {
+        current: {
           /**
-           * Every non-archived Product, most holders first, then by name
+           * One entry per day of the period, ascending, zeros included
            */
-          products: Array<{
-            /**
-             * Mean share of programme Materials read over active holders; null without holders or programme Materials
-             */
-            averageProgress: number | null;
-            holders: number;
-            name: string;
-            productId: string;
-            started: number;
+          daily: Array<{
+            date: string;
+            value: number;
           }>;
-          state: "ready";
+          total: number;
         };
-    metrics:
-      | {
-          state: "forbidden";
-        }
-      | {
+        previous: {
           /**
-           * Product Access first issued that day
+           * One entry per day of the period, ascending, zeros included
            */
-          newAccess:
-            | {
-                state: "unavailable";
-              }
-            | {
-                /**
-                 * The current period's new accesses by first-acquisition origin
-                 */
-                byOrigin: {
-                  course_activation: number;
-                  manual: number;
-                  other: number;
-                  purchase: number;
-                };
-                current: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                previous: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                state: "ready";
-              };
-          /**
-           * People registered that day, by the people list's person rule
-           */
-          newAccounts:
-            | {
-                state: "unavailable";
-              }
-            | {
-                current: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                previous: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                state: "ready";
-              };
-          /**
-           * Kopecks: confirmed purchases by confirmation day minus confirmed refunds by refund day
-           */
-          revenue:
-            | {
-                state: "unavailable";
-              }
-            | {
-                current: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                previous: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                state: "ready";
-              };
-          /**
-           * Confirmed purchases by confirmation day
-           */
-          sales:
-            | {
-                state: "unavailable";
-              }
-            | {
-                current: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                previous: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                state: "ready";
-              };
-          state: "ready";
-          /**
-           * Waitlist joins that day, every intake
-           */
-          waitlistJoins:
-            | {
-                state: "unavailable";
-              }
-            | {
-                current: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                previous: {
-                  /**
-                   * One entry per day of the period, ascending, zeros included
-                   */
-                  daily: Array<{
-                    date: string;
-                    value: number;
-                  }>;
-                  total: number;
-                };
-                state: "ready";
-              };
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
         };
+        state: 'ready';
+      });
+      /**
+       * People registered that day, by the people list's person rule
+       */
+      newAccounts: ({
+        state: 'unavailable';
+      } | {
+        current: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        previous: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        state: 'ready';
+      });
+      /**
+       * Kopecks: confirmed purchases by confirmation day minus confirmed refunds by refund day
+       */
+      revenue: ({
+        state: 'unavailable';
+      } | {
+        current: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        previous: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        state: 'ready';
+      });
+      /**
+       * Confirmed purchases by confirmation day
+       */
+      sales: ({
+        state: 'unavailable';
+      } | {
+        current: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        previous: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        state: 'ready';
+      });
+      state: 'ready';
+      /**
+       * Waitlist joins that day, every intake
+       */
+      waitlistJoins: ({
+        state: 'unavailable';
+      } | {
+        current: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        previous: {
+          /**
+           * One entry per day of the period, ascending, zeros included
+           */
+          daily: Array<{
+            date: string;
+            value: number;
+          }>;
+          total: number;
+        };
+        state: 'ready';
+      });
+    });
     period: {
       /**
        * The last `days` days, today included
@@ -431,14 +392,14 @@ export class AuthoringOverviewService {
          */
         to: string;
       };
-      timeZone: "Europe/Moscow";
+      timeZone: 'Europe/Moscow';
     };
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/admin/overview",
+      method: 'GET',
+      url: '/admin/overview',
       query: {
-        period: period,
+        'period': period,
       },
     });
   }
@@ -451,137 +412,125 @@ export class AuthoringOverviewService {
     productId,
     period,
   }: {
-    productId: string;
+    productId: string,
     /**
      * Days in the period, 30 by default
      */
-    period?: 7 | 30 | 90;
+    period?: 7 | 30 | 90,
   }): CancelablePromise<{
-    events:
-      | {
-          state: "unavailable";
-        }
-      | {
-          /**
-           * Payments and access of this Product, newest first
-           */
-          items: Array<
-            | {
-                amountKopecks: number;
-                kind: "payment_confirmed";
-                occurredAt: string;
-                /**
-                 * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-                 */
-                person: {
-                  accountId: string;
-                  name: string | null;
-                  username: string | null;
-                };
-                product: {
-                  id: string;
-                  name: string;
-                } | null;
-                purchaseRef: string;
-              }
-            | {
-                kind: "access_issued";
-                occurredAt: string;
-                origin: "purchase" | "course_activation" | "manual" | "other";
-                /**
-                 * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-                 */
-                person: {
-                  accountId: string;
-                  name: string | null;
-                  username: string | null;
-                };
-                product: {
-                  id: string;
-                  name: string;
-                };
-              }
-            | {
-                kind: "access_revoked";
-                occurredAt: string;
-                /**
-                 * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-                 */
-                person: {
-                  accountId: string;
-                  name: string | null;
-                  username: string | null;
-                };
-                product: {
-                  id: string;
-                  name: string;
-                };
-              }
-            | {
-                kind: "access_restored";
-                occurredAt: string;
-                /**
-                 * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-                 */
-                person: {
-                  accountId: string;
-                  name: string | null;
-                  username: string | null;
-                };
-                product: {
-                  id: string;
-                  name: string;
-                };
-              }
-            | {
-                commented: boolean;
-                kind: "submission";
-                occurredAt: string;
-                /**
-                 * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
-                 */
-                person: {
-                  accountId: string;
-                  name: string | null;
-                  username: string | null;
-                };
-                product: {
-                  id: string;
-                  name: string;
-                } | null;
-                submissionId: string;
-                taskTitle: string | null;
-              }
-          >;
-          state: "ready";
+    events: ({
+      state: 'unavailable';
+    } | {
+      /**
+       * Payments and access of this Product, newest first
+       */
+      items: Array<({
+        amountKopecks: number;
+        kind: 'payment_confirmed';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
         };
-    holders:
-      | {
-          state: "unavailable";
-        }
-      | {
-          active: number;
-          byOrigin: {
-            course_activation: number;
-            manual: number;
-            other: number;
-            purchase: number;
-          };
-          state: "ready";
+        product: {
+          id: string;
+          name: string;
+        } | null;
+        purchaseRef: string;
+      } | {
+        kind: 'access_issued';
+        occurredAt: string;
+        origin: 'purchase' | 'course_activation' | 'manual' | 'other';
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
         };
-    learning:
-      | {
-          state: "unavailable";
-        }
-      | {
-          /**
-           * Mean share of programme Materials read over active holders; null without holders or programme Materials
-           */
-          averageProgress: number | null;
-          holders: number;
-          started: number;
-          state: "ready";
+        product: {
+          id: string;
+          name: string;
         };
+      } | {
+        kind: 'access_revoked';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        };
+      } | {
+        kind: 'access_restored';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        };
+      } | {
+        commented: boolean;
+        kind: 'submission';
+        occurredAt: string;
+        /**
+         * Telegram name and @username only with billing:manage; null without it or when unknown. Never an email
+         */
+        person: {
+          accountId: string;
+          name: string | null;
+          username: string | null;
+        };
+        product: {
+          id: string;
+          name: string;
+        } | null;
+        submissionId: string;
+        taskTitle: string | null;
+      })>;
+      state: 'ready';
+    });
+    holders: ({
+      state: 'unavailable';
+    } | {
+      active: number;
+      byOrigin: {
+        course_activation: number;
+        manual: number;
+        other: number;
+        purchase: number;
+      };
+      state: 'ready';
+    });
+    learning: ({
+      state: 'unavailable';
+    } | {
+      /**
+       * Mean share of programme Materials read over active holders; null without holders or programme Materials
+       */
+      averageProgress: number | null;
+      holders: number;
+      started: number;
+      state: 'ready';
+    });
     period: {
       /**
        * The last `days` days, today included
@@ -614,85 +563,79 @@ export class AuthoringOverviewService {
          */
         to: string;
       };
-      timeZone: "Europe/Moscow";
+      timeZone: 'Europe/Moscow';
     };
-    revenue:
-      | {
-          state: "unavailable";
-        }
-      | {
-          current: {
-            /**
-             * One entry per day of the period, ascending, zeros included
-             */
-            daily: Array<{
-              date: string;
-              value: number;
-            }>;
-            total: number;
-          };
-          previous: {
-            /**
-             * One entry per day of the period, ascending, zeros included
-             */
-            daily: Array<{
-              date: string;
-              value: number;
-            }>;
-            total: number;
-          };
-          state: "ready";
-        };
-    sales:
-      | {
-          state: "unavailable";
-        }
-      | {
-          current: {
-            /**
-             * One entry per day of the period, ascending, zeros included
-             */
-            daily: Array<{
-              date: string;
-              value: number;
-            }>;
-            total: number;
-          };
-          previous: {
-            /**
-             * One entry per day of the period, ascending, zeros included
-             */
-            daily: Array<{
-              date: string;
-              value: number;
-            }>;
-            total: number;
-          };
-          state: "ready";
-        };
-    waitlist:
-      | {
-          state: "unavailable";
-        }
-      | {
-          /**
-           * The intake accepting joins now; null when none does
-           */
-          intake: {
-            active: number;
-            name: string;
-          } | null;
-          state: "ready";
-        };
+    revenue: ({
+      state: 'unavailable';
+    } | {
+      current: {
+        /**
+         * One entry per day of the period, ascending, zeros included
+         */
+        daily: Array<{
+          date: string;
+          value: number;
+        }>;
+        total: number;
+      };
+      previous: {
+        /**
+         * One entry per day of the period, ascending, zeros included
+         */
+        daily: Array<{
+          date: string;
+          value: number;
+        }>;
+        total: number;
+      };
+      state: 'ready';
+    });
+    sales: ({
+      state: 'unavailable';
+    } | {
+      current: {
+        /**
+         * One entry per day of the period, ascending, zeros included
+         */
+        daily: Array<{
+          date: string;
+          value: number;
+        }>;
+        total: number;
+      };
+      previous: {
+        /**
+         * One entry per day of the period, ascending, zeros included
+         */
+        daily: Array<{
+          date: string;
+          value: number;
+        }>;
+        total: number;
+      };
+      state: 'ready';
+    });
+    waitlist: ({
+      state: 'unavailable';
+    } | {
+      /**
+       * The intake accepting joins now; null when none does
+       */
+      intake: {
+        active: number;
+        name: string;
+      } | null;
+      state: 'ready';
+    });
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/admin/products/{productId}/overview",
+      method: 'GET',
+      url: '/admin/products/{productId}/overview',
       path: {
-        productId: productId,
+        'productId': productId,
       },
       query: {
-        period: period,
+        'period': period,
       },
     });
   }

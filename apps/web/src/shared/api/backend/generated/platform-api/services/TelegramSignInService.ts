@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class TelegramSignInService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -17,8 +17,8 @@ export class TelegramSignInService {
     };
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/integrations/telegram/v1/sign-in/complete",
+      method: 'POST',
+      url: '/integrations/telegram/v1/sign-in/complete',
     });
   }
   /**
@@ -33,16 +33,16 @@ export class TelegramSignInService {
       accountRef: string;
       subjectRef: string;
       telegramIdentityRef: string;
-    };
+    },
   }): CancelablePromise<{
     issuer: string;
     subject: string;
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/integrations/telegram/v1/sign-in/linked-identity",
+      method: 'POST',
+      url: '/integrations/telegram/v1/sign-in/linked-identity',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
 }

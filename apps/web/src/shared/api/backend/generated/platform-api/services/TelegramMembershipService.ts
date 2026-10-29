@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class TelegramMembershipService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,25 +14,22 @@ export class TelegramMembershipService {
   public readTelegramActivationContinuation({
     attemptId,
   }: {
-    attemptId: string;
-  }): CancelablePromise<
-    | {
-        state: "expired" | "identity_conflict" | "unavailable";
-      }
-    | {
-        product: {
-          id: string;
-          name: string;
-          slug: string;
-        };
-        state: "link_required" | "pending" | "active";
-      }
-  > {
+    attemptId: string,
+  }): CancelablePromise<({
+    state: 'expired' | 'identity_conflict' | 'unavailable';
+  } | {
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+    state: 'link_required' | 'pending' | 'active';
+  })> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/telegram-activation/{attemptId}",
+      method: 'GET',
+      url: '/accounts/current/telegram-activation/{attemptId}',
       path: {
-        attemptId: attemptId,
+        'attemptId': attemptId,
       },
       errors: {
         403: `The terms of use in force are not accepted yet`,
@@ -49,18 +46,11 @@ export class TelegramMembershipService {
     deepLink?: string;
     expiresAt: string;
     linkRef: string;
-    status:
-      | "conflict"
-      | "expired"
-      | "linked"
-      | "pending"
-      | "recovery-required"
-      | "replayed"
-      | "unavailable";
+    status: 'conflict' | 'expired' | 'linked' | 'pending' | 'recovery-required' | 'replayed' | 'unavailable';
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/telegram-link",
+      method: 'POST',
+      url: '/accounts/current/telegram-link',
       errors: {
         401: `Account proof is missing or invalid`,
         403: `The terms of use in force are not accepted yet`,
@@ -77,25 +67,18 @@ export class TelegramMembershipService {
   public confirmTelegramMembershipLink({
     linkRef,
   }: {
-    linkRef: string;
+    linkRef: string,
   }): CancelablePromise<{
     deepLink?: string;
     expiresAt: string;
     linkRef: string;
-    status:
-      | "conflict"
-      | "expired"
-      | "linked"
-      | "pending"
-      | "recovery-required"
-      | "replayed"
-      | "unavailable";
+    status: 'conflict' | 'expired' | 'linked' | 'pending' | 'recovery-required' | 'replayed' | 'unavailable';
   }> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/accounts/current/telegram-link/{linkRef}/confirm",
+      method: 'POST',
+      url: '/accounts/current/telegram-link/{linkRef}/confirm',
       path: {
-        linkRef: linkRef,
+        'linkRef': linkRef,
       },
       errors: {
         400: `The link reference is invalid`,
@@ -115,67 +98,53 @@ export class TelegramMembershipService {
   public readCurrentAccountTelegramMembership(): CancelablePromise<{
     contact: {
       displayName: string | null;
-      state: "available" | "not_linked" | "unavailable";
+      state: 'available' | 'not_linked' | 'unavailable';
       username: string | null;
     };
-    link:
-      | {
-          kind: "unlinked";
-        }
-      | {
-          expiresAt: string;
-          kind: "linking";
-          linkRef: string;
-        }
-      | {
-          kind: "linked";
-        }
-      | {
-          kind: "conflict";
-          supportUrl?: string;
-        }
-      | {
-          kind: "retryable";
-          reason: "expired" | "replayed";
-        }
-      | {
-          kind: "unavailable";
-          retry:
-            | {
-                kind: "confirm";
-                linkRef: string;
-              }
-            | {
-                kind: "refresh";
-              };
-        }
-      | {
-          kind: "recovery-required";
-          recovery: {
-            kind: "support";
-            url?: string;
-          };
-        };
-    membership:
-      | {
-          kind: "active";
-        }
-      | {
-          kind: "inactive";
-        }
-      | {
-          kind: "stale";
-        }
-      | {
-          kind: "notOffered";
-        }
-      | {
-          kind: "unavailable";
-        };
+    link: ({
+      kind: 'unlinked';
+    } | {
+      expiresAt: string;
+      kind: 'linking';
+      linkRef: string;
+    } | {
+      kind: 'linked';
+    } | {
+      kind: 'conflict';
+      supportUrl?: string;
+    } | {
+      kind: 'retryable';
+      reason: 'expired' | 'replayed';
+    } | {
+      kind: 'unavailable';
+      retry: ({
+        kind: 'confirm';
+        linkRef: string;
+      } | {
+        kind: 'refresh';
+      });
+    } | {
+      kind: 'recovery-required';
+      recovery: {
+        kind: 'support';
+        url?: string;
+      };
+    });
+    membership: ({
+      kind: 'active';
+    } | {
+      kind: 'inactive';
+    } | {
+      kind: 'stale';
+    } | {
+      kind: 'notOffered';
+    } | {
+      kind: 'unavailable';
+    });
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/telegram-membership",
+      method: 'GET',
+      url: '/accounts/current/telegram-membership',
       errors: {
         401: `Account proof is missing or invalid`,
         403: `The terms of use in force are not accepted yet`,
@@ -192,25 +161,22 @@ export class TelegramMembershipService {
   public readTelegramActivationIntent({
     attemptId,
   }: {
-    attemptId: string;
-  }): CancelablePromise<
-    | {
-        state: "unavailable";
-      }
-    | {
-        product: {
-          id: string;
-          name: string;
-          slug: string;
-        };
-        state: "ready" | "expired";
-      }
-  > {
+    attemptId: string,
+  }): CancelablePromise<({
+    state: 'unavailable';
+  } | {
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+    state: 'ready' | 'expired';
+  })> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/telegram-activation-intents/{attemptId}",
+      method: 'GET',
+      url: '/telegram-activation-intents/{attemptId}',
       path: {
-        attemptId: attemptId,
+        'attemptId': attemptId,
       },
     });
   }

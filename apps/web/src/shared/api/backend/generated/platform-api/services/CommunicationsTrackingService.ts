@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class CommunicationsTrackingService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -16,22 +16,19 @@ export class CommunicationsTrackingService {
   }: {
     requestBody: {
       token: string;
-      traffic: "unknown" | "known_automation";
-    };
-  }): CancelablePromise<
-    | {
-        kind: "resolved";
-        safeUrl: string;
-      }
-    | {
-        kind: "invalid" | "not_found" | "unavailable";
-      }
-  > {
+      traffic: 'unknown' | 'known_automation';
+    },
+  }): CancelablePromise<({
+    kind: 'resolved';
+    safeUrl: string;
+  } | {
+    kind: 'invalid' | 'not_found' | 'unavailable';
+  })> {
     return this.httpRequest.request({
-      method: "POST",
-      url: "/communications/tracking/resolve",
+      method: 'POST',
+      url: '/communications/tracking/resolve',
       body: requestBody,
-      mediaType: "application/json",
+      mediaType: 'application/json',
     });
   }
 }

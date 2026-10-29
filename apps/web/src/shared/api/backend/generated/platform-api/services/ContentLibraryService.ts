@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from "../core/CancelablePromise";
-import type { BaseHttpRequest } from "../core/BaseHttpRequest";
+import type { CancelablePromise } from '../core/CancelablePromise';
+import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ContentLibraryService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
@@ -14,15 +14,15 @@ export class ContentLibraryService {
   public readCurrentAccountProductAccess({
     productId,
   }: {
-    productId: string;
+    productId: string,
   }): CancelablePromise<{
-    access: "open" | "closed";
+    access: 'open' | 'closed';
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/accounts/current/products/{productId}/access",
+      method: 'GET',
+      url: '/accounts/current/products/{productId}/access',
       path: {
-        productId: productId,
+        'productId': productId,
       },
     });
   }
@@ -33,8 +33,8 @@ export class ContentLibraryService {
    */
   public readHomeContent(): CancelablePromise<{
     guides: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -43,11 +43,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -81,22 +81,18 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
-    membership:
-      | {
-          kind: "active";
-        }
-      | {
-          kind: "inactive";
-        }
-      | {
-          kind: "notOffered";
-        }
-      | {
-          kind: "unknown";
-        };
+    membership: ({
+      kind: 'active';
+    } | {
+      kind: 'inactive';
+    } | {
+      kind: 'notOffered';
+    } | {
+      kind: 'unknown';
+    });
     notes: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -105,11 +101,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -166,8 +162,8 @@ export class ContentLibraryService {
       name: string;
       presentation: string;
       previewItems: Array<{
-        access: "free" | "closed";
-        availability: "available" | "locked" | "unavailable";
+        access: 'free' | 'closed';
+        availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
           coverId: string;
@@ -176,11 +172,11 @@ export class ContentLibraryService {
             width: number;
           }>;
         } | null;
-        difficulty: "basic" | "intermediate" | "advanced" | null;
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         format: {
-          id: "video" | "guide" | "note";
+          id: 'video' | 'guide' | 'note';
           name: string;
-          slug: "video" | "guide" | "note";
+          slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
         noteExcerpt?: {
@@ -229,8 +225,8 @@ export class ContentLibraryService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: "free" | "closed";
-        availability: "available" | "locked" | "unavailable";
+        access: 'free' | 'closed';
+        availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
           coverId: string;
@@ -239,11 +235,11 @@ export class ContentLibraryService {
             width: number;
           }>;
         } | null;
-        difficulty: "basic" | "intermediate" | "advanced" | null;
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         format: {
-          id: "video" | "guide" | "note";
+          id: 'video' | 'guide' | 'note';
           name: string;
-          slug: "video" | "guide" | "note";
+          slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
         noteExcerpt?: {
@@ -292,8 +288,8 @@ export class ContentLibraryService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: "free" | "closed";
-        availability: "available" | "locked" | "unavailable";
+        access: 'free' | 'closed';
+        availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
           coverId: string;
@@ -302,11 +298,11 @@ export class ContentLibraryService {
             width: number;
           }>;
         } | null;
-        difficulty: "basic" | "intermediate" | "advanced" | null;
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         format: {
-          id: "video" | "guide" | "note";
+          id: 'video' | 'guide' | 'note';
           name: string;
-          slug: "video" | "guide" | "note";
+          slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
         noteExcerpt?: {
@@ -344,8 +340,8 @@ export class ContentLibraryService {
       summary: string | null;
     }>;
     videos: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -354,11 +350,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -394,8 +390,8 @@ export class ContentLibraryService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/home",
+      method: 'GET',
+      url: '/library/home',
       errors: {
         401: `Optional Account proof is invalid`,
         500: `Home catalog or Account resolution failed internally`,
@@ -418,14 +414,14 @@ export class ContentLibraryService {
     after,
     feedOnly,
   }: {
-    sort?: "newest" | "relevance" | "product" | "title";
-    product?: Array<string>;
-    format?: Array<string>;
-    topic?: Array<string>;
-    q?: string;
-    canonicalTopic?: string;
-    after?: string;
-    feedOnly?: boolean;
+    sort?: 'newest' | 'relevance' | 'product' | 'title',
+    product?: Array<string>,
+    format?: Array<string>,
+    topic?: Array<string>,
+    q?: string,
+    canonicalTopic?: string,
+    after?: string,
+    feedOnly?: boolean,
   }): CancelablePromise<{
     facets: {
       formats: Array<{
@@ -437,11 +433,11 @@ export class ContentLibraryService {
             width: number;
           }>;
         } | null;
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
         previewItems: Array<{
-          access: "free" | "closed";
-          availability: "available" | "locked" | "unavailable";
+          access: 'free' | 'closed';
+          availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
             coverId: string;
@@ -450,11 +446,11 @@ export class ContentLibraryService {
               width: number;
             }>;
           } | null;
-          difficulty: "basic" | "intermediate" | "advanced" | null;
+          difficulty: 'basic' | 'intermediate' | 'advanced' | null;
           format: {
-            id: "video" | "guide" | "note";
+            id: 'video' | 'guide' | 'note';
             name: string;
-            slug: "video" | "guide" | "note";
+            slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
           noteExcerpt?: {
@@ -488,7 +484,7 @@ export class ContentLibraryService {
             slug: string;
           };
         }>;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
         summary: string | null;
       }>;
       products: Array<{
@@ -503,8 +499,8 @@ export class ContentLibraryService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: "free" | "closed";
-          availability: "available" | "locked" | "unavailable";
+          access: 'free' | 'closed';
+          availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
             coverId: string;
@@ -513,11 +509,11 @@ export class ContentLibraryService {
               width: number;
             }>;
           } | null;
-          difficulty: "basic" | "intermediate" | "advanced" | null;
+          difficulty: 'basic' | 'intermediate' | 'advanced' | null;
           format: {
-            id: "video" | "guide" | "note";
+            id: 'video' | 'guide' | 'note';
             name: string;
-            slug: "video" | "guide" | "note";
+            slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
           noteExcerpt?: {
@@ -566,8 +562,8 @@ export class ContentLibraryService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: "free" | "closed";
-          availability: "available" | "locked" | "unavailable";
+          access: 'free' | 'closed';
+          availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
             coverId: string;
@@ -576,11 +572,11 @@ export class ContentLibraryService {
               width: number;
             }>;
           } | null;
-          difficulty: "basic" | "intermediate" | "advanced" | null;
+          difficulty: 'basic' | 'intermediate' | 'advanced' | null;
           format: {
-            id: "video" | "guide" | "note";
+            id: 'video' | 'guide' | 'note';
             name: string;
-            slug: "video" | "guide" | "note";
+            slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
           noteExcerpt?: {
@@ -619,8 +615,8 @@ export class ContentLibraryService {
       }>;
     };
     items: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -629,11 +625,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -671,17 +667,17 @@ export class ContentLibraryService {
     totalCount: number;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/materials",
+      method: 'GET',
+      url: '/library/materials',
       query: {
-        sort: sort,
-        product: product,
-        format: format,
-        topic: topic,
-        q: q,
-        canonicalTopic: canonicalTopic,
-        after: after,
-        feedOnly: feedOnly,
+        'sort': sort,
+        'product': product,
+        'format': format,
+        'topic': topic,
+        'q': q,
+        'canonicalTopic': canonicalTopic,
+        'after': after,
+        'feedOnly': feedOnly,
       },
       errors: {
         400: `Catalog query is malformed`,
@@ -699,7 +695,7 @@ export class ContentLibraryService {
   public readRelatedPublishedMaterials({
     slug,
   }: {
-    slug: string;
+    slug: string,
   }): CancelablePromise<{
     chapters: Array<{
       id: string;
@@ -708,20 +704,20 @@ export class ContentLibraryService {
       summary: string;
       supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
-        access: "free" | "closed";
+        access: 'free' | 'closed';
         afterMaterialId: string | null;
-        availability: "available" | "locked" | "unavailable";
+        availability: 'available' | 'locked' | 'unavailable';
         code: string;
         embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
-        programmeVisibility?: "embedded";
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
     hasNext: boolean;
     items: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -730,11 +726,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -768,7 +764,7 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
-    kind: "related";
+    kind: 'related';
     programmePlacements?: Array<{
       chapterId: string | null;
       id: string;
@@ -794,60 +790,53 @@ export class ContentLibraryService {
       name: string;
       productPage: {
         page: {
-          blocks: Array<
-            | {
-                badge: string;
-                highlights: Array<string>;
-                id: string;
-                kind: "hero";
-                lead: string;
-              }
-            | {
-                eyebrow: string;
-                id: string;
-                items: Array<{
-                  detail: string;
-                  detailLabel: string;
-                  text: string;
-                  title: string;
-                }>;
-                kind: "cards";
-                lead: string;
-                note: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "text";
-                paragraphs: Array<string>;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<{
-                  text: string;
-                  title: string;
-                }>;
-                kind: "steps";
-                lead: string;
-                link: string;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<string>;
-                kind: "list";
-                text: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "trial";
-                link: string;
-                text: string;
-                title: string;
-              }
-          >;
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
           card: {
             action: string;
             eyebrow: string;
@@ -888,10 +877,10 @@ export class ContentLibraryService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/materials/{slug}/related",
+      method: 'GET',
+      url: '/library/materials/{slug}/related',
       path: {
-        slug: slug,
+        'slug': slug,
       },
       errors: {
         400: `Discovery slug is malformed`,
@@ -907,7 +896,11 @@ export class ContentLibraryService {
    * @returns any Published Materials in author-defined Product order
    * @throws ApiError
    */
-  public readPublishedProduct({ slug }: { slug: string }): CancelablePromise<{
+  public readPublishedProduct({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
     chapters: Array<{
       id: string;
       materialIds: Array<string>;
@@ -915,20 +908,20 @@ export class ContentLibraryService {
       summary: string;
       supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
-        access: "free" | "closed";
+        access: 'free' | 'closed';
         afterMaterialId: string | null;
-        availability: "available" | "locked" | "unavailable";
+        availability: 'available' | 'locked' | 'unavailable';
         code: string;
         embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
-        programmeVisibility?: "embedded";
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
     hasNext: boolean;
     items: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -937,11 +930,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -975,7 +968,7 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
-    kind: "product";
+    kind: 'product';
     programmePlacements?: Array<{
       chapterId: string | null;
       id: string;
@@ -1001,60 +994,53 @@ export class ContentLibraryService {
       name: string;
       productPage: {
         page: {
-          blocks: Array<
-            | {
-                badge: string;
-                highlights: Array<string>;
-                id: string;
-                kind: "hero";
-                lead: string;
-              }
-            | {
-                eyebrow: string;
-                id: string;
-                items: Array<{
-                  detail: string;
-                  detailLabel: string;
-                  text: string;
-                  title: string;
-                }>;
-                kind: "cards";
-                lead: string;
-                note: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "text";
-                paragraphs: Array<string>;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<{
-                  text: string;
-                  title: string;
-                }>;
-                kind: "steps";
-                lead: string;
-                link: string;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<string>;
-                kind: "list";
-                text: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "trial";
-                link: string;
-                text: string;
-                title: string;
-              }
-          >;
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
           card: {
             action: string;
             eyebrow: string;
@@ -1095,10 +1081,10 @@ export class ContentLibraryService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/products/{slug}",
+      method: 'GET',
+      url: '/library/products/{slug}',
       path: {
-        slug: slug,
+        'slug': slug,
       },
       errors: {
         400: `Discovery slug is malformed`,
@@ -1114,7 +1100,11 @@ export class ContentLibraryService {
    * @returns any Bounded published addresses, with initial collection slugs and an opaque continuation
    * @throws ApiError
    */
-  public listPublicSiteIndex({ after }: { after?: string }): CancelablePromise<{
+  public listPublicSiteIndex({
+    after,
+  }: {
+    after?: string,
+  }): CancelablePromise<{
     items: Array<{
       publishedAt: string;
       slug: string;
@@ -1124,10 +1114,10 @@ export class ContentLibraryService {
     topicSlugs: Array<string>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/site-index",
+      method: 'GET',
+      url: '/library/site-index',
       query: {
-        after: after,
+        'after': after,
       },
       errors: {
         400: `Invalid continuation`,
@@ -1141,7 +1131,11 @@ export class ContentLibraryService {
    * @returns any Published Materials in the Topic
    * @throws ApiError
    */
-  public readPublishedTopic({ slug }: { slug: string }): CancelablePromise<{
+  public readPublishedTopic({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
     chapters: Array<{
       id: string;
       materialIds: Array<string>;
@@ -1149,20 +1143,20 @@ export class ContentLibraryService {
       summary: string;
       supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
-        access: "free" | "closed";
+        access: 'free' | 'closed';
         afterMaterialId: string | null;
-        availability: "available" | "locked" | "unavailable";
+        availability: 'available' | 'locked' | 'unavailable';
         code: string;
         embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
-        programmeVisibility?: "embedded";
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
     hasNext: boolean;
     items: Array<{
-      access: "free" | "closed";
-      availability: "available" | "locked" | "unavailable";
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
         coverId: string;
@@ -1171,11 +1165,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      difficulty: "basic" | "intermediate" | "advanced" | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
-        id: "video" | "guide" | "note";
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: "video" | "guide" | "note";
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       noteExcerpt?: {
@@ -1209,7 +1203,7 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
-    kind: "topic";
+    kind: 'topic';
     programmePlacements?: Array<{
       chapterId: string | null;
       id: string;
@@ -1235,60 +1229,53 @@ export class ContentLibraryService {
       name: string;
       productPage: {
         page: {
-          blocks: Array<
-            | {
-                badge: string;
-                highlights: Array<string>;
-                id: string;
-                kind: "hero";
-                lead: string;
-              }
-            | {
-                eyebrow: string;
-                id: string;
-                items: Array<{
-                  detail: string;
-                  detailLabel: string;
-                  text: string;
-                  title: string;
-                }>;
-                kind: "cards";
-                lead: string;
-                note: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "text";
-                paragraphs: Array<string>;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<{
-                  text: string;
-                  title: string;
-                }>;
-                kind: "steps";
-                lead: string;
-                link: string;
-                title: string;
-              }
-            | {
-                id: string;
-                items: Array<string>;
-                kind: "list";
-                text: string;
-                title: string;
-              }
-            | {
-                id: string;
-                kind: "trial";
-                link: string;
-                text: string;
-                title: string;
-              }
-          >;
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
           card: {
             action: string;
             eyebrow: string;
@@ -1329,10 +1316,10 @@ export class ContentLibraryService {
     }>;
   }> {
     return this.httpRequest.request({
-      method: "GET",
-      url: "/library/topics/{slug}",
+      method: 'GET',
+      url: '/library/topics/{slug}',
       path: {
-        slug: slug,
+        'slug': slug,
       },
       errors: {
         400: `Discovery slug is malformed`,
