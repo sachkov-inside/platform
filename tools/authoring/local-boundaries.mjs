@@ -117,6 +117,8 @@ export const videoSchema = z
       "delete_failed",
     ]),
     durationSeconds: z.number().int().positive().optional(),
+    // In the protected project (ADR 0041); a target before that decision does not report it.
+    protected: z.boolean().optional(),
   })
   .passthrough();
 /** @typedef {z.infer<typeof videoSchema>} Video */

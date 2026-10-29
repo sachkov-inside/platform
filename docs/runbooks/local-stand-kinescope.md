@@ -66,8 +66,12 @@ docker exec inside-platform-postgres-1 sh -c 'psql -U "$POSTGRES_USER" -d "$POST
 For each lesson, give it a protected recording and let the ordinary sync replace the Video:
 
 1. When production already holds a protected recording of the same master, use its provider ID.
-   Otherwise upload the master once with `authoring:video upload --target stand` from a source that
-   contains ADR 0041; the upload lands in the membership project.
+   Otherwise upload the master once with
+   `authoring:video upload --target stand … --replace-public-upload` from a source that contains
+   ADR 0041; the upload lands in the membership project. Without the flag the stand journal's
+   ready receipt for the same file returns the old public recording. The flag asks the stand
+   whether that recording is protected, discards the receipt only when it is not, and is safe to
+   repeat ([command contract](video-authoring.md#pnpm-authoringvideo-upload-1794)).
 2. Record the ID in the lesson source as `platform_video.kinescope_id` and commit it
    ([contract](video-authoring.md#one-recording-for-stand-and-production)).
 3. Run the course sync. The release attaches the protected recording, selects it and applies the

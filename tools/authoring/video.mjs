@@ -340,6 +340,17 @@ async function assertUnchanged(file, hashed, path) {
 }
 
 /**
+ * The stop of `--replace-public-upload` on a target that predates ADR 0041.
+ *
+ * @param {import("./target.mjs").AuthoringTarget} target
+ * @param {string} videoId
+ */
+const unreportedProtection = (target, videoId) =>
+  new Error(
+    `${target.id} does not report whether video ${videoId} is protected; refresh it to a source with ADR 0041 and run the same command again`,
+  );
+
+/**
  * Uploads one finished recording for a synchronized Material and waits until the video is ready.
  * The upload receipt is keyed by Material and file checksum; the next release saves it with the
  * original's chapters. The idempotency key is persisted before the first call, so a retry never
@@ -360,6 +371,8 @@ async function assertUnchanged(file, hashed, path) {
  * @param {number} [options.attempts]
  * @param {(sent: number, total: number) => void} [options.onProgress]
  * @param {boolean} [options.replaceTestUpload] a local target uploads again a file the test adapter took
+ * @param {boolean} [options.replacePublicUpload] a local target uploads again a file whose recording
+ *   it reports outside the protected project
  */
 export async function uploadVideo({
   stateDirectory,
@@ -375,11 +388,16 @@ export async function uploadVideo({
   attempts = 40,
   onProgress,
   replaceTestUpload = false,
+  replacePublicUpload = false,
 }) {
   const target = authoringTarget(origin);
   if (replaceTestUpload && target.kind === "trusted")
     throw new Error(
       `--replace-test-upload is only for local targets; ${target.name} never took a test-adapter upload`,
+    );
+  if (replacePublicUpload && target.kind === "trusted")
+    throw new Error(
+      `--replace-public-upload is only for local targets; ${target.name} keeps its recordings`,
     );
   if (expected === undefined && target.kind === "trusted")
     throw new Error(
@@ -422,58 +440,104 @@ export async function uploadVideo({
           );
         const receiptKey = uploadReceiptKey(material.materialId, sha256);
         let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
-        // Only the test adapter's attempt is discarded. Any other receipt is a real or unfinished
-        // provider record: the command continues it as usual, so repeating the same command is safe.
-        if (
-          replaceTestUpload &&
-          receipt !== undefined &&
-          "uploadEndpoint" in receipt &&
-          new URL(receipt.uploadEndpoint).hostname.endsWith(".invalid")
-        ) {
+        /**
+         * Forgets an attempt, and the original's recording when it is this attempt's Video, so
+         * the file uploads as new. The provider keeps the earlier recording.
+         *
+         * @param {string} discardedVideoId
+         */
+        const discard = (discardedVideoId) => {
           const attached = `source-video:${sourceId}`;
           if (
             parseReceipt(sourceVideoReceiptSchema, resources[attached])
-              ?.videoId === receipt.videoId
+              ?.videoId === discardedVideoId
           )
             delete resources[attached];
           delete resources[receiptKey];
+        };
+        // Only the test adapter's attempt, or one the target reports public, is discarded. Any
+        // other receipt is continued as usual, so repeating the same command is safe.
+        const stored =
+          receipt !== undefined && "videoId" in receipt ? receipt : undefined;
+        const testAdapter =
+          stored !== undefined &&
+          new URL(stored.uploadEndpoint).hostname.endsWith(".invalid");
+        if (replaceTestUpload && stored !== undefined && testAdapter) {
+          discard(stored.videoId);
           receipt = undefined;
+        }
+        if (
+          replacePublicUpload &&
+          stored !== undefined &&
+          !testAdapter &&
+          stored.phase !== "failed"
+        ) {
+          // The target's own record decides; the receipt's access predates ADR 0041 and says
+          // nothing about the project a recording landed in.
+          const video = await request(
+            `/authoring/videos/${stored.videoId}/reconcile`,
+            {},
+            undefined,
+            { method: "POST" },
+          );
+          if (video.protected === undefined)
+            throw unreportedProtection(target, stored.videoId);
+          if (!video.protected) {
+            discard(stored.videoId);
+            receipt = undefined;
+          }
         }
         // A failed provider outcome is known, so the same file may start a fresh attempt.
         if (receipt?.phase === "failed") receipt = undefined;
-        if (receipt === undefined) {
-          receipt = {
+        /** A new attempt, persisted before its first call. */
+        const startAttempt = async () => {
+          const started = {
             sourceId,
             idempotencyKey: `video-upload:${randomUUID()}`,
             byteSize: info.size,
             filename: basename(path),
             title: title ?? basename(path),
             access: material.access ?? "closed",
-            phase: "initializing",
+            phase: /** @type {const} */ ("initializing"),
           };
-          resources[receiptKey] = receipt;
+          resources[receiptKey] = started;
           await persist();
-        }
-        if (receipt.phase === "initializing") {
-          let initialized;
+          return started;
+        };
+        /** @param {Awaited<ReturnType<typeof startAttempt>>} attempt */
+        const initialize = async (attempt) => {
           try {
-            initialized = await request(
+            return await request(
               `/authoring/materials/${material.materialId}/videos/uploads`,
               {
-                access: receipt.access,
-                byteSize: receipt.byteSize,
-                filename: receipt.filename,
-                title: receipt.title,
+                access: attempt.access,
+                byteSize: attempt.byteSize,
+                filename: attempt.filename,
+                title: attempt.title,
               },
-              receipt.idempotencyKey,
+              attempt.idempotencyKey,
             );
           } catch (error) {
             if (failureBodyField(error, "code") === "upload_outcome_unknown")
               throw new Error(
-                `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${receipt.idempotencyKey})`,
+                `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${attempt.idempotencyKey})`,
                 { cause: error },
               );
             throw error;
+          }
+        };
+        receipt ??= await startAttempt();
+        if (receipt.phase === "initializing") {
+          let initialized = await initialize(receipt);
+          // A target before ADR 0041 might have placed this attempt in the public project.
+          if (replacePublicUpload && initialized.video.protected === undefined)
+            throw unreportedProtection(target, initialized.video.videoId);
+          // An attempt whose answer was lost replays as recorded, which before ADR 0041 may be
+          // a public recording; only its answer names that Video.
+          if (replacePublicUpload && !initialized.video.protected) {
+            discard(initialized.video.videoId);
+            receipt = await startAttempt();
+            initialized = await initialize(receipt);
           }
           receipt = {
             ...receipt,
@@ -549,7 +613,7 @@ export async function uploadVideo({
 }
 
 const usage =
-  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took; any other upload continues as usual";
+  "Usage: pnpm authoring:video upload --target editor|stand|production --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--sha256 HEX] [--title TITLE] [--replace-test-upload] [--replace-public-upload]\n       --sha256 is required for production; the same command continues an interrupted upload\n       --replace-test-upload (local targets only) uploads again a file the test adapter took; any other upload continues as usual\n       --replace-public-upload (local targets only) uploads again a file whose recording the target reports outside the protected project; any other upload continues as usual";
 
 if (
   process.argv[1] &&
@@ -564,6 +628,7 @@ if (
       title: { type: "string" },
       sha256: { type: "string" },
       "replace-test-upload": { type: "boolean", default: false },
+      "replace-public-upload": { type: "boolean", default: false },
       target: { type: "string", default: "editor" },
     },
   });
@@ -585,6 +650,7 @@ if (
     title: values.title,
     sha256: values.sha256,
     replaceTestUpload: values["replace-test-upload"],
+    replacePublicUpload: values["replace-public-upload"],
     origin: target.id,
     accessToken:
       target.kind === "trusted"
