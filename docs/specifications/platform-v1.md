@@ -1232,8 +1232,11 @@ owns editor and source-authoring instructions.
     `play`; каждая защищённая запись получает short-lived JWT, в том числе для анонимного зрителя
     free Material (пустой `sub`), а strict provider authorization callback ещё раз проверяет token,
     Video mapping и current access Material. Mismatch, tampering, expiry и outage deny.
-    Platform-owned responsive frame загружает плеер без дополнительной кнопки и без autoplay;
-    controls остаются в Kinescope, технические пояснения не выводятся. Subtitles/transcripts вне V1.
+    Platform-owned responsive frame загружает плеер без autoplay. При наличии Material cover
+    обложка видна в 16:9 до запуска мышью или клавиатурой, включая draft preview. Запуск сохраняет
+    resume; прямой `#t=` и переход по главе открывают плеер на выбранном моменте. Без обложки
+    остаётся poster провайдера; controls остаются в Kinescope, технические пояснения не выводятся.
+    Subtitles/transcripts вне V1.
 12. Account resume хранится coarse server-side по `(accountId, videoId)` и работает между
     устройствами. Anonymous public resume хранится versioned по local Video ID в `localStorage`;
     replacement не наследует позицию. Ни один resume path не меняет manual `ReadingState` и не

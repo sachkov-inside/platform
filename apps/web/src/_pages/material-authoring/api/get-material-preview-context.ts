@@ -3,6 +3,7 @@ import "server-only";
 import type { Route } from "next";
 import { z } from "zod";
 
+import { contentCoverSchema } from "@/entities/material.model";
 import { authoringVideoSchema } from "@/features/material-video/model/video";
 import { getProductOrder } from "@/features/product-order.server";
 import {
@@ -19,9 +20,12 @@ import type {
 
 import { buildMaterialPreviewRoute } from "../model/preview-route";
 
-/** Из редакторского чтения предпросмотру нужно только основное видео. */
+/** Из редакторского чтения предпросмотру нужны основное видео и его обложка. */
 const currentVideoSchema = z
-  .object({ primaryVideo: authoringVideoSchema.nullable() })
+  .object({
+    primaryVideo: authoringVideoSchema.nullable(),
+    cover: contentCoverSchema.nullish(),
+  })
   .loose();
 
 /**
@@ -90,6 +94,9 @@ export async function getMaterialPreviewVideo(
   return video === null
     ? { kind: "none" }
     : {
+        ...(parsed.data.cover === undefined
+          ? {}
+          : { cover: parsed.data.cover }),
         durationSeconds: video.durationSeconds,
         kind: "attached",
         ready: video.state === "ready",

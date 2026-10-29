@@ -228,6 +228,10 @@ describe("Material preview video", () => {
     ).resolves.toEqual({
       durationSeconds: 754,
       kind: "attached",
+      cover: {
+        coverId: "02000000-0000-4000-8000-000000000011",
+        renditions: [{ width: 1280, height: 720 }],
+      },
       ready: true,
       title: "Запись урока",
       videoId: "95000000-0000-4000-8000-000000000030",
@@ -237,6 +241,10 @@ describe("Material preview video", () => {
     ).resolves.toEqual({
       durationSeconds: 754,
       kind: "attached",
+      cover: {
+        coverId: "02000000-0000-4000-8000-000000000011",
+        renditions: [{ width: 1280, height: 720 }],
+      },
       ready: false,
       title: "Запись урока",
       videoId: "95000000-0000-4000-8000-000000000030",
@@ -321,6 +329,10 @@ function successfulOrder() {
 function current(state: "processing" | "ready") {
   return response(
     {
+      cover: {
+        coverId: "02000000-0000-4000-8000-000000000011",
+        renditions: [{ width: 1280, height: 720 }],
+      },
       contentVersion: 3,
       primaryVideo: {
         durationSeconds: 754,
