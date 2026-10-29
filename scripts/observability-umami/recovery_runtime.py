@@ -1,4 +1,5 @@
 """Supervised synthetic PG18/pgBackRest recovery, never a production backup command."""
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -68,6 +69,49 @@ def _expected_supervised_compose_hash(output):
         expected.unlink()
 
 
+_BACKUP_FAILURE_AUTHORITY = object()
+_BACKUP_OPERATIONS = frozenset(('stanza_create', 'check', 'full_backup', 'info', 'selected_info', 'selection'))
+_BACKUP_CATEGORIES = frozenset(('command_failed', 'timeout', 'invalid_json', 'proof_mismatch', 'io_failure', 'runtime_failure'))
+_EXCEPTION_FIELDS = BaseException.__dict__['__dict__']
+
+
+@contextmanager
+def _encrypted_backup_operation(operation):
+    """Annotate the attempted logical step, never native execution or mutable progress."""
+    try:
+        yield
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        try:
+            fields = _EXCEPTION_FIELDS.__get__(error)
+            category = ('timeout' if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)) else
+                'command_failed' if isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)) else
+                'invalid_json' if isinstance(error, json.JSONDecodeError) else
+                'proof_mismatch' if isinstance(error, ValueError) else
+                'io_failure' if isinstance(error, OSError) else 'runtime_failure')
+            code = fields.get('returncode')
+            fields['_umami_backup_failure'] = (_BACKUP_FAILURE_AUTHORITY, id(error), operation, category,
+                code if type(code) is int and -128 <= code <= 255 else None)
+        except Exception:
+            # Diagnostic failure cannot replace the original error or its traceback.
+            pass
+        raise
+
+
+def _current_backup_failure(error):
+    unavailable = {'available': False, 'operation': None, 'category': None, 'returncode': None}
+    try:
+        tagged = _EXCEPTION_FIELDS.__get__(error).get('_umami_backup_failure')
+        if (type(tagged) is not tuple or len(tagged) != 5 or tagged[0] is not _BACKUP_FAILURE_AUTHORITY
+                or type(tagged[1]) is not int or tagged[1] != id(error)
+                or type(tagged[2]) is not str or tagged[2] not in _BACKUP_OPERATIONS
+                or type(tagged[3]) is not str or tagged[3] not in _BACKUP_CATEGORIES
+                or not (tagged[4] is None or type(tagged[4]) is int and -128 <= tagged[4] <= 255)):
+            return unavailable
+        return {'available': True, 'operation': tagged[2], 'category': tagged[3], 'returncode': tagged[4]}
+    except Exception:
+        return unavailable
+
+
 def exercise(output, compose, project, *, execute=runtime.invoke):
     """One owned corpus. All Docker I/O crosses the existing identity/deadline adapter."""
     report = {'schema': 1, 'scope': 'owned_synthetic_sql_pg18_recovery_only', 'state': 'running',
@@ -131,7 +175,8 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
             restore=lambda:_maintenance_restore(compose,execute=execute),progress=maintenance_progress)
         record()
         return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        report['current_failure'] = _current_backup_failure(error)
         report['state'] = 'failed'
         record()
         raise RuntimeError('owned_recovery_failed; inspect curated recovery-proof.json') from None
@@ -618,13 +663,18 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
                   source_system_identifier_sha256=hashlib.sha256(source['system_identifier'].encode()).hexdigest())
     stage('encrypted_backup')
     for backup_command in ('stanza-create', 'check'):
-        execute(compose, ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', backup_command], timeout=OPERATION_SECONDS)
-    _one_shot(compose, project, 'backup', execute, record=record_operation)
+        with _encrypted_backup_operation('stanza_create' if backup_command == 'stanza-create' else 'check'):
+            execute(compose, ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', backup_command], timeout=OPERATION_SECONDS)
+    with _encrypted_backup_operation('full_backup'):
+        _one_shot(compose, project, 'backup', execute, record=record_operation)
     info_args = ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', '--output=json']
-    label = recovery.backup_label(execute(compose, [*info_args, 'info']))
-    backup = recovery.backup_proof(execute(compose, [*info_args, '--set=' + label, 'info']))
-    if backup['label'] != label:
-        raise ValueError('backup_selection_changed')
+    with _encrypted_backup_operation('info'):
+        label = recovery.backup_label(execute(compose, [*info_args, 'info']))
+    with _encrypted_backup_operation('selected_info'):
+        backup = recovery.backup_proof(execute(compose, [*info_args, '--set=' + label, 'info']))
+    with _encrypted_backup_operation('selection'):
+        if backup['label'] != label:
+            raise ValueError('backup_selection_changed')
     report['backup'] = backup
     # This input is outside the database backup and intentionally created AFTER it.
     manifest = {'schema': 1, 'scope': 'synthetic_only', 'event_ids': [recovery.DELETE_EVENT]}
