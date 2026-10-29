@@ -90,7 +90,40 @@ test("an unlabelled stand image is reported, never removed", () => {
   );
 });
 
-test("removal untags without force and refuses a kept image", () => {
+test("explicit recovery images survive even when older than the rollback build", () => {
+  const plan = standImagePlan({
+    images: [image(1, { daysOld: 1 }), image(2, { daysOld: 90 })],
+    usedImageIds: new Set(),
+    protectedImageIds: new Set([id(2)]),
+    now,
+  });
+  assert.equal(plan[1]?.verdict, "keep");
+  assert.match(plan[1]?.reason ?? "", /recovery/u);
+});
+
+test("preparation lifecycle owns images even when they inherit stand labels", () => {
+  const prepared = image(2, { daysOld: 90 });
+  const plan = standImagePlan({
+    images: [
+      image(1, { daysOld: 1 }),
+      {
+        ...prepared,
+        Config: {
+          Labels: {
+            ...prepared.Config.Labels,
+            "dev.inside.resource-preparation": "owner-token",
+          },
+        },
+      },
+    ],
+    usedImageIds: new Set(),
+    now,
+  });
+  assert.equal(plan[1]?.verdict, "keep");
+  assert.match(plan[1]?.reason ?? "", /preparation/u);
+});
+
+test("removal uses immutable IDs without pruning parents or forcing, and refuses a kept image", async () => {
   /** @type {string[][]} */
   const calls = [];
   /** @param {string[]} args */
@@ -108,11 +141,11 @@ test("removal untags without force and refuses a kept image", () => {
     now,
   }).slice(1);
   assert.ok(tagged && untagged);
-  removeStandImage(docker, tagged);
-  removeStandImage(docker, untagged);
+  await removeStandImage(docker, tagged);
+  await removeStandImage(docker, untagged);
   assert.deepEqual(calls, [
-    ["image", "rm", "inside/logto-proof:11"],
-    ["image", "rm", id(3)],
+    ["image", "rm", "--no-prune", id(2)],
+    ["image", "rm", "--no-prune", id(3)],
   ]);
   assert.ok(
     calls.every((args) => !args.includes("--force") && !args.includes("-f")),
@@ -123,10 +156,10 @@ test("removal untags without force and refuses a kept image", () => {
     now,
   })[0];
   assert.ok(kept);
-  assert.throws(() => removeStandImage(docker, kept), /is kept/u);
+  await assert.rejects(removeStandImage(docker, kept), /is kept/u);
 });
 
-test("the daemon's container count protects an image, and an unknown count keeps it", () => {
+test("the daemon's container count protects an image, and an unknown count keeps it", async () => {
   /** @param {string[]} args */
   const docker = (args) => {
     assert.ok(args.includes("--all"));
@@ -135,7 +168,7 @@ test("the daemon's container count protects an image, and an unknown count keeps
     );
     return `${id(1)}\t10\n${id(2)}\t0\n${id(3)}\tN/A\n`;
   };
-  assert.deepEqual(usedImageIds(docker), new Set([id(1), id(3)]));
+  assert.deepEqual(await usedImageIds(docker), new Set([id(1), id(3)]));
 });
 
 test("an image with an unreadable creation time is never planned for removal", () => {
@@ -148,18 +181,17 @@ test("an image with an unreadable creation time is never planned for removal", (
   );
 });
 
-test("a failing removal stops the run with the docker error", () => {
+test("a failing removal stops the run with the docker error", async () => {
   const [, stale] = standImagePlan({
     images: [image(1, { daysOld: 1 }), image(2, { daysOld: 30 })],
     usedImageIds: new Set(),
     now,
   });
   assert.ok(stale);
-  assert.throws(
-    () =>
-      removeStandImage(() => {
-        throw new Error("image is being used by stopped container");
-      }, stale),
+  await assert.rejects(
+    removeStandImage(() => {
+      throw new Error("image is being used by stopped container");
+    }, stale),
     /being used/u,
   );
 });
