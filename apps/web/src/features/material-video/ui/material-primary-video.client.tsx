@@ -170,7 +170,8 @@ export function MaterialPrimaryVideo({
             );
           }
         }
-        // No provider script before the session allows playback (platform-v1, Reader item 11).
+        // No provider script before the session allows playback
+        // (platform-v1, «Assets, downloads и video», item 11).
         const factory = await loadKinescopeIframePlayer();
         if (!isActive()) return;
         // The SDK replaces its target; retain the React-owned mount for retries.

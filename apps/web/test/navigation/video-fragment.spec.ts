@@ -441,7 +441,10 @@ test("a provider script failure offers a retry that requests the script anew", a
   await expect(
     page.getByText("Загружаем видео…", { exact: true }),
   ).not.toBeVisible();
-  expect(scriptRequests.at(-1)).toBe(
+  expect(scriptRequests).toEqual([
+    "https://player.kinescope.io/latest/iframe.player.js",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=2",
+    "https://player.kinescope.io/latest/iframe.player.js?attempt=3",
     "https://player.kinescope.io/latest/iframe.player.js?attempt=4",
-  );
+  ]);
 });
