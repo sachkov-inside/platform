@@ -1150,6 +1150,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const id = await material([productId]);
     const account = randomUUID();
     const contentAccess = assembleContentAccess({
+      telegramLinks: everyAccountLinked,
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
       ),
@@ -1182,7 +1183,23 @@ describe("ReadingActivity on PostgreSQL", () => {
       commandId: randomUUID(),
       contentVersion: facts.value.contentVersion,
     };
-    await Promise.all([home.recordOpen(open), home.recordOpen(open)]);
+    const opened = await Promise.all([
+      home.recordOpen(open),
+      home.recordOpen(open),
+    ]);
+    expect(opened).toEqual([
+      {
+        ok: true,
+        value: { openedAt: expect.any(String), replayed: expect.any(Boolean) },
+      },
+      {
+        ok: true,
+        value: { openedAt: expect.any(String), replayed: expect.any(Boolean) },
+      },
+    ]);
+    expect(
+      opened.filter((result) => result.ok && !result.value.replayed),
+    ).toHaveLength(1);
     const other = await material([productId]);
     const otherFacts = await materials.materialContent.findAccessFacts(
       materialId(other),

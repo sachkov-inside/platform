@@ -12,9 +12,13 @@ import { readReaderReference } from "../../src/modules/content-library/features/
 import { PublishedMaterialSelection } from "../../src/modules/materials/index.js";
 import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleTelegramLinks } from "../../src/entrypoints/composition/telegram-links.js";
+import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
+import { linkTelegram } from "../support/telegram-links.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -40,7 +44,20 @@ describe("ListPublishedMaterials", () => {
     const { contentAccess } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
+      telegramLinks: assembleTelegramLinks(
+        new TelegramAccountLinks(testDatabase.prisma),
+      ),
     });
+    const linkedAccount = checkedAccountId(randomUUID());
+    const unlinkedAccount = checkedAccountId(randomUUID());
+    await testDatabase.prisma.account.createMany({
+      data: [linkedAccount, unlinkedAccount].map((id) => ({
+        id,
+        logtoIssuer: "https://identity.example.test/oidc",
+        logtoSubject: `reader-reference-${id}`,
+      })),
+    });
+    await linkTelegram(testDatabase.prisma, { accountId: linkedAccount });
     const dependencies = {
       directory: new ProductDirectory(
         testDatabase.prisma,
@@ -52,7 +69,7 @@ describe("ListPublishedMaterials", () => {
       }),
       contentAccess,
     };
-    for (const [slug, availability] of [
+    for (const [slug, linkedAvailability] of [
       ["kak-ustroen-inside-platform", "available"],
       ["developer-pipeline-bez-poteri-konteksta", "locked"],
     ] as const) {
@@ -69,8 +86,28 @@ describe("ListPublishedMaterials", () => {
         ),
       ).toEqual({
         ok: true,
-        value: { id: material.materialId, kind: "material", availability },
+        value: {
+          id: material.materialId,
+          kind: "material",
+          availability: "locked",
+        },
       });
+      for (const [accountId, availability] of [
+        [unlinkedAccount, "locked"],
+        [linkedAccount, linkedAvailability],
+      ] as const) {
+        expect(
+          await readReaderReference(
+            dependencies,
+            { kind: "account", accountId },
+            "material",
+            material.materialId,
+          ),
+        ).toEqual({
+          ok: true,
+          value: { id: material.materialId, kind: "material", availability },
+        });
+      }
       await testDatabase.prisma.material.update({
         where: { id: material.materialId },
         // Retain publication history while testing a stale published projection.
