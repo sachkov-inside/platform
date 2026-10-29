@@ -99,11 +99,31 @@ test(
         elapsedMs: 600000,
       });
       phase.exportFailure("traces", { kind: "http", code: 400, elapsedMs: 0 });
+      const transport = {
+        available: true,
+        sdkFlushMs: 600000,
+        metrics: {
+          createdMs: 600000,
+          submittedMs: 600000,
+          bodyFinishedMs: 600000,
+          headersMs: 600000,
+          endMs: 600000,
+          failureMs: 600000,
+        },
+        traces: {
+          createdMs: 600000,
+          submittedMs: 600000,
+          bodyFinishedMs: 600000,
+          headersMs: 600000,
+          endMs: 600000,
+          failureMs: 600000,
+        },
+      };
+      phase.transport(transport);
       phase.enter("provider_acquisition");
       phase.failed();
       const raw = fs.readFileSync(join(directory, "phase.json"));
-      assert.equal(raw.length, 463);
-      assert.ok(raw.length <= 512);
+      assert.ok(raw.length > 512 && raw.length <= 1024);
       const value = {
         schema: 1,
         scope: "sdk",
@@ -118,6 +138,7 @@ test(
           failedTraceExports: 1000000,
           failedMetricExports: 1000000,
         },
+        transport,
         exportFailures: {
           available: true,
           traces: { kind: "network", code: "EHOSTUNREACH", elapsedMs: 600000 },
@@ -139,7 +160,7 @@ test(
         stderr = "";
       child.stdout?.on("data", (b) => {
         stdout += b;
-        if (stdout.length > 512) void stopOwned(child, 100);
+        if (stdout.length > 1024) void stopOwned(child, 100);
       });
       child.stderr?.on("data", (b) => {
         stderr += b;
@@ -204,3 +225,51 @@ test(
       });
   },
 );
+
+// deterministic-test-allow unit-io: closed optional transport projection uses the existing owned phase inode seam.
+test("hostile transport milestones remain unavailable without getters and cannot replace first phase", async () => {
+  let touched = 0;
+  for (const value of [
+    new Proxy(
+      {},
+      {
+        ownKeys() {
+          touched++;
+          throw Error("private-sentinel");
+        },
+      },
+    ),
+    {
+      available: true,
+      sdkFlushMs: 0,
+      metrics: {
+        get createdMs() {
+          touched++;
+          throw Error("private-sentinel");
+        },
+      },
+      traces: null,
+    },
+  ]) {
+    await withPhase(async (phase, directory) => {
+      phase.enter("sdk_flush");
+      phase.transport(value);
+      phase.failed();
+      phase.enter("cleanup_sdk");
+      phase.transport({ available: false });
+      const raw = fs.readFileSync(join(directory, "phase.json"), "utf8");
+      assert.deepEqual(JSON.parse(raw), {
+        schema: 1,
+        scope: "sdk",
+        source: "a".repeat(40),
+        state: "failed",
+        phase: "sdk_flush",
+        reason: "operation_failed",
+        exportFailures: { available: true, metrics: null, traces: null },
+        transport: { available: false },
+      });
+      assert.equal(touched, 0);
+      assert.ok(!raw.includes("private-sentinel"));
+    });
+  }
+});

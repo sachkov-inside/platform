@@ -1452,7 +1452,7 @@ Before public copying, collectors strictly read present metadata, exclude its ra
 collection and write only canonical projections. Invalid present metadata refuses collection.
 
 SDK and tracking additionally prepare separate `sdk-emitter-phase.json` and
-`tracking-producer-phase.json` observations. Each closed record is at most512bytes and contains
+`tracking-producer-phase.json` observations. The SDK record is at most1024bytes and the tracking record remains at most512bytes. Each contains
 schema1, fixed scope, captured source SHA, state, phase and reason. The child writes a private
 atomic marker through an owned directory descriptor; the parent reads it only after the unchanged
 capture owner has reaped the child. The phase owners never retain raw error text, args or stack
@@ -1481,9 +1481,34 @@ unavailable. Missing or invalid observations project `available:false`; null sig
 no failure observed so far, never success. An unknown category still records a failed callback.
 The first record per signal is sticky, and diagnostic observer exceptions cannot prevent the
 original SDK callback receiving its original result. Production warnings retain their existing
-safe signal/service fields. The full phase remains bounded to512bytes; the conservative schema
-maximum is466bytes and the largest valid record is463bytes, verified across the JS writer and
-Python collector. This observes the callback outcome, not the cause of a native CI incident.
+safe signal/service fields. Existing failure-only records remain at most466bytes (the largest
+canonical fixture is463bytes). The optional transport observation below raises only the SDK phase
+cap to1024bytes, verified across the JS writer and Python collector. This observes the callback
+outcome, not the cause of a native CI incident.
+
+Пассивное поле SDK `transport` уточняет только первый наблюдаемый HTTP-запрос каждого сигнала.
+Закрытая схема содержит `available`, `sdkFlushMs` и по шесть полей для `metrics` и `traces`:
+`createdMs`, `submittedMs`, `bodyFinishedMs`, `headersMs`, `endMs`, `failureMs`.
+Это целые миллисекунды от создания наблюдателя в пределах0..600000; недоступное время равно
+`null`, превышение диапазона также остаётся неизвестным. `sdkFlushMs` отмечает вход fixture
+в фазу `sdk_flush`, а не начало внутреннего экспорта SDK. Пустые поля не доказывают отсутствие
+запроса, завершение приёма коллектора или успешное хранение данных. Отсутствующее либо неверное
+необязательное поле целиком проецируется в `available:false`; исходная ошибка и условия приёмки
+сохраняются.
+
+Наблюдатель fixture использует публичные, но экспериментальные каналы
+[Node26.10 Diagnostics Channel](https://nodejs.org/download/release/v26.10.0/docs/api/diagnostics_channel.html#http)
+`http.client.request.created`, `http.client.request.start` и `http.client.response.finish`,
+а также события `finish`, `socket`, `connect` и `end` из
+[Node26.10 HTTP](https://nodejs.org/download/release/v26.10.0/docs/api/http.html).
+`finish` означает передачу тела операционной системе, а не получение сервером. Время заголовков
+берётся из канала получения ответа, завершение тела наблюдается без его чтения или `resume()`.
+В память попадает не более одного кандидата на сигнал. Время запроса публикуется только после
+проверки настоящего loopback peer и порта; метод, путь и адрес назначения также должны совпасть.
+При неподтверждённом peer времена запроса остаются неизвестными. Параметры запроса, заголовки,
+тела, адреса и ошибки не переносятся в метаданные. Подписки и обработчики снимаются в `finally`.
+Новых запросов, прогрева, повторов или изменений SDK timeout1s нет. Witness загруженных модулей
+по-прежнему создаётся только после успешной проверки SDK и может отсутствовать при сбое.
 
 A nonzero snapshot still fails the producer. The snapshot contains no error text, endpoint,
 DSN, credential, URL or runtime payload and cannot establish the cause of an export failure.

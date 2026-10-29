@@ -1,4 +1,5 @@
 // @ts-check
+import { transportSnapshot } from "./transport.mjs";
 import { isProxy } from "node:util/types";
 // Fixed SDK profile. Marker failures never become producer failures.
 import {
@@ -34,7 +35,7 @@ const phases = [
   "cleanup_hooks",
 ];
 /** @typedef {{available:false}|{available:true,saturated:boolean,droppedSpans:number,failedTraceExports:number,failedMetricExports:number}} SdkCounters */
-/** @typedef {{enter(phase:string):void,diagnostics(value:unknown):void,exportFailure(signal:string,value:unknown):void,failed():void,completed():void}} SdkEmitterPhase */
+/** @typedef {{enter(phase:string):void,diagnostics(value:unknown):void,exportFailure(signal:string,value:unknown):void,transport(value:unknown):void,failed():void,completed():void}} SdkEmitterPhase */
 const counterLimit = 1_000_000;
 /** @param {unknown} value @returns {SdkCounters} */
 function counterSnapshot(value) {
@@ -168,7 +169,7 @@ function regular(info, uid) {
     info.uid === BigInt(uid) &&
     (info.mode & 0o777n) === 0o600n &&
     info.nlink === 1n &&
-    info.size <= 512n
+    info.size <= 1024n
   );
 }
 /** @param {unknown} environment @returns {SdkEmitterPhase|null} */
@@ -236,6 +237,8 @@ export function createSdkEmitterPhase(environment) {
     /** @type {SdkCounters|undefined} */ let counters;
     /** @type {ExportFailures} */
     let failures = { available: true, traces: null, metrics: null };
+    /** @type {import("./transport.mjs").TransportSnapshot|undefined} */
+    let transport;
     function close() {
       if (open) {
         open = false;
@@ -294,8 +297,9 @@ export function createSdkEmitterPhase(environment) {
             state,
             diagnostics: counters,
             exportFailures: failures,
+            transport,
           }) + "\n";
-        if (Buffer.byteLength(raw) > 512) throw new Error();
+        if (Buffer.byteLength(raw) > 1024) throw new Error();
         fd = openSync(
           base + "/phase.json.new",
           constants.O_WRONLY |
@@ -380,6 +384,10 @@ export function createSdkEmitterPhase(environment) {
       }
     }
     const observer = Object.freeze({
+      /** @param {unknown} value */
+      transport(value) {
+        if (!latched && !disabled) transport = transportSnapshot(value);
+      },
       /** @param {string} signal @param {unknown} value */
       exportFailure(signal, value) {
         if (latched || disabled || !failures.available) return;

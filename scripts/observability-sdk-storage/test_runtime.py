@@ -131,6 +131,7 @@ class PrivateWireWitness(unittest.TestCase):
                                 'bound input skips native storage CI: '+changed_path)
         require_all_routed(patterns)
         schema = 'apps/backend/prisma/schema.prisma'
+        self.assertIn('scripts/observability-sdk-storage/transport.mjs',selected)
         self.assertIn(schema,selected)
         self.assertIn(schema,patterns)
         without_schema = [pattern for pattern in patterns if pattern != schema]
