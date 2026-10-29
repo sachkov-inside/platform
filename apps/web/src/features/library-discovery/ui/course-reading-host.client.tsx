@@ -111,11 +111,11 @@ export function CourseReadingHost({
         className={active ? styles["host"] : undefined}
         data-course-reading-host={active ? "" : undefined}
         data-course-reading={active ? "" : undefined}
-        onClickCapture={(event) => {
+        // Let the link consume its href before optimistic arrows point to the next step.
+        onClick={(event) => {
           if (
             !active ||
             context == null ||
-            event.defaultPrevented ||
             event.button !== 0 ||
             event.metaKey ||
             event.ctrlKey ||
