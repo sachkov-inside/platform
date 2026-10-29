@@ -35,6 +35,7 @@ export type AccessGround = (typeof accessGrounds)[number];
 /** Что открывается. Строки модели и субъекты «автор» и «агент через MCP». */
 export const accessSurfaces = [
   "public-material",
+  "product-free-material",
   "product-material",
   "programme",
   "artifacts",
@@ -233,6 +234,9 @@ export const accessScenarioTable = {
   cells: {
     // Публичный материал открыт всем, какое бы основание ни было.
     "public-material": everyGround(open("public")),
+    // Бесплатный урок продукта (#1825, ADR 0042) открывает связанный Telegram или право на продукт.
+    // Основания здесь без связанного Telegram, поэтому без права виден тизер со входом через Telegram.
+    "product-free-material": productContent,
     // Закрытый материал живёт внутри продукта; без права виден только тизер.
     "product-material": productContent,
     // Программа и описание продукта видны всем, пока продукт не в архиве.

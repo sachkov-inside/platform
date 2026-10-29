@@ -84,28 +84,8 @@ describe("published Material HTTP contract", () => {
     const permissionRead = vi.spyOn(appPrisma.accountPermission, "findUnique");
     const response = await server.inject({
       method: "GET",
-      url: "/materials/kak-ustroen-inside-platform",
+      url: "/materials/arkhitekturnaya-zametka-01",
     });
-
-    const representativeBlocks: unknown = expect.arrayContaining([
-      {
-        kind: "heading",
-        level: 2,
-        content: [
-          { kind: "text", text: "Первый вертикальный срез", marks: [] },
-        ],
-      },
-      {
-        kind: "paragraph",
-        content: [
-          {
-            kind: "text",
-            text: "Этот материал создаётся идемпотентным local seed через application interface.",
-            marks: [],
-          },
-        ],
-      },
-    ]);
 
     expect(response.statusCode).toBe(200);
     expect(response.headers["cache-control"]).toBe(
@@ -115,17 +95,37 @@ describe("published Material HTTP contract", () => {
       kind: "available",
       cacheScope: "public",
       projection: {
+        slug: "arkhitekturnaya-zametka-01",
+        title: "Архитектурная заметка 01",
+        access: "free",
+        productMemberships: [],
+      },
+      body: { schemaVersion: 1 },
+    });
+    expect(bodyRead).toHaveBeenCalledOnce();
+    expect(accountRead).not.toHaveBeenCalled();
+    expect(permissionRead).not.toHaveBeenCalled();
+    bodyRead.mockRestore();
+    accountRead.mockRestore();
+    permissionRead.mockRestore();
+  });
+
+  test("keeps a free Product lesson behind Telegram sign-in for an anonymous reader (#1825)", async () => {
+    const bodyRead = vi.spyOn(appPrisma.material, "findFirst");
+    const response = await server.inject({
+      method: "GET",
+      url: "/materials/kak-ustroen-inside-platform",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toMatchObject({
+      kind: "teaser",
+      cacheScope: "private-no-store",
+      projection: {
         slug: "kak-ustroen-inside-platform",
         title: "Как устроен Inside Platform",
-        topic: {
-          name: "Platform",
-          slug: "platform",
-        },
-        format: {
-          name: "Гайд",
-          slug: "guide",
-        },
-        tags: [{ name: "Full stack" }],
+        access: "free",
         productMemberships: [
           {
             ordinal: 1,
@@ -136,17 +136,12 @@ describe("published Material HTTP contract", () => {
           },
         ],
       },
-      body: {
-        schemaVersion: 1,
-        blocks: representativeBlocks,
-      },
+      access: { availability: "locked" },
     });
-    expect(bodyRead).toHaveBeenCalledOnce();
-    expect(accountRead).not.toHaveBeenCalled();
-    expect(permissionRead).not.toHaveBeenCalled();
+    expect(response.body).not.toContain("schemaVersion");
+    expect(response.body).not.toContain("Первый вертикальный срез");
+    expect(bodyRead).not.toHaveBeenCalled();
     bodyRead.mockRestore();
-    accountRead.mockRestore();
-    permissionRead.mockRestore();
   });
 
   test("returns the published catalog without Material body bytes", async () => {
@@ -177,7 +172,8 @@ describe("published Material HTTP contract", () => {
       {
         slug: "kak-ustroen-inside-platform",
         access: "free",
-        availability: "available",
+        // A free Product lesson opens only after Telegram sign-in (#1825).
+        availability: "locked",
       },
     ]);
     expect(typeof catalog.nextCursor).toBe("string");

@@ -1,4 +1,11 @@
-import { ChevronRight, Clock3, Link2, LockKeyhole, Play } from "lucide-react";
+import {
+  ChevronRight,
+  Clock3,
+  Link2,
+  LockKeyhole,
+  Play,
+  Send,
+} from "lucide-react";
 import type { Route } from "next";
 
 import { cn } from "@/shared/lib/utils";
@@ -352,7 +359,8 @@ function MaterialRow({
             className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground"
             data-product-access
           >
-            {material.availability === "locked" ? (
+            {material.availability === "locked" &&
+            material.access !== "free" ? (
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <LockKeyhole aria-hidden="true" className="size-3.5" />
                 По подписке
@@ -530,7 +538,11 @@ function MaterialAccessBadge({
         compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
       )}
     >
-      <LockKeyhole aria-hidden="true" className="size-4 text-accent" />
+      {material.access === "free" ? (
+        <Send aria-hidden="true" className="size-4 text-accent" />
+      ) : (
+        <LockKeyhole aria-hidden="true" className="size-4 text-accent" />
+      )}
       {compact ? (
         <span className="sr-only">{materialAccessLabel(material)}</span>
       ) : (
@@ -547,7 +559,9 @@ function materialDuration(material: MaterialPreview): string | undefined {
 }
 
 function materialAccessLabel(material: MaterialPreview): string {
-  if (material.availability === "locked") return "Для участников";
+  // Бесплатный урок курса закрыт гостю до входа через Telegram, а не до покупки (#1825).
+  if (material.availability === "locked")
+    return material.access === "free" ? "Бесплатно" : "Для участников";
   if (material.availability === "unavailable") return "Недоступно";
   return material.access === "free" ? "Бесплатно" : "Доступно";
 }

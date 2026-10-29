@@ -112,11 +112,12 @@ describe("Content Library discovery", () => {
         ({ slug }) => slug === "developer-pipeline-bez-poteri-konteksta",
       ),
     ).toMatchObject({ availability: "locked" });
+    // A free lesson of a Product opens only after Telegram sign-in (#1825): the guest sees a teaser.
     expect(
       result.value.items.find(
         ({ slug }) => slug === "kak-ustroen-inside-platform",
       ),
-    ).toMatchObject({ availability: "available" });
+    ).toMatchObject({ access: "free", availability: "locked" });
     expect(JSON.stringify(result)).not.toContain(
       "Закрытое содержимое для участников",
     );
@@ -230,7 +231,9 @@ describe("Content Library discovery", () => {
         items: [
           expect.objectContaining({
             slug: "kak-ustroen-inside-platform",
-            availability: "available",
+            access: "free",
+            // The guest signs in through Telegram before a free lesson opens (#1825).
+            availability: "locked",
             productMemberships: [expect.objectContaining({ ordinal: 1 })],
           }),
           expect.objectContaining({

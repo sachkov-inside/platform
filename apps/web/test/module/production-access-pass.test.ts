@@ -207,8 +207,8 @@ describe("production access pass configuration", () => {
       "learner-product-a/read-product-a/video@browser": "allowed",
       "learner-product-b/read-product-a/video@browser": "denied",
       "expired/read-product-a/video@browser": "denied",
-      "anonymous/read-free-lesson/video@browser": "allowed",
-      "account-without-entitlement/read-free-lesson/video@browser": "allowed",
+      "anonymous/read-free-lesson/video@browser": "denied",
+      "account-without-entitlement/read-free-lesson/video@browser": "denied",
     });
     expect(passCellCheck("anonymous/read-free-lesson/video@browser")).toBe(
       "Бесплатный урок: основное видео: playback session и лицензия Kinescope",

@@ -93,9 +93,10 @@ product language: «лента».
 _Avoid_: Library subscription, Product, closed Material
 
 **Access Class**:
-Whether a Material is free or closed. A free Material is open to everyone; a closed Material opens
-only to an Account with access to a Product that contains it. There is no closed Material outside
-Products.
+Whether a Material is free or closed. A free Material outside Products is open to everyone; a free
+Material in a Product programme opens to an Account with a linked Telegram, besides the Product's
+holders. A closed Material opens only to an Account with access to a Product that contains it.
+There is no closed Material outside Products.
 _Avoid_: Membership, paywall flag
 
 **Product**:

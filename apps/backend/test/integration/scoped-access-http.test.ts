@@ -1,3 +1,4 @@
+import { linkTelegram } from "../support/telegram-links.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -161,19 +162,21 @@ describe("scoped Account access over Nest HTTP", () => {
     }
   });
 
-  test("free lesson gives a guest and an Account without entitlement a playback token that the Kinescope authorization backend accepts", async () => {
-    const { bearer } = await signedInAccount();
-    for (const token of [null, bearer]) {
-      const session = await playback(world.freeProduct, token);
-      expect(session.statusCode).toBe(200);
-      // The free lesson's recording is protected too (ADR 0041): every viewer needs a token.
-      const { drmAuthToken } = session.json<{ drmAuthToken: string | null }>();
-      if (drmAuthToken === null) throw new Error("free lesson token missing");
-      expect(await providerAuthorization(world.freeProduct, drmAuthToken)).toBe(
-        200,
-      );
-      expect((await playback(world.productA, token)).statusCode).toBe(403);
-    }
+  test("free lesson refuses a guest and an Account without Telegram a playback token and gives a Telegram-linked Account one the Kinescope authorization backend accepts", async () => {
+    const { bearer, accountId } = await signedInAccount();
+    // A free Product lesson opens only after Telegram sign-in (#1825), before any provider call.
+    for (const token of [null, bearer])
+      expect((await playback(world.freeProduct, token)).statusCode).toBe(403);
+    await linkTelegram(database.prisma, { accountId });
+    const session = await playback(world.freeProduct, bearer);
+    expect(session.statusCode).toBe(200);
+    // The free lesson's recording is protected too (ADR 0041): every viewer needs a token.
+    const { drmAuthToken } = session.json<{ drmAuthToken: string | null }>();
+    if (drmAuthToken === null) throw new Error("free lesson token missing");
+    expect(await providerAuthorization(world.freeProduct, drmAuthToken)).toBe(
+      200,
+    );
+    expect((await playback(world.productA, bearer)).statusCode).toBe(403);
   });
 
   test("retired Practice routes remain absent even for a Product holder", async () => {

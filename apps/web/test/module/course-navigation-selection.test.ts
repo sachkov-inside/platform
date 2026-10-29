@@ -56,3 +56,15 @@ test("a reference source refresh cannot confirm a return to its originating less
   expect(reconcileCourseNavigation(intent, reference)).toBe(intent);
   expect(reconcileCourseNavigation(intent, courseGuide)).toBeNull();
 });
+
+test("a reference click settles on a programme lesson opened for reference", () => {
+  const intent = { id: "reference:next", courseHref: courseGuide.courseHref };
+  const destination = {
+    ...courseNext,
+    currentPosition: 0,
+    previous: null,
+    next: null,
+  };
+  expect(reconcileCourseNavigation(intent, destination)).toBeNull();
+  expect(reconcileCourseNavigation(intent, courseGuide)).toBe(intent);
+});

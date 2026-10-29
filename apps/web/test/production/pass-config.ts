@@ -36,8 +36,8 @@ export const productA = {
 
 /**
  * Бесплатный урок Product A с основным видео (по решению владельца бесплатны первые пять уроков
- * главы 1). Его запись тоже защищена (ADR 0041): гость и Account без права получают playback session
- * и лицензию.
+ * главы 1). Его запись защищена (ADR 0041), а сам урок открывается только Account со связанным
+ * Telegram (#1825, ADR 0042): гость и Account без права и без Telegram получают отказ.
  */
 export const freeVideoMaterialSlug = "inside-content-aie-ch1-agent-choice";
 
@@ -132,9 +132,9 @@ export const passCells = [
     "denied",
   ),
 
-  // Бесплатный урок открыт без входа и без права, включая его защищённую запись.
-  cell("anonymous/read-free-lesson/video@browser", "allowed"),
-  cell("account-without-entitlement/read-free-lesson/video@browser", "allowed"),
+  // Бесплатный урок открывает вход через Telegram (#1825); у тестовых identities Telegram нет.
+  cell("anonymous/read-free-lesson/video@browser", "denied"),
+  cell("account-without-entitlement/read-free-lesson/video@browser", "denied"),
 
   cell("learner-product-a/read-product-a/body@browser", "allowed"),
   cell("learner-product-a/read-product-a/body@learner-mcp", "allowed"),

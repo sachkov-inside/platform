@@ -45,8 +45,10 @@ session (`POST /api/material-video-playback-sessions`): сессия прове�
 ([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)), поэтому разрешённая клетка требует
 токен в сессии. Затем проход запускает плеер и ждёт ответа Kinescope на запрос лицензии: Kinescope
 выдаёт её, только когда authorization backend Platform повторил решение по этому токену. Ученик A
-получает сессию и лицензию закрытого урока. Гость и Account без entitlement получают их у
-бесплатного урока. Account без entitlement, ученик B, expired и anonymous просят со страницы
+получает сессию и лицензию закрытого урока. Бесплатный урок курса открывается только Account со
+связанным Telegram ([ADR 0042](../adr/0042-free-product-lesson-needs-telegram.md)), а у тестовых
+identities Telegram нет: гость и Account без entitlement видят заглушку входа и сессии не получают.
+Account без entitlement, ученик B, expired и anonymous просят со страницы
 закрытого урока сессию того же видео, что получил ученик A, и получают `403 playback_unavailable`.
 Гость вдобавок запускает эту запись без токена, и Kinescope отказывает в лицензии: так проверяется,
 что authorization backend закрывает запись. Позицию видео проход не сохраняет: запрос записи не

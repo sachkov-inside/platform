@@ -31,7 +31,9 @@ test("keeps reader startup JavaScript within its CPU budget", async ({
       page.waitForResponse(
         (response) => new URL(response.url()).pathname === "/auth/status",
       ),
-      page.goto("/materials/kak-ustroen-inside-platform", {
+      // A guest reads a free Material outside Products; a free Product lesson shows the Telegram
+      // sign-in gate to a guest (#1825).
+      page.goto("/materials/arkhitekturnaya-zametka-01", {
         waitUntil: "commit",
       }),
     ]);
@@ -162,7 +164,8 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       z.object({
         slug: z.string(),
         access: z.literal("free"),
-        availability: z.literal("available"),
+        // A free Product lesson stays locked for a guest until Telegram sign-in (#1825).
+        availability: z.enum(["available", "locked"]),
       }),
     ),
     nextCursor: z.string().nullable(),
@@ -395,7 +398,13 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   // This scenario owns its Home return. Other files can add the same Material to a second
   // course; a direct URL otherwise infers its sole course only on a fresh shard database.
   const materialHref = "/materials/kak-ustroen-inside-platform?from=%2F";
-  const documentResponse = await request.get(materialHref);
+  // A guest receives the free lesson's Telegram sign-in gate without its body (#1825).
+  const guestHtml = await (await request.get(materialHref)).text();
+  expect(guestHtml).toContain("Войти через Telegram и читать бесплатно");
+  expect(guestHtml).not.toContain("Первый вертикальный срез");
+  // The representative body is server-rendered to a reader signed in through Telegram.
+  await signInFullStack(page.context());
+  const documentResponse = await page.context().request.get(materialHref);
   const initialHtml = await documentResponse.text();
 
   expect(documentResponse.status()).toBe(200);
@@ -422,7 +431,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   );
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
-  // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
+  // мерил бы скорость runner, а не ответ читалки (#933). Отметку читателя рисует только браузер
   // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
   for (const panel of [
     page.getByRole("navigation", { name: "Действия материала", exact: true }),
@@ -435,14 +444,10 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     await expect(
       action,
       "действие чтения гидрировано и получило ответ /auth/status",
-    ).toHaveAttribute("data-reading-action-state", "anonymous");
-    const signIn = action.getByRole("link", { name: "Изучено", exact: true });
-    await expect(signIn).toBeVisible();
-    await expect(signIn).toBeEnabled();
-    await expect(signIn).toHaveAttribute("href", "/account");
+    ).toHaveAttribute("data-reading-action-state", "ready");
     await expect(
       action.getByRole("button", { name: "Изучено", exact: true }),
-    ).toHaveCount(0);
+    ).toBeEnabled();
   }
 
   await page.keyboard.press("Tab");
@@ -875,6 +880,8 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
   await captureIssue195Evidence(page, testInfo, "playlist");
   await captureIssue271Evidence(page, testInfo, "playlist");
 
+  // The free lesson opens to a reader signed in through Telegram (#1825); the guest sees a gate.
+  await signInFullStack(page.context());
   await representativeProductItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
@@ -1162,6 +1169,8 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
       recordShifts(shifts.takeRecords());
     });
   }, takePerformanceRecords);
+  // The free lesson body opens after Telegram sign-in (#1825); a guest sees a short gate.
+  await signInFullStack(page.context());
   await page.goto("/materials/kak-ustroen-inside-platform");
   const header = page.getByRole("banner");
   const main = page.getByRole("main");
