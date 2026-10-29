@@ -221,9 +221,11 @@ export async function runStandImages({
     const apply = values.apply;
     const context = values.context;
     const protectedFile = values["protected-images"] ?? defaultProtectionFile;
+    let protectionFileSeen = false;
     const protectedIds = async () => {
       try {
         const raw = await readFile(protectedFile, "utf8");
+        protectionFileSeen = true;
         return new Set(
           z
             .array(imageSchema.shape.Id)
@@ -232,6 +234,7 @@ export async function runStandImages({
       } catch (error) {
         if (
           values["protected-images"] === undefined &&
+          !protectionFileSeen &&
           error instanceof Error &&
           "code" in error &&
           error.code === "ENOENT"

@@ -28,6 +28,7 @@ async function fixture(t) {
     acquired: false,
     newProtection: false,
     removalFails: false,
+    lostProtection: false,
   };
   /** @param {string[]} args */
   const executeDocker = async (args) => {
@@ -38,6 +39,7 @@ async function fixture(t) {
       return state.changed && ++infos > 1 ? "changed-daemon" : "fixture-daemon";
     if (command[1] === "inspect") {
       inspections += 1;
+      if (inspections > 1 && state.lostProtection) await rm(manifest);
       if (inspections > 1 && state.newProtection)
         await writeFile(manifest, JSON.stringify([id(2)]));
       return [1, 2]
@@ -182,4 +184,12 @@ test("command preserves its lock while asynchronous Docker is pending and after 
   await assert.rejects(f.run(["--apply"]), /image removal refused/u);
   f.state.removalFails = false;
   await f.run(["--apply"]);
+});
+
+test("command refuses loss of an initially readable default recovery manifest", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.manifest, JSON.stringify([id(3)]));
+  f.state.lostProtection = true;
+  await assert.rejects(f.run(["--apply"]), /ENOENT/u);
+  assert.ok(f.calls.every((args) => !args.includes("rm")));
 });
