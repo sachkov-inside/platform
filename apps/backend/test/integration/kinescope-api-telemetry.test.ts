@@ -257,7 +257,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
           apiBaseUrl: providerEndpoint,
           uploaderBaseUrl: providerEndpoint,
           apiToken,
-          publicProjectId: projectId,
+          membershipProjectId: projectId,
         },
       },
       { logger: false },
