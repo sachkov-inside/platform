@@ -226,7 +226,7 @@ print(json.dumps({'port':server.server_port}),flush=True)
 s.run(server)
 """
         with tempfile.TemporaryDirectory() as directory,ExitStack() as cleanup:
-            child=subprocess.Popen([sys.executable,'-B','-c',code,directory],stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,text=True)
+            child=subprocess.Popen([sys.executable,'-B','-c',code,directory],cwd=Path(__file__).resolve().parent,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,text=True)
             cleanup.callback(reap_process,child)
             unrelated=subprocess.Popen([sys.executable,'-c','import signal;signal.pause()'],start_new_session=True)
             cleanup.callback(reap_process,unrelated)
@@ -265,7 +265,7 @@ rss=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darw
 print(json.dumps({'peak_traced_bytes':peak,'max_rss_bytes':rss,'input_bytes':sizes}))
 assert peak<32*1024**2 and rss<64*1024**2
 """
-        result=subprocess.run([sys.executable,'-B','-c',code],capture_output=True,text=True,timeout=10)
+        result=subprocess.run([sys.executable,'-B','-c',code],cwd=Path(__file__).resolve().parent,capture_output=True,text=True,timeout=10)
         self.assertEqual(result.returncode,0,result.stderr+result.stdout)
         measured=json.loads(result.stdout);self.assertEqual(len(measured['input_bytes']),3)
         self.assertGreater(max(measured['input_bytes']),1000000)
