@@ -144,7 +144,7 @@ class FixedRead:
                      {'type': 'builder_query', 'spec': {
                          'name': 'A', 'signal': 'traces',
                          'aggregations': [{'expression': 'count()', 'alias': 'span_count'}],
-                         'filter': {'expression': "service.name = 'platform-fallback-control'"}}}]}}
+                         'filter': {'expression': "span.serviceName = 'platform-fallback-control'"}}}]}}
         _, value, elapsed = request('POST', '/api/v5/query_range', query, self._auth,bootstrap_read=True)
         return scalar(value,bootstrap_read=True), elapsed
 

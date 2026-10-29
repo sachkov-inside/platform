@@ -25,7 +25,7 @@ KEY='00000000-0000-0000-0000-000000000005'
 
 
 class AuthWire(unittest.TestCase):
-    def exercise(self,wrong_identity,*,project_failure=False,revoke_status=204,failure_hook=None,observed_errors=None,expected_revoke_calls=1,responses=None,query_wire=None,observed_calls=None):
+    def exercise(self,wrong_identity,*,project_failure=False,revoke_status=204,failure_hook=None,observed_errors=None,expected_revoke_calls=1,responses=None,query_wire=None,observed_calls=None,empty_catalog_model=False,observed_queries=None):
         calls=[];revoked=[False]
         deadlines=[]
         failure=None
@@ -53,6 +53,15 @@ class AuthWire(unittest.TestCase):
                 elif self.path=='/api/v5/query_range':
                     self.server.test.assertTrue(viewer)
                     value={'type':'scalar','data':{'results':[{'queryName':'A','columns':[{'name':'span_count'}],'data':[[0]]}]}}
+                    if empty_catalog_model:
+                        # MODEL of pinned da556aba key resolution with empty metadata,
+                        # not a SigNoz execution or the warning class observed in CI.
+                        expression=body['compositeQuery']['queries'][0]['spec']['filter']['expression']
+                        self.server.test.assertIn(expression,("service.name = 'platform-fallback-control'","span.serviceName = 'platform-fallback-control'"))
+                        self.server.test.assertEqual(self.headers.get('Authorization'),None)
+                        if observed_queries is not None:observed_queries.append(body)
+                        if expression=="service.name = 'platform-fallback-control'":
+                            value['warning']={'message':'key `service.name` not found in metadata; querying the underlying data directly. If this is unexpected, check the key name for typos.'}
                 else:status=404
                 if responses and self.path in responses:value=responses[self.path]
                 encoded=b'' if status==204 else json.dumps({'status':'success' if status<300 else 'error','data':value}).encode()
@@ -97,6 +106,42 @@ class AuthWire(unittest.TestCase):
 
     def test_actual_HTTP_bootstrap_viewer_admin403_revoke204_then401(self):self.exercise(False)
     def test_wrong_service_account_identity_still_revokes_created_key(self):self.exercise(True)
+
+    def test_empty_catalog_source_model_requires_pinned_builtin_span_service_field(self):
+        # Source contract audited in the twelve-member native-sql-design packet:
+        # da556abac1fd41590811b8e0dcbcbdea242dd285 telemetrytypes field context span;
+        # traces const.go declares serviceName, storage.go oldToNew maps it to
+        # String resource_string_service$$name / AlwaysPresent. resolve.go's own
+        # span context Fallback returns the declared column before missing-key warnings.
+        # Deprecated lookup itself emits no warning. Revalidate on any pin change.
+        pin=next(row for row in lifecycle.verify_packet()['images'] if row['repository']=='docker.io/signoz/signoz')
+        self.assertEqual((pin['reference'],pin['index_digest']),('signoz/signoz:v0.146.0','sha256:cd3ca6950df3b3681b4629c1b2cea4d3bcd5fece57445a3ec2a1a20466ab14ca'))
+        calls=[];queries=[];now=1_790_000_000
+        with patch.object(control.time,'time',return_value=now):
+            try:self.exercise(False,empty_catalog_model=True,observed_calls=calls,observed_queries=queries)
+            except control.ControlFailure as error:
+                self.fail('empty-catalog source MODEL failed at '+control.failure_context(error)['stage'])
+        self.assertEqual(queries,[{'schemaVersion':'v1','start':now*1000-60000,'end':now*1000,'requestType':'scalar',
+            'compositeQuery':{'queries':[{'type':'builder_query','spec':{'name':'A','signal':'traces',
+                'aggregations':[{'expression':'count()','alias':'span_count'}],
+                'filter':{'expression':"span.serviceName = 'platform-fallback-control'"}}}]}}])
+        self.assertEqual(calls,[('POST','/api/v1/register'),('POST','/api/v2/sessions/email_password'),
+            ('GET','/api/v1/roles'),('POST','/api/v1/service_accounts'),('POST','/api/v1/service_account_roles'),
+            ('POST','/api/v1/service_accounts/'+ACCOUNT+'/keys'),('GET','/api/v1/service_accounts/me'),
+            ('POST','/api/v5/query_range'),('GET','/api/v1/roles'),
+            ('DELETE','/api/v1/service_accounts/'+ACCOUNT+'/keys/'+KEY),('GET','/api/v1/service_accounts/me')])
+        scalar={'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[[0]]}]}}
+        for reply,stage in (({**scalar,'warning':{'message':'private-sentinel'}},'bootstrap_read_warning'),
+            ({'type':'scalar','data':{'results':[]}},'bootstrap_read_results'),
+            ({'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[[1]]}]}},'bootstrap_read_count_nonzero')):
+            with self.subTest(stage=stage):
+                queries=[];calls=[]
+                failure=self.exercise(False,project_failure=True,empty_catalog_model=True,
+                    responses={'/api/v5/query_range':reply},observed_calls=calls,observed_queries=queries)
+                self.assertEqual(queries[0]['compositeQuery']['queries'][0]['spec']['filter']['expression'],"span.serviceName = 'platform-fallback-control'")
+                self.assertEqual(calls.count(('POST','/api/v5/query_range')),1)
+                self.assertEqual(failure,{'inside_failed':1,'stage':stage,'category':'ControlFailure','http_status':200,'transport':'query_v5'})
+                self.assertNotIn('private-sentinel',json.dumps(failure))
 
     def test_HTTP200_fixed_read_reports_first_results_validation_before_revoke204(self):
         failure=self.exercise(False,project_failure=True,responses={'/api/v5/query_range':{'type':'scalar','data':{'results':[]}}})

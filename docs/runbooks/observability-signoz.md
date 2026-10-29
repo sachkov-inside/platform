@@ -139,6 +139,15 @@ HTTP status. Если обычная ошибка revoke следует за п�
 и scalar-вызовы не включают эту диагностику; собственные исключения вычисления выражений
 не превращаются в ошибки проверки. Эти этапы уточняют будущий отказ, но не устанавливают
 причину ранее полученного native-отказа и не меняют его результат.
+Фиксированное bootstrap-чтение использует builder filter
+`span.serviceName = 'platform-fallback-control'`. В закреплённом SigNoz v0.146.0 это
+[объявленное span-поле](https://github.com/SigNoz/signoz/blob/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/telemetryschema/tracestelemetryschema/const.go),
+которое [storage сопоставляет с `resource_string_service$$name`](https://github.com/SigNoz/signoz/blob/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/telemetryschema/tracestelemetryschema/storage.go).
+Так фиксированная resource service identity определяется и при пустом каталоге полей,
+с прежними окном в минуту, одним запросом, viewer key и требованием `count == 0`.
+Сам поиск metadata и его ошибки сохраняются; любые warnings остаются отказом.
+Owned HTTP source model проверяет этот контракт, но не исполняет SigNoz и не устанавливает
+класс warning ранее наблюдавшегося native-отказа. Результат замены требует нового native CI.
 Неизвестные значения обозначаются `unavailable`, HTTP status `0`
 означает отсутствие сохранённого допустимого HTTP status. Текст ошибки, body, ключи,
 идентификаторы и произвольные атрибуты исключения не входят в диагностику. Формат private
