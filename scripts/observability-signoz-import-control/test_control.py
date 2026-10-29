@@ -34,7 +34,7 @@ def record(case='contended'):
         'cpu_seconds':.1,'imports_completed':True}
     return {'case':case,'status':'succeeded','raw':raw,'before':state(),'after':state(),
         'inner':{'available':False},'value':{},'actor':actor if case=='contended' else None,
-        'actor_raw':{**raw,'started':9.,'finished':13.,'timeout_seconds':10,'raw_window_seconds':10.},'actor_error':False,'failure_reason':'none'}
+        'actor_raw':{**raw,'started':9.,'finished':13.,'timeout_seconds':10,'raw_window_seconds':10.},'actor_error':False,'failure_reason':'none','cleanup_complete':True,'cleanup_fault':False}
 
 
 class Projection(unittest.TestCase):
@@ -218,3 +218,52 @@ class ConcurrentAuthority(unittest.TestCase):
                 self.assertTrue(rows[1]['actor_error']);self.assertFalse(engine.child)
                 self.assertIsNone(sys.getprofile());native_fixture.Feedback().no_live(root)
             finally:engine.cancel_children()
+
+class SettlementFailure(unittest.TestCase):
+    def test_cancel_fault_preserves_real_sample_primary_and_always_joins_retaining_case(self):
+        for sample_fails in (True,False):
+            with self.subTest(sample_fails=sample_fails),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);engine,own=native_fixture.Feedback().owned(root,'valid')
+                original=control.sample;observed=[];joins=[];rows=[];cleanup=OSError('fixture_cancel_fault')
+                join=threading.Thread.join
+                def joined(thread,*args,**kwargs):
+                    if thread.name=='owned-signoz-import-only':joins.append(thread)
+                    return join(thread,*args,**kwargs)
+                def sampled(value):
+                    if observed and sample_fails:(root/'mode').write_text('probe_exit')
+                    row,error=original(value);observed.append((error,None if error is None else error.__traceback__))
+                    return row,error
+                caught=None;frames=[]
+                try:
+                    with patch.object(control,'snapshot',side_effect=lambda _:state()),patch.object(control,'sample',side_effect=sampled),\
+                        patch.object(engine,'cancel_thread_children',side_effect=cleanup),patch.object(threading.Thread,'join',joined):
+                        try:control.measure_pair(own,rows)
+                        except BaseException as error:
+                            caught=error;frame=error.__traceback__
+                            while frame is not None:frames.append(frame);frame=frame.tb_next
+                    expected=observed[1][0] if sample_fails else cleanup
+                    self.assertIs(caught,expected)
+                    if sample_fails:self.assertIn(observed[1][1],frames)
+                    self.assertEqual(len(joins),2);self.assertTrue(all(not t.is_alive() for t in joins))
+                    self.assertEqual(len(rows),2);self.assertTrue(rows[1]['cleanup_fault'])
+                    self.assertFalse(rows[1]['cleanup_complete'])
+                    self.assertEqual(control.interpret(rows)[1]['status'],'not_run')
+                    self.assertFalse(engine.child);native_fixture.Feedback().no_live(root)
+                finally:engine.cancel_children()
+
+    def test_public_partial_settlement_retains_closed_fault_without_comparison(self):
+        import test_disk_component as fixtures
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();output=root/'private';output.mkdir()
+            fixtures.collection_fixture(output);(output/'component-inventory-after.json').unlink()
+            bad=record();bad.update(after=None,cleanup_complete=False,cleanup_fault=True)
+            control.lifecycle.private_json(output/'import-cases.json',{'schema':1,'source_sha':'a'*40,'source_tree':'e'*40,
+                'cases':[record('quiet'),bad]})
+            with patch.object(control.runtime,'verify_source'),patch.object(control,'verify_import_source',return_value={'schema':1,'inputs':{'new-workflow':'bound'}}):
+                self.assertFalse(control.collect(output,root/'public'))
+            result=json.loads((root/'public/import-control.json').read_text())
+            self.assertFalse(result['diagnostic_complete']);self.assertEqual(result['comparison'],'unavailable')
+            self.assertEqual(len(result['cases']),2)
+            self.assertTrue(result['cases'][1]['cleanup_fault'])
+            self.assertFalse(result['cases'][1]['cleanup_complete'])
+            self.assertEqual(result['cases'][1]['status'],'not_run')

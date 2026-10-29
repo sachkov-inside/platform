@@ -108,9 +108,9 @@ def actor_value(raw):
 
 def measure_pair(own,rows=None):
     rows=[] if rows is None else rows
-    require(not rows);first_error=None
+    require(not rows);first_error=None;first_traceback=None
     for case in CASES:
-        before=snapshot(own);actor={};thread=None;sample_error=None
+        before=snapshot(own);actor={};thread=None;sample_error=None;settlement_error=None
         if case=='contended':
             def importing():
                 try:
@@ -123,23 +123,42 @@ def measure_pair(own,rows=None):
             thread=threading.Thread(target=importing,name='owned-signoz-import-only',daemon=False)
             thread.start()
         try:
-            row,sample_error=sample(own)
-            if sample_error is not None:first_error=first_error or sample_error
+            try:row,sample_error=sample(own)
+            except BaseException as error:
+                sample_error=error
+                row={'status':'not_run','raw':{'available':False},'inner':evidence.inner_command(lifecycle.first_raw_command(error)),
+                    'value':None,'failure_reason':'invalid_result'}
+            if sample_error is not None and first_error is None:
+                first_error=sample_error;first_traceback=sample_error.__traceback__
         finally:
             if thread is not None:
-                thread.join(timeout=max(0,min(10,own.engine.deadline-time.monotonic())))
-                own.engine.cancel_thread_children(thread)
-                thread.join(timeout=max(0,min(1,own.engine.deadline-time.monotonic())))
-                if thread.is_alive():
-                    if sample_error is not None:raise sample_error
-                    raise ValueError('owned_importer_not_reaped')
-        try:after=snapshot(own)
-        except BaseException:
-            if sample_error is not None:raise sample_error
-            raise
-        row.update(case=case,before=before,after=after,actor=actor.get('value'),actor_raw=actor.get('raw'),actor_error=actor.get('error') is not None)
+                # Every settlement step is attempted, even when cancellation or
+                # a preceding join fails. No secondary fault owns the sample error.
+                operations=(lambda:thread.join(timeout=max(0,min(10,own.engine.deadline-time.monotonic()))),
+                    lambda:own.engine.cancel_thread_children(thread),
+                    lambda:thread.join(timeout=max(0,min(1,own.engine.deadline-time.monotonic()))))
+                for operation in operations:
+                    try:operation()
+                    except BaseException as error:
+                        if settlement_error is None:settlement_error=error
+                try:
+                    if thread.is_alive() and settlement_error is None:settlement_error=ValueError('owned_importer_not_reaped')
+                except BaseException as error:
+                    if settlement_error is None:settlement_error=error
+        # Append before further metadata checks so the worker's finally can keep
+        # this incomplete case even if settlement or the final snapshot fails.
+        row.update(case=case,before=before,after=None,actor=actor.get('value'),actor_raw=actor.get('raw'),
+            actor_error=actor.get('error') is not None,cleanup_complete=False,cleanup_fault=False)
         rows.append(row)
-        if isinstance(sample_error,(KeyboardInterrupt,SystemExit)):raise sample_error
+        try:row['after']=snapshot(own)
+        except BaseException as error:
+            if settlement_error is None:settlement_error=error
+        row['cleanup_fault']=settlement_error is not None
+        row['cleanup_complete']=settlement_error is None
+        if settlement_error is not None:
+            if first_error is not None:raise first_error.with_traceback(first_traceback)
+            raise settlement_error
+        if isinstance(sample_error,(KeyboardInterrupt,SystemExit)):raise sample_error.with_traceback(first_traceback)
     return rows,first_error
 
 
@@ -156,12 +175,19 @@ def interpret(rows):
     require(type(rows) is list and len(rows)<=2)
     result=[]
     for index,row in enumerate(rows):
-        require(type(row) is dict and set(row)=={'status','raw','inner','value','case','before','after','actor','actor_raw','actor_error','failure_reason'})
+        require(type(row) is dict and set(row)=={'status','raw','inner','value','case','before','after','actor','actor_raw','actor_error','failure_reason','cleanup_complete','cleanup_fault'})
         require(row['case']==CASES[index] and row['status'] in ('not_run','failed','succeeded'))
         require(type(row['actor_error']) is bool)
         require(row['failure_reason'] in ('none','command_deadline','command_failed','global_deadline','invalid_result'))
         require((row['status']=='succeeded')==(row['failure_reason']=='none') or row['status']=='not_run')
         raw=row['raw'];valid=receipts.full_window(raw)
+        require(type(row['cleanup_complete']) is bool and type(row['cleanup_fault']) is bool)
+        if not row['cleanup_complete'] or row['cleanup_fault']:
+            result.append({'case':row['case'],'status':'not_run','raw_seconds':raw['finished']-raw['started'] if valid else None,
+                'overlap':'unknown','import_seconds':None,'import_cpu_seconds':None,'cpu_delta':None,
+                'actor_host_pid_attested':False,'first_inner_command':closed_inner(row['inner']),
+                'failure_reason':row['failure_reason'],'cleanup_complete':False,'cleanup_fault':row['cleanup_fault']})
+            continue
         before=row['before'];after=row['after']
         for observation in (before,after):
             require(type(observation) is dict and set(observation)=={'generation','clock','cpu'})
@@ -189,7 +215,7 @@ def interpret(rows):
             'import_seconds':actor['finished']-actor['started'] if actor is not None else None,
             'import_cpu_seconds':actor['cpu_seconds'] if actor is not None else None,
             'cpu_delta':cpu,'actor_host_pid_attested':False,'first_inner_command':closed_inner(row['inner']),
-            'failure_reason':row['failure_reason']})
+            'failure_reason':row['failure_reason'],'cleanup_complete':True,'cleanup_fault':False})
     return result
 
 
@@ -283,12 +309,12 @@ def collect(output,public):
         component.recovery_preflight(output,source,value)
         report['cleanup']=evidence.cleanup(evidence.read(output/'cleanup.json'))
         plan=evidence.read(output/'compose.json');before=component.finite_read(output/'component-inventory-before.json')
-        after=component.finite_read(output/'component-inventory-after.json');require(after==before)
         report['inventory']=component.verified_inventory(before,source,value,plan)
         record=component.finite_read(output/'import-cases.json')
         require(type(record) is dict and set(record)=={'schema','source_sha','source_tree','cases'})
         require(type(record['schema']) is int and record['schema']==1 and record['source_sha']==source['commit'] and record['source_tree']==source['tree'])
         report['cases']=interpret(record['cases'])
+        after=component.finite_read(output/'component-inventory-after.json');require(after==before)
         if len(report['cases'])==2:
             quiet,contended=(r['status'] for r in report['cases'])
             if quiet=='failed':report['comparison']='uninterpretable'
