@@ -41,10 +41,10 @@ class Stored(unittest.TestCase):
         with self.assertRaises(ValueError):stored.span_facts([row],trace_id='a'*32,release='c'*40)
     def test_fixed_recipes_preserve_full_surfaces_and_limits(self):
         recipes=stored.recipes(1800000000000,1800000020000)
-        self.assertEqual(set(recipes),{'traces','logs','metrics','metadata'})
+        self.assertEqual(set(recipes),{'traces','logs','metrics_0','metrics_1','metrics_2','metrics_3','metadata'})
         self.assertIn('toString(toUnixTimestamp64Nano(timestamp)) AS start_ns',recipes['traces'])
         self.assertIn('attributes_promoted',recipes['traces']);self.assertIn('body_promoted',recipes['logs'])
-        self.assertIn('scope_attrs',recipes['metrics']);self.assertIn('attr_string_value',recipes['metadata'])
+        self.assertIn('scope_attrs',recipes['metrics_0']);self.assertIn('attr_string_value',recipes['metadata'])
         self.assertTrue(all("result_overflow_mode='throw'" in query and 'LIMIT 1001' in query for query in recipes.values()))
 
 
@@ -63,6 +63,7 @@ class NativeProbeFacts(unittest.TestCase):
                             'labels':'{}','attrs':{'source':source,'case':case,'__temporality__':'Unspecified'},
                             'scope_attrs':{'__scope.name__':'platform-task4b-native-probe','__scope.version__':'1','__scope.schema_url__':''},
                             'resource_attrs':{'service.name':'platform-task4b-native-probe','service.version':'c'*40,'service.instance.id':'representative-native-probe'}})
+        for row in rows:row['labels']=json.dumps({**row['attrs'],**row['scope_attrs'],**row['resource_attrs'],'__name__':row['metric_name']},sort_keys=True,separators=(',',':'))
         return rows
     def test_separate_test_owned_native_samples_prove_zero_latest_and_future_without_current_health_alias(self):
         self.assertEqual(stored.native_probe_cases(self.rows(),release='c'*40,cut=1800000020000),['zero','latest_zero','future'])
@@ -111,7 +112,9 @@ class NativeSdkProjection(unittest.TestCase):
             sample(family+'.sum',.2,attrs,'Sum','s','Cumulative',True)
             for bound in bounds:sample(family+'.bucket',0 if bound=='0' else 1,dict(attrs,le=bound),'Histogram','s','Cumulative',True)
             for suffix in ('min','max'):sample(family+'.'+suffix,.2,attrs,'Gauge','s','Unspecified',False)
-        return {'traces':[root,read,http,fixture],'logs':[],'metrics':metric+NativeProbeFacts().rows(),'metadata':[]}
+        bundle={'traces':[root,read,http,fixture],'logs':[],'metrics':metric+NativeProbeFacts().rows(),'metadata':[]}
+        for row in bundle['metrics']:row['labels']=json.dumps({**row['attrs'],**row['scope_attrs'],**row['resource_attrs'],'__name__':row['metric_name']},sort_keys=True,separators=(',',':'))
+        return bundle
     def test_distinct_sig_semantic_verdict_preserves_unknown_surfaces(self):
         bundle=self.bundle();original=copy.deepcopy(bundle)
         value=stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
@@ -130,3 +133,131 @@ class NativeSdkProjection(unittest.TestCase):
         bundle=self.bundle();bundle['metadata']=[{'attr_string_value':'PRIVACY_SENTINEL_1566'}]
         with self.assertRaisesRegex(RuntimeError,'privacy'):
             stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+
+
+def complete_metric_corpus():
+    """All400 neighbours plus SDK/probes, with exact pinned exporter label copies."""
+    bundle=NativeSdkProjection().bundle()
+    exemplar={'env':'','temporality':'Unspecified','metric_name':'pilot_requests','fingerprint':'9000',
+        'unix_milli':1800000001000,'value':1,'flags':0,'description':'','unit':'','type':'Gauge','is_monotonic':False,
+        'labels':'','attrs':{'http.route':'/pilot','__temporality__':'Unspecified'},
+        'scope_attrs':{'__scope.name__':'inside-collector','__scope.version__':'','__scope.schema_url__':''},
+        'resource_attrs':{'service.name':'platform-pilot','service.version':'1566'*9+'0008'}}
+    for index in range(400):
+        row=copy.deepcopy(exemplar);row.update(unix_milli=1800000001000+index,value=index+1);bundle['metrics'].append(row)
+    for row in bundle['metrics']:
+        # Pinned fingerprint/label.go: later maps win; __name__ is always name.
+        labels={**row['attrs'],**row['scope_attrs'],**row['resource_attrs'],'__name__':row['metric_name']}
+        row['labels']=json.dumps(labels,sort_keys=True,separators=(',',':'))
+    return bundle
+
+
+def scalar_wire(columns,rows):
+    return json.dumps({'status':'success','data':{'type':'scalar','data':{'results':[{
+        'queryName':'A','columns':[{'name':name} for name in columns],
+        'data':[[row[name] for name in columns] for row in rows]}]}}},separators=(',',':')).encode()
+
+
+METADATA_FIELDS=('env','temporality','metric_name','fingerprint','description','unit','type','is_monotonic','labels','attrs','scope_attrs','resource_attrs')
+
+
+def compact_metric_rows(rows):
+    """Independent fixture encoding of every exact metadata copy and sample."""
+    partitions={f'metrics_{index}':{} for index in range(4)}
+    for row in rows:
+        metadata={key:copy.deepcopy(row[key]) for key in METADATA_FIELDS}
+        key=json.dumps(metadata,sort_keys=True,separators=(',',':'))
+        partition=partitions['metrics_'+str(int(row['fingerprint'])%4)]
+        if key not in partition:partition[key]=(metadata,[])
+        partition[key][1].append([str(row['unix_milli']),row['value'],row['flags']])
+    return {name:[metadata|{'samples_json':json.dumps(points,separators=(',',':'))} for metadata,points in groups.values()]
+            for name,groups in partitions.items()}
+
+
+def probe_scalar_rows(case):
+    stamp=1800000060000 if case=='future' else 1800000019000
+    return [{'source':source,'available':1 if case=='future' else 0,'observed_at_seconds':stamp/1000,
+        'available_sample_ms':stamp,'observed_sample_ms':stamp,'available_series':1,'observed_series':1,
+        'duplicate_samples':0,'flagged_samples':0,'bad_samples':0,'evaluation_ms':1800000020000} for source in ('postgresql','caddy')]
+
+
+class LosslessMetricWire(unittest.TestCase):
+    def decoded(self,rows):
+        result=[]
+        for signal,groups in compact_metric_rows(rows).items():
+            raw=scalar_wire((*METADATA_FIELDS,'samples_json'),groups)
+            result.extend(stored.raw_rows(raw,signal))
+        return result
+    def test_four_uint64_partitions_are_complete_disjoint_and_preserve_every_duplicate_and_copy(self):
+        rows=complete_metric_corpus()['metrics']
+        # Physical duplicates and distinct metadata copies are observations, not
+        # transport dedup candidates. Canonical comparison retains multiplicity.
+        rows.append(copy.deepcopy(rows[-1]))
+        different=copy.deepcopy(rows[-1]);different['resource_attrs']['copy.marker']='distinct'
+        different['labels']=json.dumps({**different['attrs'],**different['scope_attrs'],**different['resource_attrs'],'__name__':different['metric_name']},sort_keys=True,separators=(',',':'))
+        rows.append(different)
+        for index,fingerprint in enumerate(('0','1','2','3','4',str(2**64-1))):
+            row=copy.deepcopy(rows[-1]);row.update(fingerprint=fingerprint,unix_milli=1800000000001+index);rows.append(row)
+        actual=self.decoded(rows)
+        key=lambda value:json.dumps(value,sort_keys=True,separators=(',',':'))
+        self.assertEqual(sorted(map(key,actual)),sorted(map(key,rows)))
+        self.assertEqual(len(actual),497)
+        self.assertEqual(sum(row['fingerprint']=='9000' for row in actual),402)
+        wrong=compact_metric_rows(rows)['metrics_0']
+        with self.assertRaises(ValueError):stored.raw_rows(scalar_wire((*METADATA_FIELDS,'samples_json'),wrong),'metrics_1')
+        self.assertTrue(all(sum(int(row['fingerprint'])%4==part for part in range(4))==1 for row in rows))
+    def test_unsorted_tuple_arrays_preserve_order_independent_http_mcp_multiplicity(self):
+        rows=complete_metric_corpus()['metrics'];groups=compact_metric_rows(rows)
+        for partition in groups.values():
+            for group in partition:
+                points=json.loads(group['samples_json']);group['samples_json']=json.dumps(list(reversed(points)),separators=(',',':'))
+        actual=[]
+        for signal,partition in groups.items():actual.extend(stored.raw_rows(scalar_wire((*METADATA_FIELDS,'samples_json'),partition),signal))
+        key=lambda value:json.dumps(value,sort_keys=True,separators=(',',':'))
+        self.assertEqual(sorted(map(key,actual)),sorted(map(key,rows)))
+    def test_missing_flags_bool_null_and_physical_row_cap_refuse_before_projection(self):
+        rows=complete_metric_corpus()['metrics'];groups=compact_metric_rows(rows)['metrics_0']
+        for point in (['1800000001000',1],['1800000001000',None,0],['1800000001000',1,False],[1800000001000,1,0]):
+            bad=copy.deepcopy(groups);bad[0]['samples_json']=json.dumps([point])
+            with self.subTest(point=point),self.assertRaises(ValueError):stored.raw_rows(scalar_wire((*METADATA_FIELDS,'samples_json'),bad),'metrics_0')
+        pilot=next(row for row in rows if row['metric_name']=='pilot_requests')
+        many=[dict(pilot,unix_milli=1800000001000+index) for index in range(1001)]
+        with self.assertRaisesRegex(ValueError,'physical_row_cap'):self.decoded(many)
+    def test_old_unselected_point_poison_is_checked_before_current_sdk_facts(self):
+        original=NativeSdkProjection().bundle()
+        current=next(row for row in original['metrics'] if row['metric_name']=='inside.dependency.operations')
+        for field,value in (('value',.5),('flags',1),('unit','ms'),('type','Gauge'),('is_monotonic',False),('unix_milli',1800000020001),
+                            ('attrs',dict(current['attrs'],secret='old')),('scope_attrs',dict(current['scope_attrs'],**{'__scope.name__':'wrong'})),
+                            ('resource_attrs',dict(current['resource_attrs'],**{'service.version':'f'*40}))):
+            bundle=copy.deepcopy(original);old=copy.deepcopy(current);old['unix_milli']-=1000;old[field]=value
+            old['labels']=json.dumps({**old['attrs'],**old['scope_attrs'],**old['resource_attrs'],'__name__':old['metric_name']},sort_keys=True,separators=(',',':'))
+            bundle['metrics'].append(old);bundle['metrics']=self.decoded(bundle['metrics'])
+            with self.subTest(field=field),self.assertRaises(ValueError):
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+        bundle=copy.deepcopy(original);old=copy.deepcopy(current);old['unix_milli']-=1000
+        old['labels']=old['labels'][:-1]+',"hidden":"old"}';bundle['metrics'].append(old)
+        with self.assertRaisesRegex(ValueError,'label_copy'):
+            stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+    def test_old_bucket_sum_and_extrema_poison_and_duplicate_samples_do_not_hide(self):
+        for mode in ('bucket','extrema','duplicate','privacy'):
+            bundle=NativeSdkProjection().bundle()
+            if mode=='duplicate':bundle['metrics'].append(copy.deepcopy(bundle['metrics'][0]))
+            elif mode=='privacy':
+                old=copy.deepcopy(bundle['metrics'][0]);old['unix_milli']-=1000;old['scope_attrs']['old.raw']='PRIVACY_SENTINEL_1566';bundle['metrics'].append(old)
+            else:
+                family=[copy.deepcopy(row) for row in bundle['metrics'] if row['metric_name'].startswith('http.server.request.duration')]
+                for row in family:row['unix_milli']-=1000
+                poisoned=next(row for row in family if row['metric_name'].endswith('.bucket') and row['attrs']['le']=='5') if mode=='bucket' else next(row for row in family if row['metric_name'].endswith('.max'))
+                poisoned['value']=0 if mode=='bucket' else .1;bundle['metrics'].extend(family)
+            with self.subTest(mode=mode),self.assertRaises((ValueError,RuntimeError)):
+                bundle['metrics']=self.decoded(bundle['metrics'])
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+
+    def test_all_valid_historical_sdk_points_remain_checked_and_current_verdict_stays_equal(self):
+        bundle=complete_metric_corpus();before=stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+        old=[copy.deepcopy(row) for row in bundle['metrics'] if row['resource_attrs']['service.name']=='platform-api']
+        for row in old:row['unix_milli']-=1000
+        bundle['metrics'].extend(old);bundle['metrics']=self.decoded(bundle['metrics'])
+        self.assertEqual(len(bundle['metrics']),562)
+        after=stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+        self.assertEqual(after,before)

@@ -167,8 +167,9 @@ class NativeReads:
         """Only source-fixed private recipes; no agent field or query selection."""
         import representative_stored as stored
         import signoz_queries as queries
-        bundle={}
+        bundle={'metrics':[]}
         for signal,query in stored.recipes(value['start_ms'],value['cut_ms']).items():
+            reads._current()
             payload=queries._metric.envelope(query,value['start_ms'],value['cut_ms'],'scalar')
             raw=self._wire('signoz-signoz-0',8080,'/api/v5/query_range',payload)
             rows=stored.raw_rows(raw,signal)
@@ -177,7 +178,10 @@ class NativeReads:
             need(set(result)<={'content','isError'} and type(result.get('content')) is list and len(result['content'])==1)
             block=result['content'][0];need(type(block) is dict and set(block)=={'type','text'} and block['type']=='text' and type(block['text']) is str)
             mcp_rows=stored.raw_rows(block['text'].encode(),signal)
-            need(rows==mcp_rows,'representative_stored_transport_parity');bundle[signal]=rows
+            need(rows==mcp_rows,'representative_stored_transport_parity');reads._current()
+            if signal in stored.METRIC_PARTITIONS:
+                bundle['metrics'].extend(rows);need(len(bundle['metrics'])<=1000,'representative_stored_physical_row_cap')
+            else:bundle[signal]=rows
         verdict=stored.validate_bundle(bundle,observed=observed,release=value['binding']['source']['commit'],
             start=value['start_ms'],cut=value['cut_ms'])
         for case,query in stored.probe_queries(reads).items():

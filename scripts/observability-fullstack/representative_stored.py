@@ -23,6 +23,8 @@ LOG_COLUMNS=('id','trace_id','span_id','trace_flags','timestamp_ns','observed_ti
     'resource','scope_name','scope_version','scope_string')
 METRIC_COLUMNS=('env','temporality','metric_name','fingerprint','unix_milli','value','flags','description','unit','type',
     'is_monotonic','labels','attrs','scope_attrs','resource_attrs')
+METRIC_GROUP_COLUMNS=tuple(k for k in METRIC_COLUMNS if k not in ('unix_milli','value','flags'))+('samples_json',)
+METRIC_PARTITIONS=('metrics_0','metrics_1','metrics_2','metrics_3')
 META_COLUMNS=('temporality','metric_name','description','unit','type','is_monotonic','attr_name','attr_type','attr_datatype',
     'attr_string_value','first_reported_unix_milli','last_reported_unix_milli')
 UNKNOWN=('span.dropped_attributes_count','span.dropped_events_count','span.dropped_links_count','link.attributes',
@@ -116,22 +118,32 @@ def recipes(start,cut):
         'toString(duration_nano) AS duration_nano' if k=='duration_nano' else k for k in TRACE_COLUMNS)
     logs=', '.join('toString(timestamp) AS timestamp_ns' if k=='timestamp_ns' else
         'toString(observed_timestamp) AS observed_timestamp_ns' if k=='observed_timestamp_ns' else k for k in LOG_COLUMNS)
-    # No upper-time filter hides a future latest sample. Catalogue identity is
-    # DISTINCT over the hour floor before joining every physical identity field.
-    return {'traces':f'SELECT {traces} FROM signoz_traces.distributed_signoz_index_v3 WHERE toUnixTimestamp64Milli(timestamp) >= {start}'+_LIMIT,
-        'logs':f'SELECT {logs} FROM signoz_logs.distributed_logs_v2 WHERE intDiv(timestamp,1000000) >= {start}'+_LIMIT,
-        'metrics':f'''SELECT env, temporality, metric_name, toString(fingerprint) AS fingerprint, unix_milli, value, flags,
-description, unit, type, is_monotonic, labels, attrs, scope_attrs, resource_attrs
-FROM signoz_metrics.distributed_samples_v4 INNER JOIN
-(SELECT DISTINCT env, temporality, metric_name, fingerprint, description, unit, type, is_monotonic, labels, attrs, scope_attrs, resource_attrs
-FROM signoz_metrics.distributed_time_series_v4 WHERE unix_milli >= {start//3600000*3600000})
-USING (env,temporality,metric_name,fingerprint) WHERE unix_milli >= {start}'''+_LIMIT,
-        'metadata':f"SELECT {', '.join(META_COLUMNS)} FROM signoz_metrics.distributed_metadata WHERE last_reported_unix_milli >= {start}"+_LIMIT}
+    # Every physical sample remains in a tuple, including duplicate/poison rows.
+    # Only identical catalogue maps are shared. Four fixed fingerprint partitions
+    # bound each original64KiB wire without discarding any partition.
+    queries={'traces':f'SELECT {traces} FROM signoz_traces.distributed_signoz_index_v3 WHERE toUnixTimestamp64Milli(timestamp) >= {start}'+_LIMIT,
+        'logs':f'SELECT {logs} FROM signoz_logs.distributed_logs_v2 WHERE intDiv(timestamp,1000000) >= {start}'+_LIMIT}
+    for partition,signal in enumerate(METRIC_PARTITIONS):
+        queries[signal]=f'''WITH samples AS (
+SELECT env, temporality, metric_name, fingerprint,
+toJSONString(groupArray(tuple(toString(unix_milli),value,flags))) AS samples_json
+FROM signoz_metrics.distributed_samples_v4
+WHERE unix_milli >= {start} AND fingerprint % 4 = {partition}
+GROUP BY env, temporality, metric_name, fingerprint), series AS (
+SELECT DISTINCT env, temporality, metric_name, fingerprint, description, unit, type, is_monotonic,
+labels, attrs, scope_attrs, resource_attrs
+FROM signoz_metrics.distributed_time_series_v4 WHERE unix_milli >= {start//3600000*3600000}
+AND fingerprint % 4 = {partition})
+SELECT env, temporality, metric_name, toString(fingerprint) AS fingerprint,
+description, unit, type, is_monotonic, labels, attrs, scope_attrs, resource_attrs, samples_json
+FROM samples INNER JOIN series USING (env,temporality,metric_name,fingerprint)'''+_LIMIT
+    queries['metadata']=f"SELECT {', '.join(META_COLUMNS)} FROM signoz_metrics.distributed_metadata WHERE last_reported_unix_milli >= {start}"+_LIMIT
+    return queries
 
 
 def raw_rows(raw,signal):
     from representative_reader import decode
-    need(signal in ('traces','logs','metrics','metadata'))
+    need(signal in ('traces','logs','metadata',*METRIC_PARTITIONS))
     value=decode(raw);scan(value)
     need(type(value) is dict and set(value)=={'status','data'} and value['status']=='success')
     data=value['data'];need(type(data) is dict and set(data)<={'type','data','meta'} and data.get('type')=='scalar')
@@ -143,11 +155,30 @@ def raw_rows(raw,signal):
     for entry in columns:
         need(type(entry) is dict and set(entry)<={'name','queryName','aggregationIndex','meta','columnType','signal','fieldContext','fieldDataType','materialized'} and type(entry.get('name')) is str)
         names.append(entry['name'])
-    expected={'traces':TRACE_COLUMNS,'logs':LOG_COLUMNS,'metrics':METRIC_COLUMNS,'metadata':META_COLUMNS}[signal]
+    expected=METRIC_GROUP_COLUMNS if signal in METRIC_PARTITIONS else {'traces':TRACE_COLUMNS,'logs':LOG_COLUMNS,'metadata':META_COLUMNS}[signal]
     need(len(names)==len(set(names)) and set(names)==set(expected))
     rows=table['data'];need(type(rows) is list and len(rows)<=1000)
     need(all(type(row) is list and len(row)==len(names) for row in rows))
-    return [dict(zip(names,row)) for row in rows]
+    result=[dict(zip(names,row)) for row in rows]
+    if signal not in METRIC_PARTITIONS:return result
+    expanded=[]
+    for group in result:
+        need(type(group['fingerprint']) is str and _integer(group['fingerprint'],2**64-1)%4==METRIC_PARTITIONS.index(signal))
+        need(type(group['samples_json']) is str)
+        points=decode(group['samples_json'].encode())
+        need(type(points) is list and len(points)>0)
+        metadata={key:item for key,item in group.items() if key!='samples_json'}
+        for point in points:
+            need(type(point) is list and len(point)==3,'representative_stored_sample_tuple')
+            stamp,value,flags=point
+            stamp=_integer(stamp,2**53-1)
+            need(0<stamp<2**53 and type(value) in (int,float) and math.isfinite(value)
+                and type(flags) is int and 0<=flags<2**32,'representative_stored_sample_tuple')
+            expanded.append(metadata|{'unix_milli':stamp,'value':value,'flags':flags})
+            need(len(expanded)<=1000,'representative_stored_physical_row_cap')
+    # Sorting preserves multiplicity and EVERY field. No set/distinct/latest
+    # operation is applied to the indeterminately ordered groupArray samples.
+    return sorted(expanded,key=lambda row:json.dumps(row,sort_keys=True,separators=(',',':'),allow_nan=False))
 
 
 def private_link_challenge(payload):
@@ -164,26 +195,37 @@ def private_link_challenge(payload):
     return value
 
 
+def _semantic_leaf():
+    import representative_scope as scopes
+    need('scripts/observability-sdk-storage/sdk_semantics.py' in scopes._MIRROR,'representative_semantic_closure_unavailable')
+    path=Path(__file__).resolve().parents[1]/'observability-sdk-storage/sdk_semantics.py'
+    spec=importlib.util.spec_from_file_location('_representative_sdk_semantics',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
 def metric_facts(rows,*,release,start,cut):
     scan(rows);need(type(rows) is list and len(rows)<=1000)
-    latest={};identities=set();minmax={}
+    latest={};identities=set();minmax={};frames={};semantic=_semantic_leaf()
     for row in rows:
         need(type(row) is dict and set(row)==set(METRIC_COLUMNS))
-        resource=_object(row['resource_attrs'])
+        resource=_object(row['resource_attrs']);scope=_object(row['scope_attrs']);raw_attrs=_object(row['attrs'])
+        need(all(type(k) is str and type(v) is str for mapping in (resource,scope,raw_attrs) for k,v in mapping.items()))
+        need(type(row['metric_name']) is str and type(row['labels']) is str)
+        # Pinned exporter label.go merges point, scope, resource in that order,
+        # then forces __name__. Each separate original copy remains scanned.
+        need(_object(row['labels'])=={**raw_attrs,**scope,**resource,'__name__':row['metric_name']},'representative_stored_label_copy')
+        if resource.get('service.name')=='platform-api':
+            need(resource.get('service.version') in (release,'_OTHER'),'representative_stored_source')
         if resource.get('service.name')!='platform-api' or resource.get('service.version')!=release:continue
         need(type(row['unix_milli']) is int and start<=row['unix_milli']<=cut,'representative_stored_future')
         need(type(row['flags']) is int and row['flags']==0 and type(row['value']) in (int,float)
             and math.isfinite(row['value']) and row['value']>=0)
         need(type(row['fingerprint']) is str and _integer(row['fingerprint'],2**64-1)>=0)
-        need(type(row['metric_name']) is str and type(row['temporality']) is str)
+        need(type(row['temporality']) is str and type(row['description']) is str)
         identity=(row['env'],row['temporality'],row['metric_name'],row['fingerprint'])
-        need(identity+(row['unix_milli'],) not in identities,'representative_stored_duplicate')
-        identities.add(identity+(row['unix_milli'],))
-        if identity not in latest or latest[identity]['unix_milli']<row['unix_milli']:latest[identity]=row
-    facts=[]
-    for row in latest.values():
-        resource=_object(row['resource_attrs']);scope=_object(row['scope_attrs']);attrs=_object(row['attrs']).copy()
-        need(type(row['labels']) is str and type(row['description']) is str)
+        point_identity=identity+(row['unix_milli'],)
+        need(point_identity not in identities,'representative_stored_duplicate');identities.add(point_identity)
+        attrs=raw_attrs.copy()
         need(set(scope)>={'__scope.name__','__scope.version__','__scope.schema_url__'})
         name,version,schema=(scope[k] for k in ('__scope.name__','__scope.version__','__scope.schema_url__'))
         need(all(type(v) is str for v in (name,version,schema)) and schema=='')
@@ -194,8 +236,9 @@ def metric_facts(rows,*,release,start,cut):
         suffix=native[len(family)+1:] if family else None
         if suffix in ('min','max'):
             need(row['type']=='Gauge' and row['temporality']=='Unspecified' and row['is_monotonic'] is False and row['unit']=='s'
-                and row['value']<=60 and resource=={'service.name':'platform-api','service.version':release,'deployment.environment.name':'test'} and not scope_attrs and name=='inside-collector' and version in ('','unknown'))
-            owner=tuple(sorted(attrs.items()));key=(family,owner)
+                and row['value']<=60 and resource=={'service.name':'platform-api','service.version':release,'deployment.environment.name':'test'}
+                and not scope_attrs and name=='inside-collector' and version in ('','unknown'))
+            key=(family,tuple(sorted(attrs.items())),row['unix_milli'])
             need(suffix not in minmax.setdefault(key,{}),'representative_stored_duplicate')
             minmax[key][suffix]=row['value'];continue
         if family:
@@ -203,14 +246,20 @@ def metric_facts(rows,*,release,start,cut):
         kinds={'Gauge':'gauge','Sum':'sum','Histogram':'histogram'}
         temporalities={'Unspecified':'unspecified','Cumulative':'cumulative'}
         need(row['type'] in kinds and row['temporality'] in temporalities and type(row['is_monotonic']) is bool)
-        facts.append({'name':logical,'native_name':native,'value':row['value'],'timestamp':row['unix_milli']/1000,
+        fact={'name':logical,'native_name':native,'value':row['value'],'timestamp':row['unix_milli']/1000,
             'resource':resource,'scope':{'name':name,'version':version,'attributes':scope_attrs},'attributes':attrs,
             'kind':kinds[row['type']],'unit':row['unit'],'temporality':temporalities[row['temporality']],
-            'monotonic':row['is_monotonic'],'flags':row['flags'],'exemplars':None})
-    for (family,owner),values in minmax.items():
-        sums=[f['value'] for f in facts if f['name']==family+'_sum' and tuple(sorted(f['attributes'].items()))==owner]
+            'monotonic':row['is_monotonic'],'flags':row['flags'],'exemplars':None}
+        frames.setdefault(row['unix_milli'],[]).append(fact)
+        if identity not in latest or latest[identity][0]<row['unix_milli']:latest[identity]=(row['unix_milli'],fact)
+    # EVERY old/unselected physical point reaches the unchanged semantic owner
+    # before current logical facts are selected. Partial frames may be pending
+    # only after every present scalar/attribute/metadata/histogram predicate passes.
+    for frame in frames.values():semantic.metrics(frame,release=release)
+    for (family,owner,stamp),values in minmax.items():
+        sums=[f['value'] for f in frames.get(stamp,[]) if f['name']==family+'_sum' and tuple(sorted(f['attributes'].items()))==owner]
         need(len(sums)==1 and all(value==sums[0] for value in values.values()),'representative_stored_histogram_extrema')
-    return facts
+    return [item[1] for item in latest.values()]
 
 
 def validate_bundle(bundle,*,observed,release,start,cut):
@@ -223,13 +272,7 @@ def validate_bundle(bundle,*,observed,release,start,cut):
     spans=span_facts(bundle['traces'],trace_id=observed['trace_id'],release=release)
     need(all(start*1000000<=row['start']<=row['end']<=cut*1000000 for row in spans),'representative_stored_future')
     metrics=metric_facts(bundle['metrics'],release=release,start=start,cut=cut)
-    # Only this stdlib-only semantic leaf is imported, at its original fixed path.
-    # The entire mirror was attested before this module could be imported.
-    path=Path(__file__).resolve().parents[1]/'observability-sdk-storage/sdk_semantics.py'
-    import representative_scope as scopes
-    need('scripts/observability-sdk-storage/sdk_semantics.py' in scopes._MIRROR,'representative_semantic_closure_unavailable')
-    spec=importlib.util.spec_from_file_location('_representative_sdk_semantics',path)
-    semantic=importlib.util.module_from_spec(spec);spec.loader.exec_module(semantic)
+    semantic=_semantic_leaf()
     trace=semantic.spans(spans,trace_id=observed['trace_id'],root_id=observed['root_id'],release=release)
     metric=semantic.metrics(metrics,release=release)
     need(trace is not None and metric is not None,'representative_sdk_pending')

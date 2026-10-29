@@ -815,6 +815,20 @@ warning/partial/error/isError, duplicate keys и неоднозначный stru
 не становятся успешным ответом. Общий предел ответа остаётся64 KiB; только
 фиксированный inventory сохраняет прежнюю отдельную возможность256 KiB.
 
+Metric transport группирует только одинаковые catalogue metadata и сохраняет
+каждый физический sample как точную тройку timestamp/value/flags. Четыре
+фиксированные непересекающиеся `fingerprint % 4` части покрывают все UInt64
+fingerprints. Отличающиеся raw maps/copies остаются отдельными; samples не
+дедуплицируются. Timestamp передаётся как каноническая десятичная строка,
+чтобы JSON не терял Int64. После разбора восстанавливаются исходные поля,
+проверяется общий предел1000 физических строк, включая дубликаты.
+Старые SDK points проходят owning semantic checks до выбора текущих логических
+фактов. Во всех частях сохраняются один cut и исходный10s deadline.
+Внутренний fanout одного такого корпуса составляет20 HTTP/MCP query pairs
+(40 POST):10 публичных операций, семь raw recipes и три known-probe recipes.
+Эта работа входит в будущий all-cost Task5, не является бесплатным наблюдением
+и не обещает укладывание native корпуса в10 или600 секунд.
+
 Приватные fixed stored recipes читают полные поддерживаемые resource/scope,
 attributes, events, status, trace_state, links, log body и metric metadata до
 проекции. SDK spans/metrics проверяются общим чистым `sdk_semantics.py` с отдельным

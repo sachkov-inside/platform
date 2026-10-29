@@ -187,3 +187,77 @@ class ResidentRequests(unittest.TestCase):
                 # the remaining resident receipt after this intentional deadline.
                 dispatch.close()
             self.assertTrue(owner.cleanup_exact())
+
+
+class CompleteCorpus(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):fixtures.RepresentativeQueries.setUpClass.__func__(cls)
+    def reads(self):return queries.RepresentativeReads(self.layout,4,1800000000000,1800000020000)
+    def test_400_physical_neighbours_and_all_sdk_maps_fit_both_private_wires_losslessly(self):
+        import test_representative_stored as native_fixtures
+        import representative_stored as stored
+        reads=self.reads();bundle=native_fixtures.complete_metric_corpus()
+        # The transport fixture uses the same immutable owning source binding.
+        for signal in ('traces','metrics'):
+            for row in bundle[signal]:
+                for field in ('resource','resources_string','resource_attrs'):
+                    resource=row.get(field)
+                    if isinstance(resource,dict) and resource.get('service.version')=='c'*40:resource['service.version']=reads.binding['source']['commit']
+                if signal=='metrics':
+                    labels={**row['attrs'],**row['scope_attrs'],**row['resource_attrs'],'__name__':row['metric_name']}
+                    row['labels']=json.dumps(labels,sort_keys=True,separators=(',',':'))
+        legacy=native_fixtures.scalar_wire(stored.METRIC_COLUMNS,bundle['metrics'])
+        self.assertGreater(len(legacy),65536)
+        wire=[];sizes=[]
+        def exchange(columns,rows):
+            raw=native_fixtures.scalar_wire(columns,rows)
+            rpc=json.dumps({'jsonrpc':'2.0','id':3,'result':{'content':[{'type':'text','text':raw.decode()}]}},separators=(',',':')).encode()
+            sizes.append((len(raw),len(rpc)));self.assertLessEqual(len(raw),65536);self.assertLessEqual(len(rpc),65536)
+            wire.extend([(200,raw),(200,rpc)])
+        exchange(stored.TRACE_COLUMNS,bundle['traces']);exchange(stored.LOG_COLUMNS,bundle['logs'])
+        for groups in native_fixtures.compact_metric_rows(bundle['metrics']).values():exchange((*native_fixtures.METADATA_FIELDS,'samples_json'),groups)
+        exchange(stored.META_COLUMNS,bundle['metadata'])
+        for case in ('zero','latest','future'):exchange(queries.SOURCE_COLUMNS,native_fixtures.probe_scalar_rows(case))
+        value={'start_ms':1800000000000,'cut_ms':1800000020000,'binding':reads.binding}
+        with upstream(wire):
+            verdict=reader.NativeReads('SOURCE-MODEL-native-key',time.monotonic()+10).stored(reads,value,{'trace_id':'a'*32,'root_id':'b'*16})
+        self.assertEqual(verdict['sdk_metric_semantics'],'passed')
+        self.assertEqual(verdict['logical_series'],67)
+        self.assertEqual(verdict['native_probe_cases'],['zero','latest_zero','future'])
+        self.assertEqual(len(wire),20)
+        print('SOURCE-MODEL compact489 HTTP/MCP bytes: '+json.dumps(sizes))
+
+    def test_one_deadline_is_not_reset_between_fixed_metric_partitions(self):
+        import representative_stored as stored
+        import test_representative_stored as native_fixtures
+        reads=self.reads()
+        raw=[]
+        for columns in (stored.TRACE_COLUMNS,stored.LOG_COLUMNS,stored.METRIC_GROUP_COLUMNS):
+            body=native_fixtures.scalar_wire(columns,[])
+            raw.extend([(200,body),(200,json.dumps({'jsonrpc':'2.0','id':3,'result':{'content':[{'type':'text','text':body.decode()}]}}).encode())])
+        value={'start_ms':1800000000000,'cut_ms':1800000020000,'binding':reads.binding}
+        # Actual HTTP GET/POST serving remains real; only the owning monotonic
+        # clock advances after the first partition's complete HTTP/MCP pair.
+        with upstream(raw) as calls,patch.object(reader.time,'monotonic',side_effect=lambda:100.0 if len(calls)<6 else 111.0):
+            native=reader.NativeReads('SOURCE-MODEL',110.0)
+            with self.assertRaisesRegex(ValueError,'deadline'):
+                native.stored(reads,value,{'trace_id':'a'*32,'root_id':'b'*16})
+        self.assertEqual(len(calls),6)
+        self.assertTrue(all(payload['start']==1800000000000 and payload['end']==1800000020000
+            for _path,body in calls for payload in ([body] if _path!='/mcp' else [body['params']['arguments']['query']])))
+    def test_total_physical_cap_across_all_four_parts_cannot_be_hidden_in_groups(self):
+        import representative_stored as stored
+        import test_representative_stored as native_fixtures
+        reads=self.reads();rows=[]
+        template=next(row for row in native_fixtures.complete_metric_corpus()['metrics'] if row['metric_name']=='pilot_requests')
+        for index in range(1001):rows.append(dict(template,fingerprint=str(index%4),unix_milli=1800000001000+index))
+        wire=[]
+        def exchange(columns,data):
+            body=native_fixtures.scalar_wire(columns,data)
+            rpc=json.dumps({'jsonrpc':'2.0','id':3,'result':{'content':[{'type':'text','text':body.decode()}]}},separators=(',',':')).encode()
+            self.assertLess(len(body),65536);self.assertLess(len(rpc),65536);wire.extend([(200,body),(200,rpc)])
+        exchange(stored.TRACE_COLUMNS,[]);exchange(stored.LOG_COLUMNS,[])
+        for groups in native_fixtures.compact_metric_rows(rows).values():exchange(stored.METRIC_GROUP_COLUMNS,groups)
+        value={'start_ms':1800000000000,'cut_ms':1800000020000,'binding':reads.binding}
+        with upstream(wire),self.assertRaisesRegex(ValueError,'physical_row_cap'):
+            reader.NativeReads('SOURCE-MODEL',time.monotonic()+10).stored(reads,value,{'trace_id':'a'*32,'root_id':'b'*16})
