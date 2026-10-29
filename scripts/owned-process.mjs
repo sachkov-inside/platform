@@ -10,17 +10,33 @@ const controls = new WeakMap();
 /** @type {WeakMap<import('node:child_process').ChildProcess, Promise<void>>} */
 const stops = new WeakMap();
 
+/** @typedef {import('node:child_process').SpawnOptions & {ownerExitGraceMilliseconds?: number}} OwnedSpawnOptions */
+
 /**
  * The returned child is the supervisor. Its exit follows command-tree cleanup; its status is
  * the command's status. A private pipe lets supervision survive exit or SIGKILL of this owner.
  * On macOS, descendants that replace their environment must preserve INSIDE_OWNED_PROCESS_*
  * entries: a detached process with lost ancestry and no readable marker cannot be rediscovered.
+ * ownerExitGraceMilliseconds selects only the EOF/parent-death fallback (finite 0..5000 ms).
+ * Omission retains 5000 ms. Natural exit, direct supervisor signals and explicit stops retain
+ * their existing grace semantics.
  * @param {string} command
  * @param {readonly string[]} [args]
- * @param {import('node:child_process').SpawnOptions} [options]
+ * @param {OwnedSpawnOptions} [options]
  * @returns {import('node:child_process').ChildProcess}
  */
 export function spawnOwned(command, args = [], options = {}) {
+  const { ownerExitGraceMilliseconds, ...spawnOptions } = options;
+  if (
+    ownerExitGraceMilliseconds !== undefined &&
+    (typeof ownerExitGraceMilliseconds !== "number" ||
+      !Number.isFinite(ownerExitGraceMilliseconds) ||
+      ownerExitGraceMilliseconds < 0 ||
+      ownerExitGraceMilliseconds > 5000)
+  )
+    throw new RangeError(
+      "Owner exit grace must be finite and within 0..5000 ms",
+    );
   const configured = options.stdio ?? "pipe";
   const streams =
     typeof configured === "string"
@@ -32,9 +48,16 @@ export function spawnOwned(command, args = [], options = {}) {
         ];
   const child = spawn(
     "python3",
-    [supervisor, JSON.stringify([command, ...args]), String(process.ppid)],
+    [
+      supervisor,
+      JSON.stringify([command, ...args]),
+      String(process.ppid),
+      ...(ownerExitGraceMilliseconds === undefined
+        ? []
+        : [String(ownerExitGraceMilliseconds)]),
+    ],
     {
-      ...options,
+      ...spawnOptions,
       // Inner owners retain outer markers even when the caller supplies a fresh environment.
       env:
         options.env === undefined

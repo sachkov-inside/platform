@@ -25,8 +25,32 @@ class Engine:
         raise AssertionError('unexpected native operation')
 
 
+def assert_current_source_hashes(test,root):
+    """Differential fixture: the admission still hashes fresh bytes on every call."""
+    (root/'nested').mkdir()
+    paths=[root/'plain',root/'space and ü',root/'.hidden',root/'line\nbreak',root/'nested/../plain']
+    for path in paths:path.write_bytes(str(path).encode())
+    paths.append(paths[0])
+    def original(selected):return {str(path.relative_to(root)):owners.sha(path.read_bytes()) for path in selected}
+    with patch.object(owners,'ROOT',root):
+        first=owners._source_hashes(paths)
+        test.assertEqual(first,original(paths))
+        test.assertEqual(list(first),list(original(paths)))
+        paths[0].write_bytes(b'changed between admission calls')
+        second=owners._source_hashes(paths)
+        test.assertEqual(second,original(paths));test.assertNotEqual(second,first)
+        for path in (root,root.parent/(root.name+'-foreign'),Path('relative'),root.parent):
+            with test.subTest(path=path):
+                try:original([path])
+                except (ValueError,IsADirectoryError) as error:
+                    with test.assertRaises(type(error)):owners._source_hashes([path])
+                else:test.fail('negative inventory fixture unexpectedly admitted')
+
+
 class RepresentativeOwner(unittest.TestCase):
     def test_prepare_uses_actual_fixture_and_constructor_without_native_acquisition(self):
+        with tempfile.TemporaryDirectory() as fixture_directory:
+            assert_current_source_hashes(self,Path(fixture_directory).resolve())
         with tempfile.TemporaryDirectory() as directory:
             output,primary=assemble(Path(directory).resolve(),'owner',control=False)
             engine=Engine()
