@@ -694,7 +694,10 @@ function route(method, url, entitled) {
     });
   }
   const material = /^\/materials\/([^/]+)$/u.exec(path);
-  if (material?.[1] === "navigation-video-fragment") {
+  if (
+    material?.[1] === "navigation-video-fragment" ||
+    material?.[1] === "navigation-video-cover"
+  ) {
     const template = lessons[0];
     if (template === undefined) throw new Error("Missing Reader template");
     const videoId = "44444444-4444-4444-8444-444444444444";
@@ -714,6 +717,14 @@ function route(method, url, entitled) {
       },
       projection: {
         ...readerProjection({ ...template, slug: material[1] }),
+        ...(material[1] === "navigation-video-cover"
+          ? {
+              cover: {
+                coverId: "02000000-0000-4000-8000-000000000011",
+                renditions: [{ width: 1280, height: 720 }],
+              },
+            }
+          : {}),
         primaryVideoId: videoId,
       },
       body: body(template, false),
