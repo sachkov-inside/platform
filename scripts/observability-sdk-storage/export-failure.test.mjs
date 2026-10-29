@@ -208,7 +208,7 @@ for (const mode of ["http400", "reset", "delayed", "positive200"]) {
 test(
   "transport milestones isolate peer/path/signal and close without consuming response bytes",
   { timeout: 10000 },
-  async () => {
+  async (owner) => {
     const { request } = await import("node:http");
     const names = [
       "http.client.request.created",
@@ -220,13 +220,35 @@ test(
     const receiver = createServer((incoming, response) => {
       count++;
       incoming.resume();
-      incoming.on("end", () => response.end("owned-response"));
+      incoming.on("end", () => {
+        if (incoming.url === "/held-body") response.write("held-response");
+        else response.end("owned-response");
+      });
     });
     const other = createServer((incoming, response) => {
       incoming.resume();
       incoming.on("end", () => response.end("other-response"));
     });
     /** @type {ReturnType<typeof observeSdkTransport>|undefined} */ let observer;
+    const cleanupAbort = new AbortController();
+    /** @type {Promise<void>|undefined} */ let cleanupTask;
+    const cleanup = () =>
+      (cleanupTask ??= (async () => {
+        cleanupAbort.abort();
+        observer?.close();
+        for (const server of [receiver, other]) {
+          server.closeAllConnections();
+          if (server.listening)
+            await new Promise((resolve, reject) =>
+              server.close((error) =>
+                error ? reject(error) : resolve(undefined),
+              ),
+            );
+          assert.equal(server.listening, false);
+        }
+      })());
+    owner.after(cleanup);
+    const requestBudgetMs = 3000;
     /** @param {string} url @param {string} method @param {string} [host] @returns {Promise<string>} */
     const send = async (url, method, host) =>
       new Promise((resolve, reject) => {
@@ -234,6 +256,11 @@ test(
           url,
           {
             method,
+            signal: AbortSignal.any([
+              owner.signal,
+              cleanupAbort.signal,
+              AbortSignal.timeout(requestBudgetMs),
+            ]),
             headers: {
               authorization: "private-sentinel",
               ...(host === undefined ? {} : { host }),
@@ -336,18 +363,11 @@ test(
         names.map((name) => channel(name).hasSubscribers),
         baseline,
       );
+      await assert.rejects(send(`${endpoint}/held-body`, "POST"), {
+        name: "AbortError",
+      });
     } finally {
-      observer?.close();
-      for (const server of [receiver, other]) {
-        server.closeAllConnections();
-        if (server.listening)
-          await new Promise((resolve, reject) =>
-            server.close((error) =>
-              error ? reject(error) : resolve(undefined),
-            ),
-          );
-        assert.equal(server.listening, false);
-      }
+      await cleanup();
     }
   },
 );
