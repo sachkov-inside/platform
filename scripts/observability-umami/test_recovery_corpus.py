@@ -13,7 +13,7 @@ from test_retention import batch
 
 
 class CorpusCallbackContinuity(unittest.TestCase):
-    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None, source_cluster=None):
+    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None, source_cluster=None, observed=None, curate=False):
         project = recovery.PROJECT_PREFIX + 'a' * 12
         image = json.loads(recovery.CACHE_LOCK.read_text())['image']
         with historical_foundation_source(), tempfile.TemporaryDirectory() as directory:
@@ -35,6 +35,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
             def execute(base, args, *, payload=None, timeout=60, fixture_phase=None):
                 nonlocal recovery_checks, maintenance_active, maintenance_member, maintenance_restored
                 calls.append(args)
+                if observed is not None:
+                    observed.append((list(base), list(args), {'payload': payload, 'timeout': timeout, 'fixture_phase': fixture_phase}))
                 self.assertLess(len(calls), 160, 'bounded fake command budget exhausted')
                 if args[0] == 'create' and (reject_create_service == 'all' or args[-1] == reject_create_service):
                     if '--no-deps' in args:
@@ -138,12 +140,19 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     return ''
                 if 'pgbackrest' in args and args[-1] == 'version':
                     return 'pgBackRest 2.57.0'
+                if (args[-1] == 'stanza-create' and failure == 'encrypted_stanza'
+                        or args[-1] == 'check' and failure == 'encrypted_check'
+                        or args == ['up', '-d', '--no-deps', 'backup'] and failure == 'encrypted_full_backup'):
+                    raise runner.runtime.FixtureCommandFailed(returncode=17)
                 if args[-1] in ('stanza-create', 'check'):
                     backup_commands.append(args[-1])
                     return ''
                 if args[-1] == 'info':
+                    selected = any(arg.startswith('--set=') for arg in args)
+                    if failure == ('encrypted_selected_info' if selected else 'encrypted_info'):
+                        return 'private-sentinel'
                     return json.dumps([{'name': 'production', 'cipher': 'aes-256-cbc', 'status': {'code': 0},
-                        'backup': [{'label': '20261019-120000F', 'type': 'full',
+                        'backup': [{'label': '20261019-120001F' if selected and failure == 'encrypted_selection' else '20261019-120000F', 'type': 'full',
                             'timestamp': {'start': 1792411200, 'stop': 1792411201},
                             'database-ref': [{'name': 'inside', 'oid': 16384}, {'name': 'umami', 'oid': 16400}]}]}])
                 if args[0] in ('up', 'start', 'create', 'stop'):
@@ -193,10 +202,27 @@ class CorpusCallbackContinuity(unittest.TestCase):
             if whole_controller:
                 try:
                     runner.exercise(output, ['docker', 'compose'], project, execute=execute)
-                except RuntimeError:
+                except RuntimeError as error:
                     if failure is None:
                         raise
-                return json.loads((output / 'recovery-proof.json').read_text()), calls
+                    self.assertEqual(str(error), 'owned_recovery_failed; inspect curated recovery-proof.json')
+                    self.assertTrue(error.__suppress_context__)
+                proof = json.loads((output / 'recovery-proof.json').read_text())
+                if curate:
+                    import hosted
+                    metadata = Path(directory) / 'metadata'
+                    metadata.mkdir()
+                    (metadata / 'source.json').write_text('{}')
+                    (metadata / 'admission.json').write_text('{}')
+                    (output / 'private-stderr.txt').write_text('private-sentinel')
+                    (output / 'owner.json').write_text('{"private-sentinel":"private-sentinel"}')
+                    public = Path(directory) / 'public'
+                    runner.runtime.core_ci.collect(output, metadata, public, artifacts=hosted.RECOVERY_ARTIFACTS)
+                    self.assertEqual(json.loads((public / 'recovery-proof.json').read_text()), proof)
+                    self.assertNotIn('private-stderr.txt', {path.name for path in public.iterdir()})
+                    self.assertNotIn('owner.json', {path.name for path in public.iterdir()})
+                    self.assertNotIn('private-sentinel', ''.join(path.read_text() for path in public.iterdir()))
+                return proof, calls
             report = {'reader_gate': 'closed'}
             result = runner._database_corpus(output, ['docker', 'compose'], project, plan,
                 {'system_identifier': '1234567890123456789'}, report, lambda: None, execute,
@@ -207,9 +233,59 @@ class CorpusCallbackContinuity(unittest.TestCase):
             self.assertEqual(result['state'], 'passed')
             self.assertEqual(result['reader_gate'], 'opened_after_replay_and_current_ttl')
 
+    def test_current_encrypted_backup_failure_does_not_reuse_successful_repo_init(self):
+        report, calls = self.run_corpus('encrypted_stanza', whole_controller=True)
+        self.assertEqual(report['state'], 'failed')
+        self.assertEqual(report['stage'], 'encrypted_backup')
+        self.assertEqual(report['reader_gate'], 'closed')
+        self.assertEqual(report['operation']['service'], 'repo-init')
+        self.assertEqual(report['operation']['outcome'], 'passed')
+        self.assertEqual(report['operation']['returncode'], 0)
+        self.assertEqual(report['current_failure'], {'available': True,
+            'operation': 'stanza_create', 'category': 'command_failed', 'returncode': 17})
+        self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in
+            ('backup', 'restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
+
+    def test_each_current_encrypted_backup_step_retains_its_own_failure_through_public_collection(self):
+        cases = [('stanza', 'stanza_create', 'command_failed', 17),
+            ('check', 'check', 'command_failed', 17),
+            ('full_backup', 'full_backup', 'command_failed', 17),
+            ('info', 'info', 'invalid_json', None),
+            ('selected_info', 'selected_info', 'invalid_json', None),
+            ('selection', 'selection', 'proof_mismatch', None)]
+        for failure, operation, category, code in cases:
+            with self.subTest(operation=operation):
+                observed = []
+                report, calls = self.run_corpus('encrypted_' + failure, whole_controller=True,
+                    observed=observed, curate=True)
+                self.assertEqual(report['current_failure'], {'available': True,
+                    'operation': operation, 'category': category, 'returncode': code})
+                self.assertEqual(report['stage'], 'encrypted_backup')
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertTrue(report['repo_init_wait_comparison']['same_owned_id_exited_zero'])
+                self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in
+                    ('restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
+                direct = [(args, options) for _, args, options in observed if args[-1] in ('stanza-create', 'check')]
+                self.assertEqual([args for args, _ in direct], [
+                    ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', command]
+                    for command in (['stanza-create'] if failure == 'stanza' else ['stanza-create', 'check'])])
+                self.assertTrue(all(options == {'payload': None, 'timeout': 90, 'fixture_phase': None}
+                    for _, options in direct))
+                reads = [(args, options) for _, args, options in observed if args[-1] == 'info']
+                self.assertEqual(len(reads), 0 if failure in ('stanza', 'check', 'full_backup') else
+                    1 if failure == 'info' else 2)
+                for args, options in reads:
+                    self.assertEqual(args[:8], ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest',
+                        '--stanza=production', '--output=json'])
+                    self.assertEqual(options, {'payload': None, 'timeout': 60, 'fixture_phase': None})
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['current_failure']).encode()), 256)
+
     def test_pg18_offline_archive_display_reaches_replay_before_opening_readers(self):
         report, _calls = self.run_corpus(whole_controller=True)
         self.assertEqual(report['state'], 'passed')
+        self.assertNotIn('current_failure', report)
         self.assertEqual(report['native_maintenance'], {'foreign_membership_refused': True,
             'role_isolation': True, 'journal_replayed_after_restore': True, 'multiple_child_batches': True})
         self.assertEqual(report['recovered_postmaster']['outcome'], 'passed')
@@ -384,6 +460,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
                 report, calls = self.run_corpus(failure, whole_controller=True)
                 self.assertEqual(report['state'], 'failed')
                 self.assertEqual(report['stage'], 'native_maintenance')
+                self.assertEqual(report['current_failure'], {'available': False, 'operation': None,
+                    'category': None, 'returncode': None})
                 self.assertEqual(report['native_maintenance_operation'], {'schema':1,'step':'foreign_membership_setup','outcome':'failed','error':'timeout' if failure=='maintenance_timeout' else 'command_failed','returncode':None if failure=='maintenance_timeout' else 1})
                 self.assertEqual(report['reader_gate'], 'closed')
                 self.assertNotIn('private-sentinel', json.dumps(report))

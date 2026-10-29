@@ -100,3 +100,119 @@ class OperationDiagnostics(unittest.TestCase):
         self.assertEqual(records[-1]['error'], 'command_failed')
         self.assertNotIn('private-sentinel', json.dumps(records))
         self.assertNotIn('private-sentinel', str(failed.exception))
+
+
+class EncryptedBackupDiagnostics(unittest.TestCase):
+    def observe(self, error, operation='check'):
+        def original_failure():
+            raise error
+        try:
+            with runner._encrypted_backup_operation(operation):
+                original_failure()
+        except BaseException as caught:
+            self.assertIs(caught, error)
+            tail = caught.__traceback__
+            while tail.tb_next is not None:
+                tail = tail.tb_next
+            self.assertEqual(tail.tb_frame.f_code.co_name, 'original_failure')
+            return runner._current_backup_failure(caught)
+        self.fail('original exception did not propagate')
+
+    def test_actual_command_adapter_failure_projects_only_its_numeric_code(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        transport = runner.runtime
+        with patch.object(transport.pilot, 'assert_docker_identity'), \
+                patch.object(transport.subprocess, 'run', return_value=SimpleNamespace(
+                    returncode=17, stdout='private-sentinel', stderr='private-sentinel')):
+            with self.assertRaises(transport.FixtureCommandFailed) as failed:
+                transport.invoke(['docker'], ['fixed-operation'], payload='private-sentinel')
+        error = failed.exception
+        self.assertEqual(self.observe(error, 'stanza_create'), {'available': True,
+            'operation': 'stanza_create', 'category': 'command_failed', 'returncode': 17})
+        self.assertNotIn('private-sentinel', str(error))
+
+    def test_actual_command_adapter_timeout_retains_original_error_without_command_output(self):
+        from unittest.mock import patch
+        transport = runner.runtime
+        error = subprocess.TimeoutExpired(['private-sentinel'], 90,
+            output='private-sentinel', stderr='private-sentinel')
+        with patch.object(transport.pilot, 'assert_docker_identity'), \
+                patch.object(transport.subprocess, 'run', side_effect=error):
+            with self.assertRaises(subprocess.TimeoutExpired) as failed:
+                transport.invoke(['docker'], ['fixed-operation'], payload='private-sentinel', timeout=90)
+        self.assertIs(failed.exception, error)
+        self.assertEqual(self.observe(error, 'info'), {'available': True,
+            'operation': 'info', 'category': 'timeout', 'returncode': None})
+
+    def test_timeout_json_proof_io_and_runtime_errors_keep_finite_categories_and_original_traceback(self):
+        cases = [(subprocess.TimeoutExpired(['private-sentinel'], 90, output='private-sentinel'), 'timeout'),
+            (TimeoutError('private-sentinel'), 'timeout'),
+            (json.JSONDecodeError('private-sentinel', 'private-sentinel', 0), 'invalid_json'),
+            (ValueError('private-sentinel'), 'proof_mismatch'),
+            (OSError('private-sentinel'), 'io_failure'),
+            (RuntimeError('private-sentinel'), 'runtime_failure')]
+        for error, category in cases:
+            with self.subTest(category=category):
+                projected = self.observe(error, 'selected_info')
+                self.assertEqual(projected, {'available': True, 'operation': 'selected_info',
+                    'category': category, 'returncode': None})
+                self.assertNotIn('private-sentinel', json.dumps(projected))
+
+    def test_codes_are_frozen_without_properties_bool_coercion_or_error_text(self):
+        class ForeignGetters(RuntimeError):
+            @property
+            def returncode(self):
+                raise AssertionError('private-sentinel getter was evaluated')
+            @property
+            def __dict__(self):
+                raise AssertionError('private-sentinel dictionary getter was evaluated')
+        projected = self.observe(ForeignGetters('private-sentinel'))
+        self.assertEqual(projected, {'available': True, 'operation': 'check',
+            'category': 'runtime_failure', 'returncode': None})
+        for code in (None, True, False, -129, 256, 1.5, 'private-sentinel', [], -128, 0, 255):
+            with self.subTest(code=repr(code)):
+                error = subprocess.CalledProcessError(code, ['private-sentinel'],
+                    output='private-sentinel', stderr='private-sentinel')
+                projected = self.observe(error)
+                expected = code if type(code) is int and -128 <= code <= 255 else None
+                self.assertEqual(projected, {'available': True, 'operation': 'check',
+                    'category': 'command_failed', 'returncode': expected})
+                error.returncode = 99
+                self.assertEqual(runner._current_backup_failure(error), projected)
+                projected['operation'] = 'private-sentinel'
+                self.assertEqual(runner._current_backup_failure(error)['operation'], 'check')
+
+    def test_copied_foreign_missing_malformed_or_unrecognized_context_is_unavailable(self):
+        import copy
+        unavailable = {'available': False, 'operation': None, 'category': None, 'returncode': None}
+        original = RuntimeError('private-sentinel')
+        self.observe(original)
+        copied = copy.copy(original)
+        foreign = RuntimeError('private-sentinel')
+        foreign.__dict__.update(original.__dict__)
+        for error in (copied, foreign, RuntimeError('private-sentinel'), KeyError('private-sentinel'), None, {}, object()):
+            self.assertEqual(runner._current_backup_failure(error), unavailable)
+        tag = original.__dict__['_umami_backup_failure']
+        for malformed in (None, [], {}, (), tag[:4], (*tag, 0),
+                (object(), *tag[1:]), (tag[0], True, *tag[2:]),
+                (*tag[:2], ['private-sentinel'], *tag[3:]),
+                (*tag[:2], 'private-sentinel', *tag[3:]),
+                (*tag[:3], ['private-sentinel'], tag[4]),
+                (*tag[:3], 'private-sentinel', tag[4]), (*tag[:4], True), (*tag[:4], 256)):
+            original.__dict__['_umami_backup_failure'] = malformed
+            self.assertEqual(runner._current_backup_failure(original), unavailable)
+        self.assertEqual(self.observe(RuntimeError('private-sentinel'), 'private-sentinel'), unavailable)
+        self.assertEqual(self.observe(KeyError('private-sentinel')), unavailable)
+
+    def test_tagging_failure_and_interrupts_do_not_replace_or_expand_original_errors(self):
+        from unittest.mock import patch
+        class UnavailableFields:
+            def __get__(self, error):
+                raise OSError('private-sentinel')
+        unavailable = {'available': False, 'operation': None, 'category': None, 'returncode': None}
+        with patch.object(runner, '_EXCEPTION_FIELDS', UnavailableFields()):
+            self.assertEqual(self.observe(RuntimeError('private-sentinel')), unavailable)
+        interrupt = KeyboardInterrupt('private-sentinel')
+        self.assertEqual(self.observe(interrupt), unavailable)
+        self.assertEqual(interrupt.__dict__, {})
