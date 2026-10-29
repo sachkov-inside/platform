@@ -435,7 +435,7 @@ reading controls keep their own targets and remain above the stretched link.
 - **Don't** make orange a default decoration or destructive red a brand accent.
 - **Don't** use JetBrains Mono for long-form prose or ornamental headings.
 - **Don't** explain how a catalog query, pagination boundary or derived relationship works inside ordinary page copy.
-- **Don't** add headings, captions or sentences that restate what the component already shows or narrate a state it can show visually. Explanatory copy stays only where [Discovery Copy](#discovery-copy) allows it, plus required legal or commercial terms.
+- **Don't** add headings, captions or sentences that restate what the component already shows or narrate a state it can show visually. On every surface, explanatory copy stays only to help a decision or recovery from an empty, unavailable or invalid state (as in [Discovery Copy](#discovery-copy)), and for required legal or commercial terms.
 - **Don't** promote the issue #38 authoring columns to a global pattern before owner visual/interaction GO.
 - **Don't** expose `contentVersion` or labels such as `v1`, `v2`, `v3` in product UI.
 - **Don't** imply that Preview is published; name the actual publication state.

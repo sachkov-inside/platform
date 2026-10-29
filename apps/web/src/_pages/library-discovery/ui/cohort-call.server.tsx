@@ -13,7 +13,10 @@ import {
   programmeCallLabel,
   type CohortCall,
 } from "@/features/ai-engineering-course";
-import type { PublishedProductResult } from "@/features/library-discovery";
+import type {
+  ProductAccess,
+  PublishedProductResult,
+} from "@/features/library-discovery";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
@@ -25,7 +28,7 @@ type ResolvedProduct = Extract<
   { readonly kind: "ready" | "empty" }
 >;
 
-/** Запасной вид личной части: та же кнопка в программу, что и у страницы без потока. */
+/** Запасной вид личной части: первый экран без потока, без кнопки и плашки. */
 export function PendingCohortCall({ slug }: { readonly slug: string }) {
   return <CohortCallView call={withoutCohort(slug)} />;
 }
@@ -74,7 +77,7 @@ export async function PersonalCohortCall({
             productAccess: state.access,
             signedIn: state.signedIn,
             slug,
-            freeStart: state.access === "closed" && hasFreeLessons(result),
+            freeStart: offersFreeStart(state.access, result),
           })}
         />
       )}
@@ -147,7 +150,7 @@ export async function PersonalCourseFilmOverlay({
       ) : (
         <>
           {/* Тому, кто ещё не учится, анимация зовёт попробовать бесплатно (#1647). */}
-          {state.access === "closed" && hasFreeLessons(result) ? (
+          {offersFreeStart(state.access, result) ? (
             <CourseLearningLink intent="try-free" slug={slug} />
           ) : null}
           <SaleCountdown sale={state.sale} />
@@ -188,4 +191,16 @@ function withoutCohort(slug: string): CohortCall {
 /** Есть ли в курсе бесплатные уроки: от этого зависят приглашения начать бесплатно (#1647). */
 function hasFreeLessons(result: ResolvedProduct): boolean {
   return result.kind === "ready" && countFreeLessons(result.items) > 0;
+}
+
+/**
+ * Зовёт ли курс этого человека попробовать бесплатно: тогда «Попробовать бесплатно» стоит на
+ * анимации, а первый экран не повторяет кнопку в программу (#1647). Неизвестный доступ может
+ * принадлежать ученику, поэтому приглашения нет.
+ */
+function offersFreeStart(
+  access: ProductAccess,
+  result: ResolvedProduct,
+): boolean {
+  return access === "closed" && hasFreeLessons(result);
 }

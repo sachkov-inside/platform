@@ -629,6 +629,11 @@ export const FreeStartAnnouncement: Story = {
   },
 };
 
+export const FreeStartAnnouncementMobile: Story = {
+  ...FreeStartAnnouncement,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
 /** Предзаказ открыт: в билете цена со скидкой, «Оформить предзаказ» и «Попробовать бесплатно». */
 export const FreeStartPreorder: Story = {
   parameters: { account: "authenticated" },

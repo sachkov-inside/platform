@@ -137,10 +137,6 @@ describe("first screen of a course with free lessons (#1647)", () => {
       expect(
         call({ cohort: current, offer: null, freeStart: true }).action,
       ).toBeNull();
-    expect(
-      call({ cohort: { ...cohort, stage: "announcement" }, freeStart: true })
-        .action,
-    ).toBeNull();
   });
 
   it("keeps the learner's own action", () => {

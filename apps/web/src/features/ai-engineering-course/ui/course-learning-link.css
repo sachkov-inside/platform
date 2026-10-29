@@ -10,9 +10,6 @@
   max-width: calc(100% - 2rem);
   translate: 0 50%;
 }
-.aie-hero-film:has(.aie-learning-film) {
-  margin-bottom: 1.25rem;
-}
 .aie-learning-link {
   position: relative;
   display: inline-flex;
