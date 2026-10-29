@@ -685,18 +685,18 @@ export const PartiallyGrouped: Story = {
     ).not.toBeInTheDocument();
     await openPart(canvasElement, /^Материалы/u);
     // Каталог показывает все материалы порциями; фильтр ищет по полному составу.
-    const catalog = canvas.getByRole("list", { name: "Материалы курса" });
+    const catalog = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(catalog).getAllByRole("listitem")).toHaveLength(12);
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать ещё материалы" }),
     );
     await expect(within(catalog).getAllByRole("listitem")).toHaveLength(24);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Дополнительные" }),
+      canvas.getByRole("button", { name: "Вне программы" }),
     );
     await expect(
       within(
-        canvas.getByRole("list", { name: "Материалы курса" }),
+        canvas.getByRole("region", { name: "Материалы курса" }),
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
     await expect(
@@ -711,7 +711,7 @@ export const LargeMaterialCatalogue: Story = {
     const canvas = within(canvasElement);
     await openPart(canvasElement, /^Материалы/u);
     const catalogue = () =>
-      canvas.getByRole("list", { name: "Материалы курса" });
+      canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(12);
     await expect(
       canvas.getByText("120 материалов", { exact: true }),
@@ -738,6 +738,144 @@ export const LargeMaterialCatalogue: Story = {
     );
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(24);
   },
+};
+
+/**
+ * Библиотека «Материалы» (прототип A2, #1832): обложки и узоры формата в одной ровной сетке, место
+ * урока только у программы, свежие материалы в группе «Новое». Даты отсчитаны от дня показа.
+ */
+const day = 24 * 60 * 60 * 1000;
+const libraryCover = (index: number, wide: boolean) => ({
+  coverId: `27100000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+  renditions: [{ width: 960, height: wide ? 540 : 960 }],
+});
+/** Один момент показа и для дат примера, и для группы «Новое» в каталоге. */
+const libraryNow = Date.parse("2026-10-29T09:00:00Z");
+const daysAgo = (days: number) =>
+  new Date(libraryNow - days * day).toISOString();
+function libraryMaterial(index: number): MaterialPreview {
+  const material = materials[index];
+  if (material === undefined) throw new Error("Missing library material");
+  return material;
+}
+const librarySummaries = [
+  "Что агент видит, чем действует и как окружение меняет результат.",
+  "Пишем короткий AGENTS.md, подключаем скиллы и проверяем, что агент их применяет.",
+  "Словарь предметной области, который понимают и люди, и агент.",
+];
+const libraryMaterials: readonly MaterialPreview[] = [
+  ...materials.slice(0, 12).map((material, index) => ({
+    ...material,
+    summary: librarySummaries[index % 3] ?? "",
+    publishedAt: daysAgo(70 - index * 5),
+    cover:
+      material.formatSlug === "video"
+        ? libraryCover(5 + (index % 3), true)
+        : index % 4 === 1
+          ? libraryCover(8 + (index % 4), false)
+          : null,
+  })),
+  {
+    ...libraryMaterial(0),
+    materialId: "library-extra-video",
+    slug: "library-extra-video",
+    title: "Разбор эфира: ревью проектов участников",
+    summary: "Запись эфира, где разбираем три проекта и типичные ошибки.",
+    primaryVideoDurationSeconds: 3260,
+    publishedAt: daysAgo(2),
+    cover: null,
+    productMemberships: [],
+  },
+  {
+    ...libraryMaterial(1),
+    materialId: "library-extra-guide",
+    slug: "library-extra-guide",
+    title: "Как работать с агентом в существующем проекте",
+    summary:
+      "Как изучить действующий проект и постепенно настроить инструкции, скиллы и проверки.",
+    publishedAt: daysAgo(1),
+    cover: libraryCover(11, false),
+    productMemberships: [],
+  },
+  {
+    ...libraryMaterial(4),
+    materialId: "library-extra-note",
+    slug: "library-extra-note",
+    title: "Какие модели я использую сейчас",
+    summary: "Короткая заметка: что стоит в моём окружении и почему.",
+    format: "Заметка",
+    formatSlug: "note",
+    access: "closed",
+    availability: "locked",
+    publishedAt: daysAgo(3),
+    cover: null,
+    productMemberships: [],
+  },
+];
+const libraryResult = {
+  ...result,
+  items: libraryMaterials,
+  chapters: chapters.slice(0, 2),
+} satisfies PublishedProductResult;
+
+export const MaterialLibrary: Story = {
+  // Каталог читает Date.now после гидрации; история подставляет тот же момент, что и в датах.
+  // На странице документации подмена действует, пока страница открыта.
+  beforeEach: () => {
+    const realNow = Date.now.bind(Date);
+    Date.now = () => libraryNow;
+    return () => {
+      Date.now = realNow;
+    };
+  },
+  args: {
+    result: libraryResult,
+    learning: { kind: "ready", read: 2, total: 12, continuation: resume },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await openPart(canvasElement, /^Материалы/u);
+    const library = canvas.getByRole("region", { name: "Материалы курса" });
+    // Первая порция из 12 заканчивается на сентябре; августовские уроки ещё скрыты.
+    await expect(
+      within(library)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Новое", "Октябрь 2026 г.", "Сентябрь 2026 г."]);
+    // Закрытый материал остаётся в сетке со своим замком.
+    await expect(within(library).getByText("Для участников")).toBeVisible();
+    // Место в программе подписано только у урока; у материала вне программы подписи нет.
+    await expect(
+      within(library).getByText("Глава 2 · урок 6", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      within(library).queryByText("Вне программы"),
+    ).not.toBeInTheDocument();
+    await userEvent.selectOptions(
+      canvas.getByRole("combobox", { name: "Порядок" }),
+      "programme",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Показать ещё материалы" }),
+    );
+    const headings = within(
+      canvas.getByRole("region", { name: "Материалы курса" }),
+    ).getAllByRole("heading", { level: 3 });
+    await expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Глава 1. Основа продукта",
+      "Глава 2. Данные и доступ",
+      "Вне программы",
+    ]);
+    // Первые два урока изучены: отметка стоит в углу обложки, её название читает скринридер.
+    const ordered = canvas.getByRole("region", { name: "Материалы курса" });
+    await expect(within(ordered).getByText("Просмотрено")).toBeInTheDocument();
+    await expect(within(ordered).getByText("Изучено")).toBeInTheDocument();
+  },
+};
+
+export const MaterialLibraryMobile: Story = {
+  ...MaterialLibrary,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 export const LargeMaterialCatalogueMobile: Story = {
@@ -791,7 +929,7 @@ export const CatalogueRefreshRestoresMaterial: Story = {
   render: () => <CatalogueRefresh />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const catalogue = canvas.getByRole("list", { name: "Материалы курса" });
+    const catalogue = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(12);
     await expect(
       within(catalogue).getByRole("heading", { name: "Урок 12" }),
@@ -828,11 +966,11 @@ export const PartSwitchStartsAtBeginning: Story = {
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Дополнительные" }),
+      canvas.getByRole("button", { name: "Вне программы" }),
     );
     await expect(
       within(
-        canvas.getByRole("list", { name: "Материалы курса" }),
+        canvas.getByRole("region", { name: "Материалы курса" }),
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
     await openPart(canvasElement, /Программа/u);
@@ -1397,7 +1535,7 @@ export const ProductPage: Story = {
     ).not.toBeInTheDocument();
     await openPart(canvasElement, /^Материалы/u);
     await expect(
-      canvas.getByRole("list", { name: "Материалы курса" }),
+      canvas.getByRole("region", { name: "Материалы курса" }),
     ).toBeVisible();
     await openPart(canvasElement, /^Программа/u);
     await expect(
@@ -1461,7 +1599,7 @@ export const ProgrammeIgnoresUnavailableArtifacts: Story = {
     ).not.toBeInTheDocument();
     await openPart(canvasElement, /^Материалы/u);
     await expect(
-      canvas.getByRole("list", { name: "Материалы курса" }),
+      canvas.getByRole("region", { name: "Материалы курса" }),
     ).toBeVisible();
   },
 };

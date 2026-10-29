@@ -20,6 +20,7 @@ export {
 } from "./ui/collection-cards";
 export {
   courseReadingContext,
+  isProgrammeStepOpenedForReference,
   type CourseReadingContext,
   type CourseReadingStep,
   type CourseReferenceMaterial,

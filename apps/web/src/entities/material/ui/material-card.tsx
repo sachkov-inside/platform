@@ -2,8 +2,10 @@ import { FreeMaterialBadge } from "./free-material-badge";
 import {
   ChevronRight,
   Clock3,
+  FileText,
   Link2,
   LockKeyhole,
+  NotebookPen,
   Play,
   Send,
 } from "lucide-react";
@@ -23,6 +25,7 @@ import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 import { ContentCoverImage } from "./content-cover-image.client";
 import { feedLink } from "../model/feed-link";
 
+import { LibraryReadMark } from "./library-read-mark.client";
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
 import {
   ProductContinuationAction,
@@ -48,7 +51,7 @@ export interface MaterialCardProps {
    * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
    */
   readonly accessPending?: boolean;
-  readonly variant: "feed" | "row" | "product";
+  readonly variant: "feed" | "row" | "product" | "library";
 }
 
 /** Safe published Material summary rendered in the accepted public visual language. */
@@ -85,6 +88,17 @@ export function MaterialCard({
         readerHref={readerHref}
         ordinal={productOrdinal}
         readingStatus={readingStatus}
+      />
+    );
+  }
+
+  if (variant === "library") {
+    return (
+      <LibraryMaterialCard
+        annotation={rowAnnotation}
+        headingLevel={headingLevel}
+        material={material}
+        readerHref={readerHref}
       />
     );
   }
@@ -500,6 +514,94 @@ function ProductMaterialRow({
         </span>
       </div>
     </ProductRowArticle>
+  );
+}
+
+const libraryFormatIcons = {
+  material: FileText,
+  note: NotebookPen,
+  video: Play,
+} as const;
+
+/**
+ * Карточка библиотеки (прототип A2, принят владельцем 29.10.2026, #1832): обложка 16:9 или узор
+ * формата, на обложке формат, длительность видео и отметка «изучено»; под ней название, описание
+ * и, если его передали, место в программе. Карточки одного ряда одной высоты.
+ */
+function LibraryMaterialCard({
+  annotation,
+  headingLevel,
+  material,
+  readerHref,
+}: {
+  readonly annotation: React.ReactNode;
+  readonly headingLevel: "h2" | "h3" | "h4";
+  readonly material: MaterialPreview;
+  readonly readerHref: Route;
+}) {
+  const Heading = headingLevel;
+  const video = materialPreviewHasVideo(material);
+  const kind = video
+    ? "video"
+    : material.formatSlug === "note"
+      ? "note"
+      : "material";
+  const FormatIcon = libraryFormatIcons[kind];
+  const duration = video ? materialDuration(material) : undefined;
+  return (
+    <article
+      className="group/library relative flex h-full min-w-0 flex-col gap-2.5"
+      data-material-id={material.slug}
+      data-material-slug={material.slug}
+      data-material-variant="library"
+    >
+      <AccessCover material={material}>
+        <ContentCoverImage
+          alt=""
+          className="aspect-video w-full rounded-2xl"
+          cover={material.cover ?? null}
+          fallbackKind={kind}
+          fallbackSeed={material.slug}
+          sizes="(min-width: 640px) 24rem, 100vw"
+        />
+        {material.materialId === undefined ? null : (
+          <LibraryReadMark
+            format={material.format}
+            materialId={material.materialId}
+          />
+        )}
+        <span className="absolute right-2 bottom-2 inline-flex min-h-5 items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[0.7rem] font-semibold text-white tabular-nums">
+          <FormatIcon
+            aria-hidden="true"
+            className="size-3"
+            {...(video ? { fill: "currentColor" } : {})}
+          />
+          <span className="sr-only">
+            {materialTaxonomyLabel(material.format)}
+            {duration === undefined ? "" : ", "}
+          </span>
+          {duration}
+        </span>
+      </AccessCover>
+      <Heading className="mt-0.5 line-clamp-2 text-base leading-6 font-semibold tracking-[-0.02em]">
+        <IntentPrefetchLink
+          className="no-underline hover:text-action after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-ring"
+          href={readerHref}
+        >
+          {material.title}
+        </IntentPrefetchLink>
+      </Heading>
+      {material.summary.length > 0 ? (
+        <p className="line-clamp-2 text-sm leading-5 text-body-muted">
+          {material.summary}
+        </p>
+      ) : null}
+      {annotation === undefined ? null : (
+        <span className="mt-auto text-xs text-muted-foreground">
+          {annotation}
+        </span>
+      )}
+    </article>
   );
 }
 
