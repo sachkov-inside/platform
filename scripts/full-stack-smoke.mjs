@@ -300,6 +300,21 @@ try {
     separateAccessSessions[identity.sessionVariable] =
       await fullStackIdentity.createSession(accessToken);
   }
+  // Читатели прогона вошли через Telegram: бесплатные уроки Product открываются им без покупки
+  // (#1825). Гость и Account без связи остаются в проверках backend.
+  await runPnpm(
+    ["--filter", "@inside/backend", "smoke:link-full-stack-telegram"],
+    {
+      ...childEnvironment,
+      // Участник с доступом к продукту читает и без Telegram; его шапка напоминает подключить.
+      FULLSTACK_TELEGRAM_LOGTO_SUBJECTS: JSON.stringify([
+        "fullstack-non-member",
+        "fullstack-expired-member",
+        "fullstack-stale-member",
+        ...separateAccessIdentities.map(({ subject }) => subject),
+      ]),
+    },
+  );
   const browserAccessToken = await fullStackIdentity.createAccessToken();
   await runPnpm(
     [

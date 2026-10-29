@@ -37,9 +37,10 @@ test("keeps reader startup JavaScript within its CPU budget", async ({
     ]);
     expect(response?.status()).toBe(200);
     // Observe the same browser-rendered readiness fact as the INP test, without triggering input.
+    // A guest lands on the free lesson's Telegram sign-in gate (#1825).
     await page.waitForFunction(() =>
       document.querySelector(
-        '[data-material-reader-state="available"] [data-reading-action-state="anonymous"]',
+        '[data-material-reader-state="access-required"] [data-reading-action-state="anonymous"]',
       ),
     );
     const scriptCpuMs =
@@ -162,7 +163,8 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       z.object({
         slug: z.string(),
         access: z.literal("free"),
-        availability: z.literal("available"),
+        // A free Product lesson stays locked for a guest until Telegram sign-in (#1825).
+        availability: z.enum(["available", "locked"]),
       }),
     ),
     nextCursor: z.string().nullable(),
@@ -395,7 +397,13 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   // This scenario owns its Home return. Other files can add the same Material to a second
   // course; a direct URL otherwise infers its sole course only on a fresh shard database.
   const materialHref = "/materials/kak-ustroen-inside-platform?from=%2F";
-  const documentResponse = await request.get(materialHref);
+  // A guest receives the free lesson's Telegram sign-in gate without its body (#1825).
+  const guestHtml = await (await request.get(materialHref)).text();
+  expect(guestHtml).toContain("Войти через Telegram и читать бесплатно");
+  expect(guestHtml).not.toContain("Первый вертикальный срез");
+  // The representative body is server-rendered to a reader signed in through Telegram.
+  await signInFullStack(page.context());
+  const documentResponse = await page.context().request.get(materialHref);
   const initialHtml = await documentResponse.text();
 
   expect(documentResponse.status()).toBe(200);
@@ -422,7 +430,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   );
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
-  // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
+  // мерил бы скорость runner, а не ответ читалки (#933). Отметку читателя рисует только браузер
   // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
   for (const panel of [
     page.getByRole("navigation", { name: "Действия материала", exact: true }),
@@ -435,14 +443,10 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     await expect(
       action,
       "действие чтения гидрировано и получило ответ /auth/status",
-    ).toHaveAttribute("data-reading-action-state", "anonymous");
-    const signIn = action.getByRole("link", { name: "Изучено", exact: true });
-    await expect(signIn).toBeVisible();
-    await expect(signIn).toBeEnabled();
-    await expect(signIn).toHaveAttribute("href", "/account");
+    ).toHaveAttribute("data-reading-action-state", "ready");
     await expect(
       action.getByRole("button", { name: "Изучено", exact: true }),
-    ).toHaveCount(0);
+    ).toBeEnabled();
   }
 
   await page.keyboard.press("Tab");

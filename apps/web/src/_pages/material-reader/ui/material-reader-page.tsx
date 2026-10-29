@@ -356,6 +356,15 @@ async function ResolvedMaterialReader({
     // Бесплатный урок курса открывает вход через Telegram, а не покупка (#1825).
     return (
       <FreeLessonAccess
+        readingAction={
+          <SavedReadingAction
+            compact
+            key={result.material.materialId}
+            materialId={result.material.materialId}
+            format={result.material.format.slug}
+            canMark={false}
+          />
+        }
         signedIn={accessToken !== undefined}
         // После входа читатель возвращается в то же место программы: якорь, вид и размещение.
         returnTo={internalRoute(workspaceReturnTo(slug, workspaceQuery))}

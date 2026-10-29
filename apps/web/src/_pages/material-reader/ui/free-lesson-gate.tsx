@@ -17,12 +17,14 @@ import {
  * возвращается в тот же урок; вошедший по почте подключает Telegram здесь же. Покупка не нужна.
  */
 export function FreeLessonAccess({
+  readingAction,
   signedIn,
   returnTo,
   material,
   returnTarget,
   productContext,
 }: {
+  readonly readingAction?: React.ReactNode;
   readonly signedIn: boolean;
   readonly returnTo: Route;
   readonly material: MaterialReaderMetadata;
@@ -51,6 +53,7 @@ export function FreeLessonAccess({
       }}
       invitation={null}
       material={material}
+      {...(readingAction === undefined ? {} : { readingAction })}
       {...(returnTarget === undefined ? {} : { returnTarget })}
       {...(productContext === undefined ? {} : { productContext })}
     />
