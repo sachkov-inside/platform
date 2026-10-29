@@ -261,3 +261,40 @@ class CompleteCorpus(unittest.TestCase):
         value={'start_ms':1800000000000,'cut_ms':1800000020000,'binding':reads.binding}
         with upstream(wire),self.assertRaisesRegex(ValueError,'physical_row_cap'):
             reader.NativeReads('SOURCE-MODEL',time.monotonic()+10).stored(reads,value,{'trace_id':'a'*32,'root_id':'b'*16})
+
+
+class IsolatedDigestEntrypoint(unittest.TestCase):
+    def test_isolated_digest_read_reaches_valid_ack_after_verified_mirror(self):
+        import subprocess
+        import sys
+        from pathlib import Path
+        code=r'''import importlib.util,json,tempfile,types
+from pathlib import Path
+p=Path(READER)
+spec=importlib.util.spec_from_file_location('isolated_reader',p)
+r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
+s=r._load_scopes()
+with tempfile.TemporaryDirectory() as temporary:
+ root=Path(temporary).resolve();root.chmod(0o700)
+ mirror=s._install_mirror(root)
+ s._DRIVER=root
+ digest='a'*64;nonce='b'*32
+ value={'generation':1,'binding':{'nonce':nonce},'deadline_mono_ns':10**30,'mirror':{name:item[0] for name,item in mirror.items()}}
+ request={'generation':1,'digest':digest,'nonce':nonce};ack=request|{'result':{'reads':10}}
+ channel=types.SimpleNamespace(path=root,check=lambda:None,request=('request-id',request),binding={'session':{'nonce':nonce}},submit=lambda *args:None,finish=lambda:None)
+ (root/'ack.json').write_text('source-model')
+ channel.result=lambda *args:r._Rendezvous.result(channel,*args)
+ r._Rendezvous.attach=lambda *args:channel
+ s.load_current=lambda digest:object();s._consume=lambda scope:value;s._check_reader=lambda scope:None
+ original=s._read
+ def read(path,**kwargs):
+  if path.name=='resident.json':return r.encoded({'session':{'nonce':nonce}}),'resident-id'
+  if path.name=='request.json':return r.encoded(request),'request-id'
+  if path.name=='ack.json':return r.encoded(ack),'ack-id'
+  return original(path,**kwargs)
+ s._read=read
+ print(json.dumps(r.read_current(digest)))
+'''.replace('READER',repr(str(Path(reader.__file__).resolve())))
+        result=subprocess.run([sys.executable,'-I','-B','-c',code],capture_output=True,text=True,timeout=5)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(json.loads(result.stdout),{'read_verified':True,'generation':1,'digest':'a'*64,'reads':10})

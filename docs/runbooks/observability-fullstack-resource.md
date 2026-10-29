@@ -888,6 +888,23 @@ DNS unknown не считается kernel denial. Trusted host-agent bridge о�
 birth или ресурса сохраняет неизвестный объект и даёт ошибку. Сэмплированный
 максимум RSS host emitter обозначен как наблюдавшийся, не как точный итоговый peak.
 
+Оба фиксированных Python входа сохраняют `-I -B`. Worker сверяет закрытый список
+модулей с committed source до импорта и загружает только эти имена по точным
+путям. Digest reader загружает agent validator после проверки полного mirror.
+Произвольный соседний файл и `PYTHONPATH` не получают права импорта. Полный raw scan
+проверяет также декодированные JSON maps, arrays и строки до отбора строк, включая
+чужие traces, старые samples и все копии полей; duplicate/depth/byte limits сохраняются.
+
+Неуспех worker становится первичным до очистки. Приватный файл
+`representative-failure.json` связывает закрытые stage/reason/category и допустимый
+first-command context с source, admission digest, nonce/project и зарегистрированным
+birth worker. Отсутствующая, подменённая или устаревшая причина обозначается
+`unavailable`. Exception text, имена произвольных классов, argv, keys, telemetry,
+locals и traceback между процессами не передаются. Внутри процесса сохраняются
+исходный объект исключения и traceback. Отдельный приватный
+`representative-outcome.json` удерживает результаты stop/recovery/reap; вторичный
+отказ очистки не подменяет уже наблюдавшийся отказ worker.
+
 Все эти исходники подготовлены для отдельного назначения D7. SOURCE-MODEL
 проверки на Mac используют настоящие HTTP/Unix/files/process seams; инъецированные
 Linux namespace/birth receipts явно остаются моделями. Они не доказывают native

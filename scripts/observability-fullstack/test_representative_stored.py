@@ -261,3 +261,35 @@ class LosslessMetricWire(unittest.TestCase):
         self.assertEqual(len(bundle['metrics']),562)
         after=stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
         self.assertEqual(after,before)
+
+
+class DecodedPrivacy(unittest.TestCase):
+    def test_escaped_markers_in_all_raw_copies_refuse_before_selection(self):
+        escaped=''.join('\\u%04x'%ord(char) for char in stored._PRIVACY.SENTINEL)
+        hidden='{"hidden":"'+escaped+'"}'
+        cases=[('traces',field) for field in ('resources_string','resource','scope','attributes_string','attributes_number',
+            'attributes_bool','attributes','attributes_promoted','events','links')]
+        cases += [('logs',field) for field in ('body','body_v2','body_promoted','attributes_string','resources_string','resource','scope_string')]
+        cases += [('metrics',field) for field in ('labels','attrs','scope_attrs','resource_attrs')]
+        cases += [('metadata','attr_string_value')]
+        for signal,field in cases:
+            bundle=NativeSdkProjection().bundle()
+            if signal=='traces':row=bundle[signal][-1]
+            elif signal=='logs':row={key:None for key in stored.LOG_COLUMNS};bundle[signal].append(row)
+            elif signal=='metadata':row={key:None for key in stored.META_COLUMNS};bundle[signal].append(row)
+            else:
+                row=copy.deepcopy(bundle[signal][-1]);row['unix_milli']-=1000;bundle[signal].append(row)
+            row[field]=[hidden] if field=='events' else hidden
+            with self.subTest(signal=signal,field=field):
+                with self.assertRaisesRegex(RuntimeError,'privacy'):
+                    stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
+                with self.assertRaisesRegex(RuntimeError,'privacy'):
+                    if signal=='metrics':
+                        for part,groups in compact_metric_rows(bundle[signal]).items():stored.raw_rows(scalar_wire(stored.METRIC_GROUP_COLUMNS,groups),part)
+                    else:stored.raw_rows(scalar_wire({'traces':stored.TRACE_COLUMNS,'logs':stored.LOG_COLUMNS,'metadata':stored.META_COLUMNS}[signal],bundle[signal]),signal)
+
+    def test_nested_encoded_json_keeps_duplicate_depth_and_byte_bounds(self):
+        for payload in ('{"hidden":0,"hidden":1}', '['*17+'0'+']'*17, '{"x":"'+'a'*65536+'"}'):
+            bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']=payload
+            with self.subTest(payload_size=len(payload)),self.assertRaises(ValueError):
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)

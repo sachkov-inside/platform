@@ -51,6 +51,12 @@ def scan(value):
         elif type(item) is str:
             characters+=len(item);need(characters<=1048576,'representative_stored_size')
             _PRIVACY.assert_clean(item)
+            # SigNoz exposes maps/arrays as JSON-valued strings, including event
+            # elements and log bodies. Scan every decoded copy, even on rows
+            # later discarded. The shared budget includes nested encodings.
+            if item.lstrip().startswith(('{','[','"')):
+                from representative_reader import decode
+                visit(decode(item.encode('utf-8')),depth+1)
         elif type(item) in (int,float):need(math.isfinite(item),'representative_stored_number')
         else:need(item is None or type(item) is bool)
     visit(value)
@@ -63,9 +69,9 @@ def _integer(value,maximum=2**63-1):
 
 def _object(value):
     if type(value) is str:
-        def unique(pairs):
-            result=dict(pairs);need(len(result)==len(pairs));return result
-        value=json.loads(value,object_pairs_hook=unique,parse_constant=lambda _:need(False))
+        from representative_reader import decode
+        value=decode(value.encode('utf-8'))
+        scan(value)
     need(type(value) is dict);return value
 
 

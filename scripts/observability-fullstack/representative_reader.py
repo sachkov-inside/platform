@@ -300,6 +300,26 @@ def _load_scopes():
     return module
 
 
+def _load_agent(expected):
+    """Load one literal module only after the owning scope attests its closure."""
+    import importlib.util
+    import sys
+    scopes=_load_scopes();mirror=scopes._mirror(scopes._DRIVER)
+    need({name:item[0] for name,item in mirror.items()}==expected,'representative_scope_mirror')
+    name='representative_agent';relative='scripts/observability-fullstack/representative_agent.py'
+    path=scopes._DRIVER/relative
+    raw,identity=scopes._read(path,private=True,maximum=1048576)
+    need([scopes._sha(raw),identity]==mirror[relative],'representative_agent_source')
+    existing=sys.modules.get(name)
+    need(existing is None or Path(existing.__file__).resolve()==path,'representative_agent_import')
+    if existing is None:
+        spec=importlib.util.spec_from_file_location(name,path);module=importlib.util.module_from_spec(spec)
+        sys.modules[name]=module
+        try:exec(compile(raw,str(path),'exec'),module.__dict__)
+        except BaseException:sys.modules.pop(name,None);raise
+    need(scopes._mirror(scopes._DRIVER)==mirror,'representative_scope_mirror')
+
+
 def _serve_corpus(channel,native,session,session_identity):
     """The SAME thread loads/prepares/observes its opaque scope for every read."""
     from pathlib import Path
@@ -363,6 +383,7 @@ def read_current(digest):
     from pathlib import Path
     scopes=_load_scopes();scope=scopes.load_current(digest);value=scopes._consume(scope)
     # Mirror/import closure has now passed; no ambient application imports before it.
+    _load_agent(value['mirror'])
     raw,_=scopes._read(Path('/tmp/representative-reader/resident.json'),private=True)
     binding=decode(raw);need(binding['session']['nonce']==value['binding']['nonce'])
     channel=_Rendezvous.attach(Path('/tmp/representative-reader'),binding)

@@ -14,14 +14,90 @@ import sys
 import threading
 import time
 
-import representative_owner as owners
-import representative_scope as scopes
+import stat
 
 ROOT=Path(__file__).resolve().parents[2]
 
 
 def need(ok,reason='representative_witness_contract'):
     if not ok:raise ValueError(reason)
+
+
+def _controller_modules(prepared=None):
+    """Fixed source imports, without granting any directory import authority.
+
+    The isolated worker checks its private admission and committed bytes BEFORE
+    importing controller code. Native source/host checks still run in _worker.
+    """
+    global owners,scopes
+    names=('core_layout','representative_scope','representative_owner')
+    closure=(*names,'representative_reader','representative_agent','representative_stored','signoz_queries',
+        'signoz_ingestion','fullstack','extra','telegram','storage','stage_timing','source_guard',
+        'contact_job','stability','cpu_control','slot_refusal','startup_refusal','health_timing','acceptance')
+    def read(path,maximum):
+        need(path==path.resolve() and path.parent==path.parent.resolve())
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            need(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_uid==os.getuid()
+                and not info.st_mode&0o022 and 0<info.st_size<=maximum)
+            raw=stream.read(maximum+1)
+            need(len(raw)==info.st_size and (path.lstat().st_dev,path.lstat().st_ino,path.lstat().st_size,path.lstat().st_mtime_ns,path.lstat().st_ctime_ns)
+                ==(info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns))
+            return raw
+    paths={name:Path(__file__).resolve().with_name(name+'.py') for name in (closure if prepared is not None else names)}
+    paths['representative_witness']=Path(__file__).resolve()
+    raw={name:read(path,1048576) for name,path in paths.items()}
+    if prepared is not None:
+        need(prepared==prepared.resolve() and stat.S_IMODE(prepared.stat().st_mode)==0o700
+            and prepared.stat().st_uid==os.getuid(),'representative_bootstrap_directory')
+        path=prepared/'representative-trial.json'
+        need(stat.S_IMODE(path.lstat().st_mode)==0o600,'representative_bootstrap_admission')
+        def unique(pairs):
+            value=dict(pairs);need(len(value)==len(pairs));return value
+        admission=json.loads(read(path,65536),object_pairs_hook=unique)
+        source=admission['source'];need(type(source) is dict)
+        def git(*args):
+            return subprocess.run(['git',*args],cwd=ROOT,check=True,capture_output=True,timeout=5).stdout
+        need(git('rev-parse','HEAD').decode().strip()==source['commit']
+            and git('rev-parse','HEAD^{tree}').decode().strip()==source['tree'],'representative_bootstrap_source')
+        entries=git('ls-tree','-z','HEAD','--',*(str(path.relative_to(ROOT)) for path in paths.values())).split(b'\0')
+        pinned={}
+        for entry in entries:
+            if not entry:continue
+            metadata,relative=entry.split(b'\t',1);mode,kind,digest=metadata.split()
+            need(mode==b'100644' and kind==b'blob','representative_bootstrap_source')
+            pinned[relative.decode()]=digest.decode()
+        for name,path in paths.items():
+            blob=hashlib.sha1(b'blob '+str(len(raw[name])).encode()+b'\0'+raw[name]).hexdigest()
+            need(pinned.get(str(path.relative_to(ROOT)))==blob,'representative_bootstrap_source')
+        # A closed name-to-source finder handles fullstack's existing fixed
+        # siblings. It never adds a directory, PYTHONPATH or plugin authority.
+        from importlib.abc import MetaPathFinder,Loader
+        class FixedController(MetaPathFinder,Loader):
+            def find_spec(self,fullname,path=None,target=None):
+                if fullname in closure:
+                    return importlib.util.spec_from_file_location(fullname,paths[fullname],loader=self)
+            def create_module(self,spec):return None
+            def exec_module(self,module):
+                name=module.__name__;module.__file__=str(paths[name])
+                exec(compile(raw[name],str(paths[name]),'exec'),module.__dict__)
+        for name in closure:
+            existing=sys.modules.get(name)
+            need(existing is None or Path(existing.__file__).resolve()==paths[name],'representative_controller_import')
+        sys.meta_path.insert(0,FixedController())
+    for name in names:
+        path=paths[name];existing=sys.modules.get(name)
+        need(existing is None or Path(existing.__file__).resolve()==path,'representative_controller_import')
+        if existing is None:
+            spec=importlib.util.spec_from_file_location(name,path);module=importlib.util.module_from_spec(spec)
+            sys.modules[name]=module
+            try:exec(compile(raw[name],str(path),'exec'),module.__dict__)
+            except BaseException:sys.modules.pop(name,None);raise
+    owners=sys.modules['representative_owner'];scopes=sys.modules['representative_scope']
+
+
+if __name__!='__main__':_controller_modules()
 
 
 def _native_runtime():
@@ -118,6 +194,66 @@ def helper_receipt(value,*,binding,source_sha256,previous=None):
     return receipt
 
 
+_STAGES=('admission','prepare','startup','emit','session','helper_before','corpus','helper_after','isolation','health','result')
+_CATEGORIES=('validation','command','execution','interrupted')
+_COMMANDS=('unknown','context_show','context_inspect','daemon_info','container_inspect','disk_exec')
+
+
+class WorkerFailure(RuntimeError):
+    def __init__(self,status,cause):
+        super().__init__('representative_worker_failed')
+        self.worker_status=status;self.cause=cause
+
+
+def _command_context(value):
+    if value is None:return None
+    need(type(value) is dict and set(value) in (
+        {'command_class','timeout_seconds','elapsed_seconds','native_exit','alive_before_reap'},
+        {'command_class','timeout_seconds','elapsed_seconds','native_exit','alive_before_reap','disk_helper_stage'}))
+    need(type(value['command_class']) is str and value['command_class'] in _COMMANDS)
+    for key in ('timeout_seconds','elapsed_seconds'):
+        need(type(value[key]) in (int,float) and 0<=value[key]<=690)
+    need(value['native_exit'] is None or type(value['native_exit']) is int and -255<=value['native_exit']<=255)
+    need(type(value['alive_before_reap']) is bool)
+    if 'disk_helper_stage' in value:
+        need(type(value['disk_helper_stage']) is str and value['disk_helper_stage'] in ('unknown','entered','imports_complete','syscalls_complete'))
+    return dict(value)
+
+
+def _record_failure(prepared,raw,record,stage,error,runtime):
+    """One private immutable cause, never exception strings, argv or traceback."""
+    admission=json.loads(raw,object_pairs_hook=scopes._unique)
+    command=_command_context(runtime.lifecycle.first_raw_command(error))
+    category='command' if command is not None else 'validation' if type(error) is ValueError else 'interrupted' if type(error) in (KeyboardInterrupt,SystemExit) else 'execution'
+    need(stage in _STAGES);owners._worker_record(record)
+    value={'schema':1,'admission_sha256':hashlib.sha256(raw).hexdigest(),
+        'source':admission['bindings']['source'],'nonce':admission['bindings']['nonce'],
+        'project':admission['bindings']['project'],'worker':record,
+        'stage':stage,'reason':'stage_failed','category':category,'first_command':command}
+    scopes._write(prepared/'representative-failure.json',scopes._encoded(value))
+
+
+def _worker_cause(prepared,raw,identity,record,runtime):
+    """Only the admitted worker's exact birth/session may supply a closed cause."""
+    try:
+        need(record is not None and owners._worker(prepared)==record
+            and runtime.process_start(record['pid'])==record['start_ticks'])
+        need(scopes._read(prepared/'representative-trial.json',private=True,maximum=65536)==(raw,identity))
+        admission=json.loads(raw,object_pairs_hook=scopes._unique)
+        body,_=scopes._read(prepared/'representative-failure.json',private=True,maximum=4096)
+        value=json.loads(body,object_pairs_hook=scopes._unique)
+        need(type(value) is dict and set(value)=={'schema','admission_sha256','source','nonce','project','worker','stage','reason','category','first_command'})
+        need(type(value['schema']) is int and value['schema']==1 and value['admission_sha256']==hashlib.sha256(raw).hexdigest()
+            and value['source']==admission['bindings']['source'] and value['nonce']==admission['bindings']['nonce']
+            and value['project']==admission['bindings']['project'] and value['worker']==record)
+        need(type(value['stage']) is str and value['stage'] in _STAGES and value['reason']=='stage_failed'
+            and type(value['category']) is str and value['category'] in _CATEGORIES)
+        command=_command_context(value['first_command'])
+        need((value['category']=='command')==(command is not None))
+        return {'availability':'available','stage':value['stage'],'reason':value['reason'],'category':value['category'],'first_command':command}
+    except BaseException:return {'availability':'unavailable'}
+
+
 def coordinate(prepared,bindings,images):
     """Private D7 call site, never registered as a CLI/selector/workflow in D2-D6.
 
@@ -130,37 +266,56 @@ def coordinate(prepared,bindings,images):
     owners._canonical(prepared,bindings,images,admit=True)
     deadline=time.monotonic()+600
     admission={'schema':1,'bindings':bindings,'images':images,'deadline_mono_ns':int(deadline*10**9),'source':source}
-    scopes._write(prepared/'representative-trial.json',scopes._encoded(admission))
-    process=None;record=None;first=None;status=None;cleanup=None
+    raw=scopes._encoded(admission)
+    identity=scopes._write(prepared/'representative-trial.json',raw)
+    process=None;record=None;first=None;status=None;cleanup=None;cause={'availability':'unavailable'}
+    outcomes={'stop':'not_attempted','recovery':'not_attempted','reap':'not_attempted'}
     try:
         # Literal worker entrypoint. No role/argv/module/path policy from an agent.
         process=subprocess.Popen([sys.executable,'-I','-B',str(Path(__file__).resolve()),'--worker',str(prepared)],
             cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         record=_register(process,prepared)
         status=runtime.supervisor.wait(process,deadline,lambda:False)
+        if status!=0:
+            # The failed trial is selected BEFORE any cleanup can fail. Only a
+            # birth-bound private record can refine its otherwise unknown cause.
+            cause=_worker_cause(prepared,raw,identity,record,runtime)
+            raise WorkerFailure(status,cause)
     except BaseException:first=sys.exc_info()
     finally:
         try:
-            if record is not None:runtime.stop_worker(record)
-            elif process is not None:runtime.supervisor.stop(process)
+            if record is not None:runtime.stop_worker(record);outcomes['stop']='passed'
+            elif process is not None:runtime.supervisor.stop(process);outcomes['stop']='passed'
         except BaseException:
+            outcomes['stop']='failed'
             if first is None:first=sys.exc_info()
-        # Independent cleanup runs after the worker session is stopped. Its
-        # bounded tail ends at the ORIGINAL owner deadline+90, never a retry600.
+        # Independent cleanup retains ORIGINAL deadline+90, never a retry600.
         if (prepared/'representative-owner/resources.json').exists():
             try:
                 end=min(deadline+90,time.monotonic()+90)
                 need(time.monotonic()<end,'representative_cleanup_deadline')
                 engine=runtime.engine(prepared,end-time.monotonic());engine.deadline=end
                 owner=owners.CompositeOwner.recover(engine,prepared,bindings,images)
-                cleanup=owner.cleanup_exact()
+                cleanup=owner.cleanup_exact();need(cleanup is True,'representative_cleanup_incomplete')
+                outcomes['recovery']='passed'
             except BaseException:
+                outcomes['recovery']='failed'
                 if first is None:first=sys.exc_info()
         if process is not None:
-            try:process.wait(timeout=2)
+            try:process.wait(timeout=2);outcomes['reap']='passed'
             except BaseException:
+                outcomes['reap']='failed'
                 if first is None:first=sys.exc_info()
-    if first is not None:raise first[1].with_traceback(first[2])
+        try:
+            scopes._write(prepared/'representative-outcome.json',scopes._encoded(
+                {'schema':1,'worker_status':status,'cause':cause,'cleanup':outcomes}))
+        except BaseException:
+            if first is None:first=sys.exc_info()
+    if first is not None:
+        # Same-process identity and traceback survive diagnostic and cleanup errors.
+        try:first[1].cleanup_outcomes=dict(outcomes)
+        except BaseException:pass
+        raise first[1].with_traceback(first[2])
     need(status==0 and cleanup is True,'representative_trial_failed')
     return {'functional_evidence':True,'full_workload':False,'capacity_acceptance':False,'cleanup':True}
 
@@ -176,23 +331,30 @@ def _worker(prepared):
         and admission['schema']==1 and type(admission['deadline_mono_ns']) is int)
     deadline=admission['deadline_mono_ns']/10**9;need(0<deadline-time.monotonic()<=600)
     runtime.verify_source(admission['source'],runtime.lifecycle.MCP512_PROFILE)
-    engine=runtime.engine(prepared,deadline-time.monotonic());engine.deadline=deadline
-    owner=owners.CompositeOwner.prepare(engine,prepared,admission['bindings'],admission['images'])
-    result=None;first=None
+    result=None;first=None;stage='prepare'
     try:
-        owner.create();_startup(owner,engine,prepared)
+        engine=runtime.engine(prepared,deadline-time.monotonic());engine.deadline=deadline
+        owner=owners.CompositeOwner.prepare(engine,prepared,admission['bindings'],admission['images'])
+        owner.create();stage='startup';_startup(owner,engine,prepared)
         started=int(time.time()*1000)-1
+        stage='emit'
         observed,cost=_emit_sdk(prepared,admission['bindings']['source']['commit'],deadline)
-        owner.prepare_native_session(observed)
+        stage='session';owner.prepare_native_session(observed)
         binding={**admission['bindings']['source'],'nonce':admission['bindings']['nonce'],'project':admission['bindings']['project']}
         source_hash=hashlib.sha256((ROOT/'scripts/observability-fullstack/trace_sanitizer.py').read_bytes()).hexdigest()
+        stage='helper_before'
         before=helper_receipt(owner.helper_receipt(),binding=binding,source_sha256=source_hash)
+        stage='corpus'
         result=_parallel_corpus(owner,engine,prepared,started,admission['bindings']['source']['commit'])
+        stage='helper_after'
         after=helper_receipt(owner.helper_receipt(),binding=binding,source_sha256=source_hash,previous=before)
         need(after['submitted_spans']>before['submitted_spans'] and after['acknowledged_spans']==after['submitted_spans'],
             'representative_before_storage_path_unproved')
+        stage='isolation'
         loadgen=_loadgen_isolation(owner,engine)
+        stage='health'
         need(owner.snapshot()['roles_healthy'],'representative_roles_unhealthy')
+        stage='result'
         scopes._write(prepared/'representative-functional.json',scopes._encoded({'schema':1,'source':admission['bindings']['source'],
             'control':result['control'],'agent':result['agent'],'sdk_host_cost':cost,'helper_requests':after['requests'],
             'helper_acknowledged_spans':after['acknowledged_spans'],'full_workload':False,'capacity_acceptance':False,
@@ -202,7 +364,7 @@ def _worker(prepared):
         # Worker does not reap its leader or broaden cleanup authority. The outer
         # coordinator retains the born leader and performs exact independent reap.
         if first is not None:
-            try:scopes._write(prepared/'representative-failure.json',scopes._encoded({'schema':1,'failed':True,'native_proof':'incomplete'}))
+            try:_record_failure(prepared,raw,record,stage,first[1],runtime)
             except BaseException:pass
     if first is not None:raise first[1].with_traceback(first[2])
 
@@ -435,6 +597,7 @@ if __name__=='__main__':
     try:
         need(len(sys.argv)==3 and sys.argv[1]=='--worker')
         prepared=Path(sys.argv[2]);need(prepared.is_absolute() and prepared==prepared.resolve())
+        _controller_modules(prepared)
         _worker(prepared)
     except BaseException:
         # Keep native exception/key/telemetry text private. The outer coordinator
