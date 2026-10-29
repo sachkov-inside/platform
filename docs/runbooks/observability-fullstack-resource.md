@@ -511,6 +511,20 @@ incomplete даже при завершённом измерении. Даже �
 до создания public artifacts. Приватные запросы связывают исходники, workload,
 пять образов, output, план и отдельного supervisor/project владельца.
 
+Прерванный worker может сохранить существующий output с исходным
+`measured_linux_acceptance={"state":"incomplete"}`. Collector переводит только
+этот точный признак в `{"state":"incomplete","minimum_candidate_gib":null}`,
+если worker завершился с ненулевым кодом, отчёт имеет `state=failed`,
+`source_cache_workload=false` и `controlled_outage=null`. Это допустимо до
+завершения 12 фаз и после 12 фаз, пока outage recovery ещё не завершился.
+Исходный worker выставляет общий признак источников только после outage recovery.
+При 12 проверенных фазах числовые наблюдения могут остаться диагностикой,
+но quality остаётся неполной, все `resource_gates.passed` равны `null`,
+исходная оценка остаётся `incomplete`. Collector не вычисляет вместо неё
+новый итоговый verdict. Неполный или повреждённый output, противоречия в кодах,
+владельце, исходниках, квотах или cleanup сохраняют отказ. Пара остаётся
+`incomplete`, `capacity=false`, `minimum_candidate_gib=null`.
+
 Read-only проверка production от 29.10.2026 установила отсутствие CPU quota/cpuset
 у этих 12 ролей. Это не полная копия production: material-assets-worker здесь
 512MiB вместо 768MiB; postgres и logto сохраняют конечные ограничения памяти,

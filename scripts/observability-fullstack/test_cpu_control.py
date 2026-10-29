@@ -558,6 +558,86 @@ class CpuControl(unittest.TestCase):
                     self.assertEqual(modes,[False,True,True,False])
                     self.assertEqual(calls,[(pair,enabled,name) for pair,order in enumerate(((False,True),(True,False))) for enabled in order for name in ('idle','steady','spike')])
 
+    def interrupted_worker(self,root,phases):
+        """Actual producer persists its pending oracle across controlled native interruption."""
+        import cpu_control as cpu
+        from contextlib import nullcontext
+        self.completed(root,profiles=(PROFILES[1],),outcome=False)
+        raws=[json.loads((root/PROFILES[1]/('fullstack-phase-'+str(i)+'.json')).read_text()) for i in range(12)]
+        output,_=assemble(root,PROFILES[0],control=False)
+        owner={'project':fullstack.PREFIX+'a'*12,'cwd':str(fullstack.ROOT),'supervisor_pid':os.getppid(),
+               'docker_storage':'/owned','orbstack':None,'daemon':{'fixture':True},'cleanup':[]}
+        private(output/'owner.json',owner)
+        private(output/'evidence.json',{'source':SOURCE})
+        rows=self.projection(owner,PROFILES[0]);ids=[r['id'] for r in rows];primary=TimeoutError('owned worker interrupted');calls=[]
+        def native(compose,args,**options):
+            if args[0]=='ps':return '\n'.join(ids)
+            if args[0]=='inspect':return '\n'.join(map(json.dumps,rows))
+            if args[-1]=='loss':return '{"attempted":1,"acknowledged":0,"explained_loss":1}'
+            if args[-1]=='recover-probe':raise primary
+            return ''
+        def configure(compose,path,enabled,**options):
+            fullstack.mode(path,enabled);return (*fullstack.APPS,*fullstack.CORE) if enabled else fullstack.APPS
+        def phase(*args,**options):
+            index=len(calls)
+            if index==phases:raise primary
+            calls.append(index);return copy.deepcopy(raws[index])
+        with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.pilot,'command',return_value=SOURCE),patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()),patch.object(fullstack,'invoke',side_effect=native),patch.object(fullstack,'seed',return_value={}),patch.object(fullstack,'configure_mode',side_effect=configure),patch.object(fullstack,'phase',side_effect=phase),patch.object(fullstack.technical,'summarize',return_value={}),patch.object(fullstack,'await_collector'),patch.object(fullstack,'evaluate',wraps=fullstack.evaluate) as oracle:
+            with self.assertRaises(TimeoutError) as caught:fullstack.worker(output,cpu=True)
+            self.assertIs(caught.exception,primary);oracle.assert_not_called()
+        proof=json.loads((output/'fullstack-proof.json').read_text())
+        self.assertEqual(len(proof['phases']),phases);self.assertEqual(proof['state'],'failed')
+        self.assertEqual(proof['measured_linux_acceptance'],{'state':'incomplete'})
+        self.assertIs(proof['source_cache_workload'],False);self.assertIsNone(proof['controlled_outage'])
+        self.worker_receipt(output,owner,124,True)
+        value=cpu.pair(fullstack,root,SOURCE)
+        private(root/cpu.OUTCOME,{'schema':2,'source':SOURCE,'pair':cpu.digest(value),'exits':[124,0],'cleanup':[True,True],'publication_failed':False})
+        return output,proof
+
+    def test_actual_interrupted_worker_publishes_pending_oracle_before_and_after_twelve_phases(self):
+        import cpu_control as cpu
+        for phases in (3,12):
+            with self.subTest(phases=phases),tempfile.TemporaryDirectory() as directory:
+                base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700)
+                output,proof=self.interrupted_worker(root,phases)
+                with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{})):
+                    result=cpu.collect(fullstack,root,base/'metadata',base/'public')
+                self.assertEqual(json.loads((output/'fullstack-proof.json').read_text()),proof)
+                self.assertEqual(result['state'],'incomplete');self.assertFalse(result['measurement_complete'])
+                self.assertFalse(result['capacity']);self.assertIsNone(result['minimum_candidate_gib'])
+                row=result['profiles'][0];self.assertEqual(row['state'],'incomplete');self.assertEqual(row['run_exit'],124)
+                self.assertEqual(row['original_oracle'],{'state':'incomplete','minimum_candidate_gib':None})
+                measured=row['measurement'];self.assertEqual(measured['available'],phases==12)
+                if phases==12:
+                    self.assertFalse(measured['quality']['complete']);self.assertEqual(measured['quality']['success'],3200)
+                    self.assertFalse(measured['assessment_inputs']['complete'])
+                    self.assertTrue(all(gate['passed'] is None for gate in measured['resource_gates'].values()))
+
+    def test_interrupted_pending_oracle_refuses_contradictions_malformed_data_and_promotions(self):
+        import cpu_control as cpu
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory).resolve();root=base/'pair';root.mkdir(mode=0o700)
+            output,proof=self.interrupted_worker(root,12);path=output/'fullstack-proof.json';cases=[]
+            for key,value in [('state','running'),('state','measured'),('source_cache_workload',True),('source_cache_workload',0),('controlled_outage',{}),('controlled_outage',self.proof()['controlled_outage']),('schema',True),('profile',{}),('measured_linux_acceptance',{}),('measured_linux_acceptance',None),('measured_linux_acceptance',{'state':'passed'}),('measured_linux_acceptance',{'state':'failed'}),('measured_linux_acceptance',{'state':'incomplete','private':'sentinel'}),('measured_linux_acceptance',{'state':False})]:
+                bad=copy.deepcopy(proof);bad[key]=value;cases.append((path,bad))
+            for key in ('controlled_outage','source_cache_workload'):
+                bad=copy.deepcopy(proof);del bad[key];cases.append((path,bad))
+            bad=copy.deepcopy(proof);bad['phases'][0]['host_samples'][0]['used_bytes']='private';cases.append((path,bad))
+            bad=copy.deepcopy(proof);bad['phases'][0]['source_cache_samples']=[{'postgresql':'private','caddy':'observed'}];cases.append((path,bad))
+            rawpath=output/'fullstack-phase-0.json';bad=cpu.read(rawpath,private=False);bad['load']['success']=1;cases.append((rawpath,bad))
+            outcome=cpu.read(root/cpu.OUTCOME);bad=copy.deepcopy(outcome);bad['exits'][0]=0;cases.append((root/cpu.OUTCOME,bad))
+            bad=copy.deepcopy(outcome);bad['pair']='f'*64;cases.append((root/cpu.OUTCOME,bad))
+            bad=cpu.read(output/'worker-outcome.json',private=False);bad['exit_code']=1;cases.append((output/'worker-outcome.json',bad))
+            bad=cpu.read(output/'cleanup.json',private=False);bad['down']='failed';cases.append((output/'cleanup.json',bad))
+            with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':SOURCE},{})):
+                for index,(target,bad) in enumerate(cases):
+                    with self.subTest(index=index):
+                        saved=target.read_bytes();private(target,bad);destination=base/('refused-'+str(index))
+                        try:
+                            with self.assertRaises((ValueError,TypeError,KeyError)):cpu.collect(fullstack,root,base/'metadata',destination)
+                            self.assertFalse(destination.exists())
+                        finally:target.write_bytes(saved)
+
     def test_actual_event_admission_requires_pr_head_base_repository_and_open_pr_binding(self):
         import cpu_control as cpu
         with tempfile.TemporaryDirectory() as directory:
